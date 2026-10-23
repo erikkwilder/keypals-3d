@@ -98,87 +98,99 @@ function bike(): Vehicle {
   };
 }
 
-// ---------- car ----------
-function car(): Vehicle {
+/** A Meshy model turned to travel along +z, scaled to `length`, standing on the ground. */
+async function meshyRide(file: string, opts: { length: number; noseAt: 'x' | '-x' }) {
+  const src = await loadGltf(file);
+  const body = new THREE.Group();
+  if (!src) return { body, toLocal: (p: THREE.Vector3) => p };
+  const m = src.scene.clone(true);
+  m.traverse(o => { const mm = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (mm?.map) mm.map.anisotropy = 8; });
+  const box = new THREE.Box3().setFromObject(m), size = box.getSize(new THREE.Vector3());
+  const s = opts.length / size.x;
+  body.add(m);
+  body.scale.setScalar(s);
+  body.rotation.y = opts.noseAt === 'x' ? -Math.PI / 2 : Math.PI / 2; // the model's nose (x or -x) to +z
+  body.position.y = -box.min.y * s;
+  body.updateMatrix();
+  // a point in the model's own units, in the vehicle's space
+  const toLocal = (p: THREE.Vector3) => p.clone().applyMatrix4(body.matrix);
+  return { body, toLocal };
+}
+
+// ---------- car: Meshy's toy car, its wheels cut out in Blender (tools/blender/car_wheels.py) and put back as wheels that turn ----------
+// wheel centres and sizes in the model's units, glTF axes (x forward, y up, z across)
+const CAR_WHEELS = [
+  { c: [-0.552, -0.185, 0.469], r: 0.259, w: 0.218 }, { c: [-0.553, -0.185, -0.47], r: 0.259, w: 0.218 },
+  { c: [0.498, -0.195, 0.465], r: 0.249, w: 0.209 }, { c: [0.498, -0.195, -0.466], r: 0.248, w: 0.209 },
+];
+async function car(): Promise<Vehicle> {
   const g = new THREE.Group();
-  const paint = mat(0xe8414f, { roughness: 0.3 }), white = mat(0xffffff, { roughness: 0.4 }), dark = mat(0x2c2a3a, { roughness: 0.85 }), silver = mat(0xd7dae2, { metalness: 0.5, roughness: 0.3 }), glass = mat(0xbfe4ff, { roughness: 0.1, transparent: true, opacity: 0.6 });
-  const chassis = new THREE.Mesh(new RoundedBoxGeometry(0.92, 0.3, 1.7, 5, 0.12), paint); chassis.position.set(0, 0.36, 0.05); g.add(chassis);
-  const hood = new THREE.Mesh(new RoundedBoxGeometry(0.86, 0.26, 0.7, 5, 0.12), paint); hood.position.set(0, 0.56, 0.52); g.add(hood);
-  const tail = new THREE.Mesh(new RoundedBoxGeometry(0.86, 0.3, 0.42, 5, 0.12), paint); tail.position.set(0, 0.58, -0.6); g.add(tail);
-  for (const x of [-0.42, 0.42]) { const side = new THREE.Mesh(new RoundedBoxGeometry(0.08, 0.22, 0.75, 3, 0.04), paint); side.position.set(x, 0.58, -0.08); g.add(side); }
-  const stripe = new THREE.Mesh(new RoundedBoxGeometry(0.2, 0.012, 1.2, 2, 0.006), white); stripe.position.set(0, 0.7, 0.3); g.add(stripe);
-  const screen = new THREE.Mesh(new RoundedBoxGeometry(0.78, 0.2, 0.03, 3, 0.012), glass); screen.position.set(0, 0.78, 0.2); screen.rotation.x = -0.35; g.add(screen);
-  for (const x of [-0.28, 0.28]) { const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), mat(0xfff6c8, { emissive: 0xfff2b0, emissiveIntensity: 0.4 })); lamp.position.set(x, 0.56, 0.89); lamp.scale.z = 0.5; g.add(lamp); }
-  const seat = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.12, 0.36, 3, 0.05), dark); seat.position.set(0, 0.5, -0.24); g.add(seat);
-  const back = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.4, 0.1, 3, 0.05), dark); back.position.set(0, 0.7, -0.4); back.rotation.x = -0.15; g.add(back);
-  const wheelG = new THREE.Group(); wheelG.position.set(0, 0.74, 0.12); wheelG.rotation.x = -1.0; g.add(wheelG);
-  const steer = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.02, 10, 28), dark); wheelG.add(steer);
-  wheelG.add(tube(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -0.18), 0.015, silver));
+  const { body, toLocal } = await meshyRide('world/ride_car.glb', { length: 1.75, noseAt: 'x' });
+  g.add(body);
+  // chunky toy tyres with white hubs, like the model's own
+  const tyre = mat(0x2a2833, { roughness: 0.85 }), hub = mat(0xf2efe8, { roughness: 0.35 }), cap = mat(0xd8d4cc, { roughness: 0.3, metalness: 0.2 });
   const wheels: THREE.Object3D[] = [];
-  for (const [x, z] of [[-0.46, 0.55], [0.46, 0.55], [-0.46, -0.5], [0.46, -0.5]]) {
-    const w = wheel(0.22, 0.14, dark, silver); w.position.set(x, 0.22, z); g.add(w); wheels.push(w);
+  for (const wl of CAR_WHEELS) {
+    const w = new THREE.Group();
+    const t = new THREE.Mesh(new THREE.TorusGeometry(wl.r * 0.72, wl.r * 0.28, 16, 36), tyre);
+    t.scale.z = (wl.w / (wl.r * 0.56)) * 0.95;
+    w.add(t);
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(wl.r * 0.5, wl.r * 0.5, wl.w * 0.7, 28), hub);
+    disc.rotation.x = Math.PI / 2;
+    w.add(disc);
+    for (let k = 0; k < 5; k++) { const bolt = new THREE.Mesh(new THREE.SphereGeometry(wl.r * 0.06, 8, 6), cap); const a = (k / 5) * Math.PI * 2; bolt.position.set(Math.cos(a) * wl.r * 0.28, Math.sin(a) * wl.r * 0.28, Math.sign(wl.c[2]) * wl.w * 0.36); w.add(bolt); }
+    w.position.set(wl.c[0], wl.c[1], wl.c[2]);
+    body.children[0].add(w); // in the model's own space, so it shares its turn and scale
+    wheels.push(w);
   }
   shadowAll(g);
+  const s = body.scale.x;
+  const seat = toLocal(new THREE.Vector3(-0.44, 0.17, 0));
+  const hands: [THREE.Vector3, THREE.Vector3] = [toLocal(new THREE.Vector3(-0.25, 0.35, -0.085)), toLocal(new THREE.Vector3(-0.25, 0.35, 0.085))];
+  const feetL = toLocal(new THREE.Vector3(-0.02, 0.05, -0.11)), feetR = toLocal(new THREE.Vector3(-0.02, 0.05, 0.11));
   return {
     id: 'car', group: g,
-    mount: { stance: 'sit', seat: new THREE.Vector3(0, 0.58, -0.22), hands: [new THREE.Vector3(0.11, 0.8, 0.08), new THREE.Vector3(-0.11, 0.8, 0.08)],
-      feet: () => { g.updateMatrixWorld(true); return [g.localToWorld(new THREE.Vector3(0.12, 0.32, 0.5)), g.localToWorld(new THREE.Vector3(-0.12, 0.32, 0.5))]; } },
+    mount: { stance: 'sit', seat, hands, feet: () => { g.updateMatrixWorld(true); return [g.localToWorld(feetL.clone()), g.localToWorld(feetR.clone())]; } },
     update(dt, speed, t) {
-      for (const w of wheels) w.rotation.x += (speed * dt) / 0.22;
-      wheelG.rotation.z = Math.sin(t * 1.3) * 0.15;
-      chassis.position.y = 0.36 + Math.abs(Math.sin(t * 9)) * 0.008 * Math.min(1, speed);
+      // wheels turn about the model's across axis (z), forward is +x in model space
+      for (const w of wheels) w.rotation.z -= (speed * dt) / (0.255 * s);
+      body.position.y += 0;
+      g.children[0].rotation.z = Math.sin(t * 9) * 0.004 * Math.min(1, speed);
     },
   };
 }
 
-// ---------- rocket ----------
-function rocket(): Vehicle {
+// ---------- rocket: Meshy's rocket with a saddle, and a flame that flickers ----------
+async function rocket(): Promise<Vehicle> {
   const g = new THREE.Group();
-  const body = new THREE.Group(); g.add(body);
-  const white = mat(0xf6f4fb, { roughness: 0.35 }), red = mat(0xe8414f, { roughness: 0.35 }), blue = mat(0x5ab4f5, { roughness: 0.15, metalness: 0.2 }), dark = mat(0x3a3550);
-  // the body: a lathe from tail to nose, along +z
-  const prof: THREE.Vector2[] = [];
-  for (let i = 0; i <= 24; i++) { const u = i / 24; const z = -1 + u * 2; const r = z < 0.5 ? 0.3 - Math.pow(Math.max(0, -z - 0.7) / 0.3, 2) * 0.06 : 0.3 * Math.sqrt(Math.max(0, 1 - Math.pow((z - 0.5) / 0.5, 2))); prof.push(new THREE.Vector2(Math.max(0.001, r), z)); }
-  const lathe = new THREE.LatheGeometry(prof, 32);
-  lathe.rotateX(Math.PI / 2);
-  const hull = new THREE.Mesh(lathe, white); body.add(hull);
-  // red nose cap and stripe
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.3, 32, 16, 0, Math.PI * 2, 0, Math.PI / 3), red); nose.rotation.x = Math.PI / 2; nose.position.z = 0.75; nose.scale.set(0.62, 0.62, 0.8); body.add(nose);
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.305, 0.305, 0.1, 32), red); band.rotation.x = Math.PI / 2; band.position.z = -0.35; body.add(band);
-  const win = new THREE.Mesh(new THREE.CircleGeometry(0.1, 24), blue); win.position.set(0.302, 0.06, 0.25); win.rotation.y = Math.PI / 2; body.add(win);
-  const win2 = win.clone(); win2.position.x = -0.302; win2.rotation.y = -Math.PI / 2; body.add(win2);
-  for (let i = 0; i < 3; i++) {
-    const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(0.32, -0.05); s.lineTo(0.32, -0.3); s.lineTo(0, -0.42); s.closePath();
-    const fin = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.04, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 2 }), red);
-    fin.geometry.translate(0, 0, -0.02);
-    const holder = new THREE.Group(); holder.rotation.z = (i / 3) * Math.PI * 2 + Math.PI / 2;
-    fin.position.set(0.22, 0, -0.55); fin.rotation.y = Math.PI / 2;
-    holder.add(fin); body.add(holder);
-  }
-  const saddle = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.07, 0.4, 3, 0.03), dark); saddle.position.set(0, 0.31, -0.05); body.add(saddle);
-  for (const x of [-0.33, 0.33]) { const peg = new THREE.Mesh(new RoundedBoxGeometry(0.14, 0.03, 0.12, 2, 0.012), dark); peg.position.set(x, -0.06, 0.12); body.add(peg); }
-  const handle = tube(new THREE.Vector3(-0.15, 0.4, 0.32), new THREE.Vector3(0.15, 0.4, 0.32), 0.018, dark); body.add(handle);
-  body.add(tube(new THREE.Vector3(0, 0.28, 0.32), new THREE.Vector3(0, 0.4, 0.32), 0.02, dark));
-  // the flame: two nested glowing cones that flicker
-  const flame = new THREE.Group(); flame.position.z = -1.0; body.add(flame);
-  const outer = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.9, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xff7ab8, transparent: true, opacity: 0.75, depthWrite: false }));
-  const inner = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.55, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.95, depthWrite: false }));
-  for (const c of [outer, inner]) { c.rotation.x = -Math.PI / 2; c.geometry.translate(0, -0.45, 0); }
-  inner.geometry.translate(0, 0.17, 0);
-  flame.add(outer, inner);
-  hull.castShadow = true;
+  const holder = new THREE.Group(); g.add(holder);
+  const { body, toLocal } = await meshyRide('world/ride_rocket.glb', { length: 2.0, noseAt: '-x' });
+  holder.add(body);
   shadowAll(body);
-  outer.castShadow = inner.castShadow = false;
-  const H = 0.95;
+  const H = 0.85; // how high it floats
+  holder.position.y = H;
+  // the flame comes out of the tail (the model's +x end)
+  const tail = toLocal(new THREE.Vector3(0.86, 0.0, 0)); // just inside the nozzle, so the flame meets it
+  const flame = new THREE.Group(); flame.position.copy(tail); holder.add(flame);
+  const outer = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.9, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity: 0.8, depthWrite: false }));
+  const inner = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.55, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.95, depthWrite: false }));
+  // wide at the nozzle, tapering away behind the rocket (-z)
+  outer.geometry.translate(0, 0.45, 0); inner.geometry.translate(0, 0.275, 0);
+  for (const c of [outer, inner]) c.rotation.x = -Math.PI / 2;
+  flame.add(outer, inner);
+  const seatL = toLocal(new THREE.Vector3(-0.13, 0.4, 0));
+  const handL = [toLocal(new THREE.Vector3(-0.42, 0.36, -0.13)), toLocal(new THREE.Vector3(-0.42, 0.36, 0.13))];
+  const footL = [toLocal(new THREE.Vector3(-0.3, -0.05, -0.36)), toLocal(new THREE.Vector3(-0.3, -0.05, 0.36))];
+  const up = (p: THREE.Vector3) => p.clone().add(new THREE.Vector3(0, H, 0));
   return {
     id: 'rocket', group: g,
-    mount: { stance: 'sit', hover: H, seat: new THREE.Vector3(0, H + 0.36, -0.05), hands: [new THREE.Vector3(0.13, H + 0.42, 0.32), new THREE.Vector3(-0.13, H + 0.42, 0.32)],
-      feet: () => { g.updateMatrixWorld(true); return [g.localToWorld(new THREE.Vector3(0.4, H - 0.04, 0.12)), g.localToWorld(new THREE.Vector3(-0.4, H - 0.04, 0.12))]; } },
+    mount: { stance: 'sit', hover: H, seat: up(seatL), hands: [up(handL[0]), up(handL[1])],
+      feet: () => { g.updateMatrixWorld(true); return [holder.localToWorld(footL[0].clone()), holder.localToWorld(footL[1].clone())]; } },
     update(_dt, speed, t) {
-      body.position.y = H + Math.sin(t * 2.4) * 0.05;
-      body.rotation.z = Math.sin(t * 1.3) * 0.05;
-      const s = 0.7 + Math.min(1.4, speed * 0.25) + Math.random() * 0.25;
-      outer.scale.set(1, s, 1); inner.scale.set(1, s * (0.9 + Math.random() * 0.2), 1);
+      holder.position.y = H + Math.sin(t * 2.4) * 0.05;
+      holder.rotation.z = Math.sin(t * 1.3) * 0.04;
+      const k = 0.7 + Math.min(1.4, speed * 0.25) + Math.random() * 0.25;
+      outer.scale.set(1, k, 1); inner.scale.set(1, k * (0.9 + Math.random() * 0.2), 1);
     },
   };
 }
