@@ -119,6 +119,8 @@ export class RunScene implements Controller {
     const v = this.veh!, m = v.mount, me = this.me;
     const yaw = Math.atan2(f.t.x, f.t.z);
     v.group.position.copy(f.p);
+    const since = performance.now() / 1000 - this.cheerT;
+    if (since >= 0 && since < 0.9) v.group.position.y += Math.abs(Math.sin(since * Math.PI * 2.2)) * 0.35 * (1 - since / 0.9);
     v.group.rotation.set(0, yaw, 0);
     v.update(dt, this.phase === 'results' ? 0.6 : this.vel, t);
     me.groundFeet = false;
@@ -194,7 +196,11 @@ export class RunScene implements Controller {
         // face the camera to dance
         me.root.rotation.set(0, Math.atan2(f.n.x, f.n.z) - 0.35, 0);
         if (now > this.danceEnd && this.onCelebrated) { const cb = this.onCelebrated; this.onCelebrated = null; cb(); }
-      } else if (this.phase !== 'results') {
+      } else if (this.phase === 'results') {
+        // after a cheer, back to standing
+        const cur = me.currentName;
+        if (cur && cur !== 'idle' && me.finished(cur)) me.play('idle', 0.5);
+      } else {
         me.root.rotation.set(0, Math.atan2(f.t.x, f.t.z), 0);
         const v = this.vel;
         if (now < this.oopsUntil && v < 1.4 && me.has('stumble')) me.play('stumble', 0.15);
@@ -297,6 +303,24 @@ export class RunScene implements Controller {
     this.camPos.lerp(wantPos, k); this.camAim.lerp(aim, k);
     cam.position.copy(this.camPos);
     cam.lookAt(this.camAim);
+  }
+
+  /** Where the buddy (on their ride, if any) sits on screen, in fractions of the window. */
+  screenBox() {
+    const { centre, h } = this.subject();
+    const top = centre.clone().add(new THREE.Vector3(0, h / 2, 0)).project(stage.camera);
+    const bot = centre.clone().add(new THREE.Vector3(0, -h / 2, 0)).project(stage.camera);
+    return { x: (top.x + 1) / 2, top: (1 - top.y) / 2, bottom: (1 - bot.y) / 2 };
+  }
+
+  private cheerT = -1;
+  /** A happy moment: a cheer on foot, a bounce on a ride. */
+  cheer() {
+    this.cheerT = performance.now() / 1000;
+    if (!(this.veh && this.tier >= 2)) {
+      const name = ['cheer2', 'fistpump', 'jump', 'cheer'].find(n => this.me.has(n));
+      if (name) { const a = this.me.play(name, 0.25); a?.reset(); }
+    }
   }
 
   /** Where the buddy's head is on screen (fractions of the window), for the speech bubble. */

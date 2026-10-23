@@ -128,6 +128,14 @@ export const sfx = {
     tone(1318.5, { type: 'sine', dur: 0.8, gain: 0.08, delay: 0.42 });
   },
   pop() { tone(880, { type: 'sine', dur: 0.08, gain: 0.08, slideTo: 1320 }); },
+  /** A treasure appears: a rising run and a shimmer, longer and brighter for better treasures (step 0 to 9). */
+  treasure(step: number) {
+    const notes = 4 + Math.min(6, Math.floor(step * 0.7));
+    for (let i = 0; i < notes; i++) tone(PENTA[Math.min(PENTA.length - 1, i + 2)], { type: 'triangle', dur: 0.2, gain: 0.11, delay: i * 0.06 });
+    tone(PENTA[Math.min(PENTA.length - 1, notes + 2)] * 2, { type: 'sine', dur: 0.9, gain: 0.08, delay: notes * 0.06 });
+    noise(0.9, { gain: 0.05, freq: 7000, q: 0.6, delay: notes * 0.06, sweepTo: 11000 });
+    if (step >= 6) [0, 4, 7].forEach((k, i) => tone(523.25 * Math.pow(2, k / 12), { type: 'sine', dur: 1.1, gain: 0.05, delay: notes * 0.06 + 0.1 + i * 0.02 }));
+  },
 };
 
 // ---------- melody mode: each right key plays the next note of a tune ----------

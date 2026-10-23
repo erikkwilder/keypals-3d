@@ -98,93 +98,112 @@ function bike(): Vehicle {
   };
 }
 
-/** A Meshy model turned to travel along +z, scaled to `length`, standing on the ground. */
-async function meshyRide(file: string, opts: { length: number; noseAt: 'x' | '-x' }) {
+/**
+ * A Meshy model placed in vehicle space (travel along +z, up +y). `basis` gives where the model's own x, y
+ * and z axes point; `length` is its size along the travel direction; `ground` is the model-space height
+ * that touches the ground (the wheels' bottom, say).
+ */
+async function meshyRide(file: string, opts: { basis: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; length: number; lengthAxis: 'x' | 'y' | 'z'; ground?: number }) {
   const src = await loadGltf(file);
   const body = new THREE.Group();
-  if (!src) return { body, toLocal: (p: THREE.Vector3) => p };
-  const m = src.scene.clone(true);
-  m.traverse(o => { const mm = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (mm?.map) mm.map.anisotropy = 8; });
-  const box = new THREE.Box3().setFromObject(m), size = box.getSize(new THREE.Vector3());
-  const s = opts.length / size.x;
-  body.add(m);
+  if (!src) return { body, toLocal: (p: THREE.Vector3) => p, model: new THREE.Group() as THREE.Object3D };
+  const model = src.scene.clone(true);
+  model.traverse(o => { const mm = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (mm?.map) mm.map.anisotropy = 8; });
+  const box = new THREE.Box3().setFromObject(model), size = box.getSize(new THREE.Vector3());
+  const s = opts.length / size[opts.lengthAxis];
+  body.add(model);
+  body.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(...opts.basis));
   body.scale.setScalar(s);
-  body.rotation.y = opts.noseAt === 'x' ? -Math.PI / 2 : Math.PI / 2; // the model's nose (x or -x) to +z
-  body.position.y = -box.min.y * s;
+  body.updateMatrix();
+  // lift so the ground point sits at y = 0
+  const groundPt = new THREE.Vector3(0, opts.ground ?? box.min.y, 0);
+  if (opts.basis[1].y === 0) { // the model's y isn't up: find its lowest point in vehicle space instead
+    body.updateMatrixWorld(true); // detached, so its world matrix is its own transform
+    body.position.y = -new THREE.Box3().setFromObject(model).min.y;
+  } else body.position.y = -groundPt.applyMatrix4(body.matrix).y;
   body.updateMatrix();
   // a point in the model's own units, in the vehicle's space
   const toLocal = (p: THREE.Vector3) => p.clone().applyMatrix4(body.matrix);
-  return { body, toLocal };
+  return { body, toLocal, model };
 }
+const V3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
-// ---------- car: Meshy's toy car, its wheels cut out in Blender (tools/blender/car_wheels.py) and put back as wheels that turn ----------
-// wheel centres and sizes in the model's units, glTF axes (x forward, y up, z across)
+// ---------- car: Erik's red roadster (Meshy), its wheels cut out in Blender (tools/blender/car_wheels.py) and put back as wheels that turn ----------
+// wheel centres and sizes in the model's units, glTF axes (x along the car, front at -x; y up; z across)
 const CAR_WHEELS = [
-  { c: [-0.552, -0.185, 0.469], r: 0.259, w: 0.218 }, { c: [-0.553, -0.185, -0.47], r: 0.259, w: 0.218 },
-  { c: [0.498, -0.195, 0.465], r: 0.249, w: 0.209 }, { c: [0.498, -0.195, -0.466], r: 0.248, w: 0.209 },
+  { c: [-0.551, -0.0915, 0.322], r: 0.168, w: 0.205 }, { c: [-0.548, -0.0915, -0.323], r: 0.168, w: 0.205 },
+  { c: [0.566, -0.087, 0.328], r: 0.171, w: 0.19 }, { c: [0.560, -0.091, -0.328], r: 0.169, w: 0.19 },
 ];
 async function car(): Promise<Vehicle> {
   const g = new THREE.Group();
-  const { body, toLocal } = await meshyRide('world/ride_car.glb', { length: 1.75, noseAt: 'x' });
+  // front at the model's -x: model x -> back (-z), y -> up, z -> the camera's far side (+x)
+  const { body, toLocal, model } = await meshyRide('world/ride_car.glb', { basis: [V3(0, 0, -1), V3(0, 1, 0), V3(1, 0, 0)], length: 2.3, lengthAxis: 'x', ground: -0.26 });
   g.add(body);
-  // chunky toy tyres with white hubs, like the model's own
-  const tyre = mat(0x2a2833, { roughness: 0.85 }), hub = mat(0xf2efe8, { roughness: 0.35 }), cap = mat(0xd8d4cc, { roughness: 0.3, metalness: 0.2 });
+  // black tyres with red spoked rims, like the picture
+  const tyre = mat(0x1d1b22, { roughness: 0.8 }), rim = mat(0xc8141e, { roughness: 0.3, metalness: 0.3 }), dark = mat(0x2a2830, { roughness: 0.5 });
   const wheels: THREE.Object3D[] = [];
   for (const wl of CAR_WHEELS) {
     const w = new THREE.Group();
-    const t = new THREE.Mesh(new THREE.TorusGeometry(wl.r * 0.72, wl.r * 0.28, 16, 36), tyre);
-    t.scale.z = (wl.w / (wl.r * 0.56)) * 0.95;
+    const t = new THREE.Mesh(new THREE.TorusGeometry(wl.r * 0.74, wl.r * 0.26, 14, 40), tyre);
+    t.scale.z = wl.w / (wl.r * 0.52);
     w.add(t);
-    const disc = new THREE.Mesh(new THREE.CylinderGeometry(wl.r * 0.5, wl.r * 0.5, wl.w * 0.7, 28), hub);
-    disc.rotation.x = Math.PI / 2;
-    w.add(disc);
-    for (let k = 0; k < 5; k++) { const bolt = new THREE.Mesh(new THREE.SphereGeometry(wl.r * 0.06, 8, 6), cap); const a = (k / 5) * Math.PI * 2; bolt.position.set(Math.cos(a) * wl.r * 0.28, Math.sin(a) * wl.r * 0.28, Math.sign(wl.c[2]) * wl.w * 0.36); w.add(bolt); }
+    const side = Math.sign(wl.c[2]);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(wl.r * 0.5, wl.r * 0.06, 8, 32), rim); ring.position.z = side * wl.w * 0.32; w.add(ring);
+    const back = new THREE.Mesh(new THREE.CylinderGeometry(wl.r * 0.5, wl.r * 0.5, wl.w * 0.5, 24), dark); back.rotation.x = Math.PI / 2; w.add(back);
+    for (let k = 0; k < 10; k++) {
+      const sp = new THREE.Mesh(new THREE.BoxGeometry(wl.r * 0.07, wl.r * 0.46, wl.r * 0.05), rim);
+      const a = (k / 10) * Math.PI * 2;
+      sp.position.set(Math.sin(a) * wl.r * 0.26, Math.cos(a) * wl.r * 0.26, side * wl.w * 0.3); sp.rotation.z = -a; w.add(sp);
+    }
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(wl.r * 0.11, wl.r * 0.11, wl.w * 0.7, 16), rim); cap.rotation.x = Math.PI / 2; w.add(cap);
     w.position.set(wl.c[0], wl.c[1], wl.c[2]);
-    body.children[0].add(w); // in the model's own space, so it shares its turn and scale
+    model.add(w); // in the model's own space, so it shares its turn and scale
     wheels.push(w);
   }
   shadowAll(g);
   const s = body.scale.x;
-  const seat = toLocal(new THREE.Vector3(-0.44, 0.17, 0));
-  const hands: [THREE.Vector3, THREE.Vector3] = [toLocal(new THREE.Vector3(-0.25, 0.35, -0.085)), toLocal(new THREE.Vector3(-0.25, 0.35, 0.085))];
-  const feetL = toLocal(new THREE.Vector3(-0.02, 0.05, -0.11)), feetR = toLocal(new THREE.Vector3(-0.02, 0.05, 0.11));
+  // the driver's seat is on the camera's side (model -z)
+  const seat = toLocal(V3(0.26, -0.03, -0.15));
+  const hands: [THREE.Vector3, THREE.Vector3] = [toLocal(V3(0.1, 0.12, -0.1)), toLocal(V3(0.1, 0.12, -0.2))];
+  const feetL = toLocal(V3(-0.14, -0.12, -0.1)), feetR = toLocal(V3(-0.14, -0.12, -0.2));
   return {
     id: 'car', group: g,
     mount: { stance: 'sit', seat, hands, feet: () => { g.updateMatrixWorld(true); return [g.localToWorld(feetL.clone()), g.localToWorld(feetR.clone())]; } },
     update(dt, speed, t) {
-      // wheels turn about the model's across axis (z), forward is +x in model space
-      for (const w of wheels) w.rotation.z -= (speed * dt) / (0.255 * s);
-      body.position.y += 0;
-      g.children[0].rotation.z = Math.sin(t * 9) * 0.004 * Math.min(1, speed);
+      // forward is the model's -x, so wheels turn positively about its across axis (z)
+      for (const w of wheels) w.rotation.z += (speed * dt) / (0.17 * s);
+      model.position.y = Math.abs(Math.sin(t * 9)) * 0.003 * Math.min(1, speed);
     },
   };
 }
 
-// ---------- rocket: Meshy's rocket with a saddle, and a flame that flickers ----------
+// ---------- rocket: Erik's red-and-cream rocket (Meshy), flying on its side with the porthole toward you ----------
 async function rocket(): Promise<Vehicle> {
   const g = new THREE.Group();
   const holder = new THREE.Group(); g.add(holder);
-  const { body, toLocal } = await meshyRide('world/ride_rocket.glb', { length: 2.0, noseAt: '-x' });
+  // the model stands nose-up (+y) with its porthole on +z: lay it down nose-forward, porthole to the camera side (-x)
+  const { body, toLocal } = await meshyRide('world/ride_rocket.glb', { basis: [V3(0, -1, 0), V3(0, 0, 1), V3(-1, 0, 0)], length: 1.7, lengthAxis: 'y' });
   holder.add(body);
   shadowAll(body);
-  const H = 0.85; // how high it floats
+  const H = 0.7; // how high it floats
   holder.position.y = H;
-  // the flame comes out of the tail (the model's +x end)
-  const tail = toLocal(new THREE.Vector3(0.86, 0.0, 0)); // just inside the nozzle, so the flame meets it
-  const flame = new THREE.Group(); flame.position.copy(tail); holder.add(flame);
+  holder.rotation.x = -0.08; // nose a little up
+  // the flame comes out of the nozzle at the tail (model -y)
+  const flame = new THREE.Group(); flame.position.copy(toLocal(V3(0, -0.9, 0))); holder.add(flame);
   const outer = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.9, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity: 0.8, depthWrite: false }));
   const inner = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.55, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.95, depthWrite: false }));
   // wide at the nozzle, tapering away behind the rocket (-z)
   outer.geometry.translate(0, 0.45, 0); inner.geometry.translate(0, 0.275, 0);
   for (const c of [outer, inner]) c.rotation.x = -Math.PI / 2;
   flame.add(outer, inner);
-  const seatL = toLocal(new THREE.Vector3(-0.13, 0.4, 0));
-  const handL = [toLocal(new THREE.Vector3(-0.42, 0.36, -0.13)), toLocal(new THREE.Vector3(-0.42, 0.36, 0.13))];
-  const footL = [toLocal(new THREE.Vector3(-0.3, -0.05, -0.36)), toLocal(new THREE.Vector3(-0.3, -0.05, 0.36))];
-  const up = (p: THREE.Vector3) => p.clone().add(new THREE.Vector3(0, H, 0));
+  // on top, just behind the round side pod; hands on the pod; feet hanging down each side
+  const seatL = toLocal(V3(-0.47, -0.3, 0));
+  const handL = [toLocal(V3(-0.5, 0.05, 0.12)), toLocal(V3(-0.5, 0.05, -0.12))];
+  const footL = [toLocal(V3(-0.1, -0.22, 0.5)), toLocal(V3(-0.1, -0.22, -0.5))];
+  const inHolder = (p: THREE.Vector3) => { holder.updateMatrix(); return p.clone().applyMatrix4(holder.matrix); };
   return {
     id: 'rocket', group: g,
-    mount: { stance: 'sit', hover: H, seat: up(seatL), hands: [up(handL[0]), up(handL[1])],
+    mount: { stance: 'sit', hover: H, seat: inHolder(seatL), hands: [inHolder(handL[0]), inHolder(handL[1])],
       feet: () => { g.updateMatrixWorld(true); return [holder.localToWorld(footL[0].clone()), holder.localToWorld(footL[1].clone())]; } },
     update(_dt, speed, t) {
       holder.position.y = H + Math.sin(t * 2.4) * 0.05;

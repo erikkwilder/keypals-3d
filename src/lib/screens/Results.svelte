@@ -97,6 +97,26 @@
   const treasure = last?.treasure ?? -1;
   const tth = grown ? TREASURE_SCORE.grown : TREASURE_SCORE.kids;
   const tsrc = (i: number) => `${import.meta.env.BASE_URL}treasures/${TREASURES[i].id}.webp`;
+  // the prize: a big treasure that pops up beside your buddy, with a celebration
+  let prizeOn = $state(false);
+  let prizeSettled = $state(false);
+  let prizeBurst = $state(0);
+  let prizeBox = $state({ x: 30, y: 30, size: 200 });
+  let prizeRaf = 0;
+  const nextT = treasure + 1 < TREASURES.length ? { name: TREASURES[treasure + 1].name, at: tth[treasure + 1] } : null;
+  function trackPrize() {
+    if (scene && heroEl) {
+      const b = scene.screenBox(), r = heroEl.getBoundingClientRect();
+      const hPx = Math.max(80, (b.bottom - b.top) * innerHeight);
+      const size = Math.min(r.width * 0.38, Math.max(150, hPx * 0.78));
+      // to the right of the buddy, at head height, so its banner and prize row stay clear of the ride banner below
+      let x = b.x * innerWidth + hPx * 0.38 + size * 0.5;
+      x = Math.min(r.right - size * 0.5 - 8, x);
+      const y = Math.max(r.top + size * 0.55, b.top * innerHeight + hPx * 0.12);
+      prizeBox = { x, y, size };
+    }
+    prizeRaf = requestAnimationFrame(trackPrize);
+  }
 
   const title = !last ? '' : lesson.kind === 'sprint' ? 'Sprint done!' : passedRun ? (last.stars === 3 ? 'Perfect run!' : last.stars === 2 ? 'Great job!' : 'Lesson passed!') : 'So close!';
   const sub = !last ? '' : passedRun ? (last.regionJustDone ? `${REGION[last.regionJustDone].name} complete!` : `${lesson.title} · ${region.name}`) : 'Fewer slips will get you there. You can do it!';
@@ -116,11 +136,16 @@
     // the lesson's scene carries on (the buddy has just danced at the gate); if it isn't there, make one
     const cur = stage.current();
     const ready = cur instanceof RunScene ? Promise.resolve(cur) : RunScene.create({ buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: last.text.length }).then(sc => { sc.pos = sc.goal = sc.finishS; stage.use(sc); return sc; });
-    ready.then(sc => { scene = sc; sc.onCelebrated = null; sc.results(best); updateView(); });
+    ready.then(sc => { scene = sc; sc.onCelebrated = null; sc.results(best); updateView(); trackPrize(); });
     let t = 250;
     at(t, () => (scoreT.target = score));
     for (let i = 0; i < 3; i++) { at(t + 300 + i * 330, () => { starsShown = i + 1; if (i < last.stars) sfx.star(i); }); }
     t += 1300;
+    if (treasure >= 0) {
+      at(t, () => { prizeOn = true; prizeBurst++; sfx.treasure(treasure); scene?.cheer(); });
+      at(t + 1400, () => (prizeSettled = true));
+      t += 900;
+    }
     at(t, () => { showStats = true; if (passedRun) burst++; });
     at(t + 200, () => (showButtons = true));
     t += 500;
@@ -146,7 +171,7 @@
       t += e.kind === 'outfit' || e.kind === 'dance' ? 650 : 180;
     });
   });
-  onDestroy(() => { timers.forEach(clearTimeout); stage.use(null); });
+  onDestroy(() => { timers.forEach(clearTimeout); cancelAnimationFrame(prizeRaf); stage.use(null); });
 
   function retry() { game.startLesson(lesson.id, true); }
   function goNext() { passedRun ? game.startLesson(nextUp.id) : game.startLesson(lesson.id, true); }
@@ -182,6 +207,21 @@
   <div class="screen results" bind:clientHeight={heroH} bind:clientWidth={heroW}>
 
     <div class="corner"><GearButton size={40} /></div>
+
+    {#if prizeOn}
+      <div class="prize" class:settled={prizeSettled} style:left="{prizeBox.x}px" style:top="{prizeBox.y}px" style:--sz="{prizeBox.size}px">
+        <div class="prays"></div>
+        <div class="pglow"></div>
+        <img src={tsrc(treasure)} alt={TREASURES[treasure].name} />
+        {#each Array(10) as _, i}<i class="spark" style:--a="{i * 36}deg" style:--d="{(i % 3) * 0.12}s"></i>{/each}
+        <div class="pribbon"><small>{last?.newBestTreasure ? 'New best!' : 'You found'}</small><b>{last?.newBestTreasure ? TREASURES[treasure].name + '!' : 'a ' + TREASURES[treasure].name + '!'}</b></div>
+        <div class="pladder">
+          <div class="pdots">{#each TREASURES as tr, i}<span class:got={i <= treasure} class:now={i === treasure} title={tr.name}><img src={tsrc(i)} alt="" /></span>{/each}</div>
+          {#if nextT}<div class="pnext">Score {nextT.at} for a {nextT.name}</div>{:else}<div class="pnext">The best treasure there is!</div>{/if}
+        </div>
+      </div>
+      <Confetti burst={prizeBurst} count={70 + treasure * 8} x={(prizeBox.x / Math.max(1, heroW)) * 100} y={(prizeBox.y / Math.max(1, heroH)) * 100} spread={1.3} />
+    {/if}
 
     <div class="hero" class:full={!earned.length}>
       <div class="ridepic" bind:this={heroEl}></div>
@@ -246,14 +286,6 @@
           <Stars n={Math.min(starsShown, last.stars)} of={3} size={58} animate />
           <div class="word" class:show={showStats}>{word}</div>
         </div>
-        {#if treasure >= 0}
-          <div class="treasure" class:show={showStats} title="Scores of {tth.join(', ')} find bigger treasures">
-            <img src={tsrc(treasure)} alt="" />
-            <b>{TREASURES[treasure].name}</b>
-            <div class="tl">{#each TREASURES as _, i}<i class:got={i <= treasure}></i>{/each}</div>
-            {#if last.newBestTreasure}<em>New best!</em>{/if}
-          </div>
-        {/if}
       </div>
 
       <div class="chips" class:show={showStats}>
@@ -299,15 +331,29 @@
 <style>
   .results { background: transparent; }
   .glow { position: absolute; inset: 0; background: radial-gradient(circle at 25% 30%, rgba(255, 255, 255, .25), transparent 42%); pointer-events: none; z-index: 1; }
-  .dancebtn { position: absolute; right: 4%; top: 6%; z-index: 5; font: 600 18px var(--font-ui); color: #fff; background: linear-gradient(135deg, #b98cff, #ff7ab8); border: 0; border-radius: 999px; padding: 10px 18px; box-shadow: 0 0 0 4px #fff, 0 10px 24px -10px rgba(124, 92, 245, .7); cursor: pointer; }
-  .treasure { display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: 0; transform: scale(.8); transition: all .5s cubic-bezier(.3, .8, .4, 1.5); }
-  .treasure.show { opacity: 1; transform: none; }
-  .treasure img { width: 86px; height: 86px; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(60, 40, 110, .3)); }
-  .treasure b { font: 600 15px/1.1 var(--font-ui); text-align: center; max-width: 110px; }
-  .treasure em { font: 800 11px var(--font-body); font-style: normal; color: #fff; background: var(--pink); padding: 2px 8px; border-radius: 999px; }
-  .tl { display: flex; gap: 2px; }
-  .tl i { width: 7px; height: 7px; border-radius: 50%; background: #e6e0f1; }
-  .tl i.got { background: #f2c94c; }
+  .dancebtn { position: absolute; left: 60px; top: 2%; z-index: 8; font: 600 18px var(--font-ui); color: #fff; background: linear-gradient(135deg, #b98cff, #ff7ab8); border: 0; border-radius: 999px; padding: 10px 18px; box-shadow: 0 0 0 4px #fff, 0 10px 24px -10px rgba(124, 92, 245, .7); cursor: pointer; }
+  /* the prize beside the buddy */
+  .prize { position: absolute; z-index: 7; width: var(--sz); height: var(--sz); transform: translate(-50%, -50%); pointer-events: none; }
+  .prize > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 12px 18px rgba(60, 40, 110, .35)); animation: prize-in .9s cubic-bezier(.2, .9, .3, 1.4) both, prize-bob 2.4s 1s ease-in-out infinite; }
+  .prays { position: absolute; left: -45%; top: -45%; width: 190%; height: 190%; border-radius: 50%; background: repeating-conic-gradient(rgba(255, 245, 200, .75) 0 9deg, rgba(255, 245, 200, 0) 9deg 18deg); mask: radial-gradient(circle, #000 12%, transparent 62%); -webkit-mask: radial-gradient(circle, #000 12%, transparent 62%); animation: spin 9s linear infinite, prays-in .8s ease both; }
+  .pglow { position: absolute; left: -15%; top: -15%; width: 130%; height: 130%; border-radius: 50%; background: radial-gradient(circle, rgba(255, 252, 230, .95), rgba(255, 236, 150, .55) 35%, transparent 68%); animation: glow-pulse 1.6s ease-in-out infinite alternate; }
+  .spark { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px; background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); transform: rotate(var(--a)) translateY(calc(var(--sz) * -0.62)) scale(0); animation: spark 1.6s var(--d) ease-out infinite; }
+  .pribbon { position: absolute; left: 50%; top: calc(100% - 6px); transform: translateX(-50%); white-space: nowrap; display: flex; flex-direction: column; align-items: center; padding: 6px 20px 8px; border-radius: 999px; color: #fff; background: linear-gradient(135deg, #f7b733, #ff6fae); box-shadow: 0 0 0 4px #fff, 0 10px 24px -10px rgba(200, 80, 120, .7); animation: pop-in .5s .45s cubic-bezier(.3, .8, .4, 1.5) both; }
+  .pribbon small { font: 800 11px var(--font-body); letter-spacing: .1em; text-transform: uppercase; opacity: .95; }
+  .pribbon b { font: 600 clamp(22px, 3.2vh, 32px)/1.05 var(--font-ui); }
+  .pladder { position: absolute; left: 50%; top: calc(100% + 60px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: 0; transition: opacity .5s; }
+  .prize.settled .pladder { opacity: 1; }
+  .pdots { display: flex; gap: 3px; background: rgba(255, 255, 255, .9); padding: 4px 8px; border-radius: 999px; box-shadow: var(--shadow-sm); }
+  .pdots span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; opacity: .3; filter: grayscale(1); }
+  .pdots span.got { opacity: 1; filter: none; }
+  .pdots span.now { background: #fff3c4; box-shadow: 0 0 0 2px #f2c94c; }
+  .pdots img { width: 16px; height: 16px; object-fit: contain; }
+  .pnext { font: 700 13px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  @keyframes prize-in { 0% { transform: translateY(40%) scale(0) rotate(-30deg); opacity: 0; } 55% { transform: translateY(-12%) scale(1.25) rotate(8deg); opacity: 1; } 100% { transform: none; } }
+  @keyframes prize-bob { 50% { transform: translateY(-5%) rotate(-3deg); } }
+  @keyframes prays-in { from { opacity: 0; transform: scale(.3); } to { opacity: 1; } }
+  @keyframes glow-pulse { to { transform: scale(1.12); opacity: .8; } }
+  @keyframes spark { 0% { transform: rotate(var(--a)) translateY(calc(var(--sz) * -0.3)) scale(0); opacity: 1; } 60% { opacity: 1; } 100% { transform: rotate(var(--a)) translateY(calc(var(--sz) * -0.7)) scale(1.1); opacity: 0; } }
   .othumb { width: 90%; height: 90%; object-fit: contain; }
   .dance { display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #efe4ff, #ffe4f1) !important; }
   .note { font-size: calc(var(--s) * 0.42); line-height: 1; color: #9b6bff; }
