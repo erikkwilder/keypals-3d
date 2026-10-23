@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#fbf8ff" />
+    <link rel="icon" href="./icon.png" type="image/png" />
+    <title>Keypals</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+      // If the game can't start (for example on an old Mac's browser engine), show what went
+      // wrong instead of a blank window. Plain old JavaScript on purpose, so it always runs.
+      (function () {
+        var errs = [];
+        function esc(t) { return String(t).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
+        window.addEventListener('error', function (e) { errs.push((e.message || 'error') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')); });
+        window.addEventListener('unhandledrejection', function (e) { errs.push('promise: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)); });
+        function show(why) {
+          if (document.getElementById('kp-err')) return;
+          var d = document.createElement('div');
+          d.id = 'kp-err';
+          d.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:#fbf8ff;color:#2b2140;font:16px -apple-system,Helvetica,sans-serif;padding:36px;overflow:auto';
+          var css = window.CSS && CSS.supports;
+          var feats = 'inset:' + (css && CSS.supports('inset', '0') ? 'yes' : 'no') + ' aspect-ratio:' + (css && CSS.supports('aspect-ratio', '1') ? 'yes' : 'no') + ' structuredClone:' + (typeof window.structuredClone);
+          d.innerHTML = '<h2 style="margin:0 0 6px">Keypals could not start</h2><p style="margin:0 0 14px">Please take a photo of this screen and send it to the grown-up who set up the game.</p><p><b>' + esc(why) + '</b></p><pre style="white-space:pre-wrap;font:13px Menlo,monospace;background:#fff;border:2px solid #e4dcf2;border-radius:12px;padding:12px">' + esc(errs.join('\n') || 'No error message.') + '\n\n' + esc(navigator.userAgent) + '\n' + feats + '</pre>';
+          document.body.appendChild(d);
+        }
+        // check a few times: a slow first load (or the dev server compiling) is not a failure
+        var tries = 0;
+        (function check() {
+          var m = document.querySelector('main.app'), s = m && m.firstElementChild;
+          var ok = window.__keypalsStarted && s && s.getBoundingClientRect().height >= 10;
+          if (ok) return;
+          if (++tries < 5) { setTimeout(check, 4000); return; }
+          show(!window.__keypalsStarted ? 'The game code did not start.' : 'The game started but the screen has no size.');
+        })();
+      })();
+    </script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

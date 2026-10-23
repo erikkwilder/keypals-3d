@@ -1,0 +1,132 @@
+/* Soft Squish is the default look. Other looks restyle chrome through [data-look]. */
+:root {
+  --bg: #fbf8ff;
+  --bg2: #f2ecff;
+  --ink: #2b2140;
+  --ink2: #4a4061;
+  --muted: #7a7092;
+  --line: #ebe4f7;
+  --card: #ffffff;
+  --primary: #7c5cf5;
+  --primary-hi: #a48bff;
+  --primary-edge: #5d42d4;
+  --mint: #4fcf9f;
+  --mint-edge: #2fa77a;
+  --pink: #ff8fbf;
+  --sky: #79c4f2;
+  --lemon: #ffe25e;
+  --lilac: #b79cf2;
+  --star: #ffd83a;
+  --star-edge: #e3c11e;
+  --radius: 22px;
+  --shadow: 0 14px 34px -16px rgba(60, 40, 110, .32);
+  --shadow-sm: 0 6px 16px -8px rgba(60, 40, 110, .28);
+  --font-ui: 'Fredoka', 'Nunito', system-ui, sans-serif;
+  --font-body: 'Nunito', system-ui, sans-serif;
+  --font-type: 'Fredoka', 'Nunito', system-ui, sans-serif;
+  --btn-radius: 18px;
+  --btn-border: 0;
+  --btn-shadow-color: #e0d6f6;
+  --panel-border: 1px solid var(--line);
+  color-scheme: light;
+}
+:root[data-font='atkinson'] { --font-type: 'Atkinson Hyperlegible', 'Nunito', sans-serif; --font-body: 'Atkinson Hyperlegible', 'Nunito', sans-serif; }
+:root[data-font='lexend'] { --font-type: 'Lexend', 'Nunito', sans-serif; --font-body: 'Lexend', 'Nunito', sans-serif; }
+:root[data-font='opendyslexic'] { --font-type: 'OpenDyslexic', 'Nunito', sans-serif; --font-body: 'OpenDyslexic', 'Nunito', sans-serif; }
+
+:root[data-look='ink'] {
+  --bg: #fff8dc; --bg2: #fff4b8; --ink: #2a1b3d; --line: #2a1b3d; --card: #ffffff;
+  --primary: #ff6fae; --primary-hi: #ff8fc0; --primary-edge: #2a1b3d;
+  --font-ui: 'Bagel Fat One', 'Fredoka', sans-serif;
+  --btn-border: 3px solid #2a1b3d; --btn-shadow-color: #2a1b3d;
+  --panel-border: 3px solid #2a1b3d;
+  --shadow: 5px 6px 0 #2a1b3d; --shadow-sm: 3px 4px 0 #2a1b3d;
+}
+:root[data-look='paper'] {
+  --bg: #f4eee2; --bg2: #ebe3d2; --ink: #3a3346; --muted: #7b7285; --line: #e2d8c6; --card: #fffdf7;
+  --primary: #8a7bc0; --primary-hi: #a294d4; --primary-edge: #6a5c9e;
+  --font-ui: 'Fraunces', Georgia, serif;
+  --btn-radius: 8px; --radius: 10px; --btn-shadow-color: #d9cdb6;
+  --shadow: 0 4px 8px rgba(70, 55, 35, .22); --shadow-sm: 0 2px 4px rgba(70, 55, 35, .22);
+}
+:root[data-look='geo'] {
+  --bg: #ffffff; --bg2: #f5f3fa; --ink: #1f1a2e; --line: #eeeaf5;
+  --primary: #5b4cf0; --primary-hi: #6c5ef5; --primary-edge: #3f32c4;
+  --font-ui: 'Lexend', sans-serif;
+  --btn-radius: 999px; --btn-shadow-color: transparent;
+  --shadow: 0 10px 24px -14px rgba(30, 20, 60, .35); --shadow-sm: 0 4px 10px -6px rgba(30, 20, 60, .3);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#app { height: 100%; }
+h1, h2, h3, h4 { font-family: var(--font-ui); font-weight: 600; margin: 0; line-height: 1.12; }
+:root[data-look='ink'] h1, :root[data-look='ink'] h2, :root[data-look='ink'] h3 { font-weight: 400; }
+button { font: inherit; color: inherit; }
+input, textarea, select { font: inherit; user-select: text; -webkit-user-select: text; }
+
+.btn {
+  font: 600 18px/1 var(--font-ui);
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 13px 22px; min-height: 50px;
+  border-radius: var(--btn-radius);
+  border: var(--btn-border);
+  background: var(--card); color: var(--ink);
+  box-shadow: 0 4px 0 var(--btn-shadow-color), var(--shadow-sm);
+  cursor: pointer;
+  transition: transform .1s ease, box-shadow .1s ease, filter .15s;
+}
+:root[data-look='ink'] .btn { font-weight: 400; }
+.btn:hover { filter: brightness(1.03); transform: translateY(-1px); }
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--btn-shadow-color); }
+.btn:focus-visible { outline: 3px solid var(--primary-hi); outline-offset: 3px; }
+.btn-primary { background: linear-gradient(var(--primary-hi), var(--primary)); color: #fff; box-shadow: 0 5px 0 var(--primary-edge), var(--shadow-sm); }
+:root[data-look='ink'] .btn-primary { color: #2a1b3d; }
+.btn-primary:active { box-shadow: 0 1px 0 var(--primary-edge); }
+.btn-mint { background: linear-gradient(#7fe0bb, var(--mint)); color: #10402f; box-shadow: 0 5px 0 var(--mint-edge), var(--shadow-sm); }
+.btn-big { font-size: 22px; padding: 16px 30px; min-height: 60px; border-radius: calc(var(--btn-radius) + 4px); }
+.btn-icon { width: 50px; padding: 0; }
+.btn-ghost { background: transparent; box-shadow: none; }
+.btn-ghost:active { box-shadow: none; }
+.btn[disabled] { opacity: .5; pointer-events: none; }
+
+.card { background: linear-gradient(180deg, #fff, var(--card) 40%); border: var(--panel-border); border-radius: var(--radius); box-shadow: inset 0 2px 0 rgba(255, 255, 255, .9), var(--shadow), 0 30px 60px -40px rgba(60, 40, 110, .35); }
+.muted { color: var(--muted); }
+.kbd {
+  display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 8px;
+  border-radius: 8px; background: #fff; border: 1px solid var(--line); border-bottom-width: 3px;
+  font: 700 13px/1 var(--font-body); color: var(--ink2);
+}
+.screen { position: absolute; inset: 0; overflow: hidden; }
+.scroll { overflow-y: auto; overscroll-behavior: contain; }
+.scroll::-webkit-scrollbar { width: 10px; }
+.scroll::-webkit-scrollbar-thumb { background: #d9d0ef; border-radius: 10px; border: 3px solid var(--bg); }
+
+/* fade only: for things positioned with transform, where a scale keyframe would knock them out of place */
+@keyframes appear { from { opacity: 0; } }
+@keyframes pop-in { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes float-y { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes wiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(124, 92, 245, .45); } 100% { box-shadow: 0 0 0 16px rgba(124, 92, 245, 0); } }
+
+:root[data-motion='reduced'] *, :root[data-motion='reduced'] *::before, :root[data-motion='reduced'] *::after {
+  animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important;
+}
+
+/* A still grain over everything: a little tactile texture on every look, and the paper in Paper Craft.
+   One small tiled image with normal transparency, so it costs nothing per frame. */
+:root { --grain: .5; }
+:root[data-look='paper'] { --grain: 1; }
+:root[data-look='geo'] { --grain: .3; }
+body::after { content: ''; position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: url('./lib/art/grain.png'); background-size: 256px 256px; opacity: var(--grain); }

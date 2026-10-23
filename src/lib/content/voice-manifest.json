@@ -1,0 +1,450 @@
+{
+  "coach.home.1": {
+    "voice": "coach",
+    "ms": 4430
+  },
+  "coach.home.2": {
+    "voice": "coach",
+    "ms": 4550
+  },
+  "coach.home.3": {
+    "voice": "coach",
+    "ms": 4450
+  },
+  "coach.home.4": {
+    "voice": "coach",
+    "ms": 4550
+  },
+  "coach.home.5": {
+    "voice": "coach",
+    "ms": 11304
+  },
+  "coach.home.6": {
+    "voice": "coach",
+    "ms": 1956
+  },
+  "coach.home.7": {
+    "voice": "coach",
+    "ms": 3951
+  },
+  "coach.home.8": {
+    "voice": "coach",
+    "ms": 5892
+  },
+  "coach.home.9": {
+    "voice": "coach",
+    "ms": 3427
+  },
+  "coach.home.10": {
+    "voice": "coach",
+    "ms": 1317
+  },
+  "lesson.village-1": {
+    "voice": "coach",
+    "ms": 5119
+  },
+  "lesson.village-2": {
+    "voice": "coach",
+    "ms": 4350
+  },
+  "lesson.village-3": {
+    "voice": "coach",
+    "ms": 3697
+  },
+  "lesson.village-4": {
+    "voice": "coach",
+    "ms": 3637
+  },
+  "lesson.village-5": {
+    "voice": "coach",
+    "ms": 3103
+  },
+  "lesson.village-6": {
+    "voice": "coach",
+    "ms": 4305
+  },
+  "lesson.village-7": {
+    "voice": "coach",
+    "ms": 2699
+  },
+  "lesson.village-8": {
+    "voice": "coach",
+    "ms": 3088
+  },
+  "lesson.treetops-1": {
+    "voice": "coach",
+    "ms": 4974
+  },
+  "lesson.treetops-2": {
+    "voice": "coach",
+    "ms": 2070
+  },
+  "lesson.treetops-3": {
+    "voice": "coach",
+    "ms": 2320
+  },
+  "lesson.treetops-4": {
+    "voice": "coach",
+    "ms": 2085
+  },
+  "lesson.treetops-5": {
+    "voice": "coach",
+    "ms": 4256
+  },
+  "lesson.treetops-6": {
+    "voice": "coach",
+    "ms": 3353
+  },
+  "lesson.treetops-7": {
+    "voice": "coach",
+    "ms": 4041
+  },
+  "lesson.treetops-8": {
+    "voice": "coach",
+    "ms": 2993
+  },
+  "lesson.treetops-9": {
+    "voice": "coach",
+    "ms": 3063
+  },
+  "lesson.burrows-1": {
+    "voice": "coach",
+    "ms": 4141
+  },
+  "lesson.burrows-2": {
+    "voice": "coach",
+    "ms": 1956
+  },
+  "lesson.burrows-3": {
+    "voice": "coach",
+    "ms": 2370
+  },
+  "lesson.burrows-4": {
+    "voice": "coach",
+    "ms": 2385
+  },
+  "lesson.burrows-5": {
+    "voice": "coach",
+    "ms": 1971
+  },
+  "lesson.burrows-6": {
+    "voice": "coach",
+    "ms": 2929
+  },
+  "lesson.burrows-7": {
+    "voice": "coach",
+    "ms": 3487
+  },
+  "lesson.burrows-8": {
+    "voice": "coach",
+    "ms": 2390
+  },
+  "lesson.cliffs-1": {
+    "voice": "coach",
+    "ms": 5428
+  },
+  "lesson.cliffs-2": {
+    "voice": "coach",
+    "ms": 3662
+  },
+  "lesson.cliffs-3": {
+    "voice": "coach",
+    "ms": 3876
+  },
+  "lesson.cliffs-4": {
+    "voice": "coach",
+    "ms": 3018
+  },
+  "lesson.cliffs-5": {
+    "voice": "coach",
+    "ms": 4530
+  },
+  "lesson.cliffs-6": {
+    "voice": "coach",
+    "ms": 2875
+  },
+  "lesson.ridge-1": {
+    "voice": "coach",
+    "ms": 5323
+  },
+  "lesson.ridge-2": {
+    "voice": "coach",
+    "ms": 1946
+  },
+  "lesson.ridge-3": {
+    "voice": "coach",
+    "ms": 1951
+  },
+  "lesson.ridge-4": {
+    "voice": "coach",
+    "ms": 1547
+  },
+  "lesson.ridge-5": {
+    "voice": "coach",
+    "ms": 4071
+  },
+  "lesson.ridge-6": {
+    "voice": "coach",
+    "ms": 2415
+  },
+  "lesson.shores-1": {
+    "voice": "coach",
+    "ms": 4834
+  },
+  "lesson.shores-2": {
+    "voice": "coach",
+    "ms": 4450
+  },
+  "lesson.shores-3": {
+    "voice": "coach",
+    "ms": 4475
+  },
+  "lesson.shores-4": {
+    "voice": "coach",
+    "ms": 4141
+  },
+  "lesson.shores-5": {
+    "voice": "coach",
+    "ms": 3313
+  },
+  "lesson.shores-6": {
+    "voice": "coach",
+    "ms": 3138
+  },
+  "lesson.road-1": {
+    "voice": "coach",
+    "ms": 2914
+  },
+  "lesson.road-2": {
+    "voice": "coach",
+    "ms": 2320
+  },
+  "lesson.road-3": {
+    "voice": "coach",
+    "ms": 4984
+  },
+  "lesson.road-4": {
+    "voice": "coach",
+    "ms": 2754
+  },
+  "lesson.road-5": {
+    "voice": "coach",
+    "ms": 2430
+  },
+  "finger.LP.home": {
+    "voice": "coach",
+    "ms": 2360
+  },
+  "finger.LP.up": {
+    "voice": "coach",
+    "ms": 2779
+  },
+  "finger.LP.down": {
+    "voice": "coach",
+    "ms": 2973
+  },
+  "finger.LP.num": {
+    "voice": "coach",
+    "ms": 2709
+  },
+  "finger.LR.home": {
+    "voice": "coach",
+    "ms": 2829
+  },
+  "finger.LR.up": {
+    "voice": "coach",
+    "ms": 2993
+  },
+  "finger.LR.down": {
+    "voice": "coach",
+    "ms": 3218
+  },
+  "finger.LR.num": {
+    "voice": "coach",
+    "ms": 2993
+  },
+  "finger.LM.home": {
+    "voice": "coach",
+    "ms": 2943
+  },
+  "finger.LM.up": {
+    "voice": "coach",
+    "ms": 2864
+  },
+  "finger.LM.down": {
+    "voice": "coach",
+    "ms": 3048
+  },
+  "finger.LM.num": {
+    "voice": "coach",
+    "ms": 2939
+  },
+  "finger.LI.home": {
+    "voice": "coach",
+    "ms": 2875
+  },
+  "finger.LI.up": {
+    "voice": "coach",
+    "ms": 3028
+  },
+  "finger.LI.down": {
+    "voice": "coach",
+    "ms": 3198
+  },
+  "finger.LI.num": {
+    "voice": "coach",
+    "ms": 2749
+  },
+  "finger.RI.home": {
+    "voice": "coach",
+    "ms": 2889
+  },
+  "finger.RI.up": {
+    "voice": "coach",
+    "ms": 3133
+  },
+  "finger.RI.down": {
+    "voice": "coach",
+    "ms": 3123
+  },
+  "finger.RI.num": {
+    "voice": "coach",
+    "ms": 2939
+  },
+  "finger.RM.home": {
+    "voice": "coach",
+    "ms": 2993
+  },
+  "finger.RM.up": {
+    "voice": "coach",
+    "ms": 3013
+  },
+  "finger.RM.down": {
+    "voice": "coach",
+    "ms": 3298
+  },
+  "finger.RM.num": {
+    "voice": "coach",
+    "ms": 2779
+  },
+  "finger.RR.home": {
+    "voice": "coach",
+    "ms": 2875
+  },
+  "finger.RR.up": {
+    "voice": "coach",
+    "ms": 3018
+  },
+  "finger.RR.down": {
+    "voice": "coach",
+    "ms": 2983
+  },
+  "finger.RR.num": {
+    "voice": "coach",
+    "ms": 2824
+  },
+  "finger.RP.home": {
+    "voice": "coach",
+    "ms": 2524
+  },
+  "finger.RP.up": {
+    "voice": "coach",
+    "ms": 2664
+  },
+  "finger.RP.down": {
+    "voice": "coach",
+    "ms": 2904
+  },
+  "finger.RP.num": {
+    "voice": "coach",
+    "ms": 2490
+  },
+  "finger.LI.in": {
+    "voice": "coach",
+    "ms": 3956
+  },
+  "finger.RI.in": {
+    "voice": "coach",
+    "ms": 3896
+  },
+  "finger.shift": {
+    "voice": "coach",
+    "ms": 3233
+  },
+  "region.village": {
+    "voice": "coach",
+    "ms": 3163
+  },
+  "region.treetops": {
+    "voice": "coach",
+    "ms": 3817
+  },
+  "region.burrows": {
+    "voice": "coach",
+    "ms": 4156
+  },
+  "region.cliffs": {
+    "voice": "coach",
+    "ms": 3402
+  },
+  "region.ridge": {
+    "voice": "coach",
+    "ms": 2699
+  },
+  "region.shores": {
+    "voice": "coach",
+    "ms": 4106
+  },
+  "region.road": {
+    "voice": "coach",
+    "ms": 3871
+  },
+  "coach.nice": {
+    "voice": "coach",
+    "ms": 709
+  },
+  "coach.great": {
+    "voice": "coach",
+    "ms": 898
+  },
+  "coach.perfect": {
+    "voice": "coach",
+    "ms": 938
+  },
+  "coach.close": {
+    "voice": "coach",
+    "ms": 2709
+  },
+  "coach.passed": {
+    "voice": "coach",
+    "ms": 1043
+  },
+  "coach.sticker": {
+    "voice": "coach",
+    "ms": 923
+  },
+  "coach.outfit": {
+    "voice": "coach",
+    "ms": 1337
+  },
+  "coach.medal": {
+    "voice": "coach",
+    "ms": 963
+  },
+  "coach.palup": {
+    "voice": "coach",
+    "ms": 1422
+  },
+  "coach.clean": {
+    "voice": "coach",
+    "ms": 1397
+  },
+  "coach.slow": {
+    "voice": "coach",
+    "ms": 1143
+  },
+  "coach.regiondone": {
+    "voice": "coach",
+    "ms": 2963
+  }
+}

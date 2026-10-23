@@ -1,0 +1,78 @@
+// Achievements. Medals can be won on any run (several at once, mix and match); badges are
+// won once and live in the sticker book. Some badges unlock outfits for your buddy.
+
+import type { FriendId } from '../art/cast';
+import { RIDES } from './rides';
+
+export type Icon =
+  | 'sparkle' | 'target' | 'wave' | 'trophy' | 'bolt' | 'heart' | 'eye' | 'star' | 'stars' | 'arrow'
+  | 'book' | 'ring' | 'house' | 'tree' | 'burrow' | 'cliff' | 'mountain' | 'shell' | 'road' | 'clock'
+  | 'words' | 'semi' | 'space' | 'gift' | 'crown' | 'wand' | 'ride' | 'friend' | 'hand';
+
+export type AwardDef = {
+  id: string;
+  kind: 'medal' | 'badge';
+  name: string;
+  desc: string; // how to earn it (shown on locked stickers too)
+  icon: Icon;
+  hue: number;
+  ride?: number; // ride tier for ride icons
+  friend?: FriendId; // friend face for fan clubs
+  unlocks?: string;
+  secret?: boolean;
+};
+
+const M = (id: string, name: string, desc: string, icon: Icon, hue: number, extra: Partial<AwardDef> = {}): AwardDef => ({ id, kind: 'medal', name, desc, icon, hue, ...extra });
+const B = (id: string, name: string, desc: string, icon: Icon, hue: number, extra: Partial<AwardDef> = {}): AwardDef => ({ id, kind: 'badge', name, desc, icon, hue, ...extra });
+
+export const MEDALS: AwardDef[] = [
+  M('clean', 'Clean Sweep', 'Finish with no mistakes at all.', 'sparkle', 160),
+  M('sharp', 'Sharp Eyes', 'Finish with 97% or better.', 'target', 200),
+  M('steady', 'Steady Paws', 'Keep a nice, even rhythm.', 'wave', 228),
+  M('pb', 'Personal Best', 'Beat your best speed on a lesson.', 'trophy', 48),
+  M('ride-record', 'Ride Record', 'Ride faster than ever on a lesson.', 'ride', 290),
+  ...RIDES.slice(1).map((r, i) => M(`ride-${r.id}`, ['Off and Running', 'Skate Starter', 'Pedal Pusher', 'Road Cruiser', 'Rocket Rider'][i], i === 0 ? 'Break into a run during a lesson.' : `Reach the ${r.name} during a lesson.`, 'ride', [338, 160, 200, 300, 52][i], { ride: i + 1 })),
+  M('streak-25', 'Hot Streak', '25 keys in a row without a slip.', 'bolt', 52),
+  M('streak-50', 'Blazing Streak', '50 keys in a row without a slip.', 'bolt', 330),
+  M('streak-100', 'Unstoppable', '100 keys in a row without a slip.', 'bolt', 268),
+  M('comeback', 'Comeback Kid', 'Shake off a few slips and finish strong.', 'heart', 345),
+  M('nopeek', 'No Peeking', 'Finish with the keyboard hidden.', 'eye', 250),
+  M('hands-free', 'Hands Free', 'Finish with the hands guide hidden.', 'hand', 300),
+  M('touch-typist', 'Touch Typist', 'Keyboard and hands both hidden, 95% or better.', 'crown', 268),
+  M('firsttry', 'First Try', 'Pass a lesson on your first go.', 'star', 52),
+  M('three', 'Triple Star', 'Earn all three stars.', 'stars', 48),
+  M('speedy', 'Speeding Up', 'Type faster than your usual speed.', 'arrow', 180),
+  M('marathon', 'Long Haul', 'Finish a long run (300+ letters).', 'book', 140),
+  M('goal', 'Goal Reached', "Hit today's practice goal.", 'ring', 100),
+];
+
+export const BADGES: AwardDef[] = [
+  B('hello', 'Hello, Island!', 'Finish your very first lesson.', 'gift', 330),
+  B('region-village', 'Home Sweet Home', 'Finish Home Row Island.', 'house', 140),
+  B('region-treetops', 'Treetop Explorer', 'Finish Top Row Treetops.', 'tree', 120),
+  B('region-burrows', 'Burrow Buddy', 'Finish Bottom Row Burrows.', 'burrow', 290),
+  B('region-cliffs', 'Cliff Climber', 'Finish Capital Cliffs.', 'cliff', 250),
+  B('region-ridge', 'Ridge Ranger', 'Finish Number Ridge.', 'mountain', 205),
+  B('region-shores', 'Shore Seeker', 'Finish Symbol Shores.', 'shell', 185),
+  B('stars-10', 'Star Collector', 'Collect 10 stars.', 'star', 48),
+  B('stars-50', 'Star Gazer', 'Collect 50 stars.', 'stars', 48),
+  B('stars-100', 'Star Keeper', 'Collect 100 stars.', 'stars', 300),
+  B('stars-140', 'Superstar', 'Collect 140 stars.', 'crown', 48),
+  ...RIDES.slice(1).map((r, i) => B(`first-${r.id}`, `First ${r.name}`, `Reach the ${r.name} for the first time.`, 'ride', [338, 160, 200, 300, 52][i], { ride: i + 1 })),
+  B('semi-wink', 'Semicolon Star', 'Type 50 semicolons.', 'semi', 322),
+  B('goal-1', 'Goal Getter', 'Hit your daily goal for the first time.', 'ring', 100),
+  B('goal-5', 'Goal Hero', 'Hit your daily goal on 5 different days.', 'ring', 160),
+  B('goal-20', 'Goal Legend', 'Hit your daily goal on 20 different days.', 'ring', 270),
+  B('time-30', 'Warmed Up', 'Practice for 30 minutes in all.', 'clock', 200),
+  B('time-120', 'Practice Pro', 'Practice for 2 hours in all.', 'clock', 230),
+  B('time-600', 'Keyboard Champion', 'Practice for 10 hours in all.', 'clock', 280),
+  B('words-500', 'Word Walker', 'Type 500 words.', 'words', 170),
+  B('words-2500', 'Word Runner', 'Type 2,500 words.', 'words', 210),
+  B('words-10000', 'Word Rocket', 'Type 10,000 words.', 'words', 300),
+  B('perfect-5', 'Perfect Five', 'Get 100% on five runs.', 'sparkle', 160),
+  B('stories-5', 'Bookworm', 'Type five stories or fact runs.', 'book', 140),
+  B('custom-1', 'My Own Words', 'Practice your own word list.', 'wand', 280),
+  B('triple-village', 'Island Star', 'Three stars on every Home Row Island lesson.', 'crown', 140, { secret: true }),
+];
+
+export const AWARD: Record<string, AwardDef> = Object.fromEntries([...MEDALS, ...BADGES].map(a => [a.id, a]));

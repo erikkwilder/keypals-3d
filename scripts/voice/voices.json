@@ -1,0 +1,132 @@
+{
+  "coach": {
+    "voice_id": "XrExE9yKIg1WjnnlVkGX",
+    "name": "Matilda - Knowledgable, Professional",
+    "source": "ElevenLabs premade voice",
+    "why": "Warm, upbeat American alto made for educational reads. In auditions she kept the most pitch movement of the teacher candidates (questions sound like questions) while staying clear and calm, and she is the only adult voice in the cast.",
+    "settings": {
+      "stability": 0.55,
+      "similarity_boost": 0.75,
+      "style": 0.2,
+      "use_speaker_boost": true,
+      "speed": 0.92
+    }
+  },
+  "ada": {
+    "voice_id": "MkTSSXNgnBULS6ek4pon",
+    "name": "Tilly - Bright, Spirited, Naive, Scrappy",
+    "source": "ElevenLabs voice library (characters/animation, 730-day notice)",
+    "why": "Young, high, bright voice described as having an underdog spirit: a tiny brave mouse. Wide, lively pitch range in auditions.",
+    "settings": {
+      "stability": 0.4,
+      "similarity_boost": 0.75,
+      "style": 0.45,
+      "use_speaker_boost": true,
+      "speed": 1.03
+    }
+  },
+  "suki": {
+    "voice_id": "CnV6BQOHeZCIv4McSXDH",
+    "name": "Illya - Soft, Neutral and Timid",
+    "source": "ElevenLabs voice library (professional clone, characters/animation)",
+    "why": "Soft, light, slightly raspy young voice with a narrow, flat pitch line in auditions, which reads as drowsy and low energy for the sleepy bat.",
+    "settings": {
+      "stability": 0.6,
+      "similarity_boost": 0.75,
+      "style": 0.15,
+      "use_speaker_boost": true,
+      "speed": 0.9
+    }
+  },
+  "dot": {
+    "voice_id": "XdflFrQO8wbGpWMNZHFr",
+    "name": "Zoe - Playful and Arrogant Magician",
+    "source": "ElevenLabs voice library (professional clone, characters/animation)",
+    "why": "Playfully arrogant, theatrical performer voice: exactly the show-off bird. Confident and a little grand without being mean.",
+    "settings": {
+      "stability": 0.35,
+      "similarity_boost": 0.75,
+      "style": 0.5,
+      "use_speaker_boost": true,
+      "speed": 1.0
+    }
+  },
+  "fig": {
+    "voice_id": "Wu9A8zlwvFHoEpuX7MGo",
+    "name": "Libby - Animated",
+    "source": "ElevenLabs voice library (professional clone, characters/animation, 730-day notice)",
+    "why": "Warm, gentle, youthful soprano with a storybook quality, described as kind and nurturing. The warmest (darkest) tone among the young voices, which suits the gentle, slightly shy mascot.",
+    "settings": {
+      "stability": 0.5,
+      "similarity_boost": 0.75,
+      "style": 0.3,
+      "use_speaker_boost": true,
+      "speed": 0.98
+    }
+  },
+  "bim": {
+    "voice_id": "Nggzl2QAXh3OijoXD116",
+    "name": "Candy - Young and Sweet",
+    "source": "ElevenLabs voice library (professional clone, characters/animation, 730-day notice)",
+    "why": "Bubbly, giggly, high-pitched cartoon voice made for mascots and little animals. Had the widest pitch swings of any candidate, which gives the twins their bounce.",
+    "settings": {
+      "stability": 0.35,
+      "similarity_boost": 0.75,
+      "style": 0.5,
+      "use_speaker_boost": true,
+      "speed": 1.05
+    }
+  },
+  "jun": {
+    "voice_id": "Z7RrOqZFTyLpIlzCgfsp",
+    "name": "Toby - Little Mythical Monster",
+    "source": "ElevenLabs voice library (characters/animation, 730-day notice)",
+    "why": "Raspy little-creature voice that jumps between low and high: goofy and a bit croaky for the frog. The only low, gravelly character voice in the cast. He drawls by nature, so his speed is raised to 1.12 (1.2 blurred 'Ribbit' into 'rip it').",
+    "settings": {
+      "stability": 0.4,
+      "similarity_boost": 0.75,
+      "style": 0.4,
+      "use_speaker_boost": true,
+      "speed": 1.12
+    }
+  },
+  "kip": {
+    "voice_id": "mdzEgLpu0FjTwYs5oot0",
+    "name": "Moxy - Hyped Mouse",
+    "source": "ElevenLabs voice library (professional clone, characters/animation, 730-day notice)",
+    "why": "Very high, fast, hyped cartoon voice. Fastest delivery and highest pitch in auditions: the excitable stomping bunny.",
+    "settings": {
+      "stability": 0.3,
+      "similarity_boost": 0.75,
+      "style": 0.5,
+      "use_speaker_boost": true,
+      "speed": 1.1
+    }
+  },
+  "lulu": {
+    "voice_id": "OsxBZB11a95XBjzhyG89",
+    "name": "Clay - Slow, Low and Soothing",
+    "source": "ElevenLabs voice library (professional clone, 730-day notice)",
+    "why": "Slow, low, soft and reedy, gender-neutral. The darkest, calmest voice in the cast, slowed further for the dreamy koala, and clearly different from sleepy Suki.",
+    "settings": {
+      "stability": 0.7,
+      "similarity_boost": 0.75,
+      "style": 0.1,
+      "use_speaker_boost": true,
+      "speed": 0.82
+    }
+  },
+  "semi": {
+    "voice_id": "loY1uopAz31XyhAEhNSa",
+    "name": "Valf - Young, Playful & Sarcastic",
+    "source": "ElevenLabs voice library (characters/animation, 730-day notice)",
+    "why": "Young, bright, playful voice described for mischievous kid characters: cheeky enough for the winking hedgehog. Brightest tone in the cast.",
+    "settings": {
+      "stability": 0.4,
+      "similarity_boost": 0.75,
+      "style": 0.45,
+      "use_speaker_boost": true,
+      "speed": 1.02
+    }
+  }
+}

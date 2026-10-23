@@ -1,0 +1,56 @@
+{
+  "jun.hello": {
+    "seed": 303,
+    "why": "earlier takes ended mid-sound or said 'boogs'"
+  },
+  "jun.ride": {
+    "seed": 202,
+    "why": "first take ended on a cut-off breath; second sounded like 'Hap hap hooray'"
+  },
+  "kip.hello": {
+    "seed": 101,
+    "text": "Kip! Kay! Right middle finger! One ear up, one ear down. Stomp stomp!",
+    "why": "first take read the letter K as 'Kee'"
+  },
+  "kip.pick": {
+    "seed": 101,
+    "why": "first take sounded like 'Stop'"
+  },
+  "fig.done": {
+    "seed": 101,
+    "text": "We did it! Hum, hum, hooray!",
+    "why": "first take sounded like 'Hmm, hurry'"
+  },
+  "suki.done": {
+    "seed": 101,
+    "why": "first take ended in a long noisy tail"
+  },
+  "lesson.burrows-2": {
+    "seed": 101,
+    "why": "first take heard as 'Point your fingers'"
+  },
+  "lesson.village-1": {
+    "seed": 101,
+    "why": "first take started at full level with no lead-in, heard as 'Point your fingers'"
+  },
+  "lesson.treetops-3": {
+    "seed": 101,
+    "why": "first take heard as 'Point your fingers'"
+  },
+  "lesson.village-3": {
+    "seed": 101,
+    "why": "first take started at full level with no lead-in"
+  },
+  "lesson.shores-4": {
+    "seed": 101,
+    "why": "first take started at full level with no lead-in"
+  },
+  "coach.outfit": {
+    "seed": 101,
+    "why": "first take started at full level with no lead-in"
+  },
+  "lulu.done": {
+    "seed": 101,
+    "why": "first take started at full level with no lead-in"
+  }
+}
