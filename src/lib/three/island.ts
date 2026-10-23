@@ -190,7 +190,7 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
         transformed.z += cos(uWind * 1.3 + ip.z * 0.4) * 0.08 * bend;`)
         .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);');
     };
-    chunked(blade, mat, low ? 110 : 400, (o, c, x) => {
+    chunked(blade, mat, low ? 100 : 280, (o, c, x) => {
       const dz = (rnd() < 0.5 ? -1 : 1) * (1.05 + Math.pow(rnd(), 1.6) * 11);
       const z = trailZ(x) + dz;
       if (edgeZ(x) - z > -1.0) return false;
@@ -225,9 +225,20 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
   const placed: [number, number, number][] = [];
   const free = (x: number, z: number, r: number) => placed.every(([px, pz, pr]) => (px - x) ** 2 + (pz - z) ** 2 > (pr + r) ** 2);
   type Spot = { x: number; y: number; z: number; h: number; w?: number; ry?: number; sink?: number };
-  /** Copies of a model at spots, as instanced meshes: one draw call per mesh in the model. */
-  function instances(g: GLTF | null, spots: Spot[], opts: { shadow?: boolean } = {}) {
-    if (!g || !spots.length) return null;
+  /**
+   * Copies of a model at spots, as instanced meshes, in 40 m stretches of trail so the stretches off
+   * screen (and outside the shadow's reach) aren't drawn at all.
+   */
+  function instances(g: GLTF | null, all: Spot[], opts: { shadow?: boolean } = {}) {
+    if (!g || !all.length) return null;
+    const group = new THREE.Group();
+    const bins = new Map<number, Spot[]>();
+    for (const sp of all) { const k = Math.floor(sp.x / 40); (bins.get(k) ?? bins.set(k, []).get(k)!).push(sp); }
+    for (const spots of bins.values()) group.add(instancesOf(g, spots, opts));
+    root.add(group);
+    return group;
+  }
+  function instancesOf(g: GLTF, spots: Spot[], opts: { shadow?: boolean }) {
     const src = g.scene; src.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(src), size = box.getSize(new THREE.Vector3());
     const group = new THREE.Group();
@@ -246,7 +257,6 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
       im.computeBoundingSphere();
       group.add(im);
     });
-    root.add(group);
     return group;
   }
   const names = ['tree_puffy', 'tree_puffy2', 'bush', 'boulder', 'ruin', 'gate', 'island', 'cliff'];

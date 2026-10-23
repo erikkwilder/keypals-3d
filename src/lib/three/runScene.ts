@@ -22,6 +22,8 @@ export type View = { top: number; bottom: number; left: number; right: number };
 type Opts = { buddy: FriendId; outfit: string; dance: string; length: number; ghostCps?: number };
 
 export class RunScene implements Controller {
+  /** smooth while running; the results screen can settle for 30 */
+  get fps() { return this.phase === 'results' ? 30 : 60; }
   readonly island: Island;
   readonly me: Character;
   private ghost: Character | null = null;

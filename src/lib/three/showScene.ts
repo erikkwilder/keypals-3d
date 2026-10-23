@@ -12,6 +12,8 @@ import type { View } from './runScene';
 type Opts = { buddies: FriendId[]; view: View; spot?: number; outfits?: Partial<Record<FriendId, string>>; orbit?: boolean };
 
 export class ShowScene implements Controller {
+  /** menus don't need 60 frames a second */
+  fps = 30;
   readonly island: Island;
   readonly chars: Character[];
   view: View;

@@ -130,3 +130,4 @@ input, textarea, select { font: inherit; user-select: text; -webkit-user-select:
 :root[data-look='paper'] { --grain: 1; }
 :root[data-look='geo'] { --grain: .3; }
 body::after { content: ''; position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: url('./lib/art/grain.png'); background-size: 256px 256px; opacity: var(--grain); }
+html.stage-on body::after { display: none; }

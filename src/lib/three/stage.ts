@@ -7,6 +7,8 @@ import { Character } from './character';
 import type { FriendId } from '../art/cast';
 
 export interface Controller {
+  /** frames a second this scene needs (menus can settle for 30); 60 if not given */
+  fps?: number;
   /** called every frame; move things and the camera */
   update(dt: number, t: number): void;
   /** where the shadows and sky should follow */
@@ -38,7 +40,10 @@ class Stage {
     this.canvas = canvas;
     this.low = low;
     const r = new THREE.WebGLRenderer({ canvas, antialias: !low, powerPreference: 'high-performance' });
-    r.setPixelRatio(Math.min(devicePixelRatio, low ? 1 : 2));
+    // Retina screens at full resolution make laptops hot for little gain: 1.5x at most, 1x on low
+    this.maxRatio = Math.min(devicePixelRatio, low ? 1 : 1.5);
+    this.ratio = this.maxRatio;
+    r.setPixelRatio(this.ratio);
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFShadowMap;
     r.outputColorSpace = THREE.SRGBColorSpace;
@@ -81,16 +86,32 @@ class Stage {
     if (this.ctrl && this.ctrl !== ctrl) this.ctrl.dispose();
     this.ctrl = ctrl;
     if (this.canvas) this.canvas.style.visibility = ctrl ? 'visible' : 'hidden';
+    // the paper grain over the page isn't needed over the 3D world (and blending it costs every frame)
+    document.documentElement.classList.toggle('stage-on', !!ctrl);
     if (ctrl && !this.raf) { this.timer.update(); this.raf = requestAnimationFrame(this.frame); }
     if (!ctrl && this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; }
   }
 
   current() { return this.ctrl; }
 
+  private maxRatio = 1.5;
+  private ratio = 1.5;
+  private lastDraw = 0;
+  private slow = 0;
   private fpsN = 0; private fpsT = 0;
   private frame = () => {
     this.raf = 0;
     if (!this.ctrl || !this.renderer) return;
+    // draw at most `fps` times a second, however fast the screen refreshes (120 Hz laptops would draw twice as often)
+    const now = performance.now(), want = this.ctrl.fps ?? 60, gap = 1000 / want;
+    if (now - this.lastDraw < gap - 2) { this.raf = requestAnimationFrame(this.frame); return; }
+    const late = this.lastDraw ? now - this.lastDraw : gap;
+    this.lastDraw = now;
+    // if frames keep arriving late, the GPU is struggling: draw fewer pixels
+    if (want >= 60) {
+      this.slow = late > gap * 1.35 ? this.slow + 1 : Math.max(0, this.slow - 2);
+      if (this.slow > 45 && this.ratio > 1) { this.ratio = Math.max(1, this.ratio - 0.25); this.renderer.setPixelRatio(this.ratio); this.resize(); this.slow = 0; }
+    }
     this.timer.update();
     const dt = Math.min(0.05, this.timer.getDelta());
     this.t += dt;
@@ -110,7 +131,7 @@ class Stage {
     for (let i = 0; i < n; i++) { this.ctrl?.update(1 / 60, this.t + i / 60); this.island?.update(1 / 60, this.t + i / 60, this.ctrl?.focus() ?? new THREE.Vector3()); r.render(this.scene, this.camera); }
     gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
     const ms = (performance.now() - t0) / n;
-    return { msPerFrame: +ms.toFixed(2), calls: r.info.render.calls, tris: r.info.render.triangles, w: r.domElement.width, h: r.domElement.height };
+    return { msPerFrame: +ms.toFixed(2), calls: r.info.render.calls, tris: r.info.render.triangles, w: r.domElement.width, h: r.domElement.height, ratio: this.ratio, fps: Math.round(this.fps) };
   }
 }
 
