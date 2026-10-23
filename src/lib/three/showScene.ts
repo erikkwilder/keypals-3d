@@ -56,7 +56,7 @@ export class ShowScene implements Controller {
     const n = this.chars.length, gap = 1.25;
     this.chars.forEach((c, i) => {
       const off = (i - (n - 1) / 2) * gap;
-      const chosen = this.selected === c.id;
+      const chosen = n > 1 && this.selected === c.id; // in a group the chosen one steps forward
       const want = this.base.clone().addScaledVector(this.t, off).addScaledVector(this.n, chosen ? 0.7 : 0);
       want.y = this.island.height(want.x, want.z);
       if (dt === 0) c.root.position.copy(want); else c.root.position.lerp(want, 1 - Math.exp(-dt * 6));
@@ -109,13 +109,14 @@ export class ShowScene implements Controller {
     focus.y = this.base.y;
     // fit the group's height into the band, and its width into the band's width
     const groupW = n > 1 ? n * 1.25 + 0.6 : 1.4;
-    const dH = 1.45 / (bandH * 2 * tanH), dW = groupW / (bandW * 2 * tanH * cam.aspect);
-    const d = Math.max(2.4, n > 1 ? Math.max(dH, dW) : dH * 0.95);
+    // one buddy: room above for a hat; a group: everyone fits across
+    const dH = (n > 1 ? 1.45 : 2.0) / (bandH * 2 * tanH), dW = groupW / (bandW * 2 * tanH * cam.aspect);
+    const d = Math.max(n > 1 ? 2.4 : 3.0, n > 1 ? Math.max(dH, dW) : Math.max(dH, 1.3 / (bandW * 2 * tanH * cam.aspect)));
     const sway = this.opts.orbit ? Math.sin(t * 0.15) * 0.18 : 0;
     const dir = this.n.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), sway);
     const wantPos = this.base.clone().addScaledVector(dir, d).add(new THREE.Vector3(0, 0.75 + d * 0.12, 0));
     if (this.selected && n > 1) wantPos.addScaledVector(this.t, focus.clone().sub(this.base).dot(this.t) * 0.5);
-    const aim = (this.selected && n > 1 ? focus : this.base).clone().add(new THREE.Vector3(0, 0.62, 0));
+    const aim = (this.selected && n > 1 ? focus : this.base).clone().add(new THREE.Vector3(0, n > 1 ? 0.62 : 0.78, 0));
     const ndcX = 2 * ((v.left + v.right) / 2) - 1, ndcY = 1 - 2 * ((v.top + v.bottom) / 2);
     const right = new THREE.Vector3().crossVectors(aim.clone().sub(wantPos).normalize(), new THREE.Vector3(0, 1, 0)).normalize();
     aim.addScaledVector(right, -ndcX * d * tanH * cam.aspect).y -= ndcY * d * tanH;

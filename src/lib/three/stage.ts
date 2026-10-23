@@ -24,7 +24,7 @@ class Stage {
   island: Island | null = null;
   private ctrl: Controller | null = null;
   private raf = 0;
-  private clock = new THREE.Clock();
+  private timer = new THREE.Timer();
   private t = 0;
   /** frames a second, measured, for the quality switch */
   fps = 60;
@@ -40,7 +40,7 @@ class Stage {
     const r = new THREE.WebGLRenderer({ canvas, antialias: !low, powerPreference: 'high-performance' });
     r.setPixelRatio(Math.min(devicePixelRatio, low ? 1 : 2));
     r.shadowMap.enabled = true;
-    r.shadowMap.type = low ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+    r.shadowMap.type = THREE.PCFShadowMap;
     r.outputColorSpace = THREE.SRGBColorSpace;
     // neutral tone mapping keeps the colours bright (filmic tone mapping greyed the characters)
     r.toneMapping = THREE.NeutralToneMapping;
@@ -81,7 +81,7 @@ class Stage {
     if (this.ctrl && this.ctrl !== ctrl) this.ctrl.dispose();
     this.ctrl = ctrl;
     if (this.canvas) this.canvas.style.visibility = ctrl ? 'visible' : 'hidden';
-    if (ctrl && !this.raf) { this.clock.getDelta(); this.raf = requestAnimationFrame(this.frame); }
+    if (ctrl && !this.raf) { this.timer.update(); this.raf = requestAnimationFrame(this.frame); }
     if (!ctrl && this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; }
   }
 
@@ -91,7 +91,8 @@ class Stage {
   private frame = () => {
     this.raf = 0;
     if (!this.ctrl || !this.renderer) return;
-    const dt = Math.min(0.05, this.clock.getDelta());
+    this.timer.update();
+    const dt = Math.min(0.05, this.timer.getDelta());
     this.t += dt;
     this.ctrl.update(dt, this.t);
     this.island?.update(dt, this.t, this.ctrl.focus());

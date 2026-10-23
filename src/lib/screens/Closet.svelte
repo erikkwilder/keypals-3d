@@ -33,6 +33,8 @@
     if (disposed || who !== id) { sc.dispose(); return; }
     scene = sc;
     stage.use(sc);
+    // the layout may still be settling: measure the stage area again in a moment
+    requestAnimationFrame(onResize); setTimeout(onResize, 400);
     if (old && old !== sc) old.dispose();
     sc.select(id);
   }

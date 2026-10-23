@@ -40,7 +40,9 @@ export class RunScene implements Controller {
   paused = false;
   view: View = { top: 0.35, bottom: 0.68, left: 0, right: 1 };
   /** a close camera for checking poses (dev only) */
-  debugCam: { angle: number; dist: number } | null = null;
+  debugCam: { angle: number; dist: number; y?: number } | null = null;
+  /** lay planted feet flat (off only to compare, in checks) */
+  groundFix = true;
   /** called once the celebration at the gate is over */
   onCelebrated: (() => void) | null = null;
   private danceEnd = 0;
@@ -183,7 +185,7 @@ export class RunScene implements Controller {
     }
     if (this.veh && rideTier >= 2) this.mounted(dt, f, t);
     else {
-      me.groundFeet = true;
+      me.groundFeet = this.groundFix;
       me.root.position.copy(f.p);
       if (now < this.hopUntil) me.root.position.y += Math.sin(((this.hopUntil - now) / 0.35) * Math.PI) * 0.12;
       if (this.phase === 'dance') {
@@ -280,8 +282,9 @@ export class RunScene implements Controller {
     if (this.debugCam) {
       // close look for checking poses: angle 0 = from the camera side, 90 = from ahead
       const a = THREE.MathUtils.degToRad(this.debugCam.angle), dir = f.n.clone().multiplyScalar(Math.cos(a)).addScaledVector(f.t, Math.sin(a));
-      cam.position.copy(centre).addScaledVector(dir, this.debugCam.dist).y += 0.3;
-      cam.lookAt(centre);
+      const at = this.debugCam.y != null ? this.me.root.position.clone().setY(this.me.root.position.y + this.debugCam.y) : centre;
+      cam.position.copy(at).addScaledVector(dir, this.debugCam.dist).y += 0.3;
+      cam.lookAt(at);
       return;
     }
     // shift the aim so the subject lands in the middle of the open part of the screen
