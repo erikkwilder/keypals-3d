@@ -133,3 +133,11 @@ export function endMessage(stars: number, opts: { record?: boolean; improved?: b
   if (stars === 1) return opts.improved ? "Nice, you're getting faster!" : 'Keep going, you can do this!';
   return opts.improved ? "You're getting better!" : "Nice effort, you've got this!";
 }
+
+/** What to say about the race against the ghost. */
+export function ghostWords(g: { beat: boolean; by: number; finished: boolean }) {
+  const secs = Math.round(g.by), n = `${secs} ${secs === 1 ? 'second' : 'seconds'}`;
+  if (!g.finished) return g.beat ? 'You got further than your ghost!' : 'Your ghost got further this time.';
+  if (g.beat) return g.by < 0.5 ? 'You beat your ghost by a whisker!' : `You beat your ghost by ${n}!`;
+  return g.by < 0.5 ? 'So close! Your ghost won by a whisker.' : `Your ghost won by ${n}. Catch it next time!`;
+}

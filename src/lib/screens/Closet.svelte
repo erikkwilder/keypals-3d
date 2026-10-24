@@ -118,7 +118,7 @@
           {#each DANCES as d (d.id)}
             {@const lk = locked(d)}
             <button class="of dance rar-{d.rarity}" class:on={pal.dance === d.id} class:locked={lk} class:shake={shake === d.id} onclick={() => dance(d)}>
-              <div class="thumb note">{d.id === 'fistpump' ? '✊' : d.id === 'jump' ? '⭐' : '♪'}</div>
+              <div class="thumb note">{d.id === 'fistpump' ? '✊' : d.id === 'jump' ? '⭐' : d.id === 'dance_floss' ? '🕺' : '♪'}</div>
               <b>{d.name}</b>
               {#if !lk}<span class="rar {d.rarity}">{pal.dance === d.id ? 'My finish dance' : RAR[d.rarity]}</span>
               {:else}<span class="lock" title="Unlocks at friendship {d.level}"><Icon name="lock" size={13} /> ♥ {d.level}</span>{/if}

@@ -18,6 +18,7 @@ import { demoKeys, homeDemo, lessonDemo } from './demos';
 import { REWARDS, treasureFor } from './rewards';
 import { existsSync, readFileSync } from 'node:fs';
 import { CLIP_NAMES } from '../three/clipNames';
+import { HAND_DANCES } from '../three/handDances';
 
 const Q = LAYOUTS.qwerty;
 
@@ -299,7 +300,7 @@ describe('rewards and treasure', () => {
       return (JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8')).animations ?? []).map((a: { name: string }) => CLIP_NAMES[a.name] ?? a.name);
     };
     for (const id of ['dino', 'cheetah', 'monkey', 'koala']) {
-      const names = new Set([...clips(`public/models/${id}.glb`), ...clips(`public/models/${id}-moves.glb`)]);
+      const names = new Set([...clips(`public/models/${id}.glb`), ...clips(`public/models/${id}-moves.glb`), ...Object.keys(HAND_DANCES)]);
       for (const d of REWARDS.filter(r => r.kind === 'dance')) expect(names.has(d.id), `${id} ${d.id}`).toBe(true);
     }
   });

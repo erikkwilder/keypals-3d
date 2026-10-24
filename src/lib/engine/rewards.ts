@@ -15,7 +15,7 @@ export const REWARDS: Reward[] = [
   R(1, 'dance', 'fistpump', 'Fist Pump'),
   R(1, 'dance', 'dance_hiphop', 'Hip Hop Bounce'),
   R(2, 'outfit', 'party_hat', 'Party Hat'),
-  R(3, 'dance', 'dance_hiphop1', 'Hip Hop Groove'),
+  R(3, 'dance', 'dance_floss', 'The Floss', 'rare'),
   R(4, 'outfit', 'flower_crown', 'Flower Crown'),
   R(5, 'dance', 'jump', 'Happy Jump'),
   R(6, 'outfit', 'propeller_cap', 'Propeller Cap', 'rare'),
@@ -43,16 +43,16 @@ export const newBetween = (before: number, after: number) => REWARDS.filter(r =>
 
 /** The treasure for a run's score: ten steps, growing in value. Grown-ups need about 1.6 times as much. */
 export const TREASURES = [
-  { id: 'pebble', name: 'Shiny Pebble' },
-  { id: 'shell', name: 'Seashell' },
-  { id: 'marble', name: 'Glass Marble' },
-  { id: 'copper', name: 'Copper Coin' },
-  { id: 'silver', name: 'Silver Coin' },
-  { id: 'gold', name: 'Gold Coin' },
-  { id: 'ruby', name: 'Ruby' },
-  { id: 'diamond', name: 'Diamond' },
-  { id: 'egg', name: 'Dragon Egg' },
-  { id: 'star', name: 'Rainbow Star' },
+  { id: 'pebble', name: 'Shiny Pebble', desc: 'A smooth little stone from the island path. Every treasure hunt starts somewhere!' },
+  { id: 'shell', name: 'Seashell', desc: 'Hold it to your ear and you can still hear the sea.' },
+  { id: 'marble', name: 'Glass Marble', desc: 'A swirl of colour caught inside clear glass.' },
+  { id: 'copper', name: 'Copper Coin', desc: 'An old island coin, warm and orange. Your first real money!' },
+  { id: 'silver', name: 'Silver Coin', desc: 'Bright and shiny. Your fingers are getting quick!' },
+  { id: 'gold', name: 'Gold Coin', desc: 'Real pirate treasure, heavy and gleaming.' },
+  { id: 'ruby', name: 'Ruby', desc: 'A deep red jewel. Only fast, clean typing finds one.' },
+  { id: 'diamond', name: 'Diamond', desc: 'The sparkliest jewel on the whole island.' },
+  { id: 'egg', name: 'Dragon Egg', desc: "It's warm, and something inside is wiggling..." },
+  { id: 'star', name: 'Rainbow Star', desc: 'The best treasure there is. Only the speediest typists ever find one!' },
 ];
 export const TREASURE_SCORE = {
   kids: [1, 8, 14, 20, 26, 32, 40, 50, 62, 78],

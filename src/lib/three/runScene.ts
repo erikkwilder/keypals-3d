@@ -11,7 +11,7 @@ import { reach } from './ik';
 import { makeOutfit } from './outfits3d';
 import { RIDES } from '../engine/rides';
 import type { FriendId } from '../art/cast';
-import type { Island, TrailPoint } from './island';
+import { GATE_BEFORE, type Island, type TrailPoint } from './island';
 
 export const STEP = 1.35; // metres of trail per letter
 const RUNUP = 4; // trail before the first letter
@@ -47,6 +47,13 @@ export class RunScene implements Controller {
   groundFix = true;
   /** called once the celebration at the gate is over */
   onCelebrated: (() => void) | null = null;
+  /** called as the buddy (and ride) passes through the finish gate */
+  onCrossed: (() => void) | null = null;
+  private crossed = false;
+  private ghostMat: THREE.MeshBasicMaterial | null = null;
+  private ghostFade = 1;
+  private ghostStopT = 0;
+  private gateK = 1;
   private danceEnd = 0;
   private camPos = new THREE.Vector3(); private camAim = new THREE.Vector3(); private camReady = false;
   private here: TrailPoint;
@@ -72,9 +79,24 @@ export class RunScene implements Controller {
     me.loadMoves();
     if (opts.ghostCps) {
       const g = await Character.create(opts.buddy);
-      if (g) { ghostify(g); sc.ghost = g; stage.scene.add(g.root); g.play('idle', 0); }
+      if (g) { sc.ghostMat = ghostify(g); sc.ghost = g; stage.scene.add(g.root); g.play('idle', 0); }
     }
+    sc.preloadRides();
     return sc;
+  }
+
+  /**
+   * Load every ride and get it ready to draw while the lesson starts: a ride loaded and drawn for the
+   * first time mid-run stalled the whole game for a moment.
+   */
+  private async preloadRides() {
+    const r = stage.renderer;
+    for (let t = 2; t < RIDES.length; t++) {
+      const v = await vehicle(RIDES[t].id);
+      if (!v || !r) continue;
+      try { await r.compileAsync(v.group, stage.camera, stage.scene); } catch { /* it compiles when first drawn instead */ }
+      v.group.traverse(o => { const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (m?.map) r.initTexture(m.map); });
+    }
   }
 
   // ---------- typing ----------
@@ -174,12 +196,14 @@ export class RunScene implements Controller {
       const lag = this.goal - this.pos;
       let want = rate * STEP + Math.max(0, lag - STEP * 1.5) * 0.9;
       if (lag < 0.03) want = 0;
-      // the last stretch: glide in at a steady pace and stop on the line (never creep)
-      if (this.phase === 'arrive') want = lag <= 0.001 ? 0 : Math.max(0.9, Math.min(lag * 1.8, Math.max(this.vel, 2.2)));
-      const accel = want > this.vel ? 3.5 : 5;
+      // the last stretch: catch up quickly if fast typing left the buddy behind, through the gate, and
+      // stop past it (never creep)
+      if (this.phase === 'arrive') want = lag <= 0.001 ? 0 : Math.max(0.9, Math.min(lag * 1.8, Math.max(this.vel, 3, Math.min(14, lag))));
+      const accel = want > this.vel ? (this.phase === 'arrive' ? 6 : 3.5) : 5;
       this.vel += Math.max(-accel * dt, Math.min(accel * dt, want - this.vel));
-      this.vel = Math.max(0, Math.min(this.vel, 9));
+      this.vel = Math.max(0, Math.min(this.vel, this.phase === 'arrive' ? 14 : 9));
       this.pos = Math.min(this.goal, this.pos + this.vel * dt);
+      if (this.phase === 'arrive' && !this.crossed && this.pos >= this.finishS - GATE_BEFORE + 0.4) { this.crossed = true; this.onCrossed?.(); }
       if (this.phase === 'arrive' && this.goal - this.pos < 0.06) { this.pos = this.goal; this.vel = 0; this.arrive(); }
     }
     const f = (this.here = this.island.trail.at(this.pos));
@@ -215,16 +239,29 @@ export class RunScene implements Controller {
       }
       me.update(dt);
     }
-    // the ghost racer
-    if (this.ghost) {
-      const g = this.ghost, gs = this.startT && this.phase === 'run' ? RUNUP + Math.min(this.opts.length, (now - this.startT) * (this.opts.ghostCps ?? 0)) * STEP : RUNUP;
+    // the ghost racer: from your first key it runs at its own steady pace, through the gate and a little
+    // past where you stop; once you've both finished it fades away (if you won, you see it come in)
+    if (this.ghost && this.ghostMat) {
+      const g = this.ghost, end = this.finishS + 2.5;
+      const gs = this.startT ? Math.min(end, RUNUP + (now - this.startT) * (this.opts.ghostCps ?? 0) * STEP) : RUNUP;
+      const done = gs >= end - 0.01;
+      if (done && !this.ghostStopT) this.ghostStopT = now;
+      // it stands a moment past the line where you can see it, then fades
+      if (done && this.phase !== 'run' && now - this.ghostStopT > 2) this.ghostFade = Math.max(0, this.ghostFade - dt / 1.5);
+      this.ghostMat.opacity = 0.32 * this.ghostFade;
+      g.root.visible = !!this.startT && this.ghostFade > 0;
       const gf = this.island.trail.at(gs);
-      g.root.visible = !!this.startT && this.phase === 'run';
-      g.root.position.copy(gf.p).addScaledVector(gf.n, -0.8);
+      // a lane of its own, beyond the buddy (and clear of the rides)
+      g.root.position.copy(gf.p).addScaledVector(gf.n, -1.2);
       g.root.rotation.set(0, Math.atan2(gf.t.x, gf.t.z), 0);
-      g.play(this.startT && gs < this.finishS - 0.1 ? 'run' : 'idle', 0.3, 1.1);
-      g.update(dt);
+      g.play(this.startT && !done ? 'run' : 'idle', 0.3, 1.1);
+      if (g.root.visible) g.update(dt);
     }
+    // following from behind, the camera looks through the gate as the buddy goes under it, and its near
+    // pillar hid the very moment of finishing: let it go see-through for those few steps
+    const past = this.pos - (this.finishS - GATE_BEFORE);
+    const wantK = (this.phase === 'run' || this.phase === 'arrive') && past > -2 && past < 6 ? 0.28 : 1;
+    if (Math.abs(wantK - this.gateK) > 0.001) { this.gateK += (wantK - this.gateK) * (1 - Math.exp(-dt * 8)); if (Math.abs(wantK - this.gateK) < 0.01) this.gateK = wantK; this.island.gateSolid(this.gateK); }
     this.puff.update(dt, stage.camera);
     this.camera(dt, f);
   }
@@ -263,7 +300,7 @@ export class RunScene implements Controller {
   /** What the camera frames: the buddy, or the buddy on their ride (centre on the trail, and height). */
   private subject(): { centre: THREE.Vector3; h: number } {
     const ground = this.here.p, id = this.veh && this.tier >= 2 ? RIDES[this.tier].id : null;
-    const [cy, h] = id === 'rocket' ? [1.75, 2.9] : id === 'bike' ? [0.85, 1.75] : id === 'car' ? [0.7, 1.6] : id === 'skate' ? [0.75, 1.55] : [0.62, 1.3];
+    const [cy, h] = id === 'rocket' ? [1.45, 2.8] : id === 'bike' ? [0.85, 1.75] : id === 'car' ? [0.7, 1.6] : id === 'skate' ? [0.75, 1.55] : [0.62, 1.3];
     return { centre: ground.clone().add(new THREE.Vector3(0, cy, 0)), h };
   }
 
@@ -333,6 +370,7 @@ export class RunScene implements Controller {
   focus() { return this.me.root.position; }
 
   dispose() {
+    this.island.gateSolid(1);
     this.me.dispose();
     this.ghost?.dispose();
     this.veh?.group.removeFromParent();
@@ -347,6 +385,7 @@ function ghostify(c: Character) {
   const mat = new THREE.MeshBasicMaterial({ color: 0xd9ccff, transparent: true, opacity: 0.32, depthWrite: false });
   c.model.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.material = mat; m.castShadow = false; } });
   c.groundFeet = false;
+  return mat;
 }
 
 /** Little clouds of dust: when a ride changes and at the finish. */

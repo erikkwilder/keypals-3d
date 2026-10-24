@@ -15,9 +15,14 @@ export type Island = {
   trail: { length: number; at(s: number): TrailPoint };
   height(x: number, z: number): number;
   placeFinish(s: number): void;
+  /** How solid the finish gate is (1) or see-through (less), so it never hides the buddy going through it. */
+  gateSolid(k: number): void;
   update(dt: number, t: number, focus: THREE.Vector3): void;
   root: THREE.Group;
 };
+
+/** The finish gate stands this far before the spot where the buddy stops, so they always run through it. */
+export const GATE_BEFORE = 2.6;
 
 export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, length = 420 } = {}): Promise<Island> {
   const root = new THREE.Group();
@@ -391,9 +396,15 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
     gate.add(g);
   }
   root.add(gate);
+  // drawn as see-through-able from the start, so fading it later never has to rebuild its shaders
+  const gateMats: THREE.Material[] = [];
+  gate.traverse(o => { if (o instanceof THREE.Mesh) for (const m of [o.material].flat()) { m.transparent = true; gateMats.push(m); } });
+  function gateSolid(k: number) {
+    for (const m of gateMats) { m.opacity = k; m.depthWrite = k > 0.99; }
+  }
   /** Put the gate across the trail a few steps before s, so the runner goes through it and stops just past. */
   function placeFinish(s: number) {
-    const f = trail.at(s - 2.6);
+    const f = trail.at(s - GATE_BEFORE);
     gate.position.copy(f.p);
     gate.rotation.y = Math.atan2(f.t.x, f.t.z); // the model's opening runs along its x, so this lines it up with the trail
   }
@@ -412,5 +423,5 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
     sky.position.copy(focus);
   }
 
-  return { trail, height, placeFinish, update, root };
+  return { trail, height, placeFinish, gateSolid, update, root };
 }

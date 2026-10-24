@@ -6,7 +6,7 @@
   import { ALL_LESSONS, LESSON, REGION, REGIONS, lessonIndex } from '../engine/course';
   import { RIDES, RIDE_SCORE } from '../engine/rides';
   import { danceOf, isUnlocked, nextGoal, nextLesson, palOf } from '../engine/profile';
-  import { endMessage, lessonGoal, platinumScore } from '../engine/scoring';
+  import { endMessage, ghostWords, lessonGoal, platinumScore } from '../engine/scoring';
   import { MEDAL_TIERS, newPalProgress } from '../engine/stickers';
   import { FRIEND } from '../art/cast';
   import { REWARD, TREASURES, TREASURE_SCORE } from '../engine/rewards';
@@ -79,6 +79,10 @@
   // a medal or sticker tapped on this screen, shown big with its description
   let detail = $state<Earned | null>(null);
   function show(e: Earned) { detail = e; sfx.pop(); }
+  // a treasure tapped in the row under the prize: any of the ten, found or not
+  let tdetail = $state<number | null>(null);
+  function showTreasure(i: number) { tdetail = i; sfx.pop(); }
+  const treasureBest = $derived(game.profile?.pals[buddy]?.treasureBest ?? -1);
   function nextTier(count: number) {
     const n = MEDAL_TIERS.find(t => t.at > count);
     return n ? { text: `${count}/${n.at}`, title: `${count} of ${n.at} to ${n.name}` } : { text: `×${count}`, title: `Won ${count} times` };
@@ -195,7 +199,7 @@
   const myDance = $derived(game.profile?.pals[buddy]?.dance ?? danceOf(p));
   const opened = performance.now();
   function onKey(e: KeyboardEvent) {
-    if (detail) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); detail = null; } return; }
+    if (detail || tdetail !== null) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); detail = null; tdetail = null; } return; }
     if (performance.now() - opened < 1200 || game.modalOpen) return;
     if (e.key === 'Enter') { e.preventDefault(); goNext(); }
     if (e.key === 'Escape') toMap();
@@ -220,7 +224,7 @@
         {#each Array(10) as _, i}<i class="spark" style:--a="{i * 36}deg" style:--d="{(i % 3) * 0.12}s"></i>{/each}
         <div class="pribbon"><small>{last?.newBestTreasure ? 'New best!' : 'You found'}</small><b>{last?.newBestTreasure ? TREASURES[treasure].name + '!' : 'a ' + TREASURES[treasure].name + '!'}</b></div>
         <div class="pladder">
-          <div class="pdots">{#each TREASURES as tr, i}<span class:got={i <= treasure} class:now={i === treasure} title={tr.name}><img src={tsrc(i)} alt="" /></span>{/each}</div>
+          <div class="pdots">{#each TREASURES as tr, i}<button class:got={i <= treasure} class:now={i === treasure} title={tr.name} aria-label={tr.name} onclick={() => showTreasure(i)}><img src={tsrc(i)} alt="" /></button>{/each}</div>
           {#if nextT}<div class="pnext">Score {nextT.at} for a {nextT.name}</div>{:else}<div class="pnext">The best treasure there is!</div>{/if}
         </div>
       </div>
@@ -276,6 +280,7 @@
     <div class="card panel">
       <h1>{title}</h1>
       <p class="sub">{sub}</p>
+      {#if last.ghost}<p class="ghost" class:won={last.ghost.beat}>👻 {ghostWords(last.ghost)}</p>{/if}
 
       <div class="scorerow">
         <div class="score {scoreHue}">
@@ -352,6 +357,25 @@
         </div>
       </div>
     {/if}
+    {#if tdetail !== null}
+      {@const i = tdetail}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="dmodal" onclick={() => (tdetail = null)}>
+        <div class="dcard card" onclick={(ev) => ev.stopPropagation()}>
+          <div class="dart tart"><img src={tsrc(i)} alt="" /></div>
+          <span class="dkind">Treasure · {i + 1} of {TREASURES.length}</span>
+          <h3>{TREASURES[i].name}</h3>
+          <p class="ddesc">{TREASURES[i].desc}</p>
+          <p class="dmore">Score {tth[i]} or more in a lesson to find one.{' '}{#if i === treasure}You found one this time!{:else if i <= treasureBest}{FRIEND[buddy].name} has found one before.{:else}Not found yet. You can do it!{/if}</p>
+          <div class="tnav">
+            <button class="btn" disabled={i === 0} onclick={() => showTreasure(i - 1)} aria-label="Previous treasure">‹</button>
+            <button class="btn btn-primary" onclick={() => (tdetail = null)}>OK</button>
+            <button class="btn" disabled={i === TREASURES.length - 1} onclick={() => showTreasure(i + 1)} aria-label="Next treasure">›</button>
+          </div>
+        </div>
+      </div>
+    {/if}
     <Confetti {burst} count={60} x={50} y={30} spread={1.4} />
     <Confetti burst={bigBurst} count={90} x={25} y={35} spread={1.8} />
   </div>
@@ -371,12 +395,19 @@
   .pribbon small { font: 800 11px var(--font-body); letter-spacing: .1em; text-transform: uppercase; opacity: .95; }
   .pribbon b { font: 600 clamp(22px, 3.2vh, 32px)/1.05 var(--font-ui); }
   .pladder { position: absolute; left: 50%; top: calc(100% + 60px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: 0; transition: opacity .5s; }
-  .prize.settled .pladder { opacity: 1; }
-  .pdots { display: flex; gap: 3px; background: rgba(255, 255, 255, .9); padding: 4px 8px; border-radius: 999px; box-shadow: var(--shadow-sm); }
-  .pdots span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; opacity: .3; filter: grayscale(1); }
-  .pdots span.got { opacity: 1; filter: none; }
-  .pdots span.now { background: #fff3c4; box-shadow: 0 0 0 2px #f2c94c; }
-  .pdots img { width: 16px; height: 16px; object-fit: contain; }
+  .prize.settled .pladder { opacity: 1; pointer-events: auto; }
+  .pdots { display: flex; gap: 3px; background: rgba(255, 255, 255, .92); padding: 4px 8px; border-radius: 999px; box-shadow: var(--shadow-sm); }
+  /* each treasure in the row can be tapped to see what it is */
+  .pdots button { width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: transparent; display: grid; place-items: center; cursor: pointer; transition: transform .15s; }
+  .pdots button:hover { transform: scale(1.25); }
+  .pdots button img { width: 24px; height: 24px; object-fit: contain; opacity: .35; filter: grayscale(1); }
+  .pdots button.got img { opacity: 1; filter: none; }
+  .pdots button.now { background: #fff3c4; box-shadow: 0 0 0 2px #f2c94c; }
+  .dart.tart img { width: 170px; height: 170px; object-fit: contain; filter: drop-shadow(0 10px 14px rgba(60, 40, 110, .3)); }
+  .tnav { display: flex; gap: 10px; align-items: center; }
+  .tnav .btn:not(.btn-primary) { font-size: 22px; padding: 6px 14px; }
+  .ghost { display: inline-block; margin: 0 0 6px; padding: 4px 12px; border-radius: 999px; background: #efe9fb; color: var(--ink2); font: 700 14px var(--font-body); }
+  .ghost.won { background: #e2f7ee; color: #0f6a48; }
   .pnext { font: 700 13px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
   @keyframes prize-in { 0% { transform: translateY(40%) scale(0) rotate(-30deg); opacity: 0; } 55% { transform: translateY(-12%) scale(1.25) rotate(8deg); opacity: 1; } 100% { transform: none; } }
   @keyframes prize-bob { 50% { transform: translateY(-5%) rotate(-3deg); } }

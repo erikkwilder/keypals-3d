@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
-  import { game } from '../state/game.svelte';
+  import { game, type LastRun } from '../state/game.svelte';
   import { LESSON, REGION, newCharsFor } from '../engine/course';
   import { generate } from '../engine/textgen';
   import { Session } from '../engine/session';
   import { RIDES, RideMeter, type RideEvent } from '../engine/rides';
-  import { computeStats, lessonGoal, starScores, starsFor } from '../engine/scoring';
+  import { computeStats, ghostWords, lessonGoal, starScores, starsFor } from '../engine/scoring';
   import { applyRun, danceOf, knownFor, outfitOf } from '../engine/profile';
   import { mastery, weakMap } from '../engine/mastery';
   import { LAYOUT_LIST, detectLayout, fingerFor, shiftFor } from '../engine/layouts';
@@ -204,10 +204,8 @@
       if (S.melody) melodyNote(); else sfx.key(fingerFor(layout, r.expected));
       if (r.expected === ' ') scene?.hop();
       const st = session.streak;
-      if (st === 10 || st === 25 || st === 50 || st === 100 || (st > 100 && st % 50 === 0)) {
-        streakPop = { text: `${st} in a row!`, n: (streakPop?.n ?? 0) + 1 };
-        sfx.pop();
-      }
+      // shown, not heard: a sound here pulled attention from typing
+      if (st === 10 || st === 25 || st === 50 || st === 100 || (st > 100 && st % 50 === 0)) streakPop = { text: `${st} in a row!`, n: (streakPop?.n ?? 0) + 1 };
       if (r.done) finish();
     } else {
       missed.add(session.pos);
@@ -250,20 +248,28 @@
       keyboardHidden: !keyboardEverShown, handsHidden: !handsEverShown, finished, at: Date.now(), napped,
     }, layout);
     game.replaceProfile(outcome.profile);
+    // the race against the ghost: it set off with your first key at its own steady pace
+    let ghost: LastRun['ghost'];
+    if (S.ghost !== false && ghostCps > 0) {
+      const mine = stats.durationMs / 1000, theirs = text.length / ghostCps;
+      ghost = finished ? { beat: mine <= theirs, by: Math.abs(theirs - mine), finished } : { beat: session.pos > mine * ghostCps, by: 0, finished };
+      ghostLine = ghostWords(ghost);
+    }
     game.last = {
       ...outcome, lessonId: lesson.id, text, wpm: stats.wpm, score: stats.score, bonusMs: stats.bonusMs, acc: stats.acc, stars, bestRide: ride.best,
-      durationMs: stats.durationMs, errors: stats.errors, maxStreak: stats.maxStreak, finished,
+      durationMs: stats.durationMs, errors: stats.errors, maxStreak: stats.maxStreak, finished, ghost,
     };
-    sfx.complete();
-    burst++;
-    doneBanner = true;
+    // the cheer waits until the buddy is through the gate (fast typing can leave them a little way back)
+    let cheered = false;
+    const cheer = () => { if (cheered) return; cheered = true; sfx.complete(); burst++; doneBanner = true; };
     // the buddy runs through the gate and dances; the results come after the dance
     let gone = false;
-    const toResults = () => { if (!gone) { gone = true; keepScene = true; game.go('results'); } };
-    if (scene) { scene.finish(); scene.onCelebrated = toResults; setTimeout(toResults, 12000); }
-    else setTimeout(toResults, 1500);
+    const toResults = () => { if (!gone) { gone = true; cheer(); keepScene = true; game.go('results'); } };
+    if (scene) { scene.onCrossed = cheer; scene.finish(); scene.onCelebrated = toResults; setTimeout(cheer, 5000); setTimeout(toResults, 12000); }
+    else { cheer(); setTimeout(toResults, 1500); }
   }
   let keepScene = false;
+  let ghostLine = $state<string | null>(null);
 
   function frame(t: number) {
     const dt = Math.min(0.05, (t - lastT) / 1000);
@@ -291,7 +297,8 @@
     void dt;
     if (scene) {
       scene.paused = phase === 'paused';
-      if (t - lastHud < 20) { const p = scene.screen(); bubbleXY = { x: p.x, y: p.y }; }
+      // keep the speech bubble (it sits above the point) below the letters
+      if (t - lastHud < 20) { const p = scene.screen(); bubbleXY = { x: p.x, y: Math.max(p.y, scene.view.top + 56 / innerHeight) }; }
     }
     raf = requestAnimationFrame(frame);
   }
@@ -351,9 +358,10 @@
 <div class="run" class:no-kb={!keyboardOn && !handsOn}>
   <div class="stage" bind:clientHeight={stageH} bind:clientWidth={stageW}>
     {#if bubble}
-      <div class="bubble" style:left="{bubbleXY.x * 100}%" style:top="{bubbleXY.y * 100}%">{bubble}</div>
+      <!-- the point is a share of the window; the stage is shorter (the keyboard sits below), so place it in pixels -->
+      <div class="bubble" style:left="{bubbleXY.x * innerWidth}px" style:top="{bubbleXY.y * innerHeight}px">{bubble}</div>
     {/if}
-    {#if bonusPop}{#key bonusPop.n}<div class="tpop" style:left="calc({bubbleXY.x * 100}% + {bonusPop.x}px)" style:top="{bubbleXY.y * 100 + 6}%">⏱ −0.5s</div>{/key}{/if}
+    {#if bonusPop}{#key bonusPop.n}<div class="tpop" style:left="{bubbleXY.x * innerWidth + bonusPop.x}px" style:top="{bubbleXY.y * innerHeight + 40}px">⏱ −0.5s</div>{/key}{/if}
     {#if loading}<div class="loading">Getting the island ready…</div>{/if}
 
     <div class="hud">
@@ -402,6 +410,7 @@
       <div class="banner finish">
         <div class="rays"></div>
         <div class="bword">{session.pos >= text.length ? 'Finished!' : "Time's up!"}</div>
+        {#if ghostLine}<div class="bsub ghostline">👻 {ghostLine}</div>{/if}
       </div>
     {/if}
     </div>
@@ -535,6 +544,7 @@
   .banner.down .bicon { background: #b8aed0; width: 60px; height: 60px; padding: 10px; }
   .bword { margin-top: 10px; font: 700 clamp(38px, 7vh, 64px)/1 var(--font-ui); color: #fff; text-shadow: 0 5px 0 var(--primary-edge), 0 0 30px rgba(124, 92, 245, .55); letter-spacing: .02em; position: relative; z-index: 1; }
   .banner.down .bword { font-size: 32px; text-shadow: 0 3px 0 #8a80a6; }
+  .bsub.ghostline { margin-top: 10px; font-size: 17px; }
   .bsub { font: 700 16px/1 var(--font-body); color: var(--ink); background: #fff; padding: 6px 12px; border-radius: 999px; margin-top: 8px; position: relative; z-index: 1; }
   .rays { position: absolute; top: -214px; left: calc(50% - 260px); width: 520px; height: 520px; background: repeating-conic-gradient(rgba(255, 255, 255, .55) 0 10deg, rgba(255, 255, 255, 0) 10deg 20deg); border-radius: 50%; mask: radial-gradient(circle, #000 20%, transparent 68%); animation: spin 6s linear infinite; }
   @keyframes banner { 0% { transform: scale(.3); opacity: 0; } 15% { transform: scale(1.1); opacity: 1; } 25% { transform: scale(1); } 80% { opacity: 1; } 100% { transform: scale(1.05) translateY(-20px); opacity: 0; } }

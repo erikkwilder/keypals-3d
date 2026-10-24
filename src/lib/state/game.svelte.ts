@@ -30,6 +30,8 @@ export type LastRun = RunOutcome & {
   errors: number;
   maxStreak: number;
   finished: boolean;
+  /** the race against the ghost: did you win, and by how many seconds (absent with the ghost off) */
+  ghost?: { beat: boolean; by: number; finished: boolean };
 };
 
 class Game {
