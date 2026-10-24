@@ -165,7 +165,7 @@ async function car(): Promise<Vehicle> {
   // the driver's seat is on the camera's side (model -z)
   const seat = toLocal(V3(0.26, -0.03, -0.15));
   const hands: [THREE.Vector3, THREE.Vector3] = [toLocal(V3(0.1, 0.12, -0.1)), toLocal(V3(0.1, 0.12, -0.2))];
-  const feetL = toLocal(V3(-0.14, -0.12, -0.1)), feetR = toLocal(V3(-0.14, -0.12, -0.2));
+  const feetL = toLocal(V3(-0.02, -0.04, -0.1)), feetR = toLocal(V3(-0.02, -0.04, -0.2));
   return {
     id: 'car', group: g,
     mount: { stance: 'sit', seat, hands, feet: () => { g.updateMatrixWorld(true); return [g.localToWorld(feetL.clone()), g.localToWorld(feetR.clone())]; } },
@@ -177,37 +177,45 @@ async function car(): Promise<Vehicle> {
   };
 }
 
-// ---------- rocket: Erik's red-and-cream rocket (Meshy), flying on its side with the porthole toward you ----------
+// ---------- rocket: Erik's red-and-cream rocket (Meshy), standing up like the picture, the buddy in the seat behind the porthole ----------
+// The porthole was cut open in Blender (tools/blender/porthole.py). Model units, glTF axes: nose +y,
+// porthole on +z, centred at (0, -0.02, 0.44), rim radius 0.236, front surface at z 0.546.
 async function rocket(): Promise<Vehicle> {
   const g = new THREE.Group();
   const holder = new THREE.Group(); g.add(holder);
-  // the model stands nose-up (+y) with its porthole on +z: lay it down nose-forward, porthole to the camera side (-x)
-  const { body, toLocal } = await meshyRide('world/ride_rocket.glb', { basis: [V3(0, -1, 0), V3(0, 0, 1), V3(-1, 0, 0)], length: 1.7, lengthAxis: 'y' });
+  // upright, porthole toward the camera (the vehicle's -x side)
+  const { body, toLocal, model } = await meshyRide('world/ride_rocket.glb', { basis: [V3(0, 0, 1), V3(0, 1, 0), V3(-1, 0, 0)], length: 2.6, lengthAxis: 'y' });
   holder.add(body);
   shadowAll(body);
-  const H = 0.7; // how high it floats
+  // a dark little cabin inside, seen around the buddy through the porthole
+  const cabin = new THREE.Mesh(new THREE.SphereGeometry(0.44, 24, 16), new THREE.MeshStandardMaterial({ color: 0x1d2a52, roughness: 0.9, side: THREE.BackSide }));
+  cabin.position.set(0, -0.05, 0.08);
+  model.add(cabin);
+  const glow = new THREE.PointLight(0xfff0d0, 0.6, 1.6); glow.position.set(0, 0.1, 0.5); model.add(glow);
+  const H = 0.45; // how high it floats
   holder.position.y = H;
-  holder.rotation.x = -0.08; // nose a little up
-  // the flame comes out of the nozzle at the tail (model -y)
-  const flame = new THREE.Group(); flame.position.copy(toLocal(V3(0, -0.9, 0))); holder.add(flame);
-  const outer = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.9, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity: 0.8, depthWrite: false }));
-  const inner = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.55, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.95, depthWrite: false }));
-  // wide at the nozzle, tapering away behind the rocket (-z)
+  const TILT = 0.28; // leaning forward into the flight
+  holder.rotation.x = TILT;
+  // the flame comes out of the nozzle at the bottom (model -y)
+  const flame = new THREE.Group(); flame.position.copy(toLocal(V3(0, -0.86, 0))); holder.add(flame);
+  const outer = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.9, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity: 0.8, depthWrite: false }));
+  const inner = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.55, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.95, depthWrite: false }));
+  // wide at the nozzle, tapering away below it
   outer.geometry.translate(0, 0.45, 0); inner.geometry.translate(0, 0.275, 0);
-  for (const c of [outer, inner]) c.rotation.x = -Math.PI / 2;
+  for (const c of [outer, inner]) c.rotation.x = Math.PI;
   flame.add(outer, inner);
-  // on top, just behind the round side pod; hands on the pod; feet hanging down each side
-  const seatL = toLocal(V3(-0.47, -0.3, 0));
-  const handL = [toLocal(V3(-0.5, 0.05, 0.12)), toLocal(V3(-0.5, 0.05, -0.12))];
-  const footL = [toLocal(V3(-0.1, -0.22, 0.5)), toLocal(V3(-0.1, -0.22, -0.5))];
+  // in the seat: hips low in the cabin so head and shoulders fill the porthole, hands on the rim
+  const seatL = toLocal(V3(0, -0.4, 0.36));
+  const handL = [toLocal(V3(0.13, -0.2, 0.53)), toLocal(V3(-0.13, -0.2, 0.53))];
+  const footL = [toLocal(V3(0.1, -0.52, 0.26)), toLocal(V3(-0.1, -0.52, 0.26))]; // tucked inside the cabin
   const inHolder = (p: THREE.Vector3) => { holder.updateMatrix(); return p.clone().applyMatrix4(holder.matrix); };
   return {
     id: 'rocket', group: g,
-    mount: { stance: 'sit', hover: H, seat: inHolder(seatL), hands: [inHolder(handL[0]), inHolder(handL[1])],
+    mount: { stance: 'sit', sideways: true, hover: H, seat: inHolder(seatL), hands: [inHolder(handL[0]), inHolder(handL[1])],
       feet: () => { g.updateMatrixWorld(true); return [holder.localToWorld(footL[0].clone()), holder.localToWorld(footL[1].clone())]; } },
     update(_dt, speed, t) {
       holder.position.y = H + Math.sin(t * 2.4) * 0.05;
-      holder.rotation.z = Math.sin(t * 1.3) * 0.04;
+      holder.rotation.z = Math.sin(t * 1.3) * 0.03;
       const k = 0.7 + Math.min(1.4, speed * 0.25) + Math.random() * 0.25;
       outer.scale.set(1, k, 1); inner.scale.set(1, k * (0.9 + Math.random() * 0.2), 1);
     },

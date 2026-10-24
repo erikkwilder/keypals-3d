@@ -14,12 +14,15 @@
   import Critter from '../ui/Critter.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
+  import TileArt from '../ui/TileArt.svelte';
 
   const p = $derived(game.profile!);
   let who = $state<FriendId>(game.profile!.buddy);
   const pal = $derived(palOf(p, who));
   const lvl = $derived(levelFromXp(pal.xp));
-  let tab = $state<'outfits' | 'dances'>('outfits');
+  let tab = $state<'outfits' | 'dances'>(game.closetTab);
+  const outfitsOpen = $derived(OUTFITS.filter(o => !locked(o)).length);
+  const dancesOpen = $derived(DANCES.filter(d => !locked(d)).length);
   let burst = $state(0);
   let shake = $state<string | null>(null);
   let scene: ShowScene | null = null;
@@ -93,8 +96,8 @@
         {#if p.buddy !== who}<button class="btn btn-primary" onclick={makeBuddy}>Run with {FRIEND[who].name}</button>{/if}
       </div>
       <div class="tabs">
-        <button class:on={tab === 'outfits'} onclick={() => (tab = 'outfits')}>Outfits</button>
-        <button class:on={tab === 'dances'} onclick={() => (tab = 'dances')}>Dances</button>
+        <button class:on={tab === 'outfits'} onclick={() => { tab = 'outfits'; game.closetTab = 'outfits'; sfx.pop(); }}><TileArt kind="outfits" size={40} /><span>Outfits</span><em>{outfitsOpen}/{OUTFITS.length}</em></button>
+        <button class:on={tab === 'dances'} onclick={() => { tab = 'dances'; game.closetTab = 'dances'; sfx.pop(); }}><TileArt kind="dances" size={40} /><span>Dances</span><em>{dancesOpen}/{DANCES.length}</em></button>
       </div>
       <div class="grid scroll">
         {#if tab === 'outfits'}
@@ -115,7 +118,7 @@
           {#each DANCES as d (d.id)}
             {@const lk = locked(d)}
             <button class="of dance rar-{d.rarity}" class:on={pal.dance === d.id} class:locked={lk} class:shake={shake === d.id} onclick={() => dance(d)}>
-              <div class="thumb note">{d.id === 'cheer' ? '🙌' : '♪'}</div>
+              <div class="thumb note">{d.id === 'fistpump' ? '✊' : d.id === 'jump' ? '⭐' : '♪'}</div>
               <b>{d.name}</b>
               {#if !lk}<span class="rar {d.rarity}">{pal.dance === d.id ? 'My finish dance' : RAR[d.rarity]}</span>
               {:else}<span class="lock" title="Unlocks at friendship {d.level}"><Icon name="lock" size={13} /> ♥ {d.level}</span>{/if}
@@ -147,8 +150,10 @@
   .quirk { margin: 0; color: var(--muted); font-weight: 600; }
   .who .btn { align-self: flex-start; }
   .tabs { display: flex; gap: 8px; }
-  .tabs button { flex: 1; font: 600 18px var(--font-ui); padding: 10px; border-radius: 16px; border: 3px solid transparent; background: rgba(255, 255, 255, .85); cursor: pointer; color: var(--ink2); box-shadow: var(--shadow-sm); }
+  .tabs button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; font: 600 22px var(--font-ui); padding: 8px 12px; border-radius: 18px; border: 3px solid transparent; background: rgba(255, 255, 255, .85); cursor: pointer; color: var(--ink2); box-shadow: var(--shadow-sm); }
+  .tabs button em { font: 800 13px var(--font-body); font-style: normal; background: var(--bg2); color: var(--ink2); padding: 3px 9px; border-radius: 999px; }
   .tabs button.on { background: #fff; border-color: var(--primary-hi); color: var(--ink); }
+  .tabs button.on em { background: var(--primary); color: #fff; }
   .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; align-content: start; padding: 4px; }
   .of { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px; border-radius: 18px; border: 3px solid transparent; background: #fff; cursor: pointer; box-shadow: var(--shadow-sm); font: 600 14px var(--font-ui); color: var(--ink); }
   .of.on { border-color: var(--primary-hi); background: #faf7ff; }

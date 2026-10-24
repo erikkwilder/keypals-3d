@@ -76,6 +76,9 @@
     ...last.stickers.map(def => ({ kind: 'sticker' as const, def })),
   ] : [];
   const earned: Earned[] = [...thisRun, ...fresh];
+  // a medal or sticker tapped on this screen, shown big with its description
+  let detail = $state<Earned | null>(null);
+  function show(e: Earned) { detail = e; sfx.pop(); }
   function nextTier(count: number) {
     const n = MEDAL_TIERS.find(t => t.at > count);
     return n ? { text: `${count}/${n.at}`, title: `${count} of ${n.at} to ${n.name}` } : { text: `×${count}`, title: `Won ${count} times` };
@@ -192,6 +195,7 @@
   const myDance = $derived(game.profile?.pals[buddy]?.dance ?? danceOf(p));
   const opened = performance.now();
   function onKey(e: KeyboardEvent) {
+    if (detail) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); detail = null; } return; }
     if (performance.now() - opened < 1200 || game.modalOpen) return;
     if (e.key === 'Enter') { e.preventDefault(); goNext(); }
     if (e.key === 'Escape') toMap();
@@ -248,11 +252,11 @@
               <div class="ipic outfit dance rar-{e.rarity}"><span class="note">♪</span><span class="dname">{e.name}</span></div>
               <button class="wear" onclick={() => dance(e.id, true)} disabled={myDance === e.id && dancingNow === e.id}>{myDance === e.id ? 'My dance!' : 'Dance it'}</button>
             {:else if e.kind === 'medal'}
-              <div class="ipic medal">{@html renderMedal(e.m, e.m.tier)}</div>
+              <button class="ipic medal tap" onclick={() => show(e)} title="What's this?">{@html renderMedal(e.m, e.m.tier)}</button>
               <span class="iname">{e.m.name}</span>
               {#if e.m.tierUp && e.m.count > 1}<em class="tier" style:background={TIER_LOOK[e.m.tier].pill} style:color={TIER_LOOK[e.m.tier].ink}>{TIER_LOOK[e.m.tier].name}!</em>{:else}{@const nt = nextTier(e.m.count)}<span class="count" title={nt.title}>{nt.text}</span>{/if}
             {:else if e.kind === "sticker"}
-              <div class="ipic"><StickerCard def={e.def} friend={buddy} {look} outfit={heroOutfit} size={cell} /></div>
+              <div class="ipic"><StickerCard def={e.def} friend={buddy} {look} outfit={heroOutfit} size={cell} onpick={() => show(e)} /></div>
               <span class="iname">{e.def.name}</span>
             {/if}
           </div>
@@ -314,7 +318,8 @@
         <NavTile size="sm" tone="lilac" kind="chart" label="Progress" onclick={() => game.openChart(lesson.id)} />
         <NavTile size="sm" tone="butter" kind="stickers" label="Stickers" onclick={() => game.openStickers('stickers')} />
         <NavTile size="sm" tone="sky" kind="medals" label="Medals" onclick={() => game.openStickers('medals')} />
-        <NavTile size="sm" tone="pink" label="Keypals" onclick={() => game.go('closet')}>
+        <NavTile size="sm" tone="lilac" kind="dances" label="Dances" onclick={() => game.openCloset('dances')} />
+        <NavTile size="sm" tone="pink" label="Keypals" onclick={() => game.openCloset('outfits')}>
           {#snippet art()}<Critter friend={buddy} size={40} round />{/snippet}
         </NavTile>
       </div>
@@ -322,6 +327,30 @@
 
     {#if nextRegion && showButtons}
       <div class="opened">{nextRegion.name} is open!</div>
+    {/if}
+    {#if detail && (detail.kind === 'medal' || detail.kind === 'sticker')}
+      {@const d = detail}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="dmodal" onclick={() => (detail = null)}>
+        <div class="dcard card" onclick={(ev) => ev.stopPropagation()}>
+          {#if d.kind === 'medal'}
+            {@const nt = MEDAL_TIERS.find(t => t.at > d.m.count)}
+            <div class="dart">{@html renderMedal(d.m, d.m.tier)}</div>
+            <span class="dkind">Medal{#if d.m.tier >= 0} · <b style:color={TIER_LOOK[d.m.tier].ink === '#fff' ? 'var(--primary)' : TIER_LOOK[d.m.tier].ink}>{TIER_LOOK[d.m.tier].name}</b>{/if}</span>
+            <h3>{d.m.name}</h3>
+            <p class="ddesc">{d.m.desc}</p>
+            <p class="dmore">You've won it {d.m.count === 1 ? 'once' : `${d.m.count} times`} with {FRIEND[buddy].name}.{' '}{#if nt}Win it {nt.at - d.m.count} more {nt.at - d.m.count === 1 ? 'time' : 'times'} for {nt.name}.{:else}That's the top tier!{/if}</p>
+          {:else}
+            <div class="dart"><StickerCard def={d.def} friend={buddy} {look} outfit={heroOutfit} size={220} /></div>
+            <span class="dkind">Sticker · <b class="rar-{d.def.rarity}">{d.def.rarity}</b></span>
+            <h3>{d.def.name}</h3>
+            <p class="ddesc">{d.def.desc}</p>
+            <p class="dmore">It's in {FRIEND[buddy].name}'s sticker book now.</p>
+          {/if}
+          <button class="btn btn-primary" onclick={() => (detail = null)}>OK</button>
+        </div>
+      </div>
     {/if}
     <Confetti {burst} count={60} x={50} y={30} spread={1.4} />
     <Confetti burst={bigBurst} count={90} x={25} y={35} spread={1.8} />
@@ -355,6 +384,18 @@
   @keyframes glow-pulse { to { transform: scale(1.12); opacity: .8; } }
   @keyframes spark { 0% { transform: rotate(var(--a)) translateY(calc(var(--sz) * -0.3)) scale(0); opacity: 1; } 60% { opacity: 1; } 100% { transform: rotate(var(--a)) translateY(calc(var(--sz) * -0.7)) scale(1.1); opacity: 0; } }
   .othumb { width: 90%; height: 90%; object-fit: contain; }
+  .ipic.tap { border: 0; background: none; padding: 0; cursor: pointer; transition: transform .15s; }
+  .ipic.tap:hover { transform: translateY(-3px) scale(1.05); }
+  .dmodal { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(40, 28, 70, .4); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); animation: fade-up .2s ease; }
+  .dcard { width: min(400px, 92vw); padding: 22px 26px 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; animation: pop-in .35s cubic-bezier(.3, .8, .4, 1.4); }
+  .dart { width: 220px; height: 220px; display: grid; place-items: center; }
+  .dart :global(svg) { width: 100%; height: 100%; }
+  .dkind { font: 800 12px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .dkind b { text-transform: capitalize; }
+  .dkind .rar-rare { color: #2f6fb8; } .dkind .rar-epic { color: #7a4fd0; } .dkind .rar-legendary { color: #8a6400; }
+  .dcard h3 { font-size: 28px; margin: 0; }
+  .ddesc { margin: 2px 0; font: 600 17px/1.35 var(--font-body); color: var(--ink2); }
+  .dmore { margin: 0 0 10px; font: 600 14px/1.35 var(--font-body); color: var(--muted); }
   .dance { display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #efe4ff, #ffe4f1) !important; }
   .note { font-size: calc(var(--s) * 0.42); line-height: 1; color: #9b6bff; }
   .dname { font: 700 12px/1.1 var(--font-body); color: var(--ink2); text-align: center; padding: 0 4px; }
@@ -436,7 +477,10 @@
   @keyframes lvup { 0% { transform: scale(.3); opacity: 0; } 20% { transform: scale(1.15); opacity: 1; } 75% { opacity: 1; } 100% { transform: translateY(-26px); opacity: 0; } }
   .goal { margin: 12px 0 0; font: 600 14.5px/1.35 var(--font-body); color: var(--ink2); background: #fff7d6; border-radius: 14px; padding: 8px 14px; animation: fade-up .35s ease; }
   .tiles { display: flex; justify-content: center; align-items: flex-end; gap: 12px; margin-top: 14px; opacity: 0; transform: translateY(10px); transition: all .35s ease; pointer-events: none; }
-  .tiles.small { gap: 10px; margin-top: 10px; }
+  .tiles.small { gap: 8px; margin-top: 10px; }
+  /* five small buttons share the panel's width: picture over the word */
+  .tiles.small :global(.tile) { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 2px; padding: 6px 4px 7px; }
+  .tiles.small :global(.tile .lbl) { font-size: 15px; white-space: nowrap; }
   .tiles.show { opacity: 1; transform: none; pointer-events: auto; }
   .opened { position: absolute; top: 18px; left: 0; right: 0; margin: 0 auto; width: max-content; z-index: 7; font: 600 24px var(--font-ui); background: var(--lemon); color: var(--ink); padding: 10px 20px; border-radius: 999px; box-shadow: var(--shadow); animation: pop-in .5s cubic-bezier(.3, .8, .4, 1.5); }
 </style>

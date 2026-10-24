@@ -6,12 +6,8 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGltf } from './assets';
 import { FRIEND, type FriendId } from '../art/cast';
 
-/** Meshy's clip names, to the names the game uses. */
-const MOVE: Record<string, string> = {
-  Idle: 'idle', Casual_Walk: 'walk', Run_03: 'run', RunFast: 'sprint', Victory_Cheer: 'cheer', happy_jump_m: 'jump',
-  Big_Wave_Hello: 'wave', Stumble_Walk: 'stumble',
-};
-const ONCE = new Set(['cheer', 'jump', 'wave', 'cheer2', 'fistpump', 'wave1']);
+import { CLIP_NAMES as MOVE } from './clipNames';
+const ONCE = new Set(['cheer', 'jump', 'wave', 'fistpump', 'wave1']);
 /** extra moves: the seated pose for rides, celebrations and dances, loaded the first time they're needed */
 export const MOVE_FILES = ['moves'];
 
@@ -70,6 +66,8 @@ export class Character {
   /** flatten planted feet (off while seated on a ride) */
   groundFeet = true;
   private feet: Foot[] = [];
+  /** every bone's turn in the bind pose (standing straight), for sitting up straight on rides */
+  private bindQ = new Map<THREE.Bone, THREE.Quaternion>();
   private outfit: THREE.Object3D | null = null;
   outfitId = 'none';
 
@@ -81,6 +79,7 @@ export class Character {
       if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; }
       if ((o as THREE.Bone).isBone) this.bones[o.name] = o as THREE.Bone;
     });
+    for (const b of Object.values(this.bones)) this.bindQ.set(b, b.quaternion.clone());
     // size from the skinned vertices (Meshy's armature is in centimetres, so the plain box is wrong)
     model.updateMatrixWorld(true);
     const box = new THREE.Box3();
@@ -151,6 +150,15 @@ export class Character {
     this.current = a;
     this.currentName = name;
     return a;
+  }
+
+  /** Sit up straight: hips, back, neck and head back to their bind-pose turn (the sitting move slouches). */
+  uprightSpine(amount = 1) {
+    for (const n of ['Hips', 'Spine', 'Spine01', 'Spine02', 'neck', 'Head']) {
+      const b = this.bones[n], q = b && this.bindQ.get(b);
+      if (b && q) b.quaternion.slerp(q, amount);
+    }
+    this.model.updateMatrixWorld(true);
   }
 
   /** True once a play-once move has reached its end. */

@@ -64,7 +64,7 @@
     {#each BUDDIES as f (f.id)}
       {@const pp = palOf(p, f.id)}
       <button class="mate" class:on={who === f.id} onclick={() => pickFriend(f.id)}>
-        <Critter friend={f.id} {look} accessory={pp.outfit} size={64} lite />
+        <Critter friend={f.id} {look} accessory={pp.outfit} size={64} round />
         <span class="nm">{f.name}</span>
         <span class="ct">{count(f.id)}/{STICKERS.length}</span>
         <span class="lv" title="Friendship level">♥ {levelFromXp(pp.xp).level}</span>

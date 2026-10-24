@@ -29,7 +29,7 @@
   },
   "coach.home.8": {
     "voice": "coach",
-    "ms": 5892
+    "ms": 5198
   },
   "coach.home.9": {
     "voice": "coach",
@@ -49,7 +49,7 @@
   },
   "lesson.village-3": {
     "voice": "coach",
-    "ms": 3697
+    "ms": 4744
   },
   "lesson.village-4": {
     "voice": "coach",
@@ -71,6 +71,10 @@
     "voice": "coach",
     "ms": 3088
   },
+  "lesson.village-9": {
+    "voice": "coach",
+    "ms": 3467
+  },
   "lesson.treetops-1": {
     "voice": "coach",
     "ms": 4974
@@ -81,7 +85,7 @@
   },
   "lesson.treetops-3": {
     "voice": "coach",
-    "ms": 2320
+    "ms": 4759
   },
   "lesson.treetops-4": {
     "voice": "coach",
@@ -93,7 +97,7 @@
   },
   "lesson.treetops-6": {
     "voice": "coach",
-    "ms": 3353
+    "ms": 3183
   },
   "lesson.treetops-7": {
     "voice": "coach",
@@ -107,6 +111,10 @@
     "voice": "coach",
     "ms": 3063
   },
+  "lesson.treetops-10": {
+    "voice": "coach",
+    "ms": 3063
+  },
   "lesson.burrows-1": {
     "voice": "coach",
     "ms": 4141
@@ -117,7 +125,7 @@
   },
   "lesson.burrows-3": {
     "voice": "coach",
-    "ms": 2370
+    "ms": 3767
   },
   "lesson.burrows-4": {
     "voice": "coach",
@@ -129,13 +137,21 @@
   },
   "lesson.burrows-6": {
     "voice": "coach",
-    "ms": 2929
+    "ms": 3343
   },
   "lesson.burrows-7": {
     "voice": "coach",
     "ms": 3487
   },
   "lesson.burrows-8": {
+    "voice": "coach",
+    "ms": 2390
+  },
+  "lesson.burrows-9": {
+    "voice": "coach",
+    "ms": 3487
+  },
+  "lesson.burrows-10": {
     "voice": "coach",
     "ms": 2390
   },
@@ -165,15 +181,15 @@
   },
   "lesson.ridge-1": {
     "voice": "coach",
-    "ms": 5323
+    "ms": 4440
   },
   "lesson.ridge-2": {
     "voice": "coach",
-    "ms": 1946
+    "ms": 2325
   },
   "lesson.ridge-3": {
     "voice": "coach",
-    "ms": 1951
+    "ms": 4141
   },
   "lesson.ridge-4": {
     "voice": "coach",
@@ -184,6 +200,14 @@
     "ms": 4071
   },
   "lesson.ridge-6": {
+    "voice": "coach",
+    "ms": 2415
+  },
+  "lesson.ridge-7": {
+    "voice": "coach",
+    "ms": 4071
+  },
+  "lesson.ridge-8": {
     "voice": "coach",
     "ms": 2415
   },
@@ -213,7 +237,7 @@
   },
   "lesson.road-1": {
     "voice": "coach",
-    "ms": 2914
+    "ms": 2365
   },
   "lesson.road-2": {
     "voice": "coach",
@@ -373,7 +397,7 @@
   },
   "region.village": {
     "voice": "coach",
-    "ms": 3163
+    "ms": 3158
   },
   "region.treetops": {
     "voice": "coach",

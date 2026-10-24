@@ -9,3 +9,6 @@ build/
 # design references stay local
 art-src/**/ref*.png
 art-src/**/ref*.webp
+
+# motion clips for the dev-only dance check page (dancecheck.html); never shipped
+public/devmotions/

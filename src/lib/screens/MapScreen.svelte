@@ -5,6 +5,8 @@
   import { REGIONS, type Lesson } from '../engine/course';
   import { isUnlocked, nextLesson, passed, regionUnlocked, todayMs, totalStars } from '../engine/profile';
   import { RIDES } from '../engine/rides';
+  import { DANCES } from '../engine/rewards';
+  import { levelFromXp } from '../engine/stickers';
   import { rideIcon } from '../art/vehicles';
   import { sfx } from '../audio/sound';
   import NavTile from '../ui/NavTile.svelte';
@@ -22,6 +24,7 @@
   const stars = $derived(totalStars(p));
   const goalMs = $derived(p.settings.dailyGoalMin * 60000);
   const today = $derived(todayMs(p));
+  const dancesOpen = $derived(DANCES.filter(d => d.level <= levelFromXp(palOf(p).xp).level).length);
   let scroller: HTMLDivElement | undefined = $state();
   // each region banner is a still view a little way into its journey
 
@@ -75,7 +78,7 @@
 <div class="screen map">
   <header class="bar">
     <button class="me" onclick={() => game.go('players')} title="Switch player">
-      <Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={58} />
+      <Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={58} round />
       <span class="nm">{p.name}</span>
     </button>
     <div class="pill stars"><Stars n={1} of={1} size={22} /> <b>{stars}</b></div>
@@ -84,9 +87,10 @@
       <span><b>{Math.floor(today / 60000)}</b>/{p.settings.dailyGoalMin} min today</span>
     </div>
     <div class="spacer"></div>
-    <NavTile size="md" tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.go('closet')}>
-      {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={62} lite />{/snippet}
+    <NavTile size="md" tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
+      {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={62} round />{/snippet}
     </NavTile>
+    <NavTile size="md" tone="lilac" kind="dances" label="Dances" title="Dances: pick your finish-line dance" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
     <NavTile size="md" tone="butter" kind="stickers" label="Stickers" badge={Object.keys(palOf(p).stickers).length || ''} onclick={() => game.openStickers('stickers')} />
     <NavTile size="md" tone="sky" kind="medals" label="Medals" badge={palOf(p).medalsTotal || ''} onclick={() => game.openStickers('medals')} />
     <FancyAntButton variant="round" />

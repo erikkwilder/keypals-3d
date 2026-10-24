@@ -1,10 +1,14 @@
 /// <reference types="vitest/config" />
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [
+    svelte(),
+    // the dance check page's motion clips (public/devmotions, ~100 MB) are for development only
+    { name: 'drop-dev-files', apply: 'build', closeBundle() { rmSync(new URL('./dist/devmotions', import.meta.url), { recursive: true, force: true }); } },
+  ],
   define: { __APP_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version) },
   clearScreen: false,
   base: './',

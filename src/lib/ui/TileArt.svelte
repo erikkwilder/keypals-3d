@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  export type ArtKind = 'play' | 'redo' | 'map' | 'settings' | 'stickers' | 'medals' | 'coach' | 'sfx' | 'music' | 'demo' | 'players' | 'close' | 'chart';
+  export type ArtKind = 'play' | 'redo' | 'map' | 'settings' | 'stickers' | 'medals' | 'coach' | 'sfx' | 'music' | 'demo' | 'players' | 'close' | 'chart' | 'dances' | 'outfits';
 </script>
 
 <script lang="ts">
@@ -53,6 +53,22 @@
     <circle cx="50" cy="60" r="28" fill="#ffe25e" />
     <circle cx="50" cy="60" r="20" fill="#fff09a" />
     <path d="M50 46l4.5 9.5 10.5 1.5-7.5 7.5 2 10.5L50 70l-9.5 5 2-10.5-7.5-7.5 10.5-1.5z" fill="#e8c52c" />
+  {:else if kind === 'dances'}
+    <circle cx="50" cy="52" r="40" fill="#c99bff" />
+    <circle cx="50" cy="48" r="40" fill="#dcbcff" />
+    <path d="M40 66V30l30-8v36" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+    <ellipse cx="33" cy="67" rx="10" ry="8" fill="#fff" transform="rotate(-20 33 67)" />
+    <ellipse cx="63" cy="59" rx="10" ry="8" fill="#fff" transform="rotate(-20 63 59)" />
+    <path d="M40 38l30-8" stroke="#fff" stroke-width="7" stroke-linecap="round" />
+    <path d="M84 16l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#ffe97a" />
+    <path d="M16 30l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#ff9cc6" />
+  {:else if kind === 'outfits'}
+    <path d="M50 10L24 76h52z" fill="#ff8fbf" />
+    <path d="M50 10L37 43h26z" fill="#ffb3d3" />
+    <path d="M30 61h40" stroke="#ffe25e" stroke-width="7" stroke-linecap="round" />
+    <circle cx="44" cy="40" r="4" fill="#8fc4f5" /><circle cx="58" cy="54" r="4" fill="#7fe0b4" />
+    <ellipse cx="50" cy="78" rx="34" ry="8" fill="#e870a6" />
+    <circle cx="50" cy="10" r="8" fill="#ffe25e" />
   {:else if kind === 'coach'}
     <path d="M10 38l40-18 40 18-40 18z" fill="#7c5cf5" />
     <path d="M26 46v16c0 8 48 8 48 0V46l-24 11z" fill="#9a80fa" />

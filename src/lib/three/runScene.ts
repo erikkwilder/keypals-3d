@@ -130,6 +130,7 @@ export class RunScene implements Controller {
     me.root.position.copy(f.p);
     me.update(dt);
     me.root.updateMatrixWorld(true);
+    if (m.stance === 'sit') me.uprightSpine();
     const B = me.bones;
     if (m.stance === 'sit' && m.seat && B.Hips) {
       // sit the hips on the seat
@@ -231,7 +232,7 @@ export class RunScene implements Controller {
   private arrive() {
     this.phase = 'dance';
     const d = this.opts.dance;
-    const name = this.me.has(d) ? d : 'cheer';
+    const name = this.me.has(d) ? d : 'fistpump';
     const a = this.me.play(name, 0.35);
     const len = a ? Math.min(6, a.getClip().duration) : 2.5;
     this.danceEnd = performance.now() / 1000 + Math.max(2.4, len);
@@ -241,7 +242,7 @@ export class RunScene implements Controller {
   /** Dance again (the results screen's button). */
   dance(id: string) {
     this.phase = 'dance';
-    const name = this.me.has(id) ? id : 'cheer';
+    const name = this.me.has(id) ? id : 'fistpump';
     const a = this.me.play(name, 0.3);
     if (a) a.reset();
     this.danceEnd = performance.now() / 1000 + Math.max(2.4, a ? Math.min(6, a.getClip().duration) : 2.5);
@@ -262,7 +263,7 @@ export class RunScene implements Controller {
   /** What the camera frames: the buddy, or the buddy on their ride (centre on the trail, and height). */
   private subject(): { centre: THREE.Vector3; h: number } {
     const ground = this.here.p, id = this.veh && this.tier >= 2 ? RIDES[this.tier].id : null;
-    const [cy, h] = id === 'rocket' ? [1.4, 2.4] : id === 'bike' ? [0.85, 1.75] : id === 'car' ? [0.7, 1.6] : id === 'skate' ? [0.75, 1.55] : [0.62, 1.3];
+    const [cy, h] = id === 'rocket' ? [1.75, 2.9] : id === 'bike' ? [0.85, 1.75] : id === 'car' ? [0.7, 1.6] : id === 'skate' ? [0.75, 1.55] : [0.62, 1.3];
     return { centre: ground.clone().add(new THREE.Vector3(0, cy, 0)), h };
   }
 
@@ -318,7 +319,7 @@ export class RunScene implements Controller {
   cheer() {
     this.cheerT = performance.now() / 1000;
     if (!(this.veh && this.tier >= 2)) {
-      const name = ['cheer2', 'fistpump', 'jump', 'cheer'].find(n => this.me.has(n));
+      const name = ['fistpump', 'jump'].find(n => this.me.has(n));
       if (name) { const a = this.me.play(name, 0.25); a?.reset(); }
     }
   }

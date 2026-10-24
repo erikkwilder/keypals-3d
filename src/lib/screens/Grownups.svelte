@@ -98,7 +98,7 @@
       <div class="who">
         {#each game.save.profiles as pr (pr.id)}
           <button class="pp" class:on={pr.id === selected} onclick={() => (selected = pr.id)}>
-            <Critter friend={pr.buddy} look={pr.settings.look} accessory={outfitOf(pr)} size={52} /><span>{pr.name}</span>
+            <Critter friend={pr.buddy} look={pr.settings.look} accessory={outfitOf(pr)} size={52} round /><span>{pr.name}</span>
           </button>
         {/each}
       </div>

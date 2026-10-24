@@ -143,7 +143,8 @@ export function palOf(p: Profile, friend: FriendId = p.buddy): PalProgress {
   return p.pals[friend] ?? newPalProgress();
 }
 export const outfitOf = (p: Profile, friend: FriendId = p.buddy) => palOf(p, friend).outfit ?? 'none';
-export const danceOf = (p: Profile, friend: FriendId = p.buddy) => palOf(p, friend).dance ?? 'dance_hiphop';
+/** The buddy's finish dance (dances dropped in later versions fall back to the first one). */
+export const danceOf = (p: Profile, friend: FriendId = p.buddy) => { const d = palOf(p, friend).dance; return d && REWARDS.some(r => r.id === d) ? d : 'dance_hiphop'; };
 /** Outfits and dances this buddy has unlocked. */
 export const rewardsFor = (pal: PalProgress) => REWARDS.filter(r => r.level <= pal.level);
 

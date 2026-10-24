@@ -75,7 +75,7 @@ export class ShowScene implements Controller {
   dance(id: FriendId, dance: string) {
     const i = this.chars.findIndex(c => c.id === id);
     if (i < 0) return;
-    this.start(i, this.chars[i].has(dance) ? dance : 'cheer');
+    this.start(i, this.chars[i].has(dance) ? dance : 'fistpump');
   }
   /** Play a move; dances play for up to eight seconds, then back to standing. */
   private start(i: number, name: string) {
@@ -95,7 +95,7 @@ export class ShowScene implements Controller {
         if (t > d.until) { this.dancing[i] = null; c.play('idle', 0.45); }
       } else if (this.chars.length > 1 && t > this.next[i]) {
         // now and then someone waves or does a little dance
-        const pick = ['wave1', 'cheer', 'fistpump', 'dance_hiphop', 'jump'][Math.floor(Math.random() * 5)];
+        const pick = ['wave1', 'fistpump', 'dance_hiphop', 'jump', 'dance_hiphop2'][Math.floor(Math.random() * 5)];
         if (c.has(pick)) this.start(i, pick);
         this.next[i] = t + 5 + Math.random() * 6;
       }

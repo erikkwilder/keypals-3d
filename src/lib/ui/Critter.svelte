@@ -1,5 +1,6 @@
 <script lang="ts">
-  // A buddy's portrait: a picture of the 3D character (public/portraits/<id>.png). Screens that show a
+  // A buddy's picture, rendered from the 3D character with a see-through background (src/dev/portraits.ts):
+  // the full body, or head and shoulders when `round`. Screens that show a
   // buddy moving use the 3D stage instead; this is for lists, buttons and small spots. The props match
   // the old animated keypal so every screen keeps working; moods become gentle CSS motion.
   import { FRIEND, type FriendId } from '../art/cast';
@@ -23,7 +24,7 @@
   };
   let { friend, size = 120, mood = '', pulse = null, title, still = false, round = false }: Props = $props();
   const px = $derived(typeof size === 'number' ? `${size}px` : size);
-  const src = $derived(`${import.meta.env.BASE_URL}portraits/${FRIEND[friend]?.id ?? 'dino'}.png`);
+  const src = $derived(`${import.meta.env.BASE_URL}portraits/${FRIEND[friend]?.id ?? 'dino'}${round ? '-head' : ''}.png`);
   let hop = $state(0);
   $effect(() => { if (pulse && pulse.n > 0) hop++; });
 </script>
@@ -34,7 +35,8 @@
 
 <style>
   .critter-host { flex: none; position: relative; display: grid; place-items: end center; }
-  .critter-host.round { border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 35%, #fff, #e8f1fb); }
+  .critter-host.round { border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 35%, #fff, #e3eefb); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .9); }
+  .critter-host.round img { object-position: center; }
   img { width: 100%; height: 100%; object-fit: contain; object-position: bottom; user-select: none; }
   .dance img { animation: bob .6s ease-in-out infinite alternate; transform-origin: 50% 100%; }
   .run img { animation: bob .28s ease-in-out infinite alternate; transform-origin: 50% 100%; }

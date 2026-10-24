@@ -7,33 +7,33 @@ export type Reward = { id: string; kind: RewardKind; name: string; level: number
 
 const R = (level: number, kind: RewardKind, id: string, name: string, rarity: Reward['rarity'] = 'common'): Reward => ({ id, kind, name, level, rarity });
 
-/** Every buddy starts with the victory cheer and one dance. */
+/**
+ * Every buddy starts with a fist pump and one dance. Dances were checked on every buddy so hands never
+ * pass through a head or hat (src/dev/danceCheck.ts); ones that did were left out.
+ */
 export const REWARDS: Reward[] = [
-  R(1, 'dance', 'cheer', 'Victory Cheer'),
+  R(1, 'dance', 'fistpump', 'Fist Pump'),
   R(1, 'dance', 'dance_hiphop', 'Hip Hop Bounce'),
   R(2, 'outfit', 'party_hat', 'Party Hat'),
-  R(3, 'dance', 'dance_letters', 'Letter Arms'),
+  R(3, 'dance', 'dance_hiphop1', 'Hip Hop Groove'),
   R(4, 'outfit', 'flower_crown', 'Flower Crown'),
-  R(5, 'dance', 'dance_jacks', 'Jumping Jacks'),
+  R(5, 'dance', 'jump', 'Happy Jump'),
   R(6, 'outfit', 'propeller_cap', 'Propeller Cap', 'rare'),
   R(7, 'dance', 'dance_happyhands', 'Happy Hands'),
   R(8, 'outfit', 'cowboy_hat', 'Cowboy Hat', 'rare'),
-  R(9, 'dance', 'dance_bubble', 'Bubble Pop', 'rare'),
+  R(9, 'dance', 'dance_hiphop2', 'Hip Hop Wave', 'rare'),
   R(10, 'outfit', 'pirate_hat', 'Pirate Hat', 'rare'),
   R(11, 'dance', 'dance_cardio', 'Cardio Groove', 'rare'),
   R(12, 'outfit', 'wizard_hat', 'Wizard Hat', 'epic'),
   R(13, 'dance', 'dance_boom', 'Boom Bounce', 'epic'),
   R(14, 'outfit', 'viking_helmet', 'Viking Helmet', 'epic'),
-  R(15, 'dance', 'dance_popstar', 'Pop Star', 'epic'),
+  R(15, 'dance', 'dance_hiphop3', 'Hip Hop Shuffle', 'epic'),
   R(16, 'outfit', 'top_hat', 'Top Hat', 'epic'),
-  R(17, 'dance', 'dance_groove', 'Spin Groove', 'epic'),
-  R(18, 'dance', 'dance_spinjump', 'Spin Jump', 'legendary'),
+  R(17, 'dance', 'dance_step', 'Step Step', 'epic'),
+  R(18, 'dance', 'dance_shake', 'Shake It Out', 'legendary'),
   R(20, 'outfit', 'gold_crown', 'Golden Crown', 'legendary'),
-  R(22, 'dance', 'dance_superlove', 'Superstar', 'legendary'),
-  R(24, 'dance', 'dance_shake', 'Shake It Out', 'legendary'),
-  R(26, 'dance', 'dance_allnight', 'All Night Long', 'legendary'),
-  R(28, 'dance', 'dance_step', 'Step Step', 'legendary'),
-  R(30, 'dance', 'dance_sway', 'Happy Sway', 'legendary'),
+  R(22, 'dance', 'dance_allnight', 'All Night Long', 'legendary'),
+  R(26, 'dance', 'dance_sway', 'Happy Sway', 'legendary'),
 ];
 export const REWARD: Record<string, Reward> = Object.fromEntries(REWARDS.map(r => [r.id, r]));
 export const OUTFITS = REWARDS.filter(r => r.kind === 'outfit');

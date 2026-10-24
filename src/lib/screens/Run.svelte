@@ -162,12 +162,8 @@
     bannerTimer = setTimeout(() => (banner = null), ev.type === 'up' ? 1500 : 900);
     musicEnergy(ev.tier / 5);
     scene?.setTier(ev.tier);
-    if (ev.type === 'up') {
-      sfx.levelUp(ev.tier);
-      burst++;
-    } else {
-      sfx.levelDown();
-    }
+    // no sound for changing rides (it pulled attention from typing); the banner and confetti are enough
+    if (ev.type === 'up') burst++;
   }
 
   function bubbleSay(msg: string, ms = 1400) {

@@ -50,6 +50,8 @@ class Game {
   chartLesson = $state<string | null>(null);
   /** which tab the sticker book opens on */
   stickerTab = $state<'stickers' | 'medals' | 'rides'>('stickers');
+  /** which tab Keypals opens on */
+  closetTab = $state<'outfits' | 'dances'>('outfits');
 
   get profile(): Profile | null {
     return this.save.profiles.find(p => p.id === this.save.activeId) ?? null;
@@ -92,6 +94,10 @@ class Game {
   openStickers(tab: 'stickers' | 'medals' | 'rides' = 'stickers') {
     this.stickerTab = tab;
     this.screen = 'stickers';
+  }
+  openCloset(tab: 'outfits' | 'dances' = 'outfits') {
+    this.closetTab = tab;
+    this.screen = 'closet';
   }
 
   say(msg: string, ms = 2600) {
