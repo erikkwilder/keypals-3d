@@ -108,9 +108,11 @@ export function tableFacts(t: number): Fact[] {
 
 /** The rules lesson's facts: a few of the 0s and 1s, both ways round. */
 export function ruleFacts(): Fact[] {
+  // every fact with a 0 or a 1 in it (40 of them), so each square of the garden's 0 and 1 rows and
+  // columns can come up: 0 × 0 and 1 × 0 too
   const out: Fact[] = [];
-  for (const a of [3, 7, 5, 9, 2, 6, 8, 4, 10]) { out.push({ a, b: 1 }); out.push({ a, b: 0 }); }
-  for (const b of [4, 6, 8, 3]) { out.push({ a: 1, b }); out.push({ a: 0, b }); }
+  for (const a of [3, 7, 5, 9, 2, 6, 8, 4, 10, 0, 1]) { out.push({ a, b: 1 }); out.push({ a, b: 0 }); }
+  for (const b of [4, 6, 8, 3, 2, 5, 7, 9, 10]) { out.push({ a: 1, b }); out.push({ a: 0, b }); }
   return out;
 }
 

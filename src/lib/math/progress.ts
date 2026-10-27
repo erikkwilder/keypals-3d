@@ -34,6 +34,8 @@ export type MathProgress = {
   fastMs?: number;
   /** the tables whose trick card has been shown */
   tricksSeen?: number[];
+  /** each fact's stage the last time the Fact Garden was opened, so new growth can pop in */
+  gardenSeen?: Record<string, number>;
 };
 
 export const newMathProgress = (): MathProgress => ({ home: 'typing', facts: {}, lessons: {}, history: [], totals: { trips: 0, facts: 0, ms: 0 } });

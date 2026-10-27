@@ -338,3 +338,12 @@ describe('math progress and rewards', () => {
     expect(nextMathLesson(mathOf(out.profile)).id).toBe('fours-3');
   });
 });
+
+describe('the 0 and 1 rules cover the whole garden edge', () => {
+  it('every fact with a 0 or 1 in it can come up, including 0 × 0, 0 × 1 and 1 × 0', async () => {
+    const { ruleFacts } = await import('./course');
+    const ids = new Set(ruleFacts().map(f => `${f.a}x${f.b}`));
+    expect(ids.size).toBe(40);
+    for (const id of ['0x0', '0x1', '1x0', '1x1', '10x0', '0x10']) expect(ids.has(id)).toBe(true);
+  });
+});
