@@ -3,7 +3,7 @@
   import { outfitOf } from '../engine/profile';
   import type { Look } from '../art/cast';
   import { LAYOUT_LIST } from '../engine/layouts';
-  import { TUNES, sfx, melodyNote, resetMelody } from '../audio/sound';
+  import { TUNES, MUSIC_STYLES, sfx, melodyNote, resetMelody, type MusicStyleId } from '../audio/sound';
   import type { Settings } from '../engine/profile';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -111,6 +111,15 @@
         <label class="row">Sound effects <input type="checkbox" checked={s.sound} onchange={(e) => set('sound', e.currentTarget.checked)} /></label>
         <label class="row">Coach voice <input type="checkbox" checked={s.voice !== false} onchange={(e) => set('voice', e.currentTarget.checked)} /></label>
         <label class="row">Music <input type="checkbox" checked={s.music} onchange={(e) => set('music', e.currentTarget.checked)} /></label>
+        {#if s.music}
+          <div class="row">Music style
+            <div class="seg wrap">
+              {#each Object.entries(MUSIC_STYLES) as [id, st]}<button class:on={(s.musicStyle ?? 'sunny') === id} onclick={() => set('musicStyle', id as MusicStyleId)}>{st.name}</button>{/each}
+              <button class:on={s.musicStyle === 'mix'} onclick={() => set('musicStyle', 'mix')}>Mix</button>
+            </div>
+          </div>
+          <p class="hint">Tap a style to hear it now. Mix plays a different style in each lesson.</p>
+        {/if}
         <label class="row">Volume <input type="range" min="0" max="1" step="0.05" value={s.volume} oninput={(e) => game.update(pp => { pp.settings.volume = +e.currentTarget.value; })} /></label>
         <label class="row">Melody keys <input type="checkbox" checked={s.melody} onchange={(e) => set('melody', e.currentTarget.checked)} /></label>
         <p class="hint">Every right key plays the next note of a song.</p>

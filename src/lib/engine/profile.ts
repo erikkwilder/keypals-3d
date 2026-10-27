@@ -22,6 +22,8 @@ export type Settings = {
   music: boolean;
   melody: boolean;
   tune: string;
+  /** the background music's style ('mix': a different one each lesson) */
+  musicStyle?: import('../audio/sound').MusicStyleId | 'mix';
   volume: number; // 0..1
   reducedMotion: boolean;
   font: FontChoice;

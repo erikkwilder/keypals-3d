@@ -158,25 +158,59 @@ export function melodyNote() {
   tone(n * 2, { type: 'sine', dur: 0.2, gain: 0.03 });
 }
 
-// ---------- background music: a gentle generated loop per region ----------
-type MusicStyle = { root: number; scale: number[]; bpm: number; wave: OscillatorType; bassWave: OscillatorType };
-const STYLES: Record<RegionId | 'menu', MusicStyle> = {
-  menu: { root: 261.63, scale: [0, 2, 4, 7, 9], bpm: 92, wave: 'triangle', bassWave: 'sine' },
-  village: { root: 261.63, scale: [0, 2, 4, 7, 9], bpm: 100, wave: 'triangle', bassWave: 'sine' },
-  treetops: { root: 293.66, scale: [0, 2, 4, 7, 9], bpm: 104, wave: 'triangle', bassWave: 'sine' },
-  burrows: { root: 220.0, scale: [0, 3, 5, 7, 10], bpm: 88, wave: 'sine', bassWave: 'triangle' },
-  cliffs: { root: 246.94, scale: [0, 2, 4, 7, 9], bpm: 96, wave: 'triangle', bassWave: 'sine' },
-  ridge: { root: 329.63, scale: [0, 2, 4, 7, 11], bpm: 92, wave: 'sine', bassWave: 'sine' },
-  shores: { root: 277.18, scale: [0, 2, 4, 7, 9], bpm: 98, wave: 'triangle', bassWave: 'sine' },
-  road: { root: 261.63, scale: [0, 2, 4, 5, 7, 9], bpm: 108, wave: 'triangle', bassWave: 'sine' },
+// ---------- background music: generated live, in a key of each region's own and a style you pick ----------
+type RegionKey = { root: number; scale: number[]; bpm: number };
+const KEYS: Record<RegionId | 'menu', RegionKey> = {
+  menu: { root: 261.63, scale: [0, 2, 4, 7, 9], bpm: 92 },
+  village: { root: 261.63, scale: [0, 2, 4, 7, 9], bpm: 100 },
+  treetops: { root: 293.66, scale: [0, 2, 4, 7, 9], bpm: 104 },
+  burrows: { root: 220.0, scale: [0, 3, 5, 7, 10], bpm: 88 },
+  cliffs: { root: 246.94, scale: [0, 2, 4, 7, 9], bpm: 96 },
+  ridge: { root: 329.63, scale: [0, 2, 4, 7, 11], bpm: 92 },
+  shores: { root: 277.18, scale: [0, 2, 4, 7, 9], bpm: 98 },
+  road: { root: 261.63, scale: [0, 2, 4, 5, 7, 9], bpm: 108 },
 };
 
+export type MusicStyleId = 'sunny' | 'adventure' | 'dreamy' | 'arcade' | 'chill';
+type Drums = 'shaker' | 'band' | 'chip' | 'soft' | 'none';
+type Flavour = {
+  name: string;
+  /** tempo against the region's own */
+  pace: number;
+  /** its own scale (the region's key still sets the pitch), or the region's */
+  scale?: number[];
+  lead: OscillatorType; leadGain: number; leadUp: number; leadLen: number;
+  /** a lowpass on the lead (Hz), to soften bright waves */
+  leadTone?: number;
+  bass: OscillatorType; bassGain: number; bassDrive?: boolean;
+  drums: Drums;
+  /** chord roots (scale steps) for each bar of four */
+  chords: number[];
+  pad?: OscillatorType; arp?: boolean;
+  /** echo on the lead: feedback 0..1 */
+  echo?: number;
+  /** late off-beats, for a laid-back feel (0..0.3 of an eighth) */
+  swing?: number;
+};
+export const MUSIC_STYLES: Record<MusicStyleId, Flavour> = {
+  // the first one, as it was
+  sunny: { name: 'Sunny', pace: 1, lead: 'triangle', leadGain: 0.09, leadUp: 1, leadLen: 1.6, bass: 'sine', bassGain: 0.12, drums: 'shaker', chords: [0, 0, 0, 0] },
+  adventure: { name: 'Adventure', pace: 1.2, scale: [0, 2, 4, 5, 7, 9, 10], lead: 'sawtooth', leadGain: 0.05, leadUp: 1, leadLen: 1.3, leadTone: 2200, bass: 'sawtooth', bassGain: 0.07, bassDrive: true, drums: 'band', chords: [0, 6, 3, 4], echo: 0.18 },
+  dreamy: { name: 'Dreamy', pace: 0.72, scale: [0, 2, 4, 6, 7, 9, 11], lead: 'sine', leadGain: 0.08, leadUp: 2, leadLen: 3.5, bass: 'sine', bassGain: 0.08, drums: 'none', chords: [0, 3, 5, 4], pad: 'triangle', echo: 0.45 },
+  arcade: { name: 'Arcade', pace: 1.3, lead: 'square', leadGain: 0.04, leadUp: 2, leadLen: 0.9, leadTone: 3500, bass: 'square', bassGain: 0.05, bassDrive: true, drums: 'chip', chords: [0, 3, 4, 3], arp: true },
+  chill: { name: 'Chill', pace: 0.85, scale: [0, 3, 5, 7, 10], lead: 'triangle', leadGain: 0.07, leadUp: 1, leadLen: 2.2, leadTone: 1600, bass: 'sine', bassGain: 0.11, drums: 'soft', chords: [0, 3, 2, 4], pad: 'sine', echo: 0.3, swing: 0.28 },
+};
+let musicChoice: MusicStyleId | 'mix' = 'sunny';
+
+type Playing = { key: RegionKey; f: Flavour; scale: number[]; region: RegionId | 'menu' };
 let musicTimer: ReturnType<typeof setInterval> | null = null;
-let musicStyle: MusicStyle | null = null;
+let playing: Playing | null = null;
 let step = 0;
 let nextTime = 0;
 let pattern: number[] = [];
 let energy = 0;
+let echoIn: GainNode | null = null;
+let echoLevel = 0;
 
 function newPattern() {
   // a singable 16-step phrase that mostly steps between neighbours
@@ -190,63 +224,140 @@ function newPattern() {
   pattern = p;
 }
 
-function freqFor(st: MusicStyle, deg: number) {
-  const s = st.scale;
-  const oct = Math.floor(deg / s.length);
-  return st.root * Math.pow(2, (s[deg % s.length] + 12 * oct) / 12);
+function freqOf(pl: Playing, deg: number) {
+  const s = pl.scale, n = s.length;
+  const oct = Math.floor(deg / n), k = ((deg % n) + n) % n;
+  return pl.key.root * Math.pow(2, (s[k] + 12 * oct) / 12);
 }
 
-function scheduleStep(st: MusicStyle, t: number) {
-  const c = ctx!;
-  const beat = 60 / st.bpm / 2; // eighth notes
-  const i = step % 16;
-  const deg = pattern[i];
-  const play = (f: number, dur: number, gain: number, type: OscillatorType) => {
+/** An echo for the lead, shared; its level follows the style. */
+function echoBus(c: AudioContext, level: number) {
+  if (!echoIn) {
+    echoIn = c.createGain();
+    const d = c.createDelay(1), fb = c.createGain(), f = c.createBiquadFilter(), out = c.createGain();
+    d.delayTime.value = 0.36; fb.gain.value = 0.38; f.type = 'lowpass'; f.frequency.value = 2400; out.gain.value = 0.7;
+    echoIn.connect(d); d.connect(f); f.connect(fb); fb.connect(d); f.connect(out); out.connect(musicBus!);
+  }
+  echoLevel = level;
+  return echoIn;
+}
+
+function note(c: AudioContext, t: number, freq: number, dur: number, gain: number, type: OscillatorType, o: { attack?: number; tone?: number; echo?: number } = {}) {
+  const osc = c.createOscillator(), g = c.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  const a = o.attack ?? 0.01;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(gain, t + a);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(a + 0.02, dur));
+  let src: AudioNode = osc;
+  if (o.tone) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.tone; osc.connect(f); src = f; }
+  src.connect(g); g.connect(musicBus!);
+  if (o.echo && echoIn) { const send = c.createGain(); send.gain.value = o.echo; g.connect(send); send.connect(echoIn); }
+  osc.start(t); osc.stop(t + dur + 0.05);
+}
+
+let noiseBuf: AudioBuffer | null = null;
+function hit(c: AudioContext, t: number, kind: 'kick' | 'snare' | 'hat' | 'shaker' | 'rim', gain: number) {
+  if (kind === 'kick') {
     const o = c.createOscillator(), g = c.createGain();
-    o.type = type;
-    o.frequency.value = f;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(musicBus!);
-    o.start(t); o.stop(t + dur + 0.05);
-  };
-  if (deg >= 0 && (i % 2 === 0 || energy > 0.4)) play(freqFor(st, deg), beat * 1.6, 0.09, st.wave);
-  if (i % 4 === 0) play(st.root / 2 * (i % 8 === 0 ? 1 : 1.5), beat * 3.6, 0.12, st.bassWave);
-  if (energy > 0.15 && i % 2 === 1) {
-    // soft shaker
-    const len = Math.ceil(c.sampleRate * 0.04), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
-    for (let k = 0; k < len; k++) d[k] = (Math.random() * 2 - 1) * (1 - k / len);
-    const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
-    src.buffer = buf; f.type = 'highpass'; f.frequency.value = 6000; g.gain.value = 0.05 * Math.min(1, energy);
-    src.connect(f); f.connect(g); g.connect(musicBus!); src.start(t);
+    o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.16);
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    o.connect(g); g.connect(musicBus!); o.start(t); o.stop(t + 0.32);
+    return;
+  }
+  if (!noiseBuf) {
+    const len = Math.ceil(c.sampleRate * 0.25); noiseBuf = c.createBuffer(1, len, c.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let k = 0; k < len; k++) d[k] = Math.random() * 2 - 1;
+  }
+  const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+  src.buffer = noiseBuf;
+  const [type, freq, len] = kind === 'snare' ? ['bandpass', 1900, 0.16] : kind === 'rim' ? ['bandpass', 3200, 0.05] : kind === 'shaker' ? ['highpass', 6000, 0.04] : ['highpass', 7500, 0.035];
+  f.type = type as BiquadFilterType; f.frequency.value = freq as number;
+  g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (len as number));
+  src.connect(f); f.connect(g); g.connect(musicBus!); src.start(t); src.stop(t + (len as number) + 0.02);
+}
+
+function scheduleStep(pl: Playing, t: number) {
+  const c = ctx!, F = pl.f;
+  const beat = 60 / (pl.key.bpm * F.pace) / 2; // eighth notes
+  const i = step % 16, bar = Math.floor(step / 8) % 4;
+  const at = i % 2 === 1 && F.swing ? t + F.swing * beat : t;
+  const chord = F.chords[bar];
+  const deg = pattern[i];
+  // the tune: on the beat, and on every eighth once the ride gets going
+  if (deg >= 0 && (i % 2 === 0 || energy > 0.4 || F.arp)) note(c, at, freqOf(pl, deg + chord) * F.leadUp, beat * F.leadLen, F.leadGain, F.lead, { tone: F.leadTone, echo: F.echo ? echoLevel : 0 });
+  // bass: the chord's root, held, or driving eighths
+  const root = freqOf(pl, chord) / 2;
+  if (F.bassDrive) note(c, t, (i % 4 === 2 ? root * 2 : root) / (F.bass === 'square' ? 1 : 2), beat * 0.9, F.bassGain, F.bass, { tone: 900 });
+  else if (i % 4 === 0) note(c, t, i % 8 === 0 ? root : root * 1.5, beat * 3.6, F.bassGain, F.bass);
+  // a soft chord at the top of each bar
+  if (F.pad && i % 8 === 0) for (const k of [0, 2, 4]) note(c, t, freqOf(pl, chord + k), beat * 7.5, 0.03, F.pad, { attack: beat * 2, tone: 1800 });
+  // a quick arpeggio over the chord (arcade)
+  if (F.arp && i % 2 === 1) note(c, at, freqOf(pl, chord + [0, 2, 4, 7][(i >> 1) % 4]) * 2, beat * 0.5, 0.025, 'square', { tone: 4000 });
+  // drums, livelier as the ride speeds up
+  const e = Math.min(1, energy);
+  if (F.drums === 'shaker' && e > 0.15 && i % 2 === 1) hit(c, t, 'shaker', 0.05 * e);
+  if (F.drums === 'band') {
+    if (i % 8 === 0 || i === 6 || i === 14 && bar === 3) hit(c, t, 'kick', 0.42);
+    if (i % 8 === 4) hit(c, t, 'snare', 0.13);
+    if (e > 0.1) hit(c, t, 'hat', 0.035 + 0.03 * e);
+  }
+  if (F.drums === 'chip') {
+    if (i % 4 === 0) hit(c, t, 'kick', 0.3);
+    if (i % 8 === 4) hit(c, t, 'rim', 0.12);
+    hit(c, t, 'hat', 0.03 + 0.03 * e);
+  }
+  if (F.drums === 'soft') {
+    if (i === 0 || i === 10) hit(c, t, 'kick', 0.3);
+    if (i % 8 === 4) hit(c, at, 'rim', 0.08);
+    if (i % 2 === 0 || e > 0.3) hit(c, at, 'hat', 0.02 + 0.02 * e);
   }
   step++;
   if (step % 32 === 0) newPattern();
 }
 
+/** Which music style to play ('mix': a different one for each lesson). */
+export function setMusicStyle(id: MusicStyleId | 'mix') {
+  if (id === musicChoice) return;
+  musicChoice = id;
+  // restart what's playing in the new style
+  if (playing) { const r = playing.region; stopMusic(); startMusic(r); }
+}
+
 export function startMusic(region: RegionId | 'menu') {
   const c = ac();
   if (!c) return;
-  const st = STYLES[region];
-  if (musicStyle === st && musicTimer) return;
+  const ids = Object.keys(MUSIC_STYLES) as MusicStyleId[];
+  // mix: menus stay sunny, each lesson picks a style at random
+  const id = musicChoice === 'mix' ? (region === 'menu' ? 'sunny' : ids[Math.floor(Math.random() * ids.length)]) : musicChoice;
+  const f = MUSIC_STYLES[id], key = KEYS[region];
+  if (playing && playing.region === region && playing.f === f && musicTimer) return;
   stopMusic();
-  musicStyle = st;
+  playing = { key, f, scale: f.scale ?? key.scale, region };
+  echoBus(c, f.echo ?? 0);
   step = 0;
   newPattern();
   nextTime = c.currentTime + 0.1;
   musicTimer = setInterval(() => {
-    if (!ctx || !musicStyle) return;
-    const beat = 60 / musicStyle.bpm / 2;
-    while (nextTime < ctx.currentTime + 0.25) { scheduleStep(musicStyle, nextTime); nextTime += beat; }
+    if (!ctx || !playing) return;
+    const beat = 60 / (playing.key.bpm * playing.f.pace) / 2;
+    while (nextTime < ctx.currentTime + 0.25) { scheduleStep(playing, nextTime); nextTime += beat; }
   }, 60);
 }
 
 export function stopMusic() {
   if (musicTimer) clearInterval(musicTimer);
   musicTimer = null;
-  musicStyle = null;
+  playing = null;
 }
 
 /** 0..1, how lively the music should be (follows the ride). */
 export function musicEnergy(e: number) { energy = e; }
+
+// for checking the music during development: record what plays
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  (window as unknown as { __music: object }).__music = {
+    tap() { const c = ac()!; const d = c.createMediaStreamDestination(); master!.connect(d); return d.stream; },
+    start: startMusic, style: setMusicStyle, energy: musicEnergy,
+  };
+}

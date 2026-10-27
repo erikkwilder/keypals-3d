@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { game } from './lib/state/game.svelte';
-  import { configureSound, startMusic, unlockAudio } from './lib/audio/sound';
+  import { configureSound, startMusic, unlockAudio, setMusicStyle } from './lib/audio/sound';
   import SvgDefs from './lib/ui/SvgDefs.svelte';
   import Title from './lib/screens/Title.svelte';
   import Players from './lib/screens/Players.svelte';
@@ -28,6 +28,7 @@
     root.dataset.font = s.font;
     root.dataset.motion = s.reducedMotion ? 'reduced' : 'full';
     configureSound({ sound: s.sound, music: s.music, volume: s.volume });
+    setMusicStyle(s.musicStyle ?? 'sunny');
   });
 
   // menu music on the screens around the lessons
