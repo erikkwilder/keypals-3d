@@ -1,14 +1,13 @@
-# Art, characters and writing
+# Art, characters, sound and writing
 
-The characters (Ada, Suki, Dot, Fig, Bim & Bom, Jun, Kip, Lulu and Semi), their outfits,
-the rides, the scenes, the stickers, and the written content (word lists, sentences and
-stories in `src/lib/content/`) are licensed under the
-[Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+Everything that isn't code is all rights reserved by Erik Wilder (FancyAnt Games): the buddies
+(Dino, Chee, Momo, Kiki, Bop and Tuck) and their 3D models, the outfits, rides, worlds, treasures,
+stickers and medals, the coach's voice recordings, the music and sounds, and the written content
+(lessons, word lists, sentences and stories in `src/lib/content/`).
 
-You may share and adapt them for any purpose, including commercially, as long as you give
-credit: "Characters and art from Keypals by FancyAnt Games (CC BY 4.0)".
+You can see them here and play with them in the game. You may not copy them into other projects,
+games, products or publications without written permission.
 
-The code that draws them is also under the MIT license (see `LICENSE`).
+The names "Keypals" and "FancyAnt", and the FancyAnt logo, are trademarks of FancyAnt Games.
 
-The game's name and the FancyAnt name and logo are not covered by either license. If you
-publish a fork, please give it a different name.
+The code is covered separately by `LICENSE` (PolyForm Strict 1.0.0).

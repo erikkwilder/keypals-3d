@@ -162,7 +162,7 @@
       <img src="brand/ant.png" alt="The FancyAnt ant" width="74" height="112" />
       <div>
         <h2>Made by FancyAnt Games</h2>
-        <p class="hint">Keypals is free, has no ads and is open source. We make other small, friendly games too.</p>
+        <p class="hint">Keypals is free, with no ads and no tracking, and anyone can read its code. We make other small, friendly games too.</p>
         <FancyAntButton />
       </div>
     </section>

@@ -38,3 +38,10 @@ npm test
   Chill, or Mix (Settings → Music style).
 - **Code:** `src/lib/three/` (stage, island, themes, character, rides, run scene, showcase, sticker
   snapshots). The art pipeline and source pictures live in `../keypals-3d-spike/`.
+
+## Licence
+
+Keypals is free to play and **source-available**: read the code, run it for any noncommercial purpose
+and send improvements (see [CONTRIBUTING.md](CONTRIBUTING.md)). The code is under
+[PolyForm Strict 1.0.0](LICENSE), which doesn't allow publishing changed copies or your own version;
+art, characters, voices and music are all rights reserved ([LICENSE-ART.md](LICENSE-ART.md)).

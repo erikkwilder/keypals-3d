@@ -155,7 +155,7 @@
       {/if}
       <div class="card pane about">
         <h3>About {GAME_NAME}</h3>
-        <p>Free and open source, made by {STUDIO}. No ads, no accounts, no data collected. Code under the MIT license; art and characters under CC BY 4.0.</p>
+        <p>Free, made by {STUDIO}. No ads, no tracking. The code is source-available (PolyForm Strict 1.0.0: read it, run it, help improve it); the art, characters, voices and music are all rights reserved.</p>
         <div class="row">
           <button class="btn" onclick={() => openExternal(STUDIO_URL)}>More games at fancyant.com</button>
           <button class="btn" onclick={() => openExternal(SOURCE_URL)}>Source code</button>
