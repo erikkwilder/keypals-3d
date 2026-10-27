@@ -17,6 +17,8 @@ export type Island = {
   placeFinish(s: number): void;
   /** How solid the finish gate is (1) or see-through (less), so it never hides the buddy going through it. */
   gateSolid(k: number): void;
+  /** Smooth mode for older computers: hide the grass, flowers, clouds, far islands and near-side props, and paint the cloud sea simply. */
+  setSmooth(on: boolean): void;
   update(dt: number, t: number, focus: THREE.Vector3): void;
   root: THREE.Group;
 };
@@ -177,6 +179,8 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
 
   // ---------- grass that sways ----------
   const windUniform = { value: 0 };
+  // what smooth mode hides
+  const extras: THREE.Object3D[] = [];
   {
     const blade = new THREE.BufferGeometry();
     const H = 1, Wd = 0.028;
@@ -195,7 +199,7 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
         transformed.z += cos(uWind * 1.3 + ip.z * 0.4) * 0.08 * bend;`)
         .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);');
     };
-    chunked(blade, mat, low ? 100 : 280, (o, c, x) => {
+    extras.push(chunked(blade, mat, low ? 100 : 280, (o, c, x) => {
       const dz = (rnd() < 0.5 ? -1 : 1) * (1.05 + Math.pow(rnd(), 1.6) * 11);
       const z = trailZ(x) + dz;
       if (edgeZ(x) - z > -1.0) return false;
@@ -204,7 +208,7 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
       o.scale.set(0.8 + rnd() * 0.8, 0.12 + rnd() * 0.2 + (Math.abs(dz) > 4 ? 0.08 : 0), 1);
       c.setHSL(0.2 + rnd() * 0.06, 0.6 + rnd() * 0.2, 0.5 + rnd() * 0.16);
       return true;
-    }, { colors: true });
+    }, { colors: true }));
   }
 
   // ---------- flowers: painted cut-outs on cards ----------
@@ -218,12 +222,12 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
       sh.vertexShader = 'attribute float aCell;\n' + sh.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
         vMapUv = (vMapUv + vec2(mod(aCell, ${cols}.0), floor(aCell / ${cols}.0))) / vec2(${cols}.0, ${rows}.0);`);
     };
-    chunked(card, mat, low ? 3 : 8, (o, _c, x) => {
+    extras.push(chunked(card, mat, low ? 3 : 8, (o, _c, x) => {
       const dz = -9 + rnd() * 20, z = trailZ(x) + dz;
       if (Math.abs(dz) < 1.3 || edgeZ(x) - z > -1.2) return false;
       o.position.set(x, height(x, z), z); o.rotation.set(0, rnd() * Math.PI, 0); o.scale.setScalar(0.7 + rnd() * 0.7);
       return true;
-    }, { extra: () => Math.floor(rnd() * cols * rows) });
+    }, { extra: () => Math.floor(rnd() * cols * rows) }));
   }
 
   // ---------- props ----------
@@ -288,8 +292,10 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
   instances(boulder, scatter(perLen(low ? 10 : 16), { near: -10, far: -2.2, minR: 0.9, h: [0.5, 1.4], sink: 0.2 }));
   instances(ruin, scatter(perLen(low ? 5 : 8), { near: -9, far: -3, minR: 1.6, h: [1.1, 2.2], sink: 0.1 }));
   // a few low bushes and stones on the near side, far enough from the trail to keep the runner in view
-  instances(bush, scatter(perLen(low ? 6 : 12), { near: 2.2, far: 4.5, minR: 0.6, h: [0.35, 0.6], sink: 0.05 }), { shadow: false });
-  instances(boulder, scatter(perLen(low ? 4 : 8), { near: 2.0, far: 4.5, minR: 0.5, h: [0.25, 0.5], sink: 0.08 }), { shadow: false });
+  for (const g of [
+    instances(bush, scatter(perLen(low ? 6 : 12), { near: 2.2, far: 4.5, minR: 0.6, h: [0.35, 0.6], sink: 0.05 }), { shadow: false }),
+    instances(boulder, scatter(perLen(low ? 4 : 8), { near: 2.0, far: 4.5, minR: 0.5, h: [0.25, 0.5], sink: 0.08 }), { shadow: false }),
+  ]) if (g) extras.push(g);
 
   // rocky cliffs under the island's edge
   if (cliffG) {
@@ -337,11 +343,12 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
         #include <fog_fragment>
       }`,
   });
-  const sea = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), seaMat);
+  const sea = new THREE.Mesh<THREE.PlaneGeometry, THREE.Material>(new THREE.PlaneGeometry(4000, 4000), seaMat);
   sea.rotation.x = -Math.PI / 2; sea.position.y = -24;
   root.add(sea);
   const puffTex = await loadTexture('world/cloud.webp');
   const clouds = new THREE.Group();
+  let cloudIM: THREE.InstancedMesh | null = null;
   if (puffTex) {
     const spots: number[][] = [];
     for (let i = 0; i < (low ? 60 : 130); i++) { const x = -80 + rnd() * (length + 200); spots.push([x, -24 + rnd() * 14, edgeZ(Math.max(-30, Math.min(length + 50, x))) - 12 - Math.pow(rnd(), 0.7) * 240, 12 + rnd() * 26]); }
@@ -352,6 +359,7 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
     spots.forEach(([x, y, z, sz], i) => { o.position.set(x, y, z); o.scale.set(sz * 2.2, sz, 1); o.updateMatrix(); im.setMatrixAt(i, o.matrix); });
     im.frustumCulled = false;
     clouds.add(im);
+    cloudIM = im;
   }
   root.add(clouds);
 
@@ -409,6 +417,16 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
     gate.rotation.y = Math.atan2(f.t.x, f.t.z); // the model's opening runs along its x, so this lines it up with the trail
   }
 
+  // smooth mode: the cloud sea as plain soft colour, without the per-pixel noise
+  const plainSea = new THREE.MeshBasicMaterial({ color: 0xdbe7f3, fog: true });
+  function setSmooth(on: boolean) {
+    for (const o of [...extras, floaters]) o.visible = !on;
+    // big soft cloud cards overlap a lot (costly to blend): keep only the farthest few
+    if (cloudIM) cloudIM.count = on ? Math.min(36, cloudIM.instanceMatrix.count) : cloudIM.instanceMatrix.count;
+    sea.material = on ? plainSea : seaMat;
+    sun.castShadow = !on;
+  }
+
   const snapped = new THREE.Vector3();
   function update(_dt: number, t: number, focus: THREE.Vector3) {
     windUniform.value = t;
@@ -423,5 +441,5 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
     sky.position.copy(focus);
   }
 
-  return { trail, height, placeFinish, gateSolid, update, root };
+  return { trail, height, placeFinish, gateSolid, setSmooth, update, root };
 }

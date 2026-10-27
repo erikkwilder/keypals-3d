@@ -11,12 +11,17 @@
   import FancyAntButton from '../ui/FancyAntButton.svelte';
   import { LAYOUTS } from '../engine/layouts';
   import { homeDemo } from '../engine/demos';
+  import { stage, graphicsPref, type GraphicsPref } from '../three/stage';
 
   let { overlay = false }: { overlay?: boolean } = $props();
   const p = $derived(game.profile!);
   const s = $derived(p.settings);
   let confirmDelete = $state(false);
   let showHome = $state(false);
+  // graphics belong to this computer, not the player
+  let gpref = $state<GraphicsPref>(graphicsPref());
+  let smoothNow = $state(stage.smooth);
+  function setGraphics(p: GraphicsPref) { stage.setPref(p); gpref = p; smoothNow = stage.smooth; sfx.click(); }
   let newName = $state(game.profile?.name ?? '');
 
   function set<K extends keyof Settings>(k: K, v: Settings[K]) {
@@ -124,6 +129,14 @@
         </div>
         <div class="row">Home row lesson <button class="btn" onclick={() => (showHome = true)}>Watch again</button></div>
         <label class="row">Less motion <input type="checkbox" checked={s.reducedMotion} onchange={(e) => set('reducedMotion', e.currentTarget.checked)} /></label>
+        <div class="row">Graphics
+          <div class="seg">
+            <button class:on={gpref === 'auto'} onclick={() => setGraphics('auto')}>Auto</button>
+            <button class:on={gpref === 'full'} onclick={() => setGraphics('full')}>Full</button>
+            <button class:on={gpref === 'smooth'} onclick={() => setGraphics('smooth')}>Smooth</button>
+          </div>
+        </div>
+        <p class="hint">Smooth mode keeps the game running well on older computers: fewer details and a steadier picture. Auto switches to it by itself when this computer needs it.{#if gpref === 'auto'} (Now: {smoothNow ? 'smooth' : 'full'}.){/if}</p>
       </div>
     </section>
 

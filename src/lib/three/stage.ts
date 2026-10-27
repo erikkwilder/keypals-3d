@@ -3,7 +3,7 @@
 // no controller it stops drawing. The island is built once and shared.
 import * as THREE from 'three';
 import { buildIsland, type Island } from './island';
-import { Character } from './character';
+import { Character, charLook } from './character';
 import type { FriendId } from '../art/cast';
 
 export interface Controller {
@@ -16,12 +16,37 @@ export interface Controller {
   dispose(): void;
 }
 
+export type GraphicsPref = 'auto' | 'full' | 'smooth';
+const PREF_KEY = 'keypals-graphics';
+/** The graphics choice belongs to the computer, not the player, so it's kept apart from the profiles. */
+export function graphicsPref(): GraphicsPref {
+  try { const v = localStorage.getItem(PREF_KEY); return v === 'full' || v === 'smooth' ? v : 'auto'; } catch { return 'auto'; }
+}
+
+/**
+ * Older computers (Intel graphics built into the processor, software drawing) can't keep up with the
+ * full world: start them in smooth mode straight away. Safari hides the chip's name; the frame-rate
+ * watch catches those.
+ */
+function weakGpu(r: THREE.WebGLRenderer) {
+  try {
+    const gl = r.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    if (/SwiftShader|llvmpipe|Software|Microsoft Basic/i.test(name)) return true;
+    return /Intel/i.test(name) && !/Iris\(R\)? Xe|Arc/i.test(name);
+  } catch { return false; }
+}
+
 class Stage {
   canvas: HTMLCanvasElement | null = null;
   renderer: THREE.WebGLRenderer | null = null;
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(42, 1, 0.1, 2000);
   low = false;
+  /** smooth mode: fewer pixels and frames, no real shadows, simpler lighting, the extras hidden */
+  smooth = false;
+  /** told when auto-detect switches to smooth mode by itself (to let the player know) */
+  onAutoSmooth: (() => void) | null = null;
   private islandP: Promise<Island> | null = null;
   island: Island | null = null;
   private ctrl: Controller | null = null;
@@ -55,7 +80,64 @@ class Stage {
     this.scene.fog = new THREE.Fog(0xd6e9f5, 70, 600);
     this.resize();
     addEventListener('resize', () => this.resize());
+    const pref = graphicsPref();
+    if (pref === 'smooth' || (pref === 'auto' && weakGpu(r))) this.setSmooth(true);
     this.resolveMount();
+  }
+
+  /** Switch smooth mode on or off, live: nothing is rebuilt, things are hidden, swapped or turned down. */
+  setSmooth(on: boolean) {
+    const r = this.renderer;
+    if (!r || on === this.smooth) return;
+    this.smooth = on;
+    this.ratio = on ? Math.min(devicePixelRatio, 1) * 0.75 : this.maxRatio;
+    r.setPixelRatio(this.ratio);
+    r.shadowMap.enabled = !on;
+    charLook.blob = on;
+    this.camera.far = on ? 700 : 2000;
+    this.camera.updateProjectionMatrix();
+    this.island?.setSmooth(on);
+    this.swapMaterials();
+    this.scene.traverse(o => { const m = (o as THREE.Mesh).material; if (m) for (const mm of [m].flat()) mm.needsUpdate = true; });
+    this.resize();
+  }
+  /** Change the computer's graphics choice (Settings). */
+  setPref(p: GraphicsPref) {
+    try { localStorage.setItem(PREF_KEY, p); } catch { /* the choice lasts until the page closes */ }
+    if (p === 'full') this.setSmooth(false);
+    else if (p === 'smooth') this.setSmooth(true);
+    else if (this.renderer) this.setSmooth(weakGpu(this.renderer));
+  }
+
+  private lambert = new WeakMap<THREE.Material, THREE.Material>();
+  /**
+   * Smooth mode lights everything the cheap way (Lambert instead of the physically based standard
+   * material): far less work for every pixel. Run again as new things (rides, outfits) appear.
+   */
+  private swapMaterials() {
+    this.scene.traverse(o => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const ud = mesh.userData as { fullMat?: THREE.Material | THREE.Material[] };
+      if (!this.smooth) { if (ud.fullMat) { mesh.material = ud.fullMat; delete ud.fullMat; } return; }
+      if (ud.fullMat) return;
+      const mats = [mesh.material].flat();
+      if (!mats.some(m => (m as THREE.MeshStandardMaterial).isMeshStandardMaterial)) return;
+      const swap = (m: THREE.Material) => {
+        const s = m as THREE.MeshStandardMaterial;
+        if (!s.isMeshStandardMaterial) return m;
+        let l = this.lambert.get(m);
+        if (!l) {
+          const nl = new THREE.MeshLambertMaterial({ map: s.map, color: s.color, emissive: s.emissive, emissiveMap: s.emissiveMap, transparent: s.transparent, opacity: s.opacity, alphaTest: s.alphaTest, side: s.side, vertexColors: s.vertexColors, depthWrite: s.depthWrite });
+          nl.onBeforeCompile = s.onBeforeCompile;
+          nl.customProgramCacheKey = s.customProgramCacheKey;
+          this.lambert.set(m, (l = nl));
+        }
+        return l;
+      };
+      ud.fullMat = mesh.material;
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(swap) : swap(mesh.material);
+    });
   }
 
   resize() {
@@ -72,6 +154,7 @@ class Stage {
       this.islandP = this.mounted.then(() => buildIsland(this.renderer!, { low: this.low, length: 420 })).then(isl => {
         this.scene.add(isl.root);
         this.island = isl;
+        if (this.smooth) { isl.setSmooth(true); this.swapMaterials(); }
         return isl;
       });
       this.islandP.catch(() => { this.islandP = null; });
@@ -85,6 +168,8 @@ class Stage {
   use(ctrl: Controller | null) {
     if (this.ctrl && this.ctrl !== ctrl) this.ctrl.dispose();
     this.ctrl = ctrl;
+    this.watchFrom = performance.now() + 2500; // give a new scene a moment to load before judging its speed
+    this.lateness = 1;
     if (this.canvas) this.canvas.style.visibility = ctrl ? 'visible' : 'hidden';
     // the paper grain over the page isn't needed over the 3D world (and blending it costs every frame)
     document.documentElement.classList.toggle('stage-on', !!ctrl);
@@ -99,19 +184,33 @@ class Stage {
   private lastDraw = 0;
   private slow = 0;
   private fpsN = 0; private fpsT = 0;
+  private watchFrom = 0;
+  /** how far behind the wanted frame rate drawing runs, smoothed (1 = on time) */
+  private lateness = 0;
+  private swapAt = 0;
   private frame = () => {
     this.raf = 0;
     if (!this.ctrl || !this.renderer) return;
-    // draw at most `fps` times a second, however fast the screen refreshes (120 Hz laptops would draw twice as often)
-    const now = performance.now(), want = this.ctrl.fps ?? 60, gap = 1000 / want;
+    // draw at most `fps` times a second, however fast the screen refreshes (120 Hz laptops would draw
+    // twice as often); smooth mode settles for 30
+    const now = performance.now(), want = Math.min(this.ctrl.fps ?? 60, this.smooth ? 30 : 60), gap = 1000 / want;
     if (now - this.lastDraw < gap - 2) { this.raf = requestAnimationFrame(this.frame); return; }
     const late = this.lastDraw ? now - this.lastDraw : gap;
     this.lastDraw = now;
-    // if frames keep arriving late, the GPU is struggling: draw fewer pixels
-    if (want >= 60) {
-      this.slow = late > gap * 1.35 ? this.slow + 1 : Math.max(0, this.slow - 2);
-      if (this.slow > 45 && this.ratio > 1) { this.ratio = Math.max(1, this.ratio - 0.25); this.renderer.setPixelRatio(this.ratio); this.resize(); this.slow = 0; }
+    // if frames keep arriving late, the computer is struggling: first draw fewer pixels, then (on
+    // auto) switch to smooth mode, and in smooth mode draw fewer pixels still
+    if (now > this.watchFrom && document.visibilityState === 'visible') {
+      this.lateness += (Math.min(4, late / gap) - this.lateness) * 0.03;
+      this.slow = this.lateness > 1.3 ? this.slow + 1 : Math.max(0, this.slow - 2);
+      if (this.slow > want * 2) {
+        this.slow = 0; this.lateness = 1;
+        if (!this.smooth && this.ratio > 1) { this.ratio = Math.max(1, this.ratio - 0.25); this.renderer.setPixelRatio(this.ratio); this.resize(); }
+        else if (!this.smooth && graphicsPref() === 'auto') { this.setSmooth(true); this.onAutoSmooth?.(); }
+        else if (this.smooth && this.ratio > 0.5) { this.ratio = Math.max(0.5, this.ratio - 0.1); this.renderer.setPixelRatio(this.ratio); this.resize(); }
+      }
     }
+    // new things (a ride, an outfit) get the cheap lighting too
+    if (this.smooth && now > this.swapAt) { this.swapAt = now + 1000; this.swapMaterials(); }
     this.timer.update();
     const dt = Math.min(0.05, this.timer.getDelta());
     this.t += dt;

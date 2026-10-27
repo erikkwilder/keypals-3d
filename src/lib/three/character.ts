@@ -49,6 +49,22 @@ function liftColours(m: THREE.SkinnedMesh, vivid = 1.28, bright = 1.06) {
   }
 }
 
+/** Shared looks: smooth mode (older computers) has no real shadows, so each buddy gets a soft blob under its feet. */
+export const charLook = { blob: false };
+let blobParts: { geo: THREE.CircleGeometry; mat: THREE.MeshBasicMaterial } | null = null;
+function blobMesh() {
+  if (!blobParts) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+    const g = cv.getContext('2d')!, grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(30,40,20,0.5)'); grad.addColorStop(1, 'rgba(30,40,20,0)');
+    g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+    blobParts = { geo: new THREE.CircleGeometry(1, 24), mat: new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }) };
+  }
+  const m = new THREE.Mesh(blobParts.geo, blobParts.mat);
+  m.rotation.x = -Math.PI / 2; m.position.y = 0.03; m.visible = false;
+  return m;
+}
+
 type Foot = { foot: THREE.Bone; toe: THREE.Bone | null; bindQ: THREE.Quaternion; toeBindLocal: THREE.Quaternion | null; bindY: number };
 
 export class Character {
@@ -69,6 +85,7 @@ export class Character {
   /** every bone's turn in the bind pose (standing straight), for sitting up straight on rides */
   private bindQ = new Map<THREE.Bone, THREE.Quaternion>();
   private outfit: THREE.Object3D | null = null;
+  private blob: THREE.Mesh;
   outfitId = 'none';
 
   private constructor(id: FriendId, model: THREE.Object3D, clips: THREE.AnimationClip[]) {
@@ -88,6 +105,9 @@ export class Character {
       if (s.isSkinnedMesh) { s.skeleton.update(); s.computeBoundingBox(); box.union(s.boundingBox!.clone().applyMatrix4(s.matrixWorld)); }
     });
     this.scale = FRIEND[id].height / box.getSize(new THREE.Vector3()).y;
+    this.blob = blobMesh();
+    this.blob.scale.setScalar(FRIEND[id].height * 0.32);
+    this.root.add(this.blob);
     model.scale.setScalar(this.scale);
     model.position.y = -box.min.y * this.scale;
     model.updateMatrixWorld(true);
@@ -194,6 +214,8 @@ export class Character {
   /** Advance the moves, then lay planted feet flat (turned only about the up axis, as in the bind pose). */
   update(dt: number) {
     this.mixer.update(dt);
+    // the blob only on the ground (seated on a ride, the ride is underneath)
+    this.blob.visible = charLook.blob && this.groundFeet;
     if (!this.groundFeet || !this.feet.length) return;
     this.root.updateMatrixWorld(true);
     this.root.getWorldQuaternion(this.rootQ);

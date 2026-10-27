@@ -39,6 +39,7 @@
   let canvas: HTMLCanvasElement | undefined = $state();
   onMount(() => {
     if (canvas) stage.mount(canvas, game.settings.graphics === 'low');
+    stage.onAutoSmooth = () => game.say('Switched to smooth mode so the game runs better on this computer. You can change it in Settings.', 6000);
     devBoot();
     const unlock = () => unlockAudio();
     window.addEventListener('pointerdown', unlock, { once: true });
