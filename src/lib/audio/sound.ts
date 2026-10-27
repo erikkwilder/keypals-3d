@@ -171,8 +171,8 @@ const KEYS: Record<RegionId | 'menu', RegionKey> = {
   road: { root: 261.63, scale: [0, 2, 4, 5, 7, 9], bpm: 108 },
 };
 
-export type MusicStyleId = 'sunny' | 'adventure' | 'dreamy' | 'arcade' | 'chill';
-type Drums = 'shaker' | 'band' | 'chip' | 'soft' | 'none';
+export type MusicStyleId = 'sunny' | 'adventure' | 'dreamy' | 'arcade' | 'chill' | 'rock' | 'surf' | 'funk' | 'synthwave' | 'lofi' | 'epic';
+type Drums = 'shaker' | 'band' | 'chip' | 'soft' | 'none' | 'rock' | 'surf' | 'funk' | 'gated' | 'boombap' | 'taiko';
 type Flavour = {
   name: string;
   /** tempo against the region's own */
@@ -191,6 +191,14 @@ type Flavour = {
   echo?: number;
   /** late off-beats, for a laid-back feel (0..0.3 of an eighth) */
   swing?: number;
+  /** a guitar part made from plucked strings: distorted power-chord chugs, surf picking, funk chops */
+  guitar?: 'chug' | 'surf' | 'funk';
+  /** the tune on a guitar instead of a plain wave: distorted or clean and twangy */
+  leadGuitar?: 'dist' | 'clean';
+  /** vinyl crackle under it all (lo-fi) */
+  crackle?: boolean;
+  /** strings and brass swells on each chord (epic) */
+  strings?: boolean;
 };
 export const MUSIC_STYLES: Record<MusicStyleId, Flavour> = {
   // the first one, as it was
@@ -199,6 +207,13 @@ export const MUSIC_STYLES: Record<MusicStyleId, Flavour> = {
   dreamy: { name: 'Dreamy', pace: 0.72, scale: [0, 2, 4, 6, 7, 9, 11], lead: 'sine', leadGain: 0.08, leadUp: 2, leadLen: 3.5, bass: 'sine', bassGain: 0.08, drums: 'none', chords: [0, 3, 5, 4], pad: 'triangle', echo: 0.45 },
   arcade: { name: 'Arcade', pace: 1.3, lead: 'square', leadGain: 0.04, leadUp: 2, leadLen: 0.9, leadTone: 3500, bass: 'square', bassGain: 0.05, bassDrive: true, drums: 'chip', chords: [0, 3, 4, 3], arp: true },
   chill: { name: 'Chill', pace: 0.85, scale: [0, 3, 5, 7, 10], lead: 'triangle', leadGain: 0.07, leadUp: 1, leadLen: 2.2, leadTone: 1600, bass: 'sine', bassGain: 0.11, drums: 'soft', chords: [0, 3, 2, 4], pad: 'sine', echo: 0.3, swing: 0.28 },
+  // the grown-up ones: guitars, big drums
+  rock: { name: 'Rock', pace: 1.35, scale: [0, 2, 3, 5, 7, 8, 10], lead: 'sawtooth', leadGain: 0.05, leadUp: 1, leadLen: 1.4, bass: 'sawtooth', bassGain: 0.07, bassDrive: true, drums: 'rock', chords: [0, 5, 2, 6], guitar: 'chug', leadGuitar: 'dist', echo: 0.12 },
+  surf: { name: 'Surf', pace: 1.4, scale: [0, 2, 4, 5, 7, 9, 10], lead: 'triangle', leadGain: 0.06, leadUp: 1, leadLen: 1, bass: 'triangle', bassGain: 0.1, bassDrive: true, drums: 'surf', chords: [0, 3, 4, 3], guitar: 'surf', leadGuitar: 'clean', echo: 0.35 },
+  funk: { name: 'Funk', pace: 1.05, scale: [0, 3, 5, 7, 10], lead: 'square', leadGain: 0.035, leadUp: 2, leadLen: 0.7, leadTone: 1800, bass: 'sawtooth', bassGain: 0.09, bassDrive: true, drums: 'funk', chords: [0, 0, 3, 4], guitar: 'funk', swing: 0.18 },
+  synthwave: { name: 'Synthwave', pace: 1.15, scale: [0, 2, 3, 5, 7, 8, 10], lead: 'sawtooth', leadGain: 0.045, leadUp: 2, leadLen: 2, leadTone: 2600, bass: 'sawtooth', bassGain: 0.07, bassDrive: true, drums: 'gated', chords: [0, 5, 2, 6], pad: 'sawtooth', arp: true, echo: 0.4 },
+  lofi: { name: 'Lo-fi', pace: 0.78, scale: [0, 2, 3, 5, 7, 9, 10], lead: 'sine', leadGain: 0.07, leadUp: 1, leadLen: 2.4, leadTone: 1400, bass: 'sine', bassGain: 0.12, drums: 'boombap', chords: [1, 4, 0, 5], pad: 'triangle', echo: 0.25, swing: 0.3, crackle: true },
+  epic: { name: 'Epic', pace: 0.95, scale: [0, 2, 3, 5, 7, 8, 10], lead: 'sawtooth', leadGain: 0.04, leadUp: 1, leadLen: 2.6, leadTone: 2000, bass: 'sawtooth', bassGain: 0.06, drums: 'taiko', chords: [0, 5, 2, 6], strings: true, echo: 0.3 },
 };
 let musicChoice: MusicStyleId | 'mix' = 'sunny';
 
@@ -257,7 +272,16 @@ function note(c: AudioContext, t: number, freq: number, dur: number, gain: numbe
 }
 
 let noiseBuf: AudioBuffer | null = null;
-function hit(c: AudioContext, t: number, kind: 'kick' | 'snare' | 'hat' | 'shaker' | 'rim', gain: number) {
+function hit(c: AudioContext, t: number, kind: 'kick' | 'snare' | 'hat' | 'shaker' | 'rim' | 'crash' | 'tom' | 'boom' | 'gated', gain: number, pitch = 1) {
+  if (kind === 'tom' || kind === 'boom') {
+    // toms, and the big taiko boom
+    const o = c.createOscillator(), g = c.createGain(), base = (kind === 'boom' ? 70 : 150) * pitch;
+    o.frequency.setValueAtTime(base, t); o.frequency.exponentialRampToValueAtTime(base * 0.55, t + (kind === 'boom' ? 0.5 : 0.25));
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'boom' ? 0.9 : 0.35));
+    o.connect(g); g.connect(musicBus!); o.start(t); o.stop(t + 1);
+    if (kind === 'boom') hit(c, t, 'snare', gain * 0.25);
+    return;
+  }
   if (kind === 'kick') {
     const o = c.createOscillator(), g = c.createGain();
     o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.16);
@@ -270,11 +294,76 @@ function hit(c: AudioContext, t: number, kind: 'kick' | 'snare' | 'hat' | 'shake
     const d = noiseBuf.getChannelData(0); for (let k = 0; k < len; k++) d[k] = Math.random() * 2 - 1;
   }
   const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
-  src.buffer = noiseBuf;
-  const [type, freq, len] = kind === 'snare' ? ['bandpass', 1900, 0.16] : kind === 'rim' ? ['bandpass', 3200, 0.05] : kind === 'shaker' ? ['highpass', 6000, 0.04] : ['highpass', 7500, 0.035];
+  src.buffer = noiseBuf; src.loop = kind === 'crash' || kind === 'gated';
+  const [type, freq, len] = kind === 'snare' ? ['bandpass', 1900, 0.16] : kind === 'gated' ? ['bandpass', 1500, 0.32] : kind === 'crash' ? ['highpass', 5000, 1.3] : kind === 'rim' ? ['bandpass', 3200, 0.05] : kind === 'shaker' ? ['highpass', 6000, 0.04] : ['highpass', 7500, 0.035];
   f.type = type as BiquadFilterType; f.frequency.value = freq as number;
-  g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (len as number));
+  g.gain.setValueAtTime(gain, t);
+  if (kind === 'gated') { g.gain.setValueAtTime(gain * 0.7, t + 0.22); g.gain.linearRampToValueAtTime(0.0001, t + (len as number)); }
+  else g.gain.exponentialRampToValueAtTime(0.0001, t + (len as number));
   src.connect(f); f.connect(g); g.connect(musicBus!); src.start(t); src.stop(t + (len as number) + 0.02);
+}
+
+
+// ---------- guitars: plucked strings (Karplus-Strong), worked out once per note and kept ----------
+const pluckCache = new Map<number, AudioBuffer>();
+function pluckBuf(c: AudioContext, freq: number) {
+  const key = Math.round(freq * 2);
+  let b = pluckCache.get(key);
+  if (b) return b;
+  const sr = c.sampleRate, len = Math.ceil(sr * 2.2), N = Math.max(2, Math.round(sr / freq));
+  b = c.createBuffer(1, len, sr);
+  const y = b.getChannelData(0);
+  // a burst of noise, softened a little, then each pass round the string averages and fades it
+  let prev = 0;
+  for (let i = 0; i < N; i++) { const r = Math.random() * 2 - 1; prev = prev * 0.35 + r * 0.65; y[i] = prev; }
+  const decay = 0.996 - Math.min(0.006, freq / 400000);
+  for (let i = N; i < len; i++) y[i] = decay * 0.5 * (y[i - N] + y[i - N + 1 < i ? i - N + 1 : i - N]);
+  pluckCache.set(key, b);
+  return b;
+}
+/** A distorted amp for rock guitar (and a clean, bright one for surf), shared. */
+let ampDist: GainNode | null = null, ampClean: GainNode | null = null;
+function amp(c: AudioContext, kind: 'dist' | 'clean') {
+  if (kind === 'dist' && !ampDist) {
+    ampDist = c.createGain(); ampDist.gain.value = 4;
+    const ws = c.createWaveShaper(), k = 40, n = 1024, curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x)); }
+    ws.curve = curve; ws.oversample = '2x';
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 90;
+    const cab = c.createBiquadFilter(); cab.type = 'lowpass'; cab.frequency.value = 3400; cab.Q.value = 0.9;
+    const mid = c.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 900; mid.gain.value = 3;
+    const out = c.createGain(); out.gain.value = 0.065;
+    ampDist.connect(ws); ws.connect(hp); hp.connect(mid); mid.connect(cab); cab.connect(out); out.connect(musicBus!);
+  }
+  if (kind === 'clean' && !ampClean) {
+    ampClean = c.createGain(); ampClean.gain.value = 1;
+    const bright = c.createBiquadFilter(); bright.type = 'peaking'; bright.frequency.value = 2400; bright.gain.value = 5;
+    const out = c.createGain(); out.gain.value = 0.33;
+    ampClean.connect(bright); bright.connect(out); out.connect(musicBus!);
+    if (echoIn) { const send = c.createGain(); send.gain.value = 0.5; out.connect(send); send.connect(echoIn); }
+  }
+  return kind === 'dist' ? ampDist! : ampClean!;
+}
+function pluck(c: AudioContext, t: number, freq: number, dur: number, gain: number, kind: 'dist' | 'clean', mute = false) {
+  const src = c.createBufferSource(), g = c.createGain();
+  src.buffer = pluckBuf(c, freq);
+  g.gain.setValueAtTime(gain, t);
+  g.gain.setTargetAtTime(0.0001, t + (mute ? 0.02 : dur), mute ? 0.035 : 0.12);
+  let node: AudioNode = src;
+  if (mute) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1200; src.connect(f); node = f; }
+  node.connect(g); g.connect(amp(c, kind));
+  src.start(t); src.stop(t + (mute ? 0.3 : dur + 0.8));
+}
+let crackleSrc: AudioBufferSourceNode | null = null;
+function crackle(c: AudioContext, on: boolean) {
+  if (crackleSrc) { try { crackleSrc.stop(); } catch { /* already stopped */ } crackleSrc = null; }
+  if (!on) return;
+  const len = c.sampleRate * 3, b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() < 0.0009 ? (Math.random() * 2 - 1) * 0.9 : 0) + (Math.random() * 2 - 1) * 0.012;
+  const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+  src.buffer = b; src.loop = true; f.type = 'bandpass'; f.frequency.value = 2500; f.Q.value = 0.5; g.gain.value = 0.25;
+  src.connect(f); f.connect(g); g.connect(musicBus!); src.start();
+  crackleSrc = src;
 }
 
 function scheduleStep(pl: Playing, t: number) {
@@ -285,7 +374,33 @@ function scheduleStep(pl: Playing, t: number) {
   const chord = F.chords[bar];
   const deg = pattern[i];
   // the tune: on the beat, and on every eighth once the ride gets going
-  if (deg >= 0 && (i % 2 === 0 || energy > 0.4 || F.arp)) note(c, at, freqOf(pl, deg + chord) * F.leadUp, beat * F.leadLen, F.leadGain, F.lead, { tone: F.leadTone, echo: F.echo ? echoLevel : 0 });
+  if (deg >= 0 && (i % 2 === 0 || energy > 0.4 || F.arp)) {
+    const lf = freqOf(pl, deg + chord) * F.leadUp;
+    // a guitar lead plays fewer notes until the ride gets going, and holds them
+    if (F.leadGuitar) { if (i % 2 === 0 && (energy > 0.25 || i % 4 === 0)) pluck(c, at, lf, beat * F.leadLen, F.leadGuitar === 'dist' ? 0.32 : 0.5, F.leadGuitar); }
+    else note(c, at, lf, beat * F.leadLen, F.leadGain, F.lead, { tone: F.leadTone, echo: F.echo ? echoLevel : 0 });
+  }
+  const groot = freqOf(pl, chord), low = groot / (groot > 160 ? 2 : 1), low2 = low / (low > 110 ? 2 : 1);
+  if (F.guitar === 'chug') {
+    // power chords: root and fifth, an open hit on the bar, palm-muted eighths in between
+    const open = i % 8 === 0 || (i === 14 && bar === 3);
+    pluck(c, t, low2, open ? beat * 3 : beat, open ? 0.5 : 0.42, 'dist', !open);
+    pluck(c, t, low2 * 1.4983, open ? beat * 3 : beat, open ? 0.38 : 0.3, 'dist', !open);
+    if (open) pluck(c, t, low2 * 2, beat * 3, 0.25, 'dist');
+  }
+  if (F.guitar === 'surf') {
+    // fast tremolo picking on the chord's root, twangy and wet
+    if (i % 4 !== 3 || energy > 0.3) pluck(c, t, low * 2, beat * 0.9, 0.3, 'clean');
+    if (i % 8 === 0) pluck(c, t, low * 3, beat * 2, 0.22, 'clean');
+  }
+  if (F.guitar === 'funk') {
+    // short muted chops on the off-beats, a full chord on the "and" of two
+    if (i % 2 === 1 || i % 8 === 6) { for (const k of [0, 2, 4]) pluck(c, at, freqOf(pl, chord + k), beat * 0.4, 0.3, 'clean', i % 8 !== 6); }
+  }
+  if (F.strings && i % 8 === 0) {
+    for (const k of [0, 2, 4, 7]) note(c, t, freqOf(pl, chord + k) / 2, beat * 7.8, 0.022, 'sawtooth', { attack: beat * 2.5, tone: 1500 });
+    if (bar % 2 === 0) for (const k of [0, 4]) note(c, t + beat * 4, freqOf(pl, chord + k), beat * 1.6, 0.03, 'sawtooth', { attack: 0.03, tone: 2400 });
+  }
   // bass: the chord's root, held, or driving eighths
   const root = freqOf(pl, chord) / 2;
   if (F.bassDrive) note(c, t, (i % 4 === 2 ? root * 2 : root) / (F.bass === 'square' ? 1 : 2), beat * 0.9, F.bassGain, F.bass, { tone: 900 });
@@ -306,6 +421,41 @@ function scheduleStep(pl: Playing, t: number) {
     if (i % 4 === 0) hit(c, t, 'kick', 0.3);
     if (i % 8 === 4) hit(c, t, 'rim', 0.12);
     hit(c, t, 'hat', 0.03 + 0.03 * e);
+  }
+  if (F.drums === 'rock') {
+    if (i % 8 === 0 || i % 8 === 3 || i % 8 === 5) hit(c, t, 'kick', 0.48);
+    if (i % 8 === 4 || (i % 8 === 6 && bar === 3 && i > 8)) hit(c, t, 'snare', 0.17);
+    hit(c, t, 'hat', 0.04 + 0.03 * e);
+    if (i === 0 && bar === 0) hit(c, t, 'crash', 0.06);
+    if (bar === 3 && i >= 12) hit(c, t, 'tom', 0.25, 1.4 - (i - 12) * 0.15);
+  }
+  if (F.drums === 'surf') {
+    if (i % 4 === 0) hit(c, t, 'kick', 0.35);
+    if (i % 8 === 4) hit(c, t, 'snare', 0.14);
+    if (i % 2 === 0) hit(c, t, 'tom', 0.12, 1.2);
+    hit(c, t, 'hat', 0.03 + 0.02 * e);
+  }
+  if (F.drums === 'funk') {
+    if (i === 0 || i === 3 || i === 10) hit(c, t, 'kick', 0.42);
+    if (i % 8 === 4) hit(c, t, 'snare', 0.15);
+    if (i % 8 === 7) hit(c, at, 'snare', 0.04);
+    hit(c, at, 'hat', i % 2 ? 0.025 : 0.045);
+  }
+  if (F.drums === 'gated') {
+    if (i % 8 === 0 || i === 10) hit(c, t, 'kick', 0.45);
+    if (i % 8 === 4) hit(c, t, 'gated', 0.14);
+    if (e > 0.1) hit(c, t, 'hat', 0.03 + 0.02 * e);
+  }
+  if (F.drums === 'boombap') {
+    if (i === 0 || i === 5 || i === 10) hit(c, t, 'kick', 0.4);
+    if (i % 8 === 4) hit(c, at, 'snare', 0.12);
+    if (i % 2 === 0 || e > 0.3) hit(c, at, 'hat', 0.02 + 0.015 * e);
+  }
+  if (F.drums === 'taiko') {
+    if (i % 8 === 0) hit(c, t, 'boom', 0.5);
+    if (i % 8 === 6 || (bar === 3 && i % 2 === 0 && i > 8)) hit(c, t, 'boom', 0.3, 1.3);
+    if (e > 0.3 && i % 4 === 2) hit(c, t, 'tom', 0.15, 1.6);
+    if (i === 0 && bar === 0) hit(c, t, 'crash', 0.05);
   }
   if (F.drums === 'soft') {
     if (i === 0 || i === 10) hit(c, t, 'kick', 0.3);
@@ -335,6 +485,7 @@ export function startMusic(region: RegionId | 'menu') {
   stopMusic();
   playing = { key, f, scale: f.scale ?? key.scale, region };
   echoBus(c, f.echo ?? 0);
+  crackle(c, !!f.crackle);
   step = 0;
   newPattern();
   nextTime = c.currentTime + 0.1;
@@ -347,6 +498,7 @@ export function startMusic(region: RegionId | 'menu') {
 
 export function stopMusic() {
   if (musicTimer) clearInterval(musicTimer);
+  if (ctx) crackle(ctx, false);
   musicTimer = null;
   playing = null;
 }
