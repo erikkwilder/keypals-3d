@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SaveCodeForm from '../ui/SaveCodeForm.svelte';
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { BUDDIES, type FriendId } from '../art/cast';
@@ -71,6 +72,7 @@
       <p class="muted">Type it in. That's your very first typing!</p>
       <input class="name" bind:this={nameInput} bind:value={name} maxlength="16" onkeydown={onNameKey} placeholder="Your name" autocomplete="off" spellcheck="false" />
       <button class="btn btn-primary btn-big" disabled={!name.trim()} onclick={next}>Next</button>
+      <SaveCodeForm />
     </div>
   {:else if step === 2}
     <div class="step">

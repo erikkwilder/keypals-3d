@@ -132,14 +132,21 @@ class Game {
     const p = this.profile;
     if (!p) return;
     fn(p);
+    p.updatedAt = Date.now();
     this.persist();
+    this.onProfileChange?.();
   }
 
   replaceProfile(p: Profile) {
     const i = this.save.profiles.findIndex(x => x.id === p.id);
+    p.updatedAt = Date.now();
     if (i >= 0) this.save.profiles[i] = p;
     this.persist();
+    this.onProfileChange?.();
   }
+
+  /** told after a player changes (online saving sends the new copy) */
+  onProfileChange: (() => void) | null = null;
 
   /** replaying a lesson skips its intro card and starts right away */
   quickStart = false;

@@ -6,10 +6,19 @@
   import { mastery } from '../engine/mastery';
   import { LAYOUTS } from '../engine/layouts';
   import { RIDES } from '../engine/rides';
-  import { GAME_NAME, SOURCE_URL, STUDIO, STUDIO_URL } from '../config';
+  import { GAME_NAME, SOURCE_PUBLIC, SOURCE_URL, STUDIO, STUDIO_URL } from '../config';
   import { openExternal, saveTextFile } from '../state/platform';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
+  import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, openCode } from '../state/cloud.svelte';
+
+  let saveMsg = $state<string | null>(null);
+  async function act(fn: () => Promise<unknown>, done?: string) {
+    saveMsg = null; cloud.busy = true;
+    try { await fn(); if (done) saveMsg = done; } catch (e) { saveMsg = (e as Error).message; } finally { cloud.busy = false; }
+  }
+  const here = $derived(new Set(game.save.profiles.map(x => x.cloud?.code).filter(Boolean)));
+  let confirmDelete = $state(false);
 
   let unlocked = $state(false);
   let holding = $state(0);
@@ -144,8 +153,47 @@
           <button class="btn btn-primary" onclick={saveWords}>Save word list</button>
         </div>
         <div class="card pane">
-          <h3>Progress file</h3>
-          <p class="muted small">Everything stays on this device: no accounts, no tracking. Save a copy, or move progress to another computer.</p>
+          <h3>Saving</h3>
+          {#if !cloud.online}
+            <p class="muted small">Progress is kept on this computer. Saving online works on fancyant.com/keypals.</p>
+          {:else if p}
+            {#if p.cloud}
+              <p class="small"><b>{p.name}'s save code:</b> <span class="code">{p.cloud.code.toLowerCase().replaceAll('-', ' ')}</span></p>
+              <p class="muted small">Type it on any computer (the "save code" button on the player screen) to bring {p.name}'s progress over. It keeps saving as {p.name} plays.</p>
+              <div class="row"><button class="btn" disabled={cloud.busy} onclick={() => act(() => forgetCode(p.id), 'Stopped saving online. Progress stays on this computer.')}>Stop saving {p.name} online</button></div>
+            {:else}
+              <p class="muted small">Get a save code to play as {p.name} on another computer too. It holds only the nickname and game progress.</p>
+              <div class="row"><button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(() => makeCode(p.id))}>Make a save code for {p.name}</button></div>
+            {/if}
+          {/if}
+          {#if cloud.online && (cloud.google || cloud.microsoft || cloud.account)}
+            <h4>Parents and teachers</h4>
+            {#if cloud.account}
+              <p class="small">Signed in as <b>{cloud.account.name ?? cloud.account.email}</b>{#if cloud.account.email && cloud.account.name} ({cloud.account.email}){/if}. Players on this computer are kept in your account.</p>
+              {#if cloud.players.some(cp => !here.has(cp.code))}
+                <p class="muted small">In your account, not on this computer yet:</p>
+                <div class="row">{#each cloud.players.filter(cp => !here.has(cp.code)) as cp (cp.code)}<button class="btn" disabled={cloud.busy} onclick={() => act(() => openCode(cp.code), `${cp.name} is on this computer now.`)}>Add {cp.name}</button>{/each}</div>
+              {/if}
+              <div class="row">
+                <button class="btn" onclick={() => act(signOut)}>Sign out</button>
+                {#if !confirmDelete}<button class="btn" onclick={() => (confirmDelete = true)}>Delete my account</button>
+                {:else}
+                  <button class="btn" onclick={() => act(() => deleteAccount(false), 'Account deleted. Players keep their save codes.')}>Delete account, keep players' codes</button>
+                  <button class="btn" onclick={() => act(() => deleteAccount(true), 'Account and saved players deleted.')}>Delete account and saved players</button>
+                {/if}
+              </div>
+            {:else}
+              <p class="muted small">Sign in to keep all your players together and find them on any computer. Children don't sign in or give an email.</p>
+              <div class="row">
+                {#if cloud.google}<button class="btn" onclick={() => signIn('google')}>Sign in with Google</button>{/if}
+                {#if cloud.microsoft}<button class="btn" onclick={() => signIn('microsoft')}>Sign in with Microsoft</button>{/if}
+              </div>
+            {/if}
+          {/if}
+          {#if saveMsg}<p class="small msg">{saveMsg}</p>{/if}
+          <p class="muted small"><a href="privacy.html" target="_blank" rel="noopener">How we look after your information</a></p>
+          <h4>Progress file</h4>
+          <p class="muted small">Or keep a copy yourself: save a file, and load it on another computer.</p>
           <div class="row">
             <button class="btn" onclick={exportSave}>Save progress to a file</button>
             <button class="btn" onclick={() => fileInput?.click()}>Load progress from a file</button>
@@ -158,7 +206,7 @@
         <p>Free, made by {STUDIO}. No ads, no tracking. The code is source-available (PolyForm Strict 1.0.0: read it, run it, help improve it); the art, characters, voices and music are all rights reserved.</p>
         <div class="row">
           <button class="btn" onclick={() => openExternal(STUDIO_URL)}>More games at fancyant.com</button>
-          <button class="btn" onclick={() => openExternal(SOURCE_URL)}>Source code</button>
+          {#if SOURCE_PUBLIC}<button class="btn" onclick={() => openExternal(SOURCE_URL)}>Source code</button>{/if}
         </div>
       </div>
     </div>
@@ -166,6 +214,9 @@
 </div>
 
 <style>
+  .code { font: 700 18px var(--font-ui); letter-spacing: .02em; background: #f3edff; padding: 2px 10px; border-radius: 10px; color: var(--primary); }
+  h4 { margin: 14px 0 4px; font-size: 16px; }
+  .msg { color: var(--primary); font-weight: 700; }
   .gu { display: flex; flex-direction: column; background: var(--bg); }
   .gate { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
   .gate h2 { font-size: 32px; }

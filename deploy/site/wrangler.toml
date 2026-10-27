@@ -1,7 +1,7 @@
 # fancyant.com/keypals (the 3D game) and fancyant.com/keypals1 (the first, flat version), served
 # straight from Cloudflare's file storage: requests for files are free and unlimited and never run
 # the script below. The script only sees what isn't a file: /keypals2 (forwarded to /keypals) and,
-# later, the accounts API under /keypals/api/.
+# the save and sign-in API under /keypals/api/ (worker.js, data in the D1 database "keypals").
 name = "fancyant-keypals"
 main = "worker.js"
 compatibility_date = "2026-10-01"
@@ -16,3 +16,15 @@ directory = "./public"
 binding = "ASSETS"
 html_handling = "auto-trailing-slash"
 not_found_handling = "none"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "keypals"
+database_id = "ba6dd151-6b6e-4df7-8850-043c3920d749"
+
+# Sign-in needs these secrets (set with set-signin-secrets.sh): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+# MS_CLIENT_ID, MS_CLIENT_SECRET. Without them the game simply doesn't offer that sign-in.
+
+# once a day: forget long-unopened saves and old sessions (worker.js tidy)
+[triggers]
+crons = ["17 4 * * *"]

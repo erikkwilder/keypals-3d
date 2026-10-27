@@ -20,6 +20,7 @@
   // the FancyAnt hello plays once when the game opens (not on dev shortcuts like #run=)
   let intro = $state(!location.hash);
   import { devBoot } from './lib/state/dev';
+  import { startCloud } from './lib/state/cloud.svelte';
 
   $effect(() => {
     const s = game.settings;
@@ -42,6 +43,7 @@
     if (canvas) stage.mount(canvas, game.settings.graphics === 'low');
     stage.onAutoSmooth = () => game.say('Switched to smooth mode so the game runs better on this computer. You can change it in Settings.', 6000);
     devBoot();
+    startCloud();
     const unlock = () => unlockAudio();
     window.addEventListener('pointerdown', unlock, { once: true });
   });

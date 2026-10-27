@@ -8,6 +8,7 @@
   import Critter from '../ui/Critter.svelte';
   import GearButton from '../ui/GearButton.svelte';
   import Logo from '../ui/Logo.svelte';
+  import SaveCodeForm from '../ui/SaveCodeForm.svelte';
 
   function pick(id: string) {
     sfx.click();
@@ -39,6 +40,7 @@
       </button>
     {/if}
   </div>
+  <SaveCodeForm />
   <div class="foot">
     <button class="btn btn-ghost" onclick={() => game.go('title')}>Back</button>
     <button class="btn btn-ghost" onclick={() => game.go('grownups')}>Grown-ups</button>

@@ -3,7 +3,9 @@ export const GAME_NAME = 'Keypals';
 export const GAME_TAGLINE = 'A typing adventure across the sky islands';
 export const STUDIO = 'FancyAnt Games';
 export const STUDIO_URL = 'https://fancyant.com';
-export const SOURCE_URL = 'https://github.com/erikkwilder/keypals';
+export const SOURCE_URL = 'https://github.com/erikkwilder/keypals-3d';
+/** the repository is private until Erik makes it public; the "Source code" button waits for that */
+export const SOURCE_PUBLIC = false;
 // version 2 keeps its own saves, apart from the first game's
 export const SAVE_KEY = 'keypals-3d-save-v1';
 export const OLD_SAVE_KEYS: string[] = [];

@@ -81,6 +81,10 @@ export type Profile = {
   /** the first-time sound setup was answered */
   soundSetup?: boolean;
   customText: string;
+  /** when this player last changed (for keeping copies on other computers in step) */
+  updatedAt?: number;
+  /** saved online under a save code; at = the server's time for the copy we last sent or got */
+  cloud?: { code: string; at: number };
   history: HistoryItem[];
 };
 
