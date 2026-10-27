@@ -2,7 +2,7 @@
 // scripts/voice/generate.mjs). If a file is missing the game shows the caption and uses the
 // browser's own speech voice instead.
 
-export type VoiceId = 'coach' | 'dino' | 'cheetah' | 'monkey' | 'koala';
+export type VoiceId = 'coach' | 'dino' | 'cheetah' | 'monkey' | 'koala' | 'box' | 'turtle';
 export type Line = { id: string; voice: VoiceId; text: string };
 
 const coach = (id: string, text: string): Line => ({ id, voice: 'coach', text });
@@ -127,6 +127,8 @@ export const FRIEND_LINES: Line[] = [
   ...F('cheetah', { hello: "Hi, I'm Chee! Ready, set... type!", yay: 'Zoom! So quick!', oops: 'Whoops! Even fast cats slip.', ride: 'Feel the wind!', done: 'First place! Well, every place, together!', pick: 'Ready when you are!' }),
   ...F('monkey', { hello: "Momo here! I'm all fingers. Let's go!", yay: 'Ooh ooh! Nailed it!', oops: 'Banana slip! Try again!', ride: 'Wheee!', done: 'Banana party! We did it!', pick: 'Swing time!' }),
   ...F('koala', { hello: "I'm Kiki! Take it slow, take it steady, and we'll get there.", yay: 'Lovely, lovely!', oops: 'No rush. Try that one again.', ride: 'Whoa, so fast!', done: 'Cozy hug! We did it!', pick: "Let's go, nice and steady." }),
+  ...F('box', { hello: 'Bop here! Headphones on, fingers ready!', yay: 'Boom! Right on the beat!', oops: 'Skipped a beat! Again!', ride: 'Turn it up!', done: 'That was a hit! We did it!', pick: 'Press play!' }),
+  ...F('turtle', { hello: "Hi, I'm Tuck! Slow and steady? Let's try speedy and steady.", yay: 'Shell yeah!', oops: 'Oops! Let me poke my head out and look again.', ride: 'Wheee! Hold on to my shell!', done: 'We made it! Shell-ebration!', pick: 'Steady, ready, go!' }),
 ];
 
 export const ALL_LINES: Line[] = [...HOME_TUTORIAL, ...LESSON_LINES, ...FINGER_LINES, ...REGION_LINES, ...COACH_BARKS, ...FRIEND_LINES];

@@ -121,7 +121,7 @@
   h1 { font-size: clamp(30px, 4.6vh, 44px); }
   .name { font: 600 40px/1 var(--font-type); text-align: center; padding: 14px 20px; width: min(420px, 90vw); border-radius: 22px; border: 3px solid var(--line); background: #fff; color: var(--ink); outline: none; box-shadow: var(--shadow-sm); }
   .name:focus { border-color: var(--primary-hi); }
-  .buddies { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .buddies { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
   .buddy { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, .7); border: 3px solid transparent; border-radius: 22px; padding: 10px 8px 8px; cursor: pointer; transition: transform .15s, border-color .15s, background .15s; }
   .buddy:hover { transform: translateY(-3px); }
   .buddy.on { border-color: var(--primary-hi); background: #fff; box-shadow: var(--shadow); }

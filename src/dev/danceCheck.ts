@@ -43,7 +43,7 @@ async function check(buddy: string, files: string[]) {
 }
 (window as unknown as { __check: (files: string[]) => Promise<unknown> }).__check = async (files) => {
   const res: Record<string, unknown> = {};
-  for (const b of ['dino', 'cheetah', 'monkey', 'koala']) res[b] = await check(b, files);
+  for (const b of ['dino', 'cheetah', 'monkey', 'koala', 'box', 'turtle']) res[b] = await check(b, files);
   return res;
 };
 (window as unknown as { __ready: boolean }).__ready = true;

@@ -5,7 +5,7 @@ export type Look = 'soft' | 'ink' | 'paper' | 'geo';
 export type FingerFamily = 'pinky' | 'ring' | 'middle' | 'index' | 'thumb';
 export type Finger = 'LP' | 'LR' | 'LM' | 'LI' | 'TH' | 'RI' | 'RM' | 'RR' | 'RP';
 
-export type FriendId = 'dino' | 'cheetah' | 'monkey' | 'koala';
+export type FriendId = 'dino' | 'cheetah' | 'monkey' | 'koala' | 'box' | 'turtle';
 
 export type Friend = {
   id: FriendId;
@@ -32,6 +32,12 @@ export const BUDDIES: Friend[] = [
   { id: 'koala', name: 'Kiki', species: 'koala', color: '#ef6fa6', height: 1.1,
     quirk: 'Her ears hear every key you press. Every single one.',
     hello: "I'm Kiki! Take it slow, take it steady, and we'll get there." },
+  { id: 'box', name: 'Bop', species: 'box head', color: '#f08a3c', height: 1.2,
+    quirk: 'Hears a beat in every key you press. Watch the feathers bounce.',
+    hello: "Bop here! Headphones on, fingers ready!" },
+  { id: 'turtle', name: 'Tuck', species: 'turtle', color: '#2fa898', height: 1.2,
+    quirk: 'Carries his house on his back, and still beats the bus.',
+    hello: "Hi, I'm Tuck! Slow and steady? Let's try speedy and steady." },
 ];
 
 /** Older names some screens still use for the list of buddies. */
