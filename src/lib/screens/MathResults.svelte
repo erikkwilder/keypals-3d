@@ -46,7 +46,7 @@
 
   const title = !last ? '' : !passed ? (last.finished ? 'Keep going!' : 'Trip over') : st!.misses === 0 ? (last.stars === 3 ? 'Perfect trip!' : 'No misses!') : last.stars === 3 ? 'Three stars!' : last.stars === 2 ? 'Great job!' : 'Trip done!';
   const tested = last?.testedOut ?? [];
-  const sub = !last ? '' : last.regionJustDone ? `${MATH_REGION[last.regionJustDone].name} complete!` : tested.length ? `You skipped ahead past ${tested.map(r => `the ${MATH_REGION[r].table}s`).join(' and ')}!` : `${lesson.title} · ${regionName}`;
+  const sub = !last ? '' : last.regionJustDone ? `${MATH_REGION[last.regionJustDone].name} complete!` : tested.length ? `You skipped ahead past the ${new Intl.ListFormat('en', { type: 'conjunction' }).format(tested.map(r => `${MATH_REGION[r].table}s`))}!` : `${lesson.title} · ${regionName}`;
   // every fact of the trip, in order, coloured by how it went
   const strip = (last?.results ?? []).map(r => ({ ...parseFact(r.id), kind: r.intro ? 'new' : r.speed }));
   const practise = [...new Set((last?.results ?? []).filter(r => !r.intro && !r.ok).map(r => r.id))].map(parseFact);
@@ -58,6 +58,8 @@
     ...last.stickers.map(def => ({ kind: 'sticker' as const, def })),
   ] : [];
 
+  // a first trip can win a lot at once: smaller tiles then, so nothing hides under the buttons
+  const esz = earned.length > 12 ? 38 : earned.length > 8 ? 44 : 50;
   let w = $state(1280);
   let h = $state(800);
   const narrow = $derived(w < 860);
@@ -196,11 +198,11 @@
 
       {#if earned.length}
         <div class="block" class:show={showRest}>
-          <div class="earned">
+          <div class="earned" style:--es="{esz}px">
             {#each earned as e, i (i)}
               <button class="ei" style:--d="{i * 90}ms" onclick={() => tell(e)} title="What's this?">
                 {#if e.kind === 'medal'}<span class="epic">{@html renderMedal(e.m, e.m.tier)}</span><span class="en">{e.m.name}</span>
-                {:else if e.kind === 'sticker'}<span class="epic"><StickerCard def={e.def} friend={buddy} {look} size={50} /></span><span class="en">{e.def.name}</span>
+                {:else if e.kind === 'sticker'}<span class="epic"><StickerCard def={e.def} friend={buddy} {look} size={esz} /></span><span class="en">{e.def.name}</span>
                 {:else if e.rkind === 'outfit'}<span class="epic outfit"><img src="{import.meta.env.BASE_URL}outfits/{e.id}.webp" alt="" /></span><span class="en">{e.name}</span>
                 {:else}<span class="epic outfit"><span class="note">♪</span></span><span class="en">{e.name}</span>{/if}
               </button>
@@ -285,8 +287,8 @@
   .xbar { height: 14px; border-radius: 999px; background: var(--bg2); overflow: hidden; box-shadow: inset 0 2px 3px rgba(60, 40, 110, .15); }
   .xbar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--primary-hi), var(--pink), var(--lemon)); }
   .earned { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-  .ei { width: 68px; display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: none; cursor: pointer; padding: 0; animation: pop-in .45s var(--d) cubic-bezier(.3, .8, .4, 1.5) both; }
-  .epic { width: 50px; height: 50px; display: grid; place-items: center; }
+  .ei { width: calc(var(--es) + 18px); display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: none; cursor: pointer; padding: 0; animation: pop-in .45s var(--d) cubic-bezier(.3, .8, .4, 1.5) both; }
+  .epic { width: var(--es); height: var(--es); display: grid; place-items: center; }
   .epic :global(svg) { width: 100%; height: 100%; }
   .epic.outfit { border-radius: 16px; background: radial-gradient(circle, #fff 40%, #f3edff); box-shadow: inset 0 0 0 3px #ece6f6; }
   .epic.outfit img { width: 88%; height: 88%; object-fit: contain; }

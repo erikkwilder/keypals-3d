@@ -74,10 +74,11 @@ export function mathUnlocked(m: MathProgress, l: MathLesson): boolean {
   return mathMovedOn(m, prev);
 }
 
-/** The lesson to suggest: the first open one not yet moved on from (the last checkpoint once all are). */
+/** The lesson to suggest: the first open one not yet moved on from; once the whole trail is done, The
+ *  Big Mix (all four tables), which keeps the reviews coming. */
 export function nextMathLesson(m: MathProgress): MathLesson {
   for (const l of MATH_LESSONS) if (mathUnlocked(m, l) && !mathMovedOn(m, l)) return l;
-  return MATH_LESSONS.at(-1)!;
+  return MATH_LESSON['fours-3'];
 }
 
 export const mathStarsTotal = (m: MathProgress) => Object.values(m.lessons).reduce((a, r) => a + (r.stars || 0), 0);

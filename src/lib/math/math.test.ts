@@ -329,4 +329,12 @@ describe('math progress and rewards', () => {
     expect(out.testedOut).toEqual(['twins', 'tens']); // stops at the 5s, so the 4s aren't skipped either
     expect(nextMathLesson(mathOf(out.profile)).id).toBe('fives-1');
   });
+  it('once the whole trail is done, suggests The Big Mix', () => {
+    const p = newProfile('Ava', 'dino');
+    const asked = play(new TripPicker({ lesson: PLACEMENT, facts: {}, now: T0, seed: 8 })).map(a => a.item.fact);
+    const rs: FactResult[] = asked.map(f => ({ id: factId(f), ok: true, speed: 'fast', thinkMs: 900, ms: 2000, intro: false }));
+    const out = applyMathRun(p, { lessonId: PLACEMENT.id, results: rs, stats: tripStats(rs), stars: 3, bestRide: 4, finished: true, at: T0 });
+    expect(out.testedOut).toEqual(['twins', 'tens', 'fives', 'fours']);
+    expect(nextMathLesson(mathOf(out.profile)).id).toBe('fours-3');
+  });
 });
