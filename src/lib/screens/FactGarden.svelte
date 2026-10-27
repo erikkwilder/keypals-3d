@@ -75,7 +75,7 @@
   function setFast(s: number) {
     game.update(pp => { pp.math = { ...mathOf(pp), fastMs: s * 1000 }; });
   }
-  function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && !game.modalOpen) { picked ? (picked = null) : game.go('map'); } }
+  function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && !game.modalOpen) { picked ? (picked = null) : game.go(game.home); } }
   const bubble = grewIds.length && !firstVisit ? `${grewIds.length} ${grewIds.length === 1 ? 'fact grew' : 'facts grew'} since you last looked!`
     : counts[3] ? `${counts[3]} in bloom! Tap any flower to see how it's doing.`
     : counts[1] + counts[2] ? 'Your garden is growing. Quick answers on different days make flowers bloom.'
@@ -86,7 +86,7 @@
 
 <div class="screen garden">
   <header class="bar">
-    <NavTile size="sm" tone="sky" kind="home" label="Home" onclick={() => game.go('map')} />
+    <NavTile size="sm" tone="sky" kind="home" label="Home" onclick={() => game.go('hub')} />
     <h1>Fact Garden</h1>
     <div class="tally" aria-label="Garden totals">
       <span><Flower stage={3} size={30} hue={320} /><b>{counts[3]}</b><small>bloom</small></span>

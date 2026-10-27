@@ -14,6 +14,7 @@
   import SettingsScreen from './lib/screens/Settings.svelte';
   import Grownups from './lib/screens/Grownups.svelte';
   import MathMap from './lib/screens/MathMap.svelte';
+  import Hub from './lib/screens/Hub.svelte';
   import MathRun from './lib/screens/MathRun.svelte';
   import MathResults from './lib/screens/MathResults.svelte';
   import FactGarden from './lib/screens/FactGarden.svelte';
@@ -59,6 +60,7 @@
   {#if game.screen === 'title'}<Title />
   {:else if game.screen === 'players'}<Players />
   {:else if game.screen === 'newPlayer'}<NewPlayer />
+  {:else if game.screen === 'hub'}<Hub />
   {:else if game.screen === 'map'}{#if game.homeGame === 'math'}<MathMap />{:else}<MapScreen />{/if}
   {:else if game.screen === 'run'}{#key game.runKey}<Run />{/key}
   {:else if game.screen === 'results'}<Results />

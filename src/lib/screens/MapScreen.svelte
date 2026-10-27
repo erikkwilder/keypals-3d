@@ -17,7 +17,6 @@
   import Stars from '../ui/Stars.svelte';
   import Ring from '../ui/Ring.svelte';
   import Icon from '../ui/Icon.svelte';
-  import GameSwitch from '../math/ui/GameSwitch.svelte';
 
   const p = $derived(game.profile!);
   const look = $derived(p.settings.look);
@@ -65,7 +64,7 @@
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(next); }
-    if (e.key === 'Escape') game.go('players');
+    if (e.key === 'Escape') game.go('hub');
   }
   onMount(async () => {
     await tick();
@@ -78,11 +77,8 @@
 
 <div class="screen map">
   <header class="bar">
-    <button class="me" onclick={() => game.go('players')} title="Switch player">
-      <Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={58} round />
-      <span class="nm">{p.name}</span>
-    </button>
-    <GameSwitch />
+    <NavTile size="md" tone="sky" kind="home" label="Home" title="Home: pick Typing or Math" onclick={() => game.go('hub')} />
+    <h1 class="subj">Typing</h1>
     <div class="pill stars"><Stars n={1} of={1} size={22} /> <b>{stars}</b></div>
     <div class="pill goal" title="Today's practice goal">
       <Ring value={Math.min(1, today / goalMs)} size={34} color="var(--mint)" />
@@ -154,6 +150,7 @@
   .me { display: flex; align-items: center; gap: 8px; background: none; border: 0; cursor: pointer; padding: 0 8px 0 0; border-radius: 16px; }
   .me:hover { background: var(--bg2); }
   .nm { font: 600 22px var(--font-ui); }
+  .subj { font-size: 30px; margin: 0 4px; color: var(--primary-edge); }
   .pill { display: flex; align-items: center; gap: 8px; background: var(--bg2); padding: 6px 12px; border-radius: 999px; font: 700 15px var(--font-body); color: var(--ink2); }
   .pill b { font: 600 20px var(--font-ui); color: var(--ink); }
   .spacer { flex: 1; }

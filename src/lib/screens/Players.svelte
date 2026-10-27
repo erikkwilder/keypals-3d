@@ -13,7 +13,7 @@
   function pick(id: string) {
     sfx.click();
     game.choose(id);
-    game.go('map');
+    game.go('hub');
   }
 </script>
 

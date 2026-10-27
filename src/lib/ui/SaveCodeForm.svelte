@@ -11,7 +11,7 @@
   let busy = $state(false);
   async function bring() {
     msg = null; busy = true;
-    try { await openCode(code); sfx.complete(); game.go('map'); }
+    try { await openCode(code); sfx.complete(); game.go('hub'); }
     catch (e) { msg = (e as Error).message; sfx.miss(); }
     finally { busy = false; }
   }

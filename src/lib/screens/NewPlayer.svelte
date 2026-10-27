@@ -45,7 +45,7 @@
   function finish() {
     sfx.complete();
     game.addPlayer(name, buddy, grown, layout);
-    game.go('map');
+    game.go('hub');
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;

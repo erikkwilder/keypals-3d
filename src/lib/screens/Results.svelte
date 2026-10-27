@@ -44,7 +44,7 @@
     treasureAt={grown ? TREASURE_SCORE.grown : TREASURE_SCORE.kids} treasureWhere="in a lesson" rideHint="Type faster to reach"
     goalText={goal} openedText={nextRegion ? `${nextRegion.name} is open!` : null} nextTitle={nextUp.title}
     makeScene={() => RunScene.create({ buddy: p.buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: last.text.length, region: lesson.region })}
-    onretry={() => game.startLesson(lesson.id, true)} onnext={() => game.startLesson(nextUp.id)} onhome={() => game.go('map')}
+    onretry={() => game.startLesson(lesson.id, true)} onnext={() => game.startLesson(nextUp.id)} onhome={() => game.go('hub')}
     progress={{ label: 'Progress', kind: 'chart', onclick: () => game.openChart(lesson.id) }}>
     {#snippet badges()}
       {#if last.ghost}<p class="ghost" class:won={last.ghost.beat}>👻 {ghostWords(last.ghost)}</p>{/if}

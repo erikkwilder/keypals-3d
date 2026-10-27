@@ -5,7 +5,7 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
-export type Screen = 'title' | 'players' | 'newPlayer' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden';
+export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden';
 
 function load(): SaveFile {
   try {
@@ -74,8 +74,12 @@ class Game {
   }
 
   go(screen: Screen) {
+    // the sticker book, closet and settings go back to wherever they were opened from
+    if (screen === 'hub' || screen === 'map') this.home = screen;
     this.screen = screen;
   }
+  /** where "back" goes from the sticker book, closet and settings: Home or a subject's map */
+  home = $state<'hub' | 'map'>('hub');
 
   openSheet(mode: 'settings' | 'setup' = 'settings', onClose?: () => void) {
     this.sheet = mode;

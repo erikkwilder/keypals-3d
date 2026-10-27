@@ -55,7 +55,7 @@
     treasureAt={grown ? MATH_TREASURE.grown : MATH_TREASURE.kids} treasureWhere="on a math trip" rideHint="Quicker answers reach"
     {goalText} openedText={last.regionJustDone ? `${MATH_REGION[last.regionJustDone].name} is done!` : null} nextTitle={next.title}
     makeScene={() => RunScene.create({ buddy: p.buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: 20, region: worldOf(lesson), keyLen: 9 })}
-    onretry={() => game.startMath(lesson.id, true)} onnext={() => game.startMath(next.id)} onhome={() => game.go('map')}
+    onretry={() => game.startMath(lesson.id, true)} onnext={() => game.startMath(next.id)} onhome={() => game.go('hub')}
     progress={{ label: 'Garden', tone: 'mint', art: gardenArt, onclick: () => game.go('garden') }}>
     {#snippet extra()}
       <div class="bhead"><b>This trip</b><span class="legend"><i class="fast"></i>quick <i class="slow"></i>slow <i class="miss"></i>missed <i class="new"></i>new</span></div>

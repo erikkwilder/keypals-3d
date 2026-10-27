@@ -13,7 +13,6 @@
   import { GARDEN_IDS, mathMovedOn, mathOf, mathPassed, mathRegionOpen, mathStarsTotal, mathUnlocked, nextMathLesson, stageCounts } from '../math/progress';
   import { factId } from '../math/facts';
   import { tableFacts } from '../math/course';
-  import GameSwitch from '../math/ui/GameSwitch.svelte';
   import Flower from '../math/ui/Flower.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import GearButton from '../ui/GearButton.svelte';
@@ -66,7 +65,7 @@
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(next); }
-    if (e.key === 'Escape') game.go('players');
+    if (e.key === 'Escape') game.go('hub');
   }
   onMount(async () => {
     await tick();
@@ -79,11 +78,8 @@
 
 <div class="screen map" bind:clientWidth={sw}>
   <header class="bar">
-    <button class="me" onclick={() => game.go('players')} title="Switch player">
-      <Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={52} round />
-      <span class="nm">{p.name}</span>
-    </button>
-    <GameSwitch />
+    <NavTile size={tile} tone="sky" kind="home" label="Home" title="Home: pick Typing or Math" onclick={() => game.go('hub')} />
+    <h1 class="subj">Math</h1>
     <div class="pill stars"><Stars n={1} of={1} size={20} /> <b>{stars}</b></div>
     <div class="pill goal" title="Today's practice goal (typing and math together)">
       <Ring value={Math.min(1, today / goalMs)} size={30} color="var(--mint)" />
@@ -162,6 +158,8 @@
 </div>
 
 <style>
+  .subj { font-size: 30px; margin: 0 4px; color: #d8641c; }
+  @media (max-width: 760px) { .subj { font-size: 22px; } }
   .map { display: flex; flex-direction: column; background: linear-gradient(#cfe9fa, #eaf6ff 60%, #f3f9ff); }
   .bar { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; padding: 10px 18px; background: rgba(255, 255, 255, .92); border-bottom: var(--panel-border); box-shadow: 0 6px 20px -16px rgba(60, 40, 110, .4); z-index: 5; }
   .me { display: flex; align-items: center; gap: 8px; background: none; border: 0; cursor: pointer; padding: 0 8px 0 0; border-radius: 16px; }
