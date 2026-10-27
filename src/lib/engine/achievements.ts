@@ -20,18 +20,20 @@ export type AwardDef = {
   friend?: FriendId; // friend face for fan clubs
   unlocks?: string;
   secret?: boolean;
+  /** which game a medal comes from, for the medal book: typing only, math only, or any game */
+  game?: 'typing' | 'math' | 'any';
 };
 
 const M = (id: string, name: string, desc: string, icon: Icon, hue: number, extra: Partial<AwardDef> = {}): AwardDef => ({ id, kind: 'medal', name, desc, icon, hue, ...extra });
 const B = (id: string, name: string, desc: string, icon: Icon, hue: number, extra: Partial<AwardDef> = {}): AwardDef => ({ id, kind: 'badge', name, desc, icon, hue, ...extra });
 
 export const MEDALS: AwardDef[] = [
-  M('clean', 'Clean Sweep', 'Finish with no mistakes at all.', 'sparkle', 160),
-  M('sharp', 'Sharp Eyes', 'Finish with 97% or better.', 'target', 200),
+  M('clean', 'Clean Sweep', 'Finish a lesson or trip with no mistakes at all.', 'sparkle', 160, { game: 'any' }),
+  M('sharp', 'Sharp Eyes', 'Finish with 97% or better.', 'target', 200, { game: 'any' }),
   M('steady', 'Steady Paws', 'Keep a nice, even rhythm.', 'wave', 228),
   M('pb', 'Personal Best', 'Beat your best speed on a lesson.', 'trophy', 48),
-  M('ride-record', 'Ride Record', 'Ride faster than ever on a lesson.', 'ride', 290),
-  ...RIDES.slice(1).map((r, i) => M(`ride-${r.id}`, ['Off and Running', 'Skate Starter', 'Pedal Pusher', 'Road Cruiser', 'Rocket Rider'][i], i === 0 ? 'Break into a run during a lesson.' : `Reach the ${r.name} during a lesson.`, 'ride', [338, 160, 200, 300, 52][i], { ride: i + 1 })),
+  M('ride-record', 'Ride Record', 'Ride faster than ever on a lesson.', 'ride', 290, { game: 'any' }),
+  ...RIDES.slice(1).map((r, i) => M(`ride-${r.id}`, ['Off and Running', 'Skate Starter', 'Pedal Pusher', 'Road Cruiser', 'Rocket Rider'][i], i === 0 ? 'Break into a run during a lesson or trip.' : `Reach the ${r.name} during a lesson or trip.`, 'ride', [338, 160, 200, 300, 52][i], { ride: i + 1, game: 'any' })),
   M('streak-25', 'Hot Streak', '25 keys in a row without a slip.', 'bolt', 52),
   M('streak-50', 'Blazing Streak', '50 keys in a row without a slip.', 'bolt', 330),
   M('streak-100', 'Unstoppable', '100 keys in a row without a slip.', 'bolt', 268),
@@ -39,13 +41,13 @@ export const MEDALS: AwardDef[] = [
   M('nopeek', 'No Peeking', 'Finish with the keyboard hidden.', 'eye', 250),
   M('hands-free', 'Hands Free', 'Finish with the hands guide hidden.', 'hand', 300),
   M('touch-typist', 'Touch Typist', 'Keyboard and hands both hidden, 95% or better.', 'crown', 268),
-  M('firsttry', 'First Try', 'Pass a lesson on your first go.', 'star', 52),
-  M('three', 'Triple Star', 'Earn all three stars.', 'stars', 48),
+  M('firsttry', 'First Try', 'Pass a lesson or trip on your first go.', 'star', 52, { game: 'any' }),
+  M('three', 'Triple Star', 'Earn all three stars on a lesson or trip.', 'stars', 48, { game: 'any' }),
   M('speedy', 'Speeding Up', 'Type faster than your usual speed.', 'arrow', 180),
   M('marathon', 'Long Haul', 'Finish a long run (300+ letters).', 'book', 140),
-  M('goal', 'Goal Reached', "Hit today's practice goal.", 'ring', 100),
-  M('quickdraw', 'Quick Draw', 'Answer 10 math facts fast in a row.', 'bolt', 200),
-  M('bloom', 'In Bloom', 'A math fact blooms in your Fact Garden.', 'tree', 120),
+  M('goal', 'Goal Reached', "Hit today's practice goal (typing and math both count).", 'ring', 100, { game: 'any' }),
+  M('quickdraw', 'Quick Draw', 'Answer 10 math facts fast in a row.', 'bolt', 200, { game: 'math' }),
+  M('bloom', 'In Bloom', 'A math fact blooms in your Fact Garden.', 'tree', 120, { game: 'math' }),
 ];
 
 export const BADGES: AwardDef[] = [

@@ -2,7 +2,7 @@
 // keys and on the keys they find hard. Real words come first; made-up letter strings are
 // only used while too few letters are known to make words.
 
-import type { Lesson } from './course';
+import { ALL_LESSONS, REGION, knownChars, lessonIndex, type Lesson } from './course';
 import type { Layout } from './layouts';
 import { mulberry32, pick, shuffle, weighted, type Rng } from './rng';
 
@@ -23,7 +23,7 @@ export type GenCtx = {
   focus?: string[];
 };
 
-const CREW_NAMES = ['Dino', 'Chee', 'Momo', 'Kiki'];
+const CREW_NAMES = ['Dino', 'Chee', 'Momo', 'Kiki', 'Bop', 'Tuck', 'Fizz', 'Skye', 'Moss', 'Peach', 'Mochi', 'Axel', 'Pip', 'Scout', 'Hop', 'Ember'];
 const PLACES = ['Home', 'Row', 'Island', 'Treetops', 'Burrows', 'Capital', 'Cliffs', 'Number', 'Ridge', 'Symbol', 'Shores', 'Open', 'Road', 'Sky'];
 const CONTRACTIONS = ["don't", "it's", "can't", "let's", "that's", "you're", "we're", "isn't", "won't", "she's", "he's", "what's", "there's", "dino's", "momo's", "kiki's", "chee's"];
 
@@ -35,7 +35,8 @@ const isLetter = (ch: string) => /\p{L}/u.test(ch);
  * (30 to 100 letters): quick rounds, quick wins, and another go is never far away.
  */
 export function targetLength(lesson: Lesson, grown?: boolean) {
-  return Math.max(40, Math.round(lesson.len * (grown ? 0.9 : 0.55)));
+  // the first island stays short for little hands; from the treetops on, enough typing to build speed
+  return Math.max(40, Math.round(lesson.len * (grown ? 0.9 : lesson.region === 'village' ? 0.55 : 0.8)));
 }
 
 function clean(s: string, known: Set<string>): string {
@@ -122,6 +123,7 @@ function dress(c: Ctx2, words: string[]): string[] {
   const hasCaps = [...k].some(ch => isLetter(ch) && ch !== ch.toLowerCase());
   const digits = [...k].filter(ch => /[0-9]/.test(ch));
   const names = CREW_NAMES.concat(PLACES).filter(n => fits(n, k));
+  const syms = Object.keys(SYMBOL_MAKERS).filter(ch => k.has(ch) && ch !== "'");
   return words.map(w => {
     const r = c.rng();
     if (hasCaps && r < 0.22) {
@@ -129,7 +131,9 @@ function dress(c: Ctx2, words: string[]): string[] {
       if (fits(cap, k)) return cap;
     }
     if (hasCaps && names.length && r < 0.3) return pick(c.rng, names);
-    if (digits.length && r > 0.86) return Array.from({ length: 1 + Math.floor(c.rng() * 2) }, () => pick(c.rng, digits)).join('');
+    if (digits.length && r > 0.84) return Array.from({ length: 1 + Math.floor(c.rng() * 2) }, () => pick(c.rng, digits)).join('');
+    // punctuation the player knows, attached to words the way it's really used
+    if (syms.length && r > 0.68 && r <= 0.84) { const m = SYMBOL_MAKERS[pick(c.rng, syms)]; const out = m?.(c, () => w); if (out && fits(out, k)) return out; }
     return w;
   });
 }
@@ -171,7 +175,15 @@ function introText(c: Ctx2): string {
   }
   for (const ch of digitFresh) parts.push(ch.repeat(2));
   if (digitFresh.length >= 2) for (let i = 0; i < 4; i++) parts.push(shuffle(c.rng, digitFresh).slice(0, 2 + Math.floor(c.rng() * 2)).join(''));
-  for (const ch of capsFresh.slice(0, 6)) parts.push(ch + ch.toLowerCase());
+  for (const ch of capsFresh) parts.push(ch + ch.toLowerCase());
+  // then each new capital at the start of a word, in turn, so every one is typed at least five times
+  const capRounds = capsFresh.length ? 5 : 0;
+  for (let round = 0; round < capRounds; round++) for (const ch of shuffle(c.rng, capsFresh)) {
+    const w = wordStream(c, 6).find(x => x[0] === ch.toLowerCase());
+    const cap = w ? ch + w.slice(1) : '';
+    parts.push(cap && fits(cap, c.known) ? cap : ch + pseudoWord(c, 1, 3));
+  }
+  if (capsFresh.length) return joinUntil(parts, Math.max(c.L, joinUntil(parts, Infinity).length));
   for (const ch of symFresh) { const m = SYMBOL_MAKERS[ch]; const s = m?.(c, plain); if (s) parts.push(s); }
 
   // then practice until the lesson is long enough
@@ -218,8 +230,10 @@ function poolLines(c: Ctx2, preferred?: string): string[] {
 
 function sentencesText(c: Ctx2, L = c.L): string {
   const lines = poolLines(c, c.lesson.pool);
-  if (lines.length < 2) return joinUntil(dress(c, wordStream(c, 200)), L);
-  return joinUntil(lines, L);
+  if (lines.length < 2) return joinUntil(sprinkle(c, dress(c, wordStream(c, 200)), 0.25), L);
+  // a known capital, number or punctuation mark between sentences now and then, so they keep coming back
+  const extra = sprinkle(c, lines.map(() => ''), 0.5);
+  return joinUntil(lines.flatMap((l, i) => (extra[i] ? [l, extra[i]] : [l])), L);
 }
 
 function storyText(c: Ctx2, poolId: string, single: boolean): string {
@@ -307,6 +321,60 @@ function mixText(c: Ctx2, focus: string[]): string {
   return joinUntil(parts, c.L);
 }
 
+/** One known capital, digit or punctuation mark, used the way it really is: a capitalised word, a
+ * number, a word with its punctuation. */
+function tokenFor(c: Ctx2, ch: string, pool: string[]): string {
+  if (/[0-9]/.test(ch)) { const d = [...c.known].filter(x => /[0-9]/.test(x)); return c.rng() < 0.5 ? ch : ch + pick(c.rng, d); }
+  if (isLetter(ch)) { const ws = pool.filter(x => x[0] === ch.toLowerCase()); const cap = ws.length ? ch + pick(c.rng, ws).slice(1) : ''; return cap && fits(cap, c.known) ? cap : ch + pseudoWord(c, 1, 3); }
+  const plain = () => (pool.length ? pick(c.rng, pool) : pseudoWord(c));
+  const t = SYMBOL_MAKERS[ch]?.(c, plain);
+  return t && fits(t, c.known) ? t : plain();
+}
+/**
+ * Mix known capitals, digits and punctuation back into a list of words: `share` of the words become
+ * one of them, going round all of them in a shuffled order, so nothing taught is left behind.
+ */
+function sprinkle(c: Ctx2, words: string[], share: number): string[] {
+  const rare = [...c.known].filter(ch => ch !== ' ' && !(isLetter(ch) && ch === ch.toLowerCase()) && ch !== "'").sort();
+  if (!rare.length || share <= 0) return words;
+  // half the spots go to what this region brought in, half to older ones; each list is walked in a fixed
+  // order that starts further along for each lesson, so over the course every one of them comes round
+  const idx = Math.max(0, lessonIndex(c.lesson.id));
+  const i0 = lessonIndex(REGION[c.lesson.region].lessons[0].id);
+  const before = i0 > 0 ? knownChars(ALL_LESSONS[i0 - 1].id, c.layout) : new Set<string>();
+  const recent = rare.filter(ch => !before.has(ch)), older = rare.filter(ch => before.has(ch));
+  let kr = (idx - i0) * 4, ko = idx * 5, t = 0;
+  const pool = realWords(c);
+  return words.map(w => {
+    if (c.rng() >= share) return w;
+    const ch = recent.length && (!older.length || t++ % 2 === 0) ? recent[kr++ % recent.length] : older[ko++ % older.length];
+    return tokenFor(c, ch, pool);
+  });
+}
+
+/** A region's review: words from every row learned so far, the weakest keys a little more often, and
+ * known capitals, digits and punctuation mixed back in, a third of it as real sentences. */
+function reviewText(c: Ctx2): string {
+  const third = Math.round(c.L / 3);
+  const words = sprinkle(c, dress(c, wordStream({ ...c, freshLetters: c.letters }, 300, { weakBoost: 4 })), 0.5);
+  const digits = [...c.known].filter(ch => /[0-9]/.test(ch));
+  const parts: string[] = [];
+  for (let i = 0; i < words.length && joinUntil(parts, Infinity).length < c.L - third; i++) {
+    parts.push(words[i]);
+    if (digits.length && i % 7 === 6) parts.push(Array.from({ length: 2 + Math.floor(c.rng() * 2) }, () => pick(c.rng, digits)).join(''));
+  }
+  const a = joinUntil(parts, c.L - third);
+  return a + ' ' + sentencesText(c, third);
+}
+
+/** The graduation test: real passages, stories and facts, more than anyone types in two minutes. */
+function finalText(c: Ctx2): string {
+  const ids = c.grown ? ['stories-grown', 'facts-kids'] : ['stories-kids', 'facts-kids'];
+  const lines = shuffle(c.rng, c.pools.filter(p => ids.includes(p.id)).flatMap(p => p.lines).filter(l => fits(l, c.known)));
+  if (lines.length < 3) return sentencesText(c, 1200);
+  return joinUntil(lines, 1200);
+}
+
 export function generate(ctx: GenCtx): string {
   const rng = mulberry32(ctx.seed);
   const known = ctx.lesson.kind === 'custom'
@@ -322,11 +390,11 @@ export function generate(ctx: GenCtx): string {
     case 'drill': text = drillText(c); break;
     case 'mix': text = mixText(c, ctx.focus ?? focusOf(ctx.lesson, ctx.layout)); break;
     case 'intro': text = introText(c); break;
-    case 'words': text = joinUntil(dress(c, wordStream(c, 300)), c.L); break;
+    case 'words': text = joinUntil(sprinkle(c, dress(c, wordStream(c, 300)), 0.2), c.L); break;
     case 'sentences': text = sentencesText(c); break;
     case 'checkpoint': {
       const half = Math.round(c.L / 2);
-      const a = joinUntil(dress(c, wordStream(c, 200)), half);
+      const a = joinUntil(sprinkle(c, dress(c, wordStream(c, 200)), 0.35), half);
       const b = sentencesText(c, c.L - a.length);
       text = rng() < 0.5 ? a + ' ' + b : b + ' ' + a;
       break;
@@ -334,7 +402,9 @@ export function generate(ctx: GenCtx): string {
     case 'story': text = storyText(c, ctx.grown ? 'stories-grown' : 'stories-kids', true); break;
     case 'facts': text = storyText(c, 'facts-kids', false); break;
     case 'weak': text = weakText(c); break;
-    case 'sprint': text = joinUntil(dress(c, wordStream(c, 400)), c.L); break;
+    case 'sprint': text = joinUntil(sprinkle(c, dress(c, wordStream(c, 400)), 0.15), c.L); break;
+    case 'review': text = reviewText(c); break;
+    case 'final': text = finalText(c); break;
     case 'custom': text = customText(c); break;
     default: text = joinUntil(wordStream(c, 200), c.L);
   }

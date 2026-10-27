@@ -90,8 +90,10 @@
       {/each}
     {:else if tab === 'medals'}
       <p class="intro">Medals level up as you win them again: Rose, Silver at 5, Gold at 15, Rainbow at 40. Each Keypal keeps their own.</p>
-      <div class="medals">
-        {#each MEDALS as m (who + m.id)}
+      {#each [{ id: 'any', name: 'Every game', sub: 'won in typing or math' }, { id: 'typing', name: 'Typing', sub: 'from typing lessons' }, { id: 'math', name: 'Math', sub: 'from math trips' }] as grp (grp.id)}
+        <h3 class="mgroup">{grp.name} <span>{grp.sub}</span></h3>
+        <div class="medals">
+        {#each MEDALS.filter(x => (x.game ?? 'typing') === grp.id) as m (who + m.id)}
           {@const n = pal.medals[m.id] ?? 0}
           {@const t = medalTier(n)}
           {@const next = MEDAL_TIERS[t + 1]}
@@ -104,6 +106,7 @@
           </div>
         {/each}
       </div>
+      {/each}
     {:else}
       <p class="intro">Type fast <b>and</b> clean and your ride gets an upgrade mid-lesson. {FRIEND[who].name}'s best: <b>{RIDES[pal.rideBest].name}</b>.</p>
       <div class="rides">
@@ -159,6 +162,9 @@
   .cap { font: 700 12px/1.25 var(--font-body); color: var(--muted); max-width: 140px; }
   .cap.got { color: var(--ink); font-size: 13px; }
   .intro { font: 600 16px var(--font-body); color: var(--ink2); margin: 4px 0 16px; }
+  .mgroup { font-size: 22px; margin: 18px 0 8px; }
+  .mgroup:first-of-type { margin-top: 4px; }
+  .mgroup span { font: 700 14px var(--font-body); color: var(--muted); margin-left: 6px; }
   .medals { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
   .medal { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; background: rgba(255, 255, 255, .6); border-radius: 20px; padding: 10px; }
   .medal.got { background: #fff; box-shadow: var(--shadow-sm); }

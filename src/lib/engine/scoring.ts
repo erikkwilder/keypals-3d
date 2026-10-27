@@ -108,10 +108,27 @@ export function lessonGoal(lesson: Lesson, grown: boolean, easy = false): number
   return Math.round(base * (grown ? 1.6 : 1) * (easy && !grown ? 2 / 3 : 1));
 }
 
-/** Stars are a share of the goal score: 30% one star, 60% two, the goal itself three. */
+/** The graduation test's targets: words a minute and accuracy (easy mode asks two thirds of the speed). */
+export const FINAL_TARGET = { kids: { wpm: 15, acc: 0.93 }, grown: { wpm: 30, acc: 0.95 } };
+export function finalTarget(grown: boolean, easy = false) {
+  const t = grown ? FINAL_TARGET.grown : FINAL_TARGET.kids;
+  return { wpm: Math.round(t.wpm * (easy && !grown ? 2 / 3 : 1)), acc: t.acc - (easy && !grown ? 0.03 : 0) };
+}
+
+/**
+ * Stars are a share of the goal score: 30% one star, 60% two, the goal itself three. A lesson is only
+ * passed with enough keys right (its `pass` share), so speed alone can't carry sloppy typing through.
+ * The graduation test passes at its target speed and accuracy; a third and two thirds faster add stars.
+ */
 export function starsFor(stats: RunStats, lesson: Lesson, grown: boolean, finished: boolean, easy = false): 0 | 1 | 2 | 3 {
+  if (lesson.kind === 'final') {
+    const t = finalTarget(grown, easy);
+    if (stats.chars < 20 || stats.acc < t.acc) return 0;
+    return stats.wpm >= t.wpm * 1.66 ? 3 : stats.wpm >= t.wpm * 1.33 ? 2 : stats.wpm >= t.wpm ? 1 : 0;
+  }
   if (!finished && lesson.kind !== 'sprint') return 0;
   if (stats.chars < 5) return 0;
+  if (stats.acc < lesson.pass - (easy ? 0.05 : 0)) return 0;
   const r = stats.score / lessonGoal(lesson, grown, easy);
   const stars = r >= 1 ? 3 : r >= 0.6 ? 2 : r >= 0.3 ? 1 : 0;
   // precision over speed: very sloppy typing (under 85% correct) can't earn the third star
@@ -139,7 +156,8 @@ export function endMessage(stars: number, opts: { record?: boolean; improved?: b
  * stars with no mistakes at all (it used to mean any three stars, which a run with slips can earn);
  * "No mistakes!" for a clean but slower run; otherwise the stars won.
  */
-export function runTitle(r: { stars: number; errors: number; finished: boolean; passed: boolean; sprint: boolean }): string {
+export function runTitle(r: { stars: number; errors: number; finished: boolean; passed: boolean; sprint: boolean; final?: boolean }): string {
+  if (r.final) return r.passed ? 'You graduated!' : 'Not quite yet!';
   if (r.sprint) return r.errors === 0 ? 'Sprint done, no slips!' : 'Sprint done!';
   if (!r.passed) return r.finished ? 'So close!' : "Time's up!";
   if (r.errors === 0) return r.stars === 3 ? 'Perfect run!' : 'No mistakes!';

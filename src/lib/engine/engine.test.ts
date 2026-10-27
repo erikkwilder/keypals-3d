@@ -327,3 +327,39 @@ describe('rewards and treasure', () => {
     expect(new Set(text.replace(/ /g, ''))).toEqual(new Set(['s', 'l']));
   });
 });
+
+describe('the course gives every key enough practice', () => {
+  const Q = LAYOUTS.qwerty;
+  const textOf = (id: string, seed: number) => {
+    const lesson = LESSON[id];
+    return generate({ lesson, layout: Q, known: knownChars(id, Q), fresh: newCharsFor(lesson, Q), seed, words: WORDS_KIDS, pools: POOLS });
+  };
+  it('types every new capital at least five times in its own Shift lesson', () => {
+    for (const l of ALL_LESSONS.filter(x => x.shift)) {
+      const text = textOf(l.id, 11);
+      for (const ch of newCharsFor(l, Q).filter(c => c !== c.toLowerCase())) {
+        expect([...text].filter(c => c === ch).length, `${l.id} ${ch}`).toBeGreaterThanOrEqual(5);
+      }
+    }
+  });
+  it('brings every taught character back after its first lesson (one pass, kids)', () => {
+    const main = ALL_LESSONS.filter(l => l.region !== 'road');
+    const firstAt = new Map<string, number>();
+    const after = new Map<string, number>();
+    main.forEach((l, i) => {
+      for (const ch of newCharsFor(l, Q)) if (!firstAt.has(ch)) firstAt.set(ch, i);
+      const text = textOf(l.id, 100 + i);
+      for (const ch of text) if (firstAt.has(ch) && firstAt.get(ch)! < i) after.set(ch, (after.get(ch) ?? 0) + 1);
+    });
+    // lowercase letters come back all the time; capitals (typed 5+ times in their own lesson), digits and
+    // punctuation are mixed back into the words, sentence, review and checkpoint lessons that follow them;
+    // the Open Road's Tricky Keys picks out whichever of them a player still trips on
+    // capitals are one skill (Shift with the other hand): each is typed 5+ times in its own lesson (above),
+    // and capitals as a whole keep coming back afterwards
+    const need = (ch: string) => (/[a-z]/.test(ch) ? 10 : /[0-9]/.test(ch) ? 5 : /[A-Z]/.test(ch) ? 0 : 1);
+    const short = [...firstAt.keys()].filter(ch => ch !== ' ' && (after.get(ch) ?? 0) < need(ch)).map(ch => `${ch}:${after.get(ch) ?? 0}`);
+    const caps = [...after.entries()].filter(([ch]) => /[A-Z]/.test(ch)).reduce((a, [, n]) => a + n, 0);
+    expect(caps, 'capitals after the Shift lessons').toBeGreaterThanOrEqual(60);
+    expect(short, short.join(' ')).toEqual([]);
+  });
+});

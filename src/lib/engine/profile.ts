@@ -166,10 +166,12 @@ export function totalStars(p: Profile): number {
 }
 
 export const passed = (p: Profile, id: string) => (p.lessons[id]?.stars ?? 0) > 0;
-/** You can move on after earning a star, or after finishing a lesson twice: nobody gets stuck. */
-export const movedOn = (p: Profile, id: string) => passed(p, id) || (p.lessons[id]?.finishes ?? 0) >= 2;
+/** You can move on after earning a star, or after finishing a lesson twice with 80% right: nobody gets stuck, but nobody skims through. */
+export const movedOn = (p: Profile, id: string) => passed(p, id) || ((p.lessons[id]?.finishes ?? 0) >= 2 && (p.lessons[id]?.bestAcc ?? 0) >= 0.8);
 
 export function isUnlocked(p: Profile, lesson: Lesson): boolean {
+  // a lesson already played stays open (lessons added to the course later don't lock what came after)
+  if (p.lessons[lesson.id]) return true;
   if (lesson.requires) return movedOn(p, lesson.requires);
   const idx = lessonIndex(lesson.id);
   if (idx <= 0) return true;

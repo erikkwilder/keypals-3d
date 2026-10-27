@@ -23,6 +23,7 @@
   import NavTile from '../ui/NavTile.svelte';
   import TileArt from '../ui/TileArt.svelte';
   import { homeDemo, lessonDemo, type DemoStep } from '../engine/demos';
+  import { lessonTitle } from '../engine/course';
   import TextRibbon from '../ui/TextRibbon.svelte';
   import Keyboard from '../ui/Keyboard.svelte';
   import Hands from '../ui/Hands.svelte';
@@ -48,7 +49,7 @@
     pools: POOLS,
     custom: profile.customText,
   });
-  const session = new Session(text, { timeLimitMs: lesson.kind === 'sprint' ? 60000 : undefined });
+  const session = new Session(text, { timeLimitMs: lesson.kind === 'sprint' ? 60000 : lesson.kind === 'final' ? 120000 : undefined });
   // dev checks type the lesson from the browser
   if (import.meta.env.DEV) (window as unknown as { __runText: string }).__runText = text;
   const ride = new RideMeter(grown);
@@ -105,7 +106,7 @@
   let doneBanner = $state(false);
   let keyboardOn = $state(S.keyboard);
   let handsOn = $state(S.hands);
-  let timeLeft = $state(60);
+  let timeLeft = $state(lesson.kind === 'final' ? 120 : 60);
   let stageH = $state(600);
   let stageW = $state(1000);
   let scene: RunScene | null = null;
@@ -304,6 +305,8 @@
   }
 
   async function speakIntro() {
+    // the lesson lines name QWERTY keys; other layouts hear the finger moves instead
+    if (layout.id !== 'qwerty' && reachSteps.length) { for (const st of reachSteps) await say(st.line, { important: true }); return; }
     await say(`lesson.${lesson.id}`, { important: true });
   }
 
@@ -370,7 +373,7 @@
       </button>
       <div class="title">
         <div class="region">{region.name}</div>
-        <div class="lesson">{lesson.title}</div>
+        <div class="lesson">{lessonTitle(lesson, layout)}</div>
       </div>
       <div class="trail">
         <div class="bar"><div class="fill" style:width="{(pos / text.length) * 100}%"></div></div>
@@ -378,7 +381,7 @@
         <div class="me" style:left="{(pos / text.length) * 100}%"><Critter friend={profile.buddy} size={38} round /></div>
       </div>
       <div class="live">
-        {#if lesson.kind === 'sprint'}<div class="clock" class:low={timeLeft <= 10}>{timeLeft}s</div>{/if}
+        {#if lesson.kind === 'sprint' || lesson.kind === 'final'}<div class="clock" class:low={timeLeft <= 10}>{timeLeft}s</div>{/if}
         <div class="sc"><b>{liveScore}</b> score</div>
         <div><b>{liveAcc}</b>%</div>
         {#if bonusLevel > 0}<div class="tb" title="Clean typing earns back time">⏱ ×{bonusLevel}</div>{/if}
@@ -435,7 +438,7 @@
     <div class="overlay">
       <div class="card intro">
         <div class="where">{region.name} · Lesson {lesson.n}</div>
-        <h1>{lesson.title}</h1>
+        <h1>{lessonTitle(lesson, layout)}</h1>
         {#if freshShown.length}
           <div class="newkeys">
             <span class="muted">New keys</span>

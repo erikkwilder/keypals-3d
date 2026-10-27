@@ -9,7 +9,7 @@ import { LEFT_FINGERS } from './layouts';
 
 export type RegionId = 'village' | 'treetops' | 'burrows' | 'cliffs' | 'ridge' | 'shores' | 'road';
 /** drill: only the lesson's new keys; mix: the last few new keys with everything known so far */
-export type LessonKind = 'drill' | 'mix' | 'intro' | 'words' | 'sentences' | 'checkpoint' | 'story' | 'facts' | 'weak' | 'sprint' | 'custom';
+export type LessonKind = 'drill' | 'mix' | 'intro' | 'words' | 'sentences' | 'checkpoint' | 'review' | 'final' | 'story' | 'facts' | 'weak' | 'sprint' | 'custom';
 
 export type Lesson = {
   id: string;
@@ -20,6 +20,8 @@ export type Lesson = {
   codes?: Code[]; // new physical keys
   chars?: string[]; // new characters (digits, symbols)
   shift?: 'right' | 'left'; // capitals for letters typed by this hand
+  /** only the capitals of these keys (a Shift lesson split by row); all of the hand's when missing */
+  shiftCodes?: Code[];
   /** mix lessons: the keys to practise most (the newest ones) */
   focus?: Code[];
   /** mix lessons taught by character (digits) */
@@ -47,6 +49,15 @@ const D = (region: RegionId, n: number, a: string, b: string, codes: Code[], res
   L(region, n, `${a} and ${b}`, 'drill', { codes, len: 90, speed: 7, pass: 0.85, ...rest });
 const M = (region: RegionId, n: number, title: string, focus: Code[], rest: Partial<Lesson> = {}) =>
   L(region, n, title, 'mix', { focus, len: 96, speed: 8, pass: 0.85, ...rest });
+/** A region's review: everything learned so far, older keys and known capitals, digits and punctuation
+ * mixed back in (new lessons get ids of their own so saved progress keeps its meaning). */
+const R = (region: RegionId, n: number, title: string, rest: Partial<Lesson> = {}) =>
+  L(region, n, title, 'review', { id: `${region}-rev`, len: 240, speed: 13, pass: 0.9, blurb: 'Everything so far, mixed together.', ...rest });
+// the Shift lessons, split by hand and row
+const RH_HOME: Code[] = ['KeyH', 'KeyJ', 'KeyK', 'KeyL'];
+const RH_REACH: Code[] = ['KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP', 'KeyN', 'KeyM'];
+const LH_HOME: Code[] = ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG'];
+const LH_REACH: Code[] = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB'];
 
 export const REGIONS: Region[] = [
   {
@@ -75,7 +86,8 @@ export const REGIONS: Region[] = [
       D('treetops', 7, 'Q', 'P', ['KeyQ', 'KeyP'], {}),
       L('treetops', 8, 'Treetop Words', 'words', { len: 100, speed: 12 }),
       L('treetops', 9, 'Branch Sentences', 'sentences', { pool: 'top', len: 110, speed: 12 }),
-      L('treetops', 10, 'Canopy Run', 'checkpoint', { pool: 'top', len: 130, speed: 13, blurb: 'A race through the whole treetop trail.' }),
+      R('treetops', 10, 'Treetop Review'),
+      L('treetops', 11, 'Canopy Run', 'checkpoint', { id: 'treetops-10', pool: 'top', len: 130, speed: 13, blurb: 'A race through the whole treetop trail.' }),
     ],
   },
   {
@@ -90,18 +102,22 @@ export const REGIONS: Region[] = [
       D('burrows', 7, 'Z', '/', ['KeyZ', 'Slash'], {}),
       L('burrows', 8, 'Burrow Words', 'words', { len: 120, speed: 14 }),
       L('burrows', 9, 'Tunnel Talk', 'sentences', { pool: 'bottom', len: 130, speed: 14 }),
-      L('burrows', 10, 'Lantern Run', 'checkpoint', { pool: 'bottom', len: 150, speed: 15, blurb: 'Every letter, all the way through the tunnels.' }),
+      R('burrows', 10, 'Burrow Review'),
+      L('burrows', 11, 'Lantern Run', 'checkpoint', { id: 'burrows-10', pool: 'bottom', len: 150, speed: 15, blurb: 'Every letter, all the way through the tunnels.' }),
     ],
   },
   {
     id: 'cliffs', name: 'Capital Cliffs', blurb: 'Big letters need the Shift key.',
     lessons: [
-      L('cliffs', 1, 'Big Letters, Right Hand', 'intro', { shift: 'right', len: 100, speed: 13, blurb: 'Hold Shift with your LEFT pinky and type a right-hand letter.' }),
-      L('cliffs', 2, 'Big Letters, Left Hand', 'intro', { shift: 'left', len: 100, speed: 13, blurb: 'Hold Shift with your RIGHT pinky and type a left-hand letter.' }),
-      L('cliffs', 3, 'Names and Places', 'words', { len: 120, speed: 14 }),
-      L('cliffs', 4, 'Cliff Sentences', 'sentences', { pool: 'capitals', len: 140, speed: 15 }),
-      D('cliffs', 5, "'", '"', ['Quote'], { title: 'Apostrophes', kind: 'intro', len: 100, speed: 13 }),
-      L('cliffs', 6, 'Summit Run', 'checkpoint', { pool: 'capitals', len: 160, speed: 16 }),
+      L('cliffs', 1, 'Big H J K L', 'intro', { shift: 'right', shiftCodes: RH_HOME, len: 100, speed: 12, blurb: 'Hold Shift with your LEFT pinky, then type a right-hand home key.' }),
+      L('cliffs', 2, 'Big Letters, Right Reach', 'intro', { id: 'cliffs-1b', shift: 'right', shiftCodes: RH_REACH, len: 110, speed: 12, blurb: 'Left pinky on Shift, right hand reaches up and down.' }),
+      L('cliffs', 3, 'Big A S D F G', 'intro', { id: 'cliffs-2', shift: 'left', shiftCodes: LH_HOME, len: 100, speed: 12, blurb: 'Hold Shift with your RIGHT pinky, then type a left-hand home key.' }),
+      L('cliffs', 4, 'Big Letters, Left Reach', 'intro', { id: 'cliffs-2b', shift: 'left', shiftCodes: LH_REACH, len: 110, speed: 12, blurb: 'Right pinky on Shift, left hand reaches up and down.' }),
+      L('cliffs', 5, 'Names and Places', 'words', { id: 'cliffs-3', len: 120, speed: 14 }),
+      L('cliffs', 6, 'Cliff Sentences', 'sentences', { id: 'cliffs-4', pool: 'capitals', len: 140, speed: 15 }),
+      L('cliffs', 7, 'Apostrophes', 'intro', { id: 'cliffs-5', codes: ['Quote'], len: 100, speed: 13, pass: 0.85 }),
+      R('cliffs', 8, 'Cliff Review'),
+      L('cliffs', 9, 'Summit Run', 'checkpoint', { id: 'cliffs-6', pool: 'capitals', len: 160, speed: 16 }),
     ],
   },
   {
@@ -114,7 +130,8 @@ export const REGIONS: Region[] = [
       L('ridge', 5, '2 and 9', 'drill', { chars: ['2', '9'], len: 56, speed: 8, pass: 0.85 }),
       L('ridge', 6, '1 and 0', 'drill', { chars: ['1', '0'], len: 56, speed: 8, pass: 0.85 }),
       L('ridge', 7, 'Counting Sentences', 'sentences', { pool: 'numbers', len: 140, speed: 14 }),
-      L('ridge', 8, 'Peak Run', 'checkpoint', { pool: 'numbers', len: 160, speed: 15 }),
+      R('ridge', 8, 'Ridge Review', { speed: 12 }),
+      L('ridge', 9, 'Peak Run', 'checkpoint', { id: 'ridge-8', pool: 'numbers', len: 160, speed: 15 }),
     ],
   },
   {
@@ -122,10 +139,13 @@ export const REGIONS: Region[] = [
     lessons: [
       L('shores', 1, '? and !', 'drill', { chars: ['?', '!'], len: 56, speed: 8, pass: 0.85 }),
       L('shores', 2, 'Quotes and Dashes', 'intro', { chars: ['"', '-'], len: 100, speed: 12 }),
-      L('shores', 3, 'Brackets and Colons', 'intro', { chars: ['(', ')', ':'], len: 100, speed: 12 }),
+      L('shores', 3, 'Parentheses and Colons', 'intro', { chars: ['(', ')', ':'], len: 100, speed: 12 }),
       L('shores', 4, '@ # & %', 'intro', { chars: ['@', '#', '&', '%'], len: 100, speed: 12 }),
       L('shores', 5, 'Shell Sentences', 'sentences', { pool: 'symbols', len: 140, speed: 14 }),
-      L('shores', 6, 'Lighthouse Run', 'checkpoint', { pool: 'symbols', len: 170, speed: 15 }),
+      R('shores', 6, 'Shore Review'),
+      L('shores', 7, 'Lighthouse Run', 'checkpoint', { id: 'shores-6', pool: 'symbols', len: 170, speed: 15 }),
+      // the end of the course: two minutes of real reading, a stated target, a certificate
+      L('shores', 8, 'Graduation Test', 'final', { id: 'shores-grad', pool: 'stories-kids', len: 900, speed: 15, pass: 0.93, blurb: 'Two minutes of real typing. Reach the target and you graduate!' }),
     ],
   },
   {
@@ -157,14 +177,31 @@ export function newCharsFor(lesson: Lesson, layout: Layout): string[] {
     if (k && k.base && !layout.dead.has(k.base)) out.push(k.base);
   }
   for (const ch of lesson.chars ?? []) if (layout.chars.has(ch)) out.push(ch);
-  if (lesson.shift) {
-    const wantLeft = lesson.shift === 'left';
-    for (const [ch, info] of layout.chars) {
-      if (!info.shift || !LETTER.test(ch) || ch.toLowerCase() === ch) continue;
-      if (LEFT_FINGERS.has(info.finger) === wantLeft && known0(lesson, layout).has(ch.toLowerCase())) out.push(ch);
-    }
-  }
+  if (lesson.shift) for (const ch of capitalsOf(lesson, layout)) if (known0(lesson, layout).has(ch.toLowerCase())) out.push(ch);
   return out;
+}
+
+/** The capital letters a Shift lesson teaches on this layout: its keys' shifted letters, or every
+ * capital typed by that hand. */
+function capitalsOf(lesson: Lesson, layout: Layout): string[] {
+  const out: string[] = [];
+  if (lesson.shiftCodes) {
+    for (const code of lesson.shiftCodes) { const k = layout.byCode.get(code); if (k && LETTER.test(k.shift) && k.shift.toLowerCase() !== k.shift) out.push(k.shift); }
+    return out;
+  }
+  const wantLeft = lesson.shift === 'left';
+  for (const [ch, info] of layout.chars) if (info.shift && LETTER.test(ch) && ch.toLowerCase() !== ch && LEFT_FINGERS.has(info.finger) === wantLeft) out.push(ch);
+  return out;
+}
+
+/** A lesson's name on this layout: lessons named after their keys use the keys this keyboard really has. */
+export function lessonTitle(lesson: Lesson, layout: Layout): string {
+  if (layout.id === 'qwerty') return lesson.title;
+  const keys = (codes?: Code[]) => (codes ?? []).filter(c => c !== 'Space').map(c => layout.byCode.get(c)?.base ?? '').filter(Boolean).map(ch => ch.toUpperCase());
+  if (lesson.kind === 'drill' && lesson.codes) { const k = keys(lesson.codes); if (k.length === 2) return `${k[0]} and ${k[1]}`; }
+  if (lesson.kind === 'mix' && lesson.focus && /^([^ ]+ ){1,4}[^ ]+$/.test(lesson.title) && lesson.title.length <= 9) return keys(lesson.focus).join(' ');
+  if (lesson.shiftCodes && lesson.shiftCodes.length <= 5) return 'Big ' + keys(lesson.shiftCodes).join(' ');
+  return lesson.title;
 }
 
 // letters known before a lesson, used when picking which capitals to teach
@@ -190,12 +227,7 @@ export function knownChars(lessonId: string, layout: Layout): Set<string> {
       if (k && k.base && !layout.dead.has(k.base)) set.add(k.base);
     }
     for (const ch of l.chars ?? []) if (layout.chars.has(ch)) set.add(ch);
-    if (l.shift) {
-      const wantLeft = l.shift === 'left';
-      for (const [ch, info] of layout.chars) {
-        if (info.shift && LETTER.test(ch) && ch.toLowerCase() !== ch && LEFT_FINGERS.has(info.finger) === wantLeft && set.has(ch.toLowerCase())) set.add(ch);
-      }
-    }
+    if (l.shift) for (const ch of capitalsOf(l, layout)) if (set.has(ch.toLowerCase())) set.add(ch);
   }
   knownCache.set(key, set);
   return set;

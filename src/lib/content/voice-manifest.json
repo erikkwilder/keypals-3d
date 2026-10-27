@@ -111,6 +111,10 @@
     "voice": "coach",
     "ms": 3063
   },
+  "lesson.treetops-rev": {
+    "voice": "coach",
+    "ms": 3387
+  },
   "lesson.treetops-10": {
     "voice": "coach",
     "ms": 3063
@@ -151,17 +155,29 @@
     "voice": "coach",
     "ms": 3487
   },
+  "lesson.burrows-rev": {
+    "voice": "coach",
+    "ms": 3697
+  },
   "lesson.burrows-10": {
     "voice": "coach",
     "ms": 2390
   },
   "lesson.cliffs-1": {
     "voice": "coach",
-    "ms": 5428
+    "ms": 7358
+  },
+  "lesson.cliffs-1b": {
+    "voice": "coach",
+    "ms": 4570
   },
   "lesson.cliffs-2": {
     "voice": "coach",
-    "ms": 3662
+    "ms": 6371
+  },
+  "lesson.cliffs-2b": {
+    "voice": "coach",
+    "ms": 4400
   },
   "lesson.cliffs-3": {
     "voice": "coach",
@@ -175,17 +191,21 @@
     "voice": "coach",
     "ms": 4530
   },
+  "lesson.cliffs-rev": {
+    "voice": "coach",
+    "ms": 3492
+  },
   "lesson.cliffs-6": {
     "voice": "coach",
     "ms": 2875
   },
   "lesson.ridge-1": {
     "voice": "coach",
-    "ms": 4440
+    "ms": 5942
   },
   "lesson.ridge-2": {
     "voice": "coach",
-    "ms": 2325
+    "ms": 3772
   },
   "lesson.ridge-3": {
     "voice": "coach",
@@ -207,6 +227,10 @@
     "voice": "coach",
     "ms": 4071
   },
+  "lesson.ridge-rev": {
+    "voice": "coach",
+    "ms": 3547
+  },
   "lesson.ridge-8": {
     "voice": "coach",
     "ms": 2415
@@ -221,19 +245,27 @@
   },
   "lesson.shores-3": {
     "voice": "coach",
-    "ms": 4475
+    "ms": 5473
   },
   "lesson.shores-4": {
     "voice": "coach",
-    "ms": 4141
+    "ms": 5722
   },
   "lesson.shores-5": {
     "voice": "coach",
     "ms": 3313
   },
+  "lesson.shores-rev": {
+    "voice": "coach",
+    "ms": 3213
+  },
   "lesson.shores-6": {
     "voice": "coach",
     "ms": 3138
+  },
+  "lesson.shores-grad": {
+    "voice": "coach",
+    "ms": 6950
   },
   "lesson.road-1": {
     "voice": "coach",

@@ -2,7 +2,7 @@
   import { onMount, tick } from 'svelte';
   import { game } from '../state/game.svelte';
   import { outfitOf, palOf } from '../engine/profile';
-  import { REGIONS, type Lesson } from '../engine/course';
+  import { REGIONS, lessonTitle, type Lesson } from '../engine/course';
   import { isUnlocked, nextLesson, passed, regionUnlocked, todayMs, totalStars } from '../engine/profile';
   import { RIDES } from '../engine/rides';
   import { DANCES, forBuddy } from '../engine/rewards';
@@ -118,7 +118,7 @@
           {@const rec = p.lessons[l.id]}
           {@const isNext = l.id === next.id}
           <button class="node" class:locked={!unlocked} class:next={isNext} class:done={passed(p, l.id)} class:practice={l.practice} class:check={l.kind === 'checkpoint'}
-            style:left="{pos.x}%" style:top="{pos.y}%" onclick={() => start(l)} title={l.title}>
+            style:left="{pos.x}%" style:top="{pos.y}%" onclick={() => start(l)} title={lessonTitle(l, game.layout)}>
             <span class="disc">
               {#if !unlocked}<Icon name="lock" />
               {:else if l.practice}<Icon name={PRACTICE_ICON[l.kind] ?? 'book'} />
@@ -126,7 +126,7 @@
               {:else}{l.n}{/if}
             </span>
             {#if rec && rec.bestRide > 0}<span class="ride"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff')}</svg></span>{/if}
-            <span class="lbl">{l.title}</span>
+            <span class="lbl">{lessonTitle(l, game.layout)}</span>
             {#if !l.practice}<Stars n={rec?.stars ?? 0} size={15} />{#if rec?.platinum}<span class="plat" title="Platinum">✦</span>{/if}{/if}
             {#if isNext}<span class="buddy"><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={70} mood="dance" /></span>{/if}
           </button>
@@ -139,7 +139,7 @@
 
   <div class="go">
     <button class="btn btn-primary btn-big" onclick={() => start(next)}>
-      {passed(p, 'village-1') ? 'Keep going' : 'Start your adventure'}: {next.title} <span class="kbd">enter</span>
+      {passed(p, 'village-1') ? 'Keep going' : 'Start your adventure'}: {lessonTitle(next, game.layout)} <span class="kbd">enter</span>
     </button>
   </div>
 </div>

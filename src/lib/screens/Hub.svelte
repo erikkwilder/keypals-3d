@@ -3,7 +3,7 @@
   // each with its own trail and its own progress; above them, what all games share: your buddy's
   // friendship, today's minutes, stickers, medals and dances.
   import { game } from '../state/game.svelte';
-  import { ALL_LESSONS, LESSON, REGION } from '../engine/course';
+  import { ALL_LESSONS, REGION, lessonTitle } from '../engine/course';
   import { nextLesson, outfitOf, palOf, passed, todayMs, totalStars } from '../engine/profile';
   import { DANCES, forBuddy } from '../engine/rewards';
   import { levelFromXp } from '../engine/stickers';
@@ -108,7 +108,7 @@
           <span class="tag">All ten fingers, no peeking</span>
         </button>
         <div class="info">
-          <div class="where"><b>{tFresh ? 'Start here' : REGION[tNext.region].name}</b><span>{tFresh ? 'Home Row Island, lesson 1' : `Next: ${tNext.title}`}</span></div>
+          <div class="where"><b>{tFresh ? 'Start here' : REGION[tNext.region].name}</b><span>{tFresh ? 'Home Row Island, lesson 1' : `Next: ${lessonTitle(tNext, game.layout)}`}</span></div>
           <div class="stats">
             <span><Stars n={1} of={1} size={18} /><b>{tStars}</b> stars</span>
             <span><b>{tDone}</b>/{course.length} lessons</span>
