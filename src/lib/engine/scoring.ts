@@ -134,6 +134,18 @@ export function endMessage(stars: number, opts: { record?: boolean; improved?: b
   return opts.improved ? "You're getting better!" : "Nice effort, you've got this!";
 }
 
+/**
+ * The big title on the results card. It says what really happened: "Perfect run!" only for three
+ * stars with no mistakes at all (it used to mean any three stars, which a run with slips can earn);
+ * "No mistakes!" for a clean but slower run; otherwise the stars won.
+ */
+export function runTitle(r: { stars: number; errors: number; finished: boolean; passed: boolean; sprint: boolean }): string {
+  if (r.sprint) return r.errors === 0 ? 'Sprint done, no slips!' : 'Sprint done!';
+  if (!r.passed) return r.finished ? 'So close!' : "Time's up!";
+  if (r.errors === 0) return r.stars === 3 ? 'Perfect run!' : 'No mistakes!';
+  return r.stars === 3 ? 'Three stars!' : r.stars === 2 ? 'Great job!' : 'Lesson passed!';
+}
+
 /** What to say about the race against the ghost. */
 export function ghostWords(g: { beat: boolean; by: number; finished: boolean }) {
   const secs = Math.round(g.by), n = `${secs} ${secs === 1 ? 'second' : 'seconds'}`;

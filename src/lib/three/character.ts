@@ -7,7 +7,6 @@ import { loadGltf } from './assets';
 import { FRIEND, type FriendId } from '../art/cast';
 
 import { CLIP_NAMES as MOVE } from './clipNames';
-import { HAND_DANCES, bakeHandDance } from './handDances';
 const ONCE = new Set(['cheer', 'jump', 'wave', 'fistpump', 'wave1']);
 /** extra moves: the seated pose for rides, celebrations and dances, loaded the first time they're needed */
 export const MOVE_FILES = ['moves'];
@@ -27,7 +26,6 @@ function source(id: FriendId) {
   return p;
 }
 const moveSets = new Map<string, Promise<THREE.AnimationClip[]>>();
-const handClips = new Map<string, THREE.AnimationClip | null>();
 function moves(id: FriendId) {
   let p = moveSets.get(id);
   if (!p) {
@@ -69,7 +67,7 @@ export class Character {
   groundFeet = true;
   private feet: Foot[] = [];
   /** every bone's turn in the bind pose (standing straight), for sitting up straight on rides */
-  readonly bindQ = new Map<THREE.Bone, THREE.Quaternion>();
+  private bindQ = new Map<THREE.Bone, THREE.Quaternion>();
   private outfit: THREE.Object3D | null = null;
   outfitId = 'none';
 
@@ -139,13 +137,6 @@ export class Character {
       }
     }
     this.addClips(clips);
-    // the hand-keyed dances, posed once per buddy and shared by every copy
-    for (const id of Object.keys(HAND_DANCES)) {
-      const key = `${this.id}:${id}`;
-      if (!handClips.has(key)) handClips.set(key, bakeHandDance(id, this.model, this.bones, this.bindQ));
-      const c = handClips.get(key);
-      if (c) this.addClips([c]);
-    }
   }
 
   has(name: string) { return !!this.actions[name]; }

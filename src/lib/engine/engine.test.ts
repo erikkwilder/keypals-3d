@@ -3,7 +3,7 @@ import { LAYOUTS, detectLayout, fingerFor, shiftFor } from './layouts';
 import { ALL_LESSONS, LESSON, knownChars, newCharsFor } from './course';
 import { generate, targetLength, fits } from './textgen';
 import { Session } from './session';
-import { computeStats, lessonGoal, starsFor } from './scoring';
+import { computeStats, lessonGoal, runTitle, starsFor } from './scoring';
 import { RideMeter } from './rides';
 import { STICKERS, newPalProgress } from './stickers';
 import { MEDALS } from './achievements';
@@ -18,7 +18,6 @@ import { demoKeys, homeDemo, lessonDemo } from './demos';
 import { REWARDS, treasureFor } from './rewards';
 import { existsSync, readFileSync } from 'node:fs';
 import { CLIP_NAMES } from '../three/clipNames';
-import { HAND_DANCES } from '../three/handDances';
 
 const Q = LAYOUTS.qwerty;
 
@@ -286,6 +285,17 @@ describe('six rides', () => {
   });
 });
 
+describe('results title', () => {
+  it('says perfect only with no mistakes', () => {
+    const base = { stars: 3, errors: 0, finished: true, passed: true, sprint: false };
+    expect(runTitle(base)).toBe('Perfect run!');
+    expect(runTitle({ ...base, errors: 2 })).toBe('Three stars!');
+    expect(runTitle({ ...base, errors: 0, stars: 1 })).toBe('No mistakes!');
+    expect(runTitle({ ...base, errors: 3, stars: 2 })).toBe('Great job!');
+    expect(runTitle({ ...base, stars: 0, passed: false, errors: 5 })).toBe('So close!');
+  });
+});
+
 describe('rewards and treasure', () => {
   it('starts every buddy with the fist pump and one dance, and has a model for every outfit', () => {
     const p = newProfile('Mia', 'koala');
@@ -300,7 +310,7 @@ describe('rewards and treasure', () => {
       return (JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8')).animations ?? []).map((a: { name: string }) => CLIP_NAMES[a.name] ?? a.name);
     };
     for (const id of ['dino', 'cheetah', 'monkey', 'koala']) {
-      const names = new Set([...clips(`public/models/${id}.glb`), ...clips(`public/models/${id}-moves.glb`), ...Object.keys(HAND_DANCES)]);
+      const names = new Set([...clips(`public/models/${id}.glb`), ...clips(`public/models/${id}-moves.glb`)]);
       for (const d of REWARDS.filter(r => r.kind === 'dance')) expect(names.has(d.id), `${id} ${d.id}`).toBe(true);
     }
   });

@@ -465,7 +465,7 @@
           <div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore ?? Math.round(record.bestWpm)} · ride: {RIDES[record.bestRide].name}{#if record.platinum} · platinum!{/if}</div>
         {/if}
         <div class="tiles">
-          <NavTile size="md" tone="sky" kind="map" label="Map" onclick={leave} />
+          <NavTile size="md" tone="sky" kind="home" label="Home" onclick={leave} />
           <NavTile size="md" tone="lilac" kind="demo" label="Watch how" onclick={() => watch(reachSteps.length ? 'lesson' : 'home')} />
           {#if record}<NavTile size="md" tone="sky" kind="chart" label="Progress" onclick={() => game.openChart(lesson.id)} />{/if}
           <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={() => { unlockAudio(); begin(); }} />
@@ -491,7 +491,7 @@
         <div class="tiles">
           <NavTile size="lg" tone="mint" kind="play" label="Keep going" hotkey="esc" onclick={() => (phase = 'typing')} />
           <NavTile size="lg" tone="butter" kind="redo" label="Start over" onclick={restart} />
-          <NavTile size="lg" tone="sky" kind="map" label="Map" onclick={leave} />
+          <NavTile size="lg" tone="sky" kind="home" label="Home" onclick={leave} />
           <NavTile size="lg" tone="lilac" kind="settings" label="Settings" onclick={() => game.openSettings()} />
         </div>
         <div class="pills">

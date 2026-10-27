@@ -6,7 +6,7 @@
   import { ALL_LESSONS, LESSON, REGION, REGIONS, lessonIndex } from '../engine/course';
   import { RIDES, RIDE_SCORE } from '../engine/rides';
   import { danceOf, isUnlocked, nextGoal, nextLesson, palOf } from '../engine/profile';
-  import { endMessage, ghostWords, lessonGoal, platinumScore } from '../engine/scoring';
+  import { endMessage, ghostWords, lessonGoal, platinumScore, runTitle } from '../engine/scoring';
   import { MEDAL_TIERS, newPalProgress } from '../engine/stickers';
   import { FRIEND } from '../art/cast';
   import { REWARD, TREASURES, TREASURE_SCORE } from '../engine/rewards';
@@ -125,7 +125,7 @@
     prizeRaf = requestAnimationFrame(trackPrize);
   }
 
-  const title = !last ? '' : lesson.kind === 'sprint' ? 'Sprint done!' : passedRun ? (last.stars === 3 ? 'Perfect run!' : last.stars === 2 ? 'Great job!' : 'Lesson passed!') : 'So close!';
+  const title = !last ? '' : runTitle({ stars: last.stars, errors: last.errors, finished: last.finished, passed: passedRun, sprint: lesson.kind === 'sprint' });
   const sub = !last ? '' : passedRun ? (last.regionJustDone ? `${REGION[last.regionJustDone].name} complete!` : `${lesson.title} · ${region.name}`) : 'Fewer slips will get you there. You can do it!';
   const nextRegion = last?.regionJustDone ? REGIONS[REGIONS.findIndex(r => r.id === last.regionJustDone) + 1] : null;
   const ringC = 2 * Math.PI * 64;
@@ -202,6 +202,7 @@
     if (detail || tdetail !== null) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); detail = null; tdetail = null; } return; }
     if (performance.now() - opened < 1200 || game.modalOpen) return;
     if (e.key === 'Enter') { e.preventDefault(); goNext(); }
+    if (e.key === ' ') { e.preventDefault(); retry(); }
     if (e.key === 'Escape') toMap();
   }
   const heroOutfit = $derived(wearing ?? game.profile?.pals[buddy]?.outfit ?? pal.outfit);
@@ -315,9 +316,9 @@
       {#if goal && showButtons}<p class="goal">{goal}</p>{/if}
 
       <div class="tiles" class:show={showButtons}>
-        <NavTile size="lg" tone="sky" kind="map" label="Map" hotkey="esc" onclick={toMap} />
-        {#if passedRun}<NavTile size="lg" tone="butter" kind="redo" label="Try again" onclick={retry} />{/if}
-        <NavTile size="lg" tone="mint" kind={passedRun ? 'play' : 'redo'} label={passedRun ? 'Next' : 'Try again'} hotkey="enter" title={passedRun ? `Next: ${nextUp.title}` : 'Try again'} onclick={goNext} />
+        <NavTile size="lg" tone="sky" kind="home" label="Home" hotkey="esc" onclick={toMap} />
+        {#if passedRun}<NavTile size="lg" tone="butter" kind="redo" label="Try again" hotkey="space" onclick={retry} />{/if}
+        <NavTile size="lg" tone="mint" kind={passedRun ? 'play' : 'redo'} label={passedRun ? 'Next' : 'Try again'} hotkey={passedRun ? 'enter' : 'space'} title={passedRun ? `Next: ${nextUp.title}` : 'Try again'} onclick={goNext} />
       </div>
       <div class="tiles small" class:show={showButtons}>
         <NavTile size="sm" tone="lilac" kind="chart" label="Progress" onclick={() => game.openChart(lesson.id)} />

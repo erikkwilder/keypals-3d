@@ -15,7 +15,6 @@ export const REWARDS: Reward[] = [
   R(1, 'dance', 'fistpump', 'Fist Pump'),
   R(1, 'dance', 'dance_hiphop', 'Hip Hop Bounce'),
   R(2, 'outfit', 'party_hat', 'Party Hat'),
-  R(3, 'dance', 'dance_floss', 'The Floss', 'rare'),
   R(4, 'outfit', 'flower_crown', 'Flower Crown'),
   R(5, 'dance', 'jump', 'Happy Jump'),
   R(6, 'outfit', 'propeller_cap', 'Propeller Cap', 'rare'),

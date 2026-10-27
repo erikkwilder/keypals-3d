@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  export type ArtKind = 'play' | 'redo' | 'map' | 'settings' | 'stickers' | 'medals' | 'coach' | 'sfx' | 'music' | 'demo' | 'players' | 'close' | 'chart' | 'dances' | 'outfits';
+  export type ArtKind = 'play' | 'redo' | 'map' | 'settings' | 'stickers' | 'medals' | 'coach' | 'sfx' | 'music' | 'demo' | 'players' | 'close' | 'chart' | 'dances' | 'outfits' | 'home';
 </script>
 
 <script lang="ts">
@@ -53,6 +53,15 @@
     <circle cx="50" cy="60" r="28" fill="#ffe25e" />
     <circle cx="50" cy="60" r="20" fill="#fff09a" />
     <path d="M50 46l4.5 9.5 10.5 1.5-7.5 7.5 2 10.5L50 70l-9.5 5 2-10.5-7.5-7.5 10.5-1.5z" fill="#e8c52c" />
+  {:else if kind === 'home'}
+    <path d="M50 14L10 48h12v36h56V48h12z" fill="#ff8fbf" />
+    <path d="M22 48h56v36H22z" fill="#c3e5fb" />
+    <path d="M50 14L10 48h80z" fill="#ff7fb0" />
+    <path d="M66 20h10v18l-10-8z" fill="#e870a6" />
+    <path d="M42 84V62a8 8 0 0 1 16 0v22z" fill="#ffe25e" />
+    <circle cx="54" cy="73" r="2" fill="#c9a20f" />
+    <rect x="28" y="56" width="10" height="10" rx="2" fill="#fff" /><rect x="62" y="56" width="10" height="10" rx="2" fill="#fff" />
+    <path d="M10 84h80" stroke="#7fe0b4" stroke-width="6" stroke-linecap="round" />
   {:else if kind === 'dances'}
     <circle cx="50" cy="52" r="40" fill="#c99bff" />
     <circle cx="50" cy="48" r="40" fill="#dcbcff" />

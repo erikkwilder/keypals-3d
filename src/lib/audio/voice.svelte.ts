@@ -1,6 +1,7 @@
-// Spoken lines: plays public/voice/<id>.mp3 when it exists, otherwise the browser's own
-// speech voice. Shows a caption while speaking. One line at a time; a new line replaces
-// the old one unless it is only a short bark and something important is playing.
+// Spoken lines: plays public/voice/<id>.mp3 and shows a caption while speaking. One line at a time;
+// a new line replaces the old one unless it is only a short bark and something important is playing.
+// There is no robot-voice fallback: if a clip can't play, the caption stays up for a reading-length
+// moment instead (the browser's own speech voice used to cut in when kids clicked quickly).
 
 import { ALL_LINES, type Line } from '../content/voice';
 import { game } from '../state/game.svelte';
@@ -23,18 +24,9 @@ function stopAll() {
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
 }
 
-function speakFallback(line: Line, onEnd: () => void) {
-  if (typeof speechSynthesis === 'undefined') { setTimeout(onEnd, 1800); return; }
-  const u = new SpeechSynthesisUtterance(line.text);
-  const voices = speechSynthesis.getVoices();
-  const pick = voices.find(v => /Samantha|Karen|Moira|Google US English|Jenny|Aria/i.test(v.name)) ?? voices.find(v => v.lang.startsWith('en')) ?? null;
-  if (pick) u.voice = pick;
-  u.rate = line.voice === 'koala' ? 0.88 : line.voice === 'cheetah' ? 1.1 : 0.98;
-  u.pitch = line.voice === 'coach' ? 1 : line.voice === 'koala' ? 1.1 : 1.3;
-  u.volume = game.settings.volume;
-  u.onend = onEnd;
-  u.onerror = onEnd;
-  speechSynthesis.speak(u);
+/** No clip: leave the caption up long enough to read it, then carry on. */
+function readInstead(line: Line, onEnd: () => void) {
+  setTimeout(onEnd, Math.max(1800, line.text.length * 60));
 }
 
 /** Speak a line by id. Returns a promise that resolves when it finishes (or is skipped). */
@@ -56,13 +48,16 @@ export function say(id: string, opts: { important?: boolean; caption?: boolean }
       }
       resolve();
     };
-    if (missing.has(id)) { speakFallback(line, done); return; }
+    if (missing.has(id)) { readInstead(line, done); return; }
     const a = new Audio(`voice/${id}.mp3`);
     a.volume = Math.min(1, game.settings.volume * 1.1);
     audio = a;
     a.onended = done;
-    a.onerror = () => { missing.add(id); if (audio === a) speakFallback(line, done); };
-    a.play().catch(() => { missing.add(id); speakFallback(line, done); });
+    // only a clip that fails to load counts as missing
+    a.onerror = () => { missing.add(id); if (audio === a) readInstead(line, done); };
+    // play() also fails when a newer line cuts this one off before it starts (clicking quickly), or
+    // before the page has been tapped: neither means the clip is missing, so nothing else speaks
+    a.play().catch(() => { if (audio === a) readInstead(line, done); else resolve(); });
   });
 }
 
