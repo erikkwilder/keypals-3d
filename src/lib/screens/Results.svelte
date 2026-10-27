@@ -90,15 +90,23 @@
   // pick the biggest tile size that still fits every reward in the panel
   // the panel's own height cap (44%) minus its padding and section titles
   const panelH = $derived(Math.max(140, heroH * 0.39 - 34 - (thisRun.length ? 32 : 0) - (fresh.length ? 32 : 0)));
-  const cell = $derived.by(() => {
+  const cellGuess = $derived.by(() => {
     const gap = 10;
     for (let s = 120; s > 46; s -= 4) {
       const cols = Math.max(1, Math.floor((gridW + gap) / (s + gap)));
-      // medals carry two lines under them (name, progress); stickers and outfits one
-      const h = Math.ceil(thisRun.length / cols) * (s + 44 + gap) + Math.ceil(fresh.length / cols) * (s + 34 + gap);
+      // names can run to two lines; medals carry their progress under that
+      const h = Math.ceil(thisRun.length / cols) * (s + 62 + gap) + Math.ceil(fresh.length / cols) * (s + 46 + gap);
       if (h <= panelH) return s;
     }
     return 46;
+  });
+  // and if it still doesn't fit once drawn (long names), shrink the tiles until it does: no scroll bar
+  let shrink = $state(0);
+  let earnedEl: HTMLDivElement | undefined = $state();
+  const cell = $derived(Math.max(40, cellGuess - shrink));
+  $effect(() => {
+    void cell; void heroH; void gridW;
+    requestAnimationFrame(() => { if (earnedEl && earnedEl.scrollHeight > earnedEl.clientHeight + 1 && cell > 40) shrink += 4; });
   });
   const best = last?.bestRide ?? 0;
   const treasure = last?.treasure ?? -1;
@@ -247,7 +255,7 @@
     </div>
 
     {#if earned.length}
-      <div class="earned card">
+      <div class="earned card" bind:this={earnedEl}>
         {#snippet tile(e: Earned, i: number)}
           <div class="item" class:shown={i < earnedShown}>
             {#if e.kind === 'outfit'}
@@ -454,7 +462,8 @@
   .rung.got { background: linear-gradient(135deg, var(--primary-hi), var(--primary)); box-shadow: none; }
   .rung.now { transform: scale(1.22); box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--primary-hi); }
 
-  .earned { position: absolute; left: 2.5%; bottom: 2.5%; width: 44%; max-height: 39%; overflow-y: auto; z-index: 6; padding: 12px 16px 14px; display: flex; flex-direction: column; animation: pop-in .45s cubic-bezier(.3, .8, .4, 1.3); }
+  .earned { position: absolute; left: 2.5%; bottom: 2.5%; width: 44%; max-height: 39%; overflow-y: auto; scrollbar-width: none; z-index: 6; padding: 12px 16px 14px; display: flex; flex-direction: column; animation: pop-in .45s cubic-bezier(.3, .8, .4, 1.3); }
+  .earned::-webkit-scrollbar { display: none; }
   .ehead { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 6px; }
   .egrid + .ehead { margin-top: 10px; }
   .ehead b { font: 600 22px var(--font-ui); }

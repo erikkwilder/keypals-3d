@@ -278,7 +278,16 @@ export class Character {
     const widthFwd = Math.max(...pts.map(q => q.clone().sub(c).dot(fwd))) - Math.min(...pts.map(q => q.clone().sub(c).dot(fwd)));
     // the crown: the highest head points near the middle (ears and spikes stick out to the sides)
     const core = pts.filter(q => across(q) < Math.min(widthSide, widthFwd) * 0.25);
-    const topH = Math.max(...(core.length ? core : pts).map(q => q.clone().sub(c).dot(up)));
+    let topH = Math.max(...(core.length ? core : pts).map(q => q.clone().sub(c).dot(up)));
+    if (FRIEND[this.id].hatOn === 'flat') {
+      // a flat-topped head with things sticking up (feathers): the top is the highest level where
+      // the head is still nearly full width
+      const hs = pts.map(q => q.clone().sub(c).dot(up)), lo = Math.min(...hs), hi = Math.max(...hs), N = 40;
+      const bins = Array.from({ length: N }, () => [Infinity, -Infinity]);
+      pts.forEach((q, i) => { const b = Math.min(N - 1, Math.floor(((hs[i] - lo) / (hi - lo)) * N)), x = q.clone().sub(c).dot(side); bins[b][0] = Math.min(bins[b][0], x); bins[b][1] = Math.max(bins[b][1], x); });
+      const widths = bins.map(([a, b]) => (b > a ? b - a : 0)), full = Math.max(...widths);
+      for (let b = N - 1; b >= 0; b--) if (widths[b] >= full * 0.6) { topH = lo + ((b + 1) / N) * (hi - lo); break; }
+    }
     const top = c.clone().addScaledVector(up, topH);
     const basis = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, up, fwd));
     this.headFit = { top, width: Math.min(widthSide, widthFwd * 1.1), basis };

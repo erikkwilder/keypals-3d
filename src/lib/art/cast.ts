@@ -17,6 +17,8 @@ export type Friend = {
   height: number;
   quirk: string;
   hello: string; // what they say when you pick them
+  /** where hats sit: on the crown (the highest middle point), or on the flat top of a wide head with things sticking up from it (Bop's box and feathers) */
+  hatOn?: 'crown' | 'flat';
 };
 
 export const BUDDIES: Friend[] = [
@@ -32,7 +34,7 @@ export const BUDDIES: Friend[] = [
   { id: 'koala', name: 'Kiki', species: 'koala', color: '#ef6fa6', height: 1.1,
     quirk: 'Her ears hear every key you press. Every single one.',
     hello: "I'm Kiki! Take it slow, take it steady, and we'll get there." },
-  { id: 'box', name: 'Bop', species: 'box head', color: '#f08a3c', height: 1.2,
+  { id: 'box', name: 'Bop', species: 'box head', color: '#f08a3c', height: 1.2, hatOn: 'flat',
     quirk: 'Hears a beat in every key you press. Watch the feathers bounce.',
     hello: "Bop here! Headphones on, fingers ready!" },
   { id: 'turtle', name: 'Tuck', species: 'turtle', color: '#2fa898', height: 1.2,
