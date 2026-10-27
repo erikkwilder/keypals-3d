@@ -2,7 +2,7 @@
 // scripts/voice/generate.mjs). If a file is missing the game shows the caption and uses the
 // browser's own speech voice instead.
 
-export type VoiceId = 'coach' | 'dino' | 'cheetah' | 'monkey' | 'koala' | 'box' | 'turtle';
+export type VoiceId = 'coach' | import('../art/cast').FriendId;
 export type Line = { id: string; voice: VoiceId; text: string };
 
 const coach = (id: string, text: string): Line => ({ id, voice: 'coach', text });
@@ -129,6 +129,21 @@ export const FRIEND_LINES: Line[] = [
   ...F('koala', { hello: "I'm Kiki! Take it slow, take it steady, and we'll get there.", yay: 'Lovely, lovely!', oops: 'No rush. Try that one again.', ride: 'Whoa, so fast!', done: 'Cozy hug! We did it!', pick: "Let's go, nice and steady." }),
   ...F('box', { hello: 'Bop here! Headphones on, fingers ready!', yay: 'Boom! Right on the beat!', oops: 'Skipped a beat! Again!', ride: 'Turn it up!', done: 'That was a hit! We did it!', pick: 'Press play!' }),
   ...F('turtle', { hello: "Hi, I'm Tuck! Slow and steady? Let's try speedy and steady.", yay: 'Shell yeah!', oops: 'Oops! Let me poke my head out and look again.', ride: 'Wheee! Hold on to my shell!', done: 'We made it! Shell-ebration!', pick: 'Steady, ready, go!' }),
+  ...F('fish', { hello: "Fizz here! Big eyes, quick fingers. Let's go!", yay: 'Blub! Nailed it!', oops: 'Bubble popped! Again!', ride: 'Hold your fins!', done: 'Splashing success!', pick: 'Swim!' }),
+  ...F('goggles', { hello: "I'm Skye! Goggles on. Where are we going first?", yay: 'Right on course!', oops: 'Wrong turn! Back on track.', ride: 'Goggles down!', done: 'Expedition complete!', pick: "Let's explore!" }),
+  ...F('straw', { hello: "...Scruff. Hi. I'm ready when you are.", yay: '...nice.', oops: '...oops. Again.', ride: '...whoa.', done: '...we did it.', pick: '...ready.' }),
+  ...F('antenna', { hello: "Radar here! Signal's strong. Let's play!", yay: "Signal's perfect!", oops: 'Static! Try again.', ride: 'Full power!', done: 'Mission complete!', pick: 'Tuning in!' }),
+  ...F('sweater', { hello: "Hey, I'm Blu. Let's keep it cool and quick.", yay: 'Smooth.', oops: 'No worries. Again.', ride: 'Okay, this is fast!', done: 'Nice. We did it.', pick: "Cool, let's go." }),
+  ...F('rabbit', { hello: '...! (Ink waves both ears. That means hello.)', yay: "(Ink's ears go straight up!)", oops: "(Ink's ears droop. Try again!)", ride: '(Ink holds on tight!)', done: '(Ink does a happy hop!)', pick: '(Ink nods.)' }),
+  ...F('sloth', { hello: "Hiii, I'm Moss. Let's take it nice and easy... then zoom.", yay: 'Niiice.', oops: 'Whoopsie. No rush.', ride: 'Zooooom!', done: 'We made it! Snack time.', pick: 'Okay... go!' }),
+  ...F('dog', { hello: "Peach here! Woof! I mean, let's go!", yay: 'Good job! Good job!', oops: 'Ruff! Again!', ride: 'Ears flapping!', done: 'Best walk ever!', pick: 'Fetch!' }),
+  ...F('cat', { hello: "Mochi. Fine. Let's go. (This is fun.)", yay: 'Acceptable. Very good.', oops: 'Hmph. Again.', ride: 'This is... actually great.', done: 'Fine. That was amazing.', pick: "Let's get this over with. (Yay!)" }),
+  ...F('axolotl', { hello: "I'm Axel! Lost a streak? We'll grow it back.", yay: 'Fin-tastic!', oops: 'Grow it back! Again!', ride: 'Swish swish!', done: 'Regrown and ready! We did it!', pick: 'Here we go!' }),
+  ...F('diver', { hello: 'Glub glub! That means hi in diver.', yay: 'Glub-tastic!', oops: 'Glub... again!', ride: 'Full speed, captain!', done: 'Surfaced! We did it!', pick: 'Dive in!' }),
+  ...F('fluff', { hello: "Pip here! Let's get fluffy and fast!", yay: 'Fluffy and fast!', oops: 'Oopsie-floof!', ride: 'Wheee!', done: 'Fluff-tastic!', pick: 'Pip pip, go!' }),
+  ...F('terrier', { hello: 'Scout reporting! Goggles down, nose ready.', yay: 'Found it!', oops: 'Lost the scent. Again!', ride: 'On the trail!', done: 'Case closed! We did it!', pick: 'Sniff, sniff, go!' }),
+  ...F('pinkbunny', { hello: 'Hop here! Ready? Set? Hop!', yay: 'Hop-tastic!', oops: 'Missed a hop! Again!', ride: 'Hold my ears!', done: 'Hop, hop, hooray!', pick: 'Ready, set, hop!' }),
+  ...F('elf', { hello: "I'm Ember! Let's light up the trail.", yay: 'Sparkling!', oops: 'Flicker! Again!', ride: 'Blazing!', done: 'Lit it up! We did it!', pick: 'Spark it!' }),
 ];
 
 export const ALL_LINES: Line[] = [...HOME_TUTORIAL, ...LESSON_LINES, ...FINGER_LINES, ...REGION_LINES, ...COACH_BARKS, ...FRIEND_LINES];

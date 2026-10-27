@@ -5,7 +5,8 @@ export type Look = 'soft' | 'ink' | 'paper' | 'geo';
 export type FingerFamily = 'pinky' | 'ring' | 'middle' | 'index' | 'thumb';
 export type Finger = 'LP' | 'LR' | 'LM' | 'LI' | 'TH' | 'RI' | 'RM' | 'RR' | 'RP';
 
-export type FriendId = 'dino' | 'cheetah' | 'monkey' | 'koala' | 'box' | 'turtle';
+export type FriendId = 'dino' | 'cheetah' | 'monkey' | 'koala' | 'box' | 'turtle'
+  | 'fish' | 'goggles' | 'straw' | 'antenna' | 'sweater' | 'rabbit' | 'sloth' | 'dog' | 'cat' | 'axolotl' | 'diver' | 'fluff' | 'terrier' | 'pinkbunny' | 'elf';
 
 export type Friend = {
   id: FriendId;
@@ -40,6 +41,52 @@ export const BUDDIES: Friend[] = [
   { id: 'turtle', name: 'Tuck', species: 'turtle', color: '#2fa898', height: 1.2,
     quirk: 'Carries his house on his back, and still beats the bus.',
     hello: "Hi, I'm Tuck! Slow and steady? Let's try speedy and steady." },
+  // the fifteen from Erik's pictures (27 Oct): names are placeholders until Erik names them
+  { id: 'fish', name: 'Fizz', species: 'fish', color: '#35b6d6', height: 1.1, hatOn: 'flat',
+    quirk: 'Blows a bubble every time a word comes out right.',
+    hello: "Fizz here! Big eyes, quick fingers. Let's go!" },
+  { id: 'goggles', name: 'Skye', species: 'explorer', color: '#2f8fa8', height: 1.2,
+    quirk: 'Goggles up for typing, goggles down for racing.',
+    hello: "I'm Skye! Goggles on. Where are we going first?" },
+  { id: 'straw', name: 'Scruff', species: 'haystack', color: '#d9a92b', height: 1.1, hatOn: 'flat',
+    quirk: 'Nobody has ever seen the face under all that straw. Just the eyes.',
+    hello: "...Scruff. Hi. I'm ready when you are." },
+  { id: 'antenna', name: 'Radar', species: 'helmet kid', color: '#e0782f', height: 1.2, hatOn: 'flat',
+    quirk: 'The antenna picks up every key you press, even the quiet ones.',
+    hello: "Radar here! Signal's strong. Let's play!" },
+  { id: 'sweater', name: 'Blu', species: 'kid', color: '#5aa6e8', height: 1.25,
+    quirk: 'Sees fine with one eye. Mostly.',
+    hello: "Hey, I'm Blu. Let's keep it cool and quick." },
+  { id: 'rabbit', name: 'Ink', species: 'rabbit', color: '#2b2b3a', height: 1.25,
+    quirk: 'Never says a word. The ears say everything.',
+    hello: '...! (Ink waves both ears. That means hello.)' },
+  { id: 'sloth', name: 'Moss', species: 'sloth', color: '#e2603f', height: 1.15,
+    quirk: 'Packs snacks for every trip, and a spare hat.',
+    hello: "Hiii, I'm Moss. Let's take it nice and easy... then zoom." },
+  { id: 'dog', name: 'Peach', species: 'puppy', color: '#ef7fb4', height: 1.2,
+    quirk: 'Headphones on, tail going. Loves every song.',
+    hello: "Peach here! Woof! I mean, let's go!" },
+  { id: 'cat', name: 'Mochi', species: 'cat', color: '#e9b33c', height: 1.15,
+    quirk: 'Looks bored. Is secretly having the best time.',
+    hello: "Mochi. Fine. Let's go. (This is fun.)" },
+  { id: 'axolotl', name: 'Axel', species: 'axolotl', color: '#86b49a', height: 1.2,
+    quirk: 'Can grow back anything, even a lost streak.',
+    hello: "I'm Axel! Lost a streak? We'll grow it back." },
+  { id: 'diver', name: 'Glub', species: 'diver', color: '#e7a72f', height: 1.1,
+    quirk: 'One big eye, one big helmet, one big heart.',
+    hello: 'Glub glub! That means hi in diver.' },
+  { id: 'fluff', name: 'Pip', species: 'fluffball', color: '#f2c53d', height: 1.1,
+    quirk: 'The horns twitch when the next key is close.',
+    hello: "Pip here! Let's get fluffy and fast!" },
+  { id: 'terrier', name: 'Scout', species: 'terrier', color: '#4f7fc0', height: 1.1,
+    quirk: 'Sniffs out every typo before it happens.',
+    hello: 'Scout reporting! Goggles down, nose ready.' },
+  { id: 'pinkbunny', name: 'Hop', species: 'bunny', color: '#f08aa6', height: 1.25,
+    quirk: 'Hops one key at a time, then all at once.',
+    hello: 'Hop here! Ready? Set? Hop!' },
+  { id: 'elf', name: 'Ember', species: 'elf', color: '#d2453a', height: 1.2,
+    quirk: 'Pointy ears, fast fingers, faster grin.',
+    hello: "I'm Ember! Let's light up the trail." },
 ];
 
 /** Older names some screens still use for the list of buddies. */

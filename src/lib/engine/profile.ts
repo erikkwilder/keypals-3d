@@ -2,7 +2,7 @@
 // daily goal, and each buddy's own XP, level, outfits, dances, medals and stickers. All pure
 // functions over plain data.
 
-import type { FriendId, Look } from '../art/cast';
+import { BUDDIES, type FriendId, type Look } from '../art/cast';
 import { ALL_LESSONS, LESSON, REGIONS, knownChars, lessonIndex, type Lesson, type RegionId } from './course';
 import type { Layout, LayoutId } from './layouts';
 import { AWARD, type AwardDef } from './achievements';
@@ -128,7 +128,7 @@ export function migrate(raw: unknown): SaveFile {
     version: 1,
     activeId: typeof s.activeId === 'string' ? s.activeId : null,
     profiles: profiles.filter(p => p && typeof p === 'object' && typeof p.id === 'string').map(p => {
-      const buddy = (p.buddy && ['dino', 'cheetah', 'monkey', 'koala', 'box', 'turtle'].includes(p.buddy) ? p.buddy : 'dino') as FriendId;
+      const buddy = (p.buddy && BUDDIES.some(b => b.id === p.buddy) ? p.buddy : 'dino') as FriendId;
       const pals: Partial<Record<FriendId, PalProgress>> = {};
       for (const [id, v] of Object.entries(p.pals ?? {})) pals[id as FriendId] = { ...newPalProgress(), ...v };
       pals[buddy] ??= newPalProgress();

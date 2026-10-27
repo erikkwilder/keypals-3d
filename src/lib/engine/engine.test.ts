@@ -1,3 +1,4 @@
+import { BUDDIES } from '../art/cast';
 import { describe, expect, it } from 'vitest';
 import { LAYOUTS, detectLayout, fingerFor, shiftFor } from './layouts';
 import { ALL_LESSONS, LESSON, knownChars, newCharsFor } from './course';
@@ -309,7 +310,7 @@ describe('rewards and treasure', () => {
       const glb = readFileSync(file);
       return (JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8')).animations ?? []).map((a: { name: string }) => CLIP_NAMES[a.name] ?? a.name);
     };
-    for (const id of ['dino', 'cheetah', 'monkey', 'koala', 'box', 'turtle']) {
+    for (const id of BUDDIES.map(b => b.id)) {
       const names = new Set([...clips(`public/models/${id}.glb`), ...clips(`public/models/${id}-moves.glb`), ...clips(`public/models/${id}-dances.glb`)]);
       for (const d of REWARDS.filter(r => r.kind === 'dance')) expect(names.has(d.id), `${id} ${d.id}`).toBe(true);
     }
