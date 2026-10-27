@@ -7,16 +7,47 @@
 // A bloomed fact comes back for review after 1, 3, 7, 14 and 30 days. A slip costs one step, never
 // everything. Partners help each other: progress on 6 × 2 starts 2 × 6 growing too.
 
-/** `a × b`: b is the table it belongs to ("six twos" is 6 × 2 in the 2s). */
-export type Fact = { a: number; b: number };
+/** The four operations. Times is the default, so the times tables' facts and ids stay as they were. */
+export type Op = 'x' | '+' | '-' | '/';
+/** `a op b`. For times, b is the table it belongs to ("six twos" is 6 × 2 in the 2s); for divide, b is
+ *  the number shared by (42 ÷ 6); for minus, b is the number taken away. */
+export type Fact = { a: number; b: number; op?: Op };
 
-export const factId = (f: Fact) => `${f.a}x${f.b}`;
-export const parseFact = (id: string): Fact => { const [a, b] = id.split('x').map(Number); return { a, b }; };
-export const answerOf = (f: Fact) => f.a * f.b;
-export const partnerOf = (f: Fact): Fact => ({ a: f.b, b: f.a });
-export const sameFact = (x: Fact, y: Fact) => x.a === y.a && x.b === y.b;
-/** The facts a rule covers: anything times 0 or times 1. */
-export const isRuleFact = (f: Fact) => f.a <= 1 || f.b <= 1;
+const opOf = (f: Fact): Op => f.op ?? 'x';
+export const factId = (f: Fact) => `${f.a}${opOf(f)}${f.b}`;
+export const parseFact = (id: string): Fact => {
+  const m = /^(\d+)([x+\-/])(\d+)$/.exec(id);
+  if (!m) return { a: 0, b: 0 };
+  const op = m[2] as Op;
+  return op === 'x' ? { a: +m[1], b: +m[3] } : { a: +m[1], b: +m[3], op };
+};
+export const answerOf = (f: Fact) => { const op = opOf(f); return op === '+' ? f.a + f.b : op === '-' ? f.a - f.b : op === '/' ? f.a / f.b : f.a * f.b; };
+/** The sign as shown: ×, +, − (a real minus) and ÷. */
+export const opSign = (f: Fact | Op) => ({ x: '×', '+': '+', '-': '−', '/': '÷' })[typeof f === 'string' ? f : opOf(f)];
+/** A fact's partner, learned together: the turnaround (6 × 2 and 2 × 6, 3 + 5 and 5 + 3), or for minus
+ *  and divide the other one in its family (8 − 3 and 8 − 5, 42 ÷ 6 and 42 ÷ 7). */
+export const partnerOf = (f: Fact): Fact => {
+  const op = opOf(f);
+  if (op === '-') return { a: f.a, b: f.a - f.b, op };
+  if (op === '/') return { a: f.a, b: f.b ? f.a / f.b : 0, op };
+  return op === 'x' ? { a: f.b, b: f.a } : { a: f.b, b: f.a, op };
+};
+export const sameFact = (x: Fact, y: Fact) => x.a === y.a && x.b === y.b && opOf(x) === opOf(y);
+/** The facts a rule covers: times 0 or 1; plus 0; minus 0 or a number minus itself; divide by 1 or by itself. */
+export const isRuleFact = (f: Fact) => {
+  const op = opOf(f);
+  if (op === '+') return f.a === 0 || f.b === 0;
+  if (op === '-') return f.b === 0 || f.a === f.b;
+  if (op === '/') return f.b === 1 || f.a === f.b || f.a === 0;
+  return f.a <= 1 || f.b <= 1;
+};
+/** The other operation's facts in the same family: 3 + 5 = 8 gives 8 − 5 and 8 − 3; 6 × 7 = 42 gives 42 ÷ 7 and 42 ÷ 6. */
+export const familyOf = (f: Fact): Fact[] => {
+  const op = opOf(f);
+  if (op === '+') return [{ a: f.a + f.b, b: f.b, op: '-' }, { a: f.a + f.b, b: f.a, op: '-' }];
+  if (op === 'x') return ([{ a: f.a * f.b, b: f.b, op: '/' }, { a: f.a * f.b, b: f.a, op: '/' }] as Fact[]).filter(x => x.b >= 1 && x.b <= 10 && x.a / x.b <= 10);
+  return [];
+};
 
 export type Stage = 0 | 1 | 2 | 3;
 export const STAGE_NAME = ['Not planted', 'Sprout', 'Bud', 'Bloom'] as const;

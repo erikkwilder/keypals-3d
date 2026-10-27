@@ -8,8 +8,8 @@ import { AWARD } from '../engine/achievements';
 import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from '../engine/stickers';
 import { newBetween, type Reward } from '../engine/rewards';
 import { RIDES } from '../engine/rides';
-import { MATH_LESSON, MATH_LESSONS, MATH_REGION, MATH_REGIONS, PLACEMENT, type MathLesson, type MathRegionId } from './course';
-import { factId, newStat, parseFact, seedPartner, updateFact, FAST_MS, type FactStat, type Stage } from './facts';
+import { groupFacts, MATH_LESSON, MATH_LESSONS, MATH_REGION, PLACEMENTS, regionsOf, type MathLesson, type MathRegionId } from './course';
+import { factId, familyOf, newStat, parseFact, seedPartner, updateFact, FAST_MS, type FactStat, type Op, type Stage } from './facts';
 import { mathTreasureFor, type FactResult, type TripStats } from './meter';
 
 export type MathLessonRecord = {
@@ -36,6 +36,8 @@ export type MathProgress = {
   tricksSeen?: number[];
   /** each fact's stage the last time the Fact Garden was opened, so new growth can pop in */
   gardenSeen?: Record<string, number>;
+  /** the strand played last: +, −, × or ÷ (home's Play carries on there) */
+  strand?: Op;
 };
 
 export const newMathProgress = (): MathProgress => ({ home: 'typing', facts: {}, lessons: {}, history: [], totals: { trips: 0, facts: 0, ms: 0 } });
@@ -60,10 +62,12 @@ export function mathMovedOn(m: MathProgress, l: MathLesson): boolean {
   return l.region !== 'start' && regionPassed(m, l.region);
 }
 
+/** Regions open in order within their strand; each strand's first region is open from the start. */
 export function mathRegionOpen(m: MathProgress, id: MathRegionId): boolean {
-  const i = MATH_REGIONS.findIndex(r => r.id === id);
+  const rs = regionsOf(MATH_REGION[id].op);
+  const i = rs.findIndex(r => r.id === id);
   if (i <= 0) return true;
-  const prev = MATH_REGIONS[i - 1];
+  const prev = rs[i - 1];
   return regionPassed(m, prev.id) || prev.lessons.every(l => mathMovedOn(m, l));
 }
 
@@ -78,9 +82,10 @@ export function mathUnlocked(m: MathProgress, l: MathLesson): boolean {
 
 /** The lesson to suggest: the first open one not yet moved on from; once the whole trail is done, The
  *  Big Mix (all four tables), which keeps the reviews coming. */
-export function nextMathLesson(m: MathProgress): MathLesson {
-  for (const l of MATH_LESSONS) if (mathUnlocked(m, l) && !mathMovedOn(m, l)) return l;
-  return MATH_LESSON['fours-3'];
+export function nextMathLesson(m: MathProgress, op: Op = m.strand ?? 'x'): MathLesson {
+  for (const l of MATH_LESSONS) if (l.op === op && mathUnlocked(m, l) && !mathMovedOn(m, l)) return l;
+  // the whole strand done: its last mix, which keeps the reviews coming
+  return regionsOf(op).at(-1)!.lessons[2];
 }
 
 export const mathStarsTotal = (m: MathProgress) => Object.values(m.lessons).reduce((a, r) => a + (r.stars || 0), 0);
@@ -151,6 +156,12 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
     }
     seedPartner(m.facts, parseFact(r.id));
   }
+  // a fact that blooms starts its family growing in the other operation: 3 + 5 plants 8 − 5 and 8 − 3,
+  // 6 × 7 plants 42 ÷ 7 and 42 ÷ 6 (as sprouts; they still have to be asked to grow further)
+  for (const id of stageBefore.keys()) {
+    if ((m.facts[id]?.stage ?? 0) !== 3) continue;
+    for (const fam of familyOf(parseFact(id))) { const fid = factId(fam); if (!m.facts[fid]?.stage) m.facts[fid] = { ...(m.facts[fid] ?? newStat()), stage: 1 }; }
+  }
   const grew = { bloomed: [] as string[], budded: [] as string[], sprouted: [] as string[] };
   const slipped: string[] = [];
   for (const [id, b] of stageBefore) {
@@ -178,12 +189,14 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
     treasure: Math.max(prev.treasure, treasure),
   };
   m.lessons[lesson.id] = record;
+  m.strand = lesson.op;
 
   // ---- the placement trip: test out of every table, in order, that came back all right and mostly fast ----
   const testedOut: MathRegionId[] = [];
-  if (lesson.id === PLACEMENT.id && run.finished) {
-    for (const r of MATH_REGIONS) {
-      const mine = run.results.filter(x => !x.intro && parseFact(x.id).b === r.table);
+  if (lesson.region === 'start' && run.finished) {
+    for (const r of regionsOf(lesson.op)) {
+      const ids = new Set(r.groups.flatMap(groupFacts).map(factId));
+      const mine = run.results.filter(x => !x.intro && ids.has(x.id));
       const fast = mine.filter(x => x.ok && x.speed === 'fast').length;
       if (!mine.length || mine.some(x => !x.ok) || fast < Math.ceil(mine.length * 0.6)) break;
       const cp = r.lessons.at(-1)!;
@@ -270,3 +283,14 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
 
 /** Every fact id in round one's garden: the tables 0 to 10, times 0 to 10. */
 export const GARDEN_IDS = Array.from({ length: 11 }, (_, b) => Array.from({ length: 11 }, (_, a) => factId({ a, b }))).flat();
+const r11 = Array.from({ length: 11 }, (_, i) => i);
+/** Every fact id in each operation's garden: + and × as 11 by 11; − as take-away (0-10) by what's left
+ *  (0-10); ÷ as divide-by (1-10) by the answer (0-10). */
+export const GARDEN_BY_OP: Record<Op, string[]> = {
+  x: GARDEN_IDS,
+  '+': r11.flatMap(b => r11.map(a => factId({ a, b, op: '+' }))),
+  '-': r11.flatMap(b => r11.map(d => factId({ a: b + d, b, op: '-' }))),
+  '/': r11.slice(1).flatMap(b => r11.map(q => factId({ a: b * q, b, op: '/' }))),
+};
+/** Every fact in every garden. */
+export const ALL_GARDEN_IDS = Object.values(GARDEN_BY_OP).flat();

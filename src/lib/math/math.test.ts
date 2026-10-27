@@ -99,9 +99,9 @@ describe('fact memory', () => {
 });
 
 describe('course', () => {
-  it('has the 2s, 10s, 5s and 4s, four lessons each, plus the placement trip', () => {
-    expect(MATH_LESSONS).toHaveLength(16);
-    expect(MATH_LESSONS.map(l => l.id).filter(id => id.endsWith('-4')).map(id => MATH_LESSON[id].tables[0])).toEqual([2, 10, 5, 4]);
+  it('has nine times tables and four regions each of +, − and ÷, four lessons each, plus the placement trips', () => {
+    expect(MATH_LESSONS).toHaveLength(84);
+    expect(MATH_LESSONS.filter(l => l.op === 'x' && l.kind === 'check').map(l => l.tables[0])).toEqual([2, 10, 5, 4, 3, 9, 6, 8, 7]);
     expect(PLACEMENT.tables).toEqual([2, 10, 5, 4]);
   });
   it('gives every fact a trick', () => {
@@ -329,13 +329,49 @@ describe('math progress and rewards', () => {
     expect(out.testedOut).toEqual(['twins', 'tens']); // stops at the 5s, so the 4s aren't skipped either
     expect(nextMathLesson(mathOf(out.profile)).id).toBe('fives-1');
   });
-  it('once the whole trail is done, suggests The Big Mix', () => {
+  it('after testing out of the first four tables, carries on with the 3s', () => {
     const p = newProfile('Ava', 'dino');
     const asked = play(new TripPicker({ lesson: PLACEMENT, facts: {}, now: T0, seed: 8 })).map(a => a.item.fact);
     const rs: FactResult[] = asked.map(f => ({ id: factId(f), ok: true, speed: 'fast', thinkMs: 900, ms: 2000, intro: false }));
     const out = applyMathRun(p, { lessonId: PLACEMENT.id, results: rs, stats: tripStats(rs), stars: 3, bestRide: 4, finished: true, at: T0 });
     expect(out.testedOut).toEqual(['twins', 'tens', 'fives', 'fours']);
-    expect(nextMathLesson(mathOf(out.profile)).id).toBe('fours-3');
+    expect(nextMathLesson(mathOf(out.profile)).id).toBe('threes-1');
+  });
+  it('once a whole strand is done, suggests its last mix', async () => {
+    const { MATH_LESSONS: all } = await import('./course');
+    const m = mathOf(newProfile('Ava', 'dino'));
+    for (const l of all) m.lessons[l.id] = { stars: 3, bestScore: 20, bestFpm: 20, bestAcc: 1, bestRide: 3, attempts: 1, finishes: 1, passes: 1, lastAt: T0, treasure: 3 };
+    expect(nextMathLesson(m, 'x').id).toBe('sevens-3');
+    expect(nextMathLesson(m, '+').id).toBe('plus-b-3');
+  });
+});
+
+describe('four operations', () => {
+  it('splits all 121 plus facts, all 121 minus facts and all 110 divide facts into groups, each fact once', async () => {
+    const { groupFacts } = await import('./course');
+    const { GARDEN_BY_OP } = await import('./progress');
+    for (const [op, gs] of [['+', ['+s', '+d', '+t', '+b']], ['-', ['-s', '-d', '-t', '-b']], ['/', ['/2', '/10', '/5', '/4', '/3', '/9', '/6', '/8', '/7']]] as const) {
+      const ids = gs.flatMap(g => groupFacts(g).map(factId));
+      expect(new Set(ids).size, op).toBe(ids.length);
+      for (const id of ids) expect(GARDEN_BY_OP[op].includes(id), `${op} ${id}`).toBe(true);
+      if (op !== '/') expect(ids.length, op).toBe(121);
+    }
+  });
+  it('works out answers, signs, partners and families', async () => {
+    const { answerOf, opSign, partnerOf, familyOf, parseFact } = await import('./facts');
+    expect(answerOf({ a: 8, b: 5, op: '+' })).toBe(13);
+    expect(answerOf({ a: 13, b: 5, op: '-' })).toBe(8);
+    expect(answerOf({ a: 42, b: 6, op: '/' })).toBe(7);
+    expect(opSign({ a: 1, b: 1, op: '-' })).toBe('−');
+    expect(partnerOf({ a: 13, b: 5, op: '-' })).toEqual({ a: 13, b: 8, op: '-' });
+    expect(familyOf({ a: 6, b: 7 }).map(factId)).toEqual(['42/7', '42/6']);
+    expect(parseFact('42/6')).toEqual({ a: 42, b: 6, op: '/' });
+    expect(parseFact('6x2')).toEqual({ a: 6, b: 2 });
+  });
+  it('every strand has a placement trip and a trick for every fact', async () => {
+    const { PLACEMENTS, groupFacts, trickOf, MATH_REGIONS: rs } = await import('./course');
+    for (const l of Object.values(PLACEMENTS)) expect(play(new TripPicker({ lesson: l, facts: {}, now: T0, seed: 4 })).length).toBeGreaterThanOrEqual(16);
+    for (const r of rs) for (const g of r.groups) for (const f of groupFacts(g)) expect(trickOf(f).say.length, factId(f)).toBeGreaterThan(5);
   });
 });
 

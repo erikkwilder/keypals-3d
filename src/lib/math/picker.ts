@@ -6,11 +6,24 @@
 // - a missed fact comes back 2 to 4 facts later (and the trip runs on a little if it was near the end);
 // - a table that has all bloomed doesn't get ground over: its facts weigh little, and facts due for
 //   review from other tables fill the trip.
-// Checkpoints ask every fact of the table both ways round; the placement trip samples every table.
+// Checkpoints ask every fact of the region (times tables both ways round); the placement trips sample
+// every group of their strand. Everything works the same for +, −, × and ÷: facts come in groups.
 
-import { lessonFacts, ruleFacts, tableFacts, TABLES, type MathLesson } from './course';
+import { groupFacts, MATH_REGIONS, ruleFacts, type MathLesson } from './course';
 import { factId, isDue, isRuleFact, partnerOf, sameFact, weakness, type Fact, type FactStat } from './facts';
 import { mulberry32, shuffle, type Rng } from '../engine/rng';
+
+/** Take one from each list in turn: a region learning ÷ 2, ÷ 10 and ÷ 5 meets one of each first. */
+function interleave<T>(lists: T[][]): T[] {
+  const out: T[] = [];
+  for (let i = 0; lists.some(l => i < l.length); i++) for (const l of lists) if (i < l.length) out.push(l[i]);
+  return out;
+}
+/** Every group of a strand. */
+const strandGroups = (op: MathLesson['op']) => [...new Set(MATH_REGIONS.filter(r => r.op === op).flatMap(r => r.groups))];
+/** A strand's rule facts (times 0 and 1; plus 0; take away 0 and all of it; divide by 1 and by itself). */
+const strandRules = (op: MathLesson['op']) => (op === 'x' ? ruleFacts() : strandGroups(op).flatMap(groupFacts).filter(isRuleFact));
+const lessonFacts0 = (l: MathLesson) => (l.learn[0] ? groupFacts(l.learn[0])[0] : groupFacts(l.groups[0])[0]);
 
 export const TRIP_LENGTH = 20;
 export const MAX_NEW: Record<MathLesson['kind'], number> = { meet: 3, practice: 2, mix: 1, rules: 0, check: 0, placement: 0 };
@@ -60,9 +73,9 @@ export class TripPicker {
       return;
     }
 
-    // new facts: the first table's facts not met yet, in teaching order (the 0 and 1 facts belong to the rules)
-    const first = o.lesson.tables[0];
-    this.newFacts = tableFacts(first).filter(f => !isRuleFact(f) && (stat(f)?.stage ?? 0) === 0).slice(0, MAX_NEW[o.lesson.kind]);
+    // new facts: the facts of the groups being learned not met yet, in teaching order (rule facts are easy
+    // fillers instead: 0 and 1, plus 0, take away 0, divide by 1 come up on their own)
+    this.newFacts = interleave(o.lesson.learn.map(g => groupFacts(g).filter(f => !isRuleFact(f) && (stat(f)?.stage ?? 0) === 0))).slice(0, MAX_NEW[o.lesson.kind]);
     this.plan = Array.from({ length: this.length }, () => null);
     this.newFacts.forEach((fact, j) => {
       const at = INTRO_AT[j];
@@ -81,14 +94,23 @@ export class TripPicker {
   private testPlan(): Fact[] {
     const l = this.lesson;
     let set: Fact[];
-    if (l.kind === 'check') {
+    if (l.kind === 'check' && l.op === 'x') {
       const t = l.tables[0];
       // all eleven facts of the table, and the turnarounds (t × 0, then t × 2 to t × 10): 20
-      set = [...tableFacts(t), ...tableFacts(t).filter(f => f.a !== 1 && f.a !== t).map(partnerOf)];
+      set = [...groupFacts(`x${t}`), ...groupFacts(`x${t}`).filter(f => f.a !== 1 && f.a !== t).map(partnerOf)];
+    } else if (l.kind === 'check') {
+      // twenty of the region's facts, shared evenly across its groups (the hard ones before the rule ones)
+      const per = Math.ceil(this.length / l.groups.length);
+      set = l.groups.flatMap(g => { const fs = shuffle(this.rng, groupFacts(g)); return [...fs.filter(f => !isRuleFact(f)), ...fs.filter(isRuleFact)].slice(0, per); }).slice(0, this.length);
+      // a small group fills up with its partners (turnarounds, the other half of a family), then repeats
+      const ids = new Set(set.map(factId));
+      for (const f of shuffle(this.rng, set.map(partnerOf))) if (set.length < this.length && !ids.has(factId(f))) { set.push(f); ids.add(factId(f)); }
+      // and then with earlier facts from the same strand, never the same fact twice
+      for (const f of shuffle(this.rng, strandGroups(l.op).flatMap(groupFacts).filter(f => !isRuleFact(f)))) if (set.length < this.length && !ids.has(factId(f))) { set.push(f); ids.add(factId(f)); }
     } else if (l.kind === 'rules') {
       set = shuffle(this.rng, ruleFacts()).slice(0, this.length);
     } else {
-      set = l.tables.flatMap(t => shuffle(this.rng, tableFacts(t).filter(f => !isRuleFact(f))).slice(0, Math.ceil(this.length / l.tables.length))).slice(0, this.length);
+      set = l.groups.flatMap(g => shuffle(this.rng, groupFacts(g).filter(f => !isRuleFact(f))).slice(0, Math.ceil(this.length / l.groups.length))).slice(0, this.length);
     }
     return shuffle(this.rng, set);
   }
@@ -107,20 +129,21 @@ export class TripPicker {
       out.push({ fact, w: base + need + (due ? 1.6 : 0), due });
     };
     const known = (f: Fact) => (this.facts[factId(f)]?.stage ?? 0) > 0;
-    l.tables.forEach((t, i) => {
-      for (const f of tableFacts(t)) {
+    l.groups.forEach((g, i) => {
+      for (const f of groupFacts(g)) {
         // the 0 and 1 facts are easy fillers even before they've come up (the rules cover them)
         if (known(f) || isRuleFact(f)) add(f, i === 0 ? 0.65 : 0.4);
         // mixes bring in turnarounds the partner credit has planted
         if (l.kind === 'mix' && !isRuleFact(f) && known(partnerOf(f))) add(partnerOf(f), 0.3);
       }
     });
-    // reviews due from anywhere on the trail
-    for (const t of TABLES) for (const f of [...tableFacts(t), ...tableFacts(t).map(partnerOf)]) if (isDue(this.facts[factId(f)], this.now)) add(f, 0.4);
-    // a small pool gets the rules lesson's known facts too, so a new player has something to fill with
-    if (out.filter(x => !isRuleFact(x.fact)).length < 6) for (const f of ruleFacts()) add(f, known(f) ? 0.1 : 0.05);
-    // a table that has all bloomed: its own facts stop crowding out everything else
-    const own = out.filter(x => x.fact.b === l.tables[0] && !isRuleFact(x.fact));
+    // reviews due from anywhere on this strand
+    for (const g of strandGroups(l.op)) for (const f of groupFacts(g)) for (const x of [f, partnerOf(f)]) if (isDue(this.facts[factId(x)], this.now)) add(x, 0.4);
+    // a small pool gets the strand's rule facts too, so a new player has something to fill with
+    if (out.filter(x => !isRuleFact(x.fact)).length < 6) for (const f of strandRules(l.op)) add(f, known(f) ? 0.1 : 0.05);
+    // a group that has all bloomed: its own facts stop crowding out everything else
+    const mine = new Set(l.learn.flatMap(groupFacts).map(factId));
+    const own = out.filter(x => mine.has(factId(x.fact)) && !isRuleFact(x.fact));
     if (own.length >= 9 && own.every(x => (this.facts[factId(x.fact)]?.stage ?? 0) === 3 && !x.due)) for (const x of own) x.w *= 0.35;
     return out;
   }
@@ -164,7 +187,7 @@ export class TripPicker {
     if (!pool.length) pool = this.pool.filter(x => !recent.includes(factId(x.fact)));
     if (!pool.length) {
       // nothing known yet: go over the new facts again
-      const back = this.newFacts.find(f => !recent.includes(factId(f))) ?? this.newFacts[0] ?? tableFacts(this.lesson.tables[0])[0];
+      const back = this.newFacts.find(f => !recent.includes(factId(f))) ?? this.newFacts[0] ?? lessonFacts0(this.lesson);
       return { fact: back, reason: 'repeat' };
     }
     let r = this.rng() * pool.reduce((a, x) => a + x.w, 0);

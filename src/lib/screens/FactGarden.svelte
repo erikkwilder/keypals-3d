@@ -8,68 +8,90 @@
   import { game } from '../state/game.svelte';
   import { outfitOf } from '../engine/profile';
   import { sfx } from '../audio/sound';
-  import { factId, partnerOf, isRuleFact, avgThink, isDue, STAGE_NAME, FAST_MS, BLOOM_DAYS, type Fact, type Stage } from '../math/facts';
-  import { GARDEN_IDS, mathOf, stageCounts } from '../math/progress';
-  import { MATH_REGIONS, TABLES } from '../math/course';
+  import { factId, partnerOf, isRuleFact, avgThink, isDue, opSign, answerOf, STAGE_NAME, FAST_MS, BLOOM_DAYS, type Fact, type Op, type Stage } from '../math/facts';
+  import { ALL_GARDEN_IDS, GARDEN_BY_OP, mathOf, stageCounts } from '../math/progress';
+  import { MATH_REGIONS, STRANDS, STRAND, groupFacts } from '../math/course';
   import Flower from '../math/ui/Flower.svelte';
   import Critter from '../ui/Critter.svelte';
   import NavTile from '../ui/NavTile.svelte';
 
   const p = $derived(game.profile!);
   const m = $derived(mathOf(p));
-  const counts = $derived(stageCounts(m, GARDEN_IDS));
-  const ROWS = [0, 1, 2, 10, 5, 4, 3, 6, 7, 8, 9];
-  const COLS = Array.from({ length: 11 }, (_, i) => i);
-  const onTrail = new Set<number>(TABLES);
+  // one garden per operation: rows and columns, and the fact in each square
+  let op = $state<Op>(mathOf(game.profile!).strand ?? 'x');
+  const R11 = Array.from({ length: 11 }, (_, i) => i);
+  const GRID: Record<Op, { rows: number[]; cols: number[]; fact: (r: number, c: number) => Fact; rowLabel: (r: number) => string; colHead: string; note: string }> = {
+    x: { rows: [0, 1, 2, 10, 5, 4, 3, 6, 7, 8, 9], cols: R11, fact: (b, a) => ({ a, b }), rowLabel: b => `${b}`, colHead: '×', note: 'Rows are the tables: the 6 in the 2s row is 6 × 2. Learn 6 × 2 and its turnaround 2 × 6 grows too.' },
+    '+': { rows: R11, cols: R11, fact: (b, a) => ({ a, b, op: '+' }), rowLabel: b => `+${b}`, colHead: '+', note: 'Each row adds its number: the 6 in the +2 row is 6 + 2. Its turnaround, 2 + 6, grows with it.' },
+    '-': { rows: R11, cols: R11, fact: (b, d) => ({ a: b + d, b, op: '-' }), rowLabel: b => `−${b}`, colHead: '=', note: 'Each row takes its number away; the columns are what is left. 8 − 3 = 5 is in the −3 row, column 5. Its partner 8 − 5 grows with it.' },
+    '/': { rows: R11.slice(1), cols: R11, fact: (b, q) => ({ a: b * q, b, op: '/' }), rowLabel: b => `÷${b}`, colHead: '=', note: 'Each row shares by its number; the columns are the answer. 42 ÷ 6 = 7 is in the ÷6 row, column 7. Blooming times facts start these growing.' },
+  };
+  const grid = $derived(GRID[op]);
+  const ids = $derived(GARDEN_BY_OP[op]);
+  const counts = $derived(stageCounts(m, ids));
   const HUE: Record<number, number> = { 0: 210, 1: 190, 2: 320, 10: 270, 5: 200, 4: 160, 3: 40, 6: 350, 7: 230, 8: 290, 9: 140 };
+  const hueOf = (f: Fact) => HUE[f.op === '/' || f.op === '-' || f.op === '+' ? f.b : f.b] ?? 300;
   const stageOf = (a: number, b: number) => (m.facts[factId({ a, b })]?.stage ?? 0) as Stage;
-  const due = $derived(GARDEN_IDS.filter(id => isDue(m.facts[id], Date.now())));
+  const due = $derived(ids.filter(id => isDue(m.facts[id], Date.now())));
   const fastS = $derived(Math.round((m.fastMs ?? FAST_MS) / 1000));
-  const regionOf = (t: number) => MATH_REGIONS.find(r => r.table === t);
+  // which region teaches each fact, for "it comes up on the ... trips"
+  const REGION_OF = new Map<string, string>();
+  for (const r of MATH_REGIONS) for (const g of r.groups) for (const f of groupFacts(g)) if (!REGION_OF.has(factId(f))) REGION_OF.set(factId(f), r.name);
 
   // growth since the last visit: those squares pop in, one after another
   const seenBefore = mathOf(game.profile!).gardenSeen;
-  const grewIds = GARDEN_IDS.filter(id => (mathOf(game.profile!).facts[id]?.stage ?? 0) > (seenBefore?.[id] ?? 0));
+  const grewIds = ALL_GARDEN_IDS.filter(id => (mathOf(game.profile!).facts[id]?.stage ?? 0) > (seenBefore?.[id] ?? 0));
   const grewAt = new Map(grewIds.map((id, i) => [id, i]));
   const firstVisit = !seenBefore;
   onMount(() => {
     const snap: Record<string, number> = {};
-    for (const id of GARDEN_IDS) { const s = mathOf(game.profile!).facts[id]?.stage; if (s) snap[id] = s; }
+    for (const id of ALL_GARDEN_IDS) { const s = mathOf(game.profile!).facts[id]?.stage; if (s) snap[id] = s; }
     game.update(pp => { pp.math = { ...mathOf(pp), gardenSeen: snap }; });
     if (grewIds.length) setTimeout(() => sfx.star(2), 400);
   });
 
-  // the beds: each table's row, how much of it is in bloom
-  const beds = $derived([
-    { label: '0 and 1', sub: 'the rules', rows: [0, 1], open: true },
-    ...[2, 10, 5, 4].map(t => ({ label: `${t}s`, sub: regionOf(t)?.name ?? '', rows: [t], open: true })),
-    { label: '3s, 6s, 7s, 8s, 9s', sub: 'coming soon', rows: [3, 6, 7, 8, 9], open: false },
-  ].map(b => {
-    const ids = b.rows.flatMap(r => COLS.map(a => factId({ a, b: r })));
-    const st = ids.map(id => m.facts[id]?.stage ?? 0);
-    return { ...b, total: ids.length, bloom: st.filter(s => s === 3).length, grow: st.filter(s => s > 0).length };
+  // the beds: each group of facts, how much of it is in bloom
+  const BEDS: Record<Op, { label: string; sub: string; groups: string[]; rule?: boolean }[]> = {
+    x: [{ label: '0 and 1', sub: 'the rules', groups: [], rule: true }, ...[2, 10, 5, 4, 3, 9, 6, 8, 7].map(t => ({ label: `${t}s`, sub: MATH_REGIONS.find(r => r.table === t)?.name ?? '', groups: [`x${t}`] }))],
+    '+': MATH_REGIONS.filter(r => r.op === '+').map(r => ({ label: r.name, sub: r.chip, groups: r.groups })),
+    '-': MATH_REGIONS.filter(r => r.op === '-').map(r => ({ label: r.name, sub: r.chip, groups: r.groups })),
+    '/': MATH_REGIONS.filter(r => r.op === '/').map(r => ({ label: r.name, sub: r.chip, groups: r.groups })),
+  };
+  const beds = $derived(BEDS[op].map(b => {
+    const bid = b.rule ? ids.filter(id => isRuleFact({ ...parse(id) })) : b.groups.flatMap(g => groupFacts(g).map(factId));
+    const st = bid.map(id => m.facts[id]?.stage ?? 0);
+    return { ...b, open: true, total: bid.length, bloom: st.filter(s => s === 3).length, grow: st.filter(s => s > 0).length };
   }));
+  const parse = (id: string): Fact => { const mm = /^(\d+)([x+\-/])(\d+)$/.exec(id)!; return mm[2] === 'x' ? { a: +mm[1], b: +mm[3] } : { a: +mm[1], b: +mm[3], op: mm[2] as Op }; };
 
   let picked = $state<Fact | null>(null);
   const pickedStat = $derived(picked ? m.facts[factId(picked)] : undefined);
-  const partner = $derived(picked && picked.a !== picked.b ? partnerOf(picked) : null);
+  const partner = $derived(picked && factId(partnerOf(picked)) !== factId(picked) ? partnerOf(picked) : null);
   const partnerStat = $derived(partner ? m.facts[factId(partner)] : undefined);
   function pick(f: Fact) { picked = f; sfx.pop(); }
 
   /** Why a fact is where it is, in a child's words. */
+  const show = (f: Fact) => `${f.a} ${opSign(f)} ${f.b}`;
+  /** Why a fact is where it is, in a child's words. */
   function story(f: Fact): string {
     const s = m.facts[factId(f)];
-    const pf = partnerOf(f);
+    const pf = partnerOf(f), o = f.op ?? 'x';
     if (s?.seen) {
       if (s.stage === 3) return 'In bloom: you knew it quickly on three different days.';
       if (s.stage === 2) return `A bud: you can answer it. Answer it quickly on ${BLOOM_DAYS} different days and it blooms.`;
       return 'A sprout: you have met it. Get it right and it grows a bud.';
     }
-    if ((s?.stage ?? 0) > 0) return `Not asked yet, but it's growing already: you know ${pf.a} × ${pf.b}, its turnaround. Swap the numbers and the answer stays the same, so this one grows too.`;
-    if (isRuleFact(f)) return `Not asked yet. It follows a rule: ${f.a === 0 || f.b === 0 ? 'anything times 0 is 0' : 'times 1 keeps the number the same'}. It comes up on the Zero and One trips and in reviews.`;
-    if (onTrail.has(f.b)) return `Not asked yet. It comes up on the ${regionOf(f.b)?.name ?? ''} trips.`;
-    if (onTrail.has(f.a)) return `Not asked yet. Learn ${pf.a} × ${pf.b} on the ${regionOf(f.a)?.name ?? ''} trips and this one grows with it.`;
-    return `The ${f.b}s come later on the Times Trail. Learn ${pf.a} × ${pf.b} first and this one starts growing too.`;
+    if ((s?.stage ?? 0) > 0) {
+      if (o === '-' || o === '/') return `Not asked yet, but it's growing already: its family is coming along (${o === '-' ? 'adding' : 'times'} facts that bloom start these growing, and so does ${show(pf)}).`;
+      return `Not asked yet, but it's growing already: you know ${show(pf)}, its turnaround. Swap the numbers and the answer stays the same, so this one grows too.`;
+    }
+    const where = REGION_OF.get(factId(f));
+    if (isRuleFact(f)) {
+      const rule = o === 'x' ? (f.a === 0 || f.b === 0 ? 'anything times 0 is 0' : 'times 1 keeps the number the same') : o === '+' ? 'adding 0 changes nothing' : o === '-' ? (f.b === 0 ? 'taking away 0 changes nothing' : 'a number take away itself is 0') : f.b === 1 ? 'sharing into one group keeps it all' : f.a === 0 ? 'nothing shared is nothing each' : 'a number shared by itself is 1 each';
+      return `Not asked yet. It follows a rule: ${rule}. It comes up ${o === 'x' ? 'on the Zero and One trips' : where ? `on the ${where} trips` : 'as an easy one'} and in reviews.`;
+    }
+    if (where) return `Not asked yet. It comes up on the ${where} trips${o === 'x' || o === '+' ? `, and learning ${show(pf)} grows it too` : ''}.`;
+    return `Not asked yet. Learn ${show(pf)} and this one starts growing too.`;
   }
 
   function setFast(s: number) {
@@ -116,21 +138,30 @@
 
     <div class="main">
       <section class="bed card">
-        <div class="tbl" role="grid" aria-label="Times table garden">
-          <div class="corner">×</div>
-          {#each COLS as a}<div class="ch">{a}</div>{/each}
-          {#each ROWS as b, r}
-            <div class="rh" class:soon={!onTrail.has(b) && b > 1}>{b}</div>
-            {#each COLS as a}
-              {@const id = factId({ a, b })}
+        <div class="otabs" role="tablist" aria-label="Which garden">
+          {#each STRANDS as st (st.op)}
+            {@const n = stageCounts(m, GARDEN_BY_OP[st.op])[3]}
+            <button role="tab" aria-selected={op === st.op} class:on={op === st.op} style:--sc={st.color} onclick={() => { op = st.op; picked = null; sfx.click(); }}>
+              <span class="osign">{opSign(st.op)}</span>{st.name}{#if n}<em>{n}</em>{/if}
+            </button>
+          {/each}
+        </div>
+        <div class="tbl" role="grid" aria-label="{STRAND[op].name} garden">
+          <div class="corner">{grid.colHead}</div>
+          {#each grid.cols as c}<div class="ch">{c}</div>{/each}
+          {#each grid.rows as rw, r}
+            <div class="rh">{grid.rowLabel(rw)}</div>
+            {#each grid.cols as c}
+              {@const f = grid.fact(rw, c)}
+              {@const id = factId(f)}
               {@const s = m.facts[id]}
               {@const st = (s?.stage ?? 0) as Stage}
               {@const gi = grewAt.get(id)}
-              <button class="cell {s?.seen ? s.latest : ''}" class:soon={!onTrail.has(b) && !onTrail.has(a) && b > 1 && a > 1 && !st} class:rule={isRuleFact({ a, b })}
-                class:sel={picked?.a === a && picked?.b === b} class:grew={gi !== undefined} class:due={isDue(s, Date.now())}
-                style:--i={r * 11 + a} style:--gd="{0.35 + (gi ?? 0) * 0.12}s"
-                onclick={() => pick({ a, b })} title="{a} × {b} = {a * b}: {STAGE_NAME[st]}" aria-label="{a} times {b}, {STAGE_NAME[st]}">
-                <span class="fl" class:bloom={st === 3}><Flower stage={st} size={26} hue={HUE[b]} /></span>
+              <button class="cell {s?.seen ? s.latest : ''}" class:rule={isRuleFact(f)}
+                class:sel={picked !== null && factId(picked) === id} class:grew={gi !== undefined} class:due={isDue(s, Date.now())}
+                style:--i={r * 11 + c} style:--gd="{0.35 + (gi ?? 0) * 0.12}s"
+                onclick={() => pick(f)} title="{show(f)} = {answerOf(f)}: {STAGE_NAME[st]}" aria-label="{show(f)}, {STAGE_NAME[st]}">
+                <span class="fl" class:bloom={st === 3}><Flower stage={st} size={26} hue={HUE[rw] ?? 300} /></span>
                 {#if gi !== undefined}<i class="pop" aria-hidden="true"></i>{/if}
               </button>
             {/each}
@@ -139,6 +170,7 @@
         <div class="key">
           <span><i class="fast"></i> last answer quick</span><span><i class="slow"></i> slow</span><span><i class="miss"></i> missed</span><span><i class="dueic">💧</i> due a check-up</span>
         </div>
+        <p class="gnote">{grid.note}</p>
       </section>
 
       <aside class="side">
@@ -147,9 +179,9 @@
           <div class="card detail" role="dialog" aria-label="{picked.a} times {picked.b}">
             <button class="x" onclick={() => (picked = null)} aria-label="Close">×</button>
             <div class="dhead">
-              <span class="dflower" class:sway={st > 0}><Flower stage={st} size={64} hue={HUE[picked.b]} /></span>
+              <span class="dflower" class:sway={st > 0}><Flower stage={st} size={64} hue={HUE[picked.b] ?? 300} /></span>
               <div>
-                <div class="dfact">{picked.a} × {picked.b} = <b>{picked.a * picked.b}</b></div>
+                <div class="dfact">{show(picked)} = <b>{answerOf(picked)}</b></div>
                 <div class="dstage s{st}">{STAGE_NAME[st]}</div>
               </div>
             </div>
@@ -167,8 +199,8 @@
             {/if}
             {#if partner}
               <button class="turn" onclick={() => pick(partner!)}>
-                <Flower stage={(partnerStat?.stage ?? 0) as Stage} size={30} hue={HUE[partner.b]} />
-                <span>Turnaround: <b>{partner.a} × {partner.b}</b> · {STAGE_NAME[partnerStat?.stage ?? 0]}</span>
+                <Flower stage={(partnerStat?.stage ?? 0) as Stage} size={30} hue={HUE[partner.b] ?? 300} />
+                <span>{picked.op === '-' || picked.op === '/' ? 'Family' : 'Turnaround'}: <b>{show(partner)}</b> · {STAGE_NAME[partnerStat?.stage ?? 0]}</span>
               </button>
             {/if}
           </div>
@@ -202,6 +234,13 @@
 </div>
 
 <style>
+  .gnote { margin: 8px auto 0; max-width: 700px; text-align: center; font: 600 13.5px/1.4 var(--font-body); color: var(--muted); }
+  .otabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0 auto 10px; max-width: 700px; }
+  .otabs button { display: flex; align-items: center; gap: 6px; border: 0; cursor: pointer; padding: 5px 12px 5px 5px; border-radius: 999px; background: var(--bg2); font: 600 15px var(--font-ui); color: var(--ink2); }
+  .otabs button.on { background: var(--sc); color: #fff; }
+  .otabs em { font: 800 11px var(--font-body); font-style: normal; background: #fff; color: #b02a68; border-radius: 999px; padding: 1px 6px; }
+  .osign { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--sc); color: #fff; font: 600 19px/1 var(--font-ui); }
+  .otabs button.on .osign { background: rgba(255, 255, 255, .25); }
   .garden { display: flex; flex-direction: column; background: linear-gradient(#dff3ff 0, #ecf8ee 180px, #f3faef 60%, #f8fcf4); }
   .bar { flex: none; display: flex; align-items: center; gap: 14px; padding: 10px 18px; background: rgba(255, 255, 255, .92); border-bottom: var(--panel-border); position: relative; z-index: 3; }
   .bar h1 { font-size: 30px; margin: 0; }
@@ -232,7 +271,7 @@
 
   .main { display: flex; gap: 16px; align-items: flex-start; }
   .bed { flex: 1 1 auto; min-width: 0; padding: 14px; background: linear-gradient(#fff, #fffdf6); }
-  .tbl { display: grid; grid-template-columns: 28px repeat(11, minmax(0, 1fr)); gap: 4px; max-width: 700px; margin: 0 auto; padding: 10px; border-radius: 18px; background: #8a5a3b; box-shadow: inset 0 0 0 4px #a8744f, 0 6px 0 #6e452c; }
+  .tbl { display: grid; grid-template-columns: 34px repeat(11, minmax(0, 1fr)); gap: 4px; max-width: 700px; margin: 0 auto; padding: 10px; border-radius: 18px; background: #8a5a3b; box-shadow: inset 0 0 0 4px #a8744f, 0 6px 0 #6e452c; }
   .corner, .ch, .rh { display: grid; place-items: center; font: 600 17px var(--font-ui); color: #fff3e0; }
   .rh.soon { color: rgba(255, 243, 224, .5); }
   .cell { position: relative; aspect-ratio: 1; border: 0; border-radius: 10px; background: radial-gradient(circle at 50% 70%, #a2704f, #7c4f33); display: grid; place-items: center; cursor: pointer; padding: 0; transition: transform .12s, box-shadow .12s; overflow: visible; }
@@ -330,7 +369,9 @@
     .st :global(svg) { width: 36px; height: 36px; }
     .main { flex-direction: column; }
     .bed { width: 100%; padding: 6px; }
-    .tbl { grid-template-columns: 18px repeat(11, minmax(0, 1fr)); gap: 2px; padding: 6px; border-radius: 12px; }
+    .tbl { grid-template-columns: 24px repeat(11, minmax(0, 1fr));
+    .otabs button { font-size: 12px; padding: 3px 8px 3px 3px; }
+    .osign { width: 20px; height: 20px; font-size: 15px; } gap: 2px; padding: 6px; border-radius: 12px; }
     .corner, .ch, .rh { font-size: 12px; }
     .cell { border-radius: 5px; }
     .cell.due::after { font-size: 9px; right: -2px; top: -4px; }

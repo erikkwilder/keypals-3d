@@ -14,8 +14,10 @@
   import { sfx, startMusic, unlockAudio, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { RunScene } from '../three/runScene';
-  import { MATH_LESSON, MATH_REGION, TRICK, trickFor, worldOf } from '../math/course';
-  import { answerOf, factId, speedOf, FAST_MS, type Fact } from '../math/facts';
+  import { MATH_LESSON, MATH_REGION, STRAND, TRICK, groupFacts, trickOf, worldOf, type MathLesson } from '../math/course';
+  /** A typical fact to show on a Meet card: the 6 of a times table, or the first not-so-easy fact of a group. */
+  const exampleOf = (l: MathLesson) => (l.op === 'x' ? { a: 6, b: l.tables[0] } : (groupFacts(l.learn[0]).find(f => f.a > 2 && f.b > 1) ?? groupFacts(l.learn[0])[0]));
+  import { answerOf, factId, opSign, speedOf, FAST_MS, type Fact } from '../math/facts';
   import { TripPicker, type Item } from '../math/picker';
   import { FactMeter, mathGoal, mathStars, tripStats, type FactResult } from '../math/meter';
   import { applyMathRun, mathOf } from '../math/progress';
@@ -33,7 +35,7 @@
   const look = S.look;
   const m = mathOf(profile);
   const lesson = MATH_LESSON[game.mathLessonId] ?? MATH_LESSON['twins-1'];
-  const regionName = lesson.region === 'start' ? 'Times Trail' : MATH_REGION[lesson.region].name;
+  const regionName = lesson.region === 'start' ? STRAND[lesson.op].name : MATH_REGION[lesson.region].name;
   const fastMs = m.fastMs ?? FAST_MS;
   const picker = new TripPicker({ lesson, facts: m.facts, now: Date.now(), fastMs });
   let calm = $state(!!m.calm);
@@ -93,8 +95,9 @@
   const fact = $derived<Fact | null>(item?.fact ?? null);
   const answer = $derived(fact ? answerOf(fact) : 0);
   const digits = $derived(String(answer).length);
-  const trick = $derived(fact ? trickFor(fact) : null);
-  const trickText = $derived(fact && trick ? (fact.a !== trick.a || fact.b !== trick.table ? `${fact.a} × ${fact.b} is the same as ${trick.a} × ${trick.table}. ` : '') + TRICK[trick.table]?.say(trick.a) : '');
+  const trick = $derived(fact ? trickOf(fact) : null);
+  const trickText = $derived(trick?.say ?? '');
+  const sign = $derived(fact ? opSign(fact) : '×');
   const showHelp = $derived(phase === 'play' && (mode === 'learn' || mode === 'fix'));
 
   function begin() {
@@ -115,7 +118,7 @@
     shownAt = performance.now();
     meter.shown(shownAt);
     mode = it.reason === 'new' ? 'learn' : 'ask';
-    if (mode === 'learn') say(`New one! ${TRICK[trickFor(it.fact).table]?.name ?? 'Watch this'}.`, 1800);
+    if (mode === 'learn') say(`New one! ${trickOf(it.fact).name}.`, 1800);
   }
 
   function say(msg: string, ms = 1500) {
@@ -350,7 +353,7 @@
       {#if fact && phase !== 'intro'}
         {#key shake}
           <div class="q" class:right={feedback === 'right'} class:fast={feedback === 'fast'} class:wrong={feedback === 'wrong' && mode === 'fix'} class:shake={shake > 0 && feedback !== 'right' && feedback !== 'fast'}>
-            <span class="f">{fact.a}</span><span class="op">×</span><span class="f">{fact.b}</span><span class="op">=</span>
+            <span class="f">{fact.a}</span><span class="op">{sign}</span><span class="f">{fact.b}</span><span class="op">=</span>
             <span class="boxes">
               {#each Array(digits) as _, i}
                 <span class="box" class:cur={i === typed.length && !feedback?.startsWith('r') && feedback !== 'fast'} class:filled={i < typed.length}>{typed[i] ?? ''}</span>
@@ -367,8 +370,8 @@
         <div class="hhead">
           <Critter friend={profile.buddy} size={compact ? 40 : 54} round />
           <div>
-            <small>{mode === 'fix' ? `${buddy.name} shows you` : `New fact · ${TRICK[trick.table]?.name}`}</small>
-            <b>{fact.a} × {fact.b} = {answer}</b>
+            <small>{mode === 'fix' ? `${buddy.name} shows you` : `New fact · ${trick.name}`}</small>
+            <b>{fact.a} {sign} {fact.b} = {answer}</b>
           </div>
         </div>
         <div class="pic"><DotPicture {fact} size={compact ? 150 : 210} /></div>
@@ -406,10 +409,11 @@
         <div class="where">{regionName}{lesson.region !== 'start' ? ` · Stop ${lesson.n}` : ''}</div>
         <h1>{lesson.title}</h1>
         {#if lesson.kind === 'meet'}
-          {@const ex = { a: 6, b: lesson.tables[0] }}
+          {@const ex = exampleOf(lesson)}
+          {@const tr = trickOf(ex)}
           <div class="meet">
             <div class="mpic"><DotPicture fact={ex} size={170} /></div>
-            <div class="msay"><b>{TRICK[lesson.tables[0]]?.name}</b><span>{TRICK[lesson.tables[0]]?.say(6)}</span></div>
+            <div class="msay"><b>{tr.name}</b><span>{lesson.op === 'x' ? tr.say : lesson.blurb}</span></div>
           </div>
         {:else if lesson.kind === 'rules'}
           <div class="meet rules">

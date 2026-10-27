@@ -7,6 +7,15 @@
 
   type Props = { fact: Fact; size?: number };
   let { fact, size = 220 }: Props = $props();
+  const op = $derived(fact.op ?? 'x');
+  // plus and minus: dots in rows of ten (a ten frame), the second number pink, or crossed out when taken
+  // away; divide: the dots dealt into equal rows, one row lit up
+  const tens = $derived.by(() => {
+    if (op === '+') return Array.from({ length: fact.a + fact.b }, (_, i) => (i < fact.a ? 'a' : 'b'));
+    if (op === '-') return Array.from({ length: fact.a }, (_, i) => (i < fact.a - fact.b ? 'a' : 'gone'));
+    return [];
+  });
+  const tcell = $derived(Math.max(10, Math.floor((size - 8) / 10)));
   const tr = $derived(trickFor(fact));
   const a = $derived(tr.a);
   // rows of `a` dots; for the tens it's `a` bars of ten (drawn as columns)
@@ -27,7 +36,26 @@
   const COLORS = ['#7c5cf5', '#ef6fa6', '#3fa7e0', '#2fa898'];
 </script>
 
-{#if tr.table === 0}
+{#if op === '+' || op === '-'}
+  {@const rows = Math.max(1, Math.ceil(tens.length / 10))}
+  <svg viewBox="0 0 {10 * tcell + 8} {rows * tcell + 8 + (rows > 1 ? 4 : 0)}" width={10 * tcell + 8} height={rows * tcell + 8} aria-hidden="true">
+    {#each tens as k, i}
+      {@const cx = 4 + (i % 10) * tcell + tcell / 2 + ((i % 10) >= 5 ? 2 : 0)}
+      {@const cy = 4 + Math.floor(i / 10) * (tcell + 4) + tcell / 2}
+      <circle {cx} {cy} r={tcell * 0.36} fill={k === 'a' ? '#7c5cf5' : k === 'b' ? '#ef6fa6' : '#e6e0f2'} />
+      {#if k === 'gone'}<path d="M{cx - tcell * 0.3} {cy - tcell * 0.3}L{cx + tcell * 0.3} {cy + tcell * 0.3}M{cx + tcell * 0.3} {cy - tcell * 0.3}L{cx - tcell * 0.3} {cy + tcell * 0.3}" stroke="#ef6fa6" stroke-width="2.4" stroke-linecap="round" />{/if}
+    {/each}
+  </svg>
+{:else if op === '/'}
+  {@const q = fact.b ? fact.a / fact.b : 0}
+  {@const c = Math.max(8, Math.min(24, Math.floor((size - 8) / Math.max(q, fact.b, 1))))}
+  <svg viewBox="0 0 {Math.max(1, q) * c + 8} {fact.b * c + 8}" width={Math.max(1, q) * c + 8} height={fact.b * c + 8} aria-hidden="true">
+    {#each Array(fact.b) as _, r}
+      {#if r === 0}<rect x="1" y={3 + r * c} width={Math.max(1, q) * c + 6} height={c + 2} rx="6" fill="#fff3c4" />{/if}
+      {#each Array(q) as _, k}<circle cx={4 + k * c + c / 2} cy={4 + r * c + c / 2} r={c * 0.36} fill={r === 0 ? '#ef7d2b' : '#2fa898'} />{/each}
+    {/each}
+  </svg>
+{:else if tr.table === 0}
   <svg viewBox="0 0 120 70" width={size * 0.55} height={size * 0.32} aria-hidden="true">
     <ellipse cx="60" cy="38" rx="52" ry="24" fill="#fff" stroke="#d9cff0" stroke-width="3" />
     <ellipse cx="60" cy="38" rx="34" ry="14" fill="none" stroke="#ece6f6" stroke-width="2" />

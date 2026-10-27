@@ -9,8 +9,8 @@
   import { levelFromXp } from '../engine/stickers';
   import { FRIEND } from '../art/cast';
   import { sfx } from '../audio/sound';
-  import { MATH_LESSONS, MATH_REGION, worldOf } from '../math/course';
-  import { GARDEN_IDS, mathOf, mathStarsTotal, nextMathLesson, stageCounts } from '../math/progress';
+  import { MATH_LESSONS, MATH_REGION, STRAND, worldOf } from '../math/course';
+  import { ALL_GARDEN_IDS, mathOf, mathStarsTotal, nextMathLesson, stageCounts } from '../math/progress';
   import Flower from '../math/ui/Flower.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import GearButton from '../ui/GearButton.svelte';
@@ -40,11 +40,11 @@
   const m = $derived(mathOf(p));
   const mNext = $derived(nextMathLesson(m));
   const mStars = $derived(mathStarsTotal(m));
-  const mBloom = $derived(stageCounts(m, GARDEN_IDS)[3]);
-  const mGrow = $derived(GARDEN_IDS.filter(id => (m.facts[id]?.stage ?? 0) > 0).length);
+  const mBloom = $derived(stageCounts(m, ALL_GARDEN_IDS)[3]);
+  const mGrow = $derived(ALL_GARDEN_IDS.filter(id => (m.facts[id]?.stage ?? 0) > 0).length);
   const mBest = $derived(Math.round(Math.max(0, ...Object.values(m.lessons).map(r => r.bestFpm ?? 0))));
   const mFresh = $derived(m.totals.trips === 0);
-  const mPlace = $derived(mNext.region === 'start' ? 'Times Trail' : MATH_REGION[mNext.region].name);
+  const mPlace = $derived(`${STRAND[mNext.op].name}${mNext.region === 'start' ? '' : ' · ' + MATH_REGION[mNext.region].name}`);
   const mTrips = MATH_LESSONS.length;
   const mDone = $derived(Object.values(m.lessons).filter(r => r.stars > 0).length);
 
@@ -126,16 +126,16 @@
         <button class="banner" onclick={() => open('math')} aria-label="Open the Math map">
           <span class="sign"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 7v8M5 11h8M19 11h8M7 21l4 4M11 21l-4 4M19 21h8M19 25h8" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" /></svg></span>
           <span class="name">Math</span>
-          <span class="tag">Know your facts by heart</span>
+          <span class="tag">Add, take away, times and share</span>
         </button>
         <div class="info">
-          <div class="where"><b>{mFresh ? 'Start here' : mPlace}</b><span>{mFresh ? 'Zero and One, then the 2s' : `Next: ${mNext.title}`}</span></div>
+          <div class="where"><b>{mFresh ? 'Start here' : mPlace}</b><span>{mFresh ? 'Plus, minus, times or share: pick on the map' : `Next: ${mNext.title}`}</span></div>
           <div class="stats">
             <span><Stars n={1} of={1} size={18} /><b>{mStars}</b> stars</span>
             <span><Flower stage={3} size={20} hue={320} /><b>{mBloom}</b> in bloom</span>
             {#if mBest}<span><b>{mBest}</b> a minute best</span>{/if}
           </div>
-          <div class="bar2"><i style:width="{(mDone / mTrips) * 100}%"></i><i class="g" style:width="{(mGrow / GARDEN_IDS.length) * 100}%"></i></div>
+          <div class="bar2"><i style:width="{(mDone / mTrips) * 100}%"></i><i class="g" style:width="{(mGrow / ALL_GARDEN_IDS.length) * 100}%"></i></div>
           <div class="acts">
             <button class="btn btn-primary play" onclick={() => play('math')}>{mFresh ? 'Start math' : 'Play'} <span class="kbd">M</span></button>
             <button class="btn ghost" onclick={() => open('math')}>Map</button>

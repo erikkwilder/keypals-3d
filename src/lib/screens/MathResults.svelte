@@ -8,8 +8,8 @@
   import { RIDES } from '../engine/rides';
   import { endMessage } from '../engine/scoring';
   import { RunScene } from '../three/runScene';
-  import { MATH_LESSON, MATH_REGION, worldOf } from '../math/course';
-  import { parseFact, answerOf } from '../math/facts';
+  import { MATH_LESSON, MATH_REGION, STRAND, worldOf } from '../math/course';
+  import { parseFact, answerOf, opSign } from '../math/facts';
   import { MATH_TREASURE, mathGoal, MATH_RIDE } from '../math/meter';
   import { mathOf, nextMathLesson } from '../math/progress';
   import Flower from '../math/ui/Flower.svelte';
@@ -19,7 +19,7 @@
   const p = game.profile!;
   const grown = p.settings.grown;
   const lesson = MATH_LESSON[last?.lessonId ?? 'twins-1'];
-  const regionName = lesson.region === 'start' ? 'Times Trail' : MATH_REGION[lesson.region].name;
+  const regionName = lesson.region === 'start' ? STRAND[lesson.op].name : MATH_REGION[lesson.region].name;
   const st = last?.stats;
   const goal = mathGoal(lesson.goal, grown, p.settings.easy);
   const passed = (last?.stars ?? 0) > 0;
@@ -27,7 +27,7 @@
 
   const title = !last ? '' : !passed ? (last.finished ? 'So close!' : 'Trip over') : st!.misses === 0 ? (last.stars === 3 ? 'Perfect trip!' : 'No misses!') : last.stars === 3 ? 'Three stars!' : last.stars === 2 ? 'Great job!' : 'Trip done!';
   const tested = last?.testedOut ?? [];
-  const sub = !last ? '' : last.regionJustDone ? `${MATH_REGION[last.regionJustDone].name} complete!` : tested.length ? `You skipped ahead past the ${new Intl.ListFormat('en', { type: 'conjunction' }).format(tested.map(r => `${MATH_REGION[r].table}s`))}!` : passed ? `${lesson.title} · ${regionName}` : 'Right answers first, then speed. You can do it!';
+  const sub = !last ? '' : last.regionJustDone ? `${MATH_REGION[last.regionJustDone].name} complete!` : tested.length ? `You skipped ahead past the ${new Intl.ListFormat('en', { type: 'conjunction' }).format(tested.map(r => MATH_REGION[r].op === 'x' ? `${MATH_REGION[r].table}s` : MATH_REGION[r].name))}!` : passed ? `${lesson.title} · ${regionName}` : 'Right answers first, then speed. You can do it!';
   const word = last && st ? endMessage(last.stars, { record: last.newBestScore, improved: last.newBestScore, sloppy: st.acc < 0.85 && last.stars < 3 }) : '';
   const newBestFpm = !!(last && st && last.before && last.finished && st.fpm > last.before.bestFpm);
   const chips = last && st ? [
@@ -45,7 +45,7 @@
   const strip = (last?.results ?? []).map(r => ({ ...parseFact(r.id), kind: r.intro ? 'new' : r.speed }));
   const practise = [...new Set((last?.results ?? []).filter(r => !r.intro && !r.ok).map(r => r.id))].map(parseFact);
   const grew = last?.grew ?? { bloomed: [], budded: [], sprouted: [] };
-  const fmt = (f: { a: number; b: number }) => `${f.a} × ${f.b}`;
+  const fmt = (f: { a: number; b: number; op?: import('../math/facts').Op }) => `${f.a} ${opSign(f)} ${f.b}`;
 
   onMount(() => { if (!last) game.go('map'); });
 </script>
