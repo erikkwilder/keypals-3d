@@ -224,7 +224,8 @@ class Stage {
     this.lastDraw = now;
     // if frames keep arriving late, the computer is struggling: first draw fewer pixels, then (on
     // auto) switch to smooth mode, and in smooth mode draw fewer pixels still
-    if (now > this.watchFrom && document.visibilityState === 'visible') {
+    // only judge speed while the game has focus: browsers slow down covered or background windows on purpose
+    if (now > this.watchFrom && document.visibilityState === 'visible' && document.hasFocus()) {
       this.lateness += (Math.min(4, late / gap) - this.lateness) * 0.03;
       this.slow = this.lateness > 1.3 ? this.slow + 1 : Math.max(0, this.slow - 2);
       if (this.slow > want * 2) {

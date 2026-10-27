@@ -7,7 +7,7 @@ import { ALL_LESSONS, LESSON, REGIONS, knownChars, lessonIndex, type Lesson, typ
 import type { Layout, LayoutId } from './layouts';
 import { AWARD, type AwardDef } from './achievements';
 import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from './stickers';
-import { REWARDS, newBetween, treasureFor, type Reward } from './rewards';
+import { REWARDS, forBuddy, newBetween, treasureFor, type Reward } from './rewards';
 import { updateKeyStats, type KeyStat } from './mastery';
 import { lessonGoal, platinumScore, starScores, type RunStats } from './scoring';
 import { RIDES } from './rides';
@@ -150,7 +150,7 @@ export function palOf(p: Profile, friend: FriendId = p.buddy): PalProgress {
 }
 export const outfitOf = (p: Profile, friend: FriendId = p.buddy) => palOf(p, friend).outfit ?? 'none';
 /** The buddy's finish dance (dances dropped in later versions fall back to the first one). */
-export const danceOf = (p: Profile, friend: FriendId = p.buddy) => { const d = palOf(p, friend).dance; return d && REWARDS.some(r => r.id === d) ? d : 'dance_hiphop'; };
+export const danceOf = (p: Profile, friend: FriendId = p.buddy) => { const d = palOf(p, friend).dance; return d && forBuddy(REWARDS, friend).some(r => r.id === d) ? d : 'dance_hiphop'; };
 /** Outfits and dances this buddy has unlocked. */
 export const rewardsFor = (pal: PalProgress) => REWARDS.filter(r => r.level <= pal.level);
 
@@ -358,7 +358,7 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
   pal.xp += gained;
   const lvlAfter = levelFromXp(pal.xp);
   pal.level = lvlAfter.level;
-  const rewards = newBetween(lvlBefore.level, lvlAfter.level);
+  const rewards = forBuddy(newBetween(lvlBefore.level, lvlAfter.level), p.buddy);
   for (const r of rewards) if (!pal.seen.includes('reward:' + r.id)) pal.seen.push('reward:' + r.id);
 
   // stickers: check everything this buddy hasn't won yet

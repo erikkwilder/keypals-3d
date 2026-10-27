@@ -191,7 +191,7 @@
             {/if}
           {/if}
           {#if saveMsg}<p class="small msg">{saveMsg}</p>{/if}
-          <p class="muted small"><a href="privacy.html" target="_blank" rel="noopener">How we look after your information</a></p>
+          <p class="muted small"><a href="privacy" target="_blank" rel="noopener">How we look after your information</a></p>
           <h4>Progress file</h4>
           <p class="muted small">Or keep a copy yourself: save a file, and load it on another computer.</p>
           <div class="row">

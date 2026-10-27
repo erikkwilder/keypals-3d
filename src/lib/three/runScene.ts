@@ -272,8 +272,7 @@ export class RunScene implements Controller {
     const d = this.opts.dance;
     const name = this.me.has(d) ? d : 'fistpump';
     const a = this.me.play(name, 0.35);
-    const len = a ? Math.min(6, a.getClip().duration) : 2.5;
-    this.danceEnd = performance.now() / 1000 + Math.max(2.4, len);
+    this.danceEnd = performance.now() / 1000 + danceLength(a);
     this.puff.burst(this.me.root.position, 20, 0xfff2a8);
   }
 
@@ -283,7 +282,7 @@ export class RunScene implements Controller {
     const name = this.me.has(id) ? id : 'fistpump';
     const a = this.me.play(name, 0.3);
     if (a) a.reset();
-    this.danceEnd = performance.now() / 1000 + Math.max(2.4, a ? Math.min(6, a.getClip().duration) : 2.5);
+    this.danceEnd = performance.now() / 1000 + danceLength(a);
     this.onCelebrated = () => this.results(this.resultTier);
   }
 
@@ -380,6 +379,11 @@ export class RunScene implements Controller {
 }
 
 const startedGait = (me: Character, g: string) => g === 'idle' || me.has(g);
+/** How long the finish dance plays: long ones are cut at 6 s, short loops (the floss) go round a few times. */
+function danceLength(a: THREE.AnimationAction | null) {
+  const d = a ? a.getClip().duration : 2.5;
+  return d < 2.5 ? d * Math.ceil(3.2 / d) : Math.min(6, Math.max(2.4, d));
+}
 
 /** A see-through copy of the buddy for the ghost racer. */
 function ghostify(c: Character) {

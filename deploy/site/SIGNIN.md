@@ -5,7 +5,7 @@ The game shows "Sign in with Google" and "Sign in with Microsoft" only once thes
 ## Google
 1. Go to https://console.cloud.google.com/ and make (or pick) a project, e.g. "Keypals".
 2. **Google Auth Platform → Branding**: app name "Keypals", support email, app logo optional,
-   app home page https://fancyant.com/keypals, privacy policy https://fancyant.com/keypals/privacy.html.
+   app home page https://fancyant.com/keypals, privacy policy https://fancyant.com/keypals/privacy.
    Audience: **External**, then **Publish app** (basic sign-in needs no review).
 3. **Clients → Create client**: type **Web application**, name "Keypals web".
    Authorized redirect URI: `https://fancyant.com/keypals/api/auth/google/callback`

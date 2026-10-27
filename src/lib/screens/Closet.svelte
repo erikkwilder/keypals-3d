@@ -4,7 +4,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { BUDDIES, FRIEND, type FriendId } from '../art/cast';
-  import { OUTFITS, DANCES, type Reward } from '../engine/rewards';
+  import { OUTFITS, DANCES as ALL_DANCES, forBuddy, type Reward } from '../engine/rewards';
   import { palOf } from '../engine/profile';
   import { levelFromXp, newPalProgress } from '../engine/stickers';
   import { sfx } from '../audio/sound';
@@ -21,6 +21,8 @@
   const pal = $derived(palOf(p, who));
   const lvl = $derived(levelFromXp(pal.xp));
   let tab = $state<'outfits' | 'dances'>(game.closetTab);
+  // a few dances bump into some buddies' heads or hats: those buddies don't get them
+  const DANCES = $derived(forBuddy(ALL_DANCES, who));
   const outfitsOpen = $derived(OUTFITS.filter(o => !locked(o)).length);
   const dancesOpen = $derived(DANCES.filter(d => !locked(d)).length);
   let burst = $state(0);
@@ -29,6 +31,7 @@
   let stageEl: HTMLDivElement | undefined = $state();
   let disposed = false;
   const RAR = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
+  const ICON: Record<string, string> = { fistpump: '✊', jump: '⭐', dance_floss: '🕺', dance_robot: '🤖', dance_chicken: '🐔', dance_moonwalk: '🌙', dance_gangnam: '🐴', dance_hype: '🔥', dance_raiseroof: '🙌', dance_twist: '🌀', dance_cabbage: '🥬', dance_macarena: '💃' };
 
   async function show(id: FriendId) {
     const old = scene;
@@ -118,7 +121,7 @@
           {#each DANCES as d (d.id)}
             {@const lk = locked(d)}
             <button class="of dance rar-{d.rarity}" class:on={pal.dance === d.id} class:locked={lk} class:shake={shake === d.id} onclick={() => dance(d)}>
-              <div class="thumb note">{d.id === 'fistpump' ? '✊' : d.id === 'jump' ? '⭐' : '♪'}</div>
+              <div class="thumb note">{ICON[d.id] ?? '♪'}</div>
               <b>{d.name}</b>
               {#if !lk}<span class="rar {d.rarity}">{pal.dance === d.id ? 'My finish dance' : RAR[d.rarity]}</span>
               {:else}<span class="lock" title="Unlocks at friendship {d.level}"><Icon name="lock" size={13} /> ♥ {d.level}</span>{/if}

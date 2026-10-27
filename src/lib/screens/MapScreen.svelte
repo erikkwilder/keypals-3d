@@ -5,7 +5,7 @@
   import { REGIONS, type Lesson } from '../engine/course';
   import { isUnlocked, nextLesson, passed, regionUnlocked, todayMs, totalStars } from '../engine/profile';
   import { RIDES } from '../engine/rides';
-  import { DANCES } from '../engine/rewards';
+  import { DANCES, forBuddy } from '../engine/rewards';
   import { levelFromXp } from '../engine/stickers';
   import { rideIcon } from '../art/vehicles';
   import { sfx } from '../audio/sound';
@@ -24,7 +24,7 @@
   const stars = $derived(totalStars(p));
   const goalMs = $derived(p.settings.dailyGoalMin * 60000);
   const today = $derived(todayMs(p));
-  const dancesOpen = $derived(DANCES.filter(d => d.level <= levelFromXp(palOf(p).xp).level).length);
+  const dancesOpen = $derived(forBuddy(DANCES, p.buddy).filter(d => d.level <= levelFromXp(palOf(p).xp).level).length);
   let scroller: HTMLDivElement | undefined = $state();
   // each region banner is a still view a little way into its journey
 

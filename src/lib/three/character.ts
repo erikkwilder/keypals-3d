@@ -29,7 +29,8 @@ const moveSets = new Map<string, Promise<THREE.AnimationClip[]>>();
 function moves(id: FriendId) {
   let p = moveSets.get(id);
   if (!p) {
-    p = loadGltf(`models/${id}-moves.glb`).then(g => g?.animations ?? []);
+    // the Meshy moves, and the dances remapped from Mixamo and Sketchfab (tools/blender/retarget.py)
+    p = Promise.all([loadGltf(`models/${id}-moves.glb`), loadGltf(`models/${id}-dances.glb`)]).then(gs => gs.flatMap(g => g?.animations ?? []));
     moveSets.set(id, p);
   }
   return p;

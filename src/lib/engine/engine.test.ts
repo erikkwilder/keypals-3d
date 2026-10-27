@@ -310,7 +310,7 @@ describe('rewards and treasure', () => {
       return (JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8')).animations ?? []).map((a: { name: string }) => CLIP_NAMES[a.name] ?? a.name);
     };
     for (const id of ['dino', 'cheetah', 'monkey', 'koala', 'box', 'turtle']) {
-      const names = new Set([...clips(`public/models/${id}.glb`), ...clips(`public/models/${id}-moves.glb`)]);
+      const names = new Set([...clips(`public/models/${id}.glb`), ...clips(`public/models/${id}-moves.glb`), ...clips(`public/models/${id}-dances.glb`)]);
       for (const d of REWARDS.filter(r => r.kind === 'dance')) expect(names.has(d.id), `${id} ${d.id}`).toBe(true);
     }
   });
