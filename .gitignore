@@ -15,3 +15,7 @@ public/devmotions/
 
 # screenshots made for review rounds
 docs/round*/
+
+# built copies of both games for publishing (deploy/site/deploy.sh)
+deploy/site/public/
+deploy/site/.wrangler/

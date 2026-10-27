@@ -1,0 +1,18 @@
+# fancyant.com/keypals (the 3D game) and fancyant.com/keypals1 (the first, flat version), served
+# straight from Cloudflare's file storage: requests for files are free and unlimited and never run
+# the script below. The script only sees what isn't a file: /keypals2 (forwarded to /keypals) and,
+# later, the accounts API under /keypals/api/.
+name = "fancyant-keypals"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+routes = [
+  { pattern = "fancyant.com/keypals*", zone_name = "fancyant.com" },
+  { pattern = "www.fancyant.com/keypals*", zone_name = "fancyant.com" },
+]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "none"
