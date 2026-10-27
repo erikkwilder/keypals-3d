@@ -1,8 +1,11 @@
 // The 3D stage: one renderer on a canvas behind every screen. A screen hands it a controller (the
 // lesson's runner, the title's parade, a showcase of one buddy) and the stage runs it each frame; with
-// no controller it stops drawing. The island is built once and shared.
+// no controller it stops drawing. Each region has its own island, built the first time it's needed;
+// the last three stay ready.
 import * as THREE from 'three';
 import { buildIsland, type Island } from './island';
+import { THEMES } from './themes';
+import type { RegionId } from '../engine/course';
 import { Character, charLook } from './character';
 import type { FriendId } from '../art/cast';
 
@@ -13,6 +16,8 @@ export interface Controller {
   update(dt: number, t: number): void;
   /** where the shadows and sky should follow */
   focus(): THREE.Vector3;
+  /** the island this scene stands on (shown while it runs) */
+  island?: Island;
   dispose(): void;
 }
 
@@ -47,7 +52,8 @@ class Stage {
   smooth = false;
   /** told when auto-detect switches to smooth mode by itself (to let the player know) */
   onAutoSmooth: (() => void) | null = null;
-  private islandP: Promise<Island> | null = null;
+  private islands = new Map<RegionId, Promise<Island>>();
+  private recent: RegionId[] = [];
   island: Island | null = null;
   private ctrl: Controller | null = null;
   private raf = 0;
@@ -148,18 +154,36 @@ class Stage {
     this.camera.updateProjectionMatrix();
   }
 
-  /** The island, built the first time anyone asks. */
-  getIsland(): Promise<Island> {
-    if (!this.islandP) {
-      this.islandP = this.mounted.then(() => buildIsland(this.renderer!, { low: this.low, length: 420 })).then(isl => {
-        this.scene.add(isl.root);
-        this.island = isl;
-        if (this.smooth) { isl.setSmooth(true); this.swapMaterials(); }
-        return isl;
-      });
-      this.islandP.catch(() => { this.islandP = null; });
+  /**
+   * A region's island, built the first time anyone asks. It goes on stage when a scene standing on it
+   * starts running (a slower build finishing later must not swap itself in under another scene).
+   */
+  getIsland(region: RegionId = 'village'): Promise<Island> {
+    let p = this.islands.get(region);
+    if (!p) {
+      p = this.mounted.then(() => buildIsland(this.renderer!, { low: this.low, length: 420, theme: THEMES[region] }));
+      this.islands.set(region, p);
+      p.catch(() => this.islands.delete(region));
     }
-    return this.islandP;
+    return p;
+  }
+  private show(isl: Island) {
+    const region = isl.theme.id;
+    if (this.island !== isl) {
+      this.island?.root.removeFromParent();
+      this.scene.add(isl.root);
+      this.island = isl;
+      (this.scene.fog as THREE.Fog).color.set(isl.theme.fog);
+      isl.setSmooth(this.smooth);
+      if (this.smooth) this.swapMaterials();
+    }
+    // keep the three most recent islands; free older ones (never the one on stage)
+    this.recent = this.recent.filter(r => r !== region).concat(region);
+    while (this.recent.length > 3) {
+      const old = this.recent.shift()!, op = this.islands.get(old);
+      this.islands.delete(old);
+      op?.then(i => { if (i !== this.island) i.dispose(); });
+    }
   }
 
   character(id: FriendId) { return Character.create(id); }
@@ -168,6 +192,7 @@ class Stage {
   use(ctrl: Controller | null) {
     if (this.ctrl && this.ctrl !== ctrl) this.ctrl.dispose();
     this.ctrl = ctrl;
+    if (ctrl?.island) this.show(ctrl.island);
     this.watchFrom = performance.now() + 2500; // give a new scene a moment to load before judging its speed
     this.lateness = 1;
     if (this.canvas) this.canvas.style.visibility = ctrl ? 'visible' : 'hidden';

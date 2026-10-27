@@ -142,7 +142,7 @@
     if (!last) { game.go('map'); return; }
     // the lesson's scene carries on (the buddy has just danced at the gate); if it isn't there, make one
     const cur = stage.current();
-    const ready = cur instanceof RunScene ? Promise.resolve(cur) : RunScene.create({ buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: last.text.length }).then(sc => { sc.pos = sc.goal = sc.finishS; stage.use(sc); return sc; });
+    const ready = cur instanceof RunScene ? Promise.resolve(cur) : RunScene.create({ buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: last.text.length, region: lesson.region }).then(sc => { sc.pos = sc.goal = sc.finishS; stage.use(sc); return sc; });
     ready.then(sc => { scene = sc; sc.onCelebrated = null; sc.results(best); updateView(); trackPrize(); });
     let t = 250;
     at(t, () => (scoreT.target = score));

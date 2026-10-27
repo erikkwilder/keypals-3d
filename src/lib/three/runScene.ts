@@ -11,6 +11,7 @@ import { reach } from './ik';
 import { makeOutfit } from './outfits3d';
 import { RIDES } from '../engine/rides';
 import type { FriendId } from '../art/cast';
+import type { RegionId } from '../engine/course';
 import { GATE_BEFORE, type Island, type TrailPoint } from './island';
 
 export const STEP = 1.35; // metres of trail per letter
@@ -19,7 +20,7 @@ const RUNUP = 4; // trail before the first letter
 /** Screen space the 3D view should use (fractions of the window): the rest is covered by the letters and keyboard. */
 export type View = { top: number; bottom: number; left: number; right: number };
 
-type Opts = { buddy: FriendId; outfit: string; dance: string; length: number; ghostCps?: number };
+type Opts = { buddy: FriendId; outfit: string; dance: string; length: number; ghostCps?: number; region?: RegionId };
 
 export class RunScene implements Controller {
   /** smooth while running; the results screen can settle for 30 */
@@ -72,7 +73,7 @@ export class RunScene implements Controller {
   }
 
   static async create(opts: Opts): Promise<RunScene> {
-    const [island, me] = await Promise.all([stage.getIsland(), Character.create(opts.buddy)]);
+    const [island, me] = await Promise.all([stage.getIsland(opts.region), Character.create(opts.buddy)]);
     if (!me) throw new Error('character missing');
     const sc = new RunScene(island, me, opts);
     me.wear(opts.outfit, makeOutfit);
