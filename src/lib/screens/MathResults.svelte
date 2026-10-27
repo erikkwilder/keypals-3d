@@ -5,10 +5,10 @@
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { danceOf, palOf } from '../engine/profile';
-  import { RIDES } from '../engine/rides';
+  import { RIDES, rideName } from '../engine/rides';
   import { endMessage } from '../engine/scoring';
   import { RunScene } from '../three/runScene';
-  import { MATH_LESSON, MATH_REGION, STRAND, worldOf } from '../math/course';
+  import { MATH_LESSON, MATH_REGION, STRAND, STRIDE, moveOf, worldOf } from '../math/course';
   import { parseFact, answerOf, opSign } from '../math/facts';
   import { MATH_TREASURE, mathGoal, MATH_RIDE } from '../math/meter';
   import { mathOf, nextMathLesson } from '../math/progress';
@@ -34,12 +34,12 @@
     { icon: 'clock' as const, value: Math.round(st.fpm), label: 'right a minute', badge: newBestFpm && 'Best!' },
     { icon: 'target' as const, value: `${Math.round(st.acc * 100)}%`, label: 'right first time' },
     { icon: 'trophy' as const, value: goal, label: `goal · best ${last.record.bestScore}`, badge: last.newBestScore && 'Record!' },
-    { icon: 'ride' as const, value: RIDES[last.bestRide].name, label: 'top ride', badge: last.newBestRide && 'Best!' },
+    { icon: 'ride' as const, value: rideName(last.bestRide, moveOf(lesson)), label: 'top speed', badge: last.newBestRide && 'Best!' },
   ] : [];
   // the next thing to aim for, like a typing lesson's
   const rideTh = grown ? MATH_RIDE.grown : MATH_RIDE.kids;
   const goalText = !last || !st ? '' : last.stars < 3 ? `Next goal: a score of ${goal} for three stars. Right first time counts most, then speed.`
-    : RIDES[last.bestRide + 1] ? `Next goal: reach ${RIDES[last.bestRide + 1].name} (about ${rideTh[last.bestRide + 1]} right a minute).` : 'Top ride and three stars. Try the next trip!';
+    : RIDES[last.bestRide + 1] ? `Next goal: reach ${rideName(last.bestRide + 1, moveOf(lesson))} (about ${rideTh[last.bestRide + 1]} right a minute).` : 'Top ride and three stars. Try the next trip!';
 
   // every fact of the trip, in order, coloured by how it went
   const strip = (last?.results ?? []).map(r => ({ ...parseFact(r.id), kind: r.intro ? 'new' : r.speed }));
@@ -51,10 +51,10 @@
 </script>
 
 {#if last && st}
-  <RunResults run={last} {title} {sub} {word} score={st.score} goalScore={goal} {passed} {chips}
+  <RunResults move={moveOf(lesson)} run={last} {title} {sub} {word} score={st.score} goalScore={goal} {passed} {chips}
     treasureAt={grown ? MATH_TREASURE.grown : MATH_TREASURE.kids} treasureWhere="on a math trip" rideHint="Quicker answers reach"
     {goalText} openedText={last.regionJustDone ? `${MATH_REGION[last.regionJustDone].name} is done!` : null} nextTitle={next.title}
-    makeScene={() => RunScene.create({ buddy: p.buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: 20, region: worldOf(lesson), keyLen: 9 })}
+    makeScene={() => RunScene.create({ buddy: p.buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: 20, region: worldOf(lesson), move: moveOf(lesson), keyLen: STRIDE[moveOf(lesson)] })}
     onretry={() => game.startMath(lesson.id, true)} onnext={() => game.startMath(next.id)} onhome={() => game.go('hub')}
     progress={{ label: 'Garden', tone: 'mint', art: gardenArt, onclick: () => game.go('garden') }}>
     {#snippet extra()}

@@ -8,13 +8,13 @@
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { danceOf, outfitOf, type Profile } from '../engine/profile';
-  import { RIDES, type RideEvent } from '../engine/rides';
+  import { rideName, RIDES, type RideEvent } from '../engine/rides';
   import { rideIcon } from '../art/vehicles';
   import { FRIEND } from '../art/cast';
   import { sfx, startMusic, unlockAudio, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { RunScene } from '../three/runScene';
-  import { MATH_LESSON, MATH_REGION, STRAND, TRICK, groupFacts, trickOf, worldOf, type MathLesson } from '../math/course';
+  import { MATH_LESSON, MATH_REGION, STRAND, TRICK, groupFacts, moveOf, STRIDE, trickOf, worldOf, type MathLesson } from '../math/course';
   /** A typical fact to show on a Meet card: the 6 of a times table, or the first not-so-easy fact of a group. */
   const exampleOf = (l: MathLesson) => (l.op === 'x' ? { a: 6, b: l.tables[0] } : (groupFacts(l.learn[0]).find(f => f.a > 2 && f.b > 1) ?? groupFacts(l.learn[0])[0]));
   import { answerOf, factId, opSign, speedOf, FAST_MS, type Fact } from '../math/facts';
@@ -45,7 +45,7 @@
   const starAt = [Math.ceil(goal * 0.3), Math.ceil(goal * 0.6), goal];
   const buddy = FRIEND[profile.buddy];
   // the trail: one stretch per fact, with room for a couple of misses brought back at the end
-  const STRETCH = 9;
+  const STRETCH = STRIDE[moveOf(lesson)];
   const stretches = picker.length + 2;
 
   let phase = $state<'intro' | 'play' | 'paused' | 'done'>('intro');
@@ -302,7 +302,7 @@
   if (import.meta.env.DEV) (window as unknown as { __math: object }).__math = { answer: () => answer, mode: () => mode, phase: () => phase, fact: () => fact };
 
   onMount(() => {
-    RunScene.create({ buddy: profile.buddy, outfit: outfitOf(profile), dance: danceOf(profile), length: stretches, region: worldOf(lesson), keyLen: STRETCH, pace: { window: 14, full: 4, stop: 9, lead: 0.6 } })
+    RunScene.create({ buddy: profile.buddy, outfit: outfitOf(profile), dance: danceOf(profile), length: stretches, region: worldOf(lesson), move: moveOf(lesson), keyLen: STRETCH, pace: { window: 14, full: 4, stop: 9, lead: 0.6 } })
       .then(sc => { scene = sc; stage.use(sc); updateView(); loading = false; })
       .catch(err => { console.error(err); loading = false; });
     game.quickStart = false;
@@ -345,7 +345,7 @@
       </div>
       {#if !calm}
         <div class="live"><div><b>{liveFpm}</b> a minute</div><div><b>{liveAcc}</b>%</div></div>
-        <div class="ladder"><RideLadder {tier} {progress} {best} blocked={false} record={record?.bestRide ?? 0} /></div>
+        <div class="ladder"><RideLadder {tier} {progress} {best} blocked={false} record={record?.bestRide ?? 0} move={moveOf(lesson)} /></div>
       {/if}
     </div>
 
@@ -385,8 +385,8 @@
         {#key banner.n}
           <div class="banner" class:down={banner.down}>
             {#if !banner.down}<div class="rays"></div>{/if}
-            <svg class="bicon" viewBox="0 0 48 48">{@html rideIcon(banner.tier, '#fff')}</svg>
-            <div class="bword">{banner.down ? 'Easy does it' : RIDES[banner.tier].name + '!'}</div>
+            <svg class="bicon" viewBox="0 0 48 48">{@html rideIcon(banner.tier, '#fff', moveOf(lesson))}</svg>
+            <div class="bword">{banner.down ? 'Easy does it' : rideName(banner.tier, moveOf(lesson)) + '!'}</div>
             {#if !banner.down}<div class="bsub">{banner.tier === RIDES.length - 1 ? 'Top speed!' : 'Quick and right to go higher'}</div>{/if}
           </div>
         {/key}

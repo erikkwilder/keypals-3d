@@ -13,6 +13,7 @@ import { RIDES } from '../engine/rides';
 import type { FriendId } from '../art/cast';
 import type { RegionId } from '../engine/course';
 import { GATE_BEFORE, type Island, type TrailPoint } from './island';
+import { buildCourse, type CourseMove } from './courses';
 
 export const STEP = 1.35; // metres of trail per letter
 const RUNUP = 4; // trail before the first letter
@@ -26,7 +27,9 @@ type Pace = { window: number; full: number; stop: number; lead: number };
 const TYPING_PACE: Pace = { window: 2.5, full: 0.8, stop: 1.8, lead: 1.5 };
 
 /** `keyLen`: metres of trail per key (the math game moves a longer way for each answer). */
-type Opts = { buddy: FriendId; outfit: string; dance: string; length: number; ghostCps?: number; region?: RegionId; keyLen?: number; pace?: Pace };
+/** `move`: how the buddy travels: the island trail (run), or a course of its own: up a cliff, down a
+ *  snowy slope on a sled, or across a bay (the math strands). */
+type Opts = { buddy: FriendId; outfit: string; dance: string; length: number; ghostCps?: number; region?: RegionId; keyLen?: number; pace?: Pace; move?: 'run' | CourseMove };
 
 export class RunScene implements Controller {
   /** smooth while running; the results screen can settle for 30 */
@@ -67,6 +70,10 @@ export class RunScene implements Controller {
   private puff: Puff;
 
   private get keyLen() { return this.opts.keyLen ?? STEP; }
+  /** a course of its own (climb, slide, swim) instead of the island trail: no vehicles there */
+  private get course(): CourseMove | null { return this.opts.move && this.opts.move !== 'run' ? this.opts.move : null; }
+  private splashT = 0;
+  private lastTier = 0;
   private get pace() { return this.opts.pace ?? TYPING_PACE; }
 
   private constructor(island: Island, me: Character, opts: Opts) {
@@ -82,7 +89,8 @@ export class RunScene implements Controller {
   }
 
   static async create(opts: Opts): Promise<RunScene> {
-    const [island, me] = await Promise.all([stage.getIsland(opts.region), Character.create(opts.buddy)]);
+    const course = opts.move && opts.move !== 'run' ? opts.move : null;
+    const [island, me] = await Promise.all([course ? Promise.resolve(buildCourse(course)) : stage.getIsland(opts.region), Character.create(opts.buddy)]);
     if (!me) throw new Error('character missing');
     const sc = new RunScene(island, me, opts);
     me.wear(opts.outfit, makeOutfit);
@@ -91,7 +99,7 @@ export class RunScene implements Controller {
       const g = await Character.create(opts.buddy);
       if (g) { sc.ghostMat = ghostify(g); sc.ghost = g; stage.scene.add(g.root); g.play('idle', 0); }
     }
-    sc.preloadRides();
+    if (!course) sc.preloadRides();
     return sc;
   }
 
@@ -220,11 +228,12 @@ export class RunScene implements Controller {
     }
     const f = (this.here = this.island.trail.at(this.pos));
     const rideTier = this.phase === 'dance' ? 0 : this.tier;
-    if ((rideTier >= 2 ? rideTier : 0) !== (this.veh ? this.vehTier : 0)) {
+    if (!this.course && (rideTier >= 2 ? rideTier : 0) !== (this.veh ? this.vehTier : 0)) {
       if (rideTier >= 2) this.swapRide(rideTier);
       else if (this.veh) { this.veh.group.removeFromParent(); this.veh = null; this.vehTier = 0; this.puff.burst(me.root.position, 10); }
     }
-    if (this.veh && rideTier >= 2) this.mounted(dt, f, t);
+    if (this.course && (this.phase === 'run' || this.phase === 'arrive')) this.onCourse(dt, f, t, now);
+    else if (this.veh && rideTier >= 2) this.mounted(dt, f, t);
     else {
       me.groundFeet = this.groundFix;
       me.root.position.copy(f.p);
@@ -276,6 +285,36 @@ export class RunScene implements Controller {
     if (Math.abs(wantK - this.gateK) > 0.001) { this.gateK += (wantK - this.gateK) * (1 - Math.exp(-dt * 8)); if (Math.abs(wantK - this.gateK) < 0.01) this.gateK = wantK; this.island.gateSolid(this.gateK); }
     this.puff.update(dt, stage.camera);
     this.camera(dt, f);
+  }
+
+  /** Climbing, sledding or swimming, with the speed ladder showing in how hard the buddy goes for it. */
+  private onCourse(dt: number, f: TrailPoint, t: number, now: number) {
+    const me = this.me, v = this.vel, kind = this.course!;
+    me.groundFeet = false;
+    if (this.tier !== this.lastTier) { if (this.tier > this.lastTier) this.puff.burst(me.root.position, 10, kind === 'slide' ? 0xffffff : 0xfff2a8); this.lastTier = this.tier; }
+    const sled = this.island.root.userData.sled as THREE.Group | undefined;
+    if (kind === 'climb') {
+      me.root.position.copy(f.p);
+      me.root.rotation.set(0, Math.PI, 0);
+      const a = me.play(me.has('climb') ? 'climb' : 'idle', 0.25);
+      if (a) a.timeScale = v < 0.04 ? 0 : Math.max(0.35, Math.min(2.4, v / 0.55));
+    } else if (kind === 'slide') {
+      const yaw = Math.atan2(f.t.x, f.t.z), pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
+      if (sled) { sled.visible = true; sled.position.copy(f.p); sled.rotation.set(0, yaw - Math.PI / 2, -pitch); }
+      me.play(me.has('seated') ? 'seated' : me.has('sit') ? 'sit' : 'idle', 0.25);
+      me.root.position.copy(f.p).add(new THREE.Vector3(0, 0.2, 0));
+      me.root.rotation.set(pitch, yaw, 0, 'YXZ');
+      if (v > 2.5 && now - this.splashT > 0.18) { this.splashT = now; this.puff.burst(f.p.clone().addScaledVector(f.t, -0.6), 3, 0xffffff); }
+    } else {
+      me.root.position.copy(f.p);
+      me.root.position.y += Math.sin(t * 3) * 0.04;
+      me.root.rotation.set(0, Math.atan2(f.t.x, f.t.z), 0);
+      const a = me.play(me.has('swim') ? 'swim' : 'run', 0.3);
+      if (a) a.timeScale = Math.max(0.45, Math.min(2.2, 0.45 + v / 2.5));
+      if (v > 0.6 && now - this.splashT > 0.35) { this.splashT = now; this.puff.burst(f.p.clone().add(new THREE.Vector3(0, 0.6, 0)), 3, 0xe8f8ff); }
+    }
+    me.update(dt);
+    me.root.updateMatrixWorld(true);
   }
 
   private arrive() {
@@ -382,6 +421,7 @@ export class RunScene implements Controller {
 
   dispose() {
     this.island.gateSolid(1);
+    if (this.course) this.island.dispose();
     this.me.dispose();
     this.ghost?.dispose();
     this.veh?.group.removeFromParent();

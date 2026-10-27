@@ -2,31 +2,31 @@
   // The ride ladder in the lesson's top bar. Twelve rides are too many to show at once, so it shows
   // the ride you're on, the next one with a ring that fills as you get closer, and a strip of dots
   // for where you are on the whole ladder.
-  import { RIDES } from '../engine/rides';
+  import { RIDES, rideName, rideVerb, type Move } from '../engine/rides';
   import { rideIcon } from '../art/vehicles';
 
-  type Props = { tier: number; progress: number; best: number; record?: number; blocked?: boolean };
-  let { tier, progress, best, record = 0, blocked = false }: Props = $props();
+  type Props = { tier: number; progress: number; best: number; record?: number; blocked?: boolean; move?: Move };
+  let { tier, progress, best, record = 0, blocked = false, move = 'run' }: Props = $props();
   const COLORS = ['#b8aed0', '#ff8fbf', '#4fcf9f', '#79c4f2', '#b79cf2', '#ff8fbf', '#79c4f2', '#4fcf9f', '#b79cf2', '#79c4f2', '#ff8fbf', '#e8cf2a'];
   const LABEL = ['#7d7398', '#d9467f', '#1f9a6a', '#2f86c2', '#7a55cc', '#d9467f', '#2f86c2', '#1f9a6a', '#7a55cc', '#2f86c2', '#d9467f', '#8a7600'];
   const R = 21, C = 2 * Math.PI * R;
   const next = $derived(RIDES[tier + 1]);
 </script>
 
-<div class="ladder" aria-label="Ride: {RIDES[tier].name}">
+<div class="ladder" aria-label="Ride: {rideName(tier, move)}">
   <div class="label">
-    {#if blocked}<span class="now warn">Fewer slips to level up!</span>{:else}<span class="now" style:color={LABEL[tier]}>{RIDES[tier].verb}!</span>{/if}
+    {#if blocked}<span class="now warn">Fewer slips to level up!</span>{:else}<span class="now" style:color={LABEL[tier]}>{rideVerb(tier, move)}!</span>{/if}
   </div>
   <div class="box">
     <div class="pair">
       {#key tier}
-        <div class="rung on" title={RIDES[tier].name}><svg class="icon" viewBox="0 0 48 48">{@html rideIcon(tier, COLORS[tier])}</svg></div>
+        <div class="rung on" title={rideName(tier, move)}><svg class="icon" viewBox="0 0 48 48">{@html rideIcon(tier, COLORS[tier], move)}</svg></div>
       {/key}
       {#if next}
         <span class="arrow">›</span>
         <div class="rung next" title="Next: {next.name}">
           <svg class="ring" viewBox="0 0 48 48"><circle cx="24" cy="24" r={R} fill="none" stroke="#ece6f7" stroke-width="4" /><circle cx="24" cy="24" r={R} fill="none" stroke={COLORS[tier + 1]} stroke-width="4" stroke-linecap="round" stroke-dasharray={C} stroke-dashoffset={C * (1 - progress)} transform="rotate(-90 24 24)" /></svg>
-          <svg class="icon" viewBox="0 0 48 48">{@html rideIcon(tier + 1, '#cfc7e2')}</svg>
+          <svg class="icon" viewBox="0 0 48 48">{@html rideIcon(tier + 1, '#cfc7e2', move)}</svg>
         </div>
       {/if}
     </div>

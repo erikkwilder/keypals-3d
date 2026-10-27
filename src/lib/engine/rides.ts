@@ -15,6 +15,17 @@ export const RIDES: { id: RideId; name: string; verb: string }[] = [
   { id: 'rocket', name: 'Rocket', verb: 'Blasting off' },
 ];
 export const rideIndex = (id: RideId) => RIDES.findIndex(r => r.id === id);
+/** How the buddy travels: the trail's rides, or the math courses' climb, sled and swim. */
+export type Move = 'run' | 'climb' | 'slide' | 'swim';
+/** The six speed steps of each way of moving, named for it (the trail keeps its rides). */
+export const LADDERS: Record<Move, { name: string; verb: string }[]> = {
+  run: RIDES,
+  climb: [{ name: 'Hold On', verb: 'Holding on' }, { name: 'Climber', verb: 'Climbing' }, { name: 'Quick Climber', verb: 'Scrambling' }, { name: 'Speed Climber', verb: 'Speed climbing' }, { name: 'Super Climber', verb: 'Flying up' }, { name: 'Rocket Boots', verb: 'Rocket boots' }],
+  slide: [{ name: 'Wobble', verb: 'Wobbling' }, { name: 'Glide', verb: 'Gliding' }, { name: 'Sled', verb: 'Sledding' }, { name: 'Zoom', verb: 'Zooming' }, { name: 'Bobsled', verb: 'Bobsledding' }, { name: 'Avalanche', verb: 'Avalanche' }],
+  swim: [{ name: 'Float', verb: 'Floating' }, { name: 'Paddle', verb: 'Paddling' }, { name: 'Swim', verb: 'Swimming' }, { name: 'Fast Swimmer', verb: 'Racing' }, { name: 'Dolphin', verb: 'Dolphin kick' }, { name: 'Torpedo', verb: 'Torpedo' }],
+};
+export const rideName = (tier: number, move: Move = 'run') => LADDERS[move][Math.max(0, Math.min(5, tier))].name;
+export const rideVerb = (tier: number, move: Move = 'run') => LADDERS[move][Math.max(0, Math.min(5, tier))].verb;
 
 /**
  * The live score each ride needs, spread over Animal Typing's animal ladder (sloth 6 ... rabbit 25 ...

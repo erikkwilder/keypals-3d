@@ -264,6 +264,8 @@ export const mathLessonIndex = (id: string) => MATH_LESSONS.findIndex(l => l.id 
 export const regionsOf = (op: Op) => MATH_REGIONS.filter(r => r.op === op);
 /** The 3D island a lesson runs on (the placement trips start on the strand's first island). */
 export const worldOf = (l: MathLesson): RegionId => (l.region === 'start' ? (regionsOf(l.op)[0]?.world ?? 'village') : MATH_REGION[l.region].world);
+/** Metres moved for each answer: a long stretch of trail, a sled run, a stroke, a step up the cliff. */
+export const STRIDE: Record<MathMove, number> = { run: 9, slide: 6, swim: 2.2, climb: 1.1 };
 /** How the buddy moves on a lesson. */
 export const moveOf = (l: MathLesson): MathMove => STRAND[l.op].move;
 /** The times tables, in the order they're learned. */

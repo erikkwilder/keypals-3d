@@ -2,7 +2,17 @@
 import { RIDES } from '../engine/rides';
 
 /** A ride's icon as SVG markup in a 48 x 48 box. */
-export function rideIcon(tier: number, color = 'currentColor'): string {
+/** A course's speed step as chevrons pointing the way it goes: up the cliff, down the slope, across the bay. */
+function moveIcon(tier: number, color: string, move: 'climb' | 'slide' | 'swim'): string {
+  const rot = move === 'climb' ? 0 : move === 'slide' ? 135 : 90;
+  if (tier <= 0) return `<circle cx="24" cy="24" r="7" fill="${color}"/>`;
+  const n = Math.min(3, tier), chev = Array.from({ length: n }, (_, i) => `<path d="M12 ${30 - i * 9 + (n - 1) * 4.5}l12-10 12 10" fill="none" stroke="${color}" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
+  const extra = tier >= 5 ? `<path d="M24 44l-4-6h8z" fill="${color}"/><circle cx="24" cy="6" r="3" fill="${color}"/>` : tier >= 4 ? `<circle cx="24" cy="6" r="3" fill="${color}"/>` : '';
+  return `<g transform="rotate(${rot} 24 24)">${chev}${extra}</g>`;
+}
+
+export function rideIcon(tier: number, color = 'currentColor', move: 'run' | 'climb' | 'slide' | 'swim' = 'run'): string {
+  if (move !== 'run') return moveIcon(tier, color, move);
   const st = `fill="none" stroke="${color}" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"`;
   switch (RIDES[Math.max(0, Math.min(RIDES.length - 1, tier))].id) {
     case 'walk': return `<g fill="${color}"><ellipse cx="17" cy="30" rx="6" ry="8.5"/><ellipse cx="31" cy="18" rx="6" ry="8.5"/><circle cx="12" cy="18" r="2.4"/><circle cx="17" cy="15" r="2.4"/><circle cx="26" cy="7" r="2.4"/><circle cx="31" cy="5" r="2.2"/></g>`;

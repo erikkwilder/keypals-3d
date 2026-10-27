@@ -30,7 +30,8 @@ function moves(id: FriendId) {
   let p = moveSets.get(id);
   if (!p) {
     // the Meshy moves, and the dances remapped from Mixamo and Sketchfab (tools/blender/retarget.py)
-    p = Promise.all([loadGltf(`models/${id}-moves.glb`), loadGltf(`models/${id}-dances.glb`)]).then(gs => gs.flatMap(g => g?.animations ?? []));
+    // (and climbing and swimming for the math courses, copied the same way)
+    p = Promise.all([loadGltf(`models/${id}-moves.glb`), loadGltf(`models/${id}-dances.glb`), loadGltf(`models/${id}-moves2.glb`)]).then(gs => gs.flatMap(g => g?.animations ?? []));
     moveSets.set(id, p);
   }
   return p;

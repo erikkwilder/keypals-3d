@@ -20,7 +20,7 @@
   import { Tween } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
   import { game } from '../state/game.svelte';
-  import { RIDES } from '../engine/rides';
+  import { RIDES, rideName, type Move } from '../engine/rides';
   import { danceOf, palOf } from '../engine/profile';
   import { MEDAL_TIERS, newPalProgress } from '../engine/stickers';
   import { FRIEND } from '../art/cast';
@@ -53,9 +53,11 @@
     /** the first small button: Progress for typing, the Fact Garden for math */
     progress: { label: string; tone?: 'lilac' | 'pink' | 'mint' | 'sky' | 'butter'; kind?: 'chart'; art?: Snippet; onclick: () => void };
     badges?: Snippet; ringExtra?: Snippet; extra?: Snippet;
+    /** how the buddy travelled (the math courses name and draw their speed steps their own way) */
+    move?: Move;
   };
   let { run, title, sub, word, score, goalScore, passed, chips, treasureAt, treasureWhere, rideHint, goalText = '', openedText = null, nextTitle,
-    makeScene, onretry, onnext, onhome, progress, badges, ringExtra, extra }: Props = $props();
+    makeScene, onretry, onnext, onhome, progress, badges, ringExtra, extra, move = 'run' }: Props = $props();
 
   const p = game.profile!;
   const look = p.settings.look;
@@ -258,12 +260,12 @@
     <div class="ridepic" bind:this={heroEl}></div>
     <button class="dancebtn" onclick={() => dance(myDance)}>♪ Dance!</button>
     <div class="ridebanner" class:top={best >= 4}>
-      <span class="rbicon"><svg viewBox="0 0 48 48">{@html rideIcon(best, '#fff')}</svg></span>
-      <span class="rbtext"><small>{best > 0 ? 'You reached' : rideHint}</small><b>{best > 0 ? `${RIDES[best].name}!` : `${RIDES[1].name}!`}</b></span>
+      <span class="rbicon"><svg viewBox="0 0 48 48">{@html rideIcon(best, '#fff', move)}</svg></span>
+      <span class="rbtext"><small>{best > 0 ? 'You reached' : rideHint}</small><b>{best > 0 ? `${rideName(best, move)}!` : `${rideName(1, move)}!`}</b></span>
     </div>
     <div class="ladder">
       {#each RIDES as r, i (r.id)}
-        <span class="rung" class:got={i <= best} class:now={i === best}><svg viewBox="0 0 48 48">{@html rideIcon(i, i <= best ? '#fff' : '#cbc2de')}</svg></span>
+        <span class="rung" class:got={i <= best} class:now={i === best}><svg viewBox="0 0 48 48">{@html rideIcon(i, i <= best ? '#fff' : '#cbc2de', move)}</svg></span>
       {/each}
     </div>
   </div>
@@ -323,7 +325,7 @@
     <div class="chips" class:show={showStats}>
       {#each chips as c}
         <div class="chip">
-          {#if c.icon === 'ride'}<span class="ci rd"><svg viewBox="0 0 48 48" width="22" height="22">{@html rideIcon(best, '#fff')}</svg></span>
+          {#if c.icon === 'ride'}<span class="ci rd"><svg viewBox="0 0 48 48" width="22" height="22">{@html rideIcon(best, '#fff', move)}</svg></span>
           {:else}<span class="ci {c.icon}"><Icon name={c.icon} size={20} /></span>{/if}
           <b>{c.value}</b><small>{c.label}</small>{#if c.badge}<em>{c.badge}</em>{/if}
         </div>
