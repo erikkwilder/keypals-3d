@@ -44,6 +44,8 @@ export const MEDALS: AwardDef[] = [
   M('speedy', 'Speeding Up', 'Type faster than your usual speed.', 'arrow', 180),
   M('marathon', 'Long Haul', 'Finish a long run (300+ letters).', 'book', 140),
   M('goal', 'Goal Reached', "Hit today's practice goal.", 'ring', 100),
+  M('quickdraw', 'Quick Draw', 'Answer 10 math facts fast in a row.', 'bolt', 200),
+  M('bloom', 'In Bloom', 'A math fact blooms in your Fact Garden.', 'tree', 120),
 ];
 
 export const BADGES: AwardDef[] = [

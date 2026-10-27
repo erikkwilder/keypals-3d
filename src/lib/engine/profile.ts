@@ -86,6 +86,8 @@ export type Profile = {
   /** saved online under a save code; at = the server's time for the copy we last sent or got */
   cloud?: { code: string; at: number };
   history: HistoryItem[];
+  /** the math game: fact memory, trips and which game home shows (absent in older saves) */
+  math?: import('../math/progress').MathProgress;
 };
 
 export type HistoryItem = { at: number; lessonId: string; wpm: number; acc: number; stars: number; ride: number; ms: number; score?: number };
