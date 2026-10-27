@@ -80,6 +80,7 @@
   let scene: RunScene | null = null;
   let rootEl: HTMLDivElement | undefined = $state();
   let heroEl: HTMLDivElement | undefined = $state();
+  let bannerEl: HTMLDivElement | undefined = $state();
   let heroH = $state(800);
   let heroW = $state(1280);
   let gridW = $state(560);
@@ -151,7 +152,9 @@
       // to the right of the buddy, at head height, so its banner and prize row stay clear of the ride banner below
       let x = narrow ? r.right - size * 0.62 : b.x * innerWidth + hPx * 0.38 + size * 0.5;
       x = Math.min(r.right - size * 0.5 - 8, x);
-      const y = narrow ? r.top + size * 0.62 : Math.max(r.top + size * 0.55, b.top * innerHeight + hPx * 0.12);
+      let y = narrow ? r.top + size * 0.62 : Math.max(r.top + size * 0.55, b.top * innerHeight + hPx * 0.12);
+      // keep the prize, its ribbon and its row of treasures clear of the speed banner under the buddy
+      if (!narrow && bannerEl) y = Math.max(size * 0.55 + 8, Math.min(y, bannerEl.getBoundingClientRect().top - size * 0.5 - 118));
       // in the screen's own space, which scrolls on a phone
       prizeBox = { x: x - box.left + rootEl.scrollLeft, y: y - box.top + rootEl.scrollTop, size };
     }
@@ -259,7 +262,7 @@
   <div class="hero" class:full={!earned.length}>
     <div class="ridepic" bind:this={heroEl}></div>
     <button class="dancebtn" onclick={() => dance(myDance)}>♪ Dance!</button>
-    <div class="ridebanner" class:top={best >= 4}>
+    <div class="ridebanner" class:top={best >= 4} bind:this={bannerEl}>
       <span class="rbicon"><svg viewBox="0 0 48 48">{@html rideIcon(best, '#fff', move)}</svg></span>
       <span class="rbtext"><small>{best > 0 ? 'You reached' : rideHint}</small><b>{best > 0 ? `${rideName(best, move)}!` : `${rideName(1, move)}!`}</b></span>
     </div>
