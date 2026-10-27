@@ -5,7 +5,7 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
-export type Screen = 'title' | 'players' | 'newPlayer' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups';
+export type Screen = 'title' | 'players' | 'newPlayer' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden';
 
 function load(): SaveFile {
   try {
@@ -150,6 +150,20 @@ class Game {
 
   /** replaying a lesson skips its intro card and starts right away */
   quickStart = false;
+
+  // ---- the math game: home shows typing or math; its trips and results live in src/lib/math ----
+  mathLessonId = $state('twins-1');
+  mathLast = $state<import('../math/progress').MathOutcome & { lessonId: string; stats: import('../math/meter').TripStats; results: import('../math/meter').FactResult[]; stars: number; bestRide: number; finished: boolean } | null>(null);
+  get homeGame(): 'typing' | 'math' { return this.profile?.math?.home ?? 'typing'; }
+  setHome(g: 'typing' | 'math') {
+    this.update(p => { p.math = { ...(p.math ?? { facts: {}, lessons: {}, history: [], totals: { trips: 0, facts: 0, ms: 0 } }), home: g }; });
+  }
+  startMath(id: string, replay = false) {
+    this.quickStart = replay;
+    this.mathLessonId = id;
+    this.runKey++;
+    this.screen = 'mathRun';
+  }
 
   startLesson(id: string, replay = false) {
     this.quickStart = replay;

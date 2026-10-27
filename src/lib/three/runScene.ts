@@ -20,7 +20,13 @@ const RUNUP = 4; // trail before the first letter
 /** Screen space the 3D view should use (fractions of the window): the rest is covered by the letters and keyboard. */
 export type View = { top: number; bottom: number; left: number; right: number };
 
-type Opts = { buddy: FriendId; outfit: string; dance: string; length: number; ghostCps?: number; region?: RegionId };
+/** How the buddy keeps pace: the typing rate over the last `window` seconds, full speed until `full`
+ *  seconds after the last key and stopped by `stop`; it catches up when more than `lead` steps behind. */
+type Pace = { window: number; full: number; stop: number; lead: number };
+const TYPING_PACE: Pace = { window: 2.5, full: 0.8, stop: 1.8, lead: 1.5 };
+
+/** `keyLen`: metres of trail per key (the math game moves a longer way for each answer). */
+type Opts = { buddy: FriendId; outfit: string; dance: string; length: number; ghostCps?: number; region?: RegionId; keyLen?: number; pace?: Pace };
 
 export class RunScene implements Controller {
   /** smooth while running; the results screen can settle for 30 */
@@ -60,11 +66,14 @@ export class RunScene implements Controller {
   private here: TrailPoint;
   private puff: Puff;
 
+  private get keyLen() { return this.opts.keyLen ?? STEP; }
+  private get pace() { return this.opts.pace ?? TYPING_PACE; }
+
   private constructor(island: Island, me: Character, opts: Opts) {
     this.island = island;
     this.me = me;
     this.opts = opts;
-    this.finishS = RUNUP + opts.length * STEP;
+    this.finishS = RUNUP + opts.length * this.keyLen;
     island.placeFinish(this.finishS);
     this.here = island.trail.at(this.pos);
     stage.scene.add(me.root);
@@ -108,7 +117,7 @@ export class RunScene implements Controller {
     if (ok) {
       this.keyTimes.push(now);
       this.lastKey = now;
-      this.goal = RUNUP + typed * STEP;
+      this.goal = RUNUP + typed * this.keyLen;
     } else {
       this.oopsUntil = now + 0.6;
       this.vel *= 0.8;
@@ -120,10 +129,12 @@ export class RunScene implements Controller {
   finish() { this.goal = this.finishS; if (this.phase === 'run') this.phase = 'arrive'; }
 
   private rate(now: number) {
-    while (this.keyTimes.length && now - this.keyTimes[0] > 2.5) this.keyTimes.shift();
+    const pc = this.pace;
+    while (this.keyTimes.length && now - this.keyTimes[0] > pc.window) this.keyTimes.shift();
     if (this.keyTimes.length < 2) return 0;
     const r = (this.keyTimes.length - 1) / Math.max(0.35, now - this.keyTimes[0]);
-    return r * Math.max(0, Math.min(1, 1.8 - (now - this.lastKey))); // full speed until a 0.8 s pause, stopped by 1.8 s
+    // typing: full speed until a 0.8 s pause, stopped by 1.8 s
+    return r * Math.max(0, Math.min(1, (pc.stop - (now - this.lastKey)) / (pc.stop - pc.full)));
   }
 
   // ---------- rides ----------
@@ -195,7 +206,7 @@ export class RunScene implements Controller {
     if (this.phase === 'run' || this.phase === 'arrive') {
       const rate = this.paused ? 0 : this.rate(now);
       const lag = this.goal - this.pos;
-      let want = rate * STEP + Math.max(0, lag - STEP * 1.5) * 0.9;
+      let want = rate * this.keyLen + Math.max(0, lag - this.keyLen * this.pace.lead) * 0.9;
       if (lag < 0.03) want = 0;
       // the last stretch: catch up quickly if fast typing left the buddy behind, through the gate, and
       // stop past it (never creep)

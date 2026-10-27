@@ -102,7 +102,9 @@ export class TripPicker {
       const s = this.facts[id];
       const due = isDue(s, this.now);
       seen.add(id);
-      out.push({ fact, w: base + 2 * weakness(s, this.fastMs) + (due ? 1.6 : 0), due });
+      // a 0 or 1 fact not met yet is an easy filler, not the weakest fact of all
+      const need = !s?.stage && isRuleFact(fact) ? 0.2 : 2 * weakness(s, this.fastMs);
+      out.push({ fact, w: base + need + (due ? 1.6 : 0), due });
     };
     const known = (f: Fact) => (this.facts[factId(f)]?.stage ?? 0) > 0;
     l.tables.forEach((t, i) => {
@@ -116,7 +118,7 @@ export class TripPicker {
     // reviews due from anywhere on the trail
     for (const t of TABLES) for (const f of [...tableFacts(t), ...tableFacts(t).map(partnerOf)]) if (isDue(this.facts[factId(f)], this.now)) add(f, 0.4);
     // a small pool gets the rules lesson's known facts too, so a new player has something to fill with
-    if (out.filter(x => !isRuleFact(x.fact)).length < 6) for (const f of ruleFacts()) if (known(f)) add(f, 0.1);
+    if (out.filter(x => !isRuleFact(x.fact)).length < 6) for (const f of ruleFacts()) add(f, known(f) ? 0.1 : 0.05);
     // a table that has all bloomed: its own facts stop crowding out everything else
     const own = out.filter(x => x.fact.b === l.tables[0] && !isRuleFact(x.fact));
     if (own.length >= 9 && own.every(x => (this.facts[factId(x.fact)]?.stage ?? 0) === 3 && !x.due)) for (const x of own) x.w *= 0.35;

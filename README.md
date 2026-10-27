@@ -39,6 +39,27 @@ npm test
 - **Code:** `src/lib/three/` (stage, island, themes, character, rides, run scene, showcase, sticker
   snapshots). The art pipeline and source pictures live in `../keypals-3d-spike/`.
 
+## Keypals Math (branch `math`, not live yet)
+
+A second game in the same world, picked from home with the **Typing | Math** switch. Times tables move
+your buddy along the island trail: type the answer (number row, number pad or the on-screen pad; it
+checks itself once there are enough digits), and quick, right answers climb the same six rides.
+
+- **The Times Trail:** Twin Bridges (the 2s, with the 0 and 1 rules), Ten Cliffs (10s), High Five
+  Shores (5s) and Hop Hollow (4s), each on one of the islands. Each has a Meet lesson, practice, a mix
+  and a checkpoint run that can be taken first to test out. "Show What You Know" places a new player.
+- **A trip** is 20 facts: at most three new ones, met with their trick (a dot picture) and repeated
+  after 1, 3 and 6 other facts; the rest are known facts, the shakiest and the ones due for review most
+  often. A miss shows the answer and its trick, the child types it, and the fact comes back 2 to 4
+  facts later. No countdown, no buzzer; Calm mode turns the rides off.
+- **Fact memory:** sprout, bud, bloom (quick on three different days), reviews after 1, 3, 7, 14 and
+  30 days, a slip costs one step, and learning 6 × 2 starts 2 × 6 growing. The **Fact Garden** shows
+  every fact, coloured by its latest answer; grown-ups can set what counts as quick (2 to 6 seconds).
+- **Rewards:** the same as typing: treasure, medals (plus Quick Draw and In Bloom), stickers,
+  friendship, outfits and dances; math time counts toward the daily goal.
+- **Code:** `src/lib/math/` (facts, course, picker, meter, progress, tests) and the screens `MathMap`,
+  `MathRun`, `MathResults` and `FactGarden`. Dev shortcuts: `#math`, `#mathrun=twins-2`, `#garden`.
+
 ## Licence
 
 Keypals is free to play and **source-available**: read the code, run it for any noncommercial purpose

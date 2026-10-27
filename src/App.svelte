@@ -13,6 +13,10 @@
   import Closet from './lib/screens/Closet.svelte';
   import SettingsScreen from './lib/screens/Settings.svelte';
   import Grownups from './lib/screens/Grownups.svelte';
+  import MathMap from './lib/screens/MathMap.svelte';
+  import MathRun from './lib/screens/MathRun.svelte';
+  import MathResults from './lib/screens/MathResults.svelte';
+  import FactGarden from './lib/screens/FactGarden.svelte';
   import { stage } from './lib/three/stage';
   import QuickSettings from './lib/ui/QuickSettings.svelte';
   import LessonChart from './lib/ui/LessonChart.svelte';
@@ -35,7 +39,7 @@
   // menu music on the screens around the lessons
   $effect(() => {
     const scr = game.screen;
-    if (scr !== 'run' && scr !== 'title') startMusic('menu');
+    if (scr !== 'run' && scr !== 'mathRun' && scr !== 'title') startMusic('menu');
   });
 
   let canvas: HTMLCanvasElement | undefined = $state();
@@ -55,13 +59,16 @@
   {#if game.screen === 'title'}<Title />
   {:else if game.screen === 'players'}<Players />
   {:else if game.screen === 'newPlayer'}<NewPlayer />
-  {:else if game.screen === 'map'}<MapScreen />
+  {:else if game.screen === 'map'}{#if game.homeGame === 'math'}<MathMap />{:else}<MapScreen />{/if}
   {:else if game.screen === 'run'}{#key game.runKey}<Run />{/key}
   {:else if game.screen === 'results'}<Results />
   {:else if game.screen === 'stickers'}<Stickers />
   {:else if game.screen === 'closet'}<Closet />
   {:else if game.screen === 'settings'}<SettingsScreen />
   {:else if game.screen === 'grownups'}<Grownups />
+  {:else if game.screen === 'mathRun'}{#key game.runKey}<MathRun />{/key}
+  {:else if game.screen === 'mathResults'}<MathResults />
+  {:else if game.screen === 'garden'}<FactGarden />
   {/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}

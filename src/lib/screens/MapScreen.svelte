@@ -17,6 +17,7 @@
   import Stars from '../ui/Stars.svelte';
   import Ring from '../ui/Ring.svelte';
   import Icon from '../ui/Icon.svelte';
+  import GameSwitch from '../math/ui/GameSwitch.svelte';
 
   const p = $derived(game.profile!);
   const look = $derived(p.settings.look);
@@ -81,6 +82,7 @@
       <Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={58} round />
       <span class="nm">{p.name}</span>
     </button>
+    <GameSwitch />
     <div class="pill stars"><Stars n={1} of={1} size={22} /> <b>{stars}</b></div>
     <div class="pill goal" title="Today's practice goal">
       <Ring value={Math.min(1, today / goalMs)} size={34} color="var(--mint)" />

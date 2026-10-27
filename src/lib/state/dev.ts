@@ -1,4 +1,4 @@
-// Shortcuts for checking screens: add #run=village-1, #map, #results, #stickers, #closet, #dances,
+// Shortcuts for checking screens: add #run=village-1, #map, #math, #mathrun=twins-2, #garden, #results, #stickers, #closet, #dances,
 // #settings, #grownups or #new to the address. #tester (works on the live site too) adds a player
 // called "Tester" who has passed every lesson and has every buddy at friendship 26, for trying the
 // later levels, outfits and dances; it never touches other players.
@@ -32,5 +32,9 @@ export function devBoot() {
   if (key === 'settings') { ensure(); game.go('settings'); }
   if (key === 'grownups') { ensure(); game.go('grownups'); }
   if (key === 'new') game.go('newPlayer');
+  // the math game: #math (math home), #mathrun=twins-2, #garden
+  if (key === 'math') { ensure(); game.setHome('math'); game.go('map'); }
+  if (key === 'mathrun') { ensure(); game.setHome('math'); game.startMath(val || 'twins-1'); }
+  if (key === 'garden') { ensure(); game.go('garden'); }
   if (key === 'tester') { tester(); game.go('map'); history.replaceState(null, '', location.pathname + location.search); }
 }

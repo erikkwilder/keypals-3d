@@ -209,7 +209,11 @@ describe('fact picker', () => {
   it('a new player with nothing known still gets a full trip', () => {
     const asked = play(new TripPicker({ lesson: MATH_LESSON['twins-2'], facts: {}, now: T0, seed: 1 }));
     expect(asked).toHaveLength(TRIP_LENGTH);
-    expect(asked.every(a => a.item.fact.b === 2)).toBe(true);
+    // the 2s, with easy 0 and 1 facts as fillers, and none of them more than four times
+    expect(asked.every(a => a.item.fact.b === 2 || a.item.fact.a <= 1 || a.item.fact.b <= 1)).toBe(true);
+    const counts = new Map<string, number>();
+    for (const a of asked) if (a.item.reason === 'known') counts.set(factId(a.item.fact), (counts.get(factId(a.item.fact)) ?? 0) + 1);
+    expect(Math.max(...counts.values())).toBeLessThanOrEqual(4);
   });
   it('the placement trip samples all four tables evenly', () => {
     const asked = play(new TripPicker({ lesson: PLACEMENT, facts: {}, now: T0, seed: 2 })).map(a => a.item.fact.b);
