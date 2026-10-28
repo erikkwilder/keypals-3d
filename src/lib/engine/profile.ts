@@ -7,6 +7,7 @@ import { ALL_LESSONS, LESSON, REGIONS, knownChars, lessonIndex, type Lesson, typ
 import type { Layout, LayoutId } from './layouts';
 import { AWARD, type AwardDef } from './achievements';
 import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from './stickers';
+import { teamBuddies, welcomeNew } from './team';
 import { REWARDS, forBuddy, newBetween, treasureFor, type Reward } from './rewards';
 import { updateKeyStats, type KeyStat } from './mastery';
 import { lessonGoal, platinumScore, starScores, type RunStats } from './scoring';
@@ -74,7 +75,15 @@ export type Profile = {
   badges: Record<string, number>; // legacy (v0.1)
   medals: Record<string, number>; // legacy (v0.1)
   unlocked: string[]; // legacy (v0.1)
+  /** legacy (before 2026-10-28): progress kept per buddy; now merged into `team` */
   pals: Partial<Record<FriendId, PalProgress>>;
+  /** everything earned (friendship, stickers, medals, treasure, best ride) belongs to the player's team,
+   *  shared by every buddy: switching buddies never starts anything over */
+  team?: PalProgress;
+  /** each buddy's own look: the outfit it wears and its finish dance */
+  looks?: Partial<Record<FriendId, { outfit: string; dance: string }>>;
+  /** buddies already welcomed to the team (new ones are announced once) */
+  buddiesMet?: FriendId[];
   rideBest: number;
   /** finger demos already watched: 'home' and 'lesson:<id>' */
   demosSeen?: string[];
@@ -86,6 +95,8 @@ export type Profile = {
   /** saved online under a save code; at = the server's time for the copy we last sent or got */
   cloud?: { code: string; at: number };
   history: HistoryItem[];
+  /** a test player: every buddy on the team whatever the progress (Grown-ups → test player) */
+  allBuddies?: boolean;
   /** the math game: fact memory, trips and which game home shows (absent in older saves) */
   math?: import('../math/progress').MathProgress;
 };
@@ -114,11 +125,13 @@ export function newProfile(name: string, buddy: FriendId, grown = false): Profil
     name: name.trim().slice(0, 16) || 'Typist',
     buddy, accessory: 'none', createdAt: Date.now(), settings: s,
     lessons: {}, keys: {}, totals: emptyTotals(), days: {}, badges: {}, medals: {}, unlocked: [], rideBest: 0, customText: '', history: [],
-    pals: { [buddy]: newPalProgress() },
+    pals: {}, team: newPalProgress(), looks: {}, buddiesMet: [],
   };
 }
 
 export const emptySave = (): SaveFile => ({ version: 1, profiles: [], activeId: null });
+/** Players from before the team: whoever their progress has already earned joins quietly. */
+function seedMet(p: Profile): Profile { if (!p.buddiesMet) p.buddiesMet = teamBuddies(p); return p; }
 
 /** Fill in anything a newer version added, so old saves keep working. */
 export function migrate(raw: unknown): SaveFile {
@@ -131,7 +144,6 @@ export function migrate(raw: unknown): SaveFile {
       const buddy = (p.buddy && BUDDIES.some(b => b.id === p.buddy) ? p.buddy : 'dino') as FriendId;
       const pals: Partial<Record<FriendId, PalProgress>> = {};
       for (const [id, v] of Object.entries(p.pals ?? {})) pals[id as FriendId] = { ...newPalProgress(), ...v };
-      pals[buddy] ??= newPalProgress();
       return {
         ...newProfile(p.name ?? 'Typist', buddy),
         ...p,
@@ -142,17 +154,50 @@ export function migrate(raw: unknown): SaveFile {
         unlocked: Array.isArray(p.unlocked) ? p.unlocked : [],
         history: Array.isArray(p.history) ? p.history : [],
         pals,
+        team: p.team ? { ...newPalProgress(), ...p.team } : mergePals(pals),
+        buddiesMet: p.buddiesMet,
+        looks: p.looks ?? Object.fromEntries(Object.entries(pals).map(([id, v]) => [id, { outfit: v!.outfit ?? 'none', dance: v!.dance ?? 'dance_hiphop' }])),
       };
-    }),
+    }).map(seedMet),
   };
 }
 
-export function palOf(p: Profile, friend: FriendId = p.buddy): PalProgress {
-  return p.pals[friend] ?? newPalProgress();
+/** Old saves kept progress per buddy: add it all up into one team (friendship points add together,
+ *  stickers and medals combine, bests take the best). */
+export function mergePals(pals: Partial<Record<FriendId, PalProgress>>): PalProgress {
+  const all = Object.values(pals).filter(Boolean).map(v => ({ ...newPalProgress(), ...v }));
+  const t = newPalProgress();
+  for (const v of all) {
+    for (const k of ['xp', 'runs', 'chars', 'stars3', 'perfect', 'sharp', 'medalsTotal', 'comebacks', 'naps', 'dances'] as const) t[k] += v[k] ?? 0;
+    for (const k of ['perfectRow', 'bestStreak', 'bestWpm', 'rideBest', 'treasureBest', 'ownKeys'] as const) t[k] = Math.max(t[k], v[k] ?? 0);
+    for (const [id, at] of Object.entries(v.stickers ?? {})) t.stickers[id] = Math.min(t.stickers[id] ?? Infinity, at);
+    for (const [id, n] of Object.entries(v.medals ?? {})) t.medals[id] = (t.medals[id] ?? 0) + n;
+    t.goalDays = [...new Set([...t.goalDays, ...(v.goalDays ?? [])])];
+    t.regions = [...new Set([...t.regions, ...(v.regions ?? [])])];
+    t.seen = [...new Set([...t.seen, ...(v.seen ?? [])])];
+  }
+  t.level = levelFromXp(t.xp).level;
+  return t;
 }
-export const outfitOf = (p: Profile, friend: FriendId = p.buddy) => palOf(p, friend).outfit ?? 'none';
+
+/** The team's progress, to change (runs and trips write here). */
+export function teamOf(p: Profile): PalProgress { return (p.team ??= mergePals(p.pals ?? {})); }
+/** A buddy's own look: its outfit and finish dance. */
+export function lookOf(p: Profile, friend: FriendId = p.buddy): { outfit: string; dance: string } {
+  const l = p.looks?.[friend], old = p.pals?.[friend];
+  return { outfit: l?.outfit ?? old?.outfit ?? 'none', dance: l?.dance ?? old?.dance ?? 'dance_hiphop' };
+}
+export function setLook(p: Profile, friend: FriendId, patch: Partial<{ outfit: string; dance: string }>) {
+  p.looks ??= {};
+  p.looks[friend] = { ...lookOf(p, friend), ...patch };
+}
+/** The team's progress seen with one buddy's look (to read; write with teamOf and setLook). */
+export function palOf(p: Profile, friend: FriendId = p.buddy): PalProgress {
+  return { ...(p.team ?? mergePals(p.pals ?? {})), ...lookOf(p, friend) };
+}
+export const outfitOf = (p: Profile, friend: FriendId = p.buddy) => lookOf(p, friend).outfit ?? 'none';
 /** The buddy's finish dance (dances dropped in later versions fall back to the first one). */
-export const danceOf = (p: Profile, friend: FriendId = p.buddy) => { const d = palOf(p, friend).dance; return d && forBuddy(REWARDS, friend).some(r => r.id === d) ? d : 'dance_hiphop'; };
+export const danceOf = (p: Profile, friend: FriendId = p.buddy) => { const d = lookOf(p, friend).dance; return d && forBuddy(REWARDS, friend).some(r => r.id === d) ? d : 'dance_hiphop'; };
 /** Outfits and dances this buddy has unlocked. */
 export const rewardsFor = (pal: PalProgress) => REWARDS.filter(r => r.level <= pal.level);
 
@@ -229,6 +274,8 @@ export type XpInfo = { gained: number; before: { level: number; into: number; ne
 
 export type RunOutcome = {
   profile: Profile;
+  /** buddies who joined the team with this run */
+  buddies: FriendId[];
   medals: MedalWin[];
   stickers: StickerDef[];
   /** outfits and dances unlocked by this run's friendship level-up */
@@ -327,7 +374,7 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
   if (goalJustHit) medals.push('goal');
 
   // this Keypal's own progress
-  const pal: PalProgress = (p.pals[p.buddy] ??= newPalProgress());
+  const pal: PalProgress = teamOf(p);
   const lvlBefore = levelFromXp(pal.xp);
   pal.runs++;
   pal.chars += s.chars;
@@ -381,7 +428,9 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
     if (doneNow && !doneBefore) regionJustDone = r.id;
   }
 
+  const buddies = welcomeNew(p);
   return {
+    buddies,
     profile: p,
     medals: medalWins,
     stickers,
@@ -412,5 +461,5 @@ export function nextGoal(p: Profile, out: Pick<RunOutcome, 'record'>, goal: numb
   if (!r.platinum) return `Three stars! Can you reach platinum? It takes a score of ${platinumScore(goal)}.`;
   const pal = palOf(p);
   const left = STICKERS.filter(s => !pal.stickers[s.id]).length;
-  return left ? `You've mastered this one! ${left} stickers still to find with this buddy.` : 'Every sticker found with this buddy. Legend!';
+  return left ? `You've mastered this one! ${left} stickers still to find.` : 'Every sticker found. Legend!';
 }

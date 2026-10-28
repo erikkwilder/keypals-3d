@@ -542,7 +542,8 @@
   .banner.finish { animation: banner-stay .5s cubic-bezier(.3, .8, .3, 1.3) forwards; }
   .banner.finish { left: 55%; right: 0; bottom: 30%; }
   @keyframes banner-stay { 0% { transform: scale(.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-  .banner.finish .rays { top: 30px; }
+  .banner.finish .rays { top: 50%; margin-top: -260px; }
+  .announce:has(.finish) { overflow: visible; }
   .bicon { width: clamp(56px, 10vh, 92px); height: clamp(56px, 10vh, 92px); padding: clamp(10px, 1.7vh, 16px); border-radius: 50%; background: linear-gradient(135deg, var(--primary-hi), var(--pink)); box-shadow: 0 0 0 6px #fff, 0 16px 30px -10px rgba(124, 92, 245, .7); position: relative; z-index: 1; }
   .banner.down .bicon { background: #b8aed0; width: 60px; height: 60px; padding: 10px; }
   .bword { margin-top: 10px; font: 700 clamp(38px, 7vh, 64px)/1 var(--font-ui); color: #fff; text-shadow: 0 5px 0 var(--primary-edge), 0 0 30px rgba(124, 92, 245, .55); letter-spacing: .02em; position: relative; z-index: 1; }

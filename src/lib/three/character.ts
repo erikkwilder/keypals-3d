@@ -156,6 +156,9 @@ export class Character {
       if (tr.name.endsWith('Hips.position')) {
         const v = tr.values, first = [v[0], v[2]];
         for (let i = 0; i < v.length; i += 3) { v[i] = first[0]; v[i + 2] = first[1]; }
+        // climbing moves the hips up through the cycle; the course does the rising, so take that out
+        // (or the buddy drops back down every time the move starts over)
+        if (c.name === 'climb') { const n = v.length / 3, y0 = v[1], yN = v[v.length - 2]; for (let k = 0; k < n; k++) v[k * 3 + 1] -= ((yN - y0) * k) / Math.max(1, n - 1); }
       }
     }
     this.addClips(clips);

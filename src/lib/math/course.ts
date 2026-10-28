@@ -56,12 +56,12 @@ export type MathRegion = {
   lessons: MathLesson[];
 };
 
-export type Strand = { op: Op; name: string; move: MathMove; blurb: string; color: string };
+export type Strand = { op: Op; name: string; move: MathMove; blurb: string; color: string; art: string };
 export const STRANDS: Strand[] = [
-  { op: '+', name: 'Plus Peaks', move: 'climb', blurb: 'Adding to 20. Every right answer is a handhold up the cliff.', color: '#3fa7e0' },
-  { op: '-', name: 'Minus Mountain', move: 'slide', blurb: 'Taking away within 20. Quick answers send you sliding down the slope.', color: '#7c5cf5' },
-  { op: 'x', name: 'Times Trail', move: 'run', blurb: 'The times tables. Quick, right answers get you faster rides.', color: '#ef7d2b' },
-  { op: '/', name: 'Share Shore', move: 'swim', blurb: 'Dividing: share it out. Each answer is a stroke across the bay.', color: '#2fa898' },
+  { art: 'math/strand-plus.webp', op: '+', name: 'Plus Peaks', move: 'climb', blurb: 'Adding to 20: small steps, doubles, tens and making ten.', color: '#3fa7e0' },
+  { art: 'math/strand-minus.webp', op: '-', name: 'Minus Mountain', move: 'slide', blurb: 'Taking away within 20: count back, doubles back and thinking addition.', color: '#7c5cf5' },
+  { art: 'math/strand-times.webp', op: 'x', name: 'Times Trail', move: 'run', blurb: 'All the times tables, from the 2s to the 7s, with a trick for each.', color: '#ef7d2b' },
+  { art: 'math/strand-share.webp', op: '/', name: 'Share Shore', move: 'swim', blurb: 'Dividing: share it out, thinking of the times tables.', color: '#2fa898' },
 ];
 export const STRAND: Record<Op, Strand> = Object.fromEntries(STRANDS.map(s => [s.op, s])) as Record<Op, Strand>;
 
@@ -266,8 +266,16 @@ export const regionsOf = (op: Op) => MATH_REGIONS.filter(r => r.op === op);
 export const worldOf = (l: MathLesson): RegionId => (l.region === 'start' ? (regionsOf(l.op)[0]?.world ?? 'village') : MATH_REGION[l.region].world);
 /** Metres moved for each answer: a long stretch of trail, a sled run, a stroke, a step up the cliff. */
 export const STRIDE: Record<MathMove, number> = { run: 9, slide: 6, swim: 2.2, climb: 1.1 };
-/** How the buddy moves on a lesson. */
-export const moveOf = (l: MathLesson): MathMove => STRAND[l.op].move;
+/** How the buddy moves on a lesson: every strand has all four, so nobody misses the climbing because they
+ *  aren't doing subtraction. A region's four trips go round run, climb, swim and sled, starting one
+ *  further along in each region. */
+const CYCLE: MathMove[] = ['run', 'climb', 'swim', 'slide'];
+export function moveOf(l: MathLesson): MathMove {
+  if (l.region === 'start') return 'run';
+  const i = regionsOf(l.op).findIndex(r => r.id === l.region);
+  return CYCLE[(Math.max(0, i) + l.n - 1) % 4];
+}
+export const MOVE_NAME: Record<MathMove, string> = { run: 'Run', climb: 'Climb', swim: 'Swim', slide: 'Sled' };
 /** The times tables, in the order they're learned. */
 export const TABLES = regionsOf('x').map(r => r.table);
 

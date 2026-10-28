@@ -48,11 +48,12 @@
   const mTrips = MATH_LESSONS.length;
   const mDone = $derived(Object.values(m.lessons).filter(r => r.stars > 0).length);
 
-  function open(g: 'typing' | 'math') { sfx.click(); game.setHome(g); game.go('map'); }
+  function open(g: 'typing' | 'math') { sfx.click(); game.setHome(g); if (g === 'math') game.mathOp = null; game.go('map'); }
   function play(g: 'typing' | 'math') {
     sfx.click();
     game.setHome(g);
-    if (g === 'typing') game.startLesson(tNext.id); else game.startMath(mNext.id);
+    // a first-time math player picks what kind of math first
+    if (g === 'typing') game.startLesson(tNext.id); else if (mFresh) { game.mathOp = null; game.go('map'); } else game.startMath(mNext.id);
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;

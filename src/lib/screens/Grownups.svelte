@@ -8,6 +8,7 @@
   import { RIDES } from '../engine/rides';
   import { GAME_NAME, SOURCE_PUBLIC, SOURCE_URL, STUDIO, STUDIO_URL } from '../config';
   import { openExternal, saveTextFile } from '../state/platform';
+  import { addTester } from '../state/dev';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, openCode } from '../state/cloud.svelte';
@@ -93,7 +94,7 @@
 </script>
 
 <div class="screen gu">
-  <Header title="Grown-ups" back={() => game.go(game.profile ? 'map' : 'players')} />
+  <Header title="Grown-ups" back={() => game.go(game.profile ? game.home : 'players')} />
   {#if !unlocked}
     <div class="gate">
       <h2>For parents and teachers</h2>
@@ -119,6 +120,10 @@
           <div class="stat card"><b>{Math.round(avgWpm)}</b><span>words a minute (last 30)</span></div>
           <div class="stat card"><b>{Math.round(avgAcc * 100)}%</b><span>accuracy (last 30)</span></div>
           <div class="stat card"><b>{RIDES[p.rideBest].name}</b><span>best ride</span></div>
+        </div>
+        <div class="card tryall">
+          <div><h3>Try every level</h3><p class="muted">Adds a player called Tester with every typing lesson, math trip and playground level open, every buddy on the team, and every outfit and dance. Your own players aren't changed.</p></div>
+          <button class="btn btn-primary" onclick={() => { addTester(); game.go('hub'); }}>Open Tester</button>
         </div>
         <div class="two">
           <div class="card pane">
@@ -214,6 +219,10 @@
 </div>
 
 <style>
+  .tryall { display: flex; align-items: center; gap: 16px; padding: 14px 18px; margin: 12px 0; }
+  .tryall h3 { margin: 0 0 2px; }
+  .tryall p { margin: 0; font: 600 14px/1.4 var(--font-body); }
+  @media (max-width: 600px) { .tryall { flex-direction: column; align-items: stretch; } }
   .code { font: 700 18px var(--font-ui); letter-spacing: .02em; background: #f3edff; padding: 2px 10px; border-radius: 10px; color: var(--primary); }
   h4 { margin: 14px 0 4px; font-size: 16px; }
   .msg { color: var(--primary); font-weight: 700; }

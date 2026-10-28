@@ -6,6 +6,8 @@
   export type ResultsRun = {
     stars: number; treasure: number; newBestTreasure: boolean; bestRide: number;
     medals: MedalWin[]; rewards: Reward[]; stickers: StickerDef[]; xp: XpInfo;
+    /** buddies who joined the team with this run */
+    buddies?: import('../art/cast').FriendId[];
   };
   /** One of the four chips under the score: speed, accuracy, goal, top ride. */
   export type ResultsChip = { icon: 'clock' | 'target' | 'trophy' | 'ride'; value: string | number; label: string; badge?: string | false };
@@ -21,8 +23,8 @@
   import { cubicOut } from 'svelte/easing';
   import { game } from '../state/game.svelte';
   import { RIDES, rideName, type Move } from '../engine/rides';
-  import { danceOf, palOf } from '../engine/profile';
-  import { MEDAL_TIERS, newPalProgress } from '../engine/stickers';
+  import { danceOf, outfitOf, palOf, setLook } from '../engine/profile';
+  import { MEDAL_TIERS } from '../engine/stickers';
   import { FRIEND } from '../art/cast';
   import { TREASURES } from '../engine/rewards';
   import { rideIcon } from '../art/vehicles';
@@ -94,9 +96,11 @@
   type Earned =
     | { kind: 'outfit' | 'dance'; id: string; name: string; rarity: string }
     | { kind: 'medal'; m: MedalWin }
-    | { kind: 'sticker'; def: StickerDef };
+    | { kind: 'sticker'; def: StickerDef }
+    | { kind: 'buddy'; id: import('../art/cast').FriendId };
   const thisRun: Earned[] = run.medals.map(m => ({ kind: 'medal' as const, m }));
   const fresh: Earned[] = [
+    ...(run.buddies ?? []).map(id => ({ kind: 'buddy' as const, id })),
     ...run.rewards.map(r => ({ kind: r.kind, id: r.id, name: r.name, rarity: r.rarity })),
     ...run.stickers.map(def => ({ kind: 'sticker' as const, def })),
   ];
@@ -107,7 +111,7 @@
   // a treasure tapped in the row under the prize: any of the ten, found or not
   let tdetail = $state<number | null>(null);
   function showTreasure(i: number) { tdetail = i; sfx.pop(); }
-  const treasureBest = $derived(game.profile?.pals[buddy]?.treasureBest ?? -1);
+  const treasureBest = $derived(game.profile ? palOf(game.profile).treasureBest : -1);
   function nextTier(count: number) {
     const n = MEDAL_TIERS.find(t => t.at > count);
     return n ? { text: `${count}/${n.at}`, title: `${count} of ${n.at} to ${n.name}` } : { text: `×${count}`, title: `Won ${count} times` };
@@ -202,29 +206,29 @@
     earned.forEach((e, i) => {
       at(t, () => {
         earnedShown = i + 1;
-        if (e.kind === 'outfit' || e.kind === 'dance') { sfx.complete(); burst++; }
+        if (e.kind === 'outfit' || e.kind === 'dance' || e.kind === 'buddy') { sfx.complete(); burst++; }
         else if (e.kind === 'medal') sfx.badge();
         else sfx.pop();
       });
-      t += e.kind === 'outfit' || e.kind === 'dance' ? 650 : 180;
+      t += e.kind === 'outfit' || e.kind === 'dance' || e.kind === 'buddy' ? 650 : 180;
     });
   });
   onDestroy(() => { timers.forEach(clearTimeout); cancelAnimationFrame(prizeRaf); stage.use(null); });
 
   function wear(id: string) {
-    game.update(pp => { (pp.pals[buddy] ??= newPalProgress()).outfit = id; });
+    game.update(pp => setLook(pp, buddy, { outfit: id }));
     wearing = id;
     scene?.me.wear(id, (o) => import('../three/outfits3d').then(m => m.makeOutfit(o)));
     sfx.pop();
   }
   /** Dance now, on the 3D buddy; `keep` makes it the celebration at the finish from now on. */
   function dance(id: string, keep = false) {
-    if (keep) game.update(pp => { (pp.pals[buddy] ??= newPalProgress()).dance = id; });
+    if (keep) game.update(pp => setLook(pp, buddy, { dance: id }));
     dancingNow = id;
     scene?.dance(id);
     sfx.pop();
   }
-  const myDance = $derived(game.profile?.pals[buddy]?.dance ?? danceOf(p));
+  const myDance = $derived(game.profile ? danceOf(game.profile, buddy) : danceOf(p));
   const opened = performance.now();
   function onKey(e: KeyboardEvent) {
     if (detail || tdetail !== null) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); detail = null; tdetail = null; } return; }
@@ -233,7 +237,7 @@
     if (e.key === ' ') { e.preventDefault(); onretry(); }
     if (e.key === 'Escape') onhome();
   }
-  const heroOutfit = $derived(wearing ?? game.profile?.pals[buddy]?.outfit ?? pal.outfit);
+  const heroOutfit = $derived(wearing ?? (game.profile ? outfitOf(game.profile, buddy) : 'none'));
   const scoreHue = run.stars >= 3 ? 'gold' : run.stars === 2 ? 'mint' : run.stars === 1 ? 'sky' : 'lilac';
   const big = $derived(narrow ? 'md' : 'lg');
 </script>
@@ -287,6 +291,10 @@
             <button class="ipic medal tap" onclick={() => show(e)} title="What's this?">{@html renderMedal(e.m, e.m.tier)}</button>
             <span class="iname">{e.m.name}</span>
             {#if e.m.tierUp && e.m.count > 1}<em class="tier" style:background={TIER_LOOK[e.m.tier].pill} style:color={TIER_LOOK[e.m.tier].ink}>{TIER_LOOK[e.m.tier].name}!</em>{:else}{@const nt = nextTier(e.m.count)}<span class="count" title={nt.title}>{nt.text}</span>{/if}
+          {:else if e.kind === 'buddy'}
+            <div class="ipic outfit newbud"><Critter friend={e.id} size={cell} round /></div>
+            <span class="iname">{FRIEND[e.id].name} joined!</span>
+            <button class="wear" onclick={() => { game.update(pp => { pp.buddy = e.id; }); sfx.complete(); }} disabled={game.profile?.buddy === e.id}>{game.profile?.buddy === e.id ? 'Your buddy' : 'Play as'}</button>
           {:else if e.kind === "sticker"}
             <div class="ipic"><StickerCard def={e.def} friend={buddy} {look} outfit={heroOutfit} size={cell} onpick={() => show(e)} /></div>
             <span class="iname">{e.def.name}</span>
@@ -299,7 +307,7 @@
         <div class="egrid" style:--s="{cell}px">{#each thisRun as e, i (i)}{@render tile(e, i)}{/each}</div>
       {/if}
       {#if fresh.length}
-        <div class="ehead"><b>New for {FRIEND[buddy].name}</b><span class="muted">outfits, dances and stickers to keep</span></div>
+        <div class="ehead"><b>New for your team</b><span class="muted">buddies, outfits, dances and stickers to keep</span></div>
         <div class="egrid" style:--s="{cell}px">{#each fresh as e, i (i)}{@render tile(e, thisRun.length + i)}{/each}</div>
       {/if}
     </div>
@@ -379,7 +387,7 @@
           <span class="dkind">Medal{#if d.m.tier >= 0} · <b style:color={TIER_LOOK[d.m.tier].ink === '#fff' ? 'var(--primary)' : TIER_LOOK[d.m.tier].ink}>{TIER_LOOK[d.m.tier].name}</b>{/if}</span>
           <h3>{d.m.name}</h3>
           <p class="ddesc">{d.m.desc}</p>
-          <p class="dmore">You've won it {d.m.count === 1 ? 'once' : `${d.m.count} times`} with {FRIEND[buddy].name}.{' '}{#if nt}Win it {nt.at - d.m.count} more {nt.at - d.m.count === 1 ? 'time' : 'times'} for {nt.name}.{:else}That's the top tier!{/if}</p>
+          <p class="dmore">You've won it {d.m.count === 1 ? 'once' : `${d.m.count} times`} with your team.{' '}{#if nt}Win it {nt.at - d.m.count} more {nt.at - d.m.count === 1 ? 'time' : 'times'} for {nt.name}.{:else}That's the top tier!{/if}</p>
         {:else}
           <div class="dart"><StickerCard def={d.def} friend={buddy} {look} outfit={heroOutfit} size={220} /></div>
           <span class="dkind">Sticker · <b class="rar-{d.def.rarity}">{d.def.rarity}</b></span>
@@ -495,6 +503,7 @@
   .ipic { width: var(--s); height: var(--s); display: grid; place-items: center; }
   .ipic.medal :global(svg) { width: 76%; height: 88%; animation: swing 2.6s ease-in-out infinite; transform-origin: 50% 0; }
   .ipic.outfit { border-radius: 22px; background: radial-gradient(circle, #fff 40%, #f3edff); box-shadow: inset 0 0 0 3px #ece6f6; }
+  .ipic.newbud { box-shadow: inset 0 0 0 3px #ffd36b, 0 0 20px rgba(255, 210, 110, .8); animation: swing 2.6s ease-in-out infinite; }
   .ipic.outfit.rar-rare { box-shadow: inset 0 0 0 3px #b9dbf7; }
   .ipic.outfit.rar-epic, .ipic.outfit.rar-legendary { box-shadow: inset 0 0 0 3px #d9b8ff, 0 0 18px rgba(200, 150, 255, .6); }
   @keyframes swing { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }

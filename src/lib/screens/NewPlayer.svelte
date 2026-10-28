@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { BUDDIES, type FriendId } from '../art/cast';
+  import { STARTERS } from '../engine/team';
   import { LAYOUT_LIST, detectLayout, type LayoutId } from '../engine/layouts';
   import { sfx } from '../audio/sound';
   import Critter from '../ui/Critter.svelte';
@@ -50,9 +51,9 @@
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
     if (step === 2) {
-      const i = BUDDIES.findIndex(c => c.id === buddy);
-      if (e.key === 'ArrowRight') chooseBuddy(BUDDIES[(i + 1) % BUDDIES.length].id);
-      if (e.key === 'ArrowLeft') chooseBuddy(BUDDIES[(i - 1 + BUDDIES.length) % BUDDIES.length].id);
+      const i = STARTERS.indexOf(buddy);
+      if (e.key === 'ArrowRight') chooseBuddy(STARTERS[(i + 1) % STARTERS.length]);
+      if (e.key === 'ArrowLeft') chooseBuddy(STARTERS[(i - 1 + STARTERS.length) % STARTERS.length]);
       if (e.key === 'Enter') next();
     } else if (step === 3 && e.key === 'Enter') finish();
   }
@@ -77,9 +78,9 @@
   {:else if step === 2}
     <div class="step">
       <h1>Pick your buddy, {name.trim()}!</h1>
-      <p class="muted">Your buddy rides along with you on every trail. You can switch any time.</p>
+      <p class="muted">Your buddy rides along with you on every trail. Fifteen more Keypals join your team as you play, and you can switch any time without losing a thing.</p>
       <div class="buddies">
-        {#each BUDDIES as f (f.id)}
+        {#each BUDDIES.filter(b => STARTERS.includes(b.id)) as f (f.id)}
           <button class="buddy" class:on={buddy === f.id} onclick={() => chooseBuddy(f.id)} aria-pressed={buddy === f.id}>
             <Critter friend={f.id} {look} size={110} pulse={buddy === f.id ? pulse : null} quirkOnHover />
             <span class="bname">{f.name}</span>

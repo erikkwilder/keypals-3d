@@ -73,6 +73,7 @@ export class RunScene implements Controller {
   /** a course of its own (climb, slide, swim) instead of the island trail: no vehicles there */
   private get course(): CourseMove | null { return this.opts.move && this.opts.move !== 'run' ? this.opts.move : null; }
   private splashT = 0;
+  private swimLift = 0;
   private lastTier = 0;
   private get pace() { return this.opts.pace ?? TYPING_PACE; }
 
@@ -311,6 +312,10 @@ export class RunScene implements Controller {
       me.root.rotation.set(0, Math.atan2(f.t.x, f.t.z), 0);
       const a = me.play(me.has('swim') ? 'swim' : 'run', 0.3);
       if (a) a.timeScale = Math.max(0.45, Math.min(2.2, 0.45 + v / 2.5));
+      // swimmers breathe: lift the buddy so the head stays above the water line, whatever the stroke does
+      me.update(0); me.root.updateMatrixWorld(true);
+      const head = me.bones.Head?.getWorldPosition(new THREE.Vector3());
+      if (head) { const need = 0.16 - head.y; this.swimLift += (need - this.swimLift) * Math.min(1, dt * 8); me.root.position.y += this.swimLift; }
       if (v > 0.6 && now - this.splashT > 0.35) { this.splashT = now; this.puff.burst(f.p.clone().add(new THREE.Vector3(0, 0.6, 0)), 3, 0xe8f8ff); }
     }
     me.update(dt);

@@ -9,7 +9,9 @@
   import { RIDES } from '../engine/rides';
   import { rideIcon } from '../art/vehicles';
   import { sfx } from '../audio/sound';
-  import { PLACEMENTS, STRANDS, STRAND, groupFacts, regionsOf, type MathLesson, type MathRegion } from '../math/course';
+  import { MATH_LESSONS, MOVE_NAME, PLACEMENTS, STRANDS, STRAND, groupFacts, moveOf, regionsOf, type MathLesson, type MathRegion } from '../math/course';
+  import { opSign } from '../math/facts';
+  const MOVE_ICON = { run: '🏃', climb: '🧗', swim: '🏊', slide: '🛷' } as const;
   import type { Op } from '../math/facts';
   import { ALL_GARDEN_IDS, mathMovedOn, mathOf, mathPassed, mathRegionOpen, mathStarsTotal, mathUnlocked, nextMathLesson, stageCounts } from '../math/progress';
   import { factId } from '../math/facts';
@@ -25,12 +27,15 @@
   const p = $derived(game.profile!);
   const m = $derived(mathOf(p));
   const look = $derived(p.settings.look);
-  // which strand is showing: the one played last (or picked here)
-  let op = $state<Op>(mathOf(game.profile!).strand ?? 'x');
-  const strand = $derived(STRAND[op]);
-  const regions = $derived(regionsOf(op));
-  const placement = $derived(PLACEMENTS[op]);
-  const next = $derived(nextMathLesson(m, op));
+  // which part of math is showing: one strand, or (null) the five big cards to choose from
+  let op = $state<Op | null>(game.mathOp);
+  const strand = $derived(STRAND[op ?? 'x']);
+  const regions = $derived(op ? regionsOf(op) : []);
+  const placement = $derived(PLACEMENTS[op ?? 'x']);
+  const next = $derived(nextMathLesson(m, op ?? m.strand ?? 'x'));
+  const strandStars = (o: Op) => MATH_LESSONS.filter(l => l.op === o).reduce((a, l) => a + (m.lessons[l.id]?.stars ?? 0), 0);
+  const strandDone = (o: Op) => regionsOf(o).filter(r => mathPassed(m, r.lessons.at(-1)!.id)).length;
+  const playStars = $derived(Object.values(m.play ?? {}).reduce((a, r) => a + (r?.stars ?? []).reduce((x, y) => x + (y ?? 0), 0), 0));
   const stars = $derived(mathStarsTotal(m));
   const goalMs = $derived(p.settings.dailyGoalMin * 60000);
   const today = $derived(todayMs(p));
@@ -58,7 +63,7 @@
   /** a region's facts in bloom, of all of them */
   const regionFacts = (r: MathRegion) => r.groups.flatMap(groupFacts);
   const bloomed = (r: MathRegion) => regionFacts(r).filter(f => (m.facts[factId(f)]?.stage ?? 0) === 3).length;
-  function pickStrand(o: Op) { if (o === op) return; sfx.click(); op = o; game.update(pp => { pp.math = { ...mathOf(pp), strand: o }; }); scroller?.scrollTo({ top: 0 }); }
+  function pickStrand(o: Op | null) { if (o === op) return; sfx.click(); op = o; game.mathOp = o; if (o) game.update(pp => { pp.math = { ...mathOf(pp), strand: o }; }); scroller?.scrollTo({ top: 0 }); }
 
   function start(l: MathLesson) {
     if (!mathUnlocked(m, l)) {
@@ -71,8 +76,8 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(next); }
-    if (e.key === 'Escape') game.go('hub');
+    if ((e.key === 'Enter' || e.key === ' ') && op) { e.preventDefault(); start(next); }
+    if (e.key === 'Escape') { if (op) pickStrand(null); else game.go('hub'); }
   }
   onMount(async () => {
     await tick();
@@ -107,18 +112,56 @@
     <GearButton size={44} />
   </header>
 
-  <div class="scroller scroll" bind:this={scroller}>
-    <section class="intro">
-      <div class="strands" role="tablist" aria-label="Which kind of math">
-        {#each STRANDS as st (st.op)}
-          <button role="tab" aria-selected={st.op === op} class:on={st.op === op} style:--sc={st.color} onclick={() => pickStrand(st.op)}>
-            <span class="ssign">{st.op === 'x' ? '×' : st.op === '-' ? '−' : st.op === '/' ? '÷' : '+'}</span><span class="sname">{st.name}</span>
-          </button>
-        {/each}
-        <button class="pgbtn" onclick={() => { sfx.click(); game.go('playground'); }}>
-          <span class="ssign">★</span><span class="sname">Number Playground</span>
+  {#if op}
+    <!-- the strands stay in reach: a row of picture tabs that never scrolls away -->
+    <nav class="sbar" aria-label="Which kind of math">
+      <button class="sall" onclick={() => pickStrand(null)} title="All of math"><Icon name="map" /><span>All math</span></button>
+      {#each STRANDS as st (st.op)}
+        <button class="stab" class:on={st.op === op} style:--sc={st.color} onclick={() => pickStrand(st.op)} aria-pressed={st.op === op}>
+          <img src="{import.meta.env.BASE_URL}{st.art}" alt="" /><span>{st.name}</span>
         </button>
-      </div>
+      {/each}
+      <button class="stab" style:--sc="#f2a63a" onclick={() => { sfx.click(); game.go('playground'); }}>
+        <img src="{import.meta.env.BASE_URL}math/strand-playground.webp" alt="" /><span>Playground</span>
+      </button>
+    </nav>
+  {/if}
+
+  <div class="scroller scroll" bind:this={scroller}>
+    {#if !op}
+      <section class="choose">
+        <h1>What kind of math?</h1>
+        <div class="cards">
+          {#each STRANDS as st (st.op)}
+            {@const nx = nextMathLesson(m, st.op)}
+            <article class="scard" style:--sc={st.color}>
+              <button class="sart" onclick={() => pickStrand(st.op)} aria-label="Open {st.name}">
+                <img src="{import.meta.env.BASE_URL}{st.art}" alt="" />
+                <span class="sname2"><span class="sg">{opSign(st.op)}</span>{st.name}</span>
+              </button>
+              <div class="sinfo">
+                <p>{st.blurb}</p>
+                <div class="sstat"><span><Stars n={1} of={1} size={15} /><b>{strandStars(st.op)}</b> stars</span><span><b>{strandDone(st.op)}</b>/{regionsOf(st.op).length} islands</span></div>
+                <div class="sact"><button class="btn btn-primary" onclick={() => start(nx)}>Play: {nx.title}</button><button class="btn ghost" onclick={() => pickStrand(st.op)}>Map</button></div>
+              </div>
+            </article>
+          {/each}
+          <article class="scard" style:--sc="#f2a63a">
+            <button class="sart" onclick={() => { sfx.click(); game.go('playground'); }} aria-label="Open the Number Playground">
+              <img src="{import.meta.env.BASE_URL}math/strand-playground.webp" alt="" />
+              <span class="sname2"><span class="sg">★</span>Number Playground</span>
+            </button>
+            <div class="sinfo">
+              <p>Calm games with no clock: number lines, bubbles that make ten, and building with blocks.</p>
+              <div class="sstat"><span><Stars n={1} of={1} size={15} /><b>{playStars}</b> stars</span></div>
+              <div class="sact"><button class="btn btn-primary" onclick={() => { sfx.click(); game.go('playground'); }}>Play</button></div>
+            </div>
+          </article>
+        </div>
+        <p class="movenote">Every kind of math has all four ways to move: run the trail, climb the cliff, swim the bay and sled the slope.</p>
+      </section>
+    {:else}
+    <section class="intro">
       <div class="hello">
         <h1 style:color={strand.color}>{strand.name}</h1>
         <p>{strand.blurb}</p>
@@ -155,6 +198,7 @@
             <span class="disc">{#if !unlocked}<Icon name="lock" />{:else}<Icon name={KIND_ICON[l.kind] ?? 'book'} />{/if}</span>
             {#if rec && rec.bestRide > 0}<span class="ride" title="Best ride: {RIDES[rec.bestRide].name}"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff')}</svg></span>{/if}
             <span class="lbl">{l.title}</span>
+            <span class="mv" title="{MOVE_NAME[moveOf(l)]}">{MOVE_ICON[moveOf(l)]} {MOVE_NAME[moveOf(l)]}</span>
             <Stars n={rec?.stars ?? 0} size={14} />
             {#if isNext}<span class="buddy"><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={64} mood="dance" /></span>{/if}
           </button>
@@ -163,17 +207,49 @@
         {#if done === r.lessons.length}<div class="donebadge">Done!</div>{/if}
       </section>
     {/each}
+    {/if}
     <div class="endpad"></div>
   </div>
 
+  {#if op}
   <div class="go">
     <button class="btn btn-primary btn-big" onclick={() => start(next)}>
       {fresh ? 'Start' : 'Keep going'}: {next.title} <span class="kbd">enter</span>
     </button>
   </div>
+  {/if}
 </div>
 
 <style>
+  .sbar { flex: none; display: flex; gap: 8px; padding: 8px 16px; background: rgba(255, 255, 255, .9); border-bottom: var(--panel-border); overflow-x: auto; z-index: 4; scrollbar-width: none; }
+  .sbar::-webkit-scrollbar { display: none; }
+  .sall, .stab { flex: none; display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; border-radius: 16px; padding: 4px 12px 4px 4px; background: var(--bg2); font: 600 17px var(--font-ui); color: var(--ink2); transition: transform .12s, box-shadow .12s; }
+  .sall { padding: 8px 14px; }
+  .stab img { width: 74px; height: 44px; object-fit: cover; border-radius: 12px; }
+  .stab:hover, .sall:hover { transform: translateY(-2px); }
+  .stab.on { background: var(--sc); color: #fff; box-shadow: 0 4px 0 color-mix(in srgb, var(--sc) 70%, #000); }
+  .choose { max-width: 1280px; margin: 0 auto; padding: 4px 0 30px; }
+  .choose h1 { font-size: 34px; margin: 4px 0 14px; text-align: center; }
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  .scard { background: #fff; border-radius: 26px; overflow: hidden; box-shadow: 0 16px 36px -22px rgba(60, 40, 110, .55), 0 0 0 4px #fff; display: flex; flex-direction: column; transition: transform .15s; }
+  .scard:hover { transform: translateY(-4px); }
+  .sart { position: relative; border: 0; padding: 0; cursor: pointer; aspect-ratio: 16 / 8; overflow: hidden; background: #dfe9f5; }
+  .sart img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s; }
+  .scard:hover .sart img { transform: scale(1.05); }
+  .sname2 { position: absolute; left: 12px; bottom: 10px; display: flex; align-items: center; gap: 8px; font: 600 26px var(--font-ui); color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, .45); }
+  .sg { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--sc); font-size: 26px; box-shadow: 0 0 0 3px #fff; text-shadow: none; }
+  .sinfo { padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .sinfo p { margin: 0; font: 600 15px/1.35 var(--font-body); color: var(--ink2); }
+  .sstat { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sstat span { display: flex; align-items: center; gap: 4px; background: var(--bg2); border-radius: 999px; padding: 3px 10px; font: 700 13px var(--font-body); color: var(--ink2); }
+  .sstat b { font: 600 16px var(--font-ui); color: var(--ink); }
+  .sact { display: flex; gap: 8px; margin-top: auto; }
+  .sact .btn-primary { flex: 1; background: linear-gradient(color-mix(in srgb, var(--sc) 70%, #fff), var(--sc)); box-shadow: 0 5px 0 color-mix(in srgb, var(--sc) 70%, #000); }
+  .ghost { background: var(--bg2); color: var(--ink); box-shadow: none; }
+  .movenote { text-align: center; font: 600 15px var(--font-body); color: var(--muted); margin: 16px 0 0; }
+  .mv { font: 700 11px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 1px 7px; margin-top: 2px; }
+  @media (max-width: 1000px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .cards { grid-template-columns: 1fr; gap: 12px; } .choose h1 { font-size: 24px; margin-bottom: 8px; } .sname2 { font-size: 21px; } .sart { aspect-ratio: 16 / 7; } .stab img { width: 52px; height: 34px; } .stab { font-size: 14px; } .sbar { padding: 6px 8px; gap: 5px; } }
   .strands { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; margin-bottom: 4px; }
   .strands button { display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; padding: 8px 16px 8px 8px; border-radius: 999px; background: rgba(255, 255, 255, .85); box-shadow: var(--shadow-sm); font: 600 18px var(--font-ui); color: var(--ink2); transition: transform .12s; }
   .strands button:hover { transform: translateY(-2px); }
@@ -210,7 +286,7 @@
   .region.locked .art { filter: grayscale(.7) brightness(1.05); opacity: .7; }
   .rhead { position: absolute; left: 16px; top: 14px; right: 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; z-index: 2; pointer-events: none; }
   .rname { display: flex; align-items: center; gap: 12px; background: rgba(255, 255, 255, .92); padding: 8px 16px 8px 8px; border-radius: 18px; box-shadow: var(--shadow-sm); min-width: 0; }
-  .tbl { flex: none; display: grid; place-items: center; min-width: 54px; height: 54px; padding: 0 10px; white-space: nowrap; border-radius: 16px; font: 600 22px var(--font-ui); color: #fff; background: linear-gradient(135deg, var(--primary-hi), var(--pink)); }
+  .tbl { flex: none; display: flex; align-items: center; justify-content: center; word-spacing: -.12em; min-width: 54px; height: 54px; padding: 0 10px; white-space: nowrap; border-radius: 16px; font: 600 22px var(--font-ui); color: #fff; background: linear-gradient(135deg, var(--primary-hi), var(--pink)); }
   .rname h2 { font-size: 24px; margin: 0; }
   .rname p { margin: 2px 0 0; font: 600 14px var(--font-body); color: var(--muted); }
   .count { flex: none; background: rgba(255, 255, 255, .92); padding: 8px 14px; border-radius: 999px; font: 600 18px var(--font-ui); white-space: nowrap; }

@@ -5,7 +5,8 @@
 //   Build It         build a number from hundreds, tens and ones: place value
 // Rounds feed the same friendship, outfits, dances, stickers and daily minutes as every other game.
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
-import { dayKey } from '../engine/profile';
+import { dayKey, teamOf } from '../engine/profile';
+import { welcomeNew } from '../engine/team';
 import { AWARD } from '../engine/achievements';
 import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from '../engine/stickers';
 import { newBetween, type Reward } from '../engine/rewards';
@@ -101,7 +102,7 @@ export const playOf = (p: Profile, g: PlayGame): PlayRecord => mathOf(p).play?.[
 export const playUnlocked = (p: Profile, g: PlayGame, level: number) => level === 1 || (playOf(p, g).stars[level - 2] ?? 0) > 0;
 export const playNextLevel = (p: Profile, g: PlayGame) => { const r = playOf(p, g); for (let l = 1; l <= 5; l++) if (!(r.stars[l - 1] ?? 0)) return l; return 5; };
 
-export type PlayOutcome = { profile: Profile; xp: XpInfo; rewards: Reward[]; stickers: StickerDef[]; medals: MedalWin[]; newBest: boolean; opened: number | null; goalJustHit: boolean };
+export type PlayOutcome = { buddies: import('../art/cast').FriendId[]; profile: Profile; xp: XpInfo; rewards: Reward[]; stickers: StickerDef[]; medals: MedalWin[]; newBest: boolean; opened: number | null; goalJustHit: boolean };
 
 /** One finished round: its stars, friendship XP, rewards and stickers, and its minutes toward today's goal. */
 export function applyPlay(p0: Profile, run: { game: PlayGame; level: number; stars: number; ms: number; at: number }): PlayOutcome {
@@ -122,7 +123,7 @@ export function applyPlay(p0: Profile, run: { game: PlayGame; level: number; sta
   if (!d.goal && d.ms >= p.settings.dailyGoalMin * 60000) d.goal = true;
   const goalJustHit = !wasGoal && !!d.goal;
   // the buddy
-  const pal: PalProgress = (p.pals[p.buddy] ??= newPalProgress());
+  const pal: PalProgress = teamOf(p);
   const lvlBefore = levelFromXp(pal.xp);
   pal.runs++;
   if (run.stars === 3) pal.stars3++;
@@ -147,5 +148,6 @@ export function applyPlay(p0: Profile, run: { game: PlayGame; level: number; sta
     if (pal.stickers[s.id]) continue;
     if (s.check(pal, { grown: p.settings.grown, friend: p.buddy })) { pal.stickers[s.id] = run.at; stickers.push(s); pal.seen.push('sticker:' + s.id); }
   }
-  return { profile: p, xp: { gained, before: lvlBefore, after: lvlAfter }, rewards, stickers, medals: medalWins, newBest: run.stars > before, opened, goalJustHit };
+  const buddies = welcomeNew(p);
+  return { profile: p, xp: { gained, before: lvlBefore, after: lvlAfter }, rewards, stickers, medals: medalWins, newBest: run.stars > before, opened, goalJustHit, buddies };
 }

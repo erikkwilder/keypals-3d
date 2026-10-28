@@ -5,7 +5,7 @@
   import { MEDALS } from '../engine/achievements';
   import { RIDES, RIDE_SCORE } from '../engine/rides';
   import { STICKERS, MEDAL_TIERS, levelFromXp, medalTier, type StickerDef } from '../engine/stickers';
-  import { palOf } from '../engine/profile';
+  import { palOf, teamOf } from '../engine/profile';
   import { renderSticker, renderMedal, TIER_LOOK } from '../art/stickerArt';
   import { sfx } from '../audio/sound';
   import Header from '../ui/Header.svelte';
@@ -38,7 +38,7 @@
   function markSeen() {
     const pp = palOf(p, who);
     seenNow = new Set(pp.seen.filter(s => s.startsWith('sticker:')).map(s => s.slice(8)));
-    if (seenNow.size) game.update(x => { const q = x.pals[who]; if (q) q.seen = q.seen.filter(s => !s.startsWith('sticker:')); });
+    if (seenNow.size) game.update(x => { const q = teamOf(x); q.seen = q.seen.filter(s => !s.startsWith('sticker:')); });
   }
   function pickFriend(id: FriendId) { who = id; sfx.click(); markSeen(); }
   function view(s: StickerDef) { open = s; sfx.pop(); }
@@ -89,7 +89,7 @@
         </section>
       {/each}
     {:else if tab === 'medals'}
-      <p class="intro">Medals level up as you win them again: Rose, Silver at 5, Gold at 15, Rainbow at 40. Each Keypal keeps their own.</p>
+      <p class="intro">Medals level up as you win them again: Rose, Silver at 5, Gold at 15, Rainbow at 40. Your whole team shares them.</p>
       {#each [{ id: 'any', name: 'Every game', sub: 'won in typing or math' }, { id: 'typing', name: 'Typing', sub: 'from typing lessons' }, { id: 'math', name: 'Math', sub: 'from math trips' }] as grp (grp.id)}
         <h3 class="mgroup">{grp.name} <span>{grp.sub}</span></h3>
         <div class="medals">

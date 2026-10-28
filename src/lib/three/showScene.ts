@@ -28,12 +28,17 @@ export class ShowScene implements Controller {
   private now = 0;
   /** turntable angle the player can drag (the Keypals screen) */
   spin = 0;
+  /** the extra moves (the one-hand wave, dances), loaded after the buddy appears */
+  private movesReady: Promise<unknown> = Promise.resolve();
+  private shown = new Set<Character>();
 
   private constructor(island: Island, chars: Character[], opts: Opts) {
     this.island = island; this.chars = chars; this.opts = opts; this.view = opts.view;
     const f = island.trail.at(opts.spot ?? 6);
     this.base = f.p; this.n = f.n; this.t = f.t;
     chars.forEach((c, i) => {
+      // hidden until its first pose is applied, so the bind pose never flashes up
+      c.root.visible = false;
       stage.scene.add(c.root);
       c.play('idle', 0);
       this.next.push(2 + Math.random() * 4 + i);
@@ -46,30 +51,46 @@ export class ShowScene implements Controller {
   static async create(opts: Opts): Promise<ShowScene> {
     const [island, ...chars] = await Promise.all([stage.getIsland(), ...opts.buddies.map(b => Character.create(b))]);
     const ok = chars.filter((c): c is Character => !!c);
+    const loads: Promise<unknown>[] = [];
     for (const c of ok) {
-      c.loadMoves();
+      loads.push(c.loadMoves());
       const o = opts.outfits?.[c.id];
       if (o && o !== 'none') c.wear(o, makeOutfit);
     }
-    return new ShowScene(island, ok, opts);
+    const sc = new ShowScene(island, ok, opts);
+    sc.movesReady = Promise.all(loads);
+    return sc;
   }
 
+  /** A big cast stands in rows, like a class photo: fewer at the front, each row a step further back and
+   *  shifted half a place so every face shows between the shoulders in front. */
+  private rows(): { row: number; off: number }[] {
+    const n = this.chars.length, gap = n > 14 ? 1.02 : 1.2;
+    // one more in each row going back, so the rows interleave (6, 7, 8 for the whole cast of 21)
+    const k = Math.floor(n / 3);
+    const per = n <= 7 ? [n] : n <= 14 ? [Math.floor(n / 2), Math.ceil(n / 2)] : [k - 1, k, n - 2 * k + 1];
+    const out: { row: number; off: number }[] = [];
+    per.forEach((c, r) => { for (let j = 0; j < c; j++) out.push({ row: r, off: (j - (c - 1) / 2) * gap }); });
+    return out;
+  }
   private place(dt: number) {
-    const n = this.chars.length, gap = 1.25;
+    const n = this.chars.length, spots = this.rows();
     this.chars.forEach((c, i) => {
-      const off = (i - (n - 1) / 2) * gap;
+      const { row, off } = spots[i];
       const chosen = n > 1 && this.selected === c.id; // in a group the chosen one steps forward
-      const want = this.base.clone().addScaledVector(this.t, off).addScaledVector(this.n, chosen ? 0.7 : 0);
+      const want = this.base.clone().addScaledVector(this.t, off).addScaledVector(this.n, (chosen ? 0.7 : 0) - row * 1.1);
       want.y = this.island.height(want.x, want.z);
       if (dt === 0) c.root.position.copy(want); else c.root.position.lerp(want, 1 - Math.exp(-dt * 6));
-      c.root.rotation.set(0, Math.atan2(this.n.x, this.n.z) + (n > 1 ? -off * 0.08 : this.spin), 0);
+      c.root.rotation.set(0, Math.atan2(this.n.x, this.n.z) + (n > 1 ? -off * 0.06 : this.spin), 0);
     });
   }
 
   select(id: FriendId | null) {
     this.selected = id;
     const c = this.chars.find(x => x.id === id);
-    if (c) this.start(this.chars.indexOf(c), c.has('wave1') ? 'wave1' : 'wave');
+    // the small one-hand wave (the big two-arm one starts by pulling both arms in, which looked like the
+    // shoulders deflating); wait for it to load rather than fall back
+    if (c) this.movesReady.then(() => { if (this.selected === id && c.has('wave1')) this.start(this.chars.indexOf(c), 'wave1'); });
   }
   async wear(id: FriendId, outfit: string) { await this.chars.find(c => c.id === id)?.wear(outfit, makeOutfit); }
   dance(id: FriendId, dance: string) {
@@ -100,6 +121,7 @@ export class ShowScene implements Controller {
         this.next[i] = t + 5 + Math.random() * 6;
       }
       c.update(dt);
+      if (!this.shown.has(c)) { this.shown.add(c); c.root.visible = true; }
     });
     this.camera(dt, t);
   }
@@ -110,15 +132,17 @@ export class ShowScene implements Controller {
     const focus = this.selected && n > 1 ? this.chars.find(c => c.id === this.selected)!.root.position.clone() : this.base.clone();
     focus.y = this.base.y;
     // fit the group's height into the band, and its width into the band's width
-    const groupW = n > 1 ? n * 1.25 + 0.6 : 1.4;
-    // one buddy: room above for a hat; a group: everyone fits across
-    const dH = (n > 1 ? 1.45 : 2.0) / (bandH * 2 * tanH), dW = groupW / (bandW * 2 * tanH * cam.aspect);
+    const rows = n > 1 ? Math.max(...this.rows().map(x => x.row)) + 1 : 1;
+    const widest = n > 1 ? Math.max(...[0, 1, 2].map(r => this.rows().filter(x => x.row === r).length)) : 1;
+    const groupW = n > 1 ? widest * (n > 14 ? 1.02 : 1.2) + 0.4 : 1.4;
+    // one buddy: room above for a hat; a group: everyone fits across, and the back rows show over the front
+    const dH = (n > 1 ? 1.45 + (rows - 1) * 0.45 : 2.0) / (bandH * 2 * tanH), dW = groupW / (bandW * 2 * tanH * cam.aspect);
     const d = Math.max(n > 1 ? 2.4 : 3.0, n > 1 ? Math.max(dH, dW) : Math.max(dH, 1.3 / (bandW * 2 * tanH * cam.aspect)));
     const sway = this.opts.orbit ? Math.sin(t * 0.15) * 0.18 : 0;
     const dir = this.n.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), sway);
-    const wantPos = this.base.clone().addScaledVector(dir, d).add(new THREE.Vector3(0, 0.75 + d * 0.12, 0));
+    const wantPos = this.base.clone().addScaledVector(dir, d).add(new THREE.Vector3(0, 0.75 + d * 0.12 + (rows - 1) * 0.55, 0));
     if (this.selected && n > 1) wantPos.addScaledVector(this.t, focus.clone().sub(this.base).dot(this.t) * 0.5);
-    const aim = (this.selected && n > 1 ? focus : this.base).clone().add(new THREE.Vector3(0, n > 1 ? 0.62 : 0.78, 0));
+    const aim = (this.selected && n > 1 ? focus : this.base).clone().add(new THREE.Vector3(0, n > 1 ? 0.62 : 0.78, 0)).addScaledVector(this.n, -(rows - 1) * 0.6);
     const ndcX = 2 * ((v.left + v.right) / 2) - 1, ndcY = 1 - 2 * ((v.top + v.bottom) / 2);
     const right = new THREE.Vector3().crossVectors(aim.clone().sub(wantPos).normalize(), new THREE.Vector3(0, 1, 0)).normalize();
     aim.addScaledVector(right, -ndcX * d * tanH * cam.aspect).y -= ndcY * d * tanH;

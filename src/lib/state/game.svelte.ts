@@ -157,6 +157,8 @@ class Game {
 
   // ---- the math game: home shows typing or math; its trips and results live in src/lib/math ----
   mathLessonId = $state('twins-1');
+  /** which part of math the math map shows: a strand, or null for the five big cards */
+  mathOp = $state<import('../math/facts').Op | null>(null);
   mathLast = $state<import('../math/progress').MathOutcome & { lessonId: string; stats: import('../math/meter').TripStats; results: import('../math/meter').FactResult[]; stars: number; bestRide: number; finished: boolean } | null>(null);
   get homeGame(): 'typing' | 'math' { return this.profile?.math?.home ?? 'typing'; }
   setHome(g: 'typing' | 'math') {

@@ -1,12 +1,14 @@
 <script lang="ts">
   // Keypals: pick your buddy, dress them up, and choose the dance they do at the finish line.
-  // Outfits and dances unlock as your friendship with that buddy grows.
+  // Outfits and dances unlock as your team's friendship grows; every buddy shares it. Buddies not on the
+  // team yet show as silhouettes with what brings them in.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { BUDDIES, FRIEND, type FriendId } from '../art/cast';
   import { OUTFITS, DANCES as ALL_DANCES, forBuddy, type Reward } from '../engine/rewards';
-  import { palOf } from '../engine/profile';
-  import { levelFromXp, newPalProgress } from '../engine/stickers';
+  import { palOf, setLook } from '../engine/profile';
+  import { levelFromXp } from '../engine/stickers';
+  import { joinProgress, onTeam, UNLOCKS } from '../engine/team';
   import { sfx } from '../audio/sound';
   import { stage } from '../three/stage';
   import { ShowScene } from '../three/showScene';
@@ -54,22 +56,24 @@
   function locked(r: Reward) { return r.level > lvl.level; }
   function nope(r: Reward) {
     shake = r.id; setTimeout(() => (shake = null), 400); sfx.miss();
-    game.say(`Reach friendship ${r.level} with ${FRIEND[who].name} to unlock ${r.name}!`);
+    game.say(`Reach friendship ${r.level} to unlock ${r.name}!`);
   }
   function wear(r: Reward | null) {
     if (r && locked(r)) return nope(r);
     const id = r?.id ?? 'none';
-    game.update(pp => { (pp.pals[who] ??= newPalProgress()).outfit = id; });
+    game.update(pp => setLook(pp, who, { outfit: id }));
     scene?.wear(who, id);
     if (id !== 'none') { burst++; sfx.badge(); } else sfx.pop();
   }
   function dance(r: Reward) {
     if (locked(r)) return nope(r);
-    game.update(pp => { (pp.pals[who] ??= newPalProgress()).dance = r.id; });
+    game.update(pp => setLook(pp, who, { dance: r.id }));
     scene?.dance(who, r.id);
     sfx.pop();
   }
-  function makeBuddy() { game.update(pp => { pp.buddy = who; }); burst++; sfx.complete(); scene?.dance(who, pal.dance); }
+  const joined = $derived(onTeam(p, who));
+  const join = $derived(joinProgress(p, who));
+  function makeBuddy() { if (!joined) return; game.update(pp => { pp.buddy = who; }); burst++; sfx.complete(); scene?.dance(who, pal.dance); }
 
   onMount(() => { show(who); addEventListener('resize', onResize); });
   onDestroy(() => { disposed = true; removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
@@ -79,10 +83,11 @@
   <Header title="Keypals" sub="Pick your buddy, dress them up, and choose their finish-line dance." />
   <div class="crew">
     {#each BUDDIES as f (f.id)}
-      {@const pp = palOf(p, f.id)}
-      <button class="mate" class:on={who === f.id} onclick={() => pick(f.id)}>
-        <Critter friend={f.id} size={64} round />
-        <span class="nm">{f.name}</span><span class="lv" title="Friendship level">♥ {levelFromXp(pp.xp).level}</span>
+      {@const mine = onTeam(p, f.id)}
+      <button class="mate" class:on={who === f.id} class:locked={!mine} onclick={() => pick(f.id)} title={mine ? f.name : `${f.name}: ${UNLOCKS[f.id]?.how}`}>
+        <span class="pic"><Critter friend={f.id} size={64} round /></span>
+        <span class="nm">{f.name}</span>
+        {#if !mine}<span class="lk"><Icon name="lock" /></span>{/if}
         {#if p.buddy === f.id}<span class="me">buddy</span>{/if}
       </button>
     {/each}
@@ -94,10 +99,18 @@
     <div class="side">
       <div class="who card">
         <h2>{FRIEND[who].name}</h2>
-        <div class="xp"><span class="lvl">♥ Friendship {lvl.level}</span><div class="bar"><i style:width="{(lvl.into / lvl.need) * 100}%"></i></div><span class="muted">{lvl.into}/{lvl.need} XP</span></div>
-        <p class="quirk">{FRIEND[who].quirk}</p>
-        {#if p.buddy !== who}<button class="btn btn-primary" onclick={makeBuddy}>Run with {FRIEND[who].name}</button>{/if}
+        {#if joined}
+          <div class="xp"><span class="lvl">♥ Team friendship {lvl.level}</span><div class="bar"><i style:width="{(lvl.into / lvl.need) * 100}%"></i></div><span class="muted">{lvl.into}/{lvl.need} XP</span></div>
+          <p class="quirk">{FRIEND[who].quirk}</p>
+          {#if p.buddy !== who}<button class="btn btn-primary" onclick={makeBuddy}>Play with {FRIEND[who].name}</button>{/if}
+          <p class="keep">Your stars, stickers, medals and friendship stay with you whichever buddy you play with.</p>
+        {:else}
+          <p class="joins"><Icon name="lock" /> Joins your team when you: <b>{UNLOCKS[who]?.how}</b></p>
+          <div class="xp"><div class="bar"><i style:width="{join.share * 100}%"></i></div><span class="muted">{join.text}</span></div>
+          <p class="quirk">{FRIEND[who].quirk}</p>
+        {/if}
       </div>
+      {#if joined}
       <div class="tabs">
         <button class:on={tab === 'outfits'} onclick={() => { tab = 'outfits'; game.closetTab = 'outfits'; sfx.pop(); }}><TileArt kind="outfits" size={40} /><span>Outfits</span><em>{outfitsOpen}/{OUTFITS.length}</em></button>
         <button class:on={tab === 'dances'} onclick={() => { tab = 'dances'; game.closetTab = 'dances'; sfx.pop(); }}><TileArt kind="dances" size={40} /><span>Dances</span><em>{dancesOpen}/{DANCES.length}</em></button>
@@ -129,6 +142,9 @@
           {/each}
         {/if}
       </div>
+      {:else}
+        <div class="card soon"><p>When {FRIEND[who].name} joins your team, they share all your outfits and dances too.</p></div>
+      {/if}
     </div>
   </div>
 </div>
@@ -139,7 +155,13 @@
   .mate { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; width: 92px; padding: 4px 4px 8px; border-radius: 18px; border: 3px solid transparent; background: #fff; cursor: pointer; box-shadow: var(--shadow-sm); }
   .mate.on { border-color: var(--primary-hi); }
   .mate .nm { font: 600 15px var(--font-ui); }
-  .mate .lv { position: absolute; top: 4px; left: 4px; font: 800 10px var(--font-body); background: var(--primary); color: #fff; padding: 2px 6px; border-radius: 999px; }
+  .mate.locked .pic { filter: brightness(0) saturate(0); opacity: .45; }
+  .mate.locked .nm { color: var(--muted); }
+  .mate .lk { position: absolute; top: 30px; left: 0; right: 0; display: grid; place-items: center; color: #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+  .joins { margin: 0; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font: 600 16px/1.35 var(--font-body); color: var(--ink2); }
+  .soon { padding: 16px 18px; }
+  .soon p { margin: 0; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }
+  .keep { margin: 4px 0 0; font: 600 13px/1.35 var(--font-body); color: var(--muted); }
   .mate .me { position: absolute; top: 4px; right: 4px; font: 800 9px var(--font-body); background: var(--mint); color: #0f4a36; padding: 2px 5px; border-radius: 999px; }
   .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr minmax(380px, 1.05fr); gap: 20px; padding: 18px 20px; }
   .stagebox { position: relative; min-height: 0; }

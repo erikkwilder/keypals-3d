@@ -508,6 +508,9 @@
   .banner { position: absolute; left: 55%; right: 0; top: 0; bottom: 10%; justify-content: center; display: flex; flex-direction: column; align-items: center; pointer-events: none; animation: banner 1.5s cubic-bezier(.3, .8, .3, 1) forwards; }
   .banner.down { animation-duration: .9s; }
   .banner.finish { animation: banner-stay .5s cubic-bezier(.3, .8, .3, 1.3) forwards; left: 50%; bottom: 30%; }
+  /* the finish sunburst shows whole, centred on the word (the strip clips the ride banners as they slide) */
+  .announce:has(.finish) { overflow: visible; }
+  .banner.finish .rays { top: 50%; margin-top: -260px; }
   @keyframes banner-stay { 0% { transform: scale(.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
   .bicon { width: clamp(56px, 10vh, 92px); height: clamp(56px, 10vh, 92px); padding: clamp(10px, 1.7vh, 16px); border-radius: 50%; background: linear-gradient(135deg, var(--primary-hi), var(--pink)); box-shadow: 0 0 0 6px #fff, 0 16px 30px -10px rgba(124, 92, 245, .7); position: relative; z-index: 1; }
   .banner.down .bicon { background: #b8aed0; width: 60px; height: 60px; padding: 10px; }

@@ -3,7 +3,8 @@
 // medals, stickers, treasure, the daily goal). Pure functions over plain data, like engine/profile.ts.
 
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
-import { dayKey } from '../engine/profile';
+import { dayKey, teamOf } from '../engine/profile';
+import { welcomeNew } from '../engine/team';
 import { AWARD } from '../engine/achievements';
 import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from '../engine/stickers';
 import { newBetween, type Reward } from '../engine/rewards';
@@ -112,6 +113,7 @@ export type MathRunInput = {
 
 export type MathOutcome = {
   profile: Profile;
+  buddies: import('../art/cast').FriendId[];
   medals: MedalWin[];
   stickers: StickerDef[];
   rewards: Reward[];
@@ -237,7 +239,7 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
   if (goalJustHit) medals.push('goal');
 
   // ---- the buddy's own progress: the same friendship, outfits, dances and stickers as typing ----
-  const pal: PalProgress = (p.pals[p.buddy] ??= newPalProgress());
+  const pal: PalProgress = teamOf(p);
   const lvlBefore = levelFromXp(pal.xp);
   pal.runs++;
   if (run.stars === 3) pal.stars3++;
@@ -273,7 +275,9 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
   let regionJustDone: MathRegionId | null = null;
   if (lesson.region !== 'start' && lesson.kind === 'check' && passedNow && !(before && before.stars > 0)) regionJustDone = lesson.region;
 
+  const buddies = welcomeNew(p);
   return {
+    buddies,
     profile: p, medals: medalWins, stickers, rewards, treasure, newBestTreasure,
     xp: { gained, before: lvlBefore, after: lvlAfter },
     before, record,

@@ -111,11 +111,12 @@
           <div class="xptop"><span>{FRIEND[p.buddy].name} · ♥ Friendship {done.out.xp.after.level}</span><b>+{done.out.xp.gained} XP</b></div>
           <div class="xbar"><i style:width="{(done.out.xp.after.into / done.out.xp.after.need) * 100}%"></i></div>
         </div>
-        {#if done.out.rewards.length || done.out.stickers.length || done.out.medals.length}
+        {#if done.out.rewards.length || done.out.stickers.length || done.out.medals.length || done.out.buddies.length}
           <div class="news">
             {#each done.out.medals as m}<span class="chip">🏅 {m.name}</span>{/each}
             {#each done.out.rewards as r}<span class="chip">✨ New {r.kind}: {r.name}</span>{/each}
             {#each done.out.stickers as s}<span class="chip">⭐ Sticker: {s.name}</span>{/each}
+            {#each done.out.buddies as b}<span class="chip new">🎉 {FRIEND[b].name} joined your team!</span>{/each}
           </div>
         {/if}
         <div class="acts">
@@ -168,6 +169,7 @@
   .xbar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--primary-hi), var(--pink), var(--lemon)); transition: width .8s ease; }
   .news { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
   .chip { font: 700 13px var(--font-body); background: #f6f1ff; border-radius: 999px; padding: 4px 10px; }
+  .chip.new { background: #fff3c4; }
   .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
   @media (max-width: 900px) { .bar :global(.tile .lbl) { display: none; } .games { grid-template-columns: 1fr; } .body { padding: 10px 10px 20px; } .bar { padding: 8px 10px; } .bar h1 { font-size: 20px; } .hello p { font-size: 15px; } .hello :global(.critter-host) { width: 64px !important; height: 64px !important; } }
 </style>
