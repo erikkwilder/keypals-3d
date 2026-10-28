@@ -1,8 +1,14 @@
 <script lang="ts">
   // The Number Playground: three calm math games (no clock, no rides): pick a game and a level, play a
-  // round, and the end card shows the stars, the friendship it earned and anything new for your buddy.
+  // round on one of the islands with your 3D buddy hopping, cheering and dancing beside the numbers, and
+  // the end card shows the stars, the friendship it earned and anything new for your team.
   import { game } from '../state/game.svelte';
-  import { outfitOf, palOf, type Profile } from '../engine/profile';
+  import { onDestroy } from 'svelte';
+  import { danceOf, outfitOf, palOf, type Profile } from '../engine/profile';
+  import { stage } from '../three/stage';
+  import { PlayScene } from '../three/playScene';
+  import type { PlayBuddy } from '../math/play/buddy';
+  import type { RegionId } from '../engine/course';
   import { FRIEND } from '../art/cast';
   import { sfx } from '../audio/sound';
   import { PLAY_GAMES, PLAY_GAME, applyPlay, playNextLevel, playOf, playUnlocked, type PlayGame, type PlayOutcome } from '../math/playground';
@@ -20,10 +26,35 @@
   let done = $state<{ stars: 1 | 2 | 3; out: PlayOutcome; g: PlayGame; level: number } | null>(null);
   let burst = $state(0);
   let k = 0;
+  // the 3D island and buddy behind each game
+  const WORLD: Record<PlayGame, RegionId> = { line: 'village', bonds: 'shores', build: 'burrows' };
+  let scene: PlayScene | null = null;
+  let areaEl: HTMLElement | null = null;
+  let areaOpts: { span?: number; feetAt?: number } = {};
+  let pending: { sx: number; now: boolean } | null = null;
+  const viewOf = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return { top: r.top / innerHeight, bottom: r.bottom / innerHeight, left: r.left / innerWidth, right: r.right / innerWidth }; };
+  function fit() { if (scene && areaEl) { scene.setView(viewOf(areaEl)); if (areaOpts.span) scene.span = areaOpts.span; if (areaOpts.feetAt != null) scene.feetAt = areaOpts.feetAt; } }
+  async function openWorld(g: PlayGame) {
+    const old = scene; scene = null;
+    const sc = await PlayScene.create({ buddy: p.buddy, outfit: outfitOf(p), region: WORLD[g], view: { top: 0.4, bottom: 0.9, left: 0.6, right: 0.95 }, spot: 40 });
+    if (!playing || playing.g !== g) { sc.dispose(); return; }
+    scene = sc; fit(); stage.use(sc);
+    if (pending) { requestAnimationFrame(() => { scene?.hopToScreen(pending!.sx, pending!.now); pending = null; }); }
+    if (old && old !== sc) old.dispose();
+  }
+  const pal: PlayBuddy = {
+    area(el, opts = {}) { areaEl = el; areaOpts = opts; fit(); },
+    hop(sx, now = false) { if (scene) { fit(); scene.hopToScreen(sx, now); } else pending = { sx, now }; },
+    cheer() { scene?.cheer(); },
+    oops() { scene?.oops(); },
+  };
+  function onResize() { requestAnimationFrame(fit); }
+  onDestroy(() => { if (scene && stage.current() === scene) stage.use(null); scene?.dispose(); });
 
   function start(g: PlayGame, level: number) {
     if (!playUnlocked(p, g, level)) { sfx.miss(); game.say('Get a star on the level before to open this one!'); return; }
-    sfx.click(); done = null; playing = { g, level, key: ++k };
+    sfx.click(); done = null; const same = playing?.g === g; playing = { g, level, key: ++k };
+    if (!same || !scene) openWorld(g);
   }
   function finished(r: { stars: 1 | 2 | 3; ms: number }) {
     if (!playing) return;
@@ -31,13 +62,20 @@
     game.replaceProfile(out.profile);
     done = { stars: r.stars, out, g: playing.g, level: playing.level };
     playing = null; burst++;
+    scene?.dance(danceOf(game.profile!));
     for (let i = 0; i < r.stars; i++) setTimeout(() => sfx.star(i), 300 + i * 300);
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if (e.key === 'Escape') { if (playing || done) { playing = null; done = null; } else game.go('map'); }
+    if (e.key === 'Escape') { if (playing || done) { backToGames(); } else game.go('map'); }
     if (done && e.key === 'Enter') { e.preventDefault(); const n = done.level < 5 && playUnlocked(p, done.g, done.level + 1) ? done.level + 1 : done.level; start(done.g, n); }
   }
+  const WHAT: Record<PlayGame, string> = {
+    line: 'Learns: where numbers sit, estimating, tens and hundreds.',
+    bonds: 'Learns: number bonds, pairs that make 5, 10, 20 and 100.',
+    build: 'Learns: place value, hundreds, tens and ones, trading ten for one.',
+  };
+  function backToGames() { playing = null; done = null; if (scene && stage.current() === scene) stage.use(null); scene?.dispose(); scene = null; }
   const ART: Record<PlayGame, string> = {
     line: '<path d="M6 40h52" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M10 34v12M22 36v8M34 34v12M46 36v8M58 34v12" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="34" cy="20" r="8" fill="#fff"/>',
     bonds: '<circle cx="22" cy="28" r="14" fill="#fff" opacity=".95"/><circle cx="44" cy="36" r="11" fill="#fff" opacity=".8"/><circle cx="40" cy="14" r="6" fill="#fff" opacity=".7"/>',
@@ -45,14 +83,14 @@
   };
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} onresize={onResize} />
 
-<div class="screen pg">
+<div class="screen pg" class:world={!!playing || !!done} style:background-image={playing || done ? null : `linear-gradient(rgba(236, 244, 255, .9), rgba(250, 246, 255, .94)), url(${import.meta.env.BASE_URL}math/strand-playground.webp)`}>
   <header class="bar">
     <NavTile size="sm" tone="sky" kind="home" label="Home" onclick={() => game.go('hub')} />
     <h1>{playing ? PLAY_GAME[playing.g].name : 'Number Playground'}</h1>
     <div class="spacer"></div>
-    {#if playing}<button class="btn ghost" onclick={() => (playing = null)}>Back to games</button>
+    {#if playing}<button class="btn ghost" onclick={backToGames}>Back to games</button>
     {:else}<NavTile size="sm" tone="mint" kind="map" label="Math map" onclick={() => game.go('map')} />{/if}
   </header>
 
@@ -61,9 +99,9 @@
       {#key playing.key}
         <div class="stage">
           <p class="lvl">Level {playing.level} · {PLAY_GAME[playing.g].levels[playing.level - 1].title} <span>{PLAY_GAME[playing.g].levels[playing.level - 1].hint}</span></p>
-          {#if playing.g === 'line'}<NumberLine level={playing.level} buddy={p.buddy} ondone={finished} />
-          {:else if playing.g === 'bonds'}<Bubbles level={playing.level} buddy={p.buddy} ondone={finished} />
-          {:else}<BuildIt level={playing.level} buddy={p.buddy} ondone={finished} />{/if}
+          {#if playing.g === 'line'}<NumberLine level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
+          {:else if playing.g === 'bonds'}<Bubbles level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
+          {:else}<BuildIt level={playing.level} buddy={p.buddy} ondone={finished} {pal} />{/if}
         </div>
       {/key}
     {:else}
@@ -76,10 +114,11 @@
           {@const rec = playOf(p, g.id)}
           {@const nxt = playNextLevel(p, g.id)}
           <section class="game" style:--gc={g.color}>
-            <div class="ghead">
-              <svg class="gart" viewBox="0 0 64 52" aria-hidden="true">{@html ART[g.id]}</svg>
-              <div><h2>{g.name}</h2><p>{g.blurb}</p></div>
-            </div>
+            <button class="gpic" onclick={() => start(g.id, nxt)} aria-label="Play {g.name}">
+              <img src="{import.meta.env.BASE_URL}math/play-{g.id === 'bonds' ? 'bubbles' : g.id}.webp" alt="" />
+              <span class="gname"><svg class="gart" viewBox="0 0 64 52" aria-hidden="true">{@html ART[g.id]}</svg>{g.name}</span>
+            </button>
+            <p class="gblurb">{g.blurb} <span class="what">{WHAT[g.id]}</span></p>
             <div class="levels">
               {#each g.levels as l (l.n)}
                 {@const open = playUnlocked(p, g.id, l.n)}
@@ -120,7 +159,7 @@
           </div>
         {/if}
         <div class="acts">
-          <button class="btn ghost" onclick={() => (done = null)}>All games</button>
+          <button class="btn ghost" onclick={backToGames}>All games</button>
           <button class="btn" onclick={() => start(done!.g, done!.level)}>Again</button>
           {#if canNext}<button class="btn btn-primary" onclick={() => start(done!.g, done!.level + 1)}>Next level <span class="kbd">enter</span></button>{/if}
         </div>
@@ -131,7 +170,8 @@
 </div>
 
 <style>
-  .pg { display: flex; flex-direction: column; background: linear-gradient(#e7f3ff, #f6f1ff 60%, #fff7ef); }
+  .pg { display: flex; flex-direction: column; background-color: #eef4ff; background-size: cover; background-position: center; }
+  .pg.world { background: transparent; }
   .bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 18px; background: rgba(255, 255, 255, .92); border-bottom: var(--panel-border); z-index: 3; }
   .bar h1 { font-size: 28px; margin: 0; }
   .spacer { flex: 1; }
@@ -141,10 +181,15 @@
   .hello p { margin: 0; font: 600 19px/1.35 var(--font-body); background: #fff; padding: 10px 16px; border-radius: 18px; box-shadow: var(--shadow-sm); max-width: 560px; }
   .games { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; max-width: 1240px; margin: 0 auto; }
   .game { background: #fff; border-radius: 26px; box-shadow: 0 14px 34px -22px rgba(60, 40, 110, .5); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-  .ghead { display: flex; gap: 12px; align-items: flex-start; }
-  .gart { flex: none; width: 74px; height: 60px; border-radius: 18px; background: var(--gc); padding: 6px; }
-  .ghead h2 { margin: 0; font-size: 24px; color: var(--gc); }
-  .ghead p { margin: 2px 0 0; font: 600 14px/1.35 var(--font-body); color: var(--ink2); }
+  .game { padding: 0 0 16px; overflow: hidden; }
+  .game > :not(.gpic) { margin-left: 16px; margin-right: 16px; }
+  .gpic { position: relative; border: 0; padding: 0; cursor: pointer; aspect-ratio: 16 / 8; overflow: hidden; background: #dfe9f5; }
+  .gpic img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s; }
+  .game:hover .gpic img { transform: scale(1.05); }
+  .gname { position: absolute; left: 12px; bottom: 10px; display: flex; align-items: center; gap: 8px; font: 600 25px var(--font-ui); color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, .5); }
+  .gart { flex: none; width: 46px; height: 38px; border-radius: 12px; background: var(--gc); padding: 4px; box-shadow: 0 0 0 3px #fff; }
+  .gblurb { margin: 0; font: 600 14.5px/1.4 var(--font-body); color: var(--ink2); }
+  .what { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
   .levels { display: flex; flex-direction: column; gap: 6px; }
   .lv { display: flex; align-items: center; gap: 10px; border: 0; border-radius: 14px; background: var(--bg2); padding: 6px 10px; cursor: pointer; text-align: left; transition: transform .12s; }
   .lv:hover { transform: translateX(3px); }
@@ -155,6 +200,7 @@
   .lt { flex: 1; font: 700 15px var(--font-body); color: var(--ink); }
   .play { background: linear-gradient(color-mix(in srgb, var(--gc) 70%, #fff), var(--gc)); box-shadow: 0 5px 0 color-mix(in srgb, var(--gc) 70%, #000); font-size: 20px; }
   .stage { display: flex; flex-direction: column; gap: 6px; }
+  .world .bar { background: rgba(255, 255, 255, .85); }
   .lvl { margin: 0 auto; font: 700 15px var(--font-body); color: var(--ink2); background: #fff; padding: 6px 14px; border-radius: 999px; box-shadow: var(--shadow-sm); }
   .lvl span { color: var(--muted); margin-left: 6px; }
   .veil { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(40, 28, 70, .35); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); padding: 12px; }

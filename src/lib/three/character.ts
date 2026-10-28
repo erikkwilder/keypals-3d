@@ -117,6 +117,7 @@ export class Character {
     this.addClips(clips);
     for (const k of ['walk', 'run', 'sprint']) this.speedOf[k] = this.gaitSpeed(k);
     this.mixer.stopAllAction();
+    this.addEyes();
     // feet as they stand in the bind pose (flat on the ground)
     model.updateMatrixWorld(true);
     for (const side of ['Left', 'Right']) {
@@ -128,6 +129,27 @@ export class Character {
         toeBindLocal: toe ? toe.quaternion.clone() : null,
         bindY: foot.getWorldPosition(new THREE.Vector3()).y,
       });
+    }
+  }
+
+  /** Glowing eyes for a face hidden in a hood (Scruff): two little lights fixed to the head bone. */
+  private addEyes() {
+    const e = FRIEND[this.id].eyes, head = this.bones.Head;
+    if (!e || !head) return;
+    this.model.updateMatrixWorld(true);
+    const hp = head.getWorldPosition(new THREE.Vector3());
+    const geo = new THREE.SphereGeometry(1, 16, 12);
+    const mat = new THREE.MeshBasicMaterial({ color: e.color, toneMapped: false });
+    const glow = new THREE.MeshBasicMaterial({ color: e.color, transparent: true, opacity: 0.22, depthWrite: false, toneMapped: false });
+    for (const side of [-1, 1]) {
+      // placed in world space in the bind pose (the model faces +z), then kept in the head bone's space
+      const w = hp.clone().add(new THREE.Vector3((e.x ?? 0) + side * e.gap / 2, e.up, e.fwd));
+      const eye = new THREE.Mesh(geo, mat), halo = new THREE.Mesh(geo, glow);
+      const local = head.worldToLocal(w.clone());
+      const s = head.getWorldScale(new THREE.Vector3()).x || 1;
+      eye.position.copy(local); eye.scale.setScalar(e.size / s); eye.scale.y *= 1.25;
+      halo.position.copy(local); halo.scale.setScalar((e.size * 1.9) / s);
+      head.add(eye, halo);
     }
   }
 

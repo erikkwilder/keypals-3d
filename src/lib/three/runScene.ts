@@ -17,6 +17,7 @@ import { buildCourse, type CourseMove } from './courses';
 
 export const STEP = 1.35; // metres of trail per letter
 const RUNUP = 4; // trail before the first letter
+const UP_V = new THREE.Vector3(0, 1, 0);
 
 /** Screen space the 3D view should use (fractions of the window): the rest is covered by the letters and keyboard. */
 export type View = { top: number; bottom: number; left: number; right: number };
@@ -91,7 +92,7 @@ export class RunScene implements Controller {
 
   static async create(opts: Opts): Promise<RunScene> {
     const course = opts.move && opts.move !== 'run' ? opts.move : null;
-    const [island, me] = await Promise.all([course ? Promise.resolve(buildCourse(course)) : stage.getIsland(opts.region), Character.create(opts.buddy)]);
+    const [island, me] = await Promise.all([course ? buildCourse(course) : stage.getIsland(opts.region), Character.create(opts.buddy)]);
     if (!me) throw new Error('character missing');
     const sc = new RunScene(island, me, opts);
     me.wear(opts.outfit, makeOutfit);
@@ -296,15 +297,21 @@ export class RunScene implements Controller {
     const sled = this.island.root.userData.sled as THREE.Group | undefined;
     if (kind === 'climb') {
       me.root.position.copy(f.p);
-      me.root.rotation.set(0, Math.PI, 0);
+      // facing the wall while climbing; on the ledge at the top, turned round to the camera
+      const onTop = this.phase === 'arrive' && this.goal - this.pos < 0.8;
+      me.root.rotation.set(0, onTop ? 0 : Math.PI, 0);
       const a = me.play(me.has('climb') ? 'climb' : 'idle', 0.25);
       if (a) a.timeScale = v < 0.04 ? 0 : Math.max(0.35, Math.min(2.4, v / 0.55));
     } else if (kind === 'slide') {
       const yaw = Math.atan2(f.t.x, f.t.z), pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
       if (sled) { sled.visible = true; sled.position.copy(f.p); sled.rotation.set(0, yaw - Math.PI / 2, -pitch); }
-      me.play(me.has('seated') ? 'seated' : me.has('sit') ? 'sit' : 'idle', 0.25);
-      me.root.position.copy(f.p).add(new THREE.Vector3(0, 0.2, 0));
+      // sitting on the sled, legs forward (the chair pose), hips on the deck
+      me.play(me.has('sit') ? 'sit' : me.has('seated') ? 'seated' : 'idle', 0.25);
+      me.root.position.copy(f.p);
       me.root.rotation.set(pitch, yaw, 0, 'YXZ');
+      me.update(0); me.root.updateMatrixWorld(true);
+      const hips = me.bones.Hips?.getWorldPosition(new THREE.Vector3());
+      if (hips) me.root.position.y += f.p.y + 0.3 - hips.y;
       if (v > 2.5 && now - this.splashT > 0.18) { this.splashT = now; this.puff.burst(f.p.clone().addScaledVector(f.t, -0.6), 3, 0xffffff); }
     } else {
       me.root.position.copy(f.p);
@@ -376,8 +383,13 @@ export class RunScene implements Controller {
     } else {
       // at the gate: in front, a little to one side; the buddy sits in the middle of the hero area
       const stop = this.island.trail.at(this.finishS);
+      // the way along, kept level (on a cliff the trail runs straight up, on the slope it runs downhill):
+      // the camera stands in front and a little to one side, at the buddy's height, never above or below
+      const along = stop.t.clone().setY(0);
+      if (along.lengthSq() < 1e-4) along.crossVectors(UP_V, stop.n);
+      along.normalize();
       d = Math.max(3.2, Math.min(9, h / (bandH * 0.7 * 2 * tanH)));
-      wantPos.copy(centre).addScaledVector(stop.n, d * 0.88).addScaledVector(stop.t, d * 0.42).y += d * 0.16;
+      wantPos.copy(centre).addScaledVector(stop.n, d * 0.88).addScaledVector(along, d * 0.42).y += d * 0.16;
       aim.copy(centre);
     }
     if (this.debugCam) {

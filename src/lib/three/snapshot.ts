@@ -7,17 +7,18 @@ import type { FriendId } from '../art/cast';
 
 /** Sticker poses, as a move and the moment in it (0 to 1). */
 export const POSE_MOVES: Record<string, [string, number][]> = {
-  cheer: [['fistpump', 0.45], ['jump', 0.35]],
+  // clear, readable moments only: no frozen mid-dance frames, no sitting on thin air
+  cheer: [['cheer', 0.45], ['fistpump', 0.45]],
   wave: [['wave1', 0.35], ['wave', 0.4]],
   proud: [['fistpump', 0.6], ['idle', 0.2]],
-  love: [['dance_happyhands', 0.25], ['idle', 0.25]],
-  cool: [['dance_hiphop', 0.3], ['idle', 0.2]],
-  sleep: [['sit', 0.5], ['idle', 0.5]],
-  surprised: [['jump', 0.35], ['idle', 0.2]],
+  love: [['cheer', 0.3], ['wave1', 0.35]],
+  cool: [['idle', 0.2]],
+  sleep: [['idle', 0.55]],
+  surprised: [['jump', 0.3], ['idle', 0.2]],
   run: [['run', 0.3]],
-  ride: [['seated', 0.5], ['sit', 0.5]],
-  hug: [['dance_sway', 0.4], ['idle', 0.4]],
-  wink: [['dance_hiphop1', 0.3], ['wave1', 0.4]],
+  ride: [['cheer', 0.45], ['fistpump', 0.5]],
+  hug: [['wave1', 0.3], ['idle', 0.4]],
+  wink: [['wave1', 0.4]],
 };
 
 let renderer: THREE.WebGLRenderer | null = null;

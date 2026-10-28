@@ -22,6 +22,9 @@ export type Friend = {
   hatOn?: 'crown' | 'flat';
   /** metres to raise hats above the head bones' top (a head hidden inside a hood of straw) */
   hatLift?: number;
+  /** glowing eyes added in the game (a face hidden in a hood): metres up from the head bone, forward,
+   *  apart, and their size */
+  eyes?: { up: number; fwd: number; gap: number; size: number; color: number; x?: number };
 };
 
 export const BUDDIES: Friend[] = [
@@ -50,7 +53,7 @@ export const BUDDIES: Friend[] = [
   { id: 'goggles', name: 'Skye', species: 'explorer', color: '#2f8fa8', height: 1.2,
     quirk: 'Goggles up for typing, goggles down for racing.',
     hello: "I'm Skye! Goggles on. Where are we going first?" },
-  { id: 'straw', name: 'Scruff', species: 'haystack', color: '#d9a92b', height: 1.1, hatLift: 0.3,
+  { id: 'straw', name: 'Scruff', species: 'haystack', color: '#d9a92b', height: 1.1, hatLift: 0.3, eyes: { up: 0.115, fwd: 0.205, gap: 0.075, size: 0.022, color: 0xffb03a, x: 0.055 },
     quirk: 'Nobody has ever seen the face under all that straw. Just the eyes.',
     hello: "...Scruff. Hi. I'm ready when you are." },
   { id: 'antenna', name: 'Radar', species: 'helmet kid', color: '#e0782f', height: 1.2, hatOn: 'flat',

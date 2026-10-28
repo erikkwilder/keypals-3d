@@ -5,11 +5,14 @@
   import { mulberry32 } from '../../engine/rng';
   import { sfx } from '../../audio/sound';
   import type { FriendId } from '../../art/cast';
-  import Critter from '../../ui/Critter.svelte';
+  import type { PlayBuddy } from './buddy';
   import { buildNumbers, slipStars } from '../playground';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 1 | 2 | 3; ms: number }) => void };
-  let { level, buddy, ondone }: Props = $props();
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
+  let { level, ondone, pal }: Props = $props();
+  let corner: HTMLDivElement | undefined = $state();
+  // the buddy about 100 pixels tall, whatever the corner's size
+  $effect(() => { if (corner && pal) pal.area(corner, { span: Math.max(1.6, corner.getBoundingClientRect().width / 85), feetAt: 0.92 }); });
   const nums = buildNumbers(level, mulberry32(Date.now() % 1e9));
   const hundreds = level >= 3;
   const t0 = performance.now();
@@ -27,7 +30,7 @@
   function more(k: 'h' | 't' | 'o') {
     if (ok) return;
     note = ''; sfx.click();
-    if (k === 'o') { o++; if (o === 10) { o = 0; t++; trade++; note = '10 ones make a ten!'; } }
+    if (k === 'o') { o++; if (o === 10) { o = 0; t++; trade++; note = '10 ones make a ten!'; pal?.cheer(); } }
     if (k === 't') { t++; }
     if (k === 'h' && hundreds) h = Math.min(9, h + 1);
     if (t === 10) { if (hundreds) { t = 0; h = Math.min(9, h + 1); trade++; note = '10 tens make a hundred!'; } else t = 9; }
@@ -42,14 +45,14 @@
   function check() {
     if (ok) return;
     if (value === target) {
-      ok = true; sfx.complete();
+      ok = true; sfx.complete(); pal?.cheer();
       note = `Yes! ${hundreds ? `${h} hundred${h === 1 ? '' : 's'}, ` : ''}${t} ten${t === 1 ? '' : 's'} and ${o} one${o === 1 ? '' : 's'} make ${target}.`;
       timers.push(setTimeout(() => {
         if (i + 1 >= nums.length) { ondone({ stars: slipStars(slips), ms: performance.now() - t0 }); return; }
         i++; h = 0; t = 0; o = 0; ok = false; note = '';
       }, 1500));
     } else {
-      slips++; sfx.miss();
+      slips++; sfx.miss(); pal?.oops();
       const T = Math.floor((target % 100) / 10), H = Math.floor(target / 100);
       note = `That's ${value}. ${target} has ${hundreds ? `${H} hundred${H === 1 ? '' : 's'}, ` : ''}${T} ten${T === 1 ? '' : 's'} and ${target % 10} one${target % 10 === 1 ? '' : 's'}.`;
     }
@@ -63,7 +66,8 @@
   <div class="top">
     <span class="dots">{#each nums as _, k}<i class:done={k < i || (k === i && ok)} class:now={k === i}></i>{/each}</span>
   </div>
-  <div class="ask"><span>Build</span><b>{target}</b><span class="bud" class:yay={ok}><Critter friend={buddy} size={74} round /></span></div>
+  <div class="ask"><span>Build</span><b>{target}</b></div>
+  <div class="row">
   <div class="cols" class:three={hundreds}>
     {#if hundreds}
       <section class="col">
@@ -83,6 +87,9 @@
       <div class="btns"><button onclick={() => less('o')} aria-label="One fewer">−</button><span>{o}</span><button onclick={() => more('o')} aria-label="One more">+</button></div>
     </section>
   </div>
+  <!-- your buddy stands here on the island, cheering when a number's built -->
+  <div class="corner" bind:this={corner}></div>
+  </div>
   <div class="foot">
     <p class="note" class:good={ok}>{note || 'Add blocks with +, then press Check.'}</p>
     <button class="btn btn-primary check" onclick={check} disabled={ok}>Check <span class="kbd">enter</span></button>
@@ -98,6 +105,10 @@
   .ask b { font-size: clamp(48px, 8vw, 80px); color: #ef7d2b; line-height: 1; }
   .bud.yay { animation: yay .6s ease; }
   @keyframes yay { 40% { transform: translateY(-14px) rotate(8deg); } }
+  .row { display: flex; gap: 12px; align-items: stretch; }
+  .row .cols { flex: 1; }
+  .corner { flex: 0 0 clamp(140px, 18vw, 220px); }
+  .ask, .dots { background: rgba(255, 255, 255, .9); border-radius: 20px; padding: 2px 16px; align-self: center; box-shadow: var(--shadow-sm); }
   .cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .cols.three { grid-template-columns: 1.3fr 1fr 1fr; }
   .col { background: #fff; border-radius: 22px; box-shadow: var(--shadow-sm); padding: 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -116,6 +127,7 @@
   .note.good { background: #e2f7ee; color: #0f6a48; }
   .check { font-size: 22px; padding: 12px 22px; }
   @media (max-width: 600px) {
+    .row { flex-direction: column-reverse; } .corner { flex: 0 0 110px; } .row .cols { flex: none; }
     .cols.three { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
     .col { padding: 8px 4px; border-radius: 16px; }
     .flat { width: 34px; height: 34px; }

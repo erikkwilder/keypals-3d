@@ -1,15 +1,16 @@
 <script lang="ts">
-  // Number Line Hop: a number appears; tap where it goes on the line, and your buddy hops there. Then
-  // the real spot shows with a flag and how far off you were. Eight numbers a round, no clock.
+  // Number Line Hop: a number appears; tap where it goes on the line, and your buddy hops there along
+  // the island trail. Then the real spot shows with a flag and how far off you were. Eight numbers a
+  // round, no clock.
   import { onDestroy } from 'svelte';
   import { mulberry32 } from '../../engine/rng';
   import { sfx } from '../../audio/sound';
   import type { FriendId } from '../../art/cast';
-  import Critter from '../../ui/Critter.svelte';
+  import type { PlayBuddy } from './buddy';
   import { lineNumbers, linePoints, lineSpec, lineStars } from '../playground';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 1 | 2 | 3; ms: number }) => void };
-  let { level, buddy, ondone }: Props = $props();
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
+  let { level, ondone, pal }: Props = $props();
   const spec = lineSpec(level);
   const nums = lineNumbers(level, mulberry32(Date.now() % 1e9));
   const t0 = performance.now();
@@ -17,9 +18,20 @@
   let points = $state(0);
   let placed = $state<number | null>(null);
   let got = $state<0 | 1 | 2 | 3>(0);
-  let hop = $state(0);
-  let at = $state(0); // where the buddy stands, 0..1
   let svg: SVGSVGElement | undefined = $state();
+  let track: HTMLDivElement | undefined = $state();
+  /** a value's place across the window (a fraction), for the buddy to hop to */
+  function screenX(v: number) { const r = svg?.getBoundingClientRect(); return r ? (r.left + (xOf(v) / W) * r.width) / innerWidth : 0.5; }
+  $effect(() => {
+    if (!track || !pal) return;
+    // the buddy's feet on the line itself, wherever the layout puts it
+    const r = track.getBoundingClientRect(), sr = svg?.getBoundingClientRect();
+    const feetAt = sr && r.height ? (sr.top + sr.height * (70 / 150) - r.top) / r.height : 0.8;
+    pal.area(track, { span: 8 * Math.max(0.6, r.width / 1000), feetAt });
+    // start at 0, the line's left end
+    const t = setTimeout(() => pal.hop(screenX(0), true), 80);
+    return () => clearTimeout(t);
+  });
   const PAD = 40, W = 1000;
   const xOf = (v: number) => PAD + (v / spec.max) * (W - 2 * PAD);
   const ticks = Array.from({ length: spec.max / spec.step + 1 }, (_, k) => k * spec.step);
@@ -37,7 +49,8 @@
     placed = v;
     got = linePoints(target, v, spec.max);
     points += got;
-    at = v / spec.max; hop++;
+    pal?.hop(screenX(v));
+    timers.push(setTimeout(() => { if (got >= 2) pal?.cheer(); else if (got === 0) pal?.oops(); }, 750));
     if (got >= 2) sfx.star(got - 1); else if (got === 1) sfx.pop(); else sfx.miss();
     timers.push(setTimeout(next, 1700));
   }
@@ -52,10 +65,10 @@
   <div class="dots">{#each nums as _, k}<i class:done={k < i || (k === i && placed !== null)} class:now={k === i}></i>{/each}</div>
   <p class="ask">Where does <b>{target}</b> go?</p>
   <!-- the whole strip takes the tap, not only the thin line: easier for small fingers -->
-  <div class="track" onpointerdown={tap} role="presentation">
-    <div class="buddy" style:left="{(PAD + at * (W - 2 * PAD)) / W * 100}%">{#key hop}<span class="hop"><Critter friend={buddy} size={86} /></span>{/key}</div>
+  <div class="track" bind:this={track} onpointerdown={tap} role="presentation">
     <svg bind:this={svg} viewBox="0 0 {W} 150" class="line" class:locked={placed !== null} role="slider" aria-label="Number line from 0 to {spec.max}" aria-valuemin={0} aria-valuemax={spec.max} aria-valuenow={placed ?? 0} tabindex="-1">
       <rect x="0" y="0" width={W} height="150" fill="transparent" />
+      <line x1={PAD} x2={W - PAD} y1="70" y2="70" stroke="#fff" stroke-width="15" stroke-linecap="round" opacity=".85" />
       <line x1={PAD} x2={W - PAD} y1="70" y2="70" stroke="#7c5cf5" stroke-width="7" stroke-linecap="round" />
       {#each minor as v}<line x1={xOf(v)} x2={xOf(v)} y1="62" y2="78" stroke="#c9bdf0" stroke-width="3" />{/each}
       {#each ticks as v}<line x1={xOf(v)} x2={xOf(v)} y1="52" y2="88" stroke="#7c5cf5" stroke-width="4" stroke-linecap="round" />{/each}
@@ -71,24 +84,22 @@
 
 <style>
   .nl { width: min(1100px, 100%); margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .dots { display: flex; gap: 6px; }
+  .dots { display: flex; gap: 6px; background: rgba(255, 255, 255, .85); padding: 5px 9px; border-radius: 999px; }
   .dots i { width: 14px; height: 14px; border-radius: 50%; background: #e6e0f2; }
   .dots i.done { background: #4fcf98; } .dots i.now { box-shadow: 0 0 0 3px #7c5cf5; }
-  .ask { margin: 6px 0 0; font: 600 clamp(28px, 5vw, 46px) var(--font-ui); color: var(--ink); }
+  .ask { margin: 6px 0 0; font: 600 clamp(28px, 5vw, 46px) var(--font-ui); color: var(--ink); background: rgba(255, 255, 255, .9); padding: 4px 22px; border-radius: 22px; box-shadow: var(--shadow-sm); }
   .ask b { color: #3fa7e0; font-size: 1.25em; }
-  .track { position: relative; width: 100%; padding-top: 100px; padding-bottom: 20px; touch-action: none; cursor: crosshair; }
-  .buddy { position: absolute; top: 0; transform: translateX(-50%); transition: left .7s cubic-bezier(.4, 0, .3, 1); pointer-events: none; }
-  .hop { display: block; animation: hop .7s ease-in-out; }
-  @keyframes hop { 0% { transform: translateY(0); } 45% { transform: translateY(-42px); } 100% { transform: translateY(0); } }
+  /* see-through: the island and your buddy show behind the line */
+  .track { position: relative; width: 100%; padding-top: clamp(150px, 26vh, 230px); padding-bottom: 10px; touch-action: none; cursor: crosshair; }
   .line { width: 100%; height: auto; cursor: crosshair; touch-action: none; display: block; }
   .line.locked { cursor: default; }
   .line:focus { outline: none; }
-  .lab { font: 600 30px var(--font-ui); fill: #3b2d55; }
+  .lab { font: 600 30px var(--font-ui); fill: #3b2d55; paint-order: stroke; stroke: #fff; stroke-width: 8px; }
   .flab { font: 700 22px var(--font-ui); fill: #ef7d2b; }
   .pin { animation: drop .35s cubic-bezier(.3, .8, .4, 1.5); }
   .flag { animation: drop .45s .25s cubic-bezier(.3, .8, .4, 1.5) both; }
   @keyframes drop { from { opacity: 0; transform-box: fill-box; } to { opacity: 1; } }
-  .word { margin: 4px 0 0; min-height: 34px; font: 600 26px var(--font-ui); color: var(--ink2); opacity: 0; transition: opacity .25s; }
+  .word { margin: 4px 0 0; min-height: 34px; font: 600 26px var(--font-ui); color: var(--ink2); opacity: 0; transition: opacity .25s; background: rgba(255, 255, 255, .9); padding: 2px 16px; border-radius: 16px; }
   .word.show { opacity: 1; } .word.good { color: #1f9a6a; }
-  @media (max-width: 600px) { .track { padding-top: 70px; } .buddy :global(.critter-host) { width: 60px !important; height: 60px !important; } .lab { font-size: 38px; } .word { font-size: 19px; } }
+  @media (max-width: 600px) { .track { padding-top: 160px; } .lab { font-size: 38px; } .word { font-size: 19px; } }
 </style>
