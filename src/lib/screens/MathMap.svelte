@@ -115,6 +115,9 @@
             <span class="ssign">{st.op === 'x' ? '×' : st.op === '-' ? '−' : st.op === '/' ? '÷' : '+'}</span><span class="sname">{st.name}</span>
           </button>
         {/each}
+        <button class="pgbtn" onclick={() => { sfx.click(); game.go('playground'); }}>
+          <span class="ssign">★</span><span class="sname">Number Playground</span>
+        </button>
       </div>
       <div class="hello">
         <h1 style:color={strand.color}>{strand.name}</h1>
@@ -177,6 +180,7 @@
   .strands button.on { background: var(--sc); color: #fff; box-shadow: 0 4px 0 color-mix(in srgb, var(--sc) 70%, #000); }
   .ssign { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 600 26px/1 var(--font-ui); background: var(--sc); color: #fff; }
   .strands button.on .ssign { background: rgba(255, 255, 255, .25); }
+  .strands .pgbtn { --sc: #f2a63a; margin-left: auto; background: linear-gradient(135deg, #fff7e0, #ffe9f3); }
   @media (max-width: 760px) { .strands { gap: 5px; } .strands button { padding: 5px 9px 5px 5px; font-size: 13px; gap: 4px; } .ssign { width: 26px; height: 26px; font-size: 20px; } }
   .subj { font-size: 30px; margin: 0 4px; color: #d8641c; }
   @media (max-width: 760px) { .subj { font-size: 22px; } }

@@ -38,6 +38,8 @@ export type MathProgress = {
   gardenSeen?: Record<string, number>;
   /** the strand played last: +, −, × or ÷ (home's Play carries on there) */
   strand?: Op;
+  /** the Number Playground: best stars per level of each game */
+  play?: Partial<Record<import('./playground').PlayGame, import('./playground').PlayRecord>>;
 };
 
 export const newMathProgress = (): MathProgress => ({ home: 'typing', facts: {}, lessons: {}, history: [], totals: { trips: 0, facts: 0, ms: 0 } });

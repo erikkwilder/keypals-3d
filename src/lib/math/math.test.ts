@@ -383,3 +383,34 @@ describe('the 0 and 1 rules cover the whole garden edge', () => {
     for (const id of ['0x0', '0x1', '1x0', '1x1', '10x0', '0x10']) expect(ids.has(id)).toBe(true);
   });
 });
+
+describe('the Number Playground', () => {
+  it('makes numbers that fit each level, pairs that make the target, and scores fairly', async () => {
+    const pg = await import('./playground');
+    const { mulberry32 } = await import('../engine/rng');
+    for (let level = 1; level <= 5; level++) {
+      const rng = mulberry32(level * 7);
+      const spec = pg.lineSpec(level);
+      for (const n of pg.lineNumbers(level, rng)) { expect(n).toBeGreaterThan(0); expect(n).toBeLessThan(spec.max); }
+      for (let k = 0; k < 30; k++) { const [a, b] = pg.bondPair(level, rng); expect(a + b).toBe(pg.bondTarget(level)); expect(Math.min(a, b)).toBeGreaterThanOrEqual(0); }
+      const nums = pg.buildNumbers(level, rng);
+      expect(new Set(nums).size).toBe(nums.length);
+      for (const n of nums) expect(n).toBeLessThan(level <= 2 ? 100 : 1000);
+      if (level === 5) for (const n of nums) expect(String(n)).toContain('0');
+    }
+    expect(pg.linePoints(37, 37, 100)).toBe(3);
+    expect(pg.linePoints(37, 41, 100)).toBe(2);
+    expect(pg.linePoints(37, 60, 100)).toBe(0);
+    expect(pg.slipStars(0)).toBe(3);
+  });
+  it('a round earns friendship and minutes, and opens the next level', async () => {
+    const pg = await import('./playground');
+    const p = newProfile('Ava', 'dino');
+    const out = pg.applyPlay(p, { game: 'bonds', level: 1, stars: 3, ms: 90000, at: T0 });
+    expect(out.xp.gained).toBeGreaterThan(40);
+    expect(out.opened).toBe(2);
+    expect(pg.playUnlocked(out.profile, 'bonds', 2)).toBe(true);
+    expect(pg.playUnlocked(out.profile, 'bonds', 3)).toBe(false);
+    expect(Object.values(out.profile.days)[0].ms).toBe(90000);
+  });
+});

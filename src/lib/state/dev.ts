@@ -26,6 +26,7 @@ export function devBoot() {
   const ensure = () => { if (!game.profile) game.addPlayer('Tester', 'dino', false); };
   if (key === 'map') { ensure(); game.go('map'); }
   if (key === 'hub') { ensure(); game.go('hub'); }
+  if (key === 'playground') { ensure(); game.go('playground'); }
   if (key === 'run') { ensure(); game.startLesson(val || 'village-1'); }
   if (key === 'stickers') { ensure(); game.go('stickers'); }
   if (key === 'closet') { ensure(); game.go('closet'); }
