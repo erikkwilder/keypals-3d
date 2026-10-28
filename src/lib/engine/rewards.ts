@@ -11,7 +11,7 @@ const R = (level: number, kind: RewardKind, id: string, name: string, rarity: Re
 /**
  * Every buddy starts with a fist pump and one dance. Dances were checked on every buddy so hands never
  * pass through a head or hat (src/dev/danceCheck.ts); ones that did were left out, or left out just
- * for the buddy they bump (`notFor`). The classics (floss to moonwalk) are Mixamo and Sketchfab
+ * for the buddy they bump (`notFor`; src/dev/danceCheck.ts, hands or forearms more than 0.2 of the head's radius inside it, run on all 21 buddies 2026-10-28). The classics (floss to moonwalk) are Mixamo and Sketchfab
  * dances remapped onto our skeletons (keypals-3d-spike/tools/blender/retarget.py); song titles are
  * kept out of the names.
  */
@@ -32,7 +32,7 @@ export const REWARDS: Reward[] = [
   R(11, 'dance', 'dance_cardio', 'Cardio Groove', 'rare'),
   R(11, 'dance', 'dance_twist', 'The Twist', 'rare'),
   R(12, 'outfit', 'wizard_hat', 'Wizard Hat', 'epic'),
-  R(13, 'dance', 'dance_boom', 'Boom Bounce', 'epic'),
+  R(13, 'dance', 'dance_boom', 'Boom Bounce', 'epic', ['fish', 'goggles', 'antenna', 'axolotl', 'diver', 'fluff', 'terrier', 'pinkbunny']),
   R(13, 'dance', 'dance_robot', 'The Robot', 'epic'),
   R(14, 'outfit', 'viking_helmet', 'Viking Helmet', 'epic'),
   R(15, 'dance', 'dance_hiphop3', 'Hip Hop Shuffle', 'epic'),
@@ -41,10 +41,10 @@ export const REWARDS: Reward[] = [
   R(17, 'dance', 'dance_step', 'Step Step', 'epic'),
   R(17, 'dance', 'dance_cabbage', 'Cabbage Patch', 'epic'),
   R(18, 'dance', 'dance_shake', 'Shake It Out', 'legendary'),
-  R(18, 'dance', 'dance_macarena', 'Arm Shuffle', 'legendary', ['monkey']),
-  R(19, 'dance', 'dance_raiseroof', 'Raise the Roof', 'legendary'),
+  R(18, 'dance', 'dance_macarena', 'Arm Shuffle', 'legendary', ['monkey', 'goggles']),
+  R(19, 'dance', 'dance_raiseroof', 'Raise the Roof', 'legendary', ['goggles']),
   R(20, 'outfit', 'gold_crown', 'Golden Crown', 'legendary'),
-  R(21, 'dance', 'dance_gangnam', 'Pony Dance', 'legendary', ['monkey']),
+  R(21, 'dance', 'dance_gangnam', 'Pony Dance', 'legendary', ['monkey', 'goggles', 'sweater', 'elf']),
   R(22, 'dance', 'dance_allnight', 'All Night Long', 'legendary'),
   R(24, 'dance', 'dance_moonwalk', 'Moonwalk', 'legendary'),
   R(26, 'dance', 'dance_sway', 'Happy Sway', 'legendary'),

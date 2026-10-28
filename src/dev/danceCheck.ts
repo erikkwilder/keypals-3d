@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { BUDDIES } from '../lib/art/cast';
 const L = new GLTFLoader(); L.setMeshoptDecoder(MeshoptDecoder);
 
 async function check(buddy: string, files: string[]) {
@@ -43,7 +44,7 @@ async function check(buddy: string, files: string[]) {
 }
 (window as unknown as { __check: (files: string[]) => Promise<unknown> }).__check = async (files) => {
   const res: Record<string, unknown> = {};
-  for (const b of ['dino', 'cheetah', 'monkey', 'koala', 'box', 'turtle']) res[b] = await check(b, files);
+  for (const b of BUDDIES.map(x => x.id)) res[b] = await check(b, files);
   return res;
 };
 (window as unknown as { __ready: boolean }).__ready = true;

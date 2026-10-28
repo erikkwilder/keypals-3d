@@ -290,7 +290,7 @@ export class Character {
       const widths = bins.map(([a, b]) => (b > a ? b - a : 0)), full = Math.max(...widths);
       for (let b = N - 1; b >= 0; b--) if (widths[b] >= full * 0.6) { topH = lo + ((b + 1) / N) * (hi - lo); break; }
     }
-    const top = c.clone().addScaledVector(up, topH);
+    const top = c.clone().addScaledVector(up, topH + (FRIEND[this.id].hatLift ?? 0) / Math.max(1e-6, this.scale));
     const basis = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, up, fwd));
     this.headFit = { top, width: Math.min(widthSide, widthFwd * 1.1), basis };
     return this.headFit;
