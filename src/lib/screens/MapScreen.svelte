@@ -183,4 +183,14 @@
   .go { position: absolute; bottom: 22px; left: 0; right: 0; margin: 0 auto; width: max-content; z-index: 6; }
   .go .kbd { background: rgba(255, 255, 255, .25); border-color: rgba(255, 255, 255, .4); color: inherit; font-size: 11px; height: 22px; }
   .plat { position: absolute; right: 6px; top: 2px; font: 800 13px/1 var(--font-body); color: #7c5cf5; text-shadow: 0 0 6px #fff, 0 0 2px #fff; }
+
+  /* phones: one header row; the nav tiles show their pictures only, the pills and FancyAnt button go */
+  @media (max-width: 760px) {
+    .bar { flex-wrap: nowrap; gap: 5px; padding: 6px 8px; }
+    .bar .pill, .bar > :global(button.round) { display: none; }
+    .bar :global(.tile) { flex: none; padding: 2px; }
+    .bar :global(.tile .lbl) { display: none; }
+    .subj { font-size: 20px; margin: 0; }
+    .spacer { flex: 1; }
+  }
 </style>

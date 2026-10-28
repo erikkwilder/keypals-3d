@@ -22,4 +22,5 @@
   h1 { font-size: 30px; }
   .tt span { font: 700 15px var(--font-body); }
   .rt { display: flex; gap: 10px; align-items: center; }
+  @media (max-width: 600px) { .hd { flex-wrap: wrap; row-gap: 6px; } .rt { margin-left: auto; } h1 { font-size: 24px; } }
 </style>

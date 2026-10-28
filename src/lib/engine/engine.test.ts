@@ -374,3 +374,19 @@ describe('the course gives every key enough practice', () => {
     expect(short, short.join(' ')).toEqual([]);
   });
 });
+
+describe('earning buddies', () => {
+  it('starts with six, adds one for a milestone, announces it once, and never loses progress', async () => {
+    const { teamBuddies, welcomeNew, STARTERS } = await import('./team');
+    const p = newProfile('Mia', 'dino');
+    expect(teamBuddies(p)).toEqual(STARTERS);
+    expect(welcomeNew(p)).toEqual([]);
+    for (let i = 1; i <= 5; i++) p.lessons[`village-${i}`] = { stars: 2, bestWpm: 10, bestAcc: 1, bestRide: 1, attempts: 1, passes: 1, lastAt: 0 } as Profile['lessons'][string];
+    expect(teamBuddies(p)).toContain('fish');
+    expect(welcomeNew(p)).toEqual(['fish']);
+    expect(welcomeNew(p)).toEqual([]);
+    const xp = p.team!.xp;
+    p.buddy = 'fish';
+    expect(p.team!.xp).toBe(xp);
+  });
+});

@@ -9,6 +9,7 @@
   import GearButton from '../ui/GearButton.svelte';
   import FancyAntButton from '../ui/FancyAntButton.svelte';
   import Logo from '../ui/Logo.svelte';
+  import { STARTERS } from '../engine/team';
 
   let h = $state(800);
   let w = $state(1280);
@@ -29,7 +30,8 @@
   }
   onMount(() => {
     // everyone stands on the island under the title, waving and dancing now and then
-    ShowScene.create({ buddies: BUDDIES.map(b => b.id), view: { top: 0.5, bottom: 0.97, left: 0.08, right: 0.92 }, spot: 8, orbit: true })
+    const cast = innerWidth < 700 ? STARTERS : BUDDIES.map(b => b.id);
+    ShowScene.create({ buddies: cast, view: { top: 0.5, bottom: 0.97, left: 0.08, right: 0.92 }, spot: 8, orbit: true })
       .then(sc => { if (disposed) { sc.dispose(); return; } scene = sc; stage.use(sc); });
     window.addEventListener('keydown', onKey);
   });
@@ -43,7 +45,7 @@
 <div class="screen title" bind:clientHeight={h} bind:clientWidth={w}>
   {#if game.profile}<GearButton floating />{/if}
   <div class="center">
-    <Logo size={Math.min(78, h * 0.085)} />
+    <Logo size={Math.min(78, h * 0.085, (w - 40) / 7.6)} />
     <p class="tag">{GAME_TAGLINE}</p>
     <button class="btn btn-primary btn-big play" onclick={go}>Let's play!</button>
     <div class="press">or press any key</div>

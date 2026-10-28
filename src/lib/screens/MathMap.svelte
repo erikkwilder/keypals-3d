@@ -333,4 +333,15 @@
     .go .btn { font-size: 18px; padding: 12px 18px; white-space: normal; }
   }
   @media (max-width: 760px) { .pill.goal span { display: none; } }
+
+  /* phones: one header row; the nav tiles show their pictures only, the goal pill and FancyAnt button go */
+  @media (max-width: 760px) {
+    .bar { flex-wrap: nowrap; gap: 5px !important; padding: 6px 8px !important; }
+    .bar .pill.goal, .bar .pill.stars, .bar > :global(button.round) { display: none; }
+    .navs { order: 0 !important; width: auto !important; gap: 4px; }
+    .navs :global(.tile) { flex: none !important; padding: 2px !important; }
+    .navs :global(.tile .lbl), .bar > :global(.tile .lbl) { display: none !important; }
+    .bar > :global(.tile) { padding: 2px !important; }
+    .subj { font-size: 20px !important; margin: 0 !important; }
+  }
 </style>

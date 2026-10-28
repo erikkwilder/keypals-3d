@@ -68,7 +68,9 @@ export class ShowScene implements Controller {
     const n = this.chars.length, gap = n > 14 ? 1.02 : 1.2;
     // one more in each row going back, so the rows interleave (6, 7, 8 for the whole cast of 21)
     const k = Math.floor(n / 3);
-    const per = n <= 7 ? [n] : n <= 14 ? [Math.floor(n / 2), Math.ceil(n / 2)] : [k - 1, k, n - 2 * k + 1];
+    // a tall, narrow screen (a phone) stands them three to a row
+    const narrow = stage.camera.aspect < 0.85;
+    const per = narrow && n > 3 ? Array.from({ length: Math.ceil(n / 3) }, (_, r) => Math.min(3, n - r * 3)) : n <= 7 ? [n] : n <= 14 ? [Math.floor(n / 2), Math.ceil(n / 2)] : [k - 1, k, n - 2 * k + 1];
     const out: { row: number; off: number }[] = [];
     per.forEach((c, r) => { for (let j = 0; j < c; j++) out.push({ row: r, off: (j - (c - 1) / 2) * gap }); });
     return out;
@@ -133,7 +135,7 @@ export class ShowScene implements Controller {
     focus.y = this.base.y;
     // fit the group's height into the band, and its width into the band's width
     const rows = n > 1 ? Math.max(...this.rows().map(x => x.row)) + 1 : 1;
-    const widest = n > 1 ? Math.max(...[0, 1, 2].map(r => this.rows().filter(x => x.row === r).length)) : 1;
+    const widest = n > 1 ? Math.max(...this.rows().map(x => x.row).map(r => this.rows().filter(x => x.row === r).length)) : 1;
     const groupW = n > 1 ? widest * (n > 14 ? 1.02 : 1.2) + 0.4 : 1.4;
     // one buddy: room above for a hat; a group: everyone fits across, and the back rows show over the front
     const dH = (n > 1 ? 1.45 + (rows - 1) * 0.45 : 2.0) / (bandH * 2 * tanH), dW = groupW / (bandW * 2 * tanH * cam.aspect);

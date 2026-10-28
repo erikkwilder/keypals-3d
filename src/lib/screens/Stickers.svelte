@@ -6,6 +6,7 @@
   import { RIDES, RIDE_SCORE } from '../engine/rides';
   import { STICKERS, MEDAL_TIERS, levelFromXp, medalTier, type StickerDef } from '../engine/stickers';
   import { palOf, teamOf } from '../engine/profile';
+  import { onTeam } from '../engine/team';
   import { renderSticker, renderMedal, TIER_LOOK } from '../art/stickerArt';
   import { sfx } from '../audio/sound';
   import Header from '../ui/Header.svelte';
@@ -50,7 +51,7 @@
 </script>
 
 <div class="screen book">
-  <Header title="Sticker Book" sub="{FRIEND[who].name}: {Object.keys(pal.stickers).length} of {STICKERS.length}">
+  <Header title="Sticker Book" sub="Your team: {Object.keys(pal.stickers).length} of {STICKERS.length}">
     {#snippet right()}
       <div class="tabs">
         <button class:on={tab === 'stickers'} onclick={() => (tab = 'stickers')}>Stickers</button>
@@ -61,13 +62,12 @@
   </Header>
 
   <div class="crew">
-    {#each BUDDIES as f (f.id)}
+    <!-- the stickers belong to the whole team; pick who appears in the pictures -->
+    {#each BUDDIES.filter(b => onTeam(p, b.id)) as f (f.id)}
       {@const pp = palOf(p, f.id)}
-      <button class="mate" class:on={who === f.id} onclick={() => pickFriend(f.id)}>
+      <button class="mate" class:on={who === f.id} onclick={() => pickFriend(f.id)} title="Show the stickers with {f.name}">
         <Critter friend={f.id} {look} accessory={pp.outfit} size={64} round />
         <span class="nm">{f.name}</span>
-        <span class="ct">{count(f.id)}/{STICKERS.length}</span>
-        <span class="lv" title="Friendship level">♥ {levelFromXp(pp.xp).level}</span>
       </button>
     {/each}
   </div>
