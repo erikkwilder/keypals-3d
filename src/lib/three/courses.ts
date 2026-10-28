@@ -129,8 +129,8 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
     const rope = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.025, 0.025, H, 6)), keep(new THREE.MeshStandardMaterial({ color: 0xe8543a, roughness: 0.7 })));
     rope.position.set(-0.85, H / 2 - 0.5, -0.2); root.add(rope);
     // rock pillars and spires either side, and behind
-    await scatter(root, 'world/rock_spire.glb', 18, [[-9, -4, 1.6, 0.3], [9.5, -5, 1.9, 2], [-16, -12, 2.4, 1], [17, -10, 2.6, 4], [-26, -24, 3, 5], [28, -22, 3.2, 2]]);
-    await scatter(root, 'world/cliff.glb', 10, [[-12, -2, 2.2, 1.4], [12.5, -2, 2.4, 4.4], [-22, 0, 2.8, 0.2], [23, 0, 3, 3.3]]);
+    // well back and out to the sides, so none of them comes between the camera and the climber
+    await scatter(root, 'world/rock_spire.glb', 18, [[-14, -10, 1.4, 0.3], [15, -11, 1.6, 2], [-22, -20, 2.2, 1], [23, -18, 2.4, 4], [-32, -34, 2.8, 5], [34, -32, 3, 2]]);
     // a meadow at the foot: grass, bushes, boulders, flowers
     const grassTex = await loadTexture('world/grass.webp', { repeat: true, color: true });
     if (grassTex) grassTex.repeat.set(30, 30);

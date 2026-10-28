@@ -87,6 +87,7 @@ export class RunScene implements Controller {
     this.here = island.trail.at(this.pos);
     stage.scene.add(me.root);
     this.puff = new Puff(stage.scene);
+    if (import.meta.env.DEV) (window as unknown as { __scene: RunScene }).__scene = this;
     me.play('idle', 0);
   }
 
@@ -378,8 +379,15 @@ export class RunScene implements Controller {
       // beside and a little behind, looking a bit ahead down the trail; the buddy (and ride) fills about
       // 62% of the open band of screen between the letters and the keyboard
       d = Math.max(3.8, Math.min(10, h / (bandH * 0.62 * 2 * tanH)));
-      wantPos.copy(centre).addScaledVector(f.t, -d * 0.3).addScaledVector(f.n, d * 0.94).y += d * 0.2;
-      aim.copy(centre).addScaledVector(f.t, 0.9);
+      if (this.course === 'climb') {
+        // out from the wall at the climber's height, a little to the side, looking slightly up the route
+        wantPos.copy(centre).addScaledVector(f.n, d * 0.95).add(new THREE.Vector3(d * 0.18, d * 0.05, 0));
+        // a climber's arms reach well above its middle: aim a little high so the head clears the question
+        aim.copy(centre).add(new THREE.Vector3(0, 0.3, 0));
+      } else {
+        wantPos.copy(centre).addScaledVector(f.t, -d * 0.3).addScaledVector(f.n, d * 0.94).y += d * 0.2;
+        aim.copy(centre).addScaledVector(f.t, 0.9);
+      }
     } else {
       // at the gate: in front, a little to one side; the buddy sits in the middle of the hero area
       const stop = this.island.trail.at(this.finishS);
@@ -404,7 +412,8 @@ export class RunScene implements Controller {
     const right = new THREE.Vector3().crossVectors(aim.clone().sub(wantPos).normalize(), new THREE.Vector3(0, 1, 0)).normalize();
     aim.addScaledVector(right, -ndcX * d * tanH * cam.aspect).y -= ndcY * d * tanH;
     if (!this.camReady) { this.camPos.copy(wantPos); this.camAim.copy(aim); this.camReady = true; }
-    const k = 1 - Math.exp(-dt * (this.phase === 'run' ? 4 : 2.2));
+    // the results card arrives quickly: the camera settles on its new framing just as fast
+    const k = 1 - Math.exp(-dt * (this.phase === 'run' ? 4 : this.phase === 'results' ? 6 : 2.2));
     this.camPos.lerp(wantPos, k); this.camAim.lerp(aim, k);
     cam.position.copy(this.camPos);
     cam.lookAt(this.camAim);
