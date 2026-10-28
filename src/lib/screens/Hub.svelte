@@ -101,8 +101,9 @@
     </div>
 
     <div class="doors">
-      <section class="door typing" style:--art="url({import.meta.env.BASE_URL}regions/{tNext.region}.webp)">
-        <button class="banner" onclick={() => open('typing')} aria-label="Open the Typing map">
+      <section class="door typing">
+        <!-- the picture as an inline style: a relative url() inside a custom property resolves against the stylesheet's folder, not the page -->
+        <button class="banner" style:background-image="url({import.meta.env.BASE_URL}regions/{tNext.region}.webp)" onclick={() => open('typing')} aria-label="Open the Typing map">
           <span class="sign"><svg viewBox="0 0 32 24" aria-hidden="true"><rect x="2" y="3" width="28" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2.4" /><path d="M7 9h2M12 9h2M17 9h2M22 9h3M8 15h16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" /></svg></span>
           <span class="name">Typing</span>
           <span class="tag">All ten fingers, no peeking</span>
@@ -122,8 +123,8 @@
         </div>
       </section>
 
-      <section class="door math" style:--art="url({import.meta.env.BASE_URL}regions/{worldOf(mNext)}.webp)">
-        <button class="banner" onclick={() => open('math')} aria-label="Open the Math map">
+      <section class="door math">
+        <button class="banner" style:background-image="url({import.meta.env.BASE_URL}regions/{worldOf(mNext)}.webp)" onclick={() => open('math')} aria-label="Open the Math map">
           <span class="sign"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 7v8M5 11h8M19 11h8M7 21l4 4M11 21l-4 4M19 21h8M19 25h8" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" /></svg></span>
           <span class="name">Math</span>
           <span class="tag">Add, take away, times and share</span>
@@ -172,7 +173,7 @@
   .doors { display: grid; grid-template-columns: repeat(2, minmax(0, 520px)); gap: 26px; width: 100%; justify-content: center; }
   .door { border-radius: 30px; overflow: hidden; background: #fff; box-shadow: 0 18px 40px -22px rgba(60, 40, 110, .55), 0 0 0 4px #fff; display: flex; flex-direction: column; transition: transform .18s; }
   .door:hover { transform: translateY(-4px); }
-  .banner { position: relative; height: clamp(150px, 24vh, 230px); border: 0; padding: 0; cursor: pointer; background: var(--art) center / cover no-repeat; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; padding: 16px 20px; text-align: left; color: #fff; }
+  .banner { position: relative; height: clamp(150px, 24vh, 230px); border: 0; padding: 0; cursor: pointer; background-position: center; background-size: cover; background-repeat: no-repeat; background-color: #cfe2f5; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; padding: 16px 20px; text-align: left; color: #fff; }
   .banner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 20%, var(--shade) 92%); }
   .typing { --shade: rgba(84, 52, 190, .88); --tone: #7c5cf5; }
   .math { --shade: rgba(214, 96, 24, .88); --tone: #ef7d2b; }
