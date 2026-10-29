@@ -20,17 +20,24 @@
     {/each}
   </span>
 {:else}
-  <!-- 100 squares of chocolate: the eaten ones show the wooden tray -->
+  <!-- 100 squares of chocolate on a wooden tray: the ones still there are glossy chocolate, the eaten ones
+       show the pale tray (counting the chocolate, row by row, is counting hundredths) -->
   {@const cell = 10}
   <svg class="slab" viewBox="0 0 108 108" width={size} height={size} role="img" aria-label="{pic.filled} of 100 squares">
     <defs>
-      <clipPath id="{uid}c">{#each Array(pic.filled) as _, i}<rect x={4 + (i % 10) * cell + 0.5} y={4 + Math.floor(i / 10) * cell + 0.5} width={cell - 1} height={cell - 1} rx="1.2" />{/each}</clipPath>
+      <linearGradient id="{uid}ch" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9a5a34" /><stop offset=".45" stop-color="#6e3a1d" /><stop offset="1" stop-color="#4f2711" /></linearGradient>
+      <linearGradient id="{uid}tr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2dcb4" /><stop offset="1" stop-color="#e2c393" /></linearGradient>
     </defs>
-    <image href="{base}math/frac/tray.webp" x="0" y="0" width="108" height="108" preserveAspectRatio="none" />
-    <image href="{base}math/frac/bar.webp" x="4" y="4" width="100" height="100" preserveAspectRatio="none" clip-path="url(#{uid}c)" />
-    {#each Array(9) as _, i}
-      <line x1={4 + (i + 1) * cell} y1="4" x2={4 + (i + 1) * cell} y2="104" stroke="#fff" stroke-width="0.6" opacity=".75" />
-      <line x1="4" y1={4 + (i + 1) * cell} x2="104" y2={4 + (i + 1) * cell} stroke="#fff" stroke-width="0.6" opacity=".75" />
+    <rect x="0" y="0" width="108" height="108" rx="7" fill="#b98a55" />
+    <rect x="2" y="2" width="104" height="104" rx="6" fill="#d9b27a" />
+    {#each Array(100) as _, i}
+      {@const x = 4 + (i % 10) * cell, y = 4 + Math.floor(i / 10) * cell}
+      {#if i < pic.filled}
+        <rect x={x + 0.5} y={y + 0.5} width={cell - 1} height={cell - 1} rx="1.4" fill="url(#{uid}ch)" />
+        <rect x={x + 1.6} y={y + 1.3} width={cell - 3.2} height="1.6" rx=".8" fill="#fff" opacity=".28" />
+      {:else}
+        <rect x={x + 0.5} y={y + 0.5} width={cell - 1} height={cell - 1} rx="1.4" fill="url(#{uid}tr)" opacity=".9" />
+      {/if}
     {/each}
   </svg>
 {/if}
