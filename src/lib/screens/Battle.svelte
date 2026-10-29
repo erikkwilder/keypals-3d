@@ -17,7 +17,8 @@
   import { trickOf } from '../math/course';
   import { BUDDY_ROLE, ELEMENT, GEAR, GLIMMER, RARITY, ROLE, rarityRank, type Element } from '../adventure/glimmers';
   import { newBattle, play, block as doBlock, finale as doFinale, swap as doSwap, openFact, sparkFor, useGlow, FINALE_AT, type Battle, type BEvent, type Card } from '../adventure/battle';
-  import { advOf, applyBattle, foeFor, ISLAND, mathPool, NODE, teamOf, typingPool, type BattleOutcome } from '../adventure/state';
+  import { advOf, advView, applyBattle, foeFor, ISLAND, markSeen, mathPool, NODE, teamOf, typingPool, type BattleOutcome } from '../adventure/state';
+  import Coach from '../ui/Coach.svelte';
   import NumPad from '../math/ui/NumPad.svelte';
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
@@ -76,6 +77,19 @@
   let stageEl: HTMLDivElement | undefined = $state();
   let raf = 0;
 
+  // tips for a first-time player (shown once each)
+  const seen = new Set(advView(p0).seen ?? []);
+  const firstBattle = !seen.has('battle1');
+  let coach = $state<{ text: string; at: string | null; button?: string; id: string } | null>(null);
+  let help = $state(false);
+  function tip(id: string, text: string, at: string | null, button?: string) {
+    if (seen.has(id)) return;
+    seen.add(id); coach = { id, text, at, button };
+  }
+  function closeTip(id?: string) { if (!id || coach?.id === id) coach = null; }
+  const foeName = GLIMMER[foe.glimmer].name;
+  const canPerfect = $derived(subject === 'math' ? cards.some(c => c.fact && answerOf(c.fact) === grumpNow) : cards.some(c => c.word?.length === grumpNow));
+
   // the end
   let out = $state<BattleOutcome | null>(null);
   let step = $state(0);
@@ -102,8 +116,11 @@
     } catch (e) { console.error(e); }
     ui = 'intro';
     sfx.grumble();
-    bigBanner = { text: champion ? `Champion of ${island.name}!` : 'A Grumble!', sub: champion ? 'A huge storm cloud with a Legendary Glimmer inside.' : 'Something is glowing inside. Cheer it up to find out what!', kind: champion ? 'champ' : 'intro', key: Date.now() };
-    setTimeout(() => { bigBanner = null; sync(); ui = 'pick'; }, champion ? 2600 : 2000);
+    bigBanner = { text: `${foeName} is grumpy!`, sub: champion ? `The Champion of ${island.name}. Cheer it up and it joins your team!` : 'Answer cards to cheer it up. Then it joins your team!', kind: champion ? 'champ' : 'intro', key: Date.now() };
+    setTimeout(() => {
+      bigBanner = null; sync(); ui = 'pick';
+      if (firstBattle) tip('t-cards', 'Tap a card, then type the answer. Every right answer cheers it up, and bigger answers cheer more!', '.cards');
+    }, champion ? 2800 : 2300);
   });
   onDestroy(() => { disposed = true; cancelAnimationFrame(raf); clearInterval(blockTimer); removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
 
@@ -124,6 +141,7 @@
   // ---------- picking and answering ----------
   function pick(c: Card) {
     if (ui !== 'pick') return;
+    closeTip('t-cards'); closeTip('strong');
     sel = c; choice = null; typed = ''; wordPos = 0; wordErr = 0; glowText = '';
     ui = 'answer'; sfx.click();
     shownAt = performance.now();
@@ -182,6 +200,7 @@
 
   async function doTheFinale() {
     if (ui !== 'pick' || b.finale < FINALE_AT) return;
+    closeTip('t-finale');
     ui = 'busy'; sfx.finale();
     bigBanner = { text: 'Finale!', sub: `${FRIEND[p0.buddy].name} takes the stage`, kind: 'finale', key: Date.now() };
     setTimeout(() => (bigBanner = null), 1600);
@@ -209,29 +228,29 @@
           sfx.hit(Math.min(1, e.value / Math.max(1, b.foe.max) * 3));
           float('foe', `−${e.value}`, e.card.element);
           if (e.perfect) { sfx.perfect(); bigBanner = { text: 'Perfect Cheer!', sub: `Exactly ${e.value}!`, kind: 'perfect', key: Date.now() }; burst++; }
-          else if (e.super) say(`Super! ${ELEMENT[e.card.element].name} ${ELEMENT[e.card.element].verb} ${ELEMENT[b.foe.element].name}.`, 'super');
+          else if (e.super) say(`⚡ Strong! ${ELEMENT[e.card.element].name} beats ${ELEMENT[b.foe.element].name}.`, 'super');
         } else { sfx.miss(); say(subject === 'math' && e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
         sync();
       } else if (e.k === 'extra') {
         const slot = e.id ? team.findIndex(m => m.id === e.id) : -1;
         await scene?.extra(slot, e.id ? GLIMMER[e.id].element : 'sun');
-        sfx.pop(); float(slot === 1 ? 'team1' : slot === 0 ? 'team0' : 'buddy', `${e.what} −${e.value}`, 'extra');
+        sfx.pop(); float(slot === 1 ? 'team1' : slot === 0 ? 'team0' : 'buddy', `${e.id ? GLIMMER[e.id].name : e.what} helps!`, 'extra');
         float('foe', `−${e.value}`, 'extra');
         sync();
       } else if (e.k === 'heal') {
         const slot = e.id ? team.findIndex(m => m.id === e.id) : -1;
         scene?.heal(slot); sfx.heal();
-        float('buddy', `+${e.value} ${e.what}`, 'heal'); sync();
+        float('buddy', `+${e.value} energy`, 'heal'); sync();
         await sleep(300);
       } else if (e.k === 'freeze') { scene?.freeze(team.findIndex(m => m.id === e.id)); sfx.freeze(); say(`${GLIMMER[e.id].name} froze the Grumble!`, 'super'); await sleep(400); }
       else if (e.k === 'dazzle') { scene?.dazzle(); }
-      else if (e.k === 'streakKept') { say(`${GLIMMER[e.id].name} kept your streak going!`, 'good'); }
+      else if (e.k === 'streakKept') { say(`${GLIMMER[e.id].name} kept your row going!`, 'good'); }
       else if (e.k === 'aurora') { scene?.aurora(); sfx.reveal(3); say('Aurora! Your Finale is ready.', 'super'); await sleep(600); }
-      else if (e.k === 'finaleReady') { sfx.badge(); say('Finale ready! Tap it when you like.', 'good'); }
+      else if (e.k === 'finaleReady') { sfx.badge(); }
       else if (e.k === 'finale') { sfx.hit(1); float('foe', `−${e.value}`, 'finale'); sync(); }
       else if (e.k === 'mischief') {
         if (e.result === 'skip') {
-          say(e.why === 'frozen' ? 'Frozen! The Grumble can\'t move.' : e.why === 'Hover' ? 'Hover! You floated right over it.' : `${e.why} bounced it off!`, 'good');
+          say(e.why === 'frozen' ? `Frozen! ${foeName} can't send anything.` : e.why === 'Hover' ? 'Hover! You floated right over it.' : `${e.why} blocked it for you!`, 'good');
           await scene?.mischief(e.kind, 'skip', e.why);
         } else {
           if (e.kind === 'zap') sfx.zap(); else sfx.whoosh();
@@ -240,19 +259,27 @@
           else { if (e.result === 'half') sfx.shield(false); sfx.ouch(); float('buddy', `−${e.damage}`, 'hurt'); }
           sync();
         }
-      } else if (e.k === 'secondwind') { scene?.heal(team.findIndex(m => GLIMMER[m.id].power.kind === 'secondwind')); sfx.heal(); say('Sky Whale sings your Spark back up!', 'super'); float('buddy', `+${e.value}`, 'heal'); sync(); }
+      } else if (e.k === 'secondwind') { scene?.heal(team.findIndex(m => GLIMMER[m.id].power.kind === 'secondwind')); sfx.heal(); say('Sky Whale gives you energy back!', 'super'); float('buddy', `+${e.value} energy`, 'heal'); sync(); }
       else if (e.k === 'won') { await won(e.perfect); return; }
       else if (e.k === 'lost') { lost(); return; }
     }
     sync();
     if (b.phase === 'block') startBlock();
-    else if (b.phase === 'pick') { ui = 'pick'; swapOk = role === 'trick' && !b.used.swap; }
+    else if (b.phase === 'pick') {
+      ui = 'pick'; swapOk = role === 'trick' && !b.used.swap;
+      if (firstBattle && b.stats.right >= 1) tip('t-grumpy', 'See its Grumpy bar go down? Get it all the way to 0 and it will be happy again.', '.bar.grump', 'Got it');
+      if (firstBattle && b.stats.blocks >= 1 && seen.has('t-grumpy') && coach === null) tip('t-energy', 'This is your energy. Rain and zaps take some when you don\'t block them. If it runs out, you can try again.', '.bar.spark', 'Got it');
+      if (b.finale >= FINALE_AT) tip('t-finale', 'Five right in a row! Tap Finale for your buddy\'s big move. It cheers up a lot!', '.finalebig');
+      else if (coach === null && cards.some(c => c.super)) tip('strong', 'Cards with ⚡ are extra strong against this Glimmer: they also calm its next rain and fill a Finale star.', '.card.super', 'Got it');
+      else if (coach === null && canPerfect && b.stats.right >= 2) tip('perfect', `Bonus: answer exactly ${grumpNow} for a Perfect Cheer! You get extra shells and an egg.`, '.bar.grump', 'Got it');
+    }
     void fromFinale;
   }
 
   function startBlock() {
     const bl = b.block!;
     blk = { name: bl.name, fact: bl.fact, word: bl.word, limitMs: bl.limitMs };
+    if (firstBattle) tip('t-block', `Uh oh, ${bl.name.toLowerCase()}! Answer this one before the timer runs out to block it.`, '.blockbox');
     blockTyped = ''; wordPos = 0; wordErr = 0;
     ui = 'block'; blockAt = performance.now(); blockLeft = 1;
     scene?.windup(); sfx.grumble();
@@ -260,8 +287,8 @@
     blockTimer = window.setInterval(() => {
       const k = (performance.now() - blockAt) / bl.limitMs;
       blockLeft = Math.max(0, 1 - k);
-      // if nothing comes at all, the mischief lands after a while
-      if (k > 3) submitBlock(true);
+      // out of time: it lands
+      if (k >= 1) submitBlock(true);
     }, 50);
   }
   async function submitBlock(timeout = false) {
@@ -269,7 +296,8 @@
     clearInterval(blockTimer);
     const ms = performance.now() - blockAt;
     const ok = !timeout && (subject === 'math' ? !!blk.fact && Number(blockTyped) === answerOf(blk.fact) : wordErr === 0);
-    if (subject === 'math' && blk.fact && !ok && !timeout) say(`${factText(blk.fact)} = ${answerOf(blk.fact)}`, 'miss');
+    if (subject === 'math' && blk.fact && !ok) say(timeout ? `Too slow! ${factText(blk.fact)} = ${answerOf(blk.fact)}` : `${factText(blk.fact)} = ${answerOf(blk.fact)}`, 'miss');
+    closeTip('t-block');
     blk = null; ui = 'busy';
     await run(doBlock(b, ok, ms));
   }
@@ -284,7 +312,8 @@
     });
     const res = o as BattleOutcome | null;
     if (!res?.met) { out = res; ui = 'won'; return; }
-    bigBanner = null; toast = null;
+    bigBanner = null; toast = null; coach = null;
+    game.update(pp => markSeen(pp, 'battle1', ...seen));
     await scene?.cheerUp(res.met.id, res.met.rarity);
     sfx.reveal(rarityRank(res.met.rarity));
     burst++;
@@ -293,13 +322,15 @@
     setTimeout(() => (step = 2), 2600);
   }
   function lost() {
-    ui = 'lost';
+    ui = 'lost'; coach = null;
+    game.update(pp => markSeen(pp, 'battle1', ...seen));
     scene?.lose();
     game.update(pp => { out = applyBattle(pp, { node: node.id, subject, won: false, perfect: false, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, team: team.map(t => t.id), crystal: false, treasureNose: false, at: Date.now(), seed }); });
   }
   function toMap() { game.go('adventure'); }
   function again() { game.battleKey++; }
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+  const RARE_WORDS: Record<string, string> = { common: 'Easy to find', uncommon: 'A bit harder to find', rare: 'Hard to find!', epic: 'Very hard to find!', legendary: 'One of a kind!', mythic: 'The rarest of all!' };
   const grumpPct = $derived((grump.current / Math.max(1, b.foe.max)) * 100);
   const sparkPct = $derived((spark.current / Math.max(1, b.sparkMax)) * 100);
   const strongEl = $derived(Object.entries(ELEMENT).find(([, v]) => v.beats === b.foe.element)?.[0] as Element);
@@ -310,24 +341,23 @@
 <div class="battle" class:narrow>
   <div class="top">
     <button class="leave" onclick={toMap} aria-label="Leave the battle">‹</button>
-    <div class="where"><small>{island.name}</small><b>{champion ? 'Champion' : `Battle ${node.n + 1}`}</b></div>
-    <div class="weak" title="Strong against this Grumble"><span>Weak to</span><img src="{base}game/icon-{strongEl}.webp" alt={ELEMENT[strongEl].name} /></div>
+    <div class="where"><small>{island.name}</small><b>{champion ? 'Champion battle' : `Battle ${node.n + 1}`}</b></div>
+    <button class="helpbtn" onclick={() => { help = true; sfx.pop(); }} aria-label="How to play">?</button>
   </div>
 
-  <!-- the two bars float over the buddy and the Grumble (on phones they sit at the top) -->
-  <div class="bar spark" style:left={narrow ? '12px' : `${budPos.x * 100}%`} style:top={narrow ? '64px' : `${budPos.y * 100}%`}>
+  <!-- your energy over your buddy, its grumpy bar over it (on phones both sit at the top) -->
+  <div class="bar spark" style:left={narrow ? '10px' : `${budPos.x * 100}%`} style:top={narrow ? '62px' : `${budPos.y * 100}%`}>
     <img class="bi" src="{base}game/icon-spark.webp" alt="" />
-    <div class="bt"><span>Spark <b>{sparkNow}</b><i>/{b.sparkMax}</i></span><div class="track"><div class="fill" style:width="{sparkPct}%"></div></div></div>
+    <div class="bt"><span class="lab">Your energy</span><div class="track"><div class="fill" style:width="{sparkPct}%"></div></div><span class="num"><b>{sparkNow}</b> / {b.sparkMax}</span></div>
   </div>
-  <div class="bar grump" class:champ={champion} style:left={narrow ? 'auto' : `${foePos.x * 100}%`} style:right={narrow ? '12px' : 'auto'} style:top={narrow ? '64px' : `${foePos.y * 100}%`}>
+  <div class="bar grump" class:champ={champion} style:left={narrow ? 'auto' : `${foePos.x * 100}%`} style:right={narrow ? '10px' : 'auto'} style:top={narrow ? '62px' : `${foePos.y * 100}%`}>
     <img class="bi" src="{base}game/icon-grump.webp" alt="" />
-    <div class="bt"><span>Grump <b>{grumpNow}</b></span><div class="track"><div class="fill" style:width="{grumpPct}%"></div></div></div>
+    <div class="bt"><span class="lab">{foeName} is grumpy</span><div class="track"><div class="fill" style:width="{grumpPct}%"></div></div><span class="num"><b>{grumpNow}</b> grumps left</span></div>
   </div>
 
   <div class="teamrow">
-    <span class="bud"><Critter friend={p0.buddy} size={narrow ? 38 : 50} round /><em title={ROLE[role].text}>{ROLE[role].name}</em></span>
-    {#each team as m (m.id)}<span class="mate" title="{GLIMMER[m.id].name}: {GLIMMER[m.id].power.text(m.level)}"><img src="{base}game/glimmers/{m.id}.webp" alt="" /><em>{GLIMMER[m.id].power.name}</em></span>{/each}
-    {#if gear}<span class="gear" title={gear.text}><img src="{base}outfits/{outfit}.webp" alt="" /><em>{gear.name}</em></span>{/if}
+    <span class="bud" title={ROLE[role].text}><Critter friend={p0.buddy} size={narrow ? 34 : 44} round /><em><b>{FRIEND[p0.buddy].name}</b>{ROLE[role].name}</em></span>
+    {#each team as m (m.id)}<span class="mate" title={GLIMMER[m.id].power.text(m.level)}><img src="{base}game/glimmers/{m.id}.webp" alt="" /><em><b>{GLIMMER[m.id].name}</b>{GLIMMER[m.id].power.name}</em></span>{/each}
   </div>
 
   <div class="stage" bind:this={stageEl}></div>
@@ -337,46 +367,48 @@
   {#if bigBanner}{#key bigBanner.key}<div class="big {bigBanner.kind}"><b>{bigBanner.text}</b>{#if bigBanner.sub}<small>{bigBanner.sub}</small>{/if}</div>{/key}{/if}
 
   <div class="bottom">
-    <!-- the Finale meter and buttons -->
-    <div class="meter" class:full={finaleN >= FINALE_AT}>
-      {#each Array(FINALE_AT) as _, i}<img class:on={i < finaleN} src="{base}game/icon-star.webp" alt="" />{/each}
-      {#if finaleN >= FINALE_AT && ui === 'pick'}<button class="finale" onclick={doTheFinale}><img src="{base}game/icon-finale.webp" alt="" />Finale!</button>{/if}
-      {#if swapOk && ui === 'pick'}<button class="swap" onclick={swapCards}>Swap cards</button>{/if}
-    </div>
+    {#if finaleN >= FINALE_AT && ui === 'pick'}
+      <button class="finalebig" onclick={doTheFinale}><img src="{base}game/icon-finale.webp" alt="" /><span><b>Finale!</b><small>Tap for {FRIEND[p0.buddy].name}'s big move</small></span></button>
+    {:else}
+      <div class="meter" title="Five right in a row unlocks the Finale">
+        <span class="ml">Finale</span>
+        {#each Array(FINALE_AT) as _, i}<img class:on={i < finaleN} src="{base}game/icon-star.webp" alt="" />{/each}
+      </div>
+    {/if}
 
     {#if ui === 'pick' || ui === 'intro' || ui === 'loading'}
       <div class="cards" class:dim={ui !== 'pick'}>
         {#each cards as c, i (c.id)}
           <button class="card el-{c.element}" class:super={c.super} class:bloom={c.bloom} style:--d="{i * 0.08}s" onclick={() => pick(c)} disabled={ui !== 'pick'}>
-            <img class="ci" src="{base}game/icon-{c.element}.webp" alt="" />
-            <span class="ct"><small>{c.name}{#if c.super}<em>Super!</em>{/if}{#if c.bloom}<em class="bl">In bloom</em>{/if}</small>
-              <b>{#if c.fact}{factText(c.fact)}{:else if c.open}{c.open.a} {opSign(c.open.op)} ?{:else}{c.word}{/if}</b></span>
+            <img class="ci" src="{base}game/icon-{c.element}.webp" alt={ELEMENT[c.element].name} />
+            <span class="ct"><b>{#if c.fact}{factText(c.fact)}{:else}{c.word}{/if}</b>
+              {#if c.super}<em>⚡ Strong</em>{:else if c.bloom}<em class="bl">You know this one</em>{/if}</span>
           </button>
         {/each}
       </div>
-      <p class="hint">{ui === 'pick' ? (subject === 'math' ? 'Pick a power. The number you make cheers it up: land on exactly 0 for a Perfect Cheer!' : 'Type a word to cast it. Its letters cheer it up: match the Grump exactly for a Perfect Cheer!') : ''}</p>
+      <div class="actions">
+        <p class="hint">{ui === 'pick' ? (subject === 'math' ? 'Tap a card and answer it to cheer up ' + foeName + '!' : 'Type a word to cheer up ' + foeName + '!') : ''}</p>
+        {#if swapOk && ui === 'pick'}<button class="swap" onclick={swapCards}>🔀 New cards</button>{/if}
+      </div>
     {:else if ui === 'answer' && sel}
       <div class="answer el-{sel.element}">
-        {#if sel.open && choice === null}
-          <p class="ask">Grump is <b>{grumpNow}</b>. Pick the number: <b>{sel.open.a} {opSign(sel.open.op)} ?</b></p>
-          <div class="chips">{#each Array.from({ length: sel.open.max + 1 }, (_, k) => k).filter(k => sel!.open!.op !== 'x' || k > 0) as k}<button class:hit={(sel.open.op === 'x' ? sel.open.a * k : sel.open.a + k) === grumpNow} onclick={() => choose(k)}>{k}</button>{/each}</div>
-        {:else if subject === 'math'}
+        {#if subject === 'math'}
           {@const f = fact(sel)!}
           {#key shakeKey}<div class="eq" class:shake={shakeKey > 0}><span>{factText(f)} =</span><span class="box">{typed || ' '}</span></div>{/key}
-          {#if glowOk && !glowText}<button class="glowbtn" onclick={askGlow}>✨ Ask Spark Moth</button>{/if}
-          {#if glowText}<p class="glow">✨ {glowText}</p>{/if}
+          {#if glowOk && !glowText}<button class="glowbtn" onclick={askGlow}>💡 Hint from Spark Moth</button>{/if}
+          {#if glowText}<p class="glow">💡 {glowText}</p>{/if}
           <NumPad ondigit={digit} onback={backspace} compact={narrow} />
         {:else}
           {#key shakeKey}<div class="word" class:shake={shakeKey > 0}>{#each sel.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/key}
           <p class="ask">Type it! {wordErr ? `${wordErr} slip${wordErr === 1 ? '' : 's'}` : 'No slips so far'}</p>
         {/if}
-        <button class="backbtn" onclick={back}>Pick another card</button>
+        <button class="backbtn" onclick={back}>Pick a different card</button>
       </div>
     {:else if ui === 'block' && blk}
       <div class="blockbox">
-        <div class="ring" style:--k={blockLeft}><span>{Math.ceil(blockLeft * blk.limitMs / 1000)}</span></div>
+        <div class="ring" style:--k={blockLeft}><span>{Math.max(0, Math.ceil(blockLeft * blk.limitMs / 1000))}</span></div>
         <div class="bq">
-          <p><b>{blk.name}!</b> Block it, quick:</p>
+          <p><b>{blk.name}!</b> Answer fast to block it:</p>
           {#if blk.fact}<div class="eq small"><span>{factText(blk.fact)} =</span><span class="box">{blockTyped || ' '}</span></div>
           {:else}<div class="word small">{#each blk.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/if}
         </div>
@@ -389,23 +421,27 @@
     {@const m = out.met}
     <div class="reveal r-{m.rarity}">
       <div class="rays"></div>
-      <div class="rtitle"><small>{m.shimmered ? 'It shimmered into' : 'You cheered up'}</small><b>{RARITY[m.rarity].name}{m.shimmered ? '!' : ''}</b></div>
-      <div class="rcard" class:in={step >= 0}><GlimmerCard id={m.id} width={narrow ? 170 : 230} level={m.level} shine /></div>
+      <div class="rtitle"><small>{GLIMMER[m.id].name} is happy again!</small><b>{RARITY[m.rarity].name}</b><em>{RARE_WORDS[m.rarity]}</em></div>
+      <div class="rcard"><GlimmerCard id={m.id} width={narrow ? 160 : 210} level={m.level} shine /></div>
       <div class="rinfo" class:in={step >= 1}>
-        <h2>{GLIMMER[m.id].name}{m.isNew ? ' joined your team!' : ''}</h2>
-        {#if m.isNew}<p class="pw"><b>{GLIMMER[m.id].power.name}:</b> {GLIMMER[m.id].power.text(1)}</p><p class="qk">{GLIMMER[m.id].quirk}</p>
-        {:else}<p class="pw">You have one already: it turned into stardust{m.ups ? `, and ${GLIMMER[m.id].name} grew to level ${m.level}` : ''}!</p>{/if}
+        {#if m.isNew}
+          <h2>{GLIMMER[m.id].name} joined your team!</h2>
+          <p class="pw"><b>In battles it helps you:</b> {GLIMMER[m.id].power.text(1)}</p>
+        {:else}
+          <h2>You already have {GLIMMER[m.id].name}</h2>
+          <p class="pw">So yours got stronger{m.ups ? `: now level ${m.level}` : ''}! Find a new kind by playing other battles, or hatch an egg.</p>
+        {/if}
       </div>
       <div class="rewards" class:in={step >= 2}>
-        <span class="rw"><img src="{base}game/icon-shell.webp" alt="" />+{out.shells} shells</span>
-        <span class="rw"><Critter friend={p0.buddy} size={32} round />+{out.xp.gained} friendship</span>
-        {#if out.egg}<span class="rw egg"><img src="{base}game/egg-{out.egg.rarity}.webp" alt="" />{RARITY[out.egg.rarity].name} egg{out.eggWhere === 'nest' ? ' (in the nest)' : ''}</span>{/if}
-        {#each out.rewards as r}<span class="rw"><img src="{base}outfits/{r.id}.webp" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')} />{r.name} unlocked</span>{/each}
-        {#each out.teamUps as u}<span class="rw">{GLIMMER[u.id].name} reached level {u.level}</span>{/each}
+        <span class="rw" title="Spend shells in the shop"><img src="{base}game/icon-shell.webp" alt="" />+{out.shells} shells</span>
+        <span class="rw"><Critter friend={p0.buddy} size={30} round />+{out.xp.gained} friendship with {FRIEND[p0.buddy].name}</span>
+        {#if out.egg}<span class="rw egg"><img src="{base}game/egg-{out.egg.rarity}.webp" alt="" />An egg! Practice to hatch it</span>{/if}
+        {#each out.rewards as r}<span class="rw"><img src="{base}outfits/{r.id}.webp" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')} />New: {r.name}</span>{/each}
+        {#each out.teamUps as u}<span class="rw">{GLIMMER[u.id].name} is now level {u.level}</span>{/each}
       </div>
-      {#if out.islandDone}<div class="island-done">🌈 {island.name} is free of storms!</div>{/if}
+      {#if out.islandDone}<div class="island-done">🌈 {island.name} is free of storms! The next island is open.</div>{/if}
       <div class="rbtns" class:in={step >= 2}>
-        <button class="btn" onclick={again}>Battle again</button>
+        <button class="btn" onclick={again}>Play again</button>
         <button class="btn btn-primary" onclick={toMap}>Back to the map <span class="kbd">enter</span></button>
       </div>
     </div>
@@ -414,9 +450,33 @@
   {/if}
   {#if ui === 'lost'}
     <div class="lostbox card">
-      <h2>The Grumble drifted away…</h2>
-      <p>{FRIEND[p0.buddy].name} needs a rest. Blocking saves Spark: answer the quick ones fast!</p>
+      <h2>Out of energy!</h2>
+      <p>{foeName} is still grumpy. Tip: when rain or a zap is coming, answer the quick one fast to block it.</p>
       <div class="rbtns in"><button class="btn" onclick={toMap}>Back to the map</button><button class="btn btn-primary" onclick={again}>Try again</button></div>
+    </div>
+  {/if}
+
+  {#if coach}<Coach text={coach.text} at={coach.at} button={coach.button} onok={() => (coach = null)} />{/if}
+
+  {#if help}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="helpbg" onclick={() => (help = false)}>
+      <div class="helpcard card" onclick={(e) => e.stopPropagation()}>
+        <h2>How to play</h2>
+        <ul>
+          <li><b>🎯 The goal:</b> cheer up {foeName}. When its grumpy bar reaches 0, it's happy again and joins your team.</li>
+          <li><b>🃏 Cards:</b> tap one and answer it. Right answers cheer it up. Bigger answers cheer more.</li>
+          <li><b>🌧️ Blocking:</b> when it sends rain or a zap, answer the quick one before the timer runs out.</li>
+          <li><b>❤️ Energy:</b> you lose some when you don't block. If it runs out, you can try again.</li>
+          <li><b>⭐ Finale:</b> five right in a row unlocks your buddy's big move.</li>
+          <li><b>⚡ Strong cards</b> also calm its next rain and fill a Finale star.</li>
+          <li><b>✨ Perfect Cheer:</b> answer exactly its grumpy number to finish: extra shells and an egg.</li>
+        </ul>
+        {#if team.length}<h3>Your team helps</h3><ul>{#each team as m}<li><b>{GLIMMER[m.id].name}:</b> {GLIMMER[m.id].power.text(m.level)}</li>{/each}</ul>{/if}
+        <p class="muted small"><b>{FRIEND[p0.buddy].name} ({ROLE[role].name}):</b> {ROLE[role].text}{#if gear} <b>Outfit ({gear.name}):</b> {gear.text}{/if}</p>
+        <button class="btn btn-primary" onclick={() => (help = false)}>Got it</button>
+      </div>
     </div>
   {/if}
   <Confetti {burst} count={80} x={60} y={35} spread={1.6} />
@@ -431,15 +491,15 @@
   .where { display: flex; flex-direction: column; background: rgba(255, 255, 255, .9); border-radius: 16px; padding: 4px 14px; box-shadow: var(--shadow-sm); }
   .where small { font: 800 11px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .where b { font: 600 18px var(--font-ui); color: var(--ink); }
-  .weak { margin-left: auto; display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 4px 6px 4px 12px; box-shadow: var(--shadow-sm); font: 800 12px var(--font-body); color: var(--ink2); }
-  .weak img { width: 30px; height: 30px; }
+  .helpbtn { margin-left: auto; width: 46px; height: 46px; border-radius: 50%; border: 0; background: #fff; font: 600 26px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); }
 
   .bar { position: absolute; transform: translate(-50%, -100%); display: flex; align-items: center; gap: 6px; padding: 6px 14px 6px 6px; border-radius: 999px; background: linear-gradient(#ffffff, #eef2ff); box-shadow: 0 0 0 3px rgba(255, 255, 255, .9), 0 10px 24px -10px rgba(30, 20, 70, .55); min-width: 210px; z-index: 5; transition: left .1s linear, top .1s linear; }
   .narrow .bar { transform: none; min-width: 0; width: calc(50% - 18px); transition: none; }
-  .bar .bi { width: 40px; height: 40px; flex: none; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .2)); }
+  .bar .bi { width: 40px; height: 40px; flex: none; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .2)); }
   .bt { flex: 1; display: flex; flex-direction: column; gap: 3px; }
-  .bt span { font: 600 17px var(--font-ui); color: var(--ink); line-height: 1; }
-  .bt span b { font-size: 21px; } .bt span i { font-style: normal; font-size: 13px; color: var(--muted); }
+  .bt .lab { font: 600 15px var(--font-ui); color: var(--ink); line-height: 1; white-space: nowrap; }
+  .bt .num { font: 700 12px var(--font-body); color: var(--muted); line-height: 1; }
+  .bt .num b { font: 600 17px var(--font-ui); color: var(--ink); }
   .track { height: 12px; border-radius: 999px; background: #e6e2f2; overflow: hidden; box-shadow: inset 0 2px 3px rgba(40, 20, 80, .18); }
   .fill { height: 100%; border-radius: 999px; }
   .spark .fill { background: linear-gradient(90deg, #ff5e3a, #ffb52e, #ffe066); box-shadow: 0 0 10px #ffb52e; }
@@ -448,7 +508,9 @@
 
   .teamrow { position: absolute; left: 16px; top: 70px; display: flex; flex-direction: column; gap: 8px; z-index: 4; }
   .narrow .teamrow { top: 128px; left: 10px; gap: 5px; }
-  .teamrow > span { display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, .88); border-radius: 999px; padding: 3px 12px 3px 3px; box-shadow: var(--shadow-sm); font: 700 12px var(--font-body); color: var(--ink2); }
+  .teamrow > span { display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 3px 14px 3px 3px; box-shadow: var(--shadow-sm); font: 700 12px var(--font-body); color: var(--muted); cursor: help; }
+  .teamrow em { display: flex; flex-direction: column; line-height: 1.15; }
+  .teamrow em b { font: 600 14px var(--font-ui); color: var(--ink); }
   .teamrow img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; object-position: center 35%; background: #eef; }
   .narrow .teamrow img { width: 32px; height: 32px; }
   .teamrow em { font-style: normal; }
@@ -474,24 +536,27 @@
 
   .bottom { flex: none; padding: 6px 16px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .meter { display: flex; align-items: center; gap: 4px; background: rgba(30, 22, 60, .78); padding: 5px 10px; border-radius: 999px; box-shadow: 0 0 0 3px rgba(255, 255, 255, .5); }
-  .meter img { width: 34px; height: 34px; filter: grayscale(1) brightness(.55); transition: filter .3s, transform .3s; }
+  .meter img { width: 32px; height: 32px; object-fit: contain; filter: grayscale(1) brightness(.55); transition: filter .3s, transform .3s; }
+  .meter .ml { font: 600 15px var(--font-ui); color: #fff; margin: 0 6px 0 4px; }
   .meter img.on { filter: none; transform: scale(1.08); }
   .meter.full { animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse { 50% { box-shadow: 0 0 0 3px #fff, 0 0 30px #ff7ab8; } }
-  .finale { margin-left: 8px; display: flex; align-items: center; gap: 6px; font: 600 20px var(--font-ui); color: #fff; border: 0; border-radius: 999px; padding: 6px 16px 6px 8px; background: linear-gradient(135deg, #ff6fb8, #b46bff); box-shadow: 0 0 0 3px #fff; cursor: pointer; animation: wob .8s ease-in-out infinite; }
-  .finale img { width: 34px; height: 34px; }
+  .finalebig { display: flex; align-items: center; gap: 10px; border: 0; border-radius: 999px; padding: 8px 26px 8px 10px; background: linear-gradient(135deg, #ff6fb8, #b46bff); box-shadow: 0 0 0 4px #fff, 0 0 30px #ff7ab8; cursor: pointer; animation: wob .9s ease-in-out infinite; color: #fff; text-align: left; }
+  .finalebig img { width: 56px; height: 56px; object-fit: contain; }
+  .finalebig b { display: block; font: 600 30px/1 var(--font-ui); }
+  .finalebig small { font: 700 13px var(--font-body); opacity: .95; }
   @keyframes wob { 50% { transform: scale(1.07) rotate(-2deg); } }
-  .swap { margin-left: 8px; font: 700 13px var(--font-body); border: 0; border-radius: 999px; padding: 7px 12px; background: #fff; color: var(--ink2); cursor: pointer; }
+  .swap { font: 700 14px var(--font-body); border: 0; border-radius: 999px; padding: 8px 14px; background: #fff; color: var(--ink2); cursor: pointer; box-shadow: var(--shadow-sm); }
+  .actions { display: flex; align-items: center; gap: 12px; justify-content: center; }
 
   .cards { display: flex; gap: 16px; justify-content: center; width: min(1100px, 100%); }
   .cards.dim { opacity: .6; }
   .card { position: relative; flex: 1; max-width: 330px; display: flex; align-items: center; gap: 10px; padding: 12px 18px 12px 12px; border-radius: 30px; border: 4px solid #fff; cursor: pointer; box-shadow: 0 12px 24px -12px rgba(30, 20, 70, .6), inset 0 -8px 16px rgba(0, 0, 0, .08), inset 0 6px 10px rgba(255, 255, 255, .7); animation: cardin .5s var(--d) cubic-bezier(.2, 1.3, .4, 1) both, bob 3s calc(var(--d) * 4) ease-in-out infinite; transition: transform .15s; text-align: left; }
   .card:hover:not(:disabled) { transform: translateY(-6px) scale(1.03); }
-  .card .ci { width: 74px; height: 74px; flex: none; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .18)); }
+  .card .ci { width: 70px; height: 70px; flex: none; object-fit: contain; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .18)); }
   .ct { display: flex; flex-direction: column; min-width: 0; }
-  .ct small { font: 600 18px var(--font-ui); color: rgba(40, 25, 70, .75); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .ct small em { font: 800 11px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 2px 7px; border-radius: 999px; }
-  .ct small em.bl { color: #c2348a; }
+  .ct em { align-self: flex-start; margin-top: 4px; font: 800 12px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 3px 9px; border-radius: 999px; }
+  .ct em.bl { color: #c2348a; }
   .ct b { font: 600 clamp(28px, 3.4vw, 42px)/1.05 var(--font-ui); color: #2a1f45; white-space: nowrap; }
   .el-sun.card { background: linear-gradient(160deg, #fff6c4, #ffd36b); }
   .el-tide.card { background: linear-gradient(160deg, #e2f4ff, #8fd0ff); }
@@ -502,7 +567,7 @@
   .card.bloom::after { content: ''; position: absolute; inset: -4px; border-radius: 30px; box-shadow: 0 0 0 3px #ff9ad5, 0 0 18px #ff9ad5; pointer-events: none; }
   @keyframes cardin { from { opacity: 0; transform: translateY(60px) scale(.8); } }
   @keyframes bob { 50% { translate: 0 -4px; } }
-  .hint { margin: 0; min-height: 20px; font: 700 14px var(--font-body); color: #fff; text-shadow: 0 1px 4px rgba(20, 10, 50, .7); text-align: center; }
+  .hint { margin: 0; min-height: 22px; font: 600 19px var(--font-ui); color: #fff; text-shadow: 0 2px 6px rgba(20, 10, 50, .8); text-align: center; }
 
   .answer, .blockbox { width: min(1000px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; background: rgba(255, 255, 255, .9); border-radius: 28px; padding: 14px 16px; box-shadow: 0 16px 40px -18px rgba(30, 20, 70, .6); animation: cardin .35s cubic-bezier(.2, 1.3, .4, 1) both; }
   .eq { display: flex; align-items: center; gap: 14px; font: 600 clamp(40px, 6vw, 64px)/1 var(--font-ui); color: var(--ink); }
@@ -534,7 +599,8 @@
   .rays { position: absolute; left: 50%; top: 40%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px; background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, .22) 0 8deg, transparent 8deg 22deg); animation: spin 18s linear infinite; mask: radial-gradient(circle, #000 20%, transparent 60%); -webkit-mask: radial-gradient(circle, #000 20%, transparent 60%); pointer-events: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .rtitle { position: relative; text-align: center; animation: bigin .7s cubic-bezier(.2, 1.4, .4, 1) both; }
-  .rtitle small { display: block; font: 600 22px var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+  .rtitle small { display: block; font: 600 24px var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+  .rtitle em { display: inline-block; margin-top: 6px; font: 700 15px var(--font-body); font-style: normal; color: var(--ink); background: #fff; padding: 3px 12px; border-radius: 999px; }
   .rtitle b { display: block; font: 600 clamp(52px, 9vw, 96px)/1 var(--font-ui); color: var(--rc, #fff); -webkit-text-stroke: 3px #fff; paint-order: stroke; text-shadow: 0 6px 0 rgba(0, 0, 0, .25), 0 0 50px var(--rc, #fff); }
   .r-common { --rc: #7d8494; } .r-uncommon { --rc: #3fbf73; } .r-rare { --rc: #2f8ef0; } .r-epic { --rc: #a061f0; } .r-legendary { --rc: #f0b21f; }
   .r-mythic { --rc: #ff5fb0; } .r-mythic .rtitle b { background: linear-gradient(90deg, #ff6fa8, #ffb44d, #ffe066, #6fe3a0, #5bb6ff, #a98cff); -webkit-background-clip: text; color: transparent; }
@@ -549,6 +615,13 @@
   .rewards { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 720px; }
   .rw { display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 999px; padding: 4px 14px 4px 4px; font: 700 15px var(--font-body); color: var(--ink); box-shadow: var(--shadow-sm); }
   .rw img { width: 34px; height: 34px; object-fit: contain; }
+  .helpbg { position: absolute; inset: 0; z-index: 30; background: rgba(40, 28, 70, .4); display: grid; place-items: center; }
+  .helpcard { width: min(560px, 92vw); max-height: 88vh; overflow: auto; padding: 18px 24px; display: flex; flex-direction: column; gap: 8px; }
+  .helpcard h2 { margin: 0; } .helpcard h3 { margin: 6px 0 0; font-size: 20px; }
+  .helpcard ul { margin: 0; padding-left: 4px; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .helpcard li { font: 600 15px/1.4 var(--font-body); color: var(--ink2); }
+  .helpcard .btn { align-self: flex-end; }
+  .small { font-size: 13px !important; }
   .rw.egg img { animation: eggbounce 1s ease-in-out infinite; }
   @keyframes eggbounce { 50% { transform: translateY(-4px) rotate(6deg); } }
   .island-done { position: relative; font: 600 22px var(--font-ui); color: #fff; background: linear-gradient(90deg, #ff7ab8, #ffb44d, #4fd17a, #3fa2ff); padding: 8px 20px; border-radius: 999px; box-shadow: 0 0 0 3px #fff; }
@@ -566,8 +639,11 @@
   .narrow .cards { gap: 6px; }
   .narrow .card { flex-direction: column; gap: 2px; padding: 8px 4px; border-radius: 22px; text-align: center; }
   .narrow .card .ci { width: 44px; height: 44px; }
-  .narrow .ct small { font-size: 12px; justify-content: center; }
-  .narrow .ct small em { display: none; }
+  .narrow .ct em { align-self: center; font-size: 10px; padding: 2px 6px; }
+  .narrow .teamrow em { display: none; }
+  .narrow .bt .lab { font-size: 12px; } .narrow .bt .num { font-size: 10px; } .narrow .bt .num b { font-size: 14px; }
+  .narrow .finalebig b { font-size: 22px; } .narrow .finalebig img { width: 40px; height: 40px; }
+  .narrow .hint { font-size: 14px; }
   .narrow .ct b { font-size: 24px; }
   .narrow .meter img { width: 26px; height: 26px; }
   .narrow .finale { font-size: 16px; }

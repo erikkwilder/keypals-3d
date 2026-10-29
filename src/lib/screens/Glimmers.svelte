@@ -52,25 +52,27 @@
   }
   function leaveTeam() { game.update(pp => { const ad = advOf(pp); const i = ad.team.indexOf(sel); if (i >= 0) ad.team[i] = null; }); sfx.pop(); }
   const fresh = $derived(new Set(a.fresh));
+  const RARE_WORDS: Record<string, string> = { common: 'easy to find', uncommon: 'a bit harder to find', rare: 'hard to find', epic: 'very hard to find', legendary: 'one of a kind', mythic: 'the rarest of all' };
 </script>
 
 <div class="screen gl">
-  <Header title="Glimmers" back={() => game.go('adventure')} sub="{GLIMMERS.filter(x => owns(a, x.id)).length} of {GLIMMERS.length} found" />
+  <Header title="Your Glimmers" back={() => game.go('adventure')} sub="{GLIMMERS.filter(x => owns(a, x.id)).length} of {GLIMMERS.length} found" />
   <div class="body">
     <div class="stagebox" bind:this={stageEl}>
       {#if !owns(a, sel)}<div class="unknown"><GlimmerCard id={sel} width={200} locked /></div>{/if}
     </div>
     <div class="side">
+      <p class="intro"><b>Your team:</b> two Glimmers come into every battle with you, and each one helps in its own way. Tap a Glimmer to see how it helps, then put it on your team.</p>
       <div class="info card r-{g.rarity}">
         <div class="ih">
           <img src="{base}game/icon-{g.element}.webp" alt={ELEMENT[g.element].name} />
-          <div><small style:color={RARITY[g.rarity].color}>{RARITY[g.rarity].name} · {ELEMENT[g.element].name}</small><h2>{owns(a, sel) ? g.name : '???'}</h2></div>
+          <div><small style:color={RARITY[g.rarity].color}>{RARITY[g.rarity].name} · {RARE_WORDS[g.rarity]}</small><h2>{owns(a, sel) ? g.name : '???'}</h2></div>
           {#if mine}<span class="lv">Level {mine.level}</span>{/if}
         </div>
         {#if mine}
-          <p class="pw"><b>{g.power.name}:</b> {g.power.text(mine.level)}</p>
+          <p class="pw"><b>In battles it helps you:</b> {g.power.text(mine.level)}</p>
           <p class="qk">{g.quirk}</p>
-          {#if mine.level < MAX_LEVEL}<div class="xp"><div class="bar"><i style:width="{(mine.xp / xpNeed(mine.level)) * 100}%"></i></div><span>{mine.xp}/{xpNeed(mine.level)} to level {mine.level + 1}</span></div>{/if}
+          {#if mine.level < MAX_LEVEL}<div class="xp"><div class="bar"><i style:width="{(mine.xp / xpNeed(mine.level)) * 100}%"></i></div><span>Grows with every battle it's in: {mine.xp}/{xpNeed(mine.level)} to level {mine.level + 1}</span></div>{/if}
           <div class="teamrow">
             {#each [0, 1] as slot}
               <button class="slot" class:on={a.team[slot] === sel} onclick={() => setTeam(slot)}>
@@ -81,7 +83,7 @@
             {#if inTeam >= 0}<button class="btn" onclick={leaveTeam}>Take off the team</button>{/if}
           </div>
         {:else}
-          <p class="pw">Not found yet. {g.champion ? 'It is the Champion at the end of an island.' : 'It can be inside any Grumble, or hatch from an egg.'}</p>
+          <p class="pw">Not found yet. {g.champion ? 'It\'s the Champion at the end of an island: cheer it up there.' : 'You might meet it grumpy in a battle, or it might hatch from an egg.'}</p>
         {/if}
       </div>
       <div class="grid scroll">
@@ -101,6 +103,7 @@
   .stagebox { position: relative; min-height: 0; }
   .unknown { position: absolute; inset: 0; display: grid; place-items: center; }
   .side { min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+  .intro { margin: 0; font: 600 15px/1.4 var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .88); border-radius: 16px; padding: 8px 14px; }
   .info { padding: 14px 18px; display: flex; flex-direction: column; gap: 6px; }
   .ih { display: flex; align-items: center; gap: 12px; }
   .ih img { width: 52px; height: 52px; }

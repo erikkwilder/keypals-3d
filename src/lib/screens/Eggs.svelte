@@ -61,7 +61,7 @@
 </script>
 
 <div class="screen eggs" class:showing={!!got}>
-  <Header title="Eggs" back={() => game.go('adventure')} sub="They hatch when you practice" />
+  <Header title="Eggs" back={() => game.go('adventure')} sub="They hatch into new Glimmers" />
   <div class="stagebox" bind:this={stageEl}></div>
 
   <div class="nests">
@@ -76,7 +76,7 @@
           <div class="lab">
             <b style:color={RARITY[e.rarity].color}>{RARITY[e.rarity].name} egg</b>
             {#if e.have >= e.need}<button class="btn btn-primary hatch" onclick={() => doHatch(i)} disabled={cracking >= 0}>Hatch!</button>
-            {:else}<div class="bar"><i style:width="{(e.have / e.need) * 100}%"></i></div><span>{e.have} / {e.need} right answers</span>{/if}
+            {:else}<div class="bar"><i style:width="{(e.have / e.need) * 100}%"></i></div><span>{e.need - e.have} more right answers to hatch</span>{/if}
           </div>
         {:else}<div class="lab"><span>Empty nest</span></div>{/if}
       </div>
@@ -86,7 +86,8 @@
     <div class="waiting"><span>Waiting in the nest:</span>{#each a.nest as e}<img src="{base}game/egg-{e.rarity}.webp" alt="{RARITY[e.rarity].name} egg" title="{RARITY[e.rarity].name} egg" />{/each}</div>
   {/if}
   <div class="how card">
-    <p><b>Eggs warm up when you practice:</b> every right answer on a math trip, every five letters typed in a lesson, every playground game. All three nests warm at once.</p>
+    <p><b>Eggs hatch into new Glimmers!</b> Warm them up by practicing: every right answer on a math trip, every word typed in a typing lesson, and every playground game counts. When an egg's bar is full, tap Hatch.</p>
+    <p class="muted">You get eggs from battles (always from a Perfect Cheer or a Champion) and from the shop.</p>
     <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>Math practice</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing practice</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
     <p class="muted small">Eggs from battles: {EGG_ODDS}</p>
   </div>

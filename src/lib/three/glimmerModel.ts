@@ -13,7 +13,7 @@ function metas(): Promise<Record<string, Meta>> {
   return metaP;
 }
 
-type Move = 'idle' | 'hop' | 'happy' | 'act' | 'appear' | 'sad';
+type Move = 'idle' | 'hop' | 'happy' | 'act' | 'appear' | 'sad' | 'hit' | 'stomp';
 
 const WIGGLE = `
   uniform float uT; uniform vec3 uHead; uniform float uHeadR; uniform vec3 uTail; uniform float uTailOn; uniform vec3 uWingL; uniform vec3 uWingR; uniform float uWingOn;
@@ -44,6 +44,14 @@ export class GlimmerModel {
   /** turn to face this point (world) */
   face: THREE.Vector3 | null = null;
   private ready = false;
+  /** shared by all its materials: how grey (grumpy) it is, and a hit flash */
+  private look = { uGrey: { value: 0 }, uFlash: { value: 0 } };
+  /** what it does once it has popped in */
+  appearThen: Move = 'happy';
+  /** 0..1: slumped and sulky */
+  droop = 0;
+  setGrey(k: number) { this.look.uGrey.value = k; }
+  flash(k = 0.6) { this.look.uFlash.value = k; }
 
   private constructor(id: GlimmerId) { this.id = id; this.root.add(this.inner); this.inner.scale.setScalar(0.001); }
 
@@ -88,8 +96,13 @@ export class GlimmerModel {
         const c = mat.clone() as THREE.MeshStandardMaterial;
         if ('roughness' in c) { c.roughness = Math.max(0.35, c.roughness ?? 0.6); c.metalness = Math.min(0.1, c.metalness ?? 0); }
         c.onBeforeCompile = (sh) => {
-          Object.assign(sh.uniforms, u);
+          Object.assign(sh.uniforms, u, this.look);
           sh.vertexShader = WIGGLE + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIGGLE_BODY);
+          // grumpy: drained of colour, a little dark and blue; a white flash when cheer lands
+          sh.fragmentShader = 'uniform float uGrey; uniform float uFlash;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+            float lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
+            gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(lum) * vec3(0.72, 0.76, 0.86), uGrey);
+            gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), uFlash);`);
         };
         c.customProgramCacheKey = () => 'glimmer-wiggle';
         return c;
@@ -138,7 +151,7 @@ export class GlimmerModel {
       // pop in with a bounce
       const s = k < 0.5 ? easeOutBack(k / 0.5) : 1;
       sx = sy = s;
-      if (k > 0.5) this.move = 'happy', this.mt = 0;
+      if (k > 0.5) this.move = this.appearThen, this.mt = 0;
     } else if (this.move === 'hop') {
       const h = Math.max(0, Math.sin((k / 0.45) * Math.PI)); y += h * 0.25 * this.height; sy = 1 + h * 0.12; sx = 1 - h * 0.06;
       if (k < 0.08) { sy = 0.85; sx = 1.1; }
@@ -149,14 +162,23 @@ export class GlimmerModel {
     } else if (this.move === 'act') {
       lean = Math.sin(Math.min(1, k / 0.5) * Math.PI) * 0.35; sy = 1 - lean * 0.15; sx = 1 + lean * 0.1;
       if (k > 0.5) this.move = 'idle';
+    } else if (this.move === 'hit') {
+      // knocked back a little, squashed, then springs back
+      const h = Math.sin(Math.min(1, k / 0.35) * Math.PI); sy = 1 - h * 0.14; sx = 1 + h * 0.1; lean = -h * 0.25;
+      if (k > 0.35) this.move = 'idle';
+    } else if (this.move === 'stomp') {
+      // a cross little stomp before its mischief
+      const h = Math.max(0, Math.sin((k / 0.5) * Math.PI)); y += h * 0.12 * this.height; lean = h * 0.2; if (k > 0.42 && k < 0.5) { sy = 0.86; sx = 1.08; }
+      if (k > 0.55) this.move = 'idle';
     } else if (this.move === 'sad') {
       sy = 0.92; lean = -0.12;
       if (k > 2) this.move = 'idle';
     }
-    const breathe = this.move === 'idle' ? 1 + Math.sin(t * 2.4 + this.bob) * 0.015 : 1;
+    const breathe = this.move === 'idle' ? 1 + Math.sin(t * (2.4 - this.droop) + this.bob) * 0.015 : 1;
+    this.look.uFlash.value = Math.max(0, this.look.uFlash.value - dt * 3);
     this.inner.position.y = y;
-    this.inner.scale.set(sx * breathe, sy / breathe, sx * breathe);
-    this.inner.rotation.set(lean, spin, 0);
+    this.inner.scale.set(sx * breathe, sy / breathe * (1 - this.droop * 0.05), sx * breathe);
+    this.inner.rotation.set(lean + this.droop * 0.1 + (this.droop > 0.3 ? Math.sin(t * 0.7) * 0.03 : 0), spin + (this.droop > 0.3 ? Math.sin(t * 0.5 + this.bob) * 0.15 : 0), 0);
     if (this.face) {
       const w = this.root.getWorldPosition(new THREE.Vector3());
       const want = Math.atan2(this.face.x - w.x, this.face.z - w.z);

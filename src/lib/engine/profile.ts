@@ -8,7 +8,7 @@ import type { Layout, LayoutId } from './layouts';
 import { AWARD, type AwardDef } from './achievements';
 import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from './stickers';
 import { teamBuddies, welcomeNew } from './team';
-import { notePractice } from '../adventure/state';
+import { earnShells, notePractice, practiceShells } from '../adventure/state';
 import { REWARDS, forBuddy, newBetween, treasureFor, type Reward } from './rewards';
 import { updateKeyStats, type KeyStat } from './mastery';
 import { lessonGoal, platinumScore, starScores, type RunStats } from './scoring';
@@ -260,6 +260,8 @@ export type RunOutcome = {
   profile: Profile;
   /** eggs in the Adventure incubator that this practice warmed until they're ready to hatch */
   eggsReady?: import('../adventure/glimmers').Rarity[];
+  /** Adventure shells this practice earned */
+  shells?: number;
   /** buddies who joined the team with this run */
   buddies: FriendId[];
   medals: MedalWin[];
@@ -417,8 +419,9 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
   const buddies = welcomeNew(p);
   // practice warms the Adventure eggs: every five right letters
   const eggsReady = run.finished ? notePractice(p, Math.floor(s.chars / 5)) : [];
+  const shells = run.finished ? earnShells(p, practiceShells({ stars: run.stars, medals: medals.length, stickers: stickers.length, treasure })) : 0;
   return {
-    eggsReady,
+    eggsReady, shells,
     buddies,
     profile: p,
     medals: medalWins,

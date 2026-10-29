@@ -29,8 +29,10 @@ describe('the Cheer Duel', () => {
     expect(ev[0]).toMatchObject({ k: 'mischief', result: 'full', damage: 0 });
     expect(b.phase).toBe('pick');
   });
-  it('a slow block holds off half, a missed block none; Spark at zero loses', () => {
-    const b = newBattle({ pool, seed: 3, sparkMax: 4, role: 'heart', gear: null, team: [], foe: { ...foe(99), hit: 4 } });
+  it('a block in time holds it off; too late or wrong, it lands; energy at zero loses', () => {
+    const b = newBattle({ pool, seed: 3, sparkMax: 6, role: 'heart', gear: null, team: [], foe: { ...foe(99), hit: 4 } });
+    play(b, b.cards[0].id, { ok: false, value: 0, thinkMs: 1 });
+    expect(block(b, true, 1000)[0]).toMatchObject({ result: 'full', damage: 0 });
     play(b, b.cards[0].id, { ok: false, value: 0, thinkMs: 1 });
     block(b, true, 9000);
     expect(b.spark).toBe(2);
@@ -56,16 +58,11 @@ describe('the Cheer Duel', () => {
     const ev = finale(b);
     expect(ev[0]).toMatchObject({ k: 'finale', value: 150 });
   });
-  it('open cards make the fact you choose', () => {
+  it('open cards make the fact you choose (kept for later; off in battles for now)', () => {
     expect(openFact({ a: 6, op: 'x', max: 10 }, 4)).toEqual({ a: 6, b: 4 });
     const p = newProfile('Ava', 'dino');
-    const m = (p.math = { home: 'math', facts: {} as Record<string, import('../math/facts').FactStat>, lessons: {}, history: [], totals: { trips: 0, facts: 0, ms: 0 } });
-    for (let a = 2; a <= 9; a++) m.facts[`${a}x3`] = { stage: 2, seen: 3, right: 3, wrong: 0, times: [], fastDays: [], last: 0, due: 0, step: 0 };
     const pl = mathPool(p);
-    expect(pl.subject === 'math' && pl.open).toBe(true);
-    const b = newBattle({ pool: pl, seed: 9, sparkMax: 20, role: 'steady', gear: null, team: [], foe: foe(80) });
-    for (let i = 0; i < 20 && !b.cards.some(c => c.open); i++) deal(b);
-    expect(b.cards.some(c => c.open)).toBe(true);
+    expect(pl.subject === 'math' && pl.open).toBe(false);
   });
   it('a new player gets easy plus facts; a typist gets words from the keys learned', () => {
     const p = newProfile('Ava', 'dino');

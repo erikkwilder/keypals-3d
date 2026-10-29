@@ -31,8 +31,8 @@ export type Card = {
 
 export type MischiefKind = 'zap' | 'snow' | 'rain' | 'pebbles' | 'gust';
 export const MISCHIEF: Record<Element, { kind: MischiefKind; name: string }> = {
-  sun: { kind: 'zap', name: 'Hot flash' }, frost: { kind: 'snow', name: 'Snow flurry' }, tide: { kind: 'rain', name: 'Raincloud' },
-  stone: { kind: 'pebbles', name: 'Pebble shower' }, leaf: { kind: 'gust', name: 'Leaf gust' },
+  sun: { kind: 'zap', name: 'A zap is coming' }, frost: { kind: 'snow', name: 'Snowballs are coming' }, tide: { kind: 'rain', name: 'Rain is coming' },
+  stone: { kind: 'pebbles', name: 'Pebbles are coming' }, leaf: { kind: 'gust', name: 'Wind is coming' },
 };
 
 export type Foe = { glimmer: GlimmerId; rarity: Rarity; champion: boolean; element: Element; grump: number; max: number; hit: number };
@@ -263,9 +263,9 @@ function grumbleTurn(b: Battle): BEvent[] {
   if (free) return [{ k: 'mischief', kind: m.kind, name: m.name, damage: 0, result: 'skip', why: free.by, id: free.id }, ...nextTurn(b)];
   if (b.role === 'steady' && b.mischiefs % 2 === 0) hit = Math.ceil(hit / 2);
   const seal = has(b, 'coolhead');
-  const limitMs = b.subject === 'math' ? 4000 + (seal ? powerNum(2, seal.level, 8) * 1000 : 0) : 0;
+  const limitMs = b.subject === 'math' ? 5000 + (seal ? powerNum(2, seal.level, 8) * 1000 : 0) + (b.gear === 'shieldwall' ? 2000 : 0) : 0;
   const block: Block = { kind: m.kind, name: m.name, hit, limitMs, ...blockPrompt(b) };
-  if (b.subject === 'typing') block.limitMs = 1600 + 650 * (block.word?.length ?? 4) + (seal ? powerNum(2, seal.level, 8) * 1000 : 0);
+  if (b.subject === 'typing') block.limitMs = 2000 + 800 * (block.word?.length ?? 4) + (seal ? powerNum(2, seal.level, 8) * 1000 : 0) + (b.gear === 'shieldwall' ? 2000 : 0);
   b.block = block;
   b.phase = 'block';
   return [];
@@ -287,16 +287,15 @@ export function block(b: Battle, ok: boolean, ms: number): BEvent[] {
   if (!bl || b.phase !== 'block') return [];
   b.stats.blocks++;
   if (b.subject === 'math' && bl.fact) b.answered.push({ f: bl.fact, ok, thinkMs: ms });
-  const result: 'full' | 'half' | 'none' = !ok ? 'none' : ms <= bl.limitMs ? 'full' : 'half';
-  let strength = result === 'full' ? 1 : result === 'half' ? 0.5 : 0;
-  if (strength > 0 && b.role === 'builder') strength = Math.min(1, strength * 1.5);
-  if (strength > 0 && b.gear === 'shieldwall') strength = Math.min(1, strength * 2);
-  const damage = Math.round(bl.hit * (1 - strength));
+  // right and in time: blocked. Too late or wrong: it lands
+  const result: 'full' | 'none' = ok && ms <= bl.limitMs ? 'full' : 'none';
+  const damage = result === 'full' ? 0 : bl.hit;
   if (damage === 0) b.stats.blocked++;
   b.spark = Math.max(0, b.spark - damage);
   b.stats.damage += damage;
   b.block = null;
-  const ev: BEvent[] = [{ k: 'mischief', kind: bl.kind, name: bl.name, damage, result: damage === 0 ? 'full' : result }];
+  const ev: BEvent[] = [{ k: 'mischief', kind: bl.kind, name: bl.name, damage, result }];
+  if (result === 'full' && b.role === 'builder' && b.spark < b.sparkMax) { b.spark += 1; ev.push({ k: 'heal', by: 'role', what: 'Builder', value: 1 }); }
   const whale = has(b, 'secondwind');
   if (whale && !b.used.secondwind && b.spark > 0 && b.spark <= b.sparkMax / 3) {
     b.used.secondwind = true; const v = Math.min(b.sparkMax - b.spark, powerNum(10, whale.level, 3)); b.spark += v; ev.push({ k: 'secondwind', value: v });

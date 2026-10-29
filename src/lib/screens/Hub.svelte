@@ -11,12 +11,13 @@
   import { sfx } from '../audio/sound';
   import { MATH_LESSONS, MATH_REGION, STRAND, worldOf } from '../math/course';
   import { ALL_GARDEN_IDS, mathOf, mathStarsTotal, nextMathLesson, stageCounts } from '../math/progress';
-  import { advOf, advView } from '../adventure/state';
+  import { advOf, advView, markSeen } from '../adventure/state';
   import Flower from '../math/ui/Flower.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import GearButton from '../ui/GearButton.svelte';
   import FancyAntButton from '../ui/FancyAntButton.svelte';
   import Critter from '../ui/Critter.svelte';
+  import TileArt from '../ui/TileArt.svelte';
   import Stars from '../ui/Stars.svelte';
   import Ring from '../ui/Ring.svelte';
 
@@ -41,6 +42,9 @@
   const m = $derived(mathOf(p));
   const mNext = $derived(nextMathLesson(m));
   const adv = $derived(advView(p));
+  // how it all fits together: shown once, and from the ? button
+  let guide = $state(!(advView(game.profile!).seen ?? []).includes('guide'));
+  function closeGuide() { guide = false; game.update(pp => markSeen(pp, 'guide')); }
   const advFound = $derived(Object.keys(adv.glimmers).length);
   const advReady = $derived(adv.incubator.filter(e => e && e.have >= e.need).length);
   const mStars = $derived(mathStarsTotal(m));
@@ -87,6 +91,10 @@
       <Ring value={Math.min(1, today / goalMs)} size={32} color="var(--mint)" />
       <span><b>{Math.floor(today / 60000)}</b>/{p.settings.dailyGoalMin} min today</span>
     </div>
+    <div class="pill shells" title="Shells: earned in practice and battles, spent in the Adventure shop">
+      <img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><span><b>{adv.shells}</b> shells</span>
+    </div>
+    <button class="howbtn" onclick={() => { guide = true; sfx.pop(); }} title="How Keypals works">?</button>
     <div class="spacer"></div>
     <div class="tiles">
       <NavTile size={tsz} tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
@@ -167,8 +175,25 @@
         </div>
       </section>
     </div>
-    <p class="foot">Every game makes you and {FRIEND[p.buddy].name} better friends: new outfits, dances and stickers come from typing and math alike.</p>
+    <p class="foot">Practice makes you better and earns shells and eggs; Adventure is where your buddy and your Glimmers use them.</p>
   </div>
+
+  {#if guide}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="guidebg" onclick={closeGuide}>
+      <div class="guide card" onclick={(e) => e.stopPropagation()}>
+        <h2>How Keypals works</h2>
+        <div class="gsteps">
+          <div class="gs"><div class="gpic" style:background-image="url({import.meta.env.BASE_URL}game/intro-practice.webp)"></div><b>1. Practice</b><p>Typing lessons, math trips and the playground. They earn stars that open new lessons, friendship with your buddy, and shells. Every right answer warms your eggs.</p></div>
+          <div class="gs"><div class="gpic" style:background-image="url({import.meta.env.BASE_URL}regions/village.webp)"><span class="gb"><Critter friend={p.buddy} size={90} /></span></div><b>2. Your Keypals</b><p>Friendship with each buddy opens new outfits and dances. New buddies join as you play. Outfits and dances help in Adventure too.</p></div>
+          <div class="gs"><div class="gpic" style:background-image="url({import.meta.env.BASE_URL}game/intro-story.webp)"></div><b>3. Adventure</b><p>Cheer up grumpy Glimmers with your answers, and they join your team. Eggs from battles hatch into more Glimmers when you practice.</p></div>
+          <div class="gs"><div class="gpic trophies"><TileArt kind="stickers" size={80} /><TileArt kind="medals" size={80} /></div><b>4. Stickers and medals</b><p>For the great things you do: three stars, no slips, fast answers. Each one earns shells too.</p></div>
+        </div>
+        <button class="btn btn-primary" onclick={closeGuide}>Let's play!</button>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -185,6 +210,20 @@
   .ft i { display: block; width: 150px; height: 7px; border-radius: 999px; background: #fff; overflow: hidden; }
   .ft em { display: block; height: 100%; background: linear-gradient(90deg, var(--primary-hi), var(--pink)); }
   .spacer { flex: 1; }
+  .pill.shells img { width: 28px; height: 28px; object-fit: contain; }
+  .howbtn { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 0; background: #fff; font: 600 22px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b; }
+  .guidebg { position: fixed; inset: 0; z-index: 40; background: rgba(30, 20, 60, .5); display: grid; place-items: center; padding: 16px; }
+  .guide { width: min(1040px, 96vw); max-height: 92vh; overflow: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .guide h2 { margin: 0; font-size: 32px; }
+  .gsteps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .gs { display: flex; flex-direction: column; gap: 6px; }
+  .gs b { font: 600 20px var(--font-ui); }
+  .gs p { margin: 0; font: 600 14px/1.45 var(--font-body); color: var(--ink2); }
+  .gpic { aspect-ratio: 4 / 3; border-radius: 18px; background-size: cover; background-position: center; position: relative; box-shadow: var(--shadow-sm); }
+  .gpic .gb { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); }
+  .gpic.trophies { display: flex; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(135deg, #fff4c2, #e6f1ff); }
+  .guide > .btn { align-self: flex-end; font-size: 20px; padding: 10px 22px; }
+  @media (max-width: 760px) { .gsteps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .guide h2 { font-size: 24px; } .gs b { font-size: 16px; } .gs p { font-size: 12.5px; } .pill.shells span { display: none; } }
   .tiles { display: flex; gap: 8px; }
   .body { flex: 1; min-height: 0; padding: 18px 24px 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
   .hello { display: flex; align-items: center; gap: 14px; }

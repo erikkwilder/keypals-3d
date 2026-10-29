@@ -10,7 +10,7 @@ import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, typ
 import { newBetween, type Reward } from '../engine/rewards';
 import { RIDES } from '../engine/rides';
 import { groupFacts, MATH_LESSON, MATH_LESSONS, MATH_REGION, PLACEMENTS, regionsOf, type MathLesson, type MathRegionId } from './course';
-import { notePractice } from '../adventure/state';
+import { earnShells, notePractice, practiceShells } from '../adventure/state';
 import { factId, familyOf, newStat, parseFact, seedPartner, updateFact, FAST_MS, type FactStat, type Op, type Stage } from './facts';
 import { mathTreasureFor, type FactResult, type TripStats } from './meter';
 
@@ -116,6 +116,8 @@ export type MathOutcome = {
   profile: Profile;
   /** Adventure eggs this trip warmed until they're ready to hatch */
   eggsReady?: import('../adventure/glimmers').Rarity[];
+  /** Adventure shells this trip earned */
+  shells?: number;
   buddies: import('../art/cast').FriendId[];
   medals: MedalWin[];
   stickers: StickerDef[];
@@ -281,8 +283,9 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
   const buddies = welcomeNew(p);
   // every right answer warms the Adventure eggs
   const eggsReady = run.finished ? notePractice(p, run.results.filter(x => x.ok).length) : [];
+  const shells = run.finished ? earnShells(p, practiceShells({ stars: run.stars, medals: medals.length, stickers: stickers.length, treasure })) : 0;
   return {
-    eggsReady,
+    eggsReady, shells,
     buddies,
     profile: p, medals: medalWins, stickers, rewards, treasure, newBestTreasure,
     xp: { gained, before: lvlBefore, after: lvlAfter },

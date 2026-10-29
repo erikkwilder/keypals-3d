@@ -9,6 +9,7 @@
   import { palOf, setLook } from '../engine/profile';
   import { levelFromXp } from '../engine/stickers';
   import { joinProgress, onTeam, UNLOCKS } from '../engine/team';
+  import { BUDDY_ROLE, GEAR, ROLE } from '../adventure/glimmers';
   import { sfx } from '../audio/sound';
   import { stage } from '../three/stage';
   import { ShowScene } from '../three/showScene';
@@ -102,6 +103,7 @@
         {#if joined}
           <div class="xp"><span class="lvl">♥ Friendship {lvl.level}</span><div class="bar"><i style:width="{(lvl.into / lvl.need) * 100}%"></i></div><span class="muted">{lvl.into}/{lvl.need} XP</span></div>
           <p class="quirk">{FRIEND[who].quirk}</p>
+          <p class="advline"><img src="{import.meta.env.BASE_URL}game/icon-star.webp" alt="" /><span><b>In Adventure, {ROLE[BUDDY_ROLE[who]].name}:</b> {ROLE[BUDDY_ROLE[who]].text}</span></p>
           {#if p.buddy !== who}<button class="btn btn-primary" onclick={makeBuddy}>Play with {FRIEND[who].name}</button>{/if}
           <p class="keep">Each buddy earns their own friendship, outfits, dances, stickers and medals. Your lessons and stars stay with you.</p>
         {:else}
@@ -115,6 +117,7 @@
         <button class:on={tab === 'outfits'} onclick={() => { tab = 'outfits'; game.closetTab = 'outfits'; sfx.pop(); }}><TileArt kind="outfits" size={40} /><span>Outfits</span><em>{outfitsOpen}/{OUTFITS.length}</em></button>
         <button class:on={tab === 'dances'} onclick={() => { tab = 'dances'; game.closetTab = 'dances'; sfx.pop(); }}><TileArt kind="dances" size={40} /><span>Dances</span><em>{dancesOpen}/{DANCES.length}</em></button>
       </div>
+      <p class="tabnote">{tab === 'outfits' ? 'Outfits open up as your friendship grows, and each one helps in Adventure battles.' : `Your finish dance plays when you finish a lesson or trip, and it's ${FRIEND[who].name}'s big Finale move in Adventure.`}</p>
       <div class="grid scroll">
         {#if tab === 'outfits'}
           <button class="of" class:on={pal.outfit === 'none'} onclick={() => wear(null)}>
@@ -126,6 +129,7 @@
             <button class="of rar-{o.rarity}" class:on={pal.outfit === o.id} class:locked={lk} class:shake={shake === o.id} onclick={() => wear(o)}>
               <div class="thumb"><img src="{import.meta.env.BASE_URL}outfits/{o.id}.webp" alt="" /></div>
               <b>{o.name}</b>
+              {#if GEAR[o.id]}<span class="power" title="In Adventure: {GEAR[o.id].text}">⚔️ {GEAR[o.id].name}</span>{/if}
               {#if !lk}<span class="rar {o.rarity}">{RAR[o.rarity]}</span>
               {:else}<span class="lock" title="Unlocks at friendship {o.level}"><Icon name="lock" size={13} /> ♥ {o.level}</span>{/if}
             </button>
@@ -175,6 +179,10 @@
   .bar { flex: 1; height: 12px; border-radius: 999px; background: var(--bg2); overflow: hidden; box-shadow: inset 0 2px 3px rgba(60, 40, 110, .15); }
   .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--primary-hi), var(--pink)); border-radius: 999px; transition: width .6s ease; }
   .quirk { margin: 0; color: var(--muted); font-weight: 600; }
+  .advline { margin: 0; display: flex; gap: 8px; align-items: center; font: 600 14px/1.35 var(--font-body); color: var(--ink2); background: #f6f2ff; border-radius: 14px; padding: 6px 10px; }
+  .advline img { width: 26px; height: 26px; object-fit: contain; flex: none; }
+  .tabnote { margin: 0; font: 600 14px/1.35 var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .85); border-radius: 14px; padding: 6px 12px; }
+  .power { font: 800 11px var(--font-body); color: #6a3fd6; background: #f1eaff; padding: 2px 8px; border-radius: 999px; cursor: help; }
   .who .btn { align-self: flex-start; }
   .tabs { display: flex; gap: 8px; }
   .tabs button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; font: 600 22px var(--font-ui); padding: 8px 12px; border-radius: 18px; border: 3px solid transparent; background: rgba(255, 255, 255, .85); cursor: pointer; color: var(--ink2); box-shadow: var(--shadow-sm); }

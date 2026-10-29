@@ -67,11 +67,13 @@ export type Adventure = {
   battles: number; wins: number; perfects: number;
   /** Glimmers met but not yet looked at in the collection (the "new" dot) */
   fresh: GlimmerId[];
+  /** tips and intros already shown ('intro', 'battle1', 'map1', 'strong', 'perfect') */
+  seen: string[];
 };
 export const newAdventure = (): Adventure => ({
   shells: 0, xp: 0, glimmers: {}, team: [null, null], incubator: [null, null, null], nest: [], eggsMade: 0, nodes: {},
   practiceSessions: 0, stopAt: {}, subject: 'math', day: { key: '', ms: 0, answers: 0, right: 0 }, settings: { ...DEFAULT_SETTINGS },
-  battles: 0, wins: 0, perfects: 0, fresh: [],
+  battles: 0, wins: 0, perfects: 0, fresh: [], seen: [],
 });
 /** The player's adventure, filled in (older saves have none). Changes go into the profile. */
 export function advOf(p: Profile): Adventure {
@@ -82,6 +84,8 @@ export function advOf(p: Profile): Adventure {
   return a;
 }
 /** The adventure to read (filled in, nothing written): for screens. Change it with advOf inside game.update. */
+/** Mark a tip as shown. */
+export function markSeen(p: Profile, ...ids: string[]) { const a = advOf(p); a.seen = [...new Set([...(a.seen ?? []), ...ids])]; }
 export function advView(p: Profile): Adventure {
   const a = p.adventure, d = newAdventure();
   return a ? { ...d, ...a, settings: { ...DEFAULT_SETTINGS, ...a.settings } } : d;
@@ -170,7 +174,9 @@ export function mathPool(p: Profile): Pool {
     facts = facts.filter(x => (x.f.op ?? 'x') !== '+' || (x.f.a > 0 && x.f.b > 0));
   }
   const known = facts.filter(x => ((x.f.op ?? 'x') === 'x' || x.f.op === '+') && x.stage >= 2).length;
-  return { subject: 'math', facts, open: known >= 6 };
+  // open cards (7 × ?) are kept for later: they confused first-time players
+  void known;
+  return { subject: 'math', facts, open: false };
 }
 /** Typing: words made only of the keys learned so far. */
 export function typingPool(p: Profile): Pool {
@@ -210,7 +216,8 @@ export function foeFor(p: Profile, node: MapNode, pool: Pool, seed: number): Foe
     return { glimmer: g.id, rarity: g.rarity, champion: true, element: g.element, grump: max, max, hit: 4 + islandN };
   }
   const r = roll(rng, isl.odds);
-  const id = r === 'legendary' ? 'lanternfox' : species(rng, a, r);
+  // the very first battle is always Puddle Pup (the one in the story)
+  const id = !a.battles && node.id === 'meadow-0' && !owns(a, 'puddlepup') ? 'puddlepup' : r === 'legendary' ? 'lanternfox' : species(rng, a, r);
   const g = GLIMMER[id];
   const max = grumpFor(pool, false);
   return { glimmer: id, rarity: g.rarity, champion: false, element: g.element, grump: max, max, hit: 2 + islandN };
@@ -246,6 +253,12 @@ export function notePractice(p: Profile, rightAnswers: number): Rarity[] {
   a.practiceSessions++;
   return warmEggs(p, Math.round(rightAnswers));
 }
+/** Shells a practice session earns, for the Adventure shop: something for finishing, more for stars,
+ *  medals, new stickers and the treasure found. */
+export function practiceShells(o: { stars: number; medals: number; stickers: number; treasure: number }) {
+  return 4 + o.stars * 3 + o.medals * 2 + o.stickers * 5 + Math.max(0, o.treasure + 1);
+}
+export function earnShells(p: Profile, n: number) { if (n > 0) advOf(p).shells += n; return n; }
 export type Hatch = { id: GlimmerId; rarity: Rarity; isNew: boolean; level: number; ups: number };
 /** Hatch a ready egg: a Glimmer of its rarity (a new one if possible). The next nest egg moves in. */
 export function hatch(p: Profile, slot: number, seed = Date.now()): Hatch | null {
@@ -344,19 +357,14 @@ export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
   out.firstClear = !cleared(a, r.node);
   a.nodes[r.node] = (a.nodes[r.node] ?? 0) + 1;
   if (out.firstClear && node.kind === 'champion') out.islandDone = isl.id;
-  // a Perfect Cheer can make it shimmer into a rarer one (more often with Crystal Luck)
-  let id = r.foe.glimmer, rarity = r.foe.rarity, shimmered: Rarity | null = null;
-  if (r.perfect && !r.foe.champion && rarityRank(rarity) < rarityRank('epic') && rng() < (r.crystal ? 0.45 : 0.25)) {
-    rarity = RARITIES[rarityRank(rarity) + 1]; shimmered = rarity;
-    id = species(rng, a, rarity);
-  }
+  const id = r.foe.glimmer, rarity = r.foe.rarity, shimmered: Rarity | null = null;
   out.met = { id, rarity, shimmered, ...meet(a, id) };
   // shells
   let shells = 12 + islandN * 4 + RARITY[rarity].shells + (r.perfect ? 10 : 0) + (node.kind === 'champion' ? 50 : 0) + (r.treasureNose ? 6 : 0);
   if (r.perfect && r.crystal) shells += 10 + RARITY[rarity].shells;
   a.shells += shells; out.shells = shells;
-  // an egg: often after a Perfect Cheer, always from a Champion (Rare or better)
-  if (node.kind === 'champion' || rng() < (r.perfect ? 0.5 : 0.3)) {
+  // an egg: always after a Perfect Cheer or a Champion (Rare or better from a Champion), sometimes otherwise
+  if (node.kind === 'champion' || r.perfect || rng() < 0.3) {
     const egg = newEgg(rng, a, node.kind === 'champion' ? (rng() < 0.3 ? 'epic' : 'rare') : undefined);
     out.eggWhere = store(a, egg);
     if (out.eggWhere === 'full') { a.shells += 15; out.shells += 15; } else out.egg = egg;

@@ -9,7 +9,7 @@ import { Character } from './character';
 import { makeOutfit } from './outfits3d';
 import { loadGltf, loadTexture } from './assets';
 import { Fx, type Emit } from './fx';
-import { Grumble, type CloudShape } from './grumble';
+import { GrumpyGlimmer } from './grumpyGlimmer';
 import { GlimmerModel } from './glimmerModel';
 import type { Island } from './island';
 import type { View } from './runScene';
@@ -28,7 +28,7 @@ export class BattleScene implements Controller {
   readonly me: Character;
   view: View;
   readonly fx = new Fx();
-  readonly grumble: Grumble;
+  readonly grumble: GrumpyGlimmer;
   team: (GlimmerModel | null)[] = [];
   private opts: Opts;
   private arena = new THREE.Group();
@@ -40,7 +40,7 @@ export class BattleScene implements Controller {
   private now = 0;
   private busyUntil = 0;
   private banners: THREE.Mesh[] = [];
-  private crystals: THREE.Mesh[] = [];
+  private fires: THREE.Vector3[] = [];
   private shake = 0;
   private revealed: GlimmerModel | null = null;
   private foeGone = false; private foeLeave = 0;
@@ -51,7 +51,7 @@ export class BattleScene implements Controller {
   private enterT = 0;
   private compact = false;
 
-  private constructor(island: Island, me: Character, grumble: Grumble, team: (GlimmerModel | null)[], opts: Opts) {
+  private constructor(island: Island, me: Character, grumble: GrumpyGlimmer, team: (GlimmerModel | null)[], opts: Opts) {
     this.island = island; this.me = me; this.grumble = grumble; this.team = team; this.opts = opts; this.view = opts.view;
     const f = island.trail.at(8);
     this.C = f.p.clone(); this.n = f.n.clone().setY(0).normalize();
@@ -64,11 +64,12 @@ export class BattleScene implements Controller {
     const champ = opts.foe.champion;
     this.foeAt = this.C.clone().addScaledVector(this.right, champ ? sep + 0.4 : sep).addScaledVector(this.n, this.compact ? -0.6 : -0.05);
     this.foeAt.y = island.height(this.foeAt.x, this.foeAt.z);
-    this.foeFloat = champ ? 1.6 : 1.15;
+    this.foeFloat = 0;
+    grumble.fx = this.fx;
     stage.scene.add(this.arena, this.fx.root, me.root, grumble.root);
     me.root.visible = false;
     me.play('idle', 0);
-    grumble.root.position.copy(this.foeAt).add(new THREE.Vector3(0, this.foeFloat, 0));
+    grumble.root.position.copy(this.foeAt);
     // team: one in front, one behind, to the buddy's left
     const spots = this.compact
       ? [this.buddyAt.clone().addScaledVector(this.right, -0.7).addScaledVector(this.n, -0.75), this.buddyAt.clone().addScaledVector(this.right, 0.4).addScaledVector(this.n, -1.15)]
@@ -78,8 +79,6 @@ export class BattleScene implements Controller {
   }
 
   static async create(opts: Opts): Promise<BattleScene> {
-    const g = GLIMMER[opts.foe.glimmer];
-    const shape: CloudShape = opts.foe.champion ? (g.cloud ?? 'round') : 'round';
     const [island, me, ...team] = await Promise.all([
       stage.getIsland(opts.region), Character.create(opts.buddy),
       ...opts.team.slice(0, 2).map(id => GlimmerModel.create(id, GLIMMER[id].rarity === 'legendary' || GLIMMER[id].rarity === 'mythic' ? 0.8 : 0.62).catch(() => null)),
@@ -87,7 +86,7 @@ export class BattleScene implements Controller {
     if (!me) throw new Error('character missing');
     if (opts.outfit && opts.outfit !== 'none') me.wear(opts.outfit, makeOutfit);
     await me.loadMoves();
-    const grumble = new Grumble({ shape, champion: opts.foe.champion, glow: RARITY[opts.foe.rarity].color });
+    const grumble = await GrumpyGlimmer.create(opts.foe.glimmer, opts.foe.champion);
     const sc = new BattleScene(island, me, grumble, team as (GlimmerModel | null)[], opts);
     await sc.buildArena();
     return sc;
@@ -130,35 +129,41 @@ export class BattleScene implements Controller {
     }
     rim.castShadow = true; rim.receiveShadow = true;
     this.arena.add(rim);
-    // pillars with glowing crystals, and element banners, round the back
-    const pillarGeo = new THREE.CylinderGeometry(0.17, 0.22, 1.7, 12, 4);
-    const crystalGeo = new THREE.OctahedronGeometry(0.2, 0);
-    ELEMENTS.forEach((el, i) => {
-      const a = facing + Math.PI + (i - 2) * 0.5;
+    // stone pillars with fire bowls, and painted element banners on wooden poles, round the back
+    const [postTex, ...bannerTex] = await Promise.all([loadTexture('world/post.webp', { repeat: true, color: true }), ...ELEMENTS.map(el => loadTexture(`game/banner-${el}.webp`))]);
+    if (postTex) postTex.repeat.set(1, 3);
+    const woodMat = new THREE.MeshStandardMaterial({ map: postTex, color: postTex ? 0xffffff : 0x8a6440, roughness: 0.85 });
+    const pillarGeo = new THREE.CylinderGeometry(0.17, 0.22, 1.5, 14, 4);
+    const bowlGeo = new THREE.CylinderGeometry(0.34, 0.2, 0.26, 18, 1);
+    const coalMat = new THREE.MeshStandardMaterial({ color: 0x3a1a0a, emissive: 0xff5a14, emissiveIntensity: 1.2, roughness: 0.9 });
+    [-1.05, 1.05].forEach((off, i) => {
+      const a = facing + Math.PI + off;
       const dir = new THREE.Vector3(Math.sin(a), 0, Math.cos(a));
-      const at = this.C.clone().addScaledVector(dir, R + 0.55); at.y = this.island.height(at.x, at.z);
-      const pillar = new THREE.Mesh(pillarGeo, stoneMat); pillar.position.copy(at).y += 0.85; pillar.castShadow = true; this.arena.add(pillar);
-      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.12, 12), stoneMat); cap.position.copy(at).y += 1.74; this.arena.add(cap);
-      const col = ELEMENT[el].color;
-      const crystal = new THREE.Mesh(crystalGeo, new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.1, roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.92 }));
-      crystal.position.copy(at).y += 2.05; crystal.scale.y = 1.5; this.arena.add(crystal); this.crystals.push(crystal);
-      // a banner on its own pole between the pillars
-      if (i < 4) {
-        const b = facing + Math.PI + (i - 1.5) * 0.5;
-        const bd = new THREE.Vector3(Math.sin(b), 0, Math.cos(b));
-        const bp = this.C.clone().addScaledVector(bd, R + 0.75); bp.y = this.island.height(bp.x, bp.z);
-        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 2.6, 8), new THREE.MeshStandardMaterial({ color: 0x8a6440, roughness: 0.8 }));
-        pole.position.copy(bp).y += 1.3; this.arena.add(pole);
-        const elb = ELEMENTS[(i + 2) % 5];
-        const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 1.1, 8, 10), new THREE.MeshStandardMaterial({ color: ELEMENT[elb].color, side: THREE.DoubleSide, roughness: 0.85, emissive: ELEMENT[elb].deep, emissiveIntensity: 0.12 }));
-        cloth.geometry.translate(0.33, -0.55, 0);
-        cloth.position.copy(bp).y += 2.5; cloth.rotation.y = b + Math.PI / 2;
-        cloth.castShadow = true;
-        this.arena.add(cloth); this.banners.push(cloth);
-      }
+      const at = this.C.clone().addScaledVector(dir, R + 0.5); at.y = this.island.height(at.x, at.z);
+      const pillar = new THREE.Mesh(pillarGeo, stoneMat); pillar.position.copy(at).y += 0.75; pillar.castShadow = true; this.arena.add(pillar);
+      const bowl = new THREE.Mesh(bowlGeo, stoneMat); bowl.position.copy(at).y += 1.62; bowl.castShadow = true; this.arena.add(bowl);
+      const coals = new THREE.Mesh(new THREE.CircleGeometry(0.3, 18), coalMat); coals.rotation.x = -Math.PI / 2; coals.position.copy(at).y += 1.74; this.arena.add(coals);
+      const fire = at.clone().add(new THREE.Vector3(0, 1.78, 0));
+      this.fires.push(fire);
+      const l = new THREE.PointLight(0xff9a3a, 7, 8, 2); l.position.copy(fire).y += 0.3; this.arena.add(l); this.lights.push(l);
+      void i;
     });
-    // two warm lights from the crystals at the ends
-    for (const i of [0, 4]) { const l = new THREE.PointLight(ELEMENT[ELEMENTS[i]].color, 6, 7, 2); l.position.copy(this.crystals[i].position); this.arena.add(l); this.lights.push(l); }
+    ELEMENTS.forEach((el, i) => {
+      const b = facing + Math.PI + (i - 2) * 0.42;
+      const bd = new THREE.Vector3(Math.sin(b), 0, Math.cos(b));
+      const bp = this.C.clone().addScaledVector(bd, R + 0.95); bp.y = this.island.height(bp.x, bp.z);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 3.0, 10), woodMat); pole.position.copy(bp).y += 1.5; pole.castShadow = true; this.arena.add(pole);
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), new THREE.MeshStandardMaterial({ color: 0xffc94a, metalness: 0.8, roughness: 0.3 })); knob.position.copy(bp).y += 3.05; this.arena.add(knob);
+      const tex = bannerTex[i];
+      const img = tex?.image as { width: number; height: number } | undefined;
+      const hgt = 1.45, wdt = img ? hgt * (img.width / img.height) : 0.62;
+      const cloth = new THREE.Mesh(new THREE.PlaneGeometry(wdt, hgt, 8, 12), new THREE.MeshStandardMaterial({ map: tex, color: tex ? 0xffffff : ELEMENT[el].color, side: THREE.DoubleSide, roughness: 0.8, transparent: true, alphaTest: 0.4 }));
+      cloth.geometry.translate(0, -hgt / 2, 0);
+      cloth.position.copy(bp).addScaledVector(bd, -0.08).y += 2.85;
+      cloth.rotation.y = b + Math.PI;
+      cloth.castShadow = true;
+      this.arena.add(cloth); this.banners.push(cloth);
+    });
     // the ruined arch behind
     const backDir = this.n.clone().negate();
     const place = (g: typeof arch, h: number, at: THREE.Vector3, turn: number) => {
@@ -174,12 +179,12 @@ export class BattleScene implements Controller {
 
   // ---------- where things are ----------
   private hand() { return this.buddyAt.clone().add(new THREE.Vector3(0, 0.95, 0)).addScaledVector(this.right, 0.35); }
-  private foeCentre() { return this.grumble.root.position.clone(); }
+  private foeCentre() { return this.grumble.centre; }
   /** A point on screen (fractions of the window) for a thing: for floating numbers. */
   screenOf(which: 'buddy' | 'foe' | 'team0' | 'team1' | 'reveal', dy = 0): { x: number; y: number } {
     const p = which === 'buddy' ? this.buddyAt.clone().add(new THREE.Vector3(0, 1.3 + dy, 0))
-      : which === 'foe' ? this.foeCentre().add(new THREE.Vector3(0, 0.9 * this.grumble.size + dy, 0))
-      : which === 'reveal' ? (this.revealed?.root.position.clone() ?? this.foeAt.clone()).add(new THREE.Vector3(0, 1 + dy, 0))
+      : which === 'foe' ? this.grumble.root.position.clone().add(new THREE.Vector3(0, this.grumble.height * 1.75 + 0.35 + dy, 0))
+      : which === 'reveal' ? this.foeAt.clone().add(new THREE.Vector3(0, 1 + dy, 0))
       : (this.team[which === 'team0' ? 0 : 1]?.root.position.clone() ?? this.buddyAt.clone()).add(new THREE.Vector3(0, 0.9 + dy, 0));
     const v = p.project(stage.camera);
     return { x: (v.x + 1) / 2, y: (1 - v.y) / 2 };
@@ -240,11 +245,11 @@ export class BattleScene implements Controller {
   /** The Grumble freezes for a turn. */
   freeze(slot: number) {
     this.team[slot]?.play('act');
-    this.fx.emit({ at: this.foeCentre(), count: 40, shape: ['shard', 'flake'], color: [0xbff0ff, 0xffffff, 0x7fd6ff], speed: [0.8, 2.5], radius: 0.6 * this.grumble.size, life: [1, 1.8], size: [0.15, 0.3], drag: 2, spin: 3 });
+    this.fx.emit({ at: this.foeCentre(), count: 40, shape: ['shard', 'flake'], color: [0xbff0ff, 0xffffff, 0x7fd6ff], speed: [0.8, 2.5], radius: 0.5 * this.grumble.height, life: [1, 1.8], size: [0.15, 0.3], drag: 2, spin: 3 });
   }
   /** Dazzled by a strong element: stars round its head. */
   dazzle() {
-    const top = this.foeCentre().add(new THREE.Vector3(0, 0.8 * this.grumble.size, 0));
+    const top = this.foeCentre().add(new THREE.Vector3(0, 0.6 * this.grumble.height, 0));
     this.fx.emit({ at: top, count: 14, shape: 'star', color: [0xffe066, 0xffffff], speed: [0.6, 1.2], radius: 0.3, life: [0.9, 1.4], size: [0.14, 0.22], drag: 1.5, spin: 4 });
   }
   /** Aurora: northern lights fill the sky above the arena. */
@@ -332,32 +337,24 @@ export class BattleScene implements Controller {
 
   setGrump(fraction: number) { this.grumble.mood = Math.max(0, Math.min(1, fraction)); }
 
-  /** Cheered right up: the cloud bursts, a beam of its rarity's colour comes down, and the Glimmer appears. */
-  async cheerUp(id: GlimmerId, rarity: Rarity): Promise<GlimmerModel | null> {
+  /** Cheered right up: the storm cloud bursts, its colours come back, and a beam of its rarity's colour
+   *  comes down on it. */
+  async cheerUp(_id: GlimmerId, rarity: Rarity): Promise<GlimmerModel | null> {
     this.grumble.mood = 0;
-    await sleep(650);
+    await sleep(500);
     const at = this.foeCentre();
     this.grumble.burst();
-    this.fx.emit({ at, count: 120, shape: ['star', 'dot', 'spark', 'heart'], color: [0xff6fa8, 0xffb44d, 0xffe066, 0x6fe3a0, 0x5bb6ff, 0xa98cff, 0xffffff], speed: [1.5, 6], life: [0.8, 1.8], size: [0.15, 0.35], drag: 1.4, gravity: 0.6, spin: 3 });
+    this.fx.emit({ at, count: 110, shape: ['star', 'dot', 'spark', 'heart'], color: [0xff6fa8, 0xffb44d, 0xffe066, 0x6fe3a0, 0x5bb6ff, 0xa98cff, 0xffffff], speed: [1.5, 6], life: [0.8, 1.8], size: [0.15, 0.35], drag: 1.4, gravity: 0.6, spin: 3 });
     this.play('cheer', 2.2, 'jump');
-    await sleep(350);
+    await sleep(300);
     const rc = RARITY[rarity].color;
     this.fx.beam(this.foeAt.clone(), rc, { radius: 1.0 + (['legendary', 'mythic'].includes(rarity) ? 0.4 : 0), height: 16, life: 3.4, peak: 1 });
     this.fx.emit({ at: this.foeAt.clone().add(new THREE.Vector3(0, 0.2, 0)), count: 50, shape: ['ring', 'dot'], color: [rc, 0xffffff], dir: UP, spread: 0.9, speed: [1, 3], life: [0.8, 1.6], size: [0.2, 0.5], drag: 1.2 });
-    const h = rarity === 'legendary' || rarity === 'mythic' ? 1.15 : rarity === 'epic' ? 0.95 : 0.8;
-    const g = await GlimmerModel.create(id, h).catch(() => null);
-    if (g) {
-      g.root.position.copy(this.foeAt);
-      g.face = stage.camera.position.clone();
-      stage.scene.add(g.root);
-      this.revealed = g;
-      this.foeGone = true;
-      this.shot = 'reveal'; this.shotUntil = this.now + 99;
-    }
-    // sparkles keep falling round it for a while, more for rarer ones
+    this.revealed = this.grumble.glimmer;
+    this.shot = 'reveal'; this.shotUntil = this.now + 99;
     const n = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].indexOf(rarity);
     for (let i = 0; i < 4 + n * 2; i++) setTimeout(() => this.fx.emit({ at: this.foeAt.clone().add(new THREE.Vector3(0, 2.5, 0)), count: 10, shape: ['star', 'dot'], color: [rc, 0xffffff], dir: new THREE.Vector3(0, -1, 0), spread: 0.6, speed: [0.3, 1], radius: 1, life: [1.4, 2.2], size: [0.1, 0.2], spin: 2 }), i * 300);
-    return g;
+    return this.grumble.glimmer;
   }
 
   /** You ran out of Spark: the Grumble laughs and drifts off. */
@@ -382,28 +379,27 @@ export class BattleScene implements Controller {
     if (this.now > this.busyUntil && me.currentName !== 'idle') me.play('idle', 0.4);
     me.update(dt);
     if (!me.root.visible) me.root.visible = true;
-    // the Grumble
-    this.grumble.lookAt.copy(this.buddyAt).add(new THREE.Vector3(0, 1, 0));
-    const toCamG = stage.camera.position.clone().sub(this.grumble.root.position); toCamG.y = 0;
-    const toBud = this.buddyAt.clone().sub(this.grumble.root.position); toBud.y = 0;
-    const gl = toCamG.normalize().multiplyScalar(0.8).add(toBud.normalize().multiplyScalar(0.45));
-    this.grumble.root.rotation.y = Math.atan2(gl.x, gl.z);
-    if (this.foeLeave > 0) { this.foeLeave += dt; this.grumble.root.position.addScaledVector(this.right, dt * 1.6).y += dt * 1.1; }
-    else if (this.enterT < 1.6) {
-      // arriving: down from the sky with a flash of lightning as it lands
+    // the grumpy Glimmer: turned between you and the buddy
+    const toCamG = stage.camera.position.clone().sub(this.foeAt); toCamG.y = 0;
+    const toBud = this.buddyAt.clone().sub(this.foeAt); toBud.y = 0;
+    this.grumble.lookAt.copy(this.foeAt).add(toCamG.normalize().multiplyScalar(0.75).add(toBud.normalize().multiplyScalar(0.55)).multiplyScalar(4));
+    if (this.foeLeave > 0) { this.foeLeave += dt; this.grumble.root.position.addScaledVector(this.right, dt * 1.4); }
+    if (this.enterT < 1.6) {
+      // its storm cloud comes down out of the sky, with a flash of lightning as it arrives
       const was = this.enterT; this.enterT += dt;
-      const k = Math.min(1, this.enterT / 1.4), e = 1 - Math.pow(1 - k, 3);
-      this.grumble.root.position.copy(this.foeAt).add(new THREE.Vector3(0, this.foeFloat + (1 - e) * 4.5, 0)).addScaledVector(this.right, (1 - e) * 1.5);
-      if (was < 1.25 && this.enterT >= 1.25) { this.fx.lightning(this.foeCentre().add(new THREE.Vector3(-0.3, 0.6, 0)), this.foeAt.clone().add(new THREE.Vector3(0.2, 0.05, 0)), 0xfff1a0, 0.05); this.grumble.hit(0.5); this.shake = 0.25; }
+      const k = Math.min(1, this.enterT / 1.3), e = 1 - Math.pow(1 - k, 3);
+      this.grumble.cloudLift = (1 - e) * 5;
+      if (was < 1.2 && this.enterT >= 1.2) { const c = this.grumble.root.position.clone().add(new THREE.Vector3(0, this.grumble.height * 1.2, 0)); this.fx.lightning(c, this.foeAt.clone().add(new THREE.Vector3(0.35, 0.05, 0.2)), 0xfff1a0, 0.05); this.grumble.hit(0.4); this.shake = 0.22; }
     }
     this.grumble.update(dt, t);
-    if (this.foeGone && this.grumble.burstDone) this.grumble.root.visible = false;
     // the team and the newcomer
     for (const g of this.team) g?.update(dt, t);
-    if (this.revealed) { this.revealed.face = stage.camera.position.clone(); this.revealed.update(dt, t); }
+    if (this.revealed) this.grumble.lookAt.copy(stage.camera.position);
     // banners wave, crystals turn and glow
-    for (const b of this.banners) { const p = b.geometry.attributes.position as THREE.BufferAttribute; for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setZ(i, Math.sin(t * 3 + x * 6 + b.id) * 0.07 * x); } p.needsUpdate = true; }
-    this.crystals.forEach((c, i) => { c.rotation.y = t * 0.8 + i; c.position.y += Math.sin(t * 2 + i) * 0.0015; });
+    for (const b of this.banners) { const p = b.geometry.attributes.position as THREE.BufferAttribute; for (let i = 0; i < p.count; i++) { const y = -p.getY(i); p.setZ(i, Math.sin(t * 2.6 + y * 4 + b.id) * 0.06 * y); } p.needsUpdate = true; }
+    // the fire bowls flicker
+    for (const f of this.fires) this.fx.emit({ at: f, count: Math.random() < 0.5 ? 2 : 1, shape: ['dot', 'spark'], color: [0xffd27a, 0xff9a3a], to: 0xff3d1a, dir: UP, spread: 0.25, speed: [0.5, 1.2], radius: 0.12, life: [0.35, 0.7], size: [0.18, 0.34], grow: -0.6, drag: 1 });
+    this.lights.forEach((l, i) => (l.intensity = 6 + Math.sin(t * 13 + i * 2) * 0.8 + Math.sin(t * 7.3 + i) * 0.6));
     // floating motes of light over the arena
     this.moteT -= dt;
     if (this.moteT < 0) { this.moteT = 0.12; this.fx.emit({ at: this.C.clone().add(new THREE.Vector3(0, 0.4, 0)), count: 1, shape: 'dot', color: [0xfff2b0, 0xffffff, 0xcfe8ff], speed: [0.1, 0.3], up: 3, radius: 3.2, life: [3, 5], size: [0.05, 0.1], drag: 0.2, gravity: -0.05 }); }
@@ -418,7 +414,7 @@ export class BattleScene implements Controller {
     const champ = this.opts.foe.champion;
     let focus: THREE.Vector3, span: number, high: number;
     if (this.shot === 'buddy') { focus = this.buddyAt.clone().add(new THREE.Vector3(0, 0.75, 0)); span = 3.2; high = 2.0; }
-    else if (this.shot === 'reveal') { const r = this.revealed?.root.position ?? this.foeAt; focus = r.clone().lerp(this.buddyAt, 0.35).add(new THREE.Vector3(0, 0.7, 0)); span = 5.2; high = 2.6; }
+    else if (this.shot === 'reveal') { focus = this.foeAt.clone().lerp(this.buddyAt, 0.3).add(new THREE.Vector3(0, 0.75, 0)); span = 5.2; high = 2.6; }
     else { focus = this.C.clone().addScaledVector(this.right, champ ? 0.2 : 0).add(new THREE.Vector3(0, champ ? 1.35 : 0.92, 0)); span = champ ? 7.8 : 6.0; high = champ ? 3.4 : 2.9; }
     if (this.shot === 'push') { focus.addScaledVector(this.right, 0.35); span *= 0.94; }
     // a tall phone screen: closer in, so the buddy and the Grumble aren't tiny

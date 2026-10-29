@@ -10,6 +10,8 @@
     buddies?: import('../art/cast').FriendId[];
     /** Adventure eggs this practice warmed until ready to hatch */
     eggsReady?: import('../adventure/glimmers').Rarity[];
+    /** Adventure shells this practice earned */
+    shells?: number;
   };
   /** One of the four chips under the score: speed, accuracy, goal, top ride. */
   export type ResultsChip = { icon: 'clock' | 'target' | 'trophy' | 'ride'; value: string | number; label: string; badge?: string | false };
@@ -100,9 +102,11 @@
     | { kind: 'medal'; m: MedalWin }
     | { kind: 'sticker'; def: StickerDef }
     | { kind: 'buddy'; id: import('../art/cast').FriendId }
-    | { kind: 'egg'; rarity: import('../adventure/glimmers').Rarity };
+    | { kind: 'egg'; rarity: import('../adventure/glimmers').Rarity }
+    | { kind: 'shells'; n: number };
   const thisRun: Earned[] = run.medals.map(m => ({ kind: 'medal' as const, m }));
   const fresh: Earned[] = [
+    ...(run.shells ? [{ kind: 'shells' as const, n: run.shells }] : []),
     ...(run.eggsReady ?? []).map(rarity => ({ kind: 'egg' as const, rarity })),
     ...(run.buddies ?? []).map(id => ({ kind: 'buddy' as const, id })),
     ...run.rewards.map(r => ({ kind: r.kind, id: r.id, name: r.name, rarity: r.rarity })),
@@ -313,6 +317,10 @@
             <button class="ipic medal tap" onclick={() => show(e)} title="What's this?">{@html renderMedal(e.m, e.m.tier)}</button>
             <span class="iname">{e.m.name}</span>
             {#if e.m.tierUp && e.m.count > 1}<em class="tier" style:background={TIER_LOOK[e.m.tier].pill} style:color={TIER_LOOK[e.m.tier].ink}>{TIER_LOOK[e.m.tier].name}!</em>{:else}{@const nt = nextTier(e.m.count)}<span class="count" title={nt.title}>{nt.text}</span>{/if}
+          {:else if e.kind === 'shells'}
+            <button class="ipic outfit tap shellsgot" onclick={() => game.go('adventure')} title="Spend shells in the Adventure shop"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /></button>
+            <span class="iname">+{e.n} shells</span>
+            <span class="count">for Adventure</span>
           {:else if e.kind === 'egg'}
             <button class="ipic outfit tap eggready" onclick={() => game.go('eggs')} title="Hatch it in Adventure"><img src="{import.meta.env.BASE_URL}game/egg-{e.rarity}.webp" alt="" /></button>
             <span class="iname">Egg ready!</span>
@@ -567,6 +575,7 @@
   .count { font: 700 11px var(--font-body); color: var(--muted); white-space: nowrap; }
   .wear { border: 0; border-radius: 999px; padding: 3px 9px; font: 800 11px var(--font-body); white-space: nowrap; background: var(--mint); color: #0f4a36; cursor: pointer; }
   .wear:disabled { background: #eee8f7; color: var(--muted); cursor: default; }
+  .shellsgot img { width: 80%; height: 80%; object-fit: contain; }
   .eggready img { width: 86%; height: 86%; object-fit: contain; animation: eggwob .7s ease-in-out infinite; }
   @keyframes eggwob { 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
   .wear.off { background: #fff; color: var(--ink2); box-shadow: inset 0 0 0 2px #e6dff5; }
