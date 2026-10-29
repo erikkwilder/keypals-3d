@@ -23,7 +23,7 @@ export const cloud = $state({
   online: false,
   google: false,
   microsoft: false,
-  account: null as null | { name: string | null; email: string | null; provider: string },
+  account: null as null | { name: string | null; email: string | null; provider: string; admin?: boolean },
   /** players saved under the signed-in account */
   players: [] as CloudPlayer[],
   busy: false,

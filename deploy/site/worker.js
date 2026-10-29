@@ -229,7 +229,7 @@ async function api(request, env, url, base) {
     const players = rows.results.map(r => { const d = JSON.parse(r.data); return { code: r.code, name: d.name, buddy: d.buddy, updated: r.updated }; });
     // players this grown-up deleted everywhere: every computer signed in removes its copy
     const gone = (await env.DB.prepare('SELECT code, at FROM gone WHERE account = ? ORDER BY at DESC LIMIT 500').bind(acct.id).all()).results;
-    return json({ account: { name: acct.name, email: acct.email, provider: acct.provider }, players, gone });
+    return json({ account: { name: acct.name, email: acct.email, provider: acct.provider, admin: isAdmin(env, acct) }, players, gone });
   }
   if (path === '/me' && method === 'DELETE') {
     const acct = await currentAccount(env, request);
@@ -277,7 +277,125 @@ async function api(request, env, url, base) {
     const r = await env.DB.prepare('UPDATE players SET account = ? WHERE code = ? AND (account IS NULL OR account = ?)').bind(method === 'PUT' ? acct.id : null, code, acct.id).run();
     return r.meta.changes ? json({ ok: true }) : fail(404, 'That player was not found.');
   }
-  return fail(404, 'Not found.');
+  return (await helpApi(request, env, url, path, method)) ?? fail(404, 'Not found.');
+}
+
+// ---------- ideas and help ----------
+// Ideas: a grown-up suggests one (behind the grown-up check in the game). It waits for an admin to approve
+// it before it shows on the Ideas board, where anyone can vote with a heart: once per idea per computer
+// (remembered on that computer), and the server keeps only the count, limited per address. Problems: a
+// grown-up describes one, or the game sends one by itself when something breaks (the message, a trimmed
+// stack, the screen, game version, browser and screen size; never player data), the same error counted
+// rather than stored again. An email is kept only if the grown-up asks for a reply, and is cleared after
+// 180 days. Admins (ADMIN_EMAILS, Google sign-ins only) approve, hide, merge and mark ideas, and read the
+// problems, on the Grown-ups screen.
+const IDEA_KINDS = ['game', 'better', 'other'];
+const IDEA_STATUS = ['new', 'shown', 'planned', 'done', 'hidden'];
+const clip = (v, n) => String(v ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim().slice(0, n);
+const emailOf = (v) => { const e = clip(v, 120); return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null; };
+const ideaOut = (r) => ({ id: r.id, kind: r.kind, text: r.text, status: r.status, votes: r.votes, created: r.created });
+function isAdmin(env, acct) {
+  if (!acct || acct.provider !== 'google' || !acct.email) return false;
+  const list = String(env.ADMIN_EMAILS || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
+  return list.includes(String(acct.email).toLowerCase());
+}
+/** the first line of a stack that points at code (file:line:col), for telling one error from another */
+const firstFrame = (stack) => stack.split('\n').find(l => /:\d+:\d+/.test(l)) ?? '';
+
+async function helpApi(request, env, url, path, method) {
+  // the Ideas board: approved ideas only, top or newest first
+  if (path === '/ideas' && method === 'GET') {
+    const order = url.searchParams.get('sort') === 'new' ? 'created DESC' : 'votes DESC, created DESC';
+    const rows = await env.DB.prepare(`SELECT id, kind, text, status, votes, created FROM ideas WHERE status IN ('shown', 'planned', 'done') ORDER BY ${order} LIMIT 200`).all();
+    return json({ ideas: rows.results.map(ideaOut) });
+  }
+  if (path === '/ideas' && method === 'POST') {
+    if (await limited(env, request, 'idea', 5, 60)) return fail(429, 'Thank you! That is a lot of ideas from here for one hour. Please try again later.');
+    const body = await readBody(request, 4000);
+    const text = clip(body?.text, 500);
+    if (text.length < 3) return fail(400, 'Write a few words about your idea.');
+    const now = Date.now();
+    const r = await env.DB.prepare("INSERT INTO ideas (kind, text, email, status, votes, created, updated) VALUES (?, ?, ?, 'new', 0, ?, ?)")
+      .bind(IDEA_KINDS.includes(body.kind) ? body.kind : 'other', text, emailOf(body.email), now, now).run();
+    return json({ ok: true, id: r.meta.last_row_id });
+  }
+  let m = path.match(/^\/ideas\/(\d+)\/vote$/);
+  if (m && method === 'POST') {
+    if (await limited(env, request, 'vote', 60, 60)) return fail(429, 'So many hearts from here! Try again in a little while.');
+    const body = (await readBody(request, 1000)) || {};
+    const id = Number(m[1]);
+    const r = await env.DB.prepare("UPDATE ideas SET votes = MAX(0, votes + ?) WHERE id = ? AND status IN ('shown', 'planned', 'done')").bind(body.up === false ? -1 : 1, id).run();
+    if (!r.meta.changes) return fail(404, 'That idea is not on the board.');
+    return json({ ok: true, votes: (await env.DB.prepare('SELECT votes FROM ideas WHERE id = ?').bind(id).first()).votes });
+  }
+  if (path === '/problems' && method === 'POST') {
+    const body = await readBody(request, 12000);
+    if (!body) return fail(400, 'Nothing to send.');
+    const now = Date.now();
+    const meta = [clip(body.screen, 40), clip(body.version, 30), clip(body.browser, 60), clip(body.size, 20)];
+    if (body.auto) {
+      // something broke in the game: the same error again only adds to its count
+      if (await limited(env, request, 'auto', 20, 60)) return fail(429, 'Too many reports from here.');
+      const text = clip(body.message, 300), stack = clip(body.stack, 1500);
+      if (!text) return fail(400, 'Nothing to send.');
+      const sig = (await sha256(`${text}|${firstFrame(stack)}|${meta[1]}`)).slice(0, 24);
+      await env.DB.prepare(`INSERT INTO problems (kind, text, sig, stack, screen, version, browser, size, times, status, created, lastseen)
+        VALUES ('auto', ?, ?, ?, ?, ?, ?, ?, 1, 'new', ?, ?)
+        ON CONFLICT(sig) DO UPDATE SET times = times + 1, lastseen = excluded.lastseen, screen = excluded.screen, browser = excluded.browser, size = excluded.size,
+          status = CASE WHEN status = 'done' THEN 'new' ELSE status END`)
+        .bind(text, sig, stack, ...meta, now, now).run();
+      return json({ ok: true });
+    }
+    if (await limited(env, request, 'told', 5, 60)) return fail(429, 'Thank you! That is a lot of messages from here for one hour. Please try again later.');
+    const text = clip(body.text, 1000);
+    if (text.length < 3) return fail(400, 'Write a few words about what went wrong.');
+    await env.DB.prepare("INSERT INTO problems (kind, text, email, screen, version, browser, size, times, status, created, lastseen) VALUES ('told', ?, ?, ?, ?, ?, ?, 1, 'new', ?, ?)")
+      .bind(text, emailOf(body.email), ...meta, now, now).run();
+    return json({ ok: true });
+  }
+
+  // ---- admins only ----
+  if (!path.startsWith('/admin/')) return null;
+  const acct = await currentAccount(env, request);
+  if (!isAdmin(env, acct)) return fail(403, 'This is only for the people who look after Keypals.');
+  if (path === '/admin/ideas' && method === 'GET') {
+    const rows = await env.DB.prepare("SELECT * FROM ideas ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'shown' THEN 1 WHEN 'planned' THEN 2 WHEN 'done' THEN 3 ELSE 4 END, votes DESC, created DESC LIMIT 500").all();
+    return json({ ideas: rows.results });
+  }
+  m = path.match(/^\/admin\/ideas\/(\d+)$/);
+  if (m && method === 'POST') {
+    const id = Number(m[1]), body = (await readBody(request, 4000)) || {}, now = Date.now();
+    const idea = await env.DB.prepare('SELECT id, votes FROM ideas WHERE id = ?').bind(id).first();
+    if (!idea) return fail(404, 'No such idea.');
+    if (body.into !== undefined) {
+      // merge: the votes move to the other idea, and this one stops showing
+      const into = Number(body.into);
+      if (into === id || !(await env.DB.prepare('SELECT id FROM ideas WHERE id = ?').bind(into).first())) return fail(400, 'Pick another idea to merge into.');
+      await env.DB.batch([
+        env.DB.prepare('UPDATE ideas SET votes = votes + ?, updated = ? WHERE id = ?').bind(idea.votes, now, into),
+        env.DB.prepare("UPDATE ideas SET status = 'merged', merged_into = ?, votes = 0, updated = ? WHERE id = ?").bind(into, now, id),
+      ]);
+      return json({ ok: true });
+    }
+    if (body.status !== undefined && !IDEA_STATUS.includes(body.status)) return fail(400, 'Unknown status.');
+    const text = body.text === undefined ? null : clip(body.text, 500);
+    await env.DB.prepare('UPDATE ideas SET status = COALESCE(?, status), text = COALESCE(?, text), updated = ? WHERE id = ?').bind(body.status ?? null, text || null, now, id).run();
+    return json({ ok: true });
+  }
+  if (m && method === 'DELETE') { await env.DB.prepare('DELETE FROM ideas WHERE id = ?').bind(Number(m[1])).run(); return json({ ok: true }); }
+  if (path === '/admin/problems' && method === 'GET') {
+    const rows = await env.DB.prepare("SELECT * FROM problems ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'read' THEN 1 ELSE 2 END, lastseen DESC LIMIT 300").all();
+    return json({ problems: rows.results });
+  }
+  m = path.match(/^\/admin\/problems\/(\d+)$/);
+  if (m && method === 'POST') {
+    const body = (await readBody(request, 1000)) || {};
+    if (!['new', 'read', 'done'].includes(body.status)) return fail(400, 'Unknown status.');
+    await env.DB.prepare('UPDATE problems SET status = ? WHERE id = ?').bind(body.status, Number(m[1])).run();
+    return json({ ok: true });
+  }
+  if (m && method === 'DELETE') { await env.DB.prepare('DELETE FROM problems WHERE id = ?').bind(Number(m[1])).run(); return json({ ok: true }); }
+  return null;
 }
 
 /** Once a day: forget players nobody has opened in 18 months, and expired sessions (see the privacy notice). */
@@ -288,6 +406,10 @@ async function tidy(env) {
   await env.DB.prepare('DELETE FROM limits WHERE reset < ?').bind(now).run();
   await env.DB.prepare('DELETE FROM accounts WHERE seen < ?').bind(now - 3 * 365 * DAY).run();
   await env.DB.prepare('DELETE FROM gone WHERE at < ?').bind(now - 3 * 365 * DAY).run();
+  // ideas and help: an email for a reply is kept 180 days; a problem not seen for 180 days goes
+  await env.DB.prepare('UPDATE ideas SET email = NULL WHERE email IS NOT NULL AND created < ?').bind(now - 180 * DAY).run();
+  await env.DB.prepare('UPDATE problems SET email = NULL WHERE email IS NOT NULL AND created < ?').bind(now - 180 * DAY).run();
+  await env.DB.prepare('DELETE FROM problems WHERE lastseen < ?').bind(now - 180 * DAY).run();
   await env.DB.prepare('UPDATE players SET account = NULL WHERE account IS NOT NULL AND account NOT IN (SELECT id FROM accounts)').run();
 }
 

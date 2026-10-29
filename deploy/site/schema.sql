@@ -48,3 +48,39 @@ CREATE TABLE IF NOT EXISTS gone (
   at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS gone_account ON gone(account);
+-- Ideas and help (worker.js). ideas: suggested by grown-ups; shown on the Ideas board only once an admin
+-- approves them. email: only if the grown-up asked for a reply (never shown; cleared after 180 days).
+-- status: new (waiting), shown, planned, done, hidden, merged (into merged_into, which took its votes).
+-- votes: the count only (who voted is remembered on each computer, not here).
+CREATE TABLE IF NOT EXISTS ideas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  text TEXT NOT NULL,
+  email TEXT,
+  status TEXT NOT NULL,
+  merged_into INTEGER,
+  votes INTEGER NOT NULL DEFAULT 0,
+  created INTEGER NOT NULL,
+  updated INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ideas_status ON ideas(status);
+-- problems: told by a grown-up (kind "told"), or sent by the game when something breaks (kind "auto": the
+-- message, a trimmed stack, screen, game version, browser and screen size; never player data). The same
+-- error again (same sig) only adds to times. Deleted when not seen for 180 days.
+CREATE TABLE IF NOT EXISTS problems (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  text TEXT NOT NULL,
+  email TEXT,
+  sig TEXT,
+  stack TEXT,
+  screen TEXT,
+  version TEXT,
+  browser TEXT,
+  size TEXT,
+  times INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  lastseen INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS problems_sig ON problems(sig);

@@ -153,6 +153,7 @@
       <button class="small" onclick={() => { sfx.click(); game.closeMenu(); game.go('players'); }}><Critter friend={p.buddy} look={p.settings.look} accessory={outfitOf(p)} size={34} round /><span>{p.name}: switch player</span></button>
       <button class="small" onclick={() => { sfx.click(); game.closeMenu(); game.go('grownups'); }}><img src="{base}icons/grownups.webp" alt="" /><span>Grown-ups</span></button>
       <button class="small" onclick={() => { sfx.click(); game.closeMenu(); game.openSettings(); }}><img src="{base}game/icon-settings.webp" alt="" /><span>Settings</span></button>
+      <button class="small" onclick={() => { sfx.click(); game.closeMenu(); game.openIdeas(); }}><img src="{base}icons/bulb.webp" alt="" /><span>Ideas and help</span></button>
       {#if cloud.online && !cloud.account && (cloud.google || cloud.microsoft)}<button class="small" onclick={() => { sfx.click(); game.closeMenu(); goSaveOnline(); }}><img src="{base}icons/cloud-save.webp" alt="" /><span>{cloud.signedOut ? 'Signed out: sign in again' : 'Grown-ups: sign in'}</span></button>{/if}
       <span class="save"><SaveChip /></span>
     </footer>

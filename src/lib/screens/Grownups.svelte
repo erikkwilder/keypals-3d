@@ -21,6 +21,7 @@
   const oldAddress = onOldAddress(location.pathname);
   import GrownupGate from '../ui/GrownupGate.svelte';
   import CodeCard from '../ui/CodeCard.svelte';
+  import AdminPanel from '../ui/AdminPanel.svelte';
 
   let saveMsg = $state<string | null>(null);
   async function act(fn: () => Promise<unknown>, done?: string) {
@@ -202,6 +203,11 @@
           <button class="btn btn-primary" onclick={() => { addTester(); game.go('hub'); }}>Open Tester</button>
         </div>
         <div class="card tryall">
+          <img class="ti" src="{import.meta.env.BASE_URL}icons/bulb.webp" alt="" />
+          <div><h3>Ideas and help</h3><p class="muted">Suggest a new game or something to make better, vote on other families' ideas, or tell us about a problem.</p></div>
+          <button class="btn btn-primary" onclick={() => game.openIdeas()}>Ideas and help</button>
+        </div>
+        <div class="card tryall">
           <div><h3>Math skills by grade</h3><p class="muted">Every math skill from kindergarten to 8th grade, with its school standard and where {p.name} is on each: not started, growing or solid.</p></div>
           <button class="btn btn-primary" onclick={() => { game.skillsFor = p!.id; game.go('skills'); }}>See skills</button>
         </div>
@@ -273,6 +279,13 @@
           </div>
         </div>
       {/if}
+      {#if cloud.account?.admin}
+        <div class="card pane adminpane">
+          <h3>Admin</h3>
+          <p class="muted small">Only you see this ({cloud.account.email}).</p>
+          <AdminPanel />
+        </div>
+      {/if}
       <div class="card pane about">
         <h3>About {GAME_NAME}</h3>
         <p>Free, made by {STUDIO}. No ads, no tracking. The code is source-available (PolyForm Strict 1.0.0: read it, run it, help improve it); the art, characters, voices and music are all rights reserved.</p>
@@ -288,6 +301,9 @@
 <style>
   .tryall { display: flex; align-items: center; gap: 16px; padding: 14px 18px; margin: 12px 0; }
   .tryall h3 { margin: 0 0 2px; }
+  .tryall .ti { width: 52px; height: 52px; object-fit: contain; flex: none; }
+  @media (max-width: 600px) { .tryall .ti { display: none; } }
+  .adminpane { border: 3px solid #ffcf8a; }
   .tryall p { margin: 0; font: 600 14px/1.4 var(--font-body); }
   @media (max-width: 600px) { .tryall { flex-direction: column; align-items: stretch; } }
   .code { font: 700 18px var(--font-ui); letter-spacing: .02em; background: #f3edff; padding: 2px 10px; border-radius: 10px; color: var(--primary); }

@@ -93,6 +93,98 @@ describe('players follow the grown-up: the server side', () => {
   });
 });
 
+describe('ideas and help', () => {
+  const ADMIN = 'boss@example.com';
+  it('a new idea waits for approval, then shows on the board; hearts count up and down', async () => {
+    const { api, grownup } = site({ ADMIN_EMAILS: `someone@else.org, ${ADMIN.toUpperCase()}` });
+    const made = await api('/ideas', { method: 'POST', body: { kind: 'game', text: 'A cooking game with fractions', email: 'me@example.com' } });
+    expect(made.status).toBe(200);
+    expect((await api('/ideas')).json.ideas).toEqual([]);
+    const boss = await grownup(ADMIN);
+    expect((await api('/me', { cookie: boss })).json.account.admin).toBe(true);
+    const list = await api('/admin/ideas', { cookie: boss });
+    expect(list.json.ideas[0].email).toBe('me@example.com');
+    await api(`/admin/ideas/${made.json.id}`, { method: 'POST', body: { status: 'shown' }, cookie: boss });
+    const board = (await api('/ideas')).json.ideas;
+    expect(board.map(i => i.text)).toEqual(['A cooking game with fractions']);
+    // the board never shows an email
+    expect(Object.keys(board[0]).sort()).toEqual(['created', 'id', 'kind', 'status', 'text', 'votes']);
+    expect((await api(`/ideas/${made.json.id}/vote`, { method: 'POST', body: { up: true } })).json.votes).toBe(1);
+    expect((await api(`/ideas/${made.json.id}/vote`, { method: 'POST', body: { up: true }, ip: '10.0.0.9' })).json.votes).toBe(2);
+    expect((await api(`/ideas/${made.json.id}/vote`, { method: 'POST', body: { up: false } })).json.votes).toBe(1);
+  });
+
+  it('merging moves the votes; planned and done stay on the board, hidden goes', async () => {
+    const { api, grownup } = site({ ADMIN_EMAILS: ADMIN });
+    const boss = await grownup(ADMIN);
+    const a = (await api('/ideas', { method: 'POST', body: { kind: 'game', text: 'Dinosaur game' } })).json.id;
+    const b = (await api('/ideas', { method: 'POST', body: { kind: 'game', text: 'Dinosaurs please' }, ip: '10.0.0.3' })).json.id;
+    for (const id of [a, b]) await api(`/admin/ideas/${id}`, { method: 'POST', body: { status: 'shown' }, cookie: boss });
+    await api(`/ideas/${b}/vote`, { method: 'POST', body: { up: true } });
+    await api(`/ideas/${b}/vote`, { method: 'POST', body: { up: true }, ip: '10.0.0.4' });
+    await api(`/admin/ideas/${b}`, { method: 'POST', body: { into: a }, cookie: boss });
+    let board = (await api('/ideas')).json.ideas;
+    expect(board.map(i => [i.id, i.votes])).toEqual([[a, 2]]);
+    await api(`/admin/ideas/${a}`, { method: 'POST', body: { status: 'planned' }, cookie: boss });
+    board = (await api('/ideas')).json.ideas;
+    expect(board[0].status).toBe('planned');
+    await api(`/admin/ideas/${a}`, { method: 'POST', body: { status: 'hidden' }, cookie: boss });
+    expect((await api('/ideas')).json.ideas).toEqual([]);
+  });
+
+  it('only admins (Google sign-ins on the list) reach the admin side', async () => {
+    const { api, grownup } = site({ ADMIN_EMAILS: ADMIN });
+    expect((await api('/admin/ideas')).status).toBe(403);
+    expect((await api('/admin/problems', { cookie: await grownup('parent@example.com') })).status).toBe(403);
+    // the same email through another provider is not enough
+    expect((await api('/admin/ideas', { cookie: await grownup(ADMIN, 'microsoft') })).status).toBe(403);
+    // and nobody is an admin when the list isn't set
+    const s2 = site();
+    expect((await s2.api('/admin/ideas', { cookie: await s2.grownup(ADMIN) })).status).toBe(403);
+  });
+
+  it('rate limits: 5 ideas, 5 problem messages, 20 automatic reports and 60 hearts an hour from one address', async () => {
+    const { api } = site();
+    for (let i = 0; i < 5; i++) expect((await api('/ideas', { method: 'POST', body: { kind: 'other', text: `idea ${i}` } })).status).toBe(200);
+    expect((await api('/ideas', { method: 'POST', body: { kind: 'other', text: 'one more' } })).status).toBe(429);
+    // another address is not held back
+    expect((await api('/ideas', { method: 'POST', body: { kind: 'other', text: 'from school' }, ip: '10.9.9.9' })).status).toBe(200);
+    for (let i = 0; i < 5; i++) expect((await api('/problems', { method: 'POST', body: { text: `broken ${i}` } })).status).toBe(200);
+    expect((await api('/problems', { method: 'POST', body: { text: 'broken again' } })).status).toBe(429);
+    for (let i = 0; i < 20; i++) expect((await api('/problems', { method: 'POST', body: { auto: true, message: `E${i}`, stack: '' } })).status).toBe(200);
+    expect((await api('/problems', { method: 'POST', body: { auto: true, message: 'E99', stack: '' } })).status).toBe(429);
+  });
+
+  it('hearts are limited per address too', async () => {
+    const { api, grownup } = site({ ADMIN_EMAILS: ADMIN });
+    const boss = await grownup(ADMIN);
+    const id = (await api('/ideas', { method: 'POST', body: { kind: 'game', text: 'Space game' } })).json.id;
+    await api(`/admin/ideas/${id}`, { method: 'POST', body: { status: 'shown' }, cookie: boss });
+    for (let i = 0; i < 60; i++) expect((await api(`/ideas/${id}/vote`, { method: 'POST', body: { up: i % 2 === 0 }, ip: '10.1.1.1' })).status).toBe(200);
+    expect((await api(`/ideas/${id}/vote`, { method: 'POST', body: { up: true }, ip: '10.1.1.1' })).status).toBe(429);
+  });
+
+  it('the same game error again is counted, not stored twice; a problem arrives in the admin list', async () => {
+    const { api, grownup } = site({ ADMIN_EMAILS: ADMIN });
+    const err = { auto: true, message: 'TypeError: x is undefined', stack: 'TypeError: x\n at a (index.js:1:2)', screen: 'hub', version: '2.0.0', browser: 'Chrome 141 on macOS', size: '1440x900' };
+    await api('/problems', { method: 'POST', body: err });
+    await api('/problems', { method: 'POST', body: { ...err, screen: 'map' }, ip: '10.0.0.7' });
+    await api('/problems', { method: 'POST', body: { text: 'The music stopped', email: 'not an email' } });
+    const boss = await grownup(ADMIN);
+    const ps = (await api('/admin/problems', { cookie: boss })).json.problems;
+    expect(ps.length).toBe(2);
+    const auto = ps.find(p => p.kind === 'auto');
+    expect(auto.times).toBe(2);
+    expect(auto.screen).toBe('map');
+    const told = ps.find(p => p.kind === 'told');
+    expect(told.email).toBe(null);
+    await api(`/admin/problems/${auto.id}`, { method: 'POST', body: { status: 'done' }, cookie: boss });
+    // seen again after it was marked done: it opens again
+    await api('/problems', { method: 'POST', body: err, ip: '10.0.0.8' });
+    expect((await api('/admin/problems', { cookie: boss })).json.problems.find(p => p.id === auto.id).status).toBe('new');
+  });
+});
+
 describe('one Worker script, two addresses (fancyant.com/keypals and keypals.org)', () => {
   const google = { GOOGLE_CLIENT_ID: 'client-id', GOOGLE_CLIENT_SECRET: 'client-secret' };
   async function signInThrough(s) {
