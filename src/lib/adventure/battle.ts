@@ -8,7 +8,7 @@
 // Finale stars. Pure: the screen calls play / block / finale / swap and animates the events that come back.
 import { mulberry32, type Rng } from '../engine/rng';
 import { answerOf, type Fact, type Op } from '../math/facts';
-import { ELEMENT, ELEMENTS, EVOLVE_BOOST, GLIMMER, powerNum, strong, type Element, type GearKind, type GlimmerId, type Rarity, type RoleId } from './glimmers';
+import { ELEMENT, ELEMENTS, EVOLVE_BOOST, GLIMMER, powerBase, powerNum, strong, type Element, type GearKind, type GlimmerId, type Rarity, type RoleId } from './glimmers';
 import type { KitKind } from './gear';
 
 export type Subject = 'math' | 'typing';
@@ -52,6 +52,8 @@ export type BEvent =
   /** a piece of gear did something that isn't cheer or energy (a bubble shield, an extra Finale star, half a hit) */
   | { k: 'gear'; item: string; what: string; did: string }
   | { k: 'freeze'; id: GlimmerId }
+  /** a Glimmer blew a shield (Bubble Octopus, Snowflake Jelly) that stops the next rain or zap */
+  | { k: 'bubble'; id: GlimmerId; what: string }
   | { k: 'dazzle' }
   | { k: 'streakKept'; id: GlimmerId }
   | { k: 'retry' }
@@ -118,9 +120,9 @@ export function newBattle(s: Setup): Battle {
     answered: [],
     missed: [],
   };
+  // Pebble Shell blocks the first rain or zap, Pinecone Curl the first two; grown up, one more
   const shell = has(b, 'shell');
-  if (shell) b.free.push({ by: 'Pebble Shell', id: shell.id });
-  if (shell?.evolved) b.free.push({ by: 'Boulder Shell', id: shell.id });
+  if (shell) for (let i = 0; i < powerBase(shell.id, 1) + (shell.evolved ? 1 : 0); i++) b.free.push({ by: GLIMMER[shell.id].power.name, id: shell.id });
   // a Great Aurora Stag starts you off with two Finale stars
   if (evo(b, 'aurora')) b.finale = 2;
   if (s.gear === 'hover') b.free.push({ by: 'Hover' });
@@ -259,7 +261,9 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
   if (ok) {
     b.stats.right++; if (fast) b.stats.fast++;
     b.rights++; b.streak++;
-    b.finale += (b.gear === 'royal' ? 2 : 1) + (card.super ? 1 : 0) + (card.element === 'leaf' && has(b, 'blossom') ? 1 : 0) + (card.element === 'tide' && evo(b, 'song') ? 1 : 0);
+    b.finale += (b.gear === 'royal' ? 2 : 1) + (card.super ? 1 : 0) + (card.element === 'leaf' && has(b, 'blossom') ? 1 : 0) + (card.element === 'tide' && evo(b, 'song') ? 1 : 0)
+      // a grown-up booster (Solar Snail, Toadstool Mouse, Rainbow Ram): cards of its element fill an extra star
+      + b.team.filter(m => m.evolved && GLIMMER[m.id].power.kind === 'boost' && GLIMMER[m.id].element === card.element).length;
     if (card.super) { b.dazzled = true; ev.push({ k: 'dazzle' }); }
     // gear: Rocket Sneakers fill an extra star on a fast answer; the Bubble Wand's bubble every 4th
     if (fast && kit(b, 'zoom') && b.finale < FINALE_AT) { b.finale++; ev.push({ k: 'gear', item: 'rocket_sneakers', what: 'Rocket Sneakers', did: '+1 Finale star' }); }
@@ -283,10 +287,14 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
     if (fast && kit(b, 'rocketpack')) extra('gear', 'Rocket Pack', 2, undefined, 'rocket_pack');
     if (ok && b.role === 'speed' && (b.subject === 'math' && !b.flat ? a.thinkMs < 3000 : fast)) extra('role', 'Dash', 3);
     for (const m of b.team) {
-      const k = GLIMMER[m.id].power.kind;
-      if (k === 'splash' && ok && (b.flat ? fast : a.thinkMs < 4000)) extra('glimmer', 'Splash', powerNum(3, lv(m)), m.id);
-      if (k === 'ember') extra('glimmer', 'Ember puff', powerNum(4, lv(m)), m.id);
-      if (k === 'lanterns' && ok && b.rights % 3 === 0) extra('glimmer', 'Three lanterns', powerNum(10, lv(m), 3), m.id);
+      const k = GLIMMER[m.id].power.kind, pw = GLIMMER[m.id].power.name;
+      if (k === 'splash' && ok && (b.flat ? fast : a.thinkMs < 4000)) extra('glimmer', pw, powerNum(powerBase(m.id, 3), lv(m)), m.id);
+      if (k === 'ember') extra('glimmer', pw, powerNum(powerBase(m.id, 4), lv(m)), m.id);
+      if (k === 'lanterns' && ok && b.rights % 3 === 0) extra('glimmer', pw, powerNum(powerBase(m.id, 10), lv(m), 3), m.id);
+      // cards of its own element cheer more (Sunny Snail: Sun cards)
+      if (k === 'boost' && ok && card.element === GLIMMER[m.id].element) extra('glimmer', pw, powerNum(powerBase(m.id, 2), lv(m)), m.id);
+      // the first right answer of the battle pops (grown up: the first two)
+      if (k === 'opener' && ok && b.rights <= (m.evolved ? 2 : 1)) extra('glimmer', pw, powerNum(powerBase(m.id, 6), lv(m)), m.id);
       // grown-up perks
       if (m.evolved && ok) {
         if (k === 'splash' && card.element === 'tide') extra('glimmer', 'Tidal splash', 2, m.id);
@@ -312,6 +320,8 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
     if (k === 'song' && ok && card.element === 'tide') heal('glimmer', 'Whale song', powerNum(3, lv(m)), m.id);
     if (k === 'blossom' && ok) heal('glimmer', 'Blossom', powerNum(1, lv(m), 8), m.id);
     if (k === 'freeze' && ok && b.streak > 0 && b.streak % (m.evolved ? 2 : 3) === 0 && !b.frozen) { b.frozen = true; ev.push({ k: 'freeze', id: m.id }); }
+    // a shield every few right answers (grown up: one sooner)
+    if (k === 'bubbles' && ok && b.rights % Math.max(2, powerBase(m.id, 5) - (m.evolved ? 1 : 0)) === 0) { b.free.push({ by: GLIMMER[m.id].power.name, id: m.id }); ev.push({ k: 'bubble', id: m.id, what: GLIMMER[m.id].power.name }); }
     if (k === 'aurora' && ok && !b.used.aurora && b.rights >= 2) { b.used.aurora = true; b.finale = Math.max(b.finale, FINALE_AT); ev.push({ k: 'aurora' }); }
   }
   b.finale = Math.min(FINALE_AT, b.finale);
@@ -392,7 +402,7 @@ export function block(b: Battle, ok: boolean, ms: number): BEvent[] {
   }
   const whale = has(b, 'secondwind');
   if (whale && b.spark > 0 && b.spark <= b.sparkMax / 3 && again(b, 'secondwind', whale)) {
-    b.used.secondwind = true; const v = Math.min(b.sparkMax - b.spark, powerNum(10, lv(whale), 3)); b.spark += v; ev.push({ k: 'secondwind', value: v });
+    b.used.secondwind = true; const v = Math.min(b.sparkMax - b.spark, powerNum(powerBase(whale.id, 10), lv(whale), 3)); b.spark += v; ev.push({ k: 'secondwind', value: v });
   }
   if (b.spark <= 0) { b.phase = 'lost'; ev.push({ k: 'lost' }); return ev; }
   ev.push(...nextTurn(b));

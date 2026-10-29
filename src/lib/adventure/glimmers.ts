@@ -28,12 +28,22 @@ export const RARITY: Record<Rarity, { name: string; color: string; glow: string;
 };
 export const rarityRank = (r: Rarity) => RARITIES.indexOf(r);
 
-export type PowerKind = 'splash' | 'shell' | 'nibble' | 'ember' | 'hide' | 'coolhead' | 'freeze' | 'glow' | 'crystal' | 'song' | 'lanterns' | 'blossom' | 'secondwind' | 'aurora';
-export type GlimmerId = 'puddlepup' | 'pebbletort' | 'sproutbun' | 'embernewt' | 'fernfox' | 'snowseal' | 'frostowl' | 'sparkmoth' | 'prismhorn' | 'whalecalf' | 'lanternfox' | 'bloomdrake' | 'skywhale' | 'aurorastag';
+/** Powers. The 2026-10-30 Glimmers added four: `boost` (cards of its own element cheer more), `bubbles` (a
+ *  shield every few right answers), `opener` (the first right answer pops extra cheer) and `dig` (shells
+ *  when you win). The rest are shared: two Glimmers with the same kind do the same thing, each with its
+ *  own number (`base`). */
+export type PowerKind = 'splash' | 'shell' | 'nibble' | 'ember' | 'hide' | 'coolhead' | 'freeze' | 'glow' | 'crystal' | 'song' | 'lanterns' | 'blossom' | 'secondwind' | 'aurora'
+  | 'boost' | 'bubbles' | 'opener' | 'dig';
+export type GlimmerId = 'puddlepup' | 'pebbletort' | 'sproutbun' | 'embernewt' | 'fernfox' | 'snowseal' | 'frostowl' | 'sparkmoth' | 'prismhorn' | 'whalecalf' | 'lanternfox' | 'bloomdrake' | 'skywhale' | 'aurorastag'
+  | 'sunsnail' | 'mittenyeti' | 'bubbleocto' | 'geodemole' | 'popcornpuff' | 'mushmouse' | 'rainbootfrog' | 'rollodillo'
+  | 'teakettledrake' | 'cactuskit' | 'frostjelly' | 'potgolem' | 'stormlamb' | 'pinepango' | 'cometcat' | 'phoenixchick';
 export type GlimmerDef = {
   id: GlimmerId; name: string; rarity: Rarity; element: Element;
-  power: { kind: PowerKind; name: string; text: (lvl: number) => string };
+  /** `base`: the power's number at level 1 when it differs from the kind's usual one (bubbles: every how many right answers) */
+  power: { kind: PowerKind; name: string; text: (lvl: number) => string; base?: number };
   quirk: string;
+  /** the island where it lives: its battles turn it up more often there */
+  home?: 'meadow' | 'treetops' | 'bay';
   /** the island whose Champion it is (Champions are always these) */
   champion?: 'meadow' | 'treetops' | 'bay';
   /** shape of its storm cloud when it's a Champion Grumble */
@@ -44,25 +54,25 @@ export type GlimmerDef = {
 export const powerNum = (base: number, lvl: number, every = 4) => base + Math.floor((Math.max(1, lvl) - 1) / every);
 
 export const GLIMMERS: GlimmerDef[] = [
-  { id: 'puddlepup', name: 'Puddle Pup', rarity: 'common', element: 'tide', quirk: 'Shakes off water on everyone, every time.',
+  { id: 'puddlepup', home: 'meadow', name: 'Puddle Pup', rarity: 'common', element: 'tide', quirk: 'Shakes off water on everyone, every time.',
     power: { kind: 'splash', name: 'Splash', text: l => `Answer fast and it splashes ${powerNum(3, l)} more cheer.` } },
-  { id: 'pebbletort', name: 'Pebble Tortoise', rarity: 'common', element: 'stone', quirk: 'Naps between turns. Wakes up for snacks.',
+  { id: 'pebbletort', home: 'meadow', name: 'Pebble Tortoise', rarity: 'common', element: 'stone', quirk: 'Naps between turns. Wakes up for snacks.',
     power: { kind: 'shell', name: 'Pebble Shell', text: () => 'Blocks the first rain or zap in every battle for you.' } },
-  { id: 'sproutbun', name: 'Sprout Bunny', rarity: 'common', element: 'leaf', quirk: 'Its sprout grows a new leaf on happy days.',
+  { id: 'sproutbun', home: 'treetops', name: 'Sprout Bunny', rarity: 'common', element: 'leaf', quirk: 'Its sprout grows a new leaf on happy days.',
     power: { kind: 'nibble', name: 'Nibble', text: l => `Gives you ${powerNum(1, l, 6)} energy back after each answer.` } },
-  { id: 'embernewt', name: 'Ember Newt', rarity: 'uncommon', element: 'sun', quirk: 'Leaves tiny warm footprints that glow for a minute.',
+  { id: 'embernewt', home: 'meadow', name: 'Ember Newt', rarity: 'uncommon', element: 'sun', quirk: 'Leaves tiny warm footprints that glow for a minute.',
     power: { kind: 'ember', name: 'Ember Puff', text: l => `Adds ${powerNum(4, l)} more cheer after each of your answers.` } },
-  { id: 'fernfox', name: 'Fern Fox', rarity: 'uncommon', element: 'leaf', quirk: 'Hides in its own tail when it is shy.',
+  { id: 'fernfox', home: 'treetops', name: 'Fern Fox', rarity: 'uncommon', element: 'leaf', quirk: 'Hides in its own tail when it is shy.',
     power: { kind: 'hide', name: 'Hide and Seek', text: () => 'Once a battle, a wrong answer won\'t break your row of right answers.' } },
-  { id: 'snowseal', name: 'Snowdrop Seal', rarity: 'uncommon', element: 'frost', quirk: 'Slides everywhere. Has never walked.',
+  { id: 'snowseal', home: 'bay', name: 'Snowdrop Seal', rarity: 'uncommon', element: 'frost', quirk: 'Slides everywhere. Has never walked.',
     power: { kind: 'coolhead', name: 'Cool Head', text: l => `Gives you ${powerNum(2, l, 8)} more seconds to block rain and zaps.` } },
-  { id: 'frostowl', name: 'Frost Owl', rarity: 'rare', element: 'frost', quirk: 'Hoots once for every right answer.',
+  { id: 'frostowl', home: 'treetops', name: 'Frost Owl', rarity: 'rare', element: 'frost', quirk: 'Hoots once for every right answer.',
     power: { kind: 'freeze', name: 'Frost Feathers', text: () => 'Every 3 right in a row, it freezes the grumpy Glimmer so it can\'t send rain.' } },
-  { id: 'sparkmoth', name: 'Spark Moth', rarity: 'rare', element: 'sun', quirk: 'Glows brighter the faster you answer.',
+  { id: 'sparkmoth', home: 'meadow', name: 'Spark Moth', rarity: 'rare', element: 'sun', quirk: 'Glows brighter the faster you answer.',
     power: { kind: 'glow', name: 'Glow', text: () => 'Once a battle, tap Hint and it shows you a trick for the answer.' } },
-  { id: 'prismhorn', name: 'Prism Hornback', rarity: 'epic', element: 'stone', quirk: 'Its crystal horns ring like bells when it laughs.',
+  { id: 'prismhorn', home: 'treetops', name: 'Prism Hornback', rarity: 'epic', element: 'stone', quirk: 'Its crystal horns ring like bells when it laughs.',
     power: { kind: 'crystal', name: 'Crystal Luck', text: () => 'A Perfect Cheer gives you double shells.' } },
-  { id: 'whalecalf', name: 'Cloud Whale Calf', rarity: 'epic', element: 'tide', quirk: 'Floats. Sings when you win.',
+  { id: 'whalecalf', home: 'bay', name: 'Cloud Whale Calf', rarity: 'epic', element: 'tide', quirk: 'Floats. Sings when you win.',
     power: { kind: 'song', name: 'Whale Song', text: l => `Water cards give you ${powerNum(3, l)} energy back.` } },
   { id: 'lanternfox', name: 'Lantern Fox', rarity: 'legendary', element: 'sun', champion: 'meadow', cloud: 'fox', quirk: 'Lights a lantern for every friend it makes.',
     power: { kind: 'lanterns', name: 'Three Lanterns', text: l => `Every 3rd right answer adds ${powerNum(10, l, 3)} big cheer.` } },
@@ -72,9 +82,45 @@ export const GLIMMERS: GlimmerDef[] = [
     power: { kind: 'secondwind', name: 'Second Wind', text: l => `Once a battle, when your energy runs low, gives you ${powerNum(10, l, 3)} back.` } },
   { id: 'aurorastag', name: 'Aurora Stag', rarity: 'mythic', element: 'frost', quirk: 'Only seen on the clearest snowy nights.',
     power: { kind: 'aurora', name: 'Aurora', text: () => 'Once a battle, fills up your Finale right away.' } },
+
+  // ---------- 2026-10-30: sixteen more, quirky ones ----------
+  { id: 'sunsnail', home: 'meadow', name: 'Sunny Snail', rarity: 'common', element: 'sun', quirk: 'Never in a hurry. Always arrives warm.',
+    power: { kind: 'boost', name: 'Warm Shell', base: 2, text: l => `Sun cards add ${powerNum(2, l)} more cheer.` } },
+  { id: 'mittenyeti', home: 'treetops', name: 'Mitten Yeti', rarity: 'common', element: 'frost', quirk: 'Gives the best hugs. They\'re a little bit chilly.',
+    power: { kind: 'coolhead', name: 'Cool Mittens', text: l => `Gives you ${powerNum(2, l, 8)} more seconds to block rain and zaps.` } },
+  { id: 'bubbleocto', home: 'bay', name: 'Bubble Octopus', rarity: 'common', element: 'tide', quirk: 'Blows bubbles even when it\'s fast asleep.',
+    power: { kind: 'bubbles', name: 'Bubble Shield', base: 5, text: () => 'Every 5th right answer blows a bubble that stops the next rain or zap.' } },
+  { id: 'geodemole', home: 'meadow', name: 'Geode Mole', rarity: 'common', element: 'stone', quirk: 'Digs up shiny things and gives them all away.',
+    power: { kind: 'dig', name: 'Shiny Finds', base: 4, text: l => `When you win a battle, it digs up ${powerNum(4, l)} extra shells.` } },
+  { id: 'popcornpuff', home: 'meadow', name: 'Popcorn Puffling', rarity: 'uncommon', element: 'sun', quirk: 'Pops when it\'s surprised. Then pops again.',
+    power: { kind: 'opener', name: 'First Pop', base: 6, text: l => `Your first right answer pops ${powerNum(6, l)} extra cheer.` } },
+  { id: 'mushmouse', home: 'treetops', name: 'Mushroom Mouse', rarity: 'uncommon', element: 'leaf', quirk: 'Its mushroom is its umbrella, its hat and its bed.',
+    power: { kind: 'boost', name: 'Mushroom Magic', base: 3, text: l => `Leaf cards add ${powerNum(3, l)} more cheer.` } },
+  { id: 'rainbootfrog', home: 'bay', name: 'Rainboot Frog', rarity: 'uncommon', element: 'tide', quirk: 'Jumps in every puddle. Twice, to be sure.',
+    power: { kind: 'splash', name: 'Big Splash', base: 4, text: l => `Answer fast and it splashes ${powerNum(4, l)} more cheer.` } },
+  { id: 'rollodillo', home: 'meadow', name: 'Rock Candy Armadillo', rarity: 'uncommon', element: 'stone', quirk: 'Rolls everywhere. Says sorry to everything it bumps.',
+    power: { kind: 'hide', name: 'Roll Away', text: () => 'Once a battle, a wrong answer won\'t break your row of right answers.' } },
+  { id: 'teakettledrake', home: 'meadow', name: 'Teakettle Dragon', rarity: 'rare', element: 'sun', quirk: 'Whistles when it\'s excited. It\'s always excited.',
+    power: { kind: 'lanterns', name: 'Whistle Blast', base: 6, text: l => `Every 3rd right answer whistles ${powerNum(6, l, 3)} big cheer.` } },
+  { id: 'cactuskit', home: 'treetops', name: 'Cactus Kitten', rarity: 'rare', element: 'leaf', quirk: 'Super soft. Except for the prickles.',
+    power: { kind: 'freeze', name: 'Prickly Hug', text: () => 'Every 3 right in a row, it gives the grumpy Glimmer a prickly hug so it can\'t send rain.' } },
+  { id: 'frostjelly', home: 'bay', name: 'Snowflake Jelly', rarity: 'rare', element: 'frost', quirk: 'Snows a tiny bit wherever it floats.',
+    power: { kind: 'bubbles', name: 'Snow Shield', base: 4, text: () => 'Every 4th right answer makes a snowflake shield that stops the next rain or zap.' } },
+  { id: 'potgolem', home: 'treetops', name: 'Flowerpot Golem', rarity: 'rare', element: 'stone', quirk: 'Its head is a flowerpot. The flower has opinions.',
+    power: { kind: 'glow', name: 'Plant Wisdom', text: () => 'Once a battle, tap Hint and its flower shows you a trick for the answer.' } },
+  { id: 'stormlamb', home: 'bay', name: 'Thundercloud Lamb', rarity: 'epic', element: 'tide', quirk: 'Its wool rains, but only rainbows.',
+    power: { kind: 'boost', name: 'Rainbow Rain', base: 4, text: l => `Water cards add ${powerNum(4, l)} more cheer.` } },
+  { id: 'pinepango', home: 'treetops', name: 'Pinecone Pangolin', rarity: 'epic', element: 'leaf', quirk: 'Curls up into a pinecone when it\'s thinking.',
+    power: { kind: 'shell', name: 'Pinecone Curl', base: 2, text: () => 'Blocks the first two rains or zaps in every battle for you.' } },
+  { id: 'cometcat', home: 'bay', name: 'Comet Cat', rarity: 'legendary', element: 'frost', quirk: 'Leaves a trail of stars. Tidies them up later.',
+    power: { kind: 'lanterns', name: 'Comet Trail', base: 10, text: l => `Every 3rd right answer adds ${powerNum(10, l, 3)} big cheer.` } },
+  { id: 'phoenixchick', name: 'Phoenix Chick', rarity: 'mythic', element: 'sun', quirk: 'Every morning it wakes up as a brand-new chick.',
+    power: { kind: 'secondwind', name: 'Rise Again', base: 14, text: l => `Once a battle, when your energy runs low, gives you ${powerNum(14, l, 3)} back.` } },
 ];
 export const GLIMMER: Record<GlimmerId, GlimmerDef> = Object.fromEntries(GLIMMERS.map(g => [g.id, g])) as Record<GlimmerId, GlimmerDef>;
 export const glimmersOf = (r: Rarity) => GLIMMERS.filter(g => g.rarity === r);
+/** A power's number at level 1 for this Glimmer (its own, or the kind's usual one). */
+export const powerBase = (id: GlimmerId, usual: number) => GLIMMER[id].power.base ?? usual;
 
 // ---------- buddies: each plays a little differently ----------
 export type RoleId = 'heart' | 'speed' | 'trick' | 'helper' | 'builder' | 'steady';
@@ -127,6 +173,22 @@ export const EVOLVED: Record<GlimmerId, { name: string; perk: string }> = {
   bloomdrake: { name: 'Bloom Dragon', perk: 'Leaf cards add 2 more cheer.' },
   skywhale: { name: 'Star Whale', perk: 'Second Wind can help you twice a battle.' },
   aurorastag: { name: 'Great Aurora Stag', perk: 'You start every battle with 2 Finale stars.' },
+  sunsnail: { name: 'Solar Snail', perk: 'Sun cards also fill an extra Finale star.' },
+  mittenyeti: { name: 'Blizzard Yeti', perk: 'Every rain or zap you block also adds 2 cheer.' },
+  bubbleocto: { name: 'Bubble Kraken', perk: 'Blows a bubble every 4th right answer instead.' },
+  geodemole: { name: 'Gem Digger Mole', perk: 'Digs up shells after a lost battle too.' },
+  popcornpuff: { name: 'Kettlecorn Puffling', perk: 'Your first two right answers both pop.' },
+  mushmouse: { name: 'Toadstool Mouse', perk: 'Leaf cards also fill an extra Finale star.' },
+  rainbootfrog: { name: 'Stormboot Frog', perk: 'Water cards splash 2 more cheer.' },
+  rollodillo: { name: 'Crystal Candy Armadillo', perk: 'Keeps your row of right answers safe twice a battle.' },
+  teakettledrake: { name: 'Grand Teapot Dragon', perk: 'Your Finale cheers 10 more.' },
+  cactuskit: { name: 'Blossom Cactus Cat', perk: 'Gives its prickly hug after 2 right in a row, not 3.' },
+  frostjelly: { name: 'Aurora Jelly', perk: 'Makes a shield every 3rd right answer instead.' },
+  potgolem: { name: 'Garden Golem', perk: 'You can use Hint twice a battle.' },
+  stormlamb: { name: 'Rainbow Ram', perk: 'Water cards also fill an extra Finale star.' },
+  pinepango: { name: 'Ancient Pine Pangolin', perk: 'Blocks the first three rains or zaps.' },
+  cometcat: { name: 'Galaxy Cat', perk: 'Your Finale cheers 10 more.' },
+  phoenixchick: { name: 'Sunrise Phoenix', perk: 'Rise Again can help you twice a battle.' },
 };
 /** The name to show: the grown-up one once it has evolved. */
 export const glimmerName = (id: GlimmerId, evolved?: boolean) => (evolved ? EVOLVED[id].name : GLIMMER[id].name);

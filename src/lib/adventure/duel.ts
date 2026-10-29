@@ -88,9 +88,9 @@ export function duelPlay(d: Duel, cardId: number, a: Answer): DEvent[] {
     out.push(e);
   }
   if (ev.some(e => e.k === 'retry')) return out;
-  // Frost Owl: three right in a row freezes the next rain cloud that comes your way
+  // Frost Owl (or Cactus Kitten): three right in a row freezes the next rain cloud that comes your way
   const owl = s.team.find(m => GLIMMER[m.id].power.kind === 'freeze');
-  if (ok && owl && s.b.streak > 0 && s.b.streak % 3 === 0) { s.b.free.push({ by: 'Frost Owl', id: owl.id }); out.push({ k: 'freeze', id: owl.id }); }
+  if (ok && owl && s.b.streak > 0 && s.b.streak % 3 === 0) { s.b.free.push({ by: GLIMMER[owl.id].name, id: owl.id }); out.push({ k: 'freeze', id: owl.id }); }
   if (s.b.foe.grump <= 0) return full(d, out);
   if (ok && s.b.streak > 0 && s.b.streak % RAIN_EVERY === 0) {
     const to = (1 - d.turn) as 0 | 1;

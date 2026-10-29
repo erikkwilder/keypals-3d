@@ -64,7 +64,7 @@
     { img: 'intro-story', title: 'Storms made the Glimmers grumpy!', text: 'Glimmers are little island creatures with special powers. A storm cloud is raining on each one. Cheer one up with your answers, and it joins your team!' },
     { img: 'intro-battle', title: 'How battles work', text: 'Tap a card and answer it: every right answer cheers it up. When it sends rain, answer the quick one to block it. Your buddy and your team help.' },
     { img: 'intro-practice', title: 'Practice hatches eggs', text: 'Every right answer in math and typing practice makes your eggs grow. When an egg is full, it hatches into a new Glimmer! Practice earns shells for the shop too.' },
-    { img: 'intro-glimmers', title: 'Find them all', text: '14 Glimmers live on the islands. Some are easy to find, some are very rare. Cheer up each island\'s Champion to open the next island.' },
+    { img: 'intro-glimmers', title: 'Find them all', text: `${GLIMMERS.length} Glimmers live on the islands, and each island has its own. Some are easy to find, some are very rare. Cheer up each island's Champion to open the next island.` },
     { img: 'intro-duel', title: 'Play with your family', text: 'Take turns with a grown-up or a friend in a Family Duel, or battle someone\'s ghost in Rival Ghosts. Whoever cheers up the Glimmer first wins it!' },
   ];
 

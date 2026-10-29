@@ -8,6 +8,7 @@
   import { DANCES, forBuddy } from '../engine/rewards';
   import { levelFromXp, STICKERS } from '../engine/stickers';
   import { MEDALS } from '../engine/achievements';
+  import { GLIMMERS } from '../adventure/glimmers';
   import { FRIEND } from '../art/cast';
   import { sfx } from '../audio/sound';
   import { MATH_LESSONS, MATH_REGION, STRAND, worldOf } from '../math/course';
@@ -171,7 +172,7 @@
         </button>
         <div class="ainfo">
           <div class="astats">
-            <span><img class="gface" src="{import.meta.env.BASE_URL}game/glimmers/face/puddlepup.webp" alt="" /><b>{advFound}</b>/14 Glimmers</span>
+            <span><img class="gface" src="{import.meta.env.BASE_URL}game/glimmers/face/puddlepup.webp" alt="" /><b>{advFound}</b>/{GLIMMERS.length} Glimmers</span>
             <span><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><b>{adv.shells}</b> shells</span>
             {#if advReady}<span class="ready"><img src="{import.meta.env.BASE_URL}game/egg-rare.webp" alt="" /><b>{advReady}</b> ready to hatch!</span>{/if}
           </div>

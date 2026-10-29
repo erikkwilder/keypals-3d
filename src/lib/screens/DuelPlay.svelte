@@ -323,7 +323,9 @@
         sync();
       } else if (e.k === 'freeze') {
         scene?.freeze(side, d.sides[side].team.findIndex(m => m.id === e.id)); sfx.freeze();
-        helped(side, e.id, 'Frost Owl', 'the next rain cloud is frozen'); await sleep(500);
+        helped(side, e.id, GLIMMER[e.id].power.name, 'the next rain cloud is frozen'); await sleep(500);
+      } else if (e.k === 'bubble') {
+        sfx.shield(true); helped(side, e.id, e.what, 'a shield for the next rain cloud'); await sleep(350);
       } else if (e.k === 'gear') { sfx.helper(); helped(side, undefined, e.what, e.did, `${base}gear/${e.item}.webp`); if (e.item === 'bubble_wand') sfx.shield(true); await sleep(350); }
       else if (e.k === 'dazzle') scene?.dazzle();
       else if (e.k === 'streakKept') say(`${glimmerName(e.id, evo(side, e.id))} kept ${nameOf(side)}'s row going!`, 'good');
@@ -344,7 +346,7 @@
       } else if (e.k === 'rainBlocked') {
         if (e.by) { helped(side, e.id, e.by, 'blocked the rain cloud'); }
         sfx.shield(true);
-        await scene?.rainResult(side, true, e.by === 'Frost Owl' ? 0xbff0ff : e.by === 'Pebble Shell' ? 0xd6b48a : 0x7fe0ff);
+        await scene?.rainResult(side, true, e.id && GLIMMER[e.id].power.kind === 'freeze' ? 0xbff0ff : e.id && GLIMMER[e.id].power.kind === 'shell' ? 0xd6b48a : 0x7fe0ff);
         float(`p${side}` as Spot, 'Blocked!', 'block');
       } else if (e.k === 'rainHit') {
         sfx.rainHit();

@@ -60,7 +60,7 @@ describe('evolved powers in battle', () => {
       const b = battle([{ id: 'embernewt', level: 1, evolved }]);
       const c = b.cards.find(x => x.fact && x.element !== 'sun')!;
       const ev = play(b, c.id, right(c));
-      expect(ev.find(e => e.k === 'extra' && e.what === 'Ember puff')).toMatchObject({ value: want });
+      expect(ev.find(e => e.k === 'extra' && e.what === 'Ember Puff')).toMatchObject({ value: want });
     }
   });
   it('Tidal Pup splashes 2 more on water cards', () => {

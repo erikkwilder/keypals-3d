@@ -279,6 +279,7 @@
         helped(e.id, e.what, `+${e.value} energy`, e.item ? `${base}gear/${e.item}.webp` : undefined); sync();
         await sleep(300);
       } else if (e.k === 'freeze') { scene?.freeze(team.findIndex(m => m.id === e.id)); sfx.freeze(); helped(e.id, GLIMMER[e.id].power.name, `${foeName} is frozen!`); await sleep(400); }
+      else if (e.k === 'bubble') { sfx.shield(true); helped(e.id, e.what, 'a shield for the next rain or zap!'); await sleep(350); }
       else if (e.k === 'gear') {
         // a piece of gear did its thing: its own badge, with its picture
         sfx.helper(); helped(undefined, e.what, e.did, `${base}gear/${e.item}.webp`);
