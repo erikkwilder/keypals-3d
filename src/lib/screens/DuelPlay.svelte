@@ -18,6 +18,7 @@
   import { newDuel, duelPlay, duelFinale, duelRain, ghostMove, ghostRain, cur, progress, type DEvent, type Duel, type SideSetup } from '../adventure/duel';
   import { applyVersus, tellGhostOwner, type VersusOutcome } from '../adventure/versus';
   import { LEAGUES, type Rival } from '../adventure/ghosts';
+  import { startPerks } from '../adventure/gear';
   import { advView, markSeen } from '../adventure/state';
   import Coach from '../ui/Coach.svelte';
   import NumPad from '../math/ui/NumPad.svelte';
@@ -105,7 +106,7 @@
   onMount(async () => {
     addEventListener('resize', onResize);
     try {
-      const sc = await DuelScene.create({ region: 'treetops', glimmer, view: viewOf(), sides: d.sides.map(s => ({ buddy: s.buddy, outfit: s.outfit, dance: s.dance, team: s.team.map(t => ({ id: t.id, evolved: t.evolved })), ghost: s.kind === 'ghost' })) as never });
+      const sc = await DuelScene.create({ region: 'treetops', glimmer, view: viewOf(), sides: d.sides.map(s => ({ buddy: s.buddy, outfit: s.outfit, dance: s.dance, team: s.team.map(t => ({ id: t.id, evolved: t.evolved })), ghost: s.kind === 'ghost', worn: s.worn })) as never });
       if (disposed) { sc.dispose(); return; }
       scene = sc; stage.use(sc);
       requestAnimationFrame(onResize);
@@ -115,6 +116,8 @@
     bigBanner = { text: `${gName} is grumpy!`, sub: mode === 'duel' ? 'Take turns. Fill your bar first to win it!' : `Race ${d.sides[1].name}${d.sides[1].kind === 'ghost' ? "'s ghost" : ''}: fill your bar first!`, kind: 'intro', key: Date.now() };
     setTimeout(() => {
       bigBanner = null; sync(); scene?.setTurn(0);
+      // gear that does something from the start (energy doesn't count in a duel, so Spring Shoes stay quiet)
+      d.sides.forEach((s, i) => startPerks(s.kit ?? []).filter(g => g.item !== 'spring_shoes').forEach((g, k) => setTimeout(() => { if (!disposed) { sfx.helper(); helped(i as 0 | 1, undefined, g.what, g.did, `${base}gear/${g.item}.webp`); } }, 300 + i * 900 + k * 700)));
       if (mode === 'rival') tip('r-ghost', `This is ${d.sides[1].name}'s ghost. It plays the way they really play: just as careful and just as quick!`, '.pl.p1');
       else tip('d-turns', 'Take turns! Each of you gets questions at your own level, so it\'s fair for everyone.', '.hud');
       beginTurn(true);
@@ -133,10 +136,10 @@
   /** a team Glimmer's picture and name: its grown-up look once it has evolved */
   const evo = (side: number, id: string) => !!d.sides[side].team.find(m => m.id === id)?.evolved;
   const artOf = (side: number, id: GlimmerId) => `${base}game/glimmers/${id}${evo(side, id) ? '-evo' : ''}.webp`;
-  function helped(side: 0 | 1, id: string | undefined, what: string, did: string) {
+  function helped(side: 0 | 1, id: string | undefined, what: string, did: string, pic?: string) {
     const slot = id ? d.sides[side].team.findIndex(m => m.id === id) : -1;
     const at = (slot === 0 ? `p${side}t0` : slot === 1 ? `p${side}t1` : `p${side}`) as Spot;
-    const img = id ? artOf(side, id as GlimmerId) : `${base}portraits/${d.sides[side].buddy}-head.png`;
+    const img = pic ?? (id ? artOf(side, id as GlimmerId) : `${base}portraits/${d.sides[side].buddy}-head.png`);
     float(at, `${what}: ${did}`, 'helper', img);
   }
   function say(text: string, kind = 'info') { toast = { text, kind, key: Date.now() }; setTimeout(() => { if (toast?.text === text) toast = null; }, 2200); }
@@ -299,14 +302,15 @@
       } else if (e.k === 'extra') {
         const slot = e.id ? d.sides[side].team.findIndex(m => m.id === e.id) : -1;
         sfx.helper();
-        helped(side, e.id, e.what, `+${e.value} cheer`);
+        helped(side, e.id, e.what, `+${e.value} cheer`, e.item ? `${base}gear/${e.item}.webp` : undefined);
         await scene?.extra(side, slot, e.id ? GLIMMER[e.id].element : 'sun');
         float('glimmer', `+${e.value}`, 'extra', undefined, SIDE[side]);
         sync();
       } else if (e.k === 'freeze') {
         scene?.freeze(side, d.sides[side].team.findIndex(m => m.id === e.id)); sfx.freeze();
         helped(side, e.id, 'Frost Owl', 'the next rain cloud is frozen'); await sleep(500);
-      } else if (e.k === 'dazzle') scene?.dazzle();
+      } else if (e.k === 'gear') { sfx.helper(); helped(side, undefined, e.what, e.did, `${base}gear/${e.item}.webp`); if (e.item === 'bubble_wand') sfx.shield(true); await sleep(350); }
+      else if (e.k === 'dazzle') scene?.dazzle();
       else if (e.k === 'streakKept') say(`${glimmerName(e.id, evo(side, e.id))} kept ${nameOf(side)}'s row going!`, 'good');
       else if (e.k === 'aurora') { scene?.aurora(); sfx.reveal(3); say('Aurora! The Finale is ready.', 'super'); await sleep(600); }
       else if (e.k === 'finaleReady') sfx.badge();

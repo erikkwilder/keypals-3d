@@ -8,6 +8,7 @@ import { dayKey, type Profile } from '../engine/profile';
 import type { FriendId } from '../art/cast';
 import { GLIMMERS, rarityRank, type GlimmerId, type Rarity } from './glimmers';
 import type { Member, Subject } from './battle';
+import type { KitKind, Slot } from './gear';
 
 /** How someone plays, kept as running totals. */
 export type GhostStats = { answers: number; right: number; thinkMs: number; big: number; picks: number };
@@ -24,7 +25,7 @@ export type RivalState = {
   /** a league just went up (shown once) */
   promoted?: number;
 };
-export type GhostCopy = { buddy: FriendId; outfit: string; dance: string; team: Member[]; stats: GhostStats; subject: Subject };
+export type GhostCopy = { buddy: FriendId; outfit: string; dance: string; team: Member[]; stats: GhostStats; subject: Subject; kit?: KitKind[]; worn?: Partial<Record<Slot, string>> };
 
 export const LEAGUES = [
   { name: 'Pebble League', color: '#9aa3b5' },
@@ -93,6 +94,7 @@ export type Rival = {
   subject: Subject; stats: GhostStats; league: number;
   /** a family ghost: the profile it comes from (its questions come from that player's own level) */
   profileId?: string;
+  kit?: KitKind[]; worn?: Partial<Record<Slot, string>>;
 };
 
 const STARTER_BUDDIES: FriendId[] = ['dino', 'cheetah', 'monkey', 'koala', 'box', 'turtle'];
@@ -120,9 +122,9 @@ export function rivalsFor(me: Profile, all: Profile[], r: RivalState, ghostOf: (
     if (p.id === me.id || out.length >= 2) continue;
     const g = ghostOf(p);
     if (!g || g.stats.answers < 5) continue;
-    out.push({ id: `family-${p.id}`, kind: 'family', name: p.name, buddy: g.buddy, outfit: g.outfit, dance: g.dance, team: g.team, subject: g.subject, stats: g.stats, league: p.adventure?.rivals?.league ?? 0, profileId: p.id });
+    out.push({ id: `family-${p.id}`, kind: 'family', name: p.name, buddy: g.buddy, outfit: g.outfit, dance: g.dance, team: g.team, subject: g.subject, stats: g.stats, league: p.adventure?.rivals?.league ?? 0, profileId: p.id, kit: g.kit, worn: g.worn });
   }
-  if (r.past && r.past.stats.answers >= 5) out.push({ id: `past-${r.week}`, kind: 'past', name: 'You, last week', buddy: r.past.buddy, outfit: r.past.outfit, dance: r.past.dance, team: r.past.team, subject: r.past.subject, stats: r.past.stats, league: r.league });
+  if (r.past && r.past.stats.answers >= 5) out.push({ id: `past-${r.week}`, kind: 'past', name: 'Past You', buddy: r.past.buddy, outfit: r.past.outfit, dance: r.past.dance, team: r.past.team, subject: r.past.subject, stats: r.past.stats, league: r.league, kit: r.past.kit, worn: r.past.worn });
   const day = dayKey(now);
   let n = 0;
   const base = [...`${me.id}${day}`].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7);

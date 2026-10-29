@@ -187,7 +187,7 @@
         <div class="gsteps">
           <div class="gs"><div class="gpic" style:background-image="url({import.meta.env.BASE_URL}game/intro-practice.webp)"></div><b>1. Practice</b><p>Typing lessons, math trips and the playground. They earn stars that open new lessons, friendship with your buddy, and shells. Every right answer makes your eggs grow.</p></div>
           <div class="gs"><div class="gpic" style:background-image="url({import.meta.env.BASE_URL}regions/village.webp)"><span class="gb"><Critter friend={p.buddy} size={90} /></span></div><b>2. Your Keypals</b><p>Friendship with each buddy opens new outfits and dances. New buddies join as you play. Outfits and dances help in Adventure too.</p></div>
-          <div class="gs"><div class="gpic" style:background-image="url({import.meta.env.BASE_URL}game/intro-story.webp)"></div><b>3. Adventure</b><p>Cheer up grumpy Glimmers with your answers, and they join your team. Eggs from battles hatch into more Glimmers when you practice.</p></div>
+          <div class="gs"><div class="gpic" style:background-image="url({import.meta.env.BASE_URL}game/intro-story.webp)"></div><b>3. Adventure</b><p>Cheer up grumpy Glimmers with your answers, and they join your team. Duel your family, race Rival Ghosts, and help your Glimmers grow up!</p></div>
           <div class="gs"><div class="gpic trophies"><TileArt kind="stickers" size={80} /><TileArt kind="medals" size={80} /></div><b>4. Stickers and medals</b><p>For the great things you do: three stars, no slips, fast answers. Each one earns shells too.</p></div>
         </div>
         <button class="btn btn-primary" onclick={closeGuide}>Let's play!</button>

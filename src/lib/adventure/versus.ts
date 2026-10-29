@@ -10,6 +10,7 @@ import { factId, seedPartner, updateFact, type Fact } from '../math/facts';
 import { advOf, advView, giveXp, mathPool, meet, teamOf, today, typingPool } from './state';
 import { BUDDY_ROLE, GEAR, type GlimmerId, type Rarity } from './glimmers';
 import { guestPool, type GuestLevel, type SideSetup } from './duel';
+import { kitOf, wornOf } from './gear';
 import { newRivals, newStats, noteStats, rollWeek, styleOf, TRY_POINTS, WIN_POINTS, type GhostCopy, type Rival, type RivalState } from './ghosts';
 import type { Subject } from './battle';
 import type { FriendId } from '../art/cast';
@@ -23,6 +24,7 @@ export function sideOf(p: Profile, subject?: Subject): SideSetup {
     name: p.name, buddy: p.buddy, kind: 'player', profileId: p.id, subject: sub,
     pool: sub === 'math' ? mathPool(p) : typingPool(p), role: BUDDY_ROLE[p.buddy] ?? 'heart',
     gear: GEAR[outfit]?.kind ?? null, team: teamOf(a), outfit, dance: danceOf(p), fastMs: p.math?.fastMs,
+    kit: kitOf(a, p.buddy), worn: wornOf(a, p.buddy),
   };
 }
 /** A guest's side (a grown-up or a friend without a player here): questions at the level they pick. */
@@ -33,7 +35,7 @@ export function guestSide(name: string, buddy: FriendId, level: GuestLevel, subj
 export function ghostCopyOf(p: Profile): GhostCopy | null {
   const a = advView(p);
   if (!a.ghost || a.ghost.answers < 1) return null;
-  return { buddy: p.buddy, outfit: outfitOf(p), dance: danceOf(p), team: teamOf(a), stats: a.ghost, subject: a.subject };
+  return { buddy: p.buddy, outfit: outfitOf(p), dance: danceOf(p), team: teamOf(a), stats: a.ghost, subject: a.subject, kit: kitOf(a, p.buddy), worn: wornOf(a, p.buddy) };
 }
 /** A rival's side: it plays by itself, the way its player plays. Family ghosts answer their own
  *  player's questions; you-last-week and island rivals answer yours. */
@@ -44,7 +46,7 @@ export function rivalSide(r: Rival, me: Profile, all: Profile[]): SideSetup {
   return {
     name: r.name, buddy: r.buddy, kind: 'ghost', profileId: r.profileId, subject: sub,
     pool: sub === 'math' ? mathPool(src) : typingPool(src), role: BUDDY_ROLE[r.buddy] ?? 'heart',
-    gear: GEAR[r.outfit]?.kind ?? null, team: r.team, outfit: r.outfit, dance: r.dance, ghost: styleOf(r.stats),
+    gear: GEAR[r.outfit]?.kind ?? null, team: r.team, outfit: r.outfit, dance: r.dance, ghost: styleOf(r.stats), kit: r.kit, worn: r.worn,
   };
 }
 

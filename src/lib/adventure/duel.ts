@@ -11,6 +11,7 @@ import { answerOf, type Fact } from '../math/facts';
 import { newBattle, play, finale, grumpFor, FINALE_AT, type Battle, type BEvent, type Card, type Member, type Pool, type Subject, type Answer } from './battle';
 import { GLIMMER, powerNum, type GearKind, type GlimmerId, type RoleId } from './glimmers';
 import type { FriendId } from '../art/cast';
+import type { KitKind, Slot } from './gear';
 
 export type SideKind = 'player' | 'guest' | 'ghost';
 export type GhostStyle = { acc: number; thinkMs: number; big: number };
@@ -18,6 +19,8 @@ export type SideSetup = {
   name: string; buddy: FriendId; kind: SideKind; profileId?: string;
   subject: Subject; pool: Pool; role: RoleId; gear: GearKind | null; team: Member[]; outfit: string; dance: string;
   ghost?: GhostStyle; fastMs?: number;
+  /** the hand, back and shoe gear: its powers, and what it looks like */
+  kit?: KitKind[]; worn?: Partial<Record<Slot, string>>;
 };
 export type Side = SideSetup & { b: Battle; rainIn: boolean; sent: number; blocked: number; finales: number; thinkMs: number; big: number; picks: number };
 export type DuelPhase = 'pick' | 'rain' | 'finale' | 'won';
@@ -39,7 +42,7 @@ export function newDuel(a: SideSetup, b: SideSetup, glimmer: GlimmerId, seed: nu
   const g = GLIMMER[glimmer];
   const side = (s: SideSetup, i: number): Side => {
     const max = grumpFor(s.pool, false);
-    const bt = newBattle({ pool: s.pool, seed: seed + i * 7919, sparkMax: 99, role: s.role, gear: s.gear, team: s.team, foe: { glimmer, rarity: g.rarity, champion: false, element: g.element, grump: max, max, hit: 0 }, fastMs: s.fastMs });
+    const bt = newBattle({ pool: s.pool, seed: seed + i * 7919, sparkMax: 99, role: s.role, gear: s.gear, team: s.team, foe: { glimmer, rarity: g.rarity, champion: false, element: g.element, grump: max, max, hit: 0 }, fastMs: s.fastMs, kit: s.kit });
     return { ...s, b: bt, rainIn: false, sent: 0, blocked: 0, finales: 0, thinkMs: 0, big: 0, picks: 0 };
   };
   return { sides: [side(a, 0), side(b, 1)], turn: 0, glimmer, phase: 'pick', winner: null, rng: mulberry32(seed ^ 0x2f6b), turns: 0, rain: null, perfect: false };
@@ -69,7 +72,7 @@ export function duelPlay(d: Duel, cardId: number, a: Answer): DEvent[] {
     if (e.k === 'cast') ok = e.ok;
     if (e.k === 'heal') {
       const v = Math.min(3, e.value, s.b.foe.grump);
-      if (v > 0) { s.b.foe.grump -= v; s.b.stats.cheer += v; out.push({ k: 'extra', by: e.by, id: e.id, what: e.what, value: v }); }
+      if (v > 0) { s.b.foe.grump -= v; s.b.stats.cheer += v; out.push({ k: 'extra', by: e.by, id: e.id, what: e.what, value: v, item: e.item }); }
       continue;
     }
     if (e.k === 'won') continue;

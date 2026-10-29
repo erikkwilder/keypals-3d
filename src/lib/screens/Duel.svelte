@@ -7,7 +7,7 @@
   import { mulberry32 } from '../engine/rng';
   import { BUDDIES, FRIEND, type FriendId } from '../art/cast';
   import { GLIMMERS, type GlimmerId, type Rarity } from '../adventure/glimmers';
-  import { advView } from '../adventure/state';
+  import { advView, markSeen } from '../adventure/state';
   import { GUEST_LEVELS, type GuestLevel, type SideSetup } from '../adventure/duel';
   import { guestSide, rivalSide, sideOf } from '../adventure/versus';
   import type { Subject } from '../adventure/battle';
@@ -21,6 +21,8 @@
   const mode = game.duelMode;
   const rival = game.duelRival;
   const SIDE = ['#3d9cf0', '#f0675a'];
+  // the New badge on the Duel tile goes once you've been here
+  if (!advView(me).seen?.includes('duel1')) game.update(pp => markSeen(pp, 'duel1'));
 
   /** The Glimmer in the middle: any that isn't a Champion, rarer ones less often. */
   function rollGlimmer(seed: number): GlimmerId {

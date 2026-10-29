@@ -65,6 +65,7 @@
     { img: 'intro-battle', title: 'How battles work', text: 'Tap a card and answer it: every right answer cheers it up. When it sends rain, answer the quick one to block it. Your buddy and your team help.' },
     { img: 'intro-practice', title: 'Practice hatches eggs', text: 'Every right answer in math and typing practice makes your eggs grow. When an egg is full, it hatches into a new Glimmer! Practice earns shells for the shop too.' },
     { img: 'intro-glimmers', title: 'Find them all', text: '14 Glimmers live on the islands. Some are easy to find, some are very rare. Cheer up each island\'s Champion to open the next island.' },
+    { img: 'intro-duel', title: 'Play with your family', text: 'Take turns with a grown-up or a friend in a Family Duel, or battle someone\'s ghost in Rival Ghosts. Whoever cheers up the Glimmer first wins it!' },
   ];
 
   onMount(() => {
@@ -175,10 +176,10 @@
       {#snippet art()}<img class="tileimg" src="{base}game/icon-shell.webp" alt="" />{/snippet}
     </NavTile>
     {#if a.settings.versus !== false}
-    <NavTile label="Duel" tone="sky" title="Family Duel: take turns with someone on this screen" onclick={() => { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); }}>
+    <NavTile label="Duel" tone="sky" badge={a.seen?.includes('duel1') ? undefined : 'New'} title="Family Duel: take turns with someone on this screen" onclick={() => { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); }}>
       {#snippet art()}<img class="tileimg" src="{base}game/tile-duel.webp" alt="" />{/snippet}
     </NavTile>
-    <NavTile label="Rivals" tone="pink" title="Rival Ghosts: battle someone's ghost" onclick={() => game.go('rivals')}>
+    <NavTile label="Rivals" tone="pink" badge={a.seen?.includes('rivals1') ? undefined : 'New'} title="Rival Ghosts: battle someone's ghost" onclick={() => game.go('rivals')}>
       {#snippet art()}<img class="tileimg" src="{base}game/tile-rivals.webp" alt="" />{/snippet}
     </NavTile>
     {/if}

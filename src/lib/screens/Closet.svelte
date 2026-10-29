@@ -372,7 +372,9 @@
   .gtext li.on { color: #1f9a6a; }
   @media (max-width: 760px) {
     .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 46vh 1fr; }
-    .side { min-width: 0; }
+    /* phones: the whole panel under the buddy scrolls, so the pieces never squash to nothing */
+    .side { min-width: 0; overflow-y: auto; padding-bottom: 16px; }
+    .gearpane, .grid { flex: none; overflow: visible; }
     .tabs button { font-size: 16px; gap: 4px; padding: 6px 4px; min-width: 0; }
     .tabs button em { display: none; }
     .tabs button :global(svg), .tabs .geartab img { width: 30px; height: 30px; }
