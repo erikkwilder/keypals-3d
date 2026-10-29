@@ -232,7 +232,10 @@
     if (e.key !== 'Escape' || game.modalOpen) return;
     if (help) help = false; else if (picked || pickedKey) unpick(); else if (bed !== null) goBed(null); else game.go(game.home);
   }
+  const skillGrowing = ALL_KEYS.some(k => (skillMem(mathOf(game.profile!))[k]?.stage ?? 0) > 0);
   let say = $state(grewIds.length && !firstVisit ? `${grewIds.length} ${grewIds.length === 1 ? 'fact grew' : 'facts grew'} since you last looked!`
+    : grewKeys.length && !firstVisit ? `${grewKeys.length} new ${grewKeys.length === 1 ? 'plant grew' : 'plants grew'} since you last looked!`
+    : area && skillGrowing ? `Your ${AREA[area].name.toLowerCase()} are growing. Quick answers on different days make flowers bloom.`
     : stageCounts(mathOf(game.profile!), ALL_GARDEN_IDS)[3] ? 'Tap any plant to see how it\'s doing!'
     : stageCounts(mathOf(game.profile!), ALL_GARDEN_IDS)[1] + stageCounts(mathOf(game.profile!), ALL_GARDEN_IDS)[2] ? 'Your garden is growing. Quick answers on different days make flowers bloom.'
     : 'Every fact you learn grows here. Take a trip on the Times Trail to plant your first ones!');
@@ -307,7 +310,7 @@
               <div class="dstage s{st}">{STAGE_WORD[st]}</div>
             </div>
           </div>
-          {#if pkExample}<div class="dex"><small>Like this:</small><SkillPrompt parts={pkExample.prompt} size={24} picSize={64} done /></div>{/if}
+          {#if pkExample}<div class="dex"><small>Like this:</small><SkillPrompt parts={pkExample.prompt} size={26} picSize={96} done /></div>{/if}
           <p class="story">{picked ? story(picked) : keyStory(pickedKey!)}</p>
           {#if pickedStat?.seen}
             <div class="stats">
@@ -458,10 +461,10 @@
   .grown label { display: block; margin-top: 6px; font: 600 14px/1.5 var(--font-body); color: var(--ink2); }
   .grown select { font: 700 14px var(--font-body); border-radius: 8px; border: 2px solid #e4dcf2; padding: 2px 6px; background: #fff; }
   .grown small { display: block; margin-top: 6px; font: 600 12.5px/1.35 var(--font-body); color: var(--muted); }
-  .brow { width: 100%; display: grid; grid-template-columns: 52px 1fr 48px; align-items: center; gap: 8px; margin: 2px 0; padding: 3px 6px; border: 0; border-radius: 10px; background: none; cursor: pointer; text-align: left; }
+  .brow { width: 100%; display: grid; grid-template-columns: minmax(52px, auto) 1fr 48px; align-items: center; gap: 8px; margin: 2px 0; padding: 3px 6px; border: 0; border-radius: 10px; background: none; cursor: pointer; text-align: left; }
   .brow:hover { background: #f6f2ea; }
   .brow.on { background: #efe8ff; }
-  .bl { font: 600 16px var(--font-ui); color: var(--ink); }
+  .bl { font: 600 16px var(--font-ui); color: var(--ink); white-space: nowrap; }
   .bar2 { position: relative; height: 12px; border-radius: 999px; background: #efe9e0; overflow: hidden; }
   .bar2 i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
   .bar2 .g { background: #9fdcb5; } .bar2 .b { background: linear-gradient(90deg, #ff9ec7, #ff6fae); }

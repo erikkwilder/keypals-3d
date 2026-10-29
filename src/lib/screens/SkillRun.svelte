@@ -7,6 +7,7 @@
   import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
+  import { mulberry32 } from '../engine/rng';
   import { danceOf, outfitOf, type Profile } from '../engine/profile';
   import { rideName, RIDES, type RideEvent } from '../engine/rides';
   import { rideIcon } from '../art/vehicles';
@@ -52,7 +53,8 @@
   const STRETCH = STRIDE[lesson.move];
   const stretches = picker.length + 2;
   // the Meet card's example: the first new kind of question, gently
-  const example = lesson.learn[0] ? SKILL[lesson.learn[0]].make(() => 0.37, SKILL[lesson.learn[0]].subs[Math.min(2, SKILL[lesson.learn[0]].subs.length - 1)].id, 1) : null;
+  // (a seeded source, never a constant one: generators draw again until two numbers differ)
+  const example = lesson.learn[0] ? SKILL[lesson.learn[0]].make(mulberry32(37), SKILL[lesson.learn[0]].subs[Math.min(2, SKILL[lesson.learn[0]].subs.length - 1)].id, 1) : null;
 
   let phase = $state<'intro' | 'play' | 'paused' | 'done'>('intro');
   const replaying = game.quickStart;

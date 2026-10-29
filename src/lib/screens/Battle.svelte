@@ -145,7 +145,7 @@
       bigBanner = null; sync(); ui = 'pick';
       // gear that works from the start says so
       startPerks(kit).forEach((g, i) => setTimeout(() => { if (!disposed) { sfx.helper(); helped(undefined, g.what, g.did, `${base}gear/${g.item}.webp`); } }, 300 + i * 700));
-      if (firstBattle) tip('t-cards', 'Tap a card, then type the answer. Every right answer cheers it up, and bigger answers cheer more!', '.cards');
+      if (firstBattle) tip('t-cards', b.cards.some(c => c.item) ? 'Tap a card and answer it. Every right answer cheers it up, and harder cards cheer more (see the number on each)!' : 'Tap a card, then type the answer. Every right answer cheers it up, and bigger answers cheer more!', '.cards');
     }, champion ? 2800 : 2300);
   });
   onDestroy(() => { disposed = true; cancelAnimationFrame(raf); clearInterval(blockTimer); removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
