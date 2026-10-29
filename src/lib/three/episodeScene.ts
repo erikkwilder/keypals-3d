@@ -16,11 +16,11 @@ import { dressUp } from './dress';
 import { reach } from './ik';
 import { Fx } from './fx';
 import { GlimmerModel } from './glimmerModel';
-import { propsFor } from './episodeProps';
+import { propsFor, heroProps } from './episodeProps';
 import { loadTexture } from './assets';
 import { FRIEND, type FriendId } from '../art/cast';
 import { sfx } from '../audio/sound';
-import { BW, FC, type Board, type Hue } from '../math/learn';
+import { BW, FC, boundsOf, type Board, type Hue, type Tag } from '../math/learn';
 import { SETS, type SetId, type Task, type TokenKind } from '../math/episodes';
 import type { GlimmerId } from '../adventure/glimmers';
 
@@ -30,7 +30,11 @@ export type Shot = 'intro' | 'wide' | 'board' | 'buddy' | 'pals';
 type GMove = Parameters<GlimmerModel['play']>[0];
 
 /** the table top's height, and the part of it the picture fills (metres) */
-const TY = 0.48, TW = 1.55, TD = 1.1;
+const TY = 0.48, TW = 1.8, TD = 0.85;
+/** the work sits forward on the table, toward the kid (the friends stand behind it) */
+const AZ = 0.2;
+/** the buddy is drawn a little bigger than life here, like a film's hero */
+const BS = 1.15;
 /** the picture is stretched toward you a little (the camera looks down at it) */
 const DEPTH = 1.15;
 /** the number line, where LearnBoard draws it */
@@ -53,6 +57,8 @@ const BASE: Record<TokenKind, number | null> = { cookie: 0xd8995a, pearl: null, 
 
 type Token = {
   id: string; g: THREE.Group; hueMesh: THREE.Mesh; halo: THREE.Sprite;
+  /** the gold rim round one to touch, and its soft shadow on the table */
+  rim: THREE.Mesh; blob: THREE.Mesh;
   hue: Hue; out: boolean;
   /** moving from → to over [t0, t0 + dur], hopping `arc` metres high on the way */
   from: THREE.Vector3; to: THREE.Vector3; t0: number; dur: number; arc: number;
@@ -120,7 +126,7 @@ export class EpisodeScene implements Controller {
   private pileZ = 0;
   private refit = false;
   // shared looks
-  private geos: { hue: THREE.BufferGeometry; base: THREE.BufferGeometry | null } | null = null;
+  private geos: { hue: THREE.BufferGeometry; base: THREE.BufferGeometry | null; rim: THREE.BufferGeometry } | null = null;
   private mats = new Map<string, THREE.Material>();
   private haloTex: THREE.Texture;
   private ringTex: THREE.Texture;
@@ -131,7 +137,7 @@ export class EpisodeScene implements Controller {
   private palFrom = new THREE.Vector3(); private palTo = new THREE.Vector3(); private palHop0 = -9; private palHopDur = 0.55;
   private lookBoard = 0;
   private busyUntil = 0;
-  private gest: { kind: 'point' | 'present' | 'think' | 'oops' | 'clap' | 'shrug' | 'nod' | 'talk'; at: number; for: number; target?: THREE.Vector3 }[] = [];
+  private gest: { kind: 'point' | 'present' | 'think' | 'oops' | 'clap' | 'shrug' | 'nod' | 'talk' | 'gasp'; at: number; for: number; target?: THREE.Vector3 }[] = [];
   // the camera
   private shotName: Shot = 'intro';
   private shotAt = 0;
@@ -156,14 +162,14 @@ export class EpisodeScene implements Controller {
 
   private constructor(setId: SetId, me: Character, pal: GlimmerModel, buddy: FriendId) {
     this.setId = setId; this.set = SETS[setId]; this.me = me; this.pal = pal;
-    this.H = FRIEND[buddy].height ?? 1.2;
+    this.H = (FRIEND[buddy].height ?? 1.2) * BS;
     this.haloTex = glowTexture();
     this.ringTex = ringTexture();
   }
 
   static async create(opts: { setId: SetId; buddy: FriendId; star?: GlimmerId; evolved?: boolean }): Promise<EpisodeScene> {
     const s = SETS[opts.setId];
-    const [me, pal] = await Promise.all([Character.create(opts.buddy), GlimmerModel.create(opts.star ?? s.star, 0.5, { evolved: opts.evolved })]);
+    const [me, pal] = await Promise.all([Character.create(opts.buddy), GlimmerModel.create(opts.star ?? s.star, 0.84, { evolved: opts.evolved })]);
     if (!me) throw new Error('character missing');
     await Promise.all([dressUp(me), me.loadMoves()]);
     const sc = new EpisodeScene(opts.setId, me, pal, opts.buddy);
@@ -174,10 +180,14 @@ export class EpisodeScene implements Controller {
   // ---------- the set ----------
   private async build() {
     const s = this.set;
-    const [back, top, planks, star] = await Promise.all([
-      loadTexture(s.backdrop), loadTexture(s.table, { repeat: true }), loadTexture('world/planks.webp', { repeat: true }), loadTexture('game/icon-star.webp'),
+    // (the place behind is a little soft, like a camera focused on the table)
+    const [back, top, planks, star, dough, plate, hero] = await Promise.all([
+      loadTexture(s.backdrop.replace('.webp', '-soft.webp')), loadTexture(s.table, { repeat: true }), loadTexture('world/planks.webp', { repeat: true }), loadTexture('game/icon-star.webp'),
+      loadTexture('learn/ep/tex-cookie.webp', { repeat: true }), loadTexture('learn/ep/tex-plate.webp'), heroProps(this.setId),
     ]);
-    this.starTex = star;
+    this.starTex = star; this.doughTex = dough; this.plateTex = plate;
+    this.blobGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+    this.blobMat = new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false, fog: false, opacity: 0.6 });
     // the painted place behind (kept exactly as painted: no fog, no tone mapping)
     const bm = new THREE.MeshBasicMaterial({ map: back, fog: false, toneMapped: false, depthWrite: false });
     this.backdrop = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), bm);
@@ -188,11 +198,11 @@ export class EpisodeScene implements Controller {
     if (top) { top.repeat.set(6 / 1.3, 3.2 / 1.3); top.anisotropy = 8; }
     const tg = new THREE.BoxGeometry(6, 0.12, 3.2);
     this.table = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ map: top, color: 0xeedccb, roughness: 0.82, metalness: 0 }));
-    this.table.position.set(0, TY - 0.06, 0.8);
+    this.table.position.set(0, TY - 0.06, 1.15);
     this.table.receiveShadow = true;
     this.root.add(this.table);
     this.pool = new THREE.Mesh(new THREE.PlaneGeometry(6, 3.2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, depthWrite: false, fog: false }));
-    this.pool.position.set(0, TY + 0.0015, 0.8);
+    this.pool.position.set(0, TY + 0.0015, 1.15);
     this.pool.renderOrder = 1;
     this.root.add(this.pool);
     // light: a warm key from the window side with soft shadows, sky and bounce, and a rim from behind
@@ -225,14 +235,17 @@ export class EpisodeScene implements Controller {
       this.env = pm.fromEquirectangular(eq).texture;
       pm.dispose(); eq.dispose();
     }
-    const pr = propsFor(this.setId);
+    // the hero things at the table's front corners (modelled), or simple ones if they didn't load
+    const pr = hero ?? propsFor(this.setId);
     this.propL = pr.left; this.propR = pr.right;
+    for (const g of [pr.left, pr.right]) { g.traverse(o => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true; } }); g.add(this.blob(0.5)); }
     this.root.add(pr.left, pr.right);
     // the counters' shapes, by place
     this.geos = tokenGeos(this.set.token);
     // the characters
     const me = this.me;
     me.root.position.copy(this.buddyAt);
+    me.root.scale.multiplyScalar(BS);
     me.play('idle', 0);
     me.root.traverse(o => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
     this.pal.root.traverse(o => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
@@ -242,6 +255,22 @@ export class EpisodeScene implements Controller {
     this.root.add(me.root, this.pal.root, this.fx.root);
   }
   private plankTex: THREE.Texture | null = null;
+  private doughTex: THREE.Texture | null = null;
+  private plateTex: THREE.Texture | null = null;
+  private blobGeo!: THREE.BufferGeometry;
+  private blobMat!: THREE.MeshBasicMaterial;
+  /** a soft round shadow lying on the table (size in metres, or in its parent's units) */
+  private blob(size: number) {
+    const b = new THREE.Mesh(this.blobGeo, this.blobMat);
+    b.scale.set(size, 1, size * DEPTH);
+    b.position.y = 0.003;
+    b.renderOrder = 2;
+    return b;
+  }
+  /** the buddy's happy bounce, and when it started */
+  private bounceAt = -9;
+  /** the friends lean in while the kid works */
+  private leanIn = 0;
 
   /** Put the set on the stage, hiding what was there (call once it runs). */
   enter() {
@@ -259,18 +288,22 @@ export class EpisodeScene implements Controller {
   }
 
   // ---------- characters ----------
+  private compact = false;
   /** Where the buddy and the Glimmer stand: closer together on a tall screen. */
   private layout() {
     const W = innerWidth || 1, Hh = innerHeight || 1;
     const asp = ((this.view.right - this.view.left) * W) / Math.max(1, (this.view.bottom - this.view.top) * Hh);
     const compact = asp < 1.05;
-    this.buddyAt.set(compact ? -0.5 : -0.92, 0, -0.9);
-    this.palHome.set(compact ? 0.55 : 0.95, TY, compact ? -0.55 : -0.42);
-    if (this.together) this.palHome.set(this.buddyAt.x + (compact ? 0.42 : 0.5), TY, -0.6);
-    // the table things at the front corners, just outside the picture
+    this.compact = compact;
+    // either side of the work, just behind the table (the table hides their legs)
+    this.buddyAt.set(compact ? -0.34 : -0.8, 0, -0.62);
+    this.palHome.set(compact ? 0.4 : 0.84, TY - 0.14, -0.68);
+    if (this.together) this.palHome.set(this.buddyAt.x + (compact ? 0.66 : 1.0), TY - 0.14, -0.7);
+    // the hero things at the table's front corners, just outside the work
     const a = this.area;
-    this.propL?.position.set(a.x0 - 0.38, TY, a.z1 + 0.12);
-    this.propR?.position.set(a.x1 + 0.4, TY, a.z1 + 0.1);
+    this.propL?.position.set(a.x0 - (compact ? 0.05 : 0.28), TY, a.z1 + (compact ? 0.3 : 0.02));
+    this.propR?.position.set(a.x1 + (compact ? 0.05 : 0.3), TY, a.z1 + (compact ? 0.3 : 0));
+    this.propL?.scale.setScalar(compact ? 0.7 : 0.85); this.propR?.scale.setScalar(compact ? 0.7 : 0.85);
   }
   /** Buddy moves (the clips it has), and gestures done with its arms. */
   wave() { this.clip(['wave1', 'wave'], 2.2); }
@@ -285,6 +318,10 @@ export class EpisodeScene implements Controller {
   shrug() { this.gesture('shrug', 1.3); }
   nod() { this.gesture('nod', 0.6); }
   talk(secs = 2) { this.gesture('talk', secs); }
+  /** a gasp: hands up by its cheeks, leaning back ("oh!") */
+  gasp() { this.gesture('gasp', 1.4); this.bounceAt = this.now; }
+  /** a happy little bounce (a right move) */
+  bounce() { this.bounceAt = this.now; }
   /** The Glimmer hops over to stand by the buddy (or back to its place). */
   gather(on: boolean) { if (on !== this.together) { this.together = on; this.layout(); if (!this.board?.line) this.hopPal(this.palHome.clone(), false); } }
   /** The Glimmer's moves: hop, happy (a spin), act (a lean), sad. */
@@ -307,20 +344,40 @@ export class EpisodeScene implements Controller {
   setView(v: View) { this.view = v; }
 
   // ---------- board → table ----------
+  /** On a tall screen two tins side by side stack instead (the second under the first), so every
+   *  counter is big enough to touch. Everything in the right half moves with its tin. */
+  private stack = false;
+  private tf(b: Board): Board {
+    if (!this.stack || b.frames.length !== 2) return b;
+    const mv = <T extends { x: number; y: number }>(o: T): T => (o.x >= 300 ? { ...o, x: o.x - 256, y: o.y + FC * 2 + 26 } : o);
+    return { ...b, frames: b.frames.map(mv), dots: b.dots.map(mv), tags: b.tags.map(mv) };
+  }
+  /** Fit these pictures onto the table (call when the picture's zoom changes). */
+  fitBoards(boards: Board[]) {
+    const W = innerWidth || 1, Hh = innerHeight || 1;
+    this.stack = ((this.view.right - this.view.left) * W) / Math.max(1, (this.view.bottom - this.view.top) * Hh) < 0.9;
+    this.fit(boundsOf(boards.map(b => this.tf(b))));
+  }
+  /** where a word of the picture on the table now sits */
+  tagPoint(t: Tag): THREE.Vector3 {
+    const b = this.board, m = b && this.stack && b.frames.length === 2 && t.x >= 300 ? { x: t.x - 256, y: t.y + FC * 2 + 26 } : t;
+    return this.boardPoint(m.x, m.y, 0.03);
+  }
   /** Fit these board bounds onto the table (call when the picture's zoom changes). */
   fit(b: { x: number; y: number; w: number; h: number }) {
-    const s = Math.min(TW / b.w, TD / (b.h * DEPTH));
+    // (stacked on a phone: narrower and deeper, seen from higher up)
+    const s = this.stack ? Math.min(1.05 / b.w, 1.3 / (b.h * DEPTH)) : Math.min(TW / b.w, TD / (b.h * DEPTH));
     const m = { cx: b.x + b.w / 2, cy: b.y + b.h / 2, s };
     // a new zoom: the tins, plates and plank are made again at the new size (the counters glide over)
     if (Math.abs(m.cx - this.map.cx) > 0.5 || Math.abs(m.cy - this.map.cy) > 0.5 || Math.abs(m.s - this.map.s) > 1e-6) this.refit = true;
     this.map = m;
-    this.area = { x0: -b.w * s / 2, x1: b.w * s / 2, z0: -b.h * s * DEPTH / 2, z1: b.h * s * DEPTH / 2 };
+    this.area = { x0: -b.w * s / 2, x1: b.w * s / 2, z0: -b.h * s * DEPTH / 2 + AZ, z1: b.h * s * DEPTH / 2 + AZ };
     this.pileZ = this.area.z1 + 0.12;
   }
   /** A point on the table under a spot on the board. */
   boardPoint(x: number, y: number, lift = 0): THREE.Vector3 {
     const m = this.map;
-    return new THREE.Vector3((x - m.cx) * m.s, TY + lift, (y - m.cy) * m.s * DEPTH);
+    return new THREE.Vector3((x - m.cx) * m.s, TY + lift, (y - m.cy) * m.s * DEPTH + AZ);
   }
   private get r() { return (FC / 2) * this.map.s * 0.9; }
   /** how high a counter sits at this spot on the board: in a tin's cup, on a plate, on the plank */
@@ -333,7 +390,8 @@ export class EpisodeScene implements Controller {
   private get deepPlates() { return this.set.token === 'pearl' || this.set.token === 'flower' || this.set.token === 'block'; }
 
   /** Show a picture: everything moves, pops in or leaves to match it. */
-  show(b: Board, instant = false) {
+  show(raw: Board, instant = false) {
+    const b = this.tf(raw);
     const prev = this.board;
     this.board = b;
     const t = this.now;
@@ -409,9 +467,10 @@ export class EpisodeScene implements Controller {
     const kind = this.set.token;
     if (out) return this.mat('out', () => new THREE.MeshStandardMaterial({ color: 0xc9c1b4, roughness: 0.8, transparent: true, opacity: 0.55 }));
     const c = HUE[kind][hue === 'ghost' ? 'a' : hue];
-    const shiny = kind === 'pearl' ? 0.14 : kind === 'berry' ? 0.3 : kind === 'block' ? 0.45 : 0.6;
-    // every hue glows a little from inside (the gold ones more): the counters read as magic, not plastic
-    return this.mat('h' + hue, () => new THREE.MeshStandardMaterial({ color: c, roughness: shiny, metalness: kind === 'pearl' ? 0.15 : 0, emissive: c, emissiveIntensity: hue === 'c' ? 0.32 : 0.1 }));
+    const rough = kind === 'pearl' ? 0.12 : kind === 'berry' ? 0.28 : kind === 'block' ? 0.4 : 0.35;
+    // glossy (icing, pearls, berries, painted blocks), and a little light from inside (the gold ones more)
+    return this.mat('h' + hue, () => new THREE.MeshPhysicalMaterial({ color: c, roughness: rough, metalness: kind === 'pearl' ? 0.1 : 0, clearcoat: kind === 'flower' ? 0.2 : 1, clearcoatRoughness: 0.12,
+      iridescence: kind === 'pearl' ? 0.8 : 0, sheen: kind === 'flower' ? 1 : 0, sheenColor: new THREE.Color(0xffffff), emissive: c, emissiveIntensity: hue === 'c' ? 0.3 : 0.07 }));
   }
   private token(id: string, hue: Hue, at: THREE.Vector3): Token {
     const geos = this.geos!, r = this.r;
@@ -420,10 +479,19 @@ export class EpisodeScene implements Controller {
     hueMesh.castShadow = true;
     g.add(hueMesh);
     if (geos.base) {
-      const base = new THREE.Mesh(geos.base, this.mat('base', () => new THREE.MeshStandardMaterial({ color: BASE[this.set.token] ?? 0xffffff, roughness: 0.75 })));
+      const cookie = this.set.token === 'cookie';
+      const base = new THREE.Mesh(geos.base, this.mat('base', () => new THREE.MeshStandardMaterial({ color: cookie ? 0xffffff : BASE[this.set.token] ?? 0xffffff, map: cookie ? this.doughTex : null, roughness: 0.8 })));
       base.castShadow = true;
       g.add(base);
     }
+    // the gold rim that says "touch me": the shape again, a little bigger, lit from behind
+    const rim = new THREE.Mesh(geos.rim, this.mat('rimglow', () => new THREE.MeshBasicMaterial({ color: 0xffc94a, transparent: true, opacity: 0, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })).clone() as THREE.MeshBasicMaterial);
+    rim.scale.set(1.22, 1.35, 1.22);
+    rim.visible = false;
+    g.add(rim);
+    const blob = this.blob(r * 2.6);
+    blob.position.copy(at).setY(at.y + 0.003);
+    this.root.add(blob);
     const halo = new THREE.Sprite(this.mat('halo' + hue, () => new THREE.SpriteMaterial({ map: this.haloTex, color: hue === 'c' ? 0xffd25a : 0xfff0b0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 })).clone() as THREE.SpriteMaterial);
     halo.position.y = 0.5;
     halo.scale.setScalar(3.4);
@@ -433,7 +501,7 @@ export class EpisodeScene implements Controller {
     g.scale.setScalar(r);
     g.position.copy(at);
     this.root.add(g);
-    const tk: Token = { id, g, hueMesh, halo, hue, out: false, from: at.clone(), to: at.clone(), t0: -9, dur: 0.5, arc: 0, born: -9, scale: r, leaving: 0, eaten: false, glow: 0, lit: 0, drag: false, squashAt: -9 };
+    const tk: Token = { id, g, hueMesh, halo, rim, blob, hue, out: false, from: at.clone(), to: at.clone(), t0: -9, dur: 0.5, arc: 0, born: -9, scale: r, leaving: 0, eaten: false, glow: 0, lit: 0, drag: false, squashAt: -9 };
     this.tokens.set(id, tk);
     return tk;
   }
@@ -454,7 +522,7 @@ export class EpisodeScene implements Controller {
     const s = this.map.s, c = this.set.tray;
     const w = (FC * 5 + 26) * s, d = (FC * 2 + 22) * s * DEPTH;
     const g = new THREE.Group();
-    const slab = new THREE.Mesh(new RoundedBoxGeometry(w, 0.035, d, 3, 0.016), this.mat('tray', () => new THREE.MeshStandardMaterial({ color: c.color, roughness: this.set.token === 'cookie' ? 0.28 : 0.5, metalness: this.set.token === 'cookie' ? 0.75 : 0 })));
+    const slab = new THREE.Mesh(new RoundedBoxGeometry(w, 0.035, d, 3, 0.016), this.mat('tray', () => new THREE.MeshStandardMaterial({ color: c.color, roughness: this.set.token === 'cookie' ? 0.3 : 0.5, metalness: this.set.token === 'cookie' ? 0.4 : 0 })));
     slab.position.y = 0.0175; slab.castShadow = true; slab.receiveShadow = true;
     g.add(slab);
     const cups: THREE.BufferGeometry[] = [];
@@ -473,6 +541,7 @@ export class EpisodeScene implements Controller {
     const cm = new THREE.Mesh(mergeGeometries(cups.map(geo => geo.toNonIndexed())), this.mat('cups', () => new THREE.MeshStandardMaterial({ color: c.rim, roughness: 0.35, metalness: this.set.token === 'cookie' ? 0.7 : 0 })));
     cm.receiveShadow = true;
     g.add(cm);
+    const sh = this.blob(1); sh.scale.set(w * 1.15, 1, d * 1.2); g.add(sh);
     g.position.copy(this.boardPoint(x + FC * 2.5, y + FC));
     return g;
   }
@@ -493,6 +562,13 @@ export class EpisodeScene implements Controller {
     const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 0.985, Math.max(0.004, r * 0.035), 6, 40).rotateX(Math.PI / 2).scale(1, 1, DEPTH), this.mat('rim', () => new THREE.MeshStandardMaterial({ color: c.rim, roughness: 0.4 })));
     rim.position.y = h * 1.01;
     g.add(m, rim);
+    if (!deep && this.plateTex) {
+      // the painted plate (blue vines round the rim) lying in the dish
+      const top = new THREE.Mesh(new THREE.CircleGeometry(r * 0.99, 48).rotateX(-Math.PI / 2).scale(1, 1, DEPTH), this.mat('platetop', () => new THREE.MeshStandardMaterial({ map: this.plateTex, roughness: 0.25, transparent: empty, opacity: empty ? 0.6 : 1 })));
+      top.position.y = h * 0.46; top.receiveShadow = true;
+      g.add(top);
+    }
+    g.add(this.blob(r * 2.5));
     g.position.copy(this.boardPoint(x, y));
     return g;
   }
@@ -565,7 +641,8 @@ export class EpisodeScene implements Controller {
 
   // ---------- the kid's hands ----------
   /** Arm a task: resolves when the kid has done their part and the rest has followed. */
-  arm(t: Task, next: Board): Promise<void> {
+  arm(t: Task, rawNext: Board): Promise<void> {
+    const next = this.tf(rawNext);
     this.disarm();
     if (t.kind === 'watch') return Promise.resolve();
     return new Promise(resolve => {
@@ -665,7 +742,7 @@ export class EpisodeScene implements Controller {
   /** The buddy and the Glimmer react to a move: a nod and a hop for each, a cheer when it's all done. */
   private react(all: boolean) {
     if (all) { this.cheer(); this.palDo('happy'); this.burst(this.centre().add(new THREE.Vector3(0, 0.25, 0)), 1); }
-    else { if (Math.random() < 0.5) this.nod(); else this.clap(); this.palDo('hop'); }
+    else { if (Math.random() < 0.5) this.nod(); else this.clap(); this.bounce(); this.palDo('hop'); }
   }
   private progress(a: Armed) {
     a.done++;
@@ -860,9 +937,14 @@ export class EpisodeScene implements Controller {
   unpin(el: HTMLElement) { this.pins.delete(el); }
   /** above the buddy's head, and the Glimmer's */
   head(who: 'buddy' | 'pal'): THREE.Vector3 {
-    if (who === 'pal') return this.pal.root.position.clone().add(new THREE.Vector3(0, this.pal.height * 1.15 + 0.05, 0));
+    if (who === 'pal') return this.pal.root.position.clone().add(new THREE.Vector3(0, this.pal.height * this.pal.root.scale.y * 1.05 + 0.05, 0));
     const h = this.me.bones.Head?.getWorldPosition(new THREE.Vector3());
     return h ? h.add(new THREE.Vector3(0, this.H * 0.28, 0)) : this.me.root.position.clone().add(new THREE.Vector3(0, this.H * 1.08, 0));
+  }
+  /** beside the buddy's face, on the work's side (where its speech bubble starts) */
+  bubbleAt(): THREE.Vector3 {
+    const h = this.me.bones.Head?.getWorldPosition(new THREE.Vector3()) ?? this.me.root.position.clone().add(new THREE.Vector3(0, this.H * 0.85, 0));
+    return h.add(new THREE.Vector3(this.H * 0.16, this.H * 0.06, 0));
   }
   /** over the middle of the picture, a little above the table (where the shortcut appears) */
   over(): THREE.Vector3 { const c = this.centre(); c.y += 0.3; c.z = this.area.z0 - 0.05; return c; }
@@ -882,7 +964,7 @@ export class EpisodeScene implements Controller {
     return this.ray.ray.intersectPlane(new THREE.Plane(UP, -(TY + lift)), p) ? p : null;
   }
   private tokenPos(tk: Token) { return tk.g.position.clone().setY(TY); }
-  private palMouth() { return this.pal.root.position.clone().add(new THREE.Vector3(0, this.pal.height * 0.55, 0.08)); }
+  private palMouth() { return this.pal.root.position.clone().add(new THREE.Vector3(0, this.pal.height * this.pal.root.scale.y * 0.55, 0.08)); }
   private sparkle(at: THREE.Vector3) {
     this.fx.emit({ at: at.clone().add(new THREE.Vector3(0, 0.06, 0)), count: 16, shape: ['star', 'spark'], color: [0xffe066, 0xffffff, 0xffc6e8], speed: [0.4, 1.2], life: [0.4, 0.8], size: [0.03, 0.07], up: 0.9, drag: 2.5, spin: 4 });
   }
@@ -932,7 +1014,8 @@ export class EpisodeScene implements Controller {
       const s = p ? this.toScreen(p) : null;
       if (!s) { el.style.visibility = 'hidden'; continue; }
       el.style.visibility = '';
-      el.style.transform = `translate(${s.x.toFixed(1)}px, ${s.y.toFixed(1)}px)`;
+      // (kept below the top bar, so a bubble by a tall friend never hides under it)
+      el.style.transform = `translate(${s.x.toFixed(1)}px, ${Math.min(innerHeight - 30, Math.max(110, s.y)).toFixed(1)}px)`;
       el.style.setProperty('--u', this.unit.toFixed(3));
     }
   }
@@ -959,7 +1042,7 @@ export class EpisodeScene implements Controller {
       if (tk.leaving) {
         const lk = clamp01((t - tk.leaving) / (tk.eaten ? 0.55 : 0.4));
         gone = tk.eaten ? 1 - lk * lk : 1 - smooth(lk);
-        if (lk >= 1) { g.removeFromParent(); (tk.halo.material as THREE.Material).dispose(); if (this.tokens.get(id) === tk) this.tokens.delete(id); continue; }
+        if (lk >= 1) { g.removeFromParent(); tk.blob.removeFromParent(); (tk.halo.material as THREE.Material).dispose(); (tk.rim.material as THREE.Material).dispose(); if (this.tokens.get(id) === tk) this.tokens.delete(id); continue; }
       }
       g.scale.set(this.r * sx * gone, this.r * sy * gone, this.r * sx * gone);
       // glow: the material's light and the halo, pulsing when it wants touching
@@ -968,6 +1051,15 @@ export class EpisodeScene implements Controller {
       const pulse = tk.glow >= 1 ? 0.75 + Math.sin(t * 6 + tk.g.position.x * 9) * 0.25 : 1;
       hm.opacity = tk.lit * (tk.glow >= 1 ? 0.95 : 0.4) * pulse;
       tk.halo.visible = hm.opacity > 0.02;
+      const rm = tk.rim.material as THREE.MeshBasicMaterial;
+      rm.opacity = tk.glow >= 1 ? tk.lit * (0.85 + Math.sin(t * 6 + g.position.x * 9) * 0.15) : 0;
+      tk.rim.visible = rm.opacity > 0.02;
+      // the shadow stays on the table, fainter and wider as the counter lifts
+      const surface = Math.min(g.position.y, tk.to.y), up = Math.max(0, g.position.y - surface);
+      tk.blob.position.set(g.position.x, surface + 0.003, g.position.z);
+      const bs = this.r * 2.6 * gone * (1 + up * 4);
+      tk.blob.scale.set(bs, 1, bs * DEPTH);
+      tk.blob.visible = gone > 0.05 && !tk.eaten;
     }
   }
   private piecesUpdate(map: Map<string, Piece>) {
@@ -987,15 +1079,20 @@ export class EpisodeScene implements Controller {
     const toCam = cam.position.clone().sub(me.root.position).setY(0).normalize();
     const toBoard = this.centre().sub(me.root.position).setY(0).normalize();
     const pointing = this.gest.some(g => (g.kind === 'point' || g.kind === 'present') && t - g.at < g.for);
-    this.lookBoard += ((pointing ? 0.32 : 0.12) - this.lookBoard) * Math.min(1, dt * 3);
+    // (the body faces the kid; the head turns to look at the work)
+    this.lookBoard += ((pointing ? 0.14 : 0.04) - this.lookBoard) * Math.min(1, dt * 3);
     const face = toCam.lerp(toBoard, this.lookBoard).normalize();
     const yaw = Math.atan2(face.x, face.z);
     const dy = Math.atan2(Math.sin(yaw - me.root.rotation.y), Math.cos(yaw - me.root.rotation.y));
     me.root.rotation.y += dy * Math.min(1, dt * 6);
     if (t > this.busyUntil && me.currentName !== 'idle') me.play('idle', 0.4);
+    // a happy bounce
+    const bk = (t - this.bounceAt) / 0.5;
+    me.root.position.y = this.buddyAt.y + (bk >= 0 && bk < 1 ? Math.abs(Math.sin(bk * Math.PI * 2)) * 0.07 * (1 - bk * 0.5) : 0);
     me.update(dt);
     me.root.updateMatrixWorld(true);
     if (t > this.busyUntil) this.gestures();
+    this.lookAround(dt, t);
     // the Glimmer: hops from place to place, faces the camera (or what it's eating)
     const pal = this.pal;
     if (this.palHop0 > -1) {
@@ -1006,14 +1103,40 @@ export class EpisodeScene implements Controller {
     } else if (!this.board?.line) this.palAt.lerp(this.palHome, Math.min(1, dt * 3));
     pal.root.position.copy(this.palAt);
     // smaller on the number line (a pin on the plank), its own size elsewhere
-    const ps = this.board?.line && !this.together ? 0.62 : 1;
+    const ps = this.board?.line && !this.together ? 0.38 : 1;
     pal.root.scale.setScalar(pal.root.scale.x + (ps - pal.root.scale.x) * Math.min(1, dt * 5));
-    pal.face = cam.position.clone().setY(this.palAt.y);
+    // the Glimmer faces the kid too, turned a little toward the work
+    pal.face = cam.position.clone().lerp(this.focusPoint(), 0.25).setY(this.palAt.y);
     pal.update(dt, t);
     this.gest = this.gest.filter(g => t - g.at < g.for);
   }
 
-  /** Arms and head on top of the clip: pointing, presenting, thinking, oops, clapping, shrugging, nodding, talking. */
+  /** What the friends look at: the counter in the kid's hand, the next thing to touch, or the work. */
+  private focusPoint(): THREE.Vector3 {
+    if (this.held) return this.held.g.position.clone();
+    return this.tryPoint() ?? this.centre();
+  }
+  /** The head turns to look at the work (on top of whatever the body does), the body leans in while
+   *  the kid works and sways a little when still. */
+  private lookAround(dt: number, t: number) {
+    const B = this.me.bones, head = B.Head, spine = B.Spine2 ?? B.Spine1 ?? B.Spine;
+    this.leanIn += ((this.armed ? 1 : 0.35) - this.leanIn) * Math.min(1, dt * 2);
+    const busy = t < this.busyUntil;
+    if (spine && !busy) { spine.rotateX(0.05 * this.leanIn); spine.rotateZ(Math.sin(t * 1.1) * 0.03); spine.updateMatrixWorld(true); }
+    if (!head || busy) return;
+    const hp = head.getWorldPosition(new THREE.Vector3()), want = this.focusPoint().sub(hp);
+    const fwd = this.me.root.getWorldDirection(new THREE.Vector3()).setY(0).normalize(), side = new THREE.Vector3().crossVectors(UP, fwd).normalize();
+    const yaw = THREE.MathUtils.clamp(Math.atan2(want.dot(side), want.dot(fwd)), -0.7, 0.7);
+    const pitch = THREE.MathUtils.clamp(Math.atan2(-want.y, Math.hypot(want.dot(side), want.dot(fwd))), -0.15, 0.3);
+    this.lookYaw += (yaw - this.lookYaw) * Math.min(1, dt * 4);
+    this.lookPitch += (pitch - this.lookPitch) * Math.min(1, dt * 4);
+    // (gently: a big turn showed the kid the back of its head)
+    head.rotateY(this.lookYaw * 0.22); head.rotateX(this.lookPitch * 0.2);
+    head.updateMatrixWorld(true);
+  }
+  private lookYaw = 0; private lookPitch = 0;
+
+  /** Arms and head on top of the clip: pointing, presenting, thinking, oops, clapping, shrugging, nodding, talking, a gasp. */
   private gestures() {
     const B = this.me.bones, H = this.H, t = this.now;
     const fwd = this.me.root.getWorldDirection(new THREE.Vector3()).setY(0).normalize();
@@ -1058,6 +1181,15 @@ export class EpisodeScene implements Controller {
           reach(x.a, x.f, x.h, sh.clone().addScaledVector(side, s * H * 0.26).addScaledVector(fwd, H * 0.16).add(new THREE.Vector3(0, -H * 0.1, 0)), new THREE.Vector3(0, -1, 0).addScaledVector(fwd, -0.5), smooth(sk));
         }
         if (B.Head) { B.Head.rotateZ(0.22 * sk); B.Head.updateMatrixWorld(true); }
+      } else if (g.kind === 'gasp') {
+        // both hands up by its cheeks, head back a little: "oh!"
+        const head = B.Head?.getWorldPosition(new THREE.Vector3());
+        if (!head) continue;
+        for (const [S, s2] of [['Left', 1], ['Right', -1]] as const) {
+          const x = arm(S); if (!x.a || !x.f || !x.h) continue;
+          reach(x.a, x.f, x.h, head.clone().addScaledVector(side, s2 * H * 0.13).addScaledVector(fwd, H * 0.1).add(new THREE.Vector3(0, -H * 0.05, 0)), new THREE.Vector3(0, -1, 0).addScaledVector(side, s2 * 0.6), k);
+        }
+        if (B.Head) { B.Head.rotateX(-0.22 * k); B.Head.updateMatrixWorld(true); }
       } else if (g.kind === 'nod') {
         const nk = Math.sin(((t - g.at) / g.for) * Math.PI * 2);
         if (B.Head) { B.Head.rotateX(0.18 * nk); B.Head.updateMatrixWorld(true); }
@@ -1074,22 +1206,36 @@ export class EpisodeScene implements Controller {
     const a = this.area;
     const content = new THREE.Box3(new THREE.Vector3(a.x0 - 0.05, TY, a.z0 - 0.05), new THREE.Vector3(a.x1 + 0.05, TY + 0.12, a.z1 + 0.05));
     if (this.armed && this.armed.t.kind === 'place') content.expandByPoint(new THREE.Vector3(0, TY, this.pileZ + this.r * 2.4 * Math.ceil(this.armed.t.ids.length / 10)));
-    const head = this.me.root.position.clone().add(new THREE.Vector3(0, this.H * 1.02, 0));
+    const head = this.buddyAt.clone().add(new THREE.Vector3(0, this.H * 1.02, 0));
     const buddy = new THREE.Box3(new THREE.Vector3(head.x - 0.3, TY - 0.05, head.z - 0.2), new THREE.Vector3(head.x + 0.3, head.y, head.z + 0.2));
-    const pal = new THREE.Box3().setFromCenterAndSize(this.palAt.clone().add(new THREE.Vector3(0, 0.3, 0)), new THREE.Vector3(0.5, 0.7, 0.4));
-    // in the wide shot the friends only need their faces in: they can be cut at the edges, like a film
-    const face = new THREE.Box3(new THREE.Vector3(head.x + 0.05, head.y - 0.42, head.z - 0.1), new THREE.Vector3(head.x + 0.25, head.y + 0.04, head.z + 0.1));
-    const palFace = new THREE.Box3(new THREE.Vector3(this.palAt.x - 0.18, this.palAt.y, this.palAt.z - 0.1), new THREE.Vector3(this.palAt.x + 0.05, this.palAt.y + 0.55, this.palAt.z + 0.1));
-    let pitch = 0.42, yaw = 0, margin = 0.02;
+    const ph = this.pal.height * this.pal.root.scale.y;
+    const pal = new THREE.Box3(new THREE.Vector3(this.palAt.x - 0.28, Math.max(TY, this.palAt.y), this.palAt.z - 0.2), new THREE.Vector3(this.palAt.x + 0.28, this.palAt.y + ph * 1.05, this.palAt.z + 0.2));
+    let pitch = 0.42, yaw = 0;
+    const margin = 0.02;
     const s = this.shotName;
-    // a tall box (a phone): look down more steeply, so the table's picture fills the width and reads
+    // a tall box (a phone): the friends at the top, the work big under them, seen more from above
     const tall = ((v.right - v.left) * innerWidth) / Math.max(1, (v.bottom - v.top) * innerHeight) < 0.9;
-    if (s === 'board') { box.copy(content).union(face).union(palFace); pitch = tall ? 0.95 : 0.46; }
+    const r = v;
+    /** the points that must be in the shot (a box's corners, or for the work shots exact points: a box
+     *  round both the near work and the far faces would have phantom corners that push the camera back) */
+    let pts: THREE.Vector3[] | null = null;
+    if (s === 'board' || s === 'wide') {
+      // the work shots, like the concept: the work big in the lower middle, the friends standing right
+      // behind it either side, their faces in (their sides may be cut at the frame's edge, like a film)
+      const pt = this.palAt.y + ph * 1.02;
+      box.copy(content);
+      pts = [];
+      for (let i = 0; i < 8; i++) pts.push(new THREE.Vector3(i & 1 ? content.max.x : content.min.x, i & 2 ? content.max.y : content.min.y, i & 4 ? content.max.z : content.min.z));
+      pts.push(new THREE.Vector3(head.x - 0.05, head.y + 0.06, head.z), new THREE.Vector3(head.x + 0.18, head.y - 0.3, head.z),
+        new THREE.Vector3(this.palAt.x + 0.05, pt, this.palAt.z), new THREE.Vector3(this.palAt.x - 0.18, pt - 0.3, this.palAt.z));
+      for (const q of pts.slice(8)) box.expandByPoint(q);
+      pitch = tall ? (s === 'board' ? 0.98 : 0.9) : s === 'board' ? 0.5 : 0.44;
+    }
     // the buddy close, turned toward it, with all of its picture in front (so nothing looms at the camera)
-    else if (s === 'buddy') { box.copy(buddy).union(content); pitch = tall ? 0.6 : 0.24; yaw = -0.1; }
-    else if (s === 'pals') { box.copy(buddy).union(pal); pitch = 0.18; }
-    else if (s === 'intro') { box.copy(buddy).union(pal); pitch = 0.16; }
-    else { box.copy(content).union(face).union(palFace); pitch = tall ? 0.8 : 0.32; }
+    else if (s === 'buddy') { box.copy(buddy).union(content); pitch = tall ? 0.5 : 0.2; yaw = -0.08; }
+    // the card: the two friends together (the table is cleared first, so nothing looms in front)
+    else if (s === 'pals') { box.copy(buddy).union(pal); pitch = 0.16; }
+    else { box.copy(buddy).union(pal).union(content); pitch = 0.18; }
     // a slow drift, so the shot is never quite still
     yaw += Math.sin(t * 0.13) * 0.035; pitch += Math.sin(t * 0.17) * 0.012;
     const fwd = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
@@ -1097,10 +1243,10 @@ export class EpisodeScene implements Controller {
     const camUp = new THREE.Vector3().crossVectors(right, fwd).normalize();
     const c = box.getCenter(new THREE.Vector3());
     const tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)), asp = cam.aspect;
-    const nx0 = v.left * 2 - 1, nx1 = v.right * 2 - 1, ny0 = 1 - v.bottom * 2, ny1 = 1 - v.top * 2;
+    const nx0 = r.left * 2 - 1, nx1 = r.right * 2 - 1, ny0 = 1 - r.bottom * 2, ny1 = 1 - r.top * 2;
     const rcx = (nx0 + nx1) / 2, rcy = (ny0 + ny1) / 2, rhx = ((nx1 - nx0) / 2) * (1 - margin), rhy = ((ny1 - ny0) / 2) * (1 - margin);
-    const corners: THREE.Vector3[] = [];
-    for (let i = 0; i < 8; i++) corners.push(new THREE.Vector3(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z));
+    const corners: THREE.Vector3[] = pts ?? [];
+    if (!pts) for (let i = 0; i < 8; i++) corners.push(new THREE.Vector3(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z));
     const place = (d: number) => c.clone().addScaledVector(fwd, -d).addScaledVector(right, -rcx * d * tanH * asp).addScaledVector(camUp, -rcy * d * tanH);
     const fits = (d: number) => {
       const p = place(d);
@@ -1123,7 +1269,7 @@ export class EpisodeScene implements Controller {
     let ymax = -Infinity, ymin = Infinity;
     for (const q of corners) { const rel = q.clone().sub(wantPos), z = rel.dot(fwd), y = rel.dot(camUp) / (z * tanH); ymax = Math.max(ymax, y); ymin = Math.min(ymin, y); }
     const topSlack = rcy + rhy - ymax, botSlack = ymin - (rcy - rhy);
-    if (topSlack > 0 && botSlack > 0) wantPos.addScaledVector(camUp, -(topSlack - (topSlack + botSlack) * 0.7) * d * tanH);
+    if (topSlack > 0 && botSlack > 0) wantPos.addScaledVector(camUp, -(topSlack - (topSlack + botSlack) * (tall ? 0.35 : 0.6)) * d * tanH);
     const wantAim = wantPos.clone().add(fwd);
     if (!this.ready) { this.camPos.copy(wantPos); this.camAim.copy(wantAim); this.ready = true; }
     const k = 1 - Math.exp(-dt * (s === 'intro' ? 6 : 3));
@@ -1173,12 +1319,17 @@ export class EpisodeScene implements Controller {
 }
 
 // ---------- the counters' shapes (made once per episode, scaled to the counter's size) ----------
-function tokenGeos(kind: TokenKind): { hue: THREE.BufferGeometry; base: THREE.BufferGeometry | null } {
+function tokenGeos(kind: TokenKind): { hue: THREE.BufferGeometry; base: THREE.BufferGeometry | null; rim: THREE.BufferGeometry } {
+  const g = shapes(kind);
+  return { ...g, rim: kind === 'cookie' && g.base ? g.base : g.hue };
+}
+function shapes(kind: TokenKind): { hue: THREE.BufferGeometry; base: THREE.BufferGeometry | null } {
   const lathe = (pts: number[][], n = 28) => new THREE.LatheGeometry(pts.map(([a, b]) => new THREE.Vector2(a, b)), n);
   if (kind === 'cookie') {
     // a golden cookie with a dome of coloured icing
-    const base = lathe([[0, 0], [0.9, 0], [0.99, 0.06], [1.0, 0.2], [0.95, 0.29], [0.8, 0.33], [0, 0.34]]);
-    const hue = lathe([[0, 0.3], [0.74, 0.3], [0.79, 0.35], [0.7, 0.42], [0.4, 0.46], [0, 0.47]]);
+    // a thick baked cookie (its top crumbly and golden) under a dome of glossy icing
+    const base = lathe([[0, 0], [0.88, 0], [0.98, 0.07], [1.02, 0.24], [0.98, 0.38], [0.86, 0.45], [0.5, 0.48], [0, 0.48]], 36);
+    const hue = lathe([[0, 0.43], [0.72, 0.43], [0.78, 0.48], [0.72, 0.56], [0.45, 0.61], [0, 0.62]], 36);
     return { hue, base };
   }
   if (kind === 'pearl') {
@@ -1225,6 +1376,14 @@ function ringTexture() {
     r.addColorStop(0, 'rgba(255,255,255,0)'); r.addColorStop(0.35, 'rgba(255,250,230,.5)'); r.addColorStop(0.55, 'rgba(255,255,255,1)'); r.addColorStop(0.7, 'rgba(255,236,170,.45)'); r.addColorStop(1, 'rgba(255,230,160,0)');
     g.fillStyle = r; g.fillRect(0, 0, s, s);
     g.fillStyle = 'rgba(255,248,225,.16)'; g.beginPath(); g.arc(s / 2, s / 2, s * 0.25, 0, Math.PI * 2); g.fill();
+  });
+}
+/** a soft round shadow */
+function blobTexture() {
+  return canvasTex(64, (g, s) => {
+    const r = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    r.addColorStop(0, 'rgba(40,20,5,.55)'); r.addColorStop(0.5, 'rgba(40,20,5,.28)'); r.addColorStop(1, 'rgba(40,20,5,0)');
+    g.fillStyle = r; g.fillRect(0, 0, s, s);
   });
 }
 /** the table's shading: clear in the middle where the light falls, warm brown toward the ends */

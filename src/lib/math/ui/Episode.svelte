@@ -14,7 +14,7 @@
   import { sfx } from '../../audio/sound';
   import { hush, lineText, say } from '../../audio/voice.svelte';
   import { danceOf } from '../../engine/profile';
-  import { advView } from '../../adventure/state';
+  import { advView, teamOf } from '../../adventure/state';
   import { FRIEND } from '../../art/cast';
   import { GLIMMER } from '../../adventure/glimmers';
   import { STRAND } from '../course';
@@ -36,10 +36,15 @@
   const lesson = LESSON[id], ep = episodeOf(id), place = setOf(id);
   const strand = STRAND[lesson.op];
   const buddy = game.profile!.buddy;
-  const pal = GLIMMER[place.star];
-  const watchView = boundsOf(lesson.steps.map(s => s.board));
+  // the Glimmer at the table: the player's own (the first on their team) when the story doesn't name the
+  // place's one, else the place's
+  const team = teamOf(advView(game.profile!));
+  const named = lineText(`ep.${lesson.id}.intro`).includes(GLIMMER[place.star].name);
+  const starId = !named && team[0] ? team[0].id : place.star;
+  const pal = GLIMMER[starId];
   const cardWords = lineText(`ep.${lesson.id}.card`).replace(/^You won the .*? card! /, '');
   const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+  const CLEAR: Board = { cell: 48, dots: [], frames: [], plates: [], line: null, tags: [] };
 
   let sc = $state<EpisodeScene | null>(null);
   let before: Controller | null = null;
@@ -112,7 +117,7 @@
     const prev = n === 0 ? null : lesson.steps[n - 1].board, next = lesson.steps[n].board;
     const t = taskFor(prev, next);
     task = t;
-    if (n === 0) s.fit(watchView);
+    if (n === 0) s.fitBoards(lesson.steps.map(x => x.board));
     if (t.kind === 'watch') {
       s.shot('wide');
       s.show(next); shown = next;
@@ -149,7 +154,7 @@
     const r = ++run;
     phase = 'teach'; tsub = 'watch'; wrongOn = false; eqOn = false; bubble = null; task = { kind: 'watch' };
     const pic = lesson.pic(ep.teach.f);
-    s.fit(boundsOf([pic])); s.show(pic); shown = pic;
+    s.fitBoards([pic]); s.show(pic); shown = pic;
     s.shot('wide');
     await speak('ep.teach');
     if (r !== run) return;
@@ -161,7 +166,7 @@
     wrongOn = true; s.cheer(); sfx.pop();
     await sleep(1300);
     if (r !== run) return;
-    tsub = 'fix'; s.shot('wide'); s.palDo('act');
+    tsub = 'fix'; s.shot('wide'); s.palDo('act'); s.think(2.4);
     await speak('ep.fix');
   }
   function pickFix(n: number) {
@@ -169,9 +174,9 @@
     if (n === right) {
       ++run;
       tsub = 'fixed'; sfx.cheer();
-      sc.oops(); sc.palDo('happy'); sc.burst(sc.over(), 1.2);
+      sc.gasp(); setTimeout(() => { if (!gone) sc?.oops(); }, 900); sc.palDo('happy'); sc.burst(sc.over(), 1.2);
       bubble = `Oops! ${hintFor(lesson, ep.teach.f)} Thank you!`;
-      setTimeout(() => { if (!gone) sc?.jump(); }, 1700);
+      setTimeout(() => { if (!gone) sc?.jump(); }, 2500);
       void speak('ep.fixed');
     } else {
       shake++; sfx.miss(); sc.shrug(); void speak('ep.again');
@@ -183,7 +188,7 @@
     ++run;
     phase = 'turn'; k = n; typed = ''; misses = 0; locked = false; bubble = null; eqOn = false; task = { kind: 'watch' };
     const pic = lesson.pic(lesson.tries[n]);
-    s.fit(boundsOf([pic])); s.show(pic); shown = pic;
+    s.fitBoards([pic]); s.show(pic); shown = pic;
     s.shot('wide');
     void speak(n === 0 ? 'ep.turn' : 'ep.turn2');
   }
@@ -192,7 +197,7 @@
     const r = ++run;
     phase = 'check'; typed = ''; misses = 0; locked = false;
     const pic = lesson.pic(lesson.tries[2]);
-    s.fit(boundsOf([pic])); s.show(pic); shown = pic;
+    s.fitBoards([pic]); s.show(pic); shown = pic;
     s.shot('wide'); s.wave(); s.palDo('happy');
     await speak('ep.check');
     if (r !== run) return;
@@ -232,6 +237,8 @@
     let res = { first: false, shells: 0, eggs: 0 };
     game.update(pp => { const x = finishLesson(pp, id); res = { first: x.first, shells: x.shells, eggs: x.eggsReady.length }; });
     result = res;
+    // the table clears (the card shows the picture), and the friends celebrate together
+    s.show(CLEAR); shown = null;
     s.gather(true); s.shot('pals'); s.dance(danceOf(game.profile!)); s.party(); s.palDo('happy');
     sfx.complete(); burst++;
     void (async () => {
@@ -246,6 +253,7 @@
     ++run;
     phase = 'checked'; bubble = null;
     game.update(pp => markChecked(pp, id));
+    s.show(CLEAR); shown = null;
     s.gather(true); s.shot('pals'); s.dance(danceOf(game.profile!)); s.party();
     sfx.complete(); burst++;
     void speak('ep.checked');
@@ -289,7 +297,7 @@
   // ---------- where the 3D picture goes on the page ----------
   function viewFor(): View {
     const H = h || 1;
-    const top = (narrow ? 132 : 150) / H;
+    const top = (narrow ? 58 : 72) / H;
     let bottom = 1 - (narrow ? 116 : 104) / H, right = 0.99;
     if (phase === 'turn' || phase === 'check') bottom = 1 - (narrow ? 352 : 228) / H;
     else if (phase === 'teach' && tsub !== 'watch') bottom = 1 - (narrow ? 196 : 150) / H;
@@ -300,8 +308,8 @@
 
   onMount(() => {
     addEventListener('keydown', onKey, true);
-    const own = advView(game.profile!).glimmers[place.star];
-    void EpisodeScene.create({ setId: ep.set, buddy, evolved: !!own?.evolved }).then(async s => {
+    const own = advView(game.profile!).glimmers[starId];
+    void EpisodeScene.create({ setId: ep.set, buddy, star: starId, evolved: !!own?.evolved }).then(async s => {
       if (gone) { s.dispose(); return; }
       before = stage.swap(s); s.enter();
       s.onChange = () => { hops = s.hopsDrawn; left = s.left; revealed = new Set(s.revealed); };
@@ -337,7 +345,7 @@
   <!-- words pinned to the 3D things -->
   {#if sc && shown}
     {#each tagsNow as t (t.id + t.text)}
-      <div class="pin" use:pin={() => sc!.boardPoint(t.x, t.y, 0.03)}><span class="tag t-{t.c ?? 'ink'}" style:--fs={t.size ?? 30}>{t.text}</span></div>
+      <div class="pin" use:pin={() => sc!.tagPoint(t)}><span class="tag t-{t.c ?? 'ink'}" style:--fs={t.size ?? 30}>{t.text}</span></div>
     {/each}
     {#if shown.line}
       {#each ticks as n (n)}
@@ -359,8 +367,9 @@
     {#if phase === 'teach' && wrongOn}
       {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{askText(ep.teach.f)} = {#if tsub === 'fixed'}<span class="lit">{right}</span>{:else}<s>{ep.teach.wrong}</s>?{/if}</div></div>{/key}
     {/if}
-    {#if bubble}
-      {#key bubble}<div class="pin" use:pin={() => sc!.head('buddy')}><div class="say" class:oops={misses > 0 && !locked && (phase === 'turn' || phase === 'check')} class:good={locked}><b>{FRIEND[buddy].name}</b>{bubble}</div></div>{/key}
+    <!-- one speech bubble, by the buddy: its own words when it has some, else the story's -->
+    {#if bubble || (line && phase !== 'load')}
+      {#key bubble ?? line}<div class="pin" use:pin={() => sc!.bubbleAt()}><div class="say" class:story={!bubble} class:oops={!!bubble && misses > 0 && !locked && (phase === 'turn' || phase === 'check')} class:good={!!bubble && locked}>{#if bubble}<b>{FRIEND[buddy].name}</b>{/if}{bubble ?? line}</div></div>{/key}
     {/if}
   {/if}
 
@@ -376,8 +385,9 @@
     {/if}
     <div class="chip"><img src="{base}learn/tile.webp" alt="" /><span><small>{place.name}</small><b>{lesson.title}</b></span></div>
   </div>
-  {#if line && phase !== 'load'}
-    {#key line}<div class="coach"><span class="cico"><Icon name="sparkle" size={narrow ? 22 : 28} /></span><p>{line}</p></div>{/key}
+  <!-- while the buddy says its own words, the story's words stay as a subtitle -->
+  {#if bubble && line && phase !== 'load'}
+    {#key line}<div class="subtitle"><p>{line}</p></div>{/key}
   {/if}
 
   <!-- the bottom: what to do now -->
@@ -488,7 +498,7 @@
   .eq.wrong s { color: #d63c5c; text-decoration-thickness: 4px; }
   .eq.fixed { box-shadow: 0 0 0 4px #7fe0b0, 0 0 34px rgba(80, 220, 150, .7), 0 12px 24px rgba(0, 60, 30, .3); }
   @keyframes eqin { from { opacity: 0; transform: translate(-50%, -60%) scale(.6); } }
-  .say { transform: translate(18px, -50%); white-space: normal; width: max-content; max-width: min(340px, 42vw); background: #fff; border-radius: 22px; padding: 10px 16px 12px; font: 600 19px/1.3 var(--font-ui); color: var(--ink); box-shadow: 0 0 0 3px #fff, 0 12px 26px -10px rgba(40, 20, 80, .55); animation: bub .35s cubic-bezier(.3, 1.4, .5, 1) both; }
+  .say { transform: translate(18px, -60%); white-space: normal; width: max-content; max-width: min(400px, 34vw); background: #fff; border-radius: 26px; padding: 12px 20px 14px; font: 600 22px/1.3 var(--font-ui); text-align: center; color: var(--ink); box-shadow: 0 0 0 3px #fff, 0 12px 26px -10px rgba(40, 20, 80, .55); animation: bub .35s cubic-bezier(.3, 1.4, .5, 1) both; }
   .say b { display: block; font: 800 11px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sc); }
   .say::before { content: ''; position: absolute; left: -12px; top: 50%; margin-top: -10px; border: 10px solid transparent; border-right-color: #fff; border-left: 0; }
   .say.oops { box-shadow: 0 0 0 4px #ffc2d6, 0 12px 26px -10px rgba(40, 20, 80, .55); }
@@ -506,9 +516,9 @@
   .chip img { width: 34px; height: 40px; object-fit: contain; }
   .chip small { display: block; font: 800 10px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sc); }
   .chip b { font: 600 17px/1.1 var(--font-ui); color: var(--ink); }
-  .coach { position: absolute; left: 50%; top: 66px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 12px; width: max-content; max-width: min(720px, 92vw); background: #fff; border-radius: 26px; padding: 12px 22px 12px 12px; box-shadow: 0 0 0 3px rgba(255, 255, 255, .7), 0 16px 34px -14px rgba(60, 30, 10, .6); animation: bub .35s cubic-bezier(.3, 1.4, .5, 1) both; pointer-events: none; }
-  .coach p { margin: 0; font: 600 21px/1.35 var(--font-ui); color: var(--ink); text-align: center; }
-  .cico { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: color-mix(in srgb, var(--sc) 16%, #fff); color: var(--sc); }
+  .say.story b { display: none; }
+  .subtitle { position: absolute; left: 50%; top: 66px; transform: translateX(-50%); z-index: 3; max-width: min(720px, 92vw); background: rgba(40, 24, 12, .62); backdrop-filter: blur(4px); border-radius: 14px; padding: 6px 16px; pointer-events: none; animation: bub .3s ease-out both; }
+  .subtitle p { margin: 0; font: 600 16px/1.35 var(--font-ui); color: #fff; text-align: center; }
 
   .bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 18px 18px; z-index: 3; display: flex; justify-content: center; pointer-events: none; }
   .bottom > :global(*) { pointer-events: auto; }
@@ -557,9 +567,8 @@
   .narrow .chip { display: none; }
   .narrow .prog { gap: 4px; padding: 6px 10px; }
   .narrow .prog img { width: 16px; height: 16px; }
-  .narrow .coach { top: 54px; padding: 8px 14px 8px 8px; gap: 8px; max-width: calc(100vw - 20px); border-radius: 20px; }
-  .narrow .coach p { font-size: 15px; text-align: left; }
-  .narrow .cico { width: 32px; height: 32px; }
+  .narrow .subtitle { top: 54px; }
+  .narrow .subtitle p { font-size: 13px; }
   .narrow .bottom { padding: 0 10px 12px; }
   .narrow .pill { font-size: 15px; padding: 10px 16px; text-align: center; white-space: normal; }
   .narrow .go { font-size: 18px; padding: 12px 20px; }
@@ -567,7 +576,7 @@
   .narrow .choice { min-width: 92px; height: 70px; font-size: 32px; }
   .narrow .choices { gap: 10px; }
   .narrow .ask { font-size: 32px; padding: 6px 16px; }
-  .narrow .say { font-size: 15px; max-width: 52vw; padding: 8px 12px 10px; }
+  .narrow .say { font-size: 15px; max-width: 58vw; padding: 8px 12px 10px; transform: translate(10px, -40%); }
   .narrow .num { font-size: 13px; }
   .narrow .num.here { font-size: 18px; }
   .narrow .eq { font-size: 26px; padding: 4px 14px; }

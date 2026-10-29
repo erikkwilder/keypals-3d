@@ -2,10 +2,13 @@
 // bakery, a rope coil and a bucket on the dock, a basket and a jug of lemonade at the picnic, toy blocks
 // and a jar of brushes in the workshop, a flower pot and a watering can in the garden shed. They sit at
 // the table's front corners, so the camera sees them big at the bottom of the picture (depth, like a
-// film set) without covering the counters. Made from simple shapes; sizes are in metres.
+// film set) without covering the counters. Each place has two modelled hero things (heroProps: a pie and a
+// cookie jar in the bakery, a toy boat and a lantern on the dock...); the simple shapes below stand in if
+// those can't load. Sizes are in metres.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import type { SetId } from '../math/episodes';
+import { loadGltf } from './assets';
 
 const std = (color: number, o: Partial<THREE.MeshStandardMaterialParameters> = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.6, ...o });
 const glass = () => new THREE.MeshStandardMaterial({ color: 0xeaf6ff, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
@@ -147,4 +150,36 @@ export function propsFor(id: SetId): { left: THREE.Group; right: THREE.Group } {
     case 'workshop': return { left: blockStack(), right: brushJar() };
     case 'garden': return { left: flowerPot(), right: wateringCan() };
   }
+}
+
+/** The modelled hero things (public/learn/ep/props, made with Hunyuan3D 2.1, each 1 m tall as made):
+ *  [file, height in metres, turn]; the first for the left corner, the second for the right. The bakery's
+ *  left corner also keeps its bowl of blueberries, beside the pie. */
+// (the cookie jar came out an opaque pink pot, so the bakery has the teapot and the picnic its lemonade)
+const HERO: Record<SetId, [string, number, number][]> = {
+  kitchen: [['pie', 0.1, 0.3], ['teapot', 0.2, -0.6]],
+  dock: [['boat', 0.32, 0.6], ['lantern', 0.36, -0.3]],
+  picnic: [['basket', 0.3, 0.4], ['', 0, 0]],
+  workshop: [['train', 0.22, 0.7], ['paints', 0.18, -0.3]],
+  garden: [['flowerpot', 0.34, 0.2], ['can', 0.28, -0.8]],
+};
+/** The set's modelled things for the front corners, or null if they can't load (the simple ones stand in). */
+export async function heroProps(id: SetId): Promise<{ left: THREE.Group; right: THREE.Group } | null> {
+  const want = HERO[id];
+  // (an empty name: the simple one of that corner)
+  const got = await Promise.all(want.map(([f]) => (f ? loadGltf(`learn/ep/props/${f}.glb`) : Promise.resolve(null))));
+  if (got.some((g, i) => want[i][0] && !g)) return null;
+  const simple = propsFor(id);
+  const [left, right] = got.map((g, i) => {
+    if (!g) return i ? simple.right : simple.left;
+    const [, h, turn] = want[i];
+    const o = g!.scene.clone(true);
+    o.scale.setScalar(h);
+    o.rotation.y = turn;
+    const grp = new THREE.Group();
+    grp.add(o);
+    return grp;
+  });
+  if (id === 'kitchen') { const bowl = bowlOfBerries(); bowl.position.set(-0.26, 0, 0.16); left.add(bowl); }
+  return { left, right };
 }
