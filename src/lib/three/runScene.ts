@@ -67,6 +67,7 @@ export class RunScene implements Controller {
   private gateK = 1;
   private danceEnd = 0;
   private camPos = new THREE.Vector3(); private camAim = new THREE.Vector3(); private camReady = false;
+  private camOff = new THREE.Vector3(); private aimOff = new THREE.Vector3();
   private here: TrailPoint;
   private puff: Puff;
 
@@ -285,7 +286,8 @@ export class RunScene implements Controller {
     // following from behind, the camera looks through the gate as the buddy goes under it, and its near
     // pillar hid the very moment of finishing: let it go see-through for those few steps
     const past = this.pos - (this.finishS - GATE_BEFORE);
-    const wantK = (this.phase === 'run' || this.phase === 'arrive') && past > -2 && past < 6 ? 0.28 : 1;
+    // (on the sled run, also while the camera swings round for the dance)
+    const wantK = (this.phase === 'run' || this.phase === 'arrive' || (this.course === 'slide' && this.phase === 'dance')) && past > -2 && past < 6 ? 0.28 : 1;
     if (Math.abs(wantK - this.gateK) > 0.001) { this.gateK += (wantK - this.gateK) * (1 - Math.exp(-dt * 8)); if (Math.abs(wantK - this.gateK) < 0.01) this.gateK = wantK; this.island.gateSolid(this.gateK); }
     this.puff.update(dt, stage.camera);
     this.camera(dt, f);
@@ -404,8 +406,10 @@ export class RunScene implements Controller {
         // a climber's arms reach well above its middle: aim a little high so the head clears the question
         aim.copy(centre).add(new THREE.Vector3(0, 0.3, 0));
       } else {
-        wantPos.copy(centre).addScaledVector(f.t, -d * 0.3).addScaledVector(f.n, d * 0.94).y += d * 0.2;
-        aim.copy(centre).addScaledVector(f.t, 0.9);
+        // on a narrow phone screen a swimmer or sled (long and low) needs to sit nearer the middle
+        const narrow = !!this.course && cam.aspect < 0.9;
+        wantPos.copy(centre).addScaledVector(f.t, -d * (narrow ? 0.12 : 0.3)).addScaledVector(f.n, d * 0.94).y += d * 0.2;
+        aim.copy(centre).addScaledVector(f.t, narrow ? 0.25 : 0.9);
       }
     } else {
       // at the gate: in front, a little to one side; the buddy sits in the middle of the hero area
@@ -427,10 +431,19 @@ export class RunScene implements Controller {
     // shift the aim so the subject lands in the middle of the open part of the screen
     const right = new THREE.Vector3().crossVectors(aim.clone().sub(wantPos).normalize(), new THREE.Vector3(0, 1, 0)).normalize();
     aim.addScaledVector(right, -ndcX * d * tanH * cam.aspect).y -= ndcY * d * tanH;
-    if (!this.camReady) { this.camPos.copy(wantPos); this.camAim.copy(aim); this.camReady = true; }
     // the results card arrives quickly: the camera settles on its new framing just as fast
     const k = 1 - Math.exp(-dt * (this.phase === 'run' ? 4 : this.phase === 'results' ? 6 : 2.2));
-    this.camPos.lerp(wantPos, k); this.camAim.lerp(aim, k);
+    if (this.course) {
+      // on a course the buddy can go fast (a sled at top speed): the camera keeps up exactly and only its
+      // framing around the buddy eases, or on a narrow phone screen the buddy slides out of the picture
+      const offPos = wantPos.clone().sub(centre), offAim = aim.clone().sub(centre);
+      if (!this.camReady) { this.camOff.copy(offPos); this.aimOff.copy(offAim); this.camReady = true; }
+      this.camOff.lerp(offPos, k); this.aimOff.lerp(offAim, k);
+      this.camPos.copy(centre).add(this.camOff); this.camAim.copy(centre).add(this.aimOff);
+    } else {
+      if (!this.camReady) { this.camPos.copy(wantPos); this.camAim.copy(aim); this.camReady = true; }
+      this.camPos.lerp(wantPos, k); this.camAim.lerp(aim, k);
+    }
     cam.position.copy(this.camPos);
     cam.lookAt(this.camAim);
   }

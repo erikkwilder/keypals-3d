@@ -283,9 +283,7 @@
   <div class="hero" class:full={!earned.length}>
     <div class="ridepic" bind:this={heroEl}></div>
     <button class="dancebtn" onclick={() => dance(myDance)}>♪ Dance!</button>
-    {#if trying}
-      <div class="trying"><span>Trying on <b>{trying.name}</b></span><button class="wear" onclick={() => wear(trying!.id)}>Wear it</button><button class="wear off" onclick={takeOff}>Take it off</button></div>
-    {/if}
+
     <div class="ridebanner" class:top={best >= 4} bind:this={bannerEl}>
       <span class="rbicon"><svg viewBox="0 0 48 48">{@html rideIcon(best, '#fff', move)}</svg></span>
       <span class="rbtext"><small>{best > 0 ? 'You reached' : rideHint}</small><b>{best > 0 ? `${rideName(best, move)}!` : `${rideName(1, move)}!`}</b></span>
@@ -327,7 +325,7 @@
         <div class="egrid" style:--s="{cell}px">{#each thisRun as e, i (i)}{@render tile(e, i)}{/each}</div>
       {/if}
       {#if fresh.length}
-        <div class="ehead"><b>New for {FRIEND[buddy].name}</b><span class="muted">outfits, dances, stickers and buddies to keep</span></div>
+        <div class="ehead"><b>New for {FRIEND[buddy].name}</b>{#if trying}<span class="trying">Trying on <b>{trying.name}</b><button class="wear" onclick={() => wear(trying!.id)}>Wear it</button><button class="wear off" onclick={takeOff}>Take it off</button></span>{:else}<span class="muted">outfits, dances, stickers and buddies to keep</span>{/if}</div>
         <div class="egrid" style:--s="{cell}px">{#each fresh as e, i (i)}{@render tile(e, thisRun.length + i)}{/each}</div>
       {/if}
     </div>
@@ -562,8 +560,9 @@
   .wear { border: 0; border-radius: 999px; padding: 3px 9px; font: 800 11px var(--font-body); white-space: nowrap; background: var(--mint); color: #0f4a36; cursor: pointer; }
   .wear:disabled { background: #eee8f7; color: var(--muted); cursor: default; }
   .wear.off { background: #fff; color: var(--ink2); box-shadow: inset 0 0 0 2px #e6dff5; }
-  .trying { position: absolute; left: 60px; top: calc(2% + 56px); z-index: 8; display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, .95); border-radius: 999px; padding: 6px 8px 6px 14px; box-shadow: var(--shadow-sm); font: 600 14px var(--font-body); color: var(--ink2); }
-  .trying .wear { font-size: 13px; padding: 5px 12px; }
+  .ehead .trying { display: inline-flex; align-items: center; gap: 6px; font: 600 13px var(--font-body); color: var(--ink2); background: #f4effc; border-radius: 999px; padding: 3px 4px 3px 12px; }
+  .ehead .trying b { font: inherit; font-weight: 800; }
+  .trying .wear { font-size: 12px; padding: 4px 10px; }
   .obig { width: 200px; height: 200px; object-fit: contain; }
   .dart.bud { height: 250px; display: grid; place-items: end center; }
 

@@ -58,6 +58,7 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
   const fin = flag(move === 'climb' ? 0xef7d2b : move === 'slide' ? 0x7c5cf5 : 0x2fa898);
   root.add(fin);
   let update: (dt: number, t: number) => void = () => {};
+  let archFade: (k: number) => void = () => {};
   let at: (s: number) => TrailPoint;
 
   // ---------- sky, light, clouds and far islands (as on the islands) ----------
@@ -357,8 +358,12 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
     // a finish arch made of two flags and a banner
     const arch = new THREE.Group();
     const post = keep(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8)), postMat = keep(new THREE.MeshStandardMaterial({ color: 0xffffff }));
-    for (const z of [-2.8, 2.8]) { const p = new THREE.Mesh(post, postMat); p.position.set(0, 1.7, z); p.castShadow = true; arch.add(p); }
-    const banner = new THREE.Mesh(keep(new THREE.BoxGeometry(0.12, 0.7, 5.8)), keep(new THREE.MeshStandardMaterial({ color: 0x7c5cf5 })));
+    // the post on the camera's side and the banner go see-through as the camera passes them
+    const nearMat = keep(new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true }));
+    for (const z of [-2.8, 2.8]) { const p = new THREE.Mesh(post, z > 0 ? nearMat : postMat); p.position.set(0, 1.7, z); p.castShadow = true; arch.add(p); }
+    const bannerMat = keep(new THREE.MeshStandardMaterial({ color: 0x7c5cf5, transparent: true }));
+    archFade = (k: number) => { nearMat.opacity = k; bannerMat.opacity = Math.max(k, 0.5); nearMat.depthWrite = bannerMat.depthWrite = k > 0.95; };
+    const banner = new THREE.Mesh(keep(new THREE.BoxGeometry(0.12, 0.7, 5.8)), bannerMat);
     banner.position.y = 3.2; arch.add(banner);
     root.add(arch);
     const place = () => { const f = at(finishS - 2.6); arch.position.copy(f.p); fin.position.set(f.p.x + 3, -(f.p.x + 3) * SLOPE, -3.2); };
@@ -513,7 +518,7 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
     trail,
     height: () => 0,
     placeFinish(s: number) { finishS = s; (root.userData.place as (() => void) | undefined)?.(); },
-    gateSolid() { /* no gate to see through */ },
+    gateSolid(k = 1) { archFade(k); },
     setSmooth(on: boolean) { sun.castShadow = !on; },
     update(dt: number, t: number, focus: THREE.Vector3) {
       sun.position.copy(focus).add(sunOffset); sun.target.position.copy(focus); sky.position.copy(focus);
