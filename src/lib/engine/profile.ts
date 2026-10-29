@@ -84,6 +84,8 @@ export type Profile = {
   /** the player's sticker book and medals (2026-10-29: they used to be each buddy's; old saves are merged
    *  into one book the first time it's read) */
   book?: Book;
+  /** the Arcade: each game's best score, stars, plays and today's challenge */
+  arcade?: import('../arcade/arcade').ArcadeSave;
   /** each buddy's own look: the outfit it wears and its finish dance */
   looks?: Partial<Record<FriendId, { outfit: string; dance: string }>>;
   /** buddies already welcomed to the team (new ones are announced once) */
