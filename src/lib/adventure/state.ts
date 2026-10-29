@@ -12,7 +12,7 @@ import { WORDS_KIDS } from '../content/words';
 import { mathOf, nextMathLesson } from '../math/progress';
 import { lessonFacts } from '../math/course';
 import { factId, parseFact, seedPartner, updateFact, weakness, type Fact, type Op } from '../math/facts';
-import { GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, rarityRank, type Element, type GlimmerId, type Rarity } from './glimmers';
+import { EVOLVE_BOOST, GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, powerBase, powerNum, rarityRank, type Element, type GlimmerId, type Rarity } from './glimmers';
 import { grumpFor, type Foe, type Pool, type Subject } from './battle';
 import { championPrize, type BuddyGear, type GearItem, type Wardrobe } from './gear';
 import type { RegionId } from '../engine/course';
@@ -209,10 +209,13 @@ function roll(rng: Rng, odds: Partial<Record<Rarity, number>>): Rarity {
   for (const r of RARITIES) { x -= odds[r] ?? 0; if (x < 0) return r; }
   return 'common';
 }
-/** A Glimmer of a rarity, more likely one you don't have yet. */
-function species(rng: Rng, a: Adventure, r: Rarity, notChampions = true): GlimmerId {
+/** A Glimmer of a rarity, more likely one you don't have yet, and usually one that lives on this island
+ *  (so each island has creatures of its own). */
+function species(rng: Rng, a: Adventure, r: Rarity, notChampions = true, island?: IslandId): GlimmerId {
   const all = glimmersOf(r).filter(g => !notChampions || !g.champion || r !== 'legendary');
-  const list = all.length ? all : glimmersOf(r);
+  const any = all.length ? all : glimmersOf(r);
+  const home = island ? any.filter(g => g.home === island) : [];
+  const list = home.length && rng() < 0.7 ? home : any;
   const newOnes = list.filter(g => !owns(a, g.id));
   const from = newOnes.length && rng() < 0.65 ? newOnes : list;
   return from[Math.floor(rng() * from.length)].id;
@@ -229,7 +232,7 @@ export function foeFor(p: Profile, node: MapNode, pool: Pool, seed: number): Foe
   }
   const r = roll(rng, isl.odds);
   // the very first battle is always Puddle Pup (the one in the story)
-  const id = !a.battles && node.id === 'meadow-0' && !owns(a, 'puddlepup') ? 'puddlepup' : r === 'legendary' ? 'lanternfox' : species(rng, a, r);
+  const id = !a.battles && node.id === 'meadow-0' && !owns(a, 'puddlepup') ? 'puddlepup' : r === 'legendary' ? 'lanternfox' : species(rng, a, r, true, isl.id);
   const g = GLIMMER[id];
   const max = grumpFor(pool, false);
   return { glimmer: id, rarity: g.rarity, champion: false, element: g.element, grump: max, max, hit: 2 + islandN };
@@ -372,7 +375,10 @@ export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
   const out: BattleOutcome = { profile: p, met: null, shells: 0, egg: null, eggWhere: null, xp, rewards, stickers, teamUps: [], firstClear: false, islandDone: null };
   // the team learns from every battle
   for (const id of r.team) { const o = a.glimmers[id]; if (o) { const ups = giveXp(o, r.won ? 12 + (r.perfect ? 6 : 0) : 4); if (ups) out.teamUps.push({ id, level: o.level }); } }
-  if (!r.won) { a.shells += 3; out.shells = 3; return out; }
+  // a digger on the team (Geode Mole) finds shells after a win; grown up, after a loss too
+  const digger = r.team.map(id => ({ id, o: a.glimmers[id] })).find(x => x.o && GLIMMER[x.id].power.kind === 'dig');
+  const dug = digger ? powerNum(powerBase(digger.id, 4), digger.o!.level + (digger.o!.evolved ? EVOLVE_BOOST : 0)) : 0;
+  if (!r.won) { const s = 3 + (digger?.o?.evolved ? dug : 0); a.shells += s; out.shells = s; return out; }
   a.wins++; if (r.perfect) a.perfects++;
   out.firstClear = !cleared(a, r.node);
   a.nodes[r.node] = (a.nodes[r.node] ?? 0) + 1;
@@ -384,7 +390,7 @@ export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
   // an evolved Champion stays grown up when it joins you
   if (r.foe.evolved && a.glimmers[id]) a.glimmers[id]!.evolved = true;
   // shells
-  let shells = 12 + islandN * 4 + RARITY[rarity].shells + (r.perfect ? 10 : 0) + (node.kind === 'champion' ? 50 : 0) + (r.treasureNose ? 6 : 0);
+  let shells = 12 + islandN * 4 + RARITY[rarity].shells + (r.perfect ? 10 : 0) + (node.kind === 'champion' ? 50 : 0) + (r.treasureNose ? 6 : 0) + dug;
   if (r.perfect && r.crystal) shells += 10 + RARITY[rarity].shells;
   a.shells += shells; out.shells = shells;
   // an egg: always after a Perfect Cheer or a Champion (Rare or better from a Champion), sometimes otherwise

@@ -47,7 +47,7 @@ describe('the Cheer Duel', () => {
     const cast = ev.find(e => e.k === 'cast')!;
     const ember = ev.find(e => e.k === 'extra');
     expect(cast).toMatchObject({ value: answerOf(c.fact!) });
-    expect(ember).toMatchObject({ what: 'Ember puff', value: 4 });
+    expect(ember).toMatchObject({ what: 'Ember Puff', value: 4 });
     expect(b.foe.grump).toBe(20 - answerOf(c.fact!) - 4);
   });
   it('Pebble Shell and Hover take the first mischiefs; five right fills the Finale', () => {
