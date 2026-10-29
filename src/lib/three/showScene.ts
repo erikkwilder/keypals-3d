@@ -9,7 +9,8 @@ import type { FriendId } from '../art/cast';
 import type { Island } from './island';
 import type { View } from './runScene';
 
-type Opts = { buddies: FriendId[]; view: View; spot?: number; outfits?: Partial<Record<FriendId, string>>; orbit?: boolean };
+/** `shadowed`: buddies shown in shadowy black and white (not on the team yet). */
+type Opts = { buddies: FriendId[]; view: View; spot?: number; outfits?: Partial<Record<FriendId, string>>; orbit?: boolean; shadowed?: FriendId[] };
 
 export class ShowScene implements Controller {
   /** menus don't need 60 frames a second */
@@ -24,7 +25,9 @@ export class ShowScene implements Controller {
   private camPos = new THREE.Vector3(); private camAim = new THREE.Vector3(); private ready = false;
   private next: number[] = [];
   /** what each buddy is doing, and until when (seconds on the stage clock) */
-  private dancing: ({ name: string; until: number } | null)[] = [];
+  private dancing: ({ name: string; len: number; until?: number } | null)[] = [];
+  /** a little hop when a buddy is picked (seconds on the stage clock it started; -1: on the next frame) */
+  private hopAt: number | null = null;
   private now = 0;
   /** turntable angle the player can drag (the Keypals screen) */
   spin = 0;
@@ -46,6 +49,7 @@ export class ShowScene implements Controller {
       c.mixer.setTime(Math.random() * 3);
     });
     this.place(0);
+    if (import.meta.env.DEV) (window as unknown as { __show: ShowScene }).__show = this;
   }
 
   static async create(opts: Opts): Promise<ShowScene> {
@@ -55,7 +59,8 @@ export class ShowScene implements Controller {
     for (const c of ok) {
       loads.push(c.loadMoves());
       const o = opts.outfits?.[c.id];
-      if (o && o !== 'none') c.wear(o, makeOutfit);
+      if (opts.shadowed?.includes(c.id)) c.shadowed();
+      else if (o && o !== 'none') c.wear(o, makeOutfit);
     }
     const sc = new ShowScene(island, ok, opts);
     sc.movesReady = Promise.all(loads);
@@ -83,6 +88,11 @@ export class ShowScene implements Controller {
       const want = this.base.clone().addScaledVector(this.t, off).addScaledVector(this.n, (chosen ? 0.7 : 0) - row * 1.1);
       want.y = this.island.height(want.x, want.z);
       if (dt === 0) c.root.position.copy(want); else c.root.position.lerp(want, 1 - Math.exp(-dt * 6));
+      if (n === 1 && this.hopAt != null) {
+        if (this.hopAt < 0) this.hopAt = this.now;
+        const k = (this.now - this.hopAt) / 0.42;
+        if (k >= 1) this.hopAt = null; else c.root.position.y = want.y + Math.sin(k * Math.PI) * 0.16;
+      }
       c.root.rotation.set(0, Math.atan2(this.n.x, this.n.z) + (n > 1 ? -off * 0.06 : this.spin), 0);
     });
   }
@@ -90,9 +100,11 @@ export class ShowScene implements Controller {
   select(id: FriendId | null) {
     this.selected = id;
     const c = this.chars.find(x => x.id === id);
-    // the small one-hand wave (the big two-arm one starts by pulling both arms in, which looked like the
-    // shoulders deflating); wait for it to load rather than fall back
-    if (c) this.movesReady.then(() => { if (this.selected === id && c.has('wave1')) this.start(this.chars.indexOf(c), 'wave1'); });
+    if (!c) return;
+    // one buddy on show (the Keypals screen): a happy hop, no gesture. Every wave starts with the shoulders
+    // held higher than standing, and settling back looked like the upper body deflating
+    if (this.chars.length === 1) { this.hopAt = -1; return; }
+    this.movesReady.then(() => { if (this.selected === id && c.has('wave1')) this.start(this.chars.indexOf(c), 'wave1'); });
   }
   async wear(id: FriendId, outfit: string) { await this.chars.find(c => c.id === id)?.wear(outfit, makeOutfit); }
   dance(id: FriendId, dance: string) {
@@ -106,7 +118,8 @@ export class ShowScene implements Controller {
     if (!a) return;
     a.reset();
     const len = a.getClip().duration;
-    this.dancing[i] = { name, until: this.now + (a.loop === THREE.LoopOnce ? len : Math.min(8, Math.max(len, 4))) };
+    // timed from the next frame: a move started before the scene's first frame used to end at once
+    this.dancing[i] = { name, len: a.loop === THREE.LoopOnce ? len : Math.min(8, Math.max(len, 4)) };
   }
 
   update(dt: number, t: number) {
@@ -115,6 +128,7 @@ export class ShowScene implements Controller {
     this.chars.forEach((c, i) => {
       const d = this.dancing[i];
       if (d) {
+        d.until ??= t + d.len;
         if (t > d.until) { this.dancing[i] = null; c.play('idle', 0.45); }
       } else if (this.chars.length > 1 && t > this.next[i]) {
         // now and then someone waves or does a little dance

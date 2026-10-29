@@ -2,7 +2,6 @@
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { GAME_TAGLINE } from '../config';
-  import { BUDDIES } from '../art/cast';
   import { sfx, startMusic, unlockAudio } from '../audio/sound';
   import { stage } from '../three/stage';
   import { ShowScene } from '../three/showScene';
@@ -30,7 +29,8 @@
   }
   onMount(() => {
     // everyone stands on the island under the title, waving and dancing now and then
-    const cast = innerWidth < 700 ? STARTERS : BUDDIES.map(b => b.id);
+    // the six you can start with; the rest join as you play
+    const cast = STARTERS;
     ShowScene.create({ buddies: cast, view: { top: 0.5, bottom: 0.97, left: 0.08, right: 0.92 }, spot: 8, orbit: true })
       .then(sc => { if (disposed) { sc.dispose(); return; } scene = sc; stage.use(sc); });
     window.addEventListener('keydown', onKey);

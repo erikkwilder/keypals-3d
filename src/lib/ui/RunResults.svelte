@@ -218,7 +218,24 @@
   function wear(id: string) {
     game.update(pp => setLook(pp, buddy, { outfit: id }));
     wearing = id;
+    trying = null;
     scene?.me.wear(id, (o) => import('../three/outfits3d').then(m => m.makeOutfit(o)));
+    sfx.pop();
+  }
+  // a closer look at something new, without wearing it, dancing it for good or switching buddies
+  let peek = $state<Earned | null>(null);
+  let trying = $state<{ id: string; name: string } | null>(null);
+  function peekAt(e: Earned) { peek = e; sfx.pop(); }
+  /** Put an outfit on the 3D buddy just to see it (nothing is saved). */
+  function tryOn(id: string, name: string) {
+    trying = { id, name }; peek = null;
+    scene?.me.wear(id, (o) => import('../three/outfits3d').then(m => m.makeOutfit(o)));
+    scene?.cheer();
+    sfx.pop();
+  }
+  function takeOff() {
+    trying = null;
+    scene?.me.wear(heroOutfit, (o) => import('../three/outfits3d').then(m => m.makeOutfit(o)));
     sfx.pop();
   }
   /** Dance now, on the 3D buddy; `keep` makes it the celebration at the finish from now on. */
@@ -231,7 +248,7 @@
   const myDance = $derived(game.profile ? danceOf(game.profile, buddy) : danceOf(p));
   const opened = performance.now();
   function onKey(e: KeyboardEvent) {
-    if (detail || tdetail !== null) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); detail = null; tdetail = null; } return; }
+    if (detail || tdetail !== null || peek) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); detail = null; tdetail = null; peek = null; } return; }
     if (performance.now() - opened < 1200 || game.modalOpen) return;
     if (e.key === 'Enter') { e.preventDefault(); passed ? onnext() : onretry(); }
     if (e.key === ' ') { e.preventDefault(); onretry(); }
@@ -266,6 +283,9 @@
   <div class="hero" class:full={!earned.length}>
     <div class="ridepic" bind:this={heroEl}></div>
     <button class="dancebtn" onclick={() => dance(myDance)}>♪ Dance!</button>
+    {#if trying}
+      <div class="trying"><span>Trying on <b>{trying.name}</b></span><button class="wear" onclick={() => wear(trying!.id)}>Wear it</button><button class="wear off" onclick={takeOff}>Take it off</button></div>
+    {/if}
     <div class="ridebanner" class:top={best >= 4} bind:this={bannerEl}>
       <span class="rbicon"><svg viewBox="0 0 48 48">{@html rideIcon(best, '#fff', move)}</svg></span>
       <span class="rbtext"><small>{best > 0 ? 'You reached' : rideHint}</small><b>{best > 0 ? `${rideName(best, move)}!` : `${rideName(1, move)}!`}</b></span>
@@ -282,17 +302,17 @@
       {#snippet tile(e: Earned, i: number)}
         <div class="item" class:shown={i < earnedShown}>
           {#if e.kind === 'outfit'}
-            <div class="ipic outfit rar-{e.rarity}"><img class="othumb" src="{import.meta.env.BASE_URL}outfits/{e.id}.webp" alt="" /></div>
+            <button class="ipic outfit tap rar-{e.rarity}" onclick={() => peekAt(e)} title="Take a look"><img class="othumb" src="{import.meta.env.BASE_URL}outfits/{e.id}.webp" alt="" /></button>
             <button class="wear" onclick={() => wear(e.id)} disabled={heroOutfit === e.id}>{heroOutfit === e.id ? 'Wearing' : 'Wear it'}</button>
           {:else if e.kind === 'dance'}
-            <div class="ipic outfit dance rar-{e.rarity}"><span class="note">♪</span><span class="dname">{e.name}</span></div>
+            <button class="ipic outfit dance tap rar-{e.rarity}" onclick={() => dance(e.id)} title="See it danced"><span class="note">♪</span><span class="dname">{e.name}</span></button>
             <button class="wear" onclick={() => dance(e.id, true)} disabled={myDance === e.id && dancingNow === e.id}>{myDance === e.id ? 'My dance!' : 'Dance it'}</button>
           {:else if e.kind === 'medal'}
             <button class="ipic medal tap" onclick={() => show(e)} title="What's this?">{@html renderMedal(e.m, e.m.tier)}</button>
             <span class="iname">{e.m.name}</span>
             {#if e.m.tierUp && e.m.count > 1}<em class="tier" style:background={TIER_LOOK[e.m.tier].pill} style:color={TIER_LOOK[e.m.tier].ink}>{TIER_LOOK[e.m.tier].name}!</em>{:else}{@const nt = nextTier(e.m.count)}<span class="count" title={nt.title}>{nt.text}</span>{/if}
           {:else if e.kind === 'buddy'}
-            <div class="ipic outfit newbud"><Critter friend={e.id} size={cell} round /></div>
+            <button class="ipic outfit newbud tap" onclick={() => peekAt(e)} title="Meet {FRIEND[e.id].name}"><Critter friend={e.id} size={cell} round /></button>
             <span class="iname">{FRIEND[e.id].name} joined!</span>
             <button class="wear" onclick={() => { game.update(pp => { pp.buddy = e.id; }); sfx.complete(); }} disabled={game.profile?.buddy === e.id}>{game.profile?.buddy === e.id ? 'Your buddy' : 'Play as'}</button>
           {:else if e.kind === "sticker"}
@@ -396,6 +416,35 @@
           <p class="dmore">It's in {FRIEND[buddy].name}'s sticker book now.</p>
         {/if}
         <button class="btn btn-primary" onclick={() => (detail = null)}>OK</button>
+      </div>
+    </div>
+  {/if}
+  {#if peek && (peek.kind === 'outfit' || peek.kind === 'buddy')}
+    {@const d = peek}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="dmodal" onclick={() => (peek = null)}>
+      <div class="dcard card" onclick={(ev) => ev.stopPropagation()}>
+        {#if d.kind === 'outfit'}
+          <div class="dart"><img class="obig" src="{import.meta.env.BASE_URL}outfits/{d.id}.webp" alt="" /></div>
+          <span class="dkind">Outfit · <b class="rar-{d.rarity}">{d.rarity}</b></span>
+          <h3>{d.name}</h3>
+          <p class="ddesc">New for {FRIEND[buddy].name}. Try it on to see how it looks; you can wear it any time from the Keypals screen.</p>
+          <div class="tnav">
+            <button class="btn" onclick={() => tryOn(d.id, d.name)}>Try it on</button>
+            <button class="btn btn-primary" onclick={() => { wear(d.id); peek = null; }}>Wear it</button>
+          </div>
+        {:else if d.kind === 'buddy'}
+          <div class="dart bud"><Critter friend={d.id} size={240} /></div>
+          <span class="dkind">New Keypal</span>
+          <h3>{FRIEND[d.id].name} joined your team!</h3>
+          <p class="ddesc">{FRIEND[d.id].quirk}</p>
+          <p class="dmore">{FRIEND[d.id].name} starts their own friendship, outfits, stickers and medals when you play together.</p>
+          <div class="tnav">
+            <button class="btn" onclick={() => (peek = null)}>Not now</button>
+            <button class="btn btn-primary" onclick={() => { game.update(pp => { pp.buddy = d.id; }); sfx.complete(); peek = null; }} disabled={game.profile?.buddy === d.id}>{game.profile?.buddy === d.id ? 'Your buddy' : `Play as ${FRIEND[d.id].name}`}</button>
+          </div>
+        {/if}
       </div>
     </div>
   {/if}
@@ -512,6 +561,11 @@
   .count { font: 700 11px var(--font-body); color: var(--muted); white-space: nowrap; }
   .wear { border: 0; border-radius: 999px; padding: 3px 9px; font: 800 11px var(--font-body); white-space: nowrap; background: var(--mint); color: #0f4a36; cursor: pointer; }
   .wear:disabled { background: #eee8f7; color: var(--muted); cursor: default; }
+  .wear.off { background: #fff; color: var(--ink2); box-shadow: inset 0 0 0 2px #e6dff5; }
+  .trying { position: absolute; left: 60px; top: calc(2% + 56px); z-index: 8; display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, .95); border-radius: 999px; padding: 6px 8px 6px 14px; box-shadow: var(--shadow-sm); font: 600 14px var(--font-body); color: var(--ink2); }
+  .trying .wear { font-size: 13px; padding: 5px 12px; }
+  .obig { width: 200px; height: 200px; object-fit: contain; }
+  .dart.bud { height: 250px; display: grid; place-items: end center; }
 
   .panel { position: absolute; right: 3%; top: 0; bottom: 0; margin: auto 0; height: max-content; width: min(600px, 50vw); max-height: 95%; overflow-y: auto; z-index: 5; padding: 18px 24px 18px; text-align: center; animation: pop-in .45s cubic-bezier(.3, .8, .4, 1.3); }
   h1 { font-size: clamp(30px, 4.6vh, 44px); }

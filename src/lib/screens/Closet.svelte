@@ -37,7 +37,7 @@
 
   async function show(id: FriendId) {
     const old = scene;
-    const sc = await ShowScene.create({ buddies: [id], view: viewOf(), spot: 10, outfits: { [id]: palOf(game.profile!, id).outfit } });
+    const sc = await ShowScene.create({ buddies: [id], view: viewOf(), spot: 10, outfits: { [id]: palOf(game.profile!, id).outfit }, shadowed: onTeam(game.profile!, id) ? [] : [id] });
     if (disposed || who !== id) { sc.dispose(); return; }
     scene = sc;
     stage.use(sc);
@@ -155,9 +155,11 @@
   .mate { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; width: 92px; padding: 4px 4px 8px; border-radius: 18px; border: 3px solid transparent; background: #fff; cursor: pointer; box-shadow: var(--shadow-sm); }
   .mate.on { border-color: var(--primary-hi); }
   .mate .nm { font: 600 15px var(--font-ui); }
-  .mate.locked .pic { filter: brightness(0) saturate(0); opacity: .45; }
+  /* not on the team yet: the real buddy in shadowy black and white */
+  .mate.locked .pic :global(img) { filter: grayscale(1) brightness(.5) contrast(1.25); }
+  .mate.locked .pic :global(.critter-host) { background: radial-gradient(circle at 50% 35%, #e9e9ef, #b9bccb); }
   .mate.locked .nm { color: var(--muted); }
-  .mate .lk { position: absolute; top: 30px; left: 0; right: 0; display: grid; place-items: center; color: #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+  .mate .lk { position: absolute; top: 48px; right: 12px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(48, 36, 80, .8); box-shadow: 0 0 0 2px #fff; }
   .joins { margin: 0; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font: 600 16px/1.35 var(--font-body); color: var(--ink2); }
   .soon { padding: 16px 18px; }
   .soon p { margin: 0; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }

@@ -24,15 +24,15 @@
   function screenX(v: number) { const r = svg?.getBoundingClientRect(); return r ? (r.left + (xOf(v) / W) * r.width) / innerWidth : 0.5; }
   $effect(() => {
     if (!track || !pal) return;
-    // the buddy's feet on the line itself, wherever the layout puts it
+    // the buddy's feet on top of the number line's board, wherever the layout puts it
     const r = track.getBoundingClientRect(), sr = svg?.getBoundingClientRect();
-    const feetAt = sr && r.height ? (sr.top + sr.height * (70 / 150) - r.top) / r.height : 0.8;
+    const feetAt = sr && r.height ? (sr.top + sr.height * (BOARD_TOP / 150) - r.top) / r.height : 0.8;
     pal.area(track, { span: 8 * Math.max(0.6, r.width / 1000), feetAt });
     // start at 0, the line's left end
     const t = setTimeout(() => pal.hop(screenX(0), true), 80);
     return () => clearTimeout(t);
   });
-  const PAD = 40, W = 1000;
+  const PAD = 40, W = 1000, BOARD_TOP = 36;
   const xOf = (v: number) => PAD + (v / spec.max) * (W - 2 * PAD);
   const ticks = Array.from({ length: spec.max / spec.step + 1 }, (_, k) => k * spec.step);
   const minor = level >= 3 && level <= 4 ? Array.from({ length: spec.max / 5 + 1 }, (_, k) => k * 5) : [];
@@ -68,6 +68,10 @@
   <div class="track" bind:this={track} onpointerdown={tap} role="presentation">
     <svg bind:this={svg} viewBox="0 0 {W} 150" class="line" class:locked={placed !== null} role="slider" aria-label="Number line from 0 to {spec.max}" aria-valuemin={0} aria-valuemax={spec.max} aria-valuenow={placed ?? 0} tabindex="-1">
       <rect x="0" y="0" width={W} height="150" fill="transparent" />
+      <!-- a solid board behind the ticks, so the grass and the island don't flicker through them;
+           the buddy hops along its top edge -->
+      <rect x={PAD - 34} y={BOARD_TOP + 6} width={W - 2 * PAD + 68} height={148 - BOARD_TOP - 6} rx="22" fill="rgba(50, 34, 90, .22)" />
+      <rect x={PAD - 34} y={BOARD_TOP} width={W - 2 * PAD + 68} height={148 - BOARD_TOP - 6} rx="22" fill="#fffdf6" stroke="#e8dcc0" stroke-width="3" />
       <line x1={PAD} x2={W - PAD} y1="70" y2="70" stroke="#fff" stroke-width="15" stroke-linecap="round" opacity=".85" />
       <line x1={PAD} x2={W - PAD} y1="70" y2="70" stroke="#7c5cf5" stroke-width="7" stroke-linecap="round" />
       {#each minor as v}<line x1={xOf(v)} x2={xOf(v)} y1="62" y2="78" stroke="#c9bdf0" stroke-width="3" />{/each}

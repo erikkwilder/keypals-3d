@@ -66,10 +66,10 @@
     <span class="dots">{#each Array(ROUND) as _, k}<i class:done={k < found}></i>{/each}</span>
   </div>
   <div class="row">
-  <div class="pond" role="group" aria-label="Bubbles" style:--pondart="url({import.meta.env.BASE_URL}math/play-bubbles.webp)">
+  <div class="pond" role="group" aria-label="Bubbles" style:--pondart="url({import.meta.env.BASE_URL}math/pond.webp)" style:--bubart="url({import.meta.env.BASE_URL}math/bubble.webp)">
     {#each bubbles as b (b.id)}
       {@const p = pos(b.slot)}
-      <button class="bub {b.state}" style:left="min({p.x}%, calc(100% - clamp(70px, 11vw, 104px) - 6px))" style:top="min({p.y}%, calc(100% - clamp(70px, 11vw, 104px) - 6px))" style:--c={b.color} style:--d="{b.delay}s" onpointerdown={(e) => { e.preventDefault(); tap(b); }} aria-label={String(b.n)}>
+      <button class="bub {b.state}" style:left="min({p.x}%, calc(100% - clamp(70px, 11vw, 104px) - 6px))" style:top="min({p.y}%, calc(100% - clamp(70px, 11vw, 104px) - 6px))" style:--c={b.color} style:--h="{(b.id * 67) % 360}deg" style:--d="{b.delay}s" onpointerdown={(e) => { e.preventDefault(); tap(b); }} aria-label={String(b.n)}>
         <span>{b.n}</span>
       </button>
     {/each}
@@ -94,15 +94,18 @@
   .row { display: flex; gap: 12px; align-items: stretch; }
   .corner { flex: 0 0 clamp(150px, 20vw, 240px); }
   .pond { flex: 1; position: relative; height: clamp(320px, 52vh, 480px); border-radius: 28px; background: linear-gradient(rgba(190, 235, 250, .25), rgba(120, 200, 235, .35)), var(--pondart) center / cover; box-shadow: inset 0 0 0 4px #fff, 0 12px 30px -16px rgba(30, 90, 140, .5); overflow: hidden; touch-action: manipulation; }
-  .bub { position: absolute; width: clamp(70px, 11vw, 104px); aspect-ratio: 1; border: 0; padding: 0; border-radius: 50%; cursor: pointer; background: radial-gradient(circle at 32% 28%, #fff 0 12%, color-mix(in srgb, var(--c) 55%, #fff) 30%, var(--c) 72%, color-mix(in srgb, var(--c) 80%, #000) 100%); box-shadow: inset 0 -6px 14px rgba(0, 0, 0, .08), 0 8px 18px -10px rgba(0, 0, 0, .35); display: grid; place-items: center; animation: bob 3.6s var(--d) ease-in-out infinite, rise .5s ease-out both; transition: transform .15s; -webkit-tap-highlight-color: transparent; }
-  .bub span { font: 600 clamp(26px, 4vw, 40px) var(--font-ui); color: #3b2d55; text-shadow: 0 1px 0 #fff; }
-  .bub.sel { transform: scale(1.14); box-shadow: 0 0 0 5px #fff, 0 0 0 9px #7c5cf5; }
+  /* real soap bubbles: a see-through film with a rainbow rim (each one's colours turned a little), the
+     number floating inside */
+  .bub { position: absolute; width: clamp(70px, 11vw, 104px); aspect-ratio: 1; border: 0; padding: 0; border-radius: 50%; cursor: pointer; background: none; display: grid; place-items: center; animation: bob 3.6s var(--d) ease-in-out infinite, rise .5s ease-out both; transition: transform .15s, box-shadow .15s; -webkit-tap-highlight-color: transparent; }
+  .bub::before { content: ''; position: absolute; inset: -4%; background: var(--bubart) center / contain no-repeat; filter: hue-rotate(var(--h)) drop-shadow(0 6px 8px rgba(20, 60, 90, .16)); pointer-events: none; }
+  .bub span { position: relative; font: 600 clamp(26px, 4vw, 40px) var(--font-ui); color: #2a1f45; text-shadow: 0 0 8px #fff, 0 0 3px #fff, 0 1px 0 #fff; }
+  .bub.sel { transform: scale(1.14); box-shadow: 0 0 0 4px rgba(255, 255, 255, .95), 0 0 0 8px #7c5cf5, 0 0 24px 8px rgba(255, 255, 255, .6); }
   .bub.wrong { animation: wobble .45s ease; }
   .bub.pop { animation: pop .42s ease-out forwards; pointer-events: none; }
   @keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -12px; } }
   @keyframes rise { from { opacity: 0; scale: .3; } to { opacity: 1; scale: 1; } }
   @keyframes wobble { 0%, 100% { rotate: 0deg; } 25% { rotate: -12deg; } 75% { rotate: 12deg; } }
-  @keyframes pop { 0% { scale: 1.1; opacity: 1; } 100% { scale: 1.8; opacity: 0; } }
+  @keyframes pop { 0% { scale: 1.1; opacity: 1; } 35% { scale: 1.35; opacity: .9; } 100% { scale: 1.6; opacity: 0; filter: blur(3px); } }
   .tip { margin: 0; text-align: center; font: 700 15px var(--font-body); color: var(--muted); }
   .tip { background: rgba(255, 255, 255, .85); border-radius: 999px; padding: 3px 12px; align-self: center; }
   @media (max-width: 600px) { .row { flex-direction: column-reverse; } .corner { flex: 0 0 120px; } .pond { flex: none; height: 48vh; } }

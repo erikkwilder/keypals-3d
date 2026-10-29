@@ -117,6 +117,9 @@ export class Character {
     this.addClips(clips);
     for (const k of ['walk', 'run', 'sprint']) this.speedOf[k] = this.gaitSpeed(k);
     this.mixer.stopAllAction();
+    // measuring the gaits ran the clock on: back to zero, or the first move's fade-in would be scheduled
+    // in the future and the buddy would stand in its stiff bind pose until the clock caught up
+    this.mixer.setTime(0);
     this.addEyes();
     // feet as they stand in the bind pose (flat on the ground)
     model.updateMatrixWorld(true);
@@ -184,6 +187,25 @@ export class Character {
       }
     }
     this.addClips(clips);
+  }
+
+  /** Shown in shadowy black and white (a buddy who hasn't joined the team yet). */
+  shadowed() {
+    this.model.traverse(o => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const one = (mat: THREE.Material) => {
+        const c = mat.clone();
+        c.onBeforeCompile = (sh) => {
+          sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+            float grey = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
+            gl_FragColor.rgb = mix(vec3(0.16, 0.17, 0.22), vec3(0.62, 0.64, 0.7), smoothstep(0.0, 0.9, grey));`);
+        };
+        c.customProgramCacheKey = () => 'shadowed';
+        return c;
+      };
+      m.material = Array.isArray(m.material) ? m.material.map(one) : one(m.material);
+    });
   }
 
   has(name: string) { return !!this.actions[name]; }
