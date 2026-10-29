@@ -133,6 +133,8 @@ export class EpisodeScene implements Controller {
   private dishes = new Map<string, Piece>();
   private dishLift = new Map<string, number>();
   private fracTex: FracTex = { pie: null, pizza: null, choc: null };
+  /** the fraction episodes: one pie or bar big on a bare wooden table, the camera in close */
+  private close = false;
   private shapeGeos = new Map<string, ReturnType<typeof shapeGeo>>();
   private plank: THREE.Group | null = null;
   private lineKey = '';
@@ -193,6 +195,7 @@ export class EpisodeScene implements Controller {
       const [pie, pizza, choc] = await Promise.all(['pie-top', 'pizza-top', 'choc-top'].map(f => loadTexture(`learn/frac/${f}.webp`)));
       for (const t of [pie, pizza, choc]) if (t) { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; }
       sc.fracTex = { pie, pizza, choc };
+      sc.close = true;
     }
     await sc.build();
     return sc;
@@ -326,13 +329,16 @@ export class EpisodeScene implements Controller {
     // work (the table hides their legs)
     const a = this.area;
     const back = a.z0 - 0.08;
-    this.buddyAt.set(compact ? -0.34 : Math.min(-0.62, a.x0 + 0.06), 0, back - 0.15);
-    this.palHome.set(compact ? 0.4 : Math.max(0.66, a.x1 - 0.06), TY - 0.17, back - 0.2);
+    // (the fraction episodes: a big pie on the table, the friends just behind its edges, like the concept)
+    const inset = this.close && !compact ? (a.x1 - a.x0) * 0.12 : 0.06;
+    this.buddyAt.set(compact ? -0.34 : Math.min(-0.62, a.x0 + inset), 0, back - 0.15);
+    this.palHome.set(compact ? 0.4 : Math.max(0.66, a.x1 - inset), TY - 0.17, back - 0.2);
     if (this.together) this.palHome.set(this.buddyAt.x + (compact ? 0.66 : 1.0), TY - 0.17, back - 0.2);
     this.backZ += (back - this.backZ) * 0.08;
     this.table.position.z = this.backZ + 1.6; this.pool.position.z = this.backZ + 1.6;
     // the cloth under the work
     this.cloth.position.set((a.x0 + a.x1) / 2, TY + 0.002, (a.z0 + a.z1) / 2 + 0.02);
+    this.cloth.visible = !this.close;
     this.cloth.scale.set(a.x1 - a.x0 + (compact ? 0.14 : 0.24), 1, a.z1 - a.z0 + (compact ? 0.1 : 0.16));
     // the hero things at the table's front corners, just outside the work
     this.propL?.position.set(a.x0 - (compact ? 0.05 : 0.28), TY, a.z1 + (compact ? 0.3 : 0.02));
@@ -400,7 +406,8 @@ export class EpisodeScene implements Controller {
   /** Fit these board bounds onto the table (call when the picture's zoom changes). */
   fit(b: { x: number; y: number; w: number; h: number }) {
     // (stacked on a phone: narrower and deeper, seen from higher up)
-    const s = this.stack ? Math.min(1.05 / b.w, 1.3 / (b.h * DEPTH)) : Math.min(TW / b.w, TD / (b.h * DEPTH));
+    const k = this.close ? 1.45 : 1;
+    const s = this.stack ? Math.min(1.05 * k / b.w, 1.3 * k / (b.h * DEPTH)) : Math.min(TW * k / b.w, TD * k / (b.h * DEPTH));
     const m = { cx: b.x + b.w / 2, cy: b.y + b.h / 2, s };
     // a new zoom: the tins, plates and plank are made again at the new size (the counters glide over)
     if (Math.abs(m.cx - this.map.cx) > 0.5 || Math.abs(m.cy - this.map.cy) > 0.5 || Math.abs(m.s - this.map.s) > 1e-6) this.refit = true;
@@ -1020,7 +1027,12 @@ export class EpisodeScene implements Controller {
     return h.add(new THREE.Vector3(this.H * 0.16, this.H * 0.06, 0));
   }
   /** over the middle of the picture, a little above the table (where the shortcut appears) */
-  over(): THREE.Vector3 { const c = this.centre(); c.y += 0.3; c.z = this.area.z0 - 0.05; return c; }
+  over(): THREE.Vector3 {
+    const c = this.centre();
+    // (the fraction episodes: just over the work's back edge, under the speech bubble)
+    if (this.close) { c.y = TY + 0.1; c.z = this.area.z0 + 0.02; } else { c.y += 0.3; c.z = this.area.z0 - 0.05; }
+    return c;
+  }
 
   private toScreen(p: THREE.Vector3): { x: number; y: number } | null {
     const v = p.clone().project(stage.camera);
@@ -1357,7 +1369,7 @@ export class EpisodeScene implements Controller {
       const cc = content.getCenter(new THREE.Vector3()), ww = content.max.x - content.min.x;
       const ty = rcy - rhy * 0.42;
       const at = (dd: number) => cc.clone().addScaledVector(fwd, -dd).addScaledVector(right, -rcx * dd * tanH * asp).addScaledVector(camUp, -ty * dd * tanH);
-      let dd = ww / (1.2 * tanH * asp);
+      let dd = ww / ((this.close ? 1.5 : 1.2) * tanH * asp);
       for (let i = 0; i < 30; i++) {
         const p = at(dd);
         const top = Math.max(...pts.slice(8).filter((_, k) => k % 2 === 0).map(q => { const rel = q.clone().sub(p); return rel.dot(camUp) / (rel.dot(fwd) * tanH); }));

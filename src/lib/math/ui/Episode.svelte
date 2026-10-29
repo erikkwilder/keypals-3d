@@ -357,7 +357,7 @@
   <!-- words pinned to the 3D things -->
   {#if sc && shown}
     {#each tagsNow as t (t.id + t.text)}
-      <div class="pin" use:pin={() => sc!.tagPoint(t)}><span class="tag t-{t.c ?? 'ink'}" style:--fs={t.size ?? 30}>{t.text}</span></div>
+      <div class="pin" use:pin={() => sc!.tagPoint(t)}><span class="tag t-{t.c ?? 'ink'}" style:--fs={t.size ?? 30}>{#if /\d\/\d/.test(t.text)}<FracText text={t.text} size={Math.round((t.size ?? 30) * 0.8)} inline />{:else}{t.text}{/if}</span></div>
     {/each}
     {#if shown.line}
       {#each ticks as n (n)}
@@ -377,11 +377,11 @@
       {#key i}<div class="pin" use:pin={() => sc!.over()}><div class="eq">{#each eqParts as p}{#if p.lit}<span class="lit"><FracText text={p.t} size={34} /></span>{:else}<span><FracText text={p.t} size={30} /></span>{/if}{/each}</div></div>{/key}
     {/if}
     {#if phase === 'teach' && wrongOn}
-      {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}><FracText text={lesson.teach.q.text} size={30} /> {asks(lesson.teach.q) ? '' : '='} {#if tsub === 'fixed'}<span class="lit"><FracText text={right} size={34} /></span>{:else}<s><FracText text={lesson.teach.wrong} size={30} /></s>?{/if}</div></div>{/key}
+      {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:isq={asks(lesson.teach.q)} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{#if asks(lesson.teach.q)}<small class="qt"><FracText text={lesson.teach.q.text} size={18} /></small>{:else}<FracText text={lesson.teach.q.text} size={30} /> = {/if}<span class="ans">{#if tsub === 'fixed'}<span class="lit"><FracText text={right} size={34} /></span>{:else}<s><FracText text={lesson.teach.wrong} size={30} /></s>?{/if}</span></div></div>{/key}
     {/if}
     <!-- one speech bubble, by the buddy: its own words when it has some, else the story's -->
     {#if bubble || (line && phase !== 'load')}
-      {#key bubble ?? line}<div class="pin" use:pin={() => sc!.bubbleAt()}><div class="say" class:story={!bubble} class:oops={!!bubble && misses > 0 && !locked && (phase === 'turn' || phase === 'check')} class:good={!!bubble && locked}>{#if bubble}<b>{FRIEND[buddy].name}</b>{/if}{bubble ?? line}</div></div>{/key}
+      {#key bubble ?? line}<div class="pin" use:pin={() => sc!.bubbleAt()}><div class="say" class:story={!bubble} class:oops={!!bubble && misses > 0 && !locked && (phase === 'turn' || phase === 'check')} class:good={!!bubble && locked}>{#if bubble}<b>{FRIEND[buddy].name}</b>{/if}<FracText text={bubble ?? line} size={20} inline /></div></div>{/key}
     {/if}
   {/if}
 
@@ -508,10 +508,18 @@
   .hand { transform: translate(-50%, -50%); width: 46px; height: 46px; border-radius: 50%; border: 4px solid rgba(255, 255, 255, .95); box-shadow: 0 0 0 3px rgba(255, 196, 60, .8), 0 4px 14px rgba(0, 0, 0, .3); display: grid; place-items: center; animation: press 2.2s ease-in-out infinite; }
   .hand i { width: 16px; height: 16px; border-radius: 50%; background: #fff; }
   @keyframes press { 0%, 100% { opacity: 0; scale: 1.3; } 10%, 80% { opacity: 1; scale: .85; } 90% { opacity: 0; } }
-  .eq { font: 600 clamp(30px, 4.4vh, 46px)/1.15 var(--font-ui); color: #3a2400; background: linear-gradient(#fffaf0, #fff0c8); padding: 6px 22px; border-radius: 22px; box-shadow: 0 0 0 4px #ffd75e, 0 0 34px rgba(255, 200, 60, .85), 0 12px 24px rgba(90, 50, 0, .35); animation: eqin .5s cubic-bezier(.3, 1.5, .5, 1) both; white-space: pre; }
+  .eq { font: 600 clamp(30px, 4.4vh, 46px)/1.15 var(--font-ui); color: #3a2400; background: linear-gradient(#fffaf0, #fff0c8); padding: 6px 22px; border-radius: 22px; box-shadow: 0 0 0 4px #ffd75e, 0 0 34px rgba(255, 200, 60, .85), 0 12px 24px rgba(90, 50, 0, .35); animation: eqin .5s cubic-bezier(.3, 1.5, .5, 1) both; white-space: pre; width: max-content; }
+  .eq :global(.ft > span) { white-space: pre; }
   .eq .lit { display: inline-block; background: #ffc93a; color: #4a2f00; padding: 0 12px; border-radius: 12px; box-shadow: 0 4px 0 #e0a51c; margin: 0 2px; }
   .eq.wrong { box-shadow: 0 0 0 4px #ffb3c8, 0 12px 24px rgba(90, 20, 40, .3); }
   .eq.wrong s { color: #d63c5c; text-decoration-thickness: 4px; }
+  /* a question (not a sum): the question small on top, the buddy's answer under it */
+  .eq.isq { display: flex; flex-direction: column; align-items: center; padding-top: 4px; }
+  .eq .qt { font: 600 18px/1.2 var(--font-ui); color: #7a6440; }
+  .eq .ans { display: inline-flex; align-items: center; gap: 6px; }
+  /* a fraction can't take a line through its text: a slash across it instead */
+  .eq.wrong s:has(:global(.frac)) { position: relative; text-decoration: none; }
+  .eq.wrong s:has(:global(.frac))::after { content: ''; position: absolute; left: -6px; right: -6px; top: 50%; height: 4px; margin-top: -2px; background: #d63c5c; border-radius: 2px; transform: rotate(-20deg); }
   .eq.fixed { box-shadow: 0 0 0 4px #7fe0b0, 0 0 34px rgba(80, 220, 150, .7), 0 12px 24px rgba(0, 60, 30, .3); }
   @keyframes eqin { from { opacity: 0; transform: translate(-50%, -60%) scale(.6); } }
   .say { transform: translate(18px, -60%); white-space: normal; width: max-content; max-width: min(400px, 34vw); background: #fff; border-radius: 26px; padding: 12px 20px 14px; font: 600 22px/1.3 var(--font-ui); text-align: center; color: var(--ink); box-shadow: 0 0 0 3px #fff, 0 12px 26px -10px rgba(40, 20, 80, .55); animation: bub .35s cubic-bezier(.3, 1.4, .5, 1) both; }

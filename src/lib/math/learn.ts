@@ -388,7 +388,8 @@ export function boundsOf(boards: Board[]): { x: number; y: number; w: number; h:
     for (const p of b.plates) add(p.x - p.r - 4, p.y - p.r, p.x + p.r + 4, p.y + p.r);
     for (const p of b.dishes ?? []) { const hw = p.kind === 'foil' ? (p.w ?? p.r * 2) / 2 + 8 : p.r + 8, hh = p.kind === 'foil' ? (p.h ?? p.r) / 2 + 8 : p.r + 8; add(p.x - hw, p.y - hh, p.x + hw, p.y + hh); }
     if (b.line) add(10, 236 - 120, BW - 10, 236 + 48);
-    for (const t of b.tags) { const sz = t.size ?? 30, w = t.text.length * sz * 0.32 + 8; add(t.x - w, t.y - sz, t.x + w, t.y + 10); }
+    // (a fraction picture's words float over its back edge: they don't make the table bigger)
+    if (!b.dishes?.length && !b.dots.some(d => d.shape)) for (const t of b.tags) { const sz = t.size ?? 30, w = t.text.length * sz * 0.32 + 8; add(t.x - w, t.y - sz, t.x + w, t.y + 10); }
   }
   if (!isFinite(x0)) return { x: 0, y: 0, w: BW, h: BH };
   // a margin, and never zoomed in more than about twice (a few dots shouldn't fill the whole board)

@@ -128,7 +128,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       { say: '', board: board({ dishes: [dish('d', P.x, P.y, PR)], plates: [plate('p', PL.x, PL.y, 110)], dots: slices('s', 'pie', 8, PR, () => P, () => 'a') }), eq: '8 equal slices' },
       { say: '', board: board({ dishes: [dish('d', P.x, P.y, PR)], plates: [plate('p', PL.x, PL.y, 110)], dots: slices('s', 'pie', 8, PR, i => (i < 3 ? PL : P), i => (i < 3 ? 'c' : 'a')) }), eq: '[3] of 8 slices' },
       { say: '', board: board({ dishes: [dish('d', P.x, P.y, PR)], plates: [plate('p', PL.x, PL.y, 110)], dots: slices('s', 'pie', 8, PR, i => (i < 3 ? PL : P), i => (i < 3 ? 'c' : 'a')),
-        tags: [tag('top', PL.x, PL.y - 128, '3 on the plate', 'c'), tag('bot', P.x, P.y - 124, '8 equal parts', 'a')] }), eq: '[3/8]' },
+        tags: [tag('top', PL.x, PL.y + 160, '3 on the plate', 'c', 24), tag('bot', P.x, P.y + 160, '8 equal parts', 'a', 24)] }), eq: '[3/8]' },
     ],
     tries: [
       Q('What fraction is on the plate?', '2/6', 'frac', 'The pie has 6 equal slices: 6 on the bottom. 2 are on the plate: 2 on top. 2/6.', 'The pie has 6 equal slices: that goes on the bottom. Count the slices on the plate for the top.', pieOnPlate(6, 2)),
