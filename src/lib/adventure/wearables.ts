@@ -1,9 +1,10 @@
 // The wearables library: things to wear on the head, face, neck, back, in hand and on the feet, bought
 // with shells in the Shop and put on in the Wardrobe. Practical and cool, cosy, fancy, sporty, magic and
-// plain goofy, each with a line of its own. The 3D pieces (public/wear/<id>.glb) were made from two
-// paintings each, front and back (gpt-image-2.5): a depth estimate of each painting shapes that side, the
-// two sides meet at the outline, and the paintings are the textures. Feet are painted tiles that wrap the
-// buddy's own feet. The wardrobe places each piece by its own box (wardrobe.ts, three/gear3d.ts).
+// plain goofy, each with a line of its own. Each 3D piece (public/wear/<id>.glb) was painted first
+// (gpt-image-2.5, in the game's style) and made into a full 3D model from the painting with Meshy, then
+// tidied (about 12k triangles, a 1024 texture, origin at the attach point; glasses keep no arms, so they sit
+// on the face). Feet are painted tiles that wrap the buddy's own feet. The wardrobe places each piece by its
+// own box (wardrobe.ts, three/gear3d.ts).
 export type WearSlot = 'head' | 'face' | 'neck' | 'back' | 'hand' | 'feet';
 export type Wearable = {
   id: string; name: string; slot: WearSlot; rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
@@ -34,11 +35,11 @@ export const WEARABLES: Wearable[] = [
     model: 'wear/croissant_crown.glb', icon: 'wear/croissant_crown.webp', text: 'Flaky, buttery and very royal. Try not to nibble it.' },
   { id: 'cactus_beanie', name: 'Cactus Beanie', slot: 'head', rarity: 'common', price: 70, vibe: 'cosy', size: 1.05, sink: 0.4,
     model: 'wear/cactus_beanie.glb', icon: 'wear/cactus_beanie.webp', text: 'Soft and fuzzy on the inside. Spiky-looking on the outside.' },
-  { id: 'fishbowl_helmet', name: 'Fishbowl Helmet', slot: 'head', rarity: 'epic', price: 420, vibe: 'goofy', size: 1.1, sink: 0.25,
+  { id: 'fishbowl_helmet', name: 'Fishbowl Helmet', slot: 'head', rarity: 'epic', price: 420, vibe: 'goofy', size: 1.2, sink: 0.25,
     model: 'wear/fishbowl_helmet.glb', icon: 'wear/fishbowl_helmet.webp', text: 'Meet Gerald. Gerald lives on your head now.' },
   { id: 'frog_bucket', name: 'Froggy Bucket Hat', slot: 'head', rarity: 'common', price: 60, vibe: 'cosy', size: 1.25, sink: 0.3,
     model: 'wear/frog_bucket.glb', icon: 'wear/frog_bucket.webp', text: 'Two googly frog eyes keep watch while you type.' },
-  { id: 'shark_fin_cap', name: 'Shark Fin Cap', slot: 'head', rarity: 'uncommon', price: 150, vibe: 'cool', size: 1.2, sink: 0.3,
+  { id: 'shark_fin_cap', name: 'Shark Fin Cap', slot: 'head', rarity: 'uncommon', price: 150, vibe: 'cool', size: 1.3, sink: 0.1,
     model: 'wear/shark_fin_cap.glb', icon: 'wear/shark_fin_cap.webp', text: 'Dun-dun. Dun-dun. Dun-dun-dun-dun...' },
   { id: 'cupcake_hat', name: 'Cupcake Hat', slot: 'head', rarity: 'common', price: 80, vibe: 'cosy', size: 1.0, sink: 0.3,
     model: 'wear/cupcake_hat.glb', icon: 'wear/cupcake_hat.webp', text: 'Frosting on top, sprinkles everywhere, cherry on the very top.' },
@@ -56,7 +57,7 @@ export const WEARABLES: Wearable[] = [
     model: 'wear/traffic_cone.glb', icon: 'wear/traffic_cone.webp', text: 'Warning: extremely good at typing ahead.' },
   { id: 'sushi_hat', name: 'Sushi Hat', slot: 'head', rarity: 'uncommon', price: 110, vibe: 'goofy', size: 1.25, sink: 0.3,
     model: 'wear/sushi_hat.glb', icon: 'wear/sushi_hat.webp', text: 'A salmon nigiri so big it needed its own head.' },
-  { id: 'dragon_crown', name: 'Dragon Hatchling Crown', slot: 'head', rarity: 'legendary', price: 600, vibe: 'magic', size: 1.15, sink: 0.2,
+  { id: 'dragon_crown', name: 'Dragon Hatchling Crown', slot: 'head', rarity: 'legendary', price: 600, vibe: 'magic', size: 1.25, sink: 0.2,
     model: 'wear/dragon_crown.glb', icon: 'wear/dragon_crown.webp', text: 'A real baby dragon naps on your head. It snores sparkles.' },
   // ---------- face ----------
   { id: 'star_shades', name: 'Star Shades', slot: 'face', rarity: 'common', price: 60, vibe: 'cool', size: 0.95,
@@ -87,19 +88,19 @@ export const WEARABLES: Wearable[] = [
   { id: 'banana_chain', name: 'Banana Bling', slot: 'neck', rarity: 'rare', price: 260, vibe: 'goofy', size: 0.85,
     model: 'wear/banana_chain.glb', icon: 'wear/banana_chain.webp', text: 'A gold chain. With a banana. Because why not.' },
   // ---------- back ----------
-  { id: 'toaster_pack', name: 'Toaster Backpack', slot: 'back', rarity: 'rare', price: 300, vibe: 'goofy', size: 1.0,
+  { id: 'toaster_pack', name: 'Toaster Backpack', slot: 'back', rarity: 'rare', price: 300, vibe: 'goofy', size: 1.7,
     model: 'wear/toaster_pack.glb', icon: 'wear/toaster_pack.webp', text: 'Pops out warm toast when you finish a lesson. Butter not included.' },
-  { id: 'turtle_pack', name: 'Turtle Shell Pack', slot: 'back', rarity: 'uncommon', price: 150, vibe: 'cosy', size: 1.05,
+  { id: 'turtle_pack', name: 'Turtle Shell Pack', slot: 'back', rarity: 'uncommon', price: 150, vibe: 'cosy', size: 1.75,
     model: 'wear/turtle_pack.glb', icon: 'wear/turtle_pack.webp', text: 'Slow and steady wins the lesson. Also it is comfy.' },
-  { id: 'dragon_wings', name: 'Dragon Wings', slot: 'back', rarity: 'epic', price: 450, vibe: 'magic', size: 2.4,
+  { id: 'dragon_wings', name: 'Dragon Wings', slot: 'back', rarity: 'epic', price: 450, vibe: 'magic', size: 3.2,
     model: 'wear/dragon_wings.glb', icon: 'wear/dragon_wings.webp', text: 'Flap flap. You can almost take off. Almost.' },
-  { id: 'soda_jetpack', name: 'Soda Jetpack', slot: 'back', rarity: 'epic', price: 400, vibe: 'goofy', size: 1.15,
+  { id: 'soda_jetpack', name: 'Soda Jetpack', slot: 'back', rarity: 'epic', price: 400, vibe: 'goofy', size: 1.8,
     model: 'wear/soda_jetpack.glb', icon: 'wear/soda_jetpack.webp', text: 'Two fizzy bottles. One big whoosh. Please shake responsibly.' },
-  { id: 'teddy_pack', name: 'Hug Bear Backpack', slot: 'back', rarity: 'common', price: 90, vibe: 'cosy', size: 0.95,
+  { id: 'teddy_pack', name: 'Hug Bear Backpack', slot: 'back', rarity: 'common', price: 90, vibe: 'cosy', size: 1.6,
     model: 'wear/teddy_pack.glb', icon: 'wear/teddy_pack.webp', text: 'A teddy that hugs you all day long. Best friend energy.' },
-  { id: 'rock_guitar', name: 'Rock Star Guitar', slot: 'back', rarity: 'rare', price: 320, vibe: 'cool', size: 0.75,
+  { id: 'rock_guitar', name: 'Rock Star Guitar', slot: 'back', rarity: 'rare', price: 320, vibe: 'cool', size: 1.2,
     model: 'wear/rock_guitar.glb', icon: 'wear/rock_guitar.webp', text: 'One chord. Huge crowd. You are ready.' },
-  { id: 'snail_shell', name: 'Snail Shell', slot: 'back', rarity: 'uncommon', price: 120, vibe: 'goofy', size: 1.05,
+  { id: 'snail_shell', name: 'Snail Shell', slot: 'back', rarity: 'uncommon', price: 120, vibe: 'goofy', size: 1.7,
     model: 'wear/snail_shell.glb', icon: 'wear/snail_shell.webp', text: 'Your very own tiny house. Very slow delivery.' },
   // ---------- hand ----------
   { id: 'rubber_chicken', name: 'Rubber Chicken', slot: 'hand', rarity: 'common', price: 50, vibe: 'goofy', size: 0.45,
@@ -108,9 +109,9 @@ export const WEARABLES: Wearable[] = [
     model: 'wear/banana_phone.glb', icon: 'wear/banana_phone.webp', text: 'Ring ring ring ring ring. Banana phone.' },
   { id: 'giant_lollipop', name: 'Giant Swirl Lollipop', slot: 'hand', rarity: 'common', price: 60, vibe: 'cosy', size: 0.55,
     model: 'wear/giant_lollipop.glb', icon: 'wear/giant_lollipop.webp', text: 'Bigger than your head. Sweeter than your Glimmers.' },
-  { id: 'triple_cone', name: 'Triple Scoop Cone', slot: 'hand', rarity: 'uncommon', price: 120, vibe: 'goofy', size: 0.5,
+  { id: 'triple_cone', name: 'Triple Scoop Cone', slot: 'hand', rarity: 'uncommon', price: 120, vibe: 'goofy', size: 0.42,
     model: 'wear/triple_cone.glb', icon: 'wear/triple_cone.webp', text: 'Strawberry, mint and mystery. Nobody knows what mystery is.' },
-  { id: 'foam_finger', name: 'Number One Foam Finger', slot: 'hand', rarity: 'common', price: 70, vibe: 'sporty', size: 0.55,
+  { id: 'foam_finger', name: 'Number One Foam Finger', slot: 'hand', rarity: 'common', price: 70, vibe: 'sporty', size: 0.42,
     model: 'wear/foam_finger.glb', icon: 'wear/foam_finger.webp', text: 'Go team! Which team? Your team!' },
   { id: 'baguette_sword', name: 'Baguette Sword', slot: 'hand', rarity: 'uncommon', price: 100, vibe: 'goofy', size: 0.6,
     model: 'wear/baguette_sword.glb', icon: 'wear/baguette_sword.webp', text: 'The crunchiest sword in all the islands. Very French.' },

@@ -26,7 +26,7 @@ type Pts = THREE.Vector3[];
 type Fit = {
   /** bind units in a metre (the model is scaled down to its height) */
   unit: number; minY: number; H: number;
-  back: { cx: number; top: number; z: number; w: number } | null;
+  back: { cx: number; top: number; z: number; w: number; shoulder: number } | null;
   /** the back's outline seen from the side, from the shoulders down: the backmost point at each height
    *  (a backpack, a shell, a tail's root), so a cape can drape over it instead of hanging off it */
   backLine: { top: number; bottom: number; z: number[] } | null;
@@ -130,7 +130,13 @@ function fitOf(c: Character): Fit {
     const arms = points(c, ['LeftArm', 'RightArm'], 0.6);
     const top = arms.length > 10 ? pct(arms.map(p => p.y), 0.5) : pct(torso.map(p => p.y), 0.96);
     const near = points(c, ['Spine01', 'Spine02', 'neck'], 0.3).filter(p => p.y > top - H * 0.22 && p.y < top + H * 0.04);
-    back = { cx: pct(torso.map(p => p.x), 0.5), top, z: pct((near.length > 10 ? near : torso).map(p => p.z), 0.02), w: pct(torso.map(p => p.x), 0.95) - pct(torso.map(p => p.x), 0.05) };
+    // the middle of the back: halfway between the shoulders (a tail or a strap pulled the spine's own middle
+    // to one side)
+    const cx = arms.length > 10 ? (pct(arms.map(p => p.x), 0.03) + pct(arms.map(p => p.x), 0.97)) / 2 : pct(torso.map(p => p.x), 0.5);
+    // the shoulder joints themselves (the arms' vertices hang lower when a buddy stands with its arms down)
+    const joints = ['LeftArm', 'RightArm'].map(n => { const bn = c.bones[n], sk = bn && skinned(c).find(m => m.skeleton.bones.includes(bn)); return sk ? new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(sk.skeleton.boneInverses[sk.skeleton.bones.indexOf(bn)]).invert()).y : null; }).filter((y): y is number => y !== null);
+    const shoulder = joints.length ? joints.reduce((a, y) => a + y, 0) / joints.length : top;
+    back = { cx, top, shoulder, z: pct((near.length > 10 ? near : torso).map(p => p.z), 0.02), w: pct(torso.map(p => p.x), 0.95) - pct(torso.map(p => p.x), 0.05) };
   }
   let backLine: Fit['backLine'] = null;
   if (back) {
@@ -651,10 +657,14 @@ async function libModel(x: Ctx): Promise<Built | null> {
     width = b?.w ?? hd.face;
     anchor.set(mid.x, wraps ? box.max.y - size.y * 0.3 : mid.y, wraps ? mid.z : box.min.z);
   } else if (lib.slot === 'back' && b) {
+    // centred on the upper back, between the shoulder blades, facing out; it rests on whatever is
+    // furthest back over its height (a backpack, a shell), so nothing of the buddy's own hides it
     bone = 'Spine02';
-    const y = b.top - f.H * 0.04;
-    at = new THREE.Vector3(b.cx, y, lineAt(f.backLine, y, b.z)); width = b.w; turn = Math.PI;
-    anchor.set(mid.x, box.max.y - size.y * 0.12, box.min.z);
+    const y = Math.max(b.top, b.shoulder) - f.H * 0.09, k = (lib.size * b.w) / Math.max(1e-6, size.x), half = (size.y * k) / 2;
+    let z = Infinity;
+    for (let t = -1; t <= 1; t += 0.25) z = Math.min(z, lineAt(f.backLine, y + t * half, b.z));
+    at = new THREE.Vector3(b.cx, y, (Number.isFinite(z) ? z : b.z) - f.H * 0.01); width = b.w; turn = Math.PI;
+    anchor.set(mid.x, mid.y, box.min.z);
   }
   if (!at || !width) return null;
   const hb = boneHeld(x, bone, at);
