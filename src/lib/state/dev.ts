@@ -28,6 +28,7 @@ export function addTester() {
 }
 
 export function devBoot() {
+  if (import.meta.env.DEV) (window as unknown as { __game: typeof game }).__game = game;
   const h = location.hash.slice(1);
   if (!h) return;
   const [key, val] = h.split('=');

@@ -284,6 +284,7 @@
     });
     const res = o as BattleOutcome | null;
     if (!res?.met) { out = res; ui = 'won'; return; }
+    bigBanner = null; toast = null;
     await scene?.cheerUp(res.met.id, res.met.rarity);
     sfx.reveal(rarityRank(res.met.rarity));
     burst++;
@@ -463,7 +464,7 @@
   .toast.super { background: linear-gradient(90deg, #fff4c2, #ffffff); box-shadow: 0 0 0 3px #ffd36b, 0 10px 30px -12px rgba(120, 80, 0, .6); }
   .toast.miss { background: #fff0f2; color: #b02a48; } .toast.good { background: #eafff3; color: #0f6a48; }
   @keyframes drop { from { opacity: 0; transform: translate(-50%, -16px) scale(.9); } }
-  .big { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); z-index: 10; text-align: center; pointer-events: none; animation: bigin .6s cubic-bezier(.2, 1.4, .4, 1) both; }
+  .big { position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%); z-index: 10; text-align: center; pointer-events: none; animation: bigin .6s cubic-bezier(.2, 1.4, .4, 1) both; }
   .big b { display: block; font: 600 clamp(44px, 8vw, 92px)/1 var(--font-ui); color: #fff; -webkit-text-stroke: 3px #6d3fd6; paint-order: stroke; text-shadow: 0 6px 0 #4a23a8, 0 0 40px rgba(255, 255, 255, .9); white-space: nowrap; }
   .big small { display: block; margin-top: 10px; font: 600 clamp(15px, 2vw, 22px) var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(30, 10, 60, .7); }
   .big.perfect b { -webkit-text-stroke-color: #e07b00; text-shadow: 0 6px 0 #b35a00, 0 0 50px #ffe066; background: linear-gradient(#fff6b8, #ffb52e); -webkit-background-clip: text; color: transparent; }
@@ -535,7 +536,7 @@
   .rtitle { position: relative; text-align: center; animation: bigin .7s cubic-bezier(.2, 1.4, .4, 1) both; }
   .rtitle small { display: block; font: 600 22px var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
   .rtitle b { display: block; font: 600 clamp(52px, 9vw, 96px)/1 var(--font-ui); color: var(--rc, #fff); -webkit-text-stroke: 3px #fff; paint-order: stroke; text-shadow: 0 6px 0 rgba(0, 0, 0, .25), 0 0 50px var(--rc, #fff); }
-  .r-common { --rc: #9aa0ad; } .r-uncommon { --rc: #3fbf73; } .r-rare { --rc: #2f8ef0; } .r-epic { --rc: #a061f0; } .r-legendary { --rc: #f0b21f; }
+  .r-common { --rc: #7d8494; } .r-uncommon { --rc: #3fbf73; } .r-rare { --rc: #2f8ef0; } .r-epic { --rc: #a061f0; } .r-legendary { --rc: #f0b21f; }
   .r-mythic { --rc: #ff5fb0; } .r-mythic .rtitle b { background: linear-gradient(90deg, #ff6fa8, #ffb44d, #ffe066, #6fe3a0, #5bb6ff, #a98cff); -webkit-background-clip: text; color: transparent; }
   .rcard { position: relative; animation: flipin .9s .3s cubic-bezier(.2, 1.2, .4, 1) both; }
   @keyframes flipin { 0% { opacity: 0; transform: perspective(800px) rotateY(180deg) scale(.4); } 100% { opacity: 1; transform: perspective(800px) rotateY(0) scale(1); } }

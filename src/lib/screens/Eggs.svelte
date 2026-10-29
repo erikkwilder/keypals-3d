@@ -60,7 +60,7 @@
   const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 </script>
 
-<div class="screen eggs">
+<div class="screen eggs" class:showing={!!got}>
   <Header title="Eggs" back={() => game.go('adventure')} sub="They hatch when you practice" />
   <div class="stagebox" bind:this={stageEl}></div>
 
@@ -131,11 +131,12 @@
   .how p { margin: 0; font: 600 15px/1.4 var(--font-body); color: var(--ink2); }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .small { font-size: 12px !important; }
+  .showing .nests, .showing .how, .showing .waiting { opacity: 0; pointer-events: none; transition: opacity .3s; }
   .hatched { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 10px; padding-bottom: 6vh; background: linear-gradient(transparent 40%, rgba(30, 20, 60, .5)); cursor: pointer; }
   .rt { text-align: center; animation: pop .7s cubic-bezier(.2, 1.4, .4, 1) both; }
   .rt small { display: block; font: 600 22px var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
   .rt b { font: 600 clamp(46px, 8vw, 84px)/1 var(--font-ui); color: var(--rc); -webkit-text-stroke: 3px #fff; paint-order: stroke; text-shadow: 0 6px 0 rgba(0, 0, 0, .25), 0 0 40px var(--rc); }
-  .r-common { --rc: #9aa0ad; } .r-uncommon { --rc: #3fbf73; } .r-rare { --rc: #2f8ef0; } .r-epic { --rc: #a061f0; } .r-legendary { --rc: #f0b21f; } .r-mythic { --rc: #ff5fb0; }
+  .r-common { --rc: #7d8494; } .r-uncommon { --rc: #3fbf73; } .r-rare { --rc: #2f8ef0; } .r-epic { --rc: #a061f0; } .r-legendary { --rc: #f0b21f; } .r-mythic { --rc: #ff5fb0; }
   .flip { animation: flip .9s .2s cubic-bezier(.2, 1.2, .4, 1) both; }
   @keyframes flip { from { opacity: 0; transform: perspective(800px) rotateY(180deg) scale(.5); } }
   @keyframes pop { from { opacity: 0; transform: scale(.4); } }

@@ -8,6 +8,8 @@
     medals: MedalWin[]; rewards: Reward[]; stickers: StickerDef[]; xp: XpInfo;
     /** buddies who joined the team with this run */
     buddies?: import('../art/cast').FriendId[];
+    /** Adventure eggs this practice warmed until ready to hatch */
+    eggsReady?: import('../adventure/glimmers').Rarity[];
   };
   /** One of the four chips under the score: speed, accuracy, goal, top ride. */
   export type ResultsChip = { icon: 'clock' | 'target' | 'trophy' | 'ride'; value: string | number; label: string; badge?: string | false };
@@ -97,9 +99,11 @@
     | { kind: 'outfit' | 'dance'; id: string; name: string; rarity: string }
     | { kind: 'medal'; m: MedalWin }
     | { kind: 'sticker'; def: StickerDef }
-    | { kind: 'buddy'; id: import('../art/cast').FriendId };
+    | { kind: 'buddy'; id: import('../art/cast').FriendId }
+    | { kind: 'egg'; rarity: import('../adventure/glimmers').Rarity };
   const thisRun: Earned[] = run.medals.map(m => ({ kind: 'medal' as const, m }));
   const fresh: Earned[] = [
+    ...(run.eggsReady ?? []).map(rarity => ({ kind: 'egg' as const, rarity })),
     ...(run.buddies ?? []).map(id => ({ kind: 'buddy' as const, id })),
     ...run.rewards.map(r => ({ kind: r.kind, id: r.id, name: r.name, rarity: r.rarity })),
     ...run.stickers.map(def => ({ kind: 'sticker' as const, def })),
@@ -206,11 +210,11 @@
     earned.forEach((e, i) => {
       at(t, () => {
         earnedShown = i + 1;
-        if (e.kind === 'outfit' || e.kind === 'dance' || e.kind === 'buddy') { sfx.complete(); burst++; }
+        if (e.kind === 'outfit' || e.kind === 'dance' || e.kind === 'buddy' || e.kind === 'egg') { sfx.complete(); burst++; }
         else if (e.kind === 'medal') sfx.badge();
         else sfx.pop();
       });
-      t += e.kind === 'outfit' || e.kind === 'dance' || e.kind === 'buddy' ? 650 : 180;
+      t += e.kind === 'outfit' || e.kind === 'dance' || e.kind === 'buddy' || e.kind === 'egg' ? 650 : 180;
     });
   });
   onDestroy(() => { timers.forEach(clearTimeout); cancelAnimationFrame(prizeRaf); stage.use(null); });
@@ -309,6 +313,10 @@
             <button class="ipic medal tap" onclick={() => show(e)} title="What's this?">{@html renderMedal(e.m, e.m.tier)}</button>
             <span class="iname">{e.m.name}</span>
             {#if e.m.tierUp && e.m.count > 1}<em class="tier" style:background={TIER_LOOK[e.m.tier].pill} style:color={TIER_LOOK[e.m.tier].ink}>{TIER_LOOK[e.m.tier].name}!</em>{:else}{@const nt = nextTier(e.m.count)}<span class="count" title={nt.title}>{nt.text}</span>{/if}
+          {:else if e.kind === 'egg'}
+            <button class="ipic outfit tap eggready" onclick={() => game.go('eggs')} title="Hatch it in Adventure"><img src="{import.meta.env.BASE_URL}game/egg-{e.rarity}.webp" alt="" /></button>
+            <span class="iname">Egg ready!</span>
+            <button class="wear" onclick={() => game.go('eggs')}>Hatch it</button>
           {:else if e.kind === 'buddy'}
             <button class="ipic outfit newbud tap" onclick={() => peekAt(e)} title="Meet {FRIEND[e.id].name}"><Critter friend={e.id} size={cell} round /></button>
             <span class="iname">{FRIEND[e.id].name} joined!</span>
@@ -559,6 +567,8 @@
   .count { font: 700 11px var(--font-body); color: var(--muted); white-space: nowrap; }
   .wear { border: 0; border-radius: 999px; padding: 3px 9px; font: 800 11px var(--font-body); white-space: nowrap; background: var(--mint); color: #0f4a36; cursor: pointer; }
   .wear:disabled { background: #eee8f7; color: var(--muted); cursor: default; }
+  .eggready img { width: 86%; height: 86%; object-fit: contain; animation: eggwob .7s ease-in-out infinite; }
+  @keyframes eggwob { 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
   .wear.off { background: #fff; color: var(--ink2); box-shadow: inset 0 0 0 2px #e6dff5; }
   .ehead .trying { display: inline-flex; align-items: center; gap: 6px; font: 600 13px var(--font-body); color: var(--ink2); background: #f4effc; border-radius: 999px; padding: 3px 4px 3px 12px; }
   .ehead .trying b { font: inherit; font-weight: 800; }

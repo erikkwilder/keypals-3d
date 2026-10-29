@@ -259,6 +259,8 @@
   .item .btn { grid-row: 1 / span 2; grid-column: 3; display: flex; align-items: center; gap: 4px; }
   .item .btn img { width: 22px; height: 22px; }
 
+  .tall :global(.hd .tt span) { display: none; }
+  .tall .chip { font-size: 15px; padding: 2px 8px 2px 2px; } .tall .chip img { width: 24px; height: 24px; } .tall .chip.time { padding: 4px 8px; font-size: 13px; }
   .tall .nest { top: auto; bottom: 92px; left: 8px; width: 112px; height: 96px; }
   .tall .nimg { width: 112px; }
   .tall .egg { width: 44px; bottom: 24px; }

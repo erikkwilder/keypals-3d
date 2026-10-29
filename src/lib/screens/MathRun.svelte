@@ -5,6 +5,7 @@
   // stretch along the trail; quick, right answers climb the rides. A new fact comes with its trick to
   // copy; a miss shows the answer and its trick to type back, and the fact returns a few facts later.
   // No countdown, no buzzer.
+  import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { danceOf, outfitOf, type Profile } from '../engine/profile';
@@ -87,6 +88,8 @@
   let lastInput = 0;
   let lastHud = 0;
   const results: FactResult[] = [];
+  /** right answers so far: they warm the Adventure egg (shown in the corner) */
+  let eggWarm = $state(0);
   let timers: ReturnType<typeof setTimeout>[] = [];
   const later = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
   let bannerTimer: ReturnType<typeof setTimeout> | undefined;
@@ -153,6 +156,7 @@
       if (ok) {
         const speed = speedOf({ ok, thinkMs, fastMs });
         results.push({ id, ok: true, speed, thinkMs, ms: t - shownAt, intro: false });
+        eggWarm++;
         picker.answer(true);
         meter.push(true, t - shownAt);
         stepOn(speed === 'fast');
@@ -343,6 +347,7 @@
         <div class="flag">🏁</div>
         <div class="me" style:left="{trip * 100}%"><Critter friend={profile.buddy} size={34} round /></div>
       </div>
+      <EggBadge warm={eggWarm} />
       {#if !calm}
         <div class="live"><div><b>{liveFpm}</b> a minute</div><div><b>{liveAcc}</b>%</div></div>
         <div class="ladder"><RideLadder {tier} {progress} {best} blocked={false} record={record?.bestRide ?? 0} move={moveOf(lesson)} /></div>

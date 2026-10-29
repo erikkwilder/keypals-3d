@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { game, type LastRun } from '../state/game.svelte';
@@ -386,6 +387,7 @@
         <div><b>{liveAcc}</b>%</div>
         {#if bonusLevel > 0}<div class="tb" title="Clean typing earns back time">⏱ ×{bonusLevel}</div>{/if}
       </div>
+      <EggBadge warm={Math.floor(pos / 5)} />
       <RideLadder {tier} {progress} {best} blocked={false} record={record?.bestRide ?? 0} />
     </div>
 

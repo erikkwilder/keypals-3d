@@ -47,16 +47,22 @@ export class BattleScene implements Controller {
   private hover = 0;
   private lights: THREE.PointLight[] = [];
   private moteT = 0;
+  /** the Grumble drifts down out of the sky at the start (seconds since) */
+  private enterT = 0;
+  private compact = false;
 
   private constructor(island: Island, me: Character, grumble: Grumble, team: (GlimmerModel | null)[], opts: Opts) {
     this.island = island; this.me = me; this.grumble = grumble; this.team = team; this.opts = opts; this.view = opts.view;
     const f = island.trail.at(8);
     this.C = f.p.clone(); this.n = f.n.clone().setY(0).normalize();
     this.right = new THREE.Vector3().crossVectors(this.n.clone().negate(), UP).normalize();
-    this.buddyAt = this.C.clone().addScaledVector(this.right, -1.6).addScaledVector(this.n, 0.35);
+    // a tall phone screen: everyone closer together, so they can be big
+    this.compact = stage.camera.aspect < 0.85;
+    const sep = this.compact ? 1.05 : 1.6;
+    this.buddyAt = this.C.clone().addScaledVector(this.right, -sep).addScaledVector(this.n, 0.35);
     this.buddyAt.y = island.height(this.buddyAt.x, this.buddyAt.z);
     const champ = opts.foe.champion;
-    this.foeAt = this.C.clone().addScaledVector(this.right, champ ? 2.0 : 1.6).addScaledVector(this.n, -0.05);
+    this.foeAt = this.C.clone().addScaledVector(this.right, champ ? sep + 0.4 : sep).addScaledVector(this.n, this.compact ? -0.6 : -0.05);
     this.foeAt.y = island.height(this.foeAt.x, this.foeAt.z);
     this.foeFloat = champ ? 1.6 : 1.15;
     stage.scene.add(this.arena, this.fx.root, me.root, grumble.root);
@@ -64,7 +70,9 @@ export class BattleScene implements Controller {
     me.play('idle', 0);
     grumble.root.position.copy(this.foeAt).add(new THREE.Vector3(0, this.foeFloat, 0));
     // team: one in front, one behind, to the buddy's left
-    const spots = [this.buddyAt.clone().addScaledVector(this.right, -1.0).addScaledVector(this.n, 0.75), this.buddyAt.clone().addScaledVector(this.right, -0.85).addScaledVector(this.n, -0.85)];
+    const spots = this.compact
+      ? [this.buddyAt.clone().addScaledVector(this.right, -0.7).addScaledVector(this.n, -0.75), this.buddyAt.clone().addScaledVector(this.right, 0.4).addScaledVector(this.n, -1.15)]
+      : [this.buddyAt.clone().addScaledVector(this.right, -1.0).addScaledVector(this.n, 0.4), this.buddyAt.clone().addScaledVector(this.right, -0.7).addScaledVector(this.n, -0.95)];
     team.forEach((g, i) => { if (!g) return; const s = spots[i]; s.y = island.height(s.x, s.z); g.root.position.copy(s); stage.scene.add(g.root); g.face = this.foeAt.clone(); });
     this.fx.setScale(innerHeight * Math.min(2, devicePixelRatio || 1), stage.camera.fov);
   }
@@ -381,6 +389,13 @@ export class BattleScene implements Controller {
     const gl = toCamG.normalize().multiplyScalar(0.8).add(toBud.normalize().multiplyScalar(0.45));
     this.grumble.root.rotation.y = Math.atan2(gl.x, gl.z);
     if (this.foeLeave > 0) { this.foeLeave += dt; this.grumble.root.position.addScaledVector(this.right, dt * 1.6).y += dt * 1.1; }
+    else if (this.enterT < 1.6) {
+      // arriving: down from the sky with a flash of lightning as it lands
+      const was = this.enterT; this.enterT += dt;
+      const k = Math.min(1, this.enterT / 1.4), e = 1 - Math.pow(1 - k, 3);
+      this.grumble.root.position.copy(this.foeAt).add(new THREE.Vector3(0, this.foeFloat + (1 - e) * 4.5, 0)).addScaledVector(this.right, (1 - e) * 1.5);
+      if (was < 1.25 && this.enterT >= 1.25) { this.fx.lightning(this.foeCentre().add(new THREE.Vector3(-0.3, 0.6, 0)), this.foeAt.clone().add(new THREE.Vector3(0.2, 0.05, 0)), 0xfff1a0, 0.05); this.grumble.hit(0.5); this.shake = 0.25; }
+    }
     this.grumble.update(dt, t);
     if (this.foeGone && this.grumble.burstDone) this.grumble.root.visible = false;
     // the team and the newcomer
@@ -404,8 +419,11 @@ export class BattleScene implements Controller {
     let focus: THREE.Vector3, span: number, high: number;
     if (this.shot === 'buddy') { focus = this.buddyAt.clone().add(new THREE.Vector3(0, 0.75, 0)); span = 3.2; high = 2.0; }
     else if (this.shot === 'reveal') { const r = this.revealed?.root.position ?? this.foeAt; focus = r.clone().lerp(this.buddyAt, 0.35).add(new THREE.Vector3(0, 0.7, 0)); span = 5.2; high = 2.6; }
-    else { focus = this.C.clone().addScaledVector(this.right, champ ? 0.15 : 0).add(new THREE.Vector3(0, champ ? 1.1 : 0.92, 0)); span = champ ? 7.2 : 6.0; high = champ ? 3.4 : 2.9; }
+    else { focus = this.C.clone().addScaledVector(this.right, champ ? 0.2 : 0).add(new THREE.Vector3(0, champ ? 1.35 : 0.92, 0)); span = champ ? 7.8 : 6.0; high = champ ? 3.4 : 2.9; }
     if (this.shot === 'push') { focus.addScaledVector(this.right, 0.35); span *= 0.94; }
+    // a tall phone screen: closer in, so the buddy and the Grumble aren't tiny
+    if (this.compact && this.shot === 'wide') span = champ ? 4.9 : 3.9;
+    else if (this.compact && this.shot !== 'buddy') span *= 0.7;
     // fit the span across the band's width, and the height (about span/2.4) into its height
     const d = Math.max(span / (bandW * 2 * tanH * cam.aspect), (span / 2.2) / (bandH * 2 * tanH));
     const sway = Math.sin(t * 0.25) * 0.12;

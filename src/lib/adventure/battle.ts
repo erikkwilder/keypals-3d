@@ -99,12 +99,12 @@ export function newBattle(s: Setup): Battle {
 /** Spark to start a battle with: grows with the buddy's friendship level. */
 export const sparkFor = (level: number, role: RoleId) => 12 + Math.min(18, Math.max(1, level)) + (role === 'heart' ? 6 : 0);
 
-/** How big a Grumble is: about five or six good cards' worth (a Champion, about nine). */
+/** How big a Grumble is: about seven good cards' worth (a Champion, about eleven), so there's room for a Finale. */
 export function grumpFor(pool: Pool, champion: boolean): number {
   const avg = pool.subject === 'math'
     ? pool.facts.reduce((a, x) => a + Math.max(1, answerOf(x.f)), 0) / Math.max(1, pool.facts.length)
     : pool.words.reduce((a, w) => a + w.length, 0) / Math.max(1, pool.words.length);
-  return Math.max(champion ? 24 : 12, Math.round(avg * (champion ? 9 : 5.5)));
+  return Math.max(champion ? 30 : 16, Math.round(avg * (champion ? 11 : 7)));
 }
 
 // ---------- cards ----------
@@ -199,7 +199,8 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
   } else {
     const fox = has(b, 'hide');
     if (fox && !b.used.hide && b.streak > 0) { b.used.hide = true; ev.push({ k: 'streakKept', id: fox.id }); }
-    else b.streak = 0;
+    // five right in a row fills the Finale: a slip starts the row again
+    else { b.streak = 0; b.finale = 0; }
   }
   if (perfect) { b.perfect = true; ev.push({ k: 'won', perfect: true }); b.phase = 'won'; return ev; }
   if (b.foe.grump > 0) {
