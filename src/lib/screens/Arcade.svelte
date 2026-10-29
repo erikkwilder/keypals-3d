@@ -137,7 +137,7 @@
 
   .stagebox { flex: 1; min-height: 0; display: flex; gap: 2%; padding: 18px 2.5% 20px; }
   .buddycol { flex: 0 0 22%; position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
-  .spot { width: 100%; height: 58%; }
+  .spot { width: 100%; height: 43%; margin-bottom: 5vh; }
   .bubble { position: absolute; left: 6%; bottom: 62%; background: #fff; padding: 12px 18px; border-radius: 20px; font: 600 19px/1.15 var(--font-ui); color: var(--ink); box-shadow: 0 10px 24px -12px rgba(40, 30, 90, .5); max-width: 220px; animation: pop-in .35s cubic-bezier(.3, .8, .4, 1.5); }
   .bubble::after { content: ''; position: absolute; left: 34px; bottom: -10px; border: 10px solid transparent; border-top-color: #fff; border-bottom: 0; }
 
@@ -172,12 +172,12 @@
   @keyframes rise-in { 0% { transform: translateY(40px) scale(.9); opacity: 0; } 100% { transform: none; opacity: 1; } }
   .note { margin: 0; align-self: center; text-align: center; font: 700 13.5px var(--font-body); color: #fff; text-shadow: 0 1px 4px rgba(40, 30, 60, .8); }
 
-  /* phones: the buddy and its bubble up top, the challenge, then the cabinets two by two */
+  /* phones: the challenge, the cabinets two by two, and the buddy waving from the terrace at the bottom */
   .compact .top { padding: 8px 10px; gap: 8px; }
   .compact .sign { height: 44px; margin: -6px 0; }
   .compact .stagebox { flex-direction: column; padding: 8px 12px 12px; gap: 8px; overflow-y: auto; }
-  .compact .buddycol { flex: 0 0 150px; flex-direction: row; align-items: flex-end; justify-content: flex-start; }
-  .compact .spot { width: 40%; height: 100%; }
+  .compact .buddycol { order: 2; flex: 0 0 140px; flex-direction: row; align-items: flex-end; justify-content: flex-start; }
+  .compact .spot { order: -1; width: 38%; height: 100%; margin: 0; }
   .compact .bubble { position: relative; left: auto; bottom: auto; margin: 0 0 70px 4px; font-size: 16px; padding: 10px 14px; max-width: 58%; }
   .compact .bubble::after { left: -8px; bottom: 14px; border: 8px solid transparent; border-right-color: #fff; border-left: 0; }
   .compact .right { justify-content: flex-start; gap: 10px; }
@@ -187,7 +187,7 @@
   .compact .dtext span { font-size: 12.5px; }
   .compact .dgo { min-width: 60px; height: 44px; padding: 0 12px; font-size: 18px; }
   .compact .cabs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
-  .compact .art { max-height: 170px; margin-bottom: -14px; }
+  .compact .art { max-height: 148px; margin-bottom: -14px; }
   .compact .plate b { font-size: 17px; }
   .compact .bs { font-size: 11.5px; }
   .compact .note { font-size: 12px; }

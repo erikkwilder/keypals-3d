@@ -23,7 +23,7 @@ export function plaque(text: string, look: PlaqueLook = {}, h = 160): { tex: THR
   const w = Math.max(h * 1.35, Math.ceil(g.measureText(text).width + h * 0.8));
   c.width = w; c.height = h;
   const r = h * 0.32, pad = h * 0.07;
-  const rr = (x: number, y: number, ww: number, hh: number, rad: number) => { g.beginPath(); g.moveTo(x + rad, y); g.arcTo(x + ww, y, x + ww, y + hh, rad); g.arcTo(x + ww, y + hh, x, y + hh, rad); g.arcTo(x, y + hh, x, y, rad); g.arcTo(x, y, x + ww, y, rad); g.closePath(); };
+  const rr = (x: number, y: number, ww: number, hh: number, rad: number) => { rad = Math.min(rad, ww / 2, hh / 2); g.beginPath(); g.moveTo(x + rad, y); g.arcTo(x + ww, y, x + ww, y + hh, rad); g.arcTo(x + ww, y + hh, x, y + hh, rad); g.arcTo(x, y + hh, x, y, rad); g.arcTo(x, y, x + ww, y, rad); g.closePath(); };
   if (look.glow) { g.shadowColor = look.glow; g.shadowBlur = h * 0.12; }
   rr(pad, pad, w - pad * 2, h - pad * 2, r);
   const grd = g.createLinearGradient(0, 0, 0, h);
@@ -129,7 +129,8 @@ export function skyDome(top: number, mid: number, low: number, sunDir = new THRE
     fragmentShader: 'uniform vec3 top, mid, low, sunDir; varying vec3 vDir; void main(){ float y = vDir.y; vec3 c = mix(low, mid, smoothstep(-0.1, 0.15, y)); c = mix(c, top, smoothstep(0.15, 0.7, y)); float s = max(0.0, dot(normalize(vDir), sunDir)); c += vec3(1.0,0.93,0.8) * (pow(s, 400.0) * 1.2 + pow(s, 10.0) * 0.16); gl_FragColor = vec4(c, 1.0); }',
   });
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), mat);
-  mesh.renderOrder = -1;
+  // drawn first: it writes no depth, so anything drawn before it (a painted backdrop) would be painted over
+  mesh.renderOrder = -2;
   return mesh;
 }
 

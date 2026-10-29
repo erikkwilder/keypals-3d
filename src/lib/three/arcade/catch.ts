@@ -62,10 +62,10 @@ export class CatchScene implements Controller {
     await fontLoaded();
     const [me, bg, ...pool] = await Promise.all([
       Character.create(o.buddy), paintedBackground('arcade/bg-catch.webp', 0.4, 0.85),
-      ...Array.from({ length: POOL }, (_, i) => GlimmerModel.create(KINDS[i % KINDS.length], 0.8)),
+      ...Array.from({ length: POOL }, (_, i) => GlimmerModel.create(KINDS[i % KINDS.length], 0.95)),
     ]);
     if (!me) throw new Error('character missing');
-    const gold = await GlimmerModel.create('sparkmoth', 0.9, { evolved: true }).catch(() => null);
+    const gold = await GlimmerModel.create('sparkmoth', 1.05, { evolved: true }).catch(() => null);
     await dressUp(me);
     await wearGear(me, 'hand', 'butterfly_net');
     void me.loadMoves();
@@ -77,7 +77,7 @@ export class CatchScene implements Controller {
   drop(d: Drop) {
     const g = d.gold ? (this.gold && !this.falling.some(f => f.g === this.gold) ? this.gold : null) : this.free.splice(Math.floor(Math.random() * this.free.length), 1)[0];
     if (!g) return false;
-    const label = plaqueSprite(factText(d.f), 0.5, d.gold ? { bg: ['#fff6c8', '#ffd84a'], ink: '#7a4a00', edge: '#fff4b0', glow: 'rgba(255,200,40,0.8)' } : { bg: ['#ffffff', '#efe8ff'], ink: '#2a1f45', edge: '#ffffff', glow: 'rgba(90,60,160,0.35)' });
+    const label = plaqueSprite(factText(d.f), 0.55, d.gold ? { bg: ['#fff6c8', '#ffd84a'], ink: '#7a4a00', edge: '#fff4b0', glow: 'rgba(255,200,40,0.8)' } : { bg: ['#ffffff', '#efe8ff'], ink: '#2a1f45', edge: '#ffffff', glow: 'rgba(90,60,160,0.35)' });
     this.island.root.add(label);
     const y = this.field.top + 0.6;
     const x = Math.max(-this.field.half + 0.5, Math.min(this.field.half - 0.5, d.x * this.field.half));
@@ -198,7 +198,7 @@ export class CatchScene implements Controller {
     }
     // the sign rides under the Glimmer (gone once it's caught)
     f.label.visible = f.state === 'fall';
-    f.label.position.set(g.root.position.x, g.root.position.y - 0.32, 0.3);
+    f.label.position.set(g.root.position.x, g.root.position.y - 0.36, 0.3);
     g.update(dt, t);
   }
   private retire(f: Falling) {
@@ -213,7 +213,7 @@ export class CatchScene implements Controller {
     if (a === this.aspect) return;
     this.aspect = a;
     const tn = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
-    const half = Math.max(2.6, Math.min(7, a * 4.4));
+    const half = Math.max(2.4, Math.min(5.2, a * 3.3));
     const D = half / (tn * a);
     // the ground 84% of the way down the screen; the field's top just under the number card
     const ch = 0.68 * D * tn;

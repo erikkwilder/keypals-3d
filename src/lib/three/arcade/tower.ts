@@ -50,7 +50,7 @@ export class TowerScene implements Controller {
   private blocks: Block[] = [];
   private loose: Loose[] = [];
   private hanging: { mesh: THREE.Group; face: THREE.Mesh; tex: THREE.CanvasTexture; color: number; ink: string; since: number } | null = null;
-  private falling: { mesh: THREE.Group; face: THREE.Mesh; tex: THREE.CanvasTexture; color: number; ink: string; x: number; y: number; vy: number; goalY: number; slip: number; answer: string } | null = null;
+  private falling: { mesh: THREE.Group; face: THREE.Mesh; tex: THREE.CanvasTexture; color: number; ink: string; x0: number; x: number; y: number; vy: number; goalY: number; slip: number; answer: string } | null = null;
   private rope: THREE.Mesh;
   private hook: THREE.Mesh;
   private boxGeo: THREE.BufferGeometry; private faceGeo: THREE.PlaneGeometry; private blockTex: THREE.Texture | null;
@@ -114,7 +114,7 @@ export class TowerScene implements Controller {
     if (bal) {
       balloon = bal.scene.clone(true);
       const box = new THREE.Box3().setFromObject(balloon), size = box.getSize(new THREE.Vector3());
-      const k = 4.2 / size.y;
+      const k = 3.3 / size.y;
       balloon.scale.setScalar(k);
       balloon.position.set(-(box.min.x + box.max.x) / 2 * k, -box.min.y * k, -(box.min.z + box.max.z) / 2 * k);
       balloon.traverse(m => { if ((m as THREE.Mesh).isMesh) m.castShadow = true; });
@@ -151,22 +151,25 @@ export class TowerScene implements Controller {
     g.scale.setScalar(0.01);
   }
   /** How far the hanging block is off centre right now (it swings wider the longer the thinking). */
-  private swing() {
+  /** How wide the hanging block swings: hardly at all while the answer is quick, wider the longer it takes. */
+  private amp() {
     const h = this.hanging;
     if (!h) return 0;
     const ms = (this.t - h.since) * 1000, F = this.fastMs;
-    const amp = 0.04 + Math.min(1, Math.max(0, (ms - F * 0.55) / (F * 1.6))) * 0.78;
-    return amp * Math.sin((this.t - h.since) * 2.6 + 0.6);
+    return 0.04 + Math.min(1, Math.max(0, (ms - F * 0.55) / (F * 1.6))) * 0.78;
   }
-  /** Let go. Right: it drops from where it is on the swing. Wrong: it slips off the side. */
+  private swing() { const h = this.hanging; return h ? this.amp() * Math.sin((this.t - h.since) * 2.6 + 0.6) : 0; }
+  /** Let go. Right: it drops toward the side it's swinging, as far out as the swing has grown (so a slow
+   *  answer never lands straight by luck). Wrong: it slips off the side. */
   release(right: boolean, answer: string) {
     const h = this.hanging;
     if (!h) return;
+    const amp = this.amp(), cur = this.swing();
     this.hanging = null;
-    const x = this.topX() + this.swing();
-    const slip = right ? 0 : (Math.random() < 0.5 ? -1 : 1);
+    const side = Math.sign(cur) || (Math.random() < 0.5 ? -1 : 1);
+    const off = right ? (amp < 0.1 ? cur : side * Math.max(Math.abs(cur), amp * 0.8)) : side * BW * 0.62;
     const y = h.mesh.position.y;
-    this.falling = { mesh: h.mesh, face: h.face, tex: h.tex, color: h.color, ink: h.ink, x: right ? x : this.topX() + slip * BW * 0.62, y, vy: 0, goalY: this.topY() + BH / 2, slip, answer };
+    this.falling = { mesh: h.mesh, face: h.face, tex: h.tex, color: h.color, ink: h.ink, x0: h.mesh.position.x, x: this.topX() + off, y, vy: 0, goalY: this.topY() + BH / 2, slip: right ? 0 : side, answer };
   }
 
   /** The buddy's reaction. */
@@ -199,11 +202,11 @@ export class TowerScene implements Controller {
     this.tower.rotation.z = this.theta;
     // the balloon rises with the tower, bobbing, beside it
     const narrow = stage.camera.aspect < 0.8;
-    this.basket.position.set(narrow ? 2.15 : 3.1, Math.max(0.6, topY - 1.4) + Math.sin(t * 0.9) * 0.18, -0.6);
+    this.basket.position.set(narrow ? 2.05 : 2.7, Math.max(0.4, topY - 1.1) + Math.sin(t * 0.9) * 0.15, -0.4);
     this.basket.rotation.set(0, -0.35, Math.sin(t * 0.7) * 0.03);
     if (this.balloon) {
       // in the basket: only the top half shows over its rim
-      this.me.root.position.set(0, 0.25, 0);
+      this.me.root.position.set(0, 0.2, 0);
     } else this.me.root.position.set(0, 0, 0);
     this.me.root.rotation.y = -0.6;
     if (t > this.busyUntil && this.me.currentName !== 'idle') this.me.play('idle', 0.3);
@@ -224,7 +227,9 @@ export class TowerScene implements Controller {
     if (f) {
       f.vy += 26 * dt;
       f.y -= f.vy * dt;
-      f.mesh.position.set(f.x, f.y, 0);
+      // it glides out to where it lands as it drops
+      f.x0 += (f.x - f.x0) * Math.min(1, dt * 9);
+      f.mesh.position.set(f.x0, f.y, 0);
       if (f.y - BH / 2 <= f.goalY) this.land(f);
     }
     // blocks falling off, tumbling into the clouds
@@ -304,7 +309,7 @@ export class TowerScene implements Controller {
     const tn = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
     const band = Math.max(0.25, this.view.bottom - this.view.top);
     // about eight metres of tower in the open band, and wide enough for the tower and the balloon
-    const D = Math.max(8.4 / (band * 2 * tn), 4.6 / (tn * a));
+    const D = Math.max(6.4 / (band * 2 * tn), (a < 0.8 ? 3.1 : 4.3) / (tn * a));
     // the top of the tower 62% of the way down the band (the hanging block above it)
     const focus = Math.max(topY, 1.2);
     const sy = this.view.top + band * 0.62;

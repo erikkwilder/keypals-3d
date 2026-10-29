@@ -113,6 +113,8 @@
   function onBlur() { pause(); }
 
   onMount(() => {
+    // for checking the results quickly: __arcade.finish() ends the round now
+    if (import.meta.env.DEV) (window as unknown as { __arcade: unknown }).__arcade = { finish, add: (n: number) => (score += n) };
     window.addEventListener('keydown', onKey);
     window.addEventListener('blur', onBlur);
     raf = requestAnimationFrame(frame);

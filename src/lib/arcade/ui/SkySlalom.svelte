@@ -162,7 +162,7 @@
   {/if}
   {#if reveal}{#key reveal.n}<div class="reveal">{reveal.text}</div>{/key}{/if}
 
-  <div class="gauge" aria-hidden="true">
+  <div class="gauge" class:gone={phase === 'done' || phase === 'intro' || phase === 'loading'} aria-hidden="true">
     <svg viewBox="0 0 120 76">
       <defs><linearGradient id="sg" x1="0" x2="1"><stop offset="0" stop-color="#7fd0ff" /><stop offset=".6" stop-color="#3d7ff0" /><stop offset="1" stop-color="#7c5cf5" /></linearGradient></defs>
       <path d="M14 66 A46 46 0 0 1 106 66" fill="none" stroke="#e6eefb" stroke-width="12" stroke-linecap="round" />
@@ -194,6 +194,7 @@
   .reveal { position: absolute; left: 50%; top: calc(14px + clamp(54px, 9vh, 96px) + 34px); transform: translateX(-50%); z-index: 4; padding: 6px 18px; border-radius: 999px; background: #fff; color: #8a1f4a;
     font: 600 26px var(--font-ui); box-shadow: 0 0 0 4px #f7c6d9, var(--shadow-sm); animation: pop-in .3s cubic-bezier(.3, .8, .4, 1.5); white-space: nowrap; pointer-events: none; }
   .gauge { position: absolute; right: 16px; bottom: 16px; width: 150px; padding: 8px 10px 6px; border-radius: 22px; background: rgba(255, 255, 255, .92); box-shadow: 0 10px 24px -12px rgba(30, 50, 110, .5); text-align: center; pointer-events: none; z-index: 3; }
+  .gauge.gone { display: none; }
   .gauge svg { display: block; width: 100%; }
   .gauge span { display: block; margin-top: -10px; font: 600 22px/1 var(--font-ui); color: #1f2550; }
   .gauge small { font: 800 11px var(--font-body); color: var(--muted); margin-left: 3px; }
