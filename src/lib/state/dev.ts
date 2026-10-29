@@ -46,5 +46,10 @@ export function devBoot() {
   if (key === 'math') { ensure(); game.setHome('math'); game.go('map'); }
   if (key === 'mathrun') { ensure(); game.setHome('math'); game.startMath(val || 'twins-1'); }
   if (key === 'garden') { ensure(); game.go('garden'); }
+  // Adventure: #adventure, #battle=meadow-0, #glimmers, #eggs
+  if (key === 'adventure') { ensure(); game.go('adventure'); }
+  if (key === 'battle') { ensure(); game.battleNode = val || 'meadow-0'; game.battleKey++; game.go('battle'); }
+  if (key === 'glimmers') { ensure(); game.go('glimmers'); }
+  if (key === 'eggs') { ensure(); game.go('eggs'); }
   if (key === 'tester') { addTester(); game.go('map'); history.replaceState(null, '', location.pathname + location.search); }
 }

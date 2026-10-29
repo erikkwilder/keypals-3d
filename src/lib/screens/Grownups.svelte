@@ -9,6 +9,7 @@
   import { GAME_NAME, SOURCE_PUBLIC, SOURCE_URL, STUDIO, STUDIO_URL } from '../config';
   import { openExternal, saveTextFile } from '../state/platform';
   import { addTester } from '../state/dev';
+  import { advOf, advView, PLAY_RULES, type AdvSettings, type PlayRule } from '../adventure/state';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, openCode } from '../state/cloud.svelte';
@@ -65,6 +66,12 @@
     if (!k || k.n < 4) return '#f3f0f8';
     const m = mastery(k, p.settings.grown);
     return `hsl(${Math.round(m * 140)} 70% ${78 - m * 8}%)`;
+  }
+  const adv = $derived(p ? advView(p) : null);
+  const practiceToday = $derived(p ? (p.days[dayKey(Date.now())]?.ms ?? 0) : 0);
+  function setAdv(patch: Partial<AdvSettings>) {
+    game.save.profiles.forEach(x => { if (x.id === selected) { const a = advOf(x); a.settings = { ...a.settings, ...patch }; } });
+    game.persist();
   }
   function saveWords() {
     game.save.profiles.forEach(x => { if (x.id === selected) x.customText = words.slice(0, 3000); });
@@ -124,6 +131,28 @@
         <div class="card tryall">
           <div><h3>Try every level</h3><p class="muted">Adds a player called Tester with every typing lesson, math trip and playground level open, every buddy on the team, and every outfit and dance. Your own players aren't changed.</p></div>
           <button class="btn btn-primary" onclick={() => { addTester(); game.go('hub'); }}>Open Tester</button>
+        </div>
+        <div class="card pane advset">
+          <h3>Adventure: play time</h3>
+          <p class="muted small">Adventure is the battle mode. Every move in a battle is still a math answer or a typed word, and practice is where the eggs hatch. Choose how play time works for {p.name}.</p>
+          <div class="rules">
+            {#each Object.entries(PLAY_RULES) as [id, r]}
+              <button class="rule" class:on={adv?.settings.rule === id} onclick={() => setAdv({ rule: id as PlayRule })}><b>{r.name}</b><span>{r.text}</span></button>
+            {/each}
+          </div>
+          <div class="opts">
+            {#if adv?.settings.rule === 'balanced'}
+              <label>Play minutes per practice minute
+                <select value={adv.settings.ratio} onchange={(e) => setAdv({ ratio: Number((e.currentTarget as HTMLSelectElement).value) })}>{#each [0.5, 1, 1.5, 2] as r}<option value={r}>{r === 0.5 ? '1 for every 2' : r === 1 ? '1 for 1' : r === 1.5 ? '3 for every 2' : '2 for 1'}</option>{/each}</select></label>
+              <label>Free minutes each day
+                <select value={adv.settings.freeMin} onchange={(e) => setAdv({ freeMin: Number((e.currentTarget as HTMLSelectElement).value) })}>{#each [0, 5, 10, 15, 20] as m}<option value={m}>{m} min</option>{/each}</select></label>
+            {/if}
+            <label>Most Adventure a day
+              <select value={adv?.settings.capMin ?? 0} onchange={(e) => setAdv({ capMin: Number((e.currentTarget as HTMLSelectElement).value) })}>{#each [0, 15, 20, 30, 45, 60] as m}<option value={m}>{m ? `${m} min` : 'No limit'}</option>{/each}</select></label>
+            <label>Battles use
+              <select value={adv?.settings.focus ?? 'all'} onchange={(e) => setAdv({ focus: (e.currentTarget as HTMLSelectElement).value as AdvSettings['focus'] })}><option value="all">All the math met so far</option><option value="+">Adding only</option><option value="-">Taking away only</option><option value="x">Times only</option><option value="/">Sharing only</option></select></label>
+          </div>
+          <p class="playline">Today: <b>{fmtMin(practiceToday)}</b> practice{#if adv?.day.key === dayKey(Date.now())}, <b>{fmtMin(adv.day.ms)}</b> Adventure: <b>{adv.day.answers}</b> answers in battles, <b>{adv.day.answers ? Math.round((adv.day.right / adv.day.answers) * 100) : 0}%</b> right{:else}, no Adventure yet{/if}.</p>
         </div>
         <div class="two">
           <div class="card pane">
@@ -242,6 +271,17 @@
   .stat span { font-size: 13px; color: var(--muted); font-weight: 700; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   .pane { padding: 18px 20px; }
+  .advset { margin-bottom: 12px; }
+  .rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+  .rule { display: flex; flex-direction: column; gap: 3px; text-align: left; border: 3px solid #ece6f6; background: #fff; border-radius: 16px; padding: 10px 12px; cursor: pointer; }
+  .rule b { font: 600 18px var(--font-ui); color: var(--ink); }
+  .rule span { font: 600 13px/1.35 var(--font-body); color: var(--muted); }
+  .rule.on { border-color: var(--primary-hi); background: #f6f2ff; }
+  .opts { display: flex; flex-wrap: wrap; gap: 10px 18px; }
+  .opts label { display: flex; flex-direction: column; gap: 4px; font: 700 13px var(--font-body); color: var(--ink2); }
+  .opts select { font: 600 15px var(--font-body); padding: 6px 10px; border-radius: 10px; border: 2px solid #e6dff5; }
+  .playline { margin: 10px 0 0; font: 600 14px var(--font-body); color: var(--ink2); }
+  @media (max-width: 600px) { .rules { grid-template-columns: 1fr; } }
   h3 { font-size: 21px; margin-bottom: 8px; }
   .small { font-size: 13px; margin: 4px 0 10px; }
   .bars { display: flex; align-items: flex-end; gap: 6px; height: 120px; }

@@ -1,0 +1,16 @@
+{
+  "puddlepup": {"height": 1.0, "head": [0, 0.71, 0.36], "tail": [0, 0.37, -0.3], "wings": null, "ears": [[-0.21, 0.86, 0.26], [0.2, 0.86, 0.26]], "floats": false, "tier": "meshy-t2.5"},
+  "pebbletort": {"height": 1.0, "head": [-0.08, 0.66, 0.62], "tail": null, "wings": null, "ears": null, "floats": false, "tier": "meshy-t2.5"},
+  "sproutbun": {"height": 1.0, "head": [-0.045, 0.47, 0.16], "tail": [0.1, 0.18, -0.17], "wings": null, "ears": [[-0.146, 0.6, 0.19], [0.08, 0.59, 0.06]], "floats": false, "tier": "meshy-t2.5"},
+  "embernewt": {"height": 1.0, "head": [-0.09, 0.65, 0.47], "tail": [0.12, 0.22, -0.26], "wings": null, "ears": null, "floats": false, "tier": "latest"},
+  "fernfox": {"height": 1.0, "head": [-0.2, 0.6, 0.24], "tail": [0.05, 0.35, -0.13], "wings": null, "ears": [[-0.31, 0.78, 0.27], [-0.055, 0.8, 0.12]], "floats": false, "tier": "meshy-t2.5"},
+  "snowseal": {"height": 1.0, "head": [-0.05, 0.73, 0.64], "tail": [0, 0.12, -0.45], "wings": null, "ears": null, "floats": false, "tier": "meshy-t2.5"},
+  "frostowl": {"height": 1.0, "head": [0, 0.58, 0.2], "tail": [0, 0.3, -0.17], "wings": [[-0.24, 0.4, 0.2], [0.24, 0.4, 0.2]], "ears": null, "floats": false, "tier": "meshy-t2.5"},
+  "sparkmoth": {"height": 1.0, "head": [0, 0.58, 0.2], "tail": null, "wings": [[-0.2, 0.5, -0.02], [0.2, 0.5, -0.02]], "ears": [[-0.08, 0.76, 0.1], [0.08, 0.76, 0.1]], "floats": true, "tier": "meshy-t2.5"},
+  "prismhorn": {"height": 1.0, "head": [0, 0.42, 0.55], "tail": [0, 0.25, -0.45], "wings": null, "ears": [[-0.2, 0.58, 0.46], [0.2, 0.58, 0.46]], "floats": false, "tier": "meshy-t2.5"},
+  "whalecalf": {"height": 1.6, "head": [0, 0.88, 1.15], "tail": [0, 0.5, -0.8], "wings": [[-0.4, 0.35, 0.75], [0.4, 0.35, 0.75]], "ears": null, "floats": true, "tier": "meshy-t2.5"},
+  "lanternfox": {"height": 1.4, "head": [0, 0.68, 0.7], "tail": [0, 0.38, -0.1], "wings": null, "ears": [[-0.11, 0.85, 0.62], [0.13, 0.85, 0.62]], "floats": false, "tier": "meshy-6-lite"},
+  "bloomdrake": {"height": 1.4, "head": [-0.02, 0.92, 0.64], "tail": [0.15, 0.25, -0.3], "wings": [[-0.3, 0.78, 0.3], [0.3, 0.78, 0.3]], "ears": [[-0.3, 0.95, 0.6], [0.28, 0.95, 0.6]], "floats": false, "tier": "meshy-t2.5"},
+  "skywhale": {"height": 2.4, "head": [0, 0.95, 2.0], "tail": [0, 1.0, -1.0], "wings": [[-0.5, 0.5, 1.25], [0.5, 0.5, 1.25]], "ears": null, "floats": true, "tier": "meshy-t2.5"},
+  "aurorastag": {"height": 1.4, "head": [0, 0.9, 0.27], "tail": [0, 0.58, -0.27], "wings": null, "ears": [[-0.11, 0.97, 0.22], [0.11, 0.97, 0.22]], "floats": false, "tier": "meshy-t2.5"}
+}

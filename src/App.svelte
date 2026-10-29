@@ -16,6 +16,10 @@
   import MathMap from './lib/screens/MathMap.svelte';
   import Hub from './lib/screens/Hub.svelte';
   import Playground from './lib/screens/Playground.svelte';
+  import Adventure from './lib/screens/Adventure.svelte';
+  import Battle from './lib/screens/Battle.svelte';
+  import Glimmers from './lib/screens/Glimmers.svelte';
+  import Eggs from './lib/screens/Eggs.svelte';
   import MathRun from './lib/screens/MathRun.svelte';
   import MathResults from './lib/screens/MathResults.svelte';
   import FactGarden from './lib/screens/FactGarden.svelte';
@@ -73,6 +77,10 @@
   {:else if game.screen === 'mathResults'}<MathResults />
   {:else if game.screen === 'garden'}<FactGarden />
   {:else if game.screen === 'playground'}<Playground />
+  {:else if game.screen === 'adventure'}<Adventure />
+  {:else if game.screen === 'battle'}{#key game.battleKey}<Battle />{/key}
+  {:else if game.screen === 'glimmers'}<Glimmers />
+  {:else if game.screen === 'eggs'}<Eggs />
   {/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}

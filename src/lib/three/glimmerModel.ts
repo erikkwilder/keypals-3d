@@ -1,0 +1,175 @@
+// A Glimmer in 3D: its model (made from its painting), brought to life without a skeleton. The model's
+// head, tail, wings and ears were measured (public/models/glimmers/meta.json), and a little vertex
+// program nods the head, wags the tail, flaps the wings and flops the ears; on top of that the whole body
+// breathes, bobs (floaters hover), hops, spins and squashes like a cartoon.
+import * as THREE from 'three';
+import { loadGltf } from './assets';
+import { ELEMENT, GLIMMER, type GlimmerId } from '../adventure/glimmers';
+
+type Meta = { height: number; head: number[]; tail: number[] | null; wings: number[][] | null; ears: number[][] | null; floats: boolean };
+let metaP: Promise<Record<string, Meta>> | null = null;
+function metas(): Promise<Record<string, Meta>> {
+  metaP ??= fetch(`${import.meta.env.BASE_URL}models/glimmers/meta.json`).then(r => (r.ok ? r.json() : {})).catch(() => ({}));
+  return metaP;
+}
+
+type Move = 'idle' | 'hop' | 'happy' | 'act' | 'appear' | 'sad';
+
+const WIGGLE = `
+  uniform float uT; uniform vec3 uHead; uniform float uHeadR; uniform vec3 uTail; uniform float uTailOn; uniform vec3 uWingL; uniform vec3 uWingR; uniform float uWingOn;
+  uniform vec3 uEarL; uniform vec3 uEarR; uniform float uEarOn; uniform float uWag; uniform float uFlap; uniform float uNod; uniform float uUnit; uniform float uBreath;
+  vec3 rotAxis(vec3 p, vec3 c, vec3 ax, float a) { vec3 q = p - c; float s = sin(a), co = cos(a); return c + q * co + cross(ax, q) * s + ax * dot(ax, q) * (1.0 - co); }
+`;
+const WIGGLE_BODY = `
+  vec3 p = transformed;
+  p *= 1.0 + sin(uT * 2.4) * 0.012 * uBreath;
+  float hw = 1.0 - smoothstep(uHeadR * 0.5, uHeadR * 1.5, distance(p, uHead));
+  p = rotAxis(p, uHead - vec3(0.0, uHeadR * 0.7, uHeadR * 0.2), vec3(1.0, 0.0, 0.0), (sin(uT * 2.1) * 0.6 + sin(uT * 3.7) * 0.4) * uNod * hw);
+  p = rotAxis(p, uHead - vec3(0.0, uHeadR * 0.7, uHeadR * 0.2), vec3(0.0, 1.0, 0.0), sin(uT * 1.3) * uNod * 0.8 * hw);
+  if (uTailOn > 0.5) { float tw = smoothstep(0.0, 0.3 * uUnit, uTail.z - p.z); p = rotAxis(p, uTail, vec3(0.0, 1.0, 0.0), sin(uT * 6.5) * uWag * tw); }
+  if (uWingOn > 0.5) { float sd = p.x < 0.0 ? -1.0 : 1.0; vec3 rt = sd < 0.0 ? uWingL : uWingR; float ww = smoothstep(0.0, 0.2 * uUnit, abs(p.x) - abs(rt.x)); p = rotAxis(p, rt, vec3(0.0, 0.0, 1.0), sd * sin(uT * 9.0) * uFlap * ww); }
+  if (uEarOn > 0.5) { float sd = p.x < 0.0 ? -1.0 : 1.0; vec3 eb = sd < 0.0 ? uEarL : uEarR; float ew = (1.0 - smoothstep(0.0, 0.25 * uUnit, distance(p.xz, eb.xz))) * smoothstep(0.0, 0.06 * uUnit, p.y - eb.y); p = rotAxis(p, eb, vec3(0.0, 0.0, 1.0), -sd * (0.12 + sin(uT * 3.0 + sd) * 0.1) * ew); }
+  transformed = p;
+`;
+
+export class GlimmerModel {
+  readonly root = new THREE.Group();
+  private inner = new THREE.Group();
+  readonly id: GlimmerId;
+  height = 0.6;
+  floats = false;
+  private uniforms: Record<string, { value: unknown }>[] = [];
+  private move: Move = 'appear'; private mt = 0;
+  private bob = Math.random() * 6;
+  /** turn to face this point (world) */
+  face: THREE.Vector3 | null = null;
+  private ready = false;
+
+  private constructor(id: GlimmerId) { this.id = id; this.root.add(this.inner); this.inner.scale.setScalar(0.001); }
+
+  /** `height`: how tall it stands in the scene (metres). */
+  static async create(id: GlimmerId, height = 0.6): Promise<GlimmerModel> {
+    const g = new GlimmerModel(id);
+    g.height = height;
+    const [gl, meta] = await Promise.all([loadGltf(`models/glimmers/${id}.glb`), metas()]);
+    const m = meta[id];
+    if (gl) g.build(gl.scene.clone(true), m); else g.placeholder();
+    g.ready = true;
+    return g;
+  }
+
+  private build(scene: THREE.Object3D, m: Meta | undefined) {
+    scene.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(scene), size = box.getSize(new THREE.Vector3());
+    const k = this.height / Math.max(1e-4, size.y);
+    this.floats = !!m?.floats;
+    const fileH = m?.height ?? size.y;
+    // meta points are in the file's metres; the model may be any size, so scale them to the model
+    const toModel = size.y / Math.max(1e-4, fileH);
+    const pt = (a: number[] | null | undefined) => (a ? new THREE.Vector3(a[0], a[1], a[2]).multiplyScalar(toModel) : null);
+    const head = pt(m?.head) ?? new THREE.Vector3(0, size.y * 0.75 + box.min.y, box.max.z * 0.6);
+    const tail = pt(m?.tail), wings = m?.wings?.map(w => pt(w)!), ears = m?.ears?.map(e => pt(e)!);
+    const el = GLIMMER[this.id].element;
+    scene.traverse(o => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.castShadow = true; mesh.receiveShadow = false;
+      const inv = mesh.matrixWorld.clone().invert();
+      const local = (v: THREE.Vector3 | null) => (v ? v.clone().applyMatrix4(inv) : new THREE.Vector3());
+      const unit = new THREE.Vector3(1, 0, 0).applyMatrix3(new THREE.Matrix3().setFromMatrix4(inv)).length() * size.y;
+      const u = {
+        uT: { value: 0 }, uHead: { value: local(head) }, uHeadR: { value: 0.22 * unit }, uTail: { value: local(tail) }, uTailOn: { value: tail ? 1 : 0 },
+        uWingL: { value: local(wings?.[0] ?? null) }, uWingR: { value: local(wings?.[1] ?? null) }, uWingOn: { value: wings ? 1 : 0 },
+        uEarL: { value: local(ears?.[0] ?? null) }, uEarR: { value: local(ears?.[1] ?? null) }, uEarOn: { value: ears ? 1 : 0 },
+        uWag: { value: 0.25 }, uFlap: { value: el === 'tide' ? 0.25 : 0.6 }, uNod: { value: 0.07 }, uUnit: { value: unit }, uBreath: { value: 1 },
+      };
+      this.uniforms.push(u);
+      const fix = (mat: THREE.Material) => {
+        const c = mat.clone() as THREE.MeshStandardMaterial;
+        if ('roughness' in c) { c.roughness = Math.max(0.35, c.roughness ?? 0.6); c.metalness = Math.min(0.1, c.metalness ?? 0); }
+        c.onBeforeCompile = (sh) => {
+          Object.assign(sh.uniforms, u);
+          sh.vertexShader = WIGGLE + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIGGLE_BODY);
+        };
+        c.customProgramCacheKey = () => 'glimmer-wiggle';
+        return c;
+      };
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(fix) : fix(mesh.material);
+    });
+    // stand it on the ground, centred, facing +z
+    const wrap = new THREE.Group();
+    scene.position.set(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2);
+    wrap.add(scene); wrap.scale.setScalar(k);
+    this.inner.add(wrap);
+    // a soft glow of its element under it
+    this.addGlow(ELEMENT[el].color);
+  }
+
+  /** No model yet: a little glowing creature so nothing is missing. */
+  private placeholder() {
+    const el = GLIMMER[this.id].element;
+    const body = new THREE.Mesh(new THREE.SphereGeometry(this.height * 0.42, 32, 24), new THREE.MeshStandardMaterial({ color: ELEMENT[el].color, roughness: 0.4, emissive: ELEMENT[el].deep, emissiveIntensity: 0.25 }));
+    body.position.y = this.height * 0.45; body.scale.y = 0.9; body.castShadow = true;
+    const white = new THREE.MeshBasicMaterial({ color: 0xffffff }), dark = new THREE.MeshBasicMaterial({ color: 0x241a3a });
+    for (const s of [-1, 1]) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(this.height * 0.08, 16, 12), white); e.position.set(s * this.height * 0.14, this.height * 0.55, this.height * 0.36); this.inner.add(e);
+      const p = new THREE.Mesh(new THREE.SphereGeometry(this.height * 0.045, 12, 8), dark); p.position.set(s * this.height * 0.14, this.height * 0.55, this.height * 0.42); this.inner.add(p);
+    }
+    this.inner.add(body);
+    this.addGlow(ELEMENT[el].color);
+  }
+
+  private addGlow(color: string) {
+    const g = new THREE.Mesh(new THREE.CircleGeometry(this.height * 0.55, 32), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending }));
+    g.rotation.x = -Math.PI / 2; g.position.y = 0.02;
+    this.root.add(g);
+  }
+
+  play(m: Move) { this.move = m; this.mt = 0; }
+
+  update(dt: number, t: number) {
+    if (!this.ready) return;
+    this.mt += dt;
+    for (const u of this.uniforms) u.uT.value = t;
+    const lift = this.floats ? 0.35 * this.height + Math.sin(t * 2 + this.bob) * 0.06 : 0;
+    let y = lift, sx = 1, sy = 1, spin = 0, lean = 0;
+    const k = this.mt;
+    if (this.move === 'appear') {
+      // pop in with a bounce
+      const s = k < 0.5 ? easeOutBack(k / 0.5) : 1;
+      sx = sy = s;
+      if (k > 0.5) this.move = 'happy', this.mt = 0;
+    } else if (this.move === 'hop') {
+      const h = Math.max(0, Math.sin((k / 0.45) * Math.PI)); y += h * 0.25 * this.height; sy = 1 + h * 0.12; sx = 1 - h * 0.06;
+      if (k < 0.08) { sy = 0.85; sx = 1.1; }
+      if (k > 0.45) this.move = 'idle';
+    } else if (this.move === 'happy') {
+      const n = Math.floor(k / 0.42), f = (k % 0.42) / 0.42;
+      if (n < 3) { const h = Math.sin(f * Math.PI); y += h * 0.3 * this.height; sy = 1 + h * 0.1; if (n === 1) spin = f * Math.PI * 2; } else this.move = 'idle';
+    } else if (this.move === 'act') {
+      lean = Math.sin(Math.min(1, k / 0.5) * Math.PI) * 0.35; sy = 1 - lean * 0.15; sx = 1 + lean * 0.1;
+      if (k > 0.5) this.move = 'idle';
+    } else if (this.move === 'sad') {
+      sy = 0.92; lean = -0.12;
+      if (k > 2) this.move = 'idle';
+    }
+    const breathe = this.move === 'idle' ? 1 + Math.sin(t * 2.4 + this.bob) * 0.015 : 1;
+    this.inner.position.y = y;
+    this.inner.scale.set(sx * breathe, sy / breathe, sx * breathe);
+    this.inner.rotation.set(lean, spin, 0);
+    if (this.face) {
+      const w = this.root.getWorldPosition(new THREE.Vector3());
+      const want = Math.atan2(this.face.x - w.x, this.face.z - w.z);
+      let d = want - this.root.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d));
+      this.root.rotation.y += d * Math.min(1, dt * 6);
+    }
+  }
+
+  dispose() {
+    this.root.removeFromParent();
+    // the model's geometry is shared with the loaded file (cached): only the cloned materials are ours
+    this.root.traverse(o => { const mm = o as THREE.Mesh; if (mm.isMesh) { const mt = mm.material as THREE.Material | THREE.Material[]; if (Array.isArray(mt)) mt.forEach(x => x.dispose()); else mt?.dispose(); } });
+  }
+}
+
+const easeOutBack = (x: number) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };

@@ -128,6 +128,44 @@ export const sfx = {
     tone(1318.5, { type: 'sine', dur: 0.8, gain: 0.08, delay: 0.42 });
   },
   pop() { tone(880, { type: 'sine', dur: 0.08, gain: 0.08, slideTo: 1320 }); },
+  // ---------- Adventure battles ----------
+  /** A power flies: each element has its own sound. */
+  cast(el: 'sun' | 'frost' | 'tide' | 'stone' | 'leaf') {
+    if (el === 'sun') { tone(523.25, { type: 'triangle', dur: 0.35, gain: 0.1, slideTo: 1046.5 }); noise(0.4, { gain: 0.05, freq: 3000, sweepTo: 9000, q: 0.7 }); }
+    if (el === 'tide') { noise(0.45, { gain: 0.09, freq: 700, sweepTo: 2400, q: 1.5 }); tone(330, { type: 'sine', dur: 0.3, gain: 0.07, slideTo: 660 }); }
+    if (el === 'frost') { [1318.5, 1567.98, 2093].forEach((n, i) => tone(n, { type: 'sine', dur: 0.25, gain: 0.05, delay: i * 0.05 })); noise(0.3, { gain: 0.04, freq: 8000, q: 2 }); }
+    if (el === 'leaf') { noise(0.5, { gain: 0.07, freq: 1200, sweepTo: 4000, q: 0.6 }); tone(587.33, { type: 'triangle', dur: 0.2, gain: 0.06, delay: 0.1, slideTo: 880 }); }
+    if (el === 'stone') { tone(110, { type: 'square', dur: 0.18, gain: 0.08, slideTo: 70 }); noise(0.25, { gain: 0.08, freq: 400, q: 1 }); }
+  },
+  /** The power lands: bigger numbers, bigger thump. */
+  hit(k: number) {
+    tone(196 + k * 120, { type: 'triangle', dur: 0.25, gain: 0.12, slideTo: 98 });
+    noise(0.22, { gain: 0.06 + k * 0.05, freq: 1800, q: 0.8 });
+    [659.25, 783.99, 1046.5].slice(0, 1 + Math.round(k * 2)).forEach((n, i) => tone(n, { type: 'sine', dur: 0.18, gain: 0.06, delay: 0.06 + i * 0.05 }));
+  },
+  /** A Perfect Cheer: a bright fanfare. */
+  perfect() { [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.4, gain: 0.11, delay: i * 0.07 })); tone(2093, { type: 'sine', dur: 1.1, gain: 0.05, delay: 0.38 }); },
+  /** The Grumble grumbles. */
+  grumble() { tone(98, { type: 'sawtooth', dur: 0.5, gain: 0.05, slideTo: 82 }); noise(0.5, { gain: 0.04, freq: 300, q: 2 }); },
+  zap() { noise(0.35, { gain: 0.12, freq: 4000, sweepTo: 600, q: 0.5 }); tone(1200, { type: 'square', dur: 0.12, gain: 0.04, slideTo: 300 }); },
+  /** A shield: a glassy chime that holds, or cracks. */
+  shield(full: boolean) { [880, 1318.5].forEach((n, i) => tone(n, { type: 'sine', dur: 0.35, gain: 0.07, delay: i * 0.04 })); if (!full) noise(0.2, { gain: 0.08, freq: 5000, q: 1, delay: 0.08 }); },
+  ouch() { tone(330, { type: 'triangle', dur: 0.3, gain: 0.08, slideTo: 196 }); },
+  heal() { [783.99, 987.77, 1174.66].forEach((n, i) => tone(n, { type: 'sine', dur: 0.3, gain: 0.05, delay: i * 0.06 })); },
+  freeze() { [2093, 2637, 3136].forEach((n, i) => tone(n, { type: 'sine', dur: 0.4, gain: 0.04, delay: i * 0.05 })); noise(0.5, { gain: 0.04, freq: 9000, q: 3 }); },
+  /** The Finale starts: a little drum roll and a chord. */
+  finale() { for (let i = 0; i < 8; i++) noise(0.06, { gain: 0.06 + i * 0.006, freq: 1200, q: 0.8, delay: i * 0.06 }); [392, 493.88, 587.33, 783.99].forEach((n, i) => tone(n, { type: 'triangle', dur: 1.2, gain: 0.07, delay: 0.5 + i * 0.03 })); },
+  /** An egg wobbles, cracks. */
+  crack() { noise(0.12, { gain: 0.12, freq: 2500, q: 2 }); tone(1600, { type: 'square', dur: 0.05, gain: 0.03 }); },
+  /** A Glimmer appears: the rarer, the grander (0 common .. 5 mythic). */
+  reveal(rank: number) {
+    const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98, 2093];
+    const n = 3 + rank;
+    for (let i = 0; i < n; i++) tone(notes[Math.min(notes.length - 1, i)], { type: 'triangle', dur: 0.45, gain: 0.1, delay: i * 0.085 });
+    tone(notes[Math.min(notes.length - 1, n)] * (rank >= 4 ? 1 : 0.5), { type: 'sine', dur: 1.6, gain: 0.07, delay: n * 0.085 });
+    if (rank >= 3) [0, 4, 7, 12].forEach((k, i) => tone(523.25 * Math.pow(2, k / 12), { type: 'sine', dur: 1.8, gain: 0.04, delay: n * 0.085 + i * 0.03 }));
+    if (rank >= 4) noise(1.4, { gain: 0.05, freq: 8000, q: 0.5, delay: n * 0.085, sweepTo: 12000 });
+  },
   /** A treasure appears: a rising run and a shimmer, longer and brighter for better treasures (step 0 to 9). */
   treasure(step: number) {
     const notes = 4 + Math.min(6, Math.floor(step * 0.7));

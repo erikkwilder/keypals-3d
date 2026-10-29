@@ -11,6 +11,7 @@
   import { sfx } from '../audio/sound';
   import { MATH_LESSONS, MATH_REGION, STRAND, worldOf } from '../math/course';
   import { ALL_GARDEN_IDS, mathOf, mathStarsTotal, nextMathLesson, stageCounts } from '../math/progress';
+  import { advOf, advView } from '../adventure/state';
   import Flower from '../math/ui/Flower.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import GearButton from '../ui/GearButton.svelte';
@@ -39,6 +40,9 @@
   // math's door
   const m = $derived(mathOf(p));
   const mNext = $derived(nextMathLesson(m));
+  const adv = $derived(advView(p));
+  const advFound = $derived(Object.keys(adv.glimmers).length);
+  const advReady = $derived(adv.incubator.filter(e => e && e.have >= e.need).length);
   const mStars = $derived(mathStarsTotal(m));
   const mBloom = $derived(stageCounts(m, ALL_GARDEN_IDS)[3]);
   const mGrow = $derived(ALL_GARDEN_IDS.filter(id => (m.facts[id]?.stage ?? 0) > 0).length);
@@ -60,6 +64,7 @@
     const k = e.key.toLowerCase();
     if (k === 't' || k === '1') { e.preventDefault(); play('typing'); }
     if (k === 'm' || k === '2') { e.preventDefault(); play('math'); }
+    if (k === 'a' || k === '3') { e.preventDefault(); game.go('adventure'); }
     if (e.key === 'Enter') { e.preventDefault(); play(game.homeGame); }
     if (e.key === 'Escape') game.go('players');
   }
@@ -145,6 +150,22 @@
           </div>
         </div>
       </section>
+
+      <!-- Adventure: battles, Glimmers and eggs; practice warms the eggs and (with the grown-ups' rule) earns play time -->
+      <section class="door adventure">
+        <button class="abanner" style:background-image="url({import.meta.env.BASE_URL}game/door-adventure.webp)" onclick={() => { sfx.click(); game.go('adventure'); }} aria-label="Open Adventure">
+          <span class="aname">Adventure</span>
+          <span class="tag">Cheer up grumpy storm clouds and collect Glimmers</span>
+        </button>
+        <div class="ainfo">
+          <div class="astats">
+            <span><img src="{import.meta.env.BASE_URL}game/icon-star.webp" alt="" /><b>{advFound}</b>/14 Glimmers</span>
+            <span><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><b>{adv.shells}</b> shells</span>
+            {#if advReady}<span class="ready"><img src="{import.meta.env.BASE_URL}game/egg-rare.webp" alt="" /><b>{advReady}</b> ready to hatch!</span>{/if}
+          </div>
+          <button class="btn btn-primary play" onclick={() => { sfx.click(); game.go('adventure'); }}>Adventure <span class="kbd">A</span></button>
+        </div>
+      </section>
     </div>
     <p class="foot">Every game makes you and {FRIEND[p.buddy].name} better friends: new outfits, dances and stickers come from typing and math alike.</p>
   </div>
@@ -172,6 +193,17 @@
   .bud { animation: bob 2.8s ease-in-out infinite; }
   @keyframes bob { 50% { transform: translateY(-6px); } }
   .doors { display: grid; grid-template-columns: repeat(2, minmax(0, 520px)); gap: 26px; width: 100%; justify-content: center; }
+  .door.adventure { grid-column: 1 / -1; flex-direction: row; min-height: 190px; }
+  .abanner { flex: 1.6; position: relative; border: 0; cursor: pointer; background-size: cover; background-position: center 55%; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; padding: 16px 20px; text-align: left; }
+  .abanner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(40, 20, 80, .55), transparent 60%); }
+  .aname { position: relative; font: 600 42px/1 var(--font-ui); color: #fff; text-shadow: 0 3px 10px rgba(30, 10, 60, .6); }
+  .abanner .tag { position: relative; }
+  .ainfo { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 16px 20px; }
+  .astats { display: flex; flex-direction: column; gap: 6px; }
+  .astats span { display: flex; align-items: center; gap: 8px; font: 700 15px var(--font-body); color: var(--ink2); }
+  .astats img { width: 30px; height: 30px; object-fit: contain; }
+  .astats b { font: 600 20px var(--font-ui); color: var(--ink); }
+  .astats .ready { color: #c2348a; animation: bob 1.4s ease-in-out infinite; }
   .door { border-radius: 30px; overflow: hidden; background: #fff; box-shadow: 0 18px 40px -22px rgba(60, 40, 110, .55), 0 0 0 4px #fff; display: flex; flex-direction: column; transition: transform .18s; }
   .door:hover { transform: translateY(-4px); }
   .banner { position: relative; height: clamp(150px, 24vh, 230px); border: 0; padding: 0; cursor: pointer; background-position: center; background-size: cover; background-repeat: no-repeat; background-color: #cfe2f5; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; padding: 16px 20px; text-align: left; color: #fff; }
@@ -216,6 +248,12 @@
     .hello p { font-size: 18px; padding: 8px 14px; }
     .hello p::before { display: none; }
     .doors { grid-template-columns: 1fr; gap: 12px; }
+    .door.adventure { flex-direction: column; min-height: 0; }
+    .abanner { min-height: 110px; padding: 10px 14px; }
+    .aname { font-size: 30px; }
+    .ainfo { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 10px 14px; gap: 8px; }
+    .astats { flex-direction: row; flex-wrap: wrap; gap: 4px 12px; flex: 1; }
+    .astats b { font-size: 16px; } .astats img { width: 24px; height: 24px; }
     .banner { height: 96px; padding: 10px 14px; }
     .sign { width: 40px; height: 40px; top: 10px; left: auto; right: 12px; border-radius: 12px; }
     .sign svg { width: 26px; height: 26px; }

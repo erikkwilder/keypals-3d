@@ -8,6 +8,7 @@ import type { Layout, LayoutId } from './layouts';
 import { AWARD, type AwardDef } from './achievements';
 import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from './stickers';
 import { teamBuddies, welcomeNew } from './team';
+import { notePractice } from '../adventure/state';
 import { REWARDS, forBuddy, newBetween, treasureFor, type Reward } from './rewards';
 import { updateKeyStats, type KeyStat } from './mastery';
 import { lessonGoal, platinumScore, starScores, type RunStats } from './scoring';
@@ -97,6 +98,8 @@ export type Profile = {
   allBuddies?: boolean;
   /** the math game: fact memory, trips and which game home shows (absent in older saves) */
   math?: import('../math/progress').MathProgress;
+  /** Adventure: the battle mode (Glimmers, eggs, shells, the map); absent until first opened */
+  adventure?: import('../adventure/state').Adventure;
 };
 
 export type HistoryItem = { at: number; lessonId: string; wpm: number; acc: number; stars: number; ride: number; ms: number; score?: number };
@@ -255,6 +258,8 @@ export type XpInfo = { gained: number; before: { level: number; into: number; ne
 
 export type RunOutcome = {
   profile: Profile;
+  /** eggs in the Adventure incubator that this practice warmed until they're ready to hatch */
+  eggsReady?: import('../adventure/glimmers').Rarity[];
   /** buddies who joined the team with this run */
   buddies: FriendId[];
   medals: MedalWin[];
@@ -410,7 +415,10 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
   }
 
   const buddies = welcomeNew(p);
+  // practice warms the Adventure eggs: every five right letters
+  const eggsReady = run.finished ? notePractice(p, Math.floor(s.chars / 5)) : [];
   return {
+    eggsReady,
     buddies,
     profile: p,
     medals: medalWins,

@@ -5,7 +5,7 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
-export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground';
+export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs';
 
 function load(): SaveFile {
   try {
@@ -54,6 +54,9 @@ class Game {
   stickerTab = $state<'stickers' | 'medals' | 'rides'>('stickers');
   /** which tab Keypals opens on */
   closetTab = $state<'outfits' | 'dances'>('outfits');
+  /** Adventure: the map stop being battled, and a fresh key so "battle again" starts a new one */
+  battleNode = $state<string | null>(null);
+  battleKey = $state(0);
 
   get profile(): Profile | null {
     return this.save.profiles.find(p => p.id === this.save.activeId) ?? null;
