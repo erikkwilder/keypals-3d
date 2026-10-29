@@ -105,3 +105,28 @@ export const GEAR: Record<string, { kind: GearKind; name: string; text: string }
   top_hat: { kind: 'magic', name: 'Magic Trick', text: 'Your first cards every battle always include a ⚡ strong one.' },
   gold_crown: { kind: 'royal', name: 'Royal Cheer', text: 'Your Finale fills up twice as fast.' },
 };
+
+// ---------- evolutions: at level 5 a Glimmer can grow up ----------
+/** The level a Glimmer can evolve at. */
+export const EVOLVE_AT = 5;
+/** An evolved Glimmer's power works as if it were this many levels higher. */
+export const EVOLVE_BOOST = 4;
+/** Each Glimmer's grown-up form: its new name and the extra thing it does in battles. */
+export const EVOLVED: Record<GlimmerId, { name: string; perk: string }> = {
+  puddlepup: { name: 'Tidal Pup', perk: 'Water cards splash 2 more cheer.' },
+  pebbletort: { name: 'Boulder Tortoise', perk: 'Blocks the first two rains or zaps, not just one.' },
+  sproutbun: { name: 'Blossom Bunny', perk: 'Strong ⚡ cards give you 2 more energy back.' },
+  embernewt: { name: 'Flare Newt', perk: 'Sun cards add 3 more cheer.' },
+  fernfox: { name: 'Forest Fox', perk: 'Keeps your row of right answers safe twice a battle.' },
+  snowseal: { name: 'Blizzard Seal', perk: 'Every rain or zap you block also adds 2 cheer.' },
+  frostowl: { name: 'Crystal Owl', perk: 'Freezes the grumpy Glimmer after 2 right in a row, not 3.' },
+  sparkmoth: { name: 'Sunbeam Moth', perk: 'You can use Hint twice a battle.' },
+  prismhorn: { name: 'Diamond Hornback', perk: 'Strong ⚡ cards add 2 more cheer.' },
+  whalecalf: { name: 'Rainbow Whale', perk: 'Water cards add an extra Finale star.' },
+  lanternfox: { name: 'Starlight Fox', perk: 'Your Finale cheers 10 more.' },
+  bloomdrake: { name: 'Bloom Dragon', perk: 'Leaf cards add 2 more cheer.' },
+  skywhale: { name: 'Star Whale', perk: 'Second Wind can help you twice a battle.' },
+  aurorastag: { name: 'Great Aurora Stag', perk: 'You start every battle with 2 Finale stars.' },
+};
+/** The name to show: the grown-up one once it has evolved. */
+export const glimmerName = (id: GlimmerId, evolved?: boolean) => (evolved ? EVOLVED[id].name : GLIMMER[id].name);

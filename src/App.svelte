@@ -20,6 +20,9 @@
   import Battle from './lib/screens/Battle.svelte';
   import Glimmers from './lib/screens/Glimmers.svelte';
   import Eggs from './lib/screens/Eggs.svelte';
+  import Learn from './lib/screens/Learn.svelte';
+  import Duel from './lib/screens/Duel.svelte';
+  import Rivals from './lib/screens/Rivals.svelte';
   import MathRun from './lib/screens/MathRun.svelte';
   import MathResults from './lib/screens/MathResults.svelte';
   import FactGarden from './lib/screens/FactGarden.svelte';
@@ -81,6 +84,9 @@
   {:else if game.screen === 'battle'}{#key game.battleKey}<Battle />{/key}
   {:else if game.screen === 'glimmers'}<Glimmers />
   {:else if game.screen === 'eggs'}<Eggs />
+  {:else if game.screen === 'learn'}<Learn />
+  {:else if game.screen === 'duel'}{#key game.duelKey}<Duel />{/key}
+  {:else if game.screen === 'rivals'}<Rivals />
   {/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}

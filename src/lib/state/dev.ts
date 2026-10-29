@@ -8,6 +8,9 @@ import { BUDDIES } from '../art/cast';
 import { buddyPal } from '../engine/profile';
 import { MATH_LESSONS, PLACEMENTS } from '../math/course';
 import { mathOf } from '../math/progress';
+import { advOf } from '../adventure/state';
+import type { GlimmerId } from '../adventure/glimmers';
+import { ITEM, ITEMS } from '../adventure/gear';
 
 /** A test player with everything open: every typing lesson, math trip and playground level passed,
  *  every buddy on the team, every outfit and dance. Other players are never touched. */
@@ -52,5 +55,33 @@ export function devBoot() {
   if (key === 'battle') { ensure(); game.battleNode = val || 'meadow-0'; game.battleKey++; game.go('battle'); }
   if (key === 'glimmers') { ensure(); game.go('glimmers'); }
   if (key === 'eggs') { ensure(); game.go('eggs'); }
+  // Family Duel and Rival Ghosts: #duel, #rivals
+  if (key === 'duel') { ensure(); game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); }
+  if (key === 'rivals') { ensure(); game.go('rivals'); }
+  // Learn: #learn (the list of tricks) or #learn=make-ten (that lesson)
+  if (key === 'learn') { ensure(); game.openLearn(val || null, 'map'); }
+  // evolutions: #evolve=puddlepup (level 5, ready to evolve), #evolved=puddlepup,sparkmoth (grown up, on the team)
+  if (key === 'evolve' || key === 'evolved') {
+    ensure();
+    const ids = (val || 'puddlepup').split(',') as GlimmerId[];
+    game.update(pp => {
+      const a = advOf(pp);
+      ids.forEach((id, i) => { const o = (a.glimmers[id] ??= { level: 1, xp: 0, got: Date.now() }); o.level = Math.max(o.level, 5); o.evolved = key === 'evolved'; if (i < 2) a.team[i] = id; });
+    });
+    game.glimmerSel = ids[0];
+    game.go('glimmers');
+  }
+  // gear: #gear (the Gear tab), #gear=all (every piece for your buddy, 2000 shells), #gear=sky_kite,fairy_wings (just those, worn)
+  if (key === 'gear') {
+    ensure();
+    if (val) game.update(pp => {
+      const a = advOf(pp);
+      a.shells = Math.max(a.shells, 2000);
+      const g = ((a.gear ??= {})[pp.buddy] ??= { owned: [], on: {} });
+      const ids = val === 'all' ? ITEMS.map(i => i.id) : val.split(',');
+      for (const id of ids) { if (!ITEM[id]) continue; if (!g.owned.includes(id)) g.owned.push(id); g.on[ITEM[id].slot] = id; }
+    });
+    game.openCloset('gear');
+  }
   if (key === 'tester') { addTester(); game.go('map'); history.replaceState(null, '', location.pathname + location.search); }
 }

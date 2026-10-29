@@ -1,16 +1,18 @@
 <script lang="ts">
   // Your Glimmers: every one you've cheered up or hatched, in its card, and the ones still out there as
   // dark shapes. Tap one to see it in 3D on its stone, read its power, and put it on your team (two
-  // battle beside your buddy).
+  // battle beside your buddy). At level 5 a Glimmer can evolve: tap Evolve and watch it grow up.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
   import { stage } from '../three/stage';
   import { GlimmerShow } from '../three/glimmerShow';
-  import { ELEMENT, GLIMMER, GLIMMERS, RARITY, RARITIES, type GlimmerId } from '../adventure/glimmers';
-  import { advOf, owns, xpNeed, MAX_LEVEL, advView } from '../adventure/state';
+  import { ELEMENT, EVOLVE_AT, EVOLVE_BOOST, EVOLVED, GLIMMER, GLIMMERS, RARITY, RARITIES, glimmerName, rarityRank, type GlimmerId } from '../adventure/glimmers';
+  import { advOf, owns, xpNeed, MAX_LEVEL, advView, markSeen } from '../adventure/state';
+  import { canEvolve, evolve, levelsToEvolve } from '../adventure/evolve';
   import Header from '../ui/Header.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
+  import Coach from '../ui/Coach.svelte';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -29,6 +31,42 @@
   const g = $derived(GLIMMER[sel]);
   const mine = $derived(a.glimmers[sel]);
   const inTeam = $derived(a.team.indexOf(sel));
+  /** a Glimmer's name as you know it (grown up once evolved) */
+  const nameOf = (id: GlimmerId) => glimmerName(id, !!a.glimmers[id]?.evolved);
+  const evo = (id: GlimmerId) => !!a.glimmers[id]?.evolved;
+  const ready = (id: GlimmerId) => canEvolve(a, id);
+  // the evolution: the scene plays, then the new card
+  let evolving = $state<GlimmerId | null>(null);
+  let grown = $state<GlimmerId | null>(null);
+  async function doEvolve() {
+    if (!scene || evolving || !ready(sel)) return;
+    const id = sel;
+    evolving = id; swapping = false; sfx.whoosh(); tipDone();
+    const hum = setInterval(() => sfx.heal(), 700);
+    await scene.evolve(id, () => {
+      clearInterval(hum);
+      game.update(pp => { evolve(pp, id); });
+      sfx.finale(); sfx.reveal(rarityRank(GLIMMER[id].rarity));
+    });
+    clearInterval(hum);
+    setTimeout(() => { evolving = null; grown = id; sfx.complete(); }, 1300);
+  }
+  // first time one is ready: a tip at the button
+  const tipOn = $derived(!evolving && !grown && owns(a, sel) && ready(sel) && !(a.seen ?? []).includes('evolve1'));
+  function tipDone() { if (!(a.seen ?? []).includes('evolve1')) game.update(pp => markSeen(pp, 'evolve1')); }
+  // on a phone the cards scroll under the 3D view: when the one shown is ready, bring its Evolve row into sight
+  let sideEl: HTMLDivElement | undefined = $state();
+  let shownReady = '';
+  $effect(() => {
+    const id = sel, r = owns(a, id) && ready(id);
+    if (!r || !sideEl || shownReady === id || sideEl.scrollHeight <= sideEl.clientHeight + 4) return;
+    shownReady = id;
+    requestAnimationFrame(() => {
+      const row = sideEl?.querySelector('.evorow'); if (!row || !sideEl) return;
+      const top = row.getBoundingClientRect().top - sideEl.getBoundingClientRect().top + sideEl.scrollTop - 150;
+      sideEl.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    });
+  });
 
   function viewOf() {
     const r = stageEl?.getBoundingClientRect();
@@ -40,7 +78,7 @@
     const sc = await GlimmerShow.create(viewOf(), 'treetops');
     if (disposed) { sc.dispose(); return; }
     scene = sc; stage.use(sc);
-    if (owns(a, sel)) sc.show(sel);
+    if (owns(a, sel)) sc.show(sel, false, evo(sel));
     requestAnimationFrame(onResize);
     // seen: no more "new" dots
     game.update(pp => { advOf(pp).fresh = []; });
@@ -48,13 +86,14 @@
   onDestroy(() => { disposed = true; removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
 
   function pick(id: GlimmerId) {
+    if (evolving) return;
     sel = id; sfx.pop(); swapping = false;
-    if (owns(a, id)) scene?.show(id); else game.say(`${RARITY[GLIMMER[id].rarity].name}. Find it in battles or eggs!`);
+    if (owns(a, id)) scene?.show(id, false, evo(id)); else game.say(`${RARITY[GLIMMER[id].rarity].name}. Find it in battles or eggs!`);
   }
   function setTeam(slot: number) {
     game.update(pp => { const ad = advOf(pp); const other = ad.team.indexOf(sel); if (other >= 0) ad.team[other] = null; ad.team[slot] = sel; });
     sfx.badge(); scene?.poke(); swapping = false;
-    game.say(`${GLIMMER[sel].name} is on your team!`);
+    game.say(`${nameOf(sel)} is on your team!`);
   }
   function add() {
     const empty = a.team.findIndex(t => !t || !owns(a, t));
@@ -70,15 +109,16 @@
   <div class="body">
     <div class="stagebox" bind:this={stageEl}>
       {#if !owns(a, sel)}<div class="unknown"><GlimmerCard id={sel} width={200} locked /></div>{/if}
+      {#if evolving}<div class="evobanner"><b>What's happening?</b><span>{GLIMMER[evolving].name} is evolving!</span></div>{/if}
     </div>
-    <div class="side">
+    <div class="side" bind:this={sideEl}>
       <div class="teambox card" class:swapping>
-        <h3>Your team <small>{swapping ? `Tap who ${GLIMMER[sel].name} replaces` : 'These two come into every battle with you'}</small></h3>
+        <h3>Your team <small>{swapping ? `Tap who ${nameOf(sel)} replaces` : 'These two come into every battle with you'}</small></h3>
         <div class="slots">
           {#each [0, 1] as slot}
             {@const t = a.team[slot] && owns(a, a.team[slot]!) ? a.team[slot] : null}
             <button class="slot" class:filled={!!t} onclick={() => (swapping ? setTeam(slot) : t ? pick(t) : null)}>
-              {#if t}<GlimmerCard id={t} width={110} level={a.glimmers[t]?.level} />{:else}<span class="empty">+<small>Empty</small></span>{/if}
+              {#if t}<GlimmerCard id={t} width={110} level={a.glimmers[t]?.level} evolved={evo(t)} ready={ready(t)} />{:else}<span class="empty">+<small>Empty</small></span>{/if}
               {#if swapping}<span class="swapin">Swap</span>{/if}
             </button>
           {/each}
@@ -88,16 +128,31 @@
       <div class="info card r-{g.rarity}">
         <div class="ih">
           <img src="{base}game/icon-{g.element}.webp" alt={ELEMENT[g.element].name} />
-          <div><small style:color={RARITY[g.rarity].color}>{RARITY[g.rarity].name} · {RARE_WORDS[g.rarity]}</small><h2>{owns(a, sel) ? g.name : '???'}</h2></div>
+          <div><small style:color={RARITY[g.rarity].color}>{RARITY[g.rarity].name} · {RARE_WORDS[g.rarity]}</small><h2>{owns(a, sel) ? nameOf(sel) : '???'}{#if mine?.evolved}<span class="evochip">★ Evolved</span>{/if}</h2></div>
           {#if mine}<span class="lv">Level {mine.level}</span>{/if}
         </div>
         {#if mine}
-          <p class="pw"><b>In battles it helps you:</b> {g.power.text(mine.level)}</p>
+          <p class="pw"><b>In battles it helps you:</b> {g.power.text(mine.level + (mine.evolved ? EVOLVE_BOOST : 0))}</p>
+          {#if mine.evolved}<p class="pw perk"><img src="{base}game/icon-star.webp" alt="" /><span><b>Grown-up power:</b> {EVOLVED[sel].perk}</span></p>{/if}
           {#if mine.level < MAX_LEVEL}<div class="xp"><div class="bar"><i style:width="{(mine.xp / xpNeed(mine.level)) * 100}%"></i></div><span>Level {mine.level + 1} after a few more battles</span></div>{/if}
+          {#if !mine.evolved}
+            <!-- before and after: now, an arrow, the grown-up form still a mystery -->
+            <div class="evorow" class:go={ready(sel)}>
+              <GlimmerCard id={sel} width={50} />
+              <span class="arr">➜</span>
+              <div class="mystery"><GlimmerCard id={sel} width={50} evolved locked /></div>
+              {#if ready(sel)}
+                <div class="evotext"><b>{g.name} is ready to grow up!</b><small>It gets a new look, a new name and a stronger power.</small></div>
+                <button class="btn evolvebtn" onclick={doEvolve} disabled={!!evolving}>Evolve!</button>
+              {:else}
+                <div class="evotext"><b>Grows up at level {EVOLVE_AT}</b><small>{levelsToEvolve(a, sel)} more level{levelsToEvolve(a, sel) === 1 ? '' : 's'} to go. Win battles with it on your team.</small></div>
+              {/if}
+            </div>
+          {/if}
           {#if inTeam >= 0}
             <div class="acts"><span class="onteam">✓ On your team</span><button class="btn" onclick={leaveTeam}>Take off</button></div>
           {:else}
-            <div class="acts"><button class="btn btn-primary big" onclick={add}>Add {g.name} to your team</button>{#if swapping}<button class="btn" onclick={() => (swapping = false)}>Cancel</button>{/if}</div>
+            <div class="acts"><button class="btn btn-primary big" onclick={add}>Add {nameOf(sel)} to your team</button>{#if swapping}<button class="btn" onclick={() => (swapping = false)}>Cancel</button>{/if}</div>
           {/if}
         {:else}
           <p class="pw">Not found yet. {g.champion ? 'It\'s the Champion at the end of an island: cheer it up there.' : 'You might meet it grumpy in a battle, or it might hatch from an egg.'}</p>
@@ -108,7 +163,7 @@
         <div class="cards">
           {#each owned as x (x.id)}
             <button class="cell" class:on={sel === x.id} class:team={a.team.includes(x.id)} onclick={() => pick(x.id)}>
-              <GlimmerCard id={x.id} width={104} level={a.glimmers[x.id]?.level} fresh={fresh.has(x.id)} />
+              <GlimmerCard id={x.id} width={104} level={a.glimmers[x.id]?.level} fresh={fresh.has(x.id)} evolved={evo(x.id)} ready={ready(x.id)} />
               {#if a.team.includes(x.id)}<span class="tag">Team</span>{/if}
             </button>
           {/each}
@@ -120,6 +175,23 @@
       </div>
     </div>
   </div>
+  {#if grown}
+    {@const gid = grown}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="evobg" onclick={() => (grown = null)}>
+      <div class="evocard card" onclick={(e) => e.stopPropagation()}>
+        <div class="evorays"></div>
+        <p class="evohead">{GLIMMER[gid].name} grew up into</p>
+        <h2>{EVOLVED[gid].name}!</h2>
+        <div class="evopic"><GlimmerCard id={gid} width={190} level={a.glimmers[gid]?.level} evolved shine /></div>
+        <p class="pw"><b>In battles it helps you:</b> {GLIMMER[gid].power.text((a.glimmers[gid]?.level ?? 1) + EVOLVE_BOOST)}</p>
+        <p class="pw perk"><img src="{base}game/icon-star.webp" alt="" /><span><b>New grown-up power:</b> {EVOLVED[gid].perk}</span></p>
+        <button class="btn btn-primary big" onclick={() => (grown = null)}>Hooray!</button>
+      </div>
+    </div>
+  {/if}
+  {#if tipOn}<Coach text="{g.name} is ready to grow up! Tap Evolve to watch it change." at=".evolvebtn" button="OK" onok={tipDone} />{/if}
 </div>
 
 <style>
@@ -162,8 +234,42 @@
   .cell { border: 0; background: none; padding: 3px; border-radius: 16px; cursor: pointer; display: grid; place-items: center; transition: transform .15s; }
   .cell:hover { transform: translateY(-3px); }
   .cell.on { background: rgba(255, 255, 255, .7); box-shadow: 0 0 0 3px var(--primary-hi); }
+  /* evolving */
+  .evochip { display: inline-block; white-space: nowrap; margin-left: 10px; vertical-align: middle; font: 800 13px var(--font-body); color: #6a4300; background: linear-gradient(#ffe68a, #ffc93d); padding: 3px 10px; border-radius: 999px; }
+  .perk { display: flex; align-items: center; gap: 8px; }
+  .perk img { width: 26px; height: 26px; flex: none; }
+  .evorow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 18px; background: #faf8fe; }
+  .evorow.go { background: linear-gradient(#fff8dc, #ffecb0); box-shadow: 0 0 0 2px #ffd36b; }
+  .evorow .arr { font: 600 22px var(--font-ui); color: #c9a23a; }
+  .mystery { position: relative; }
+  .evotext { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+  .evotext b { font: 600 17px var(--font-ui); color: var(--ink); }
+  .evotext small { font: 600 13px/1.35 var(--font-body); color: var(--ink2); }
+  .evolvebtn { flex: none; font: 600 20px var(--font-ui); padding: 12px 22px; color: #5a3900; background: linear-gradient(#ffe68a, #ffc23a); box-shadow: 0 0 0 3px #fff, 0 0 18px #ffd36b; animation: evobtn 1.2s ease-in-out infinite; }
+  @keyframes evobtn { 50% { box-shadow: 0 0 0 3px #fff, 0 0 30px #ffc23a; } }
+  .evobanner { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 20; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 26px; border-radius: 24px; background: rgba(255, 255, 255, .92); box-shadow: 0 0 0 4px #ffd36b, var(--shadow-sm); text-align: center; pointer-events: none; }
+  .evobanner b { font: 700 14px var(--font-body); color: var(--muted); }
+  .evobanner span { font: 600 28px var(--font-ui); color: var(--ink); animation: evotext 0.8s ease-in-out infinite; }
+  @keyframes evotext { 50% { color: #c98a00; } }
+  .evobg { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(40, 28, 70, .45); padding: 16px; }
+  .evocard { position: relative; overflow: hidden; width: min(440px, 94vw); max-height: 94vh; overflow-y: auto; padding: 18px 22px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+  .evorays { position: absolute; inset: -40%; background: repeating-conic-gradient(from 0deg, rgba(255, 214, 90, .22) 0 10deg, transparent 10deg 20deg); animation: rays 14s linear infinite; pointer-events: none; }
+  @keyframes rays { to { transform: rotate(360deg); } }
+  .evohead { position: relative; margin: 0; font: 700 16px var(--font-body); color: var(--muted); }
+  .evocard h2 { position: relative; margin: 0; font-size: 34px; color: #c07a00; }
+  .evopic { position: relative; animation: pop .7s cubic-bezier(.2, 1.4, .4, 1) both; }
+  @keyframes pop { from { transform: scale(.4) rotate(-8deg); opacity: 0; } }
+  .evocard .pw { position: relative; text-align: left; }
+  .evocard .btn { position: relative; }
   @media (max-width: 760px) {
-    .body { grid-template-columns: 1fr; grid-template-rows: 34vh 1fr; padding: 10px; gap: 10px; }
+    .evorow { flex-wrap: wrap; }
+    .evolvebtn { width: 100%; }
+    .evobanner { top: 8px; padding: 6px 16px; } .evobanner span { font-size: 20px; }
+    .body { grid-template-columns: 1fr; grid-template-rows: 30vh 1fr; padding: 10px; gap: 10px; }
+    /* the team, the card and the list scroll together under the 3D view */
+    .side { overflow-y: auto; padding-bottom: 12px; }
+    .side > * { flex: none; }
+    .grid { overflow: visible; }
     .ih h2 { font-size: 24px; }
     .slot .empty { width: 80px; }
   }

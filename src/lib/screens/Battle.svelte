@@ -15,9 +15,13 @@
   import { FRIEND } from '../art/cast';
   import { answerOf, opSign, type Fact } from '../math/facts';
   import { trickOf } from '../math/course';
-  import { BUDDY_ROLE, ELEMENT, GEAR, GLIMMER, RARITY, ROLE, rarityRank, type Element } from '../adventure/glimmers';
-  import { newBattle, play, block as doBlock, finale as doFinale, swap as doSwap, openFact, sparkFor, useGlow, FINALE_AT, type Battle, type BEvent, type Card } from '../adventure/battle';
+  import { BUDDY_ROLE, ELEMENT, EVOLVE_BOOST, EVOLVED, GEAR, GLIMMER, RARITY, ROLE, glimmerName, rarityRank, type Element, type GlimmerId } from '../adventure/glimmers';
+  import { canEvolve } from '../adventure/evolve';
+  import { newBattle, play, block as doBlock, finale as doFinale, swap as doSwap, openFact, sparkFor, useGlow, glowLeft, FINALE_AT, type Battle, type BEvent, type Card } from '../adventure/battle';
   import { advOf, advView, applyBattle, foeFor, ISLAND, markSeen, mathPool, NODE, teamOf, typingPool, type BattleOutcome } from '../adventure/state';
+  import { learnedTrick } from '../math/learn';
+  import { ITEM, SLOT_NAME, SLOTS, kitOf, startPerks, wornOf } from '../adventure/gear';
+  import { mathOf as mathOfLearn } from '../math/progress';
   import Coach from '../ui/Coach.svelte';
   import NumPad from '../math/ui/NumPad.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -38,7 +42,9 @@
   const outfit = outfitOf(p0);
   const gear = GEAR[outfit] ?? null;
   const level = levelFromXp(buddyPal(p0).xp).level;
-  const b: Battle = newBattle({ pool, seed, sparkMax: sparkFor(level, role), role, gear: gear?.kind ?? null, team, foe, fastMs: p0.math?.fastMs });
+  // hand, back and shoe gear: its powers (and any set bonus) and the pieces for the 3D buddy
+  const kit = kitOf(adv, p0.buddy), worn = wornOf(adv, p0.buddy);
+  const b: Battle = newBattle({ pool, seed, sparkMax: sparkFor(level, role), role, gear: gear?.kind ?? null, team, foe, fastMs: p0.math?.fastMs, kit });
   const t0 = performance.now();
   const champion = node.kind === 'champion';
 
@@ -46,7 +52,7 @@
   let disposed = false;
   let ui = $state<'loading' | 'intro' | 'pick' | 'answer' | 'busy' | 'block' | 'won' | 'lost'>('loading');
   let cards = $state<Card[]>([]);
-  let finaleN = $state(0);
+  let finaleN = $state(b.finale);
   let streak = $state(0);
   const spark = new Tween(b.spark, { duration: 500, easing: cubicOut });
   const grump = new Tween(b.foe.grump, { duration: 650, easing: cubicOut });
@@ -55,6 +61,8 @@
   let swapOk = $state(role === 'trick');
   let glowOk = $state(team.some(m => GLIMMER[m.id].power.kind === 'glow'));
   let glowText = $state('');
+  /** the card whose learned trick is showing */
+  let trickOpen = $state<number | null>(null);
 
   // answering
   let sel = $state<Card | null>(null);
@@ -90,7 +98,11 @@
     seen.add(id); coach = { id, text, at, button };
   }
   function closeTip(id?: string) { if (!id || coach?.id === id) coach = null; }
-  const foeName = GLIMMER[foe.glimmer].name;
+  const foeName = glimmerName(foe.glimmer, foe.evolved);
+  // your own Glimmers: grown-up name and painting once evolved
+  const evolvedIds = new Set(team.filter(m => m.evolved).map(m => m.id));
+  const myName = (id: GlimmerId) => glimmerName(id, evolvedIds.has(id));
+  const myArt = (id: GlimmerId) => `${base}game/glimmers/${id}${evolvedIds.has(id) ? '-evo' : ''}.webp`;
   const canPerfect = $derived(subject === 'math' ? cards.some(c => c.fact && answerOf(c.fact) === grumpNow) : cards.some(c => c.word?.length === grumpNow));
 
   // the end
@@ -110,7 +122,7 @@
   onMount(async () => {
     addEventListener('resize', onResize);
     try {
-      const sc = await BattleScene.create({ buddy: p0.buddy, outfit, dance: danceOf(p0), region: island.region, team: team.map(t => t.id), foe: { glimmer: foe.glimmer, rarity: foe.rarity, champion }, view: viewOf() });
+      const sc = await BattleScene.create({ buddy: p0.buddy, outfit, dance: danceOf(p0), region: island.region, team: team.map(t => t.id), teamEvolved: team.map(t => !!t.evolved), foe: { glimmer: foe.glimmer, rarity: foe.rarity, champion, evolved: foe.evolved }, view: viewOf(), kit: worn });
       if (disposed) { sc.dispose(); return; }
       scene = sc; stage.use(sc);
       requestAnimationFrame(onResize);
@@ -122,6 +134,8 @@
     bigBanner = { text: `${foeName} is grumpy!`, sub: champion ? `The Champion of ${island.name}. Cheer it up and it joins your team!` : 'Answer cards to cheer it up. Then it joins your team!', kind: champion ? 'champ' : 'intro', key: Date.now() };
     setTimeout(() => {
       bigBanner = null; sync(); ui = 'pick';
+      // gear that works from the start says so
+      startPerks(kit).forEach((g, i) => setTimeout(() => { if (!disposed) { sfx.helper(); helped(undefined, g.what, g.did, `${base}gear/${g.item}.webp`); } }, 300 + i * 700));
       if (firstBattle) tip('t-cards', 'Tap a card, then type the answer. Every right answer cheers it up, and bigger answers cheer more!', '.cards');
     }, champion ? 2800 : 2300);
   });
@@ -138,19 +152,21 @@
     // a helper's badge stays on screen even when its Glimmer stands at the very edge
     const edge = Math.min(0.4, 105 / Math.max(1, innerWidth));
     const x = kind === 'helper' ? Math.min(1 - edge, Math.max(edge, pos.x)) : pos.x + (Math.random() - 0.5) * 0.03;
-    const f = { id: fid++, x, y: kind === 'helper' ? Math.max(0.2, pos.y) : pos.y, text, kind, img };
+    // badges that come together (a Glimmer and a piece of gear) stack instead of covering each other
+    const stack = kind === 'helper' ? floats.filter(q => q.kind === 'helper').length : 0;
+    const f = { id: fid++, x, y: kind === 'helper' ? Math.max(0.2, pos.y) + stack * 0.075 : pos.y, text, kind, img };
     floats = [...floats, f];
     setTimeout(() => (floats = floats.filter(x => x.id !== f.id)), kind === 'helper' ? 2200 : 1500);
   }
   /** A helper's badge: who helped, with what, and what it did. */
-  function helped(id: string | undefined, what: string, did: string) {
+  function helped(id: string | undefined, what: string, did: string, pic?: string) {
     const slot = id ? team.findIndex(m => m.id === id) : -1;
     const who = slot === 0 ? 'team0' : slot === 1 ? 'team1' : 'buddy';
-    const img = id ? `${base}game/glimmers/${id}.webp` : `${base}portraits/${p0.buddy}-head.png`;
+    const img = pic ?? (id ? myArt(id as GlimmerId) : `${base}portraits/${p0.buddy}-head.png`);
     float(who, `${what}: ${did}`, 'helper', img);
   }
   // tap anything (a team member, a bar, the Finale stars) to see what it is
-  let info = $state<{ kind: 'glimmer'; id: string } | { kind: 'buddy' | 'grumpy' | 'energy' | 'finale' | 'shells' | 'friendship' | 'egg' | 'reward'; id?: string } | null>(null);
+  let info = $state<{ kind: 'glimmer'; id: string } | { kind: 'buddy' | 'grumpy' | 'energy' | 'finale' | 'shells' | 'friendship' | 'egg' | 'reward' | 'gear'; id?: string } | null>(null);
   function show(i: NonNullable<typeof info>) { info = i; sfx.pop(); }
   function say(text: string, kind = 'info') { toast = { text, kind, key: Date.now() }; setTimeout(() => { if (toast?.text === text) toast = null; }, 2200); }
 
@@ -228,7 +244,7 @@
   function askGlow() {
     const f = fact(sel);
     if (!useGlow(b) || !f) return;
-    glowOk = false;
+    glowOk = glowLeft(b);
     glowText = subject === 'math' ? trickOf(f).say : '';
     sfx.heal();
   }
@@ -250,18 +266,24 @@
       } else if (e.k === 'extra') {
         const slot = e.id ? team.findIndex(m => m.id === e.id) : -1;
         sfx.helper();
-        helped(e.id, e.id ? GLIMMER[e.id].power.name : e.what, `+${e.value} cheer`);
+        helped(e.id, e.what, `+${e.value} cheer`, e.item ? `${base}gear/${e.item}.webp` : undefined);
         await scene?.extra(slot, e.id ? GLIMMER[e.id].element : 'sun');
         float('foe', `−${e.value}`, 'extra');
         sync();
       } else if (e.k === 'heal') {
         const slot = e.id ? team.findIndex(m => m.id === e.id) : -1;
         scene?.heal(slot); sfx.heal();
-        helped(e.id, e.id ? GLIMMER[e.id].power.name : e.what, `+${e.value} energy`); sync();
+        helped(e.id, e.what, `+${e.value} energy`, e.item ? `${base}gear/${e.item}.webp` : undefined); sync();
         await sleep(300);
       } else if (e.k === 'freeze') { scene?.freeze(team.findIndex(m => m.id === e.id)); sfx.freeze(); helped(e.id, GLIMMER[e.id].power.name, `${foeName} is frozen!`); await sleep(400); }
+      else if (e.k === 'gear') {
+        // a piece of gear did its thing: its own badge, with its picture
+        sfx.helper(); helped(undefined, e.what, e.did, `${base}gear/${e.item}.webp`);
+        if (e.item === 'bubble_wand') sfx.shield(true);
+        sync(); await sleep(350);
+      }
       else if (e.k === 'dazzle') { scene?.dazzle(); }
-      else if (e.k === 'streakKept') { say(`${GLIMMER[e.id].name} kept your row going!`, 'good'); }
+      else if (e.k === 'streakKept') { say(`${myName(e.id)} kept your row going!`, 'good'); }
       else if (e.k === 'aurora') { scene?.aurora(); sfx.reveal(3); say('Aurora! Your Finale is ready.', 'super'); await sleep(600); }
       else if (e.k === 'finaleReady') { sfx.badge(); }
       else if (e.k === 'finale') { sfx.hit(1); float('foe', `−${e.value}`, 'finale'); sync(); }
@@ -347,6 +369,9 @@
   function toMap() { game.go('adventure'); }
   function again() { game.battleKey++; }
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+  // after a win: your own Glimmers by their grown-up names, and any that just reached the level to evolve
+  const ownName = (id: GlimmerId) => glimmerName(id, !!advView(game.profile!).glimmers[id]?.evolved);
+  const readyNow = $derived(out ? [...new Set([...out.teamUps.map(t => t.id), ...(out.met?.ups ? [out.met.id] : [])])].filter(id => canEvolve(advView(game.profile!), id)) : []);
   const RARE_WORDS: Record<string, string> = { common: 'Easy to find', uncommon: 'A bit harder to find', rare: 'Hard to find!', epic: 'Very hard to find!', legendary: 'One of a kind!', mythic: 'The rarest of all!' };
   const grumpPct = $derived((grump.current / Math.max(1, b.foe.max)) * 100);
   const sparkPct = $derived((spark.current / Math.max(1, b.sparkMax)) * 100);
@@ -373,8 +398,8 @@
   </button>
 
   <div class="teamrow">
-    <button class="bud" onclick={() => show({ kind: 'buddy' })}><Critter friend={p0.buddy} size={narrow ? 34 : 44} round /><em><b>{FRIEND[p0.buddy].name}</b>{ROLE[role].name}</em></button>
-    {#each team as m (m.id)}<button class="mate" onclick={() => show({ kind: 'glimmer', id: m.id })}><img src="{base}game/glimmers/{m.id}.webp" alt="" /><em><b>{GLIMMER[m.id].name}</b>{GLIMMER[m.id].power.name}</em></button>{/each}
+    <button class="bud" onclick={() => show({ kind: 'buddy' })}><Critter friend={p0.buddy} size={narrow ? 34 : 44} round /><em><b>{FRIEND[p0.buddy].name}</b>{ROLE[role].name}</em>{#if SLOTS.some(sl => worn[sl])}<span class="kit">{#each SLOTS as sl}{#if worn[sl]}<img src="{base}gear/{worn[sl]}.webp" alt={ITEM[worn[sl]!].name} />{/if}{/each}</span>{/if}</button>
+    {#each team as m (m.id)}<button class="mate" onclick={() => show({ kind: 'glimmer', id: m.id })}><img src={myArt(m.id)} alt="" /><em><b>{myName(m.id)}</b>{GLIMMER[m.id].power.name}</em></button>{/each}
   </div>
 
   <div class="stage" bind:this={stageEl}></div>
@@ -411,9 +436,12 @@
       <div class="answer el-{sel.element}">
         {#if subject === 'math'}
           {@const f = fact(sel)!}
+          {@const tk = learnedTrick(mathOfLearn(game.profile!), f)}
           {#key shakeKey}<div class="eq" class:shake={shakeKey > 0}><span>{factText(f)} =</span><span class="box">{typed || ' '}</span></div>{/key}
-          {#if glowOk && !glowText}<button class="glowbtn" onclick={askGlow}>💡 Hint from Spark Moth</button>{/if}
+          {#if glowOk && !glowText}<button class="glowbtn" onclick={askGlow}>💡 Hint from {myName('sparkmoth')}</button>{/if}
           {#if glowText}<p class="glow">💡 {glowText}</p>{/if}
+          <!-- a trick learned in a Learn lesson: a hint in its own words, the answer left for you -->
+          {#if tk && !glowText}{#if trickOpen === sel.id}<p class="glow">💡 {tk.say}</p>{:else}<button class="glowbtn" onclick={() => { trickOpen = sel!.id; sfx.pop(); }}>💡 Trick: {tk.name}</button>{/if}{/if}
           <NumPad ondigit={digit} onback={backspace} compact={narrow} />
         {:else}
           {#key shakeKey}<div class="word" class:shake={shakeKey > 0}>{#each sel.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/key}
@@ -438,21 +466,24 @@
     {@const m = out.met}
     <div class="reveal r-{m.rarity}">
       <div class="rays"></div>
-      <div class="rtitle"><small>{GLIMMER[m.id].name} is happy again!</small><b>{RARITY[m.rarity].name}</b><em>{RARE_WORDS[m.rarity]}</em></div>
-      <div class="rcard"><GlimmerCard id={m.id} width={revealW} level={m.level} shine /></div>
+      <div class="rtitle"><small>{foeName} is happy again!</small><b>{RARITY[m.rarity].name}</b><em>{RARE_WORDS[m.rarity]}</em></div>
+      <div class="rcard"><GlimmerCard id={m.id} width={revealW} level={m.level} shine evolved={!!advView(game.profile!).glimmers[m.id]?.evolved} /></div>
       <div class="rinfo" class:in={step >= 1}>
         {#if m.isNew}
-          <h2>{GLIMMER[m.id].name} joined you!</h2>
-          <p class="pw"><b>In battles it helps you:</b> {GLIMMER[m.id].power.text(1)}</p>
-          {#if !advView(game.profile!).team.includes(m.id)}<button class="btn teambtn" onclick={() => { game.glimmerSel = m.id; game.go('glimmers'); }}>Put {GLIMMER[m.id].name} on your team</button>{/if}
+          <h2>{ownName(m.id)} joined you!</h2>
+          <p class="pw"><b>In battles it helps you:</b> {GLIMMER[m.id].power.text(1 + (advView(game.profile!).glimmers[m.id]?.evolved ? EVOLVE_BOOST : 0))}</p>
+          {#if advView(game.profile!).glimmers[m.id]?.evolved}<p class="pw"><b>Grown-up power:</b> {EVOLVED[m.id].perk}</p>{/if}
+          {#if !advView(game.profile!).team.includes(m.id)}<button class="btn teambtn" onclick={() => { game.glimmerSel = m.id; game.go('glimmers'); }}>Put {ownName(m.id)} on your team</button>{/if}
         {:else}
-          <h2>You already have {GLIMMER[m.id].name}</h2>
+          <h2>You already have {ownName(m.id)}</h2>
           <p class="pw">So yours got stronger{m.ups ? `: now level ${m.level}` : ''}! Find a new kind by playing other battles, or hatch an egg.</p>
         {/if}
+        {#each readyNow as id (id)}<div class="evoready"><img src="{base}game/glimmers/{id}.webp" alt="" /><b>{ownName(id)} is ready to evolve!</b><button class="btn evobtn" onclick={() => { game.glimmerSel = id; game.go('glimmers'); }}>Evolve it</button></div>{/each}
       </div>
       <div class="rewards" class:in={step >= 2}>
         <button class="prize" onclick={() => show({ kind: 'shells' })}><img src="{base}game/icon-shell.webp" alt="" /><b>+{out.shells}</b><small>shells</small></button>
         <button class="prize" onclick={() => show({ kind: 'friendship' })}><span class="heart">♥</span><b>+{out.xp.gained}</b><small>friendship</small></button>
+        {#if out.gear}<button class="prize gearprize" onclick={() => show({ kind: 'gear', id: out!.gear!.id })}><img src="{base}gear/{out.gear.id}.webp" alt="" /><b>Gear!</b><small>{out.gear.name}</small></button>{/if}
         {#if out.egg}<button class="prize egg" onclick={() => show({ kind: 'egg', id: out!.egg!.rarity })}><img src="{base}game/egg-{out.egg.rarity}.webp" alt="" /><b>Egg!</b><small>new</small></button>{/if}
         {#each out.rewards as r}<button class="prize" onclick={() => show({ kind: 'reward', id: r.id })}>{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart">♪</span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></button>{/each}
       </div>
@@ -490,7 +521,7 @@
           <div class="hr"><div class="mini"><span class="mstars">{#each Array(5) as _}<img src="{base}game/icon-star.webp" alt="" />{/each}</span></div><p><b>5 right in a row</b> = your buddy's Finale.</p></div>
           <div class="hr"><div class="mini"><span class="mcard el-tide"><img src="{base}game/icon-tide.webp" alt="" />6 + 2<em>⚡ Strong</em></span></div><p><b>Strong cards</b> also calm its next rain.</p></div>
         </div>
-        {#if team.length}<div class="hteam">{#each team as m}<span><img src="{base}game/glimmers/{m.id}.webp" alt="" /><p><b>{GLIMMER[m.id].name}:</b> {GLIMMER[m.id].power.text(m.level)}</p></span>{/each}</div>{/if}
+        {#if team.length}<div class="hteam">{#each team as m}<span><img src={myArt(m.id)} alt="" /><p><b>{myName(m.id)}:</b> {GLIMMER[m.id].power.text(m.level + (m.evolved ? EVOLVE_BOOST : 0))}{#if m.evolved} {EVOLVED[m.id].perk}{/if}</p></span>{/each}</div>{/if}
         <button class="btn btn-primary" onclick={() => (help = false)}>Got it</button>
       </div>
     </div>
@@ -504,13 +535,19 @@
       <div class="infobox card" onclick={(e) => e.stopPropagation()}>
         {#if i.kind === 'glimmer'}
           {@const g = GLIMMER[i.id as keyof typeof GLIMMER]}
-          <GlimmerCard id={g.id} width={150} level={team.find(m => m.id === g.id)?.level} />
-          <div><h3>{g.name}</h3><p><b>In battles it helps you:</b> {g.power.text(team.find(m => m.id === g.id)?.level ?? 1)}</p><p class="muted">{g.quirk}</p></div>
+          {@const tm = team.find(m => m.id === g.id)}
+          <GlimmerCard id={g.id} width={150} level={tm?.level} evolved={!!tm?.evolved} />
+          <div><h3>{myName(g.id)}</h3><p><b>In battles it helps you:</b> {g.power.text((tm?.level ?? 1) + (tm?.evolved ? EVOLVE_BOOST : 0))}</p>{#if tm?.evolved}<p><b>Grown-up power:</b> {EVOLVED[g.id].perk}</p>{/if}<p class="muted">{g.quirk}</p></div>
+        {:else if i.kind === 'gear' && i.id && ITEM[i.id]}
+          {@const it = ITEM[i.id]}
+          <img class="ibig" src="{base}gear/{it.id}.webp" alt="" />
+          <div><h3>New gear: {it.name}</h3><p>The Champion's prize, for {FRIEND[p0.buddy].name} to keep. It's on already ({SLOT_NAME[it.slot].toLowerCase()}).</p><p><b>In battles:</b> {it.text}</p><p class="muted">Change gear on the Keypals screen.</p></div>
         {:else if i.kind === 'buddy'}
           <Critter friend={p0.buddy} size={130} />
-          <div><h3>{FRIEND[p0.buddy].name}: {ROLE[role].name}</h3><p>{ROLE[role].text}</p>{#if gear}<p><b>Outfit power ({gear.name}):</b> {gear.text}</p>{/if}</div>
+          <div><h3>{FRIEND[p0.buddy].name}: {ROLE[role].name}</h3><p>{ROLE[role].text}</p>{#if gear}<p><b>Outfit power ({gear.name}):</b> {gear.text}</p>{/if}
+            {#each SLOTS as sl}{#if worn[sl]}<p class="kitline"><img src="{base}gear/{worn[sl]}.webp" alt="" /><span><b>{ITEM[worn[sl]!].name}:</b> {ITEM[worn[sl]!].text}</span></p>{/if}{/each}</div>
         {:else if i.kind === 'grumpy'}
-          <GlimmerCard id={foe.glimmer} width={130} />
+          <GlimmerCard id={foe.glimmer} width={130} evolved={!!foe.evolved} />
           <div><h3>{foeName} is grumpy</h3><p>Every right answer takes some grumps away. At 0 it's happy again and joins you!</p></div>
         {:else if i.kind === 'energy'}
           <img class="ibig" src="{base}game/icon-spark.webp" alt="" />
@@ -576,6 +613,13 @@
   .teamrow em { font-style: normal; }
   .narrow .teamrow em { display: none; }
   .teamrow .gear img { object-fit: contain; background: #fff; }
+  /* the buddy's gear, small, after its name (tap the buddy for what each piece does) */
+  .teamrow .kit { display: flex; gap: 1px; margin-left: 2px; }
+  .teamrow .kit img { width: 24px; height: 24px; border-radius: 0; object-fit: contain; background: none; }
+  .narrow .teamrow .kit { display: none; }
+  .kitline { display: flex; align-items: center; gap: 8px; }
+  .kitline img { width: 34px; height: 34px; object-fit: contain; flex: none; }
+  .prize.gearprize img { width: 52px; height: 52px; }
 
   .float { position: absolute; transform: translate(-50%, -50%); font: 600 34px var(--font-ui); color: #fff; z-index: 8; pointer-events: none; animation: rise 1.5s cubic-bezier(.2, .8, .3, 1) forwards; -webkit-text-stroke: 1px rgba(40, 20, 80, .25); text-shadow: 0 3px 0 rgba(40, 20, 80, .35), 0 0 18px currentColor; white-space: nowrap; }
   .float.sun { color: #ffbf2e; } .float.tide { color: #3fa2ff; } .float.frost { color: #7fd6ff; } .float.leaf { color: #4fd17a; } .float.stone { color: #d6a46a; }
@@ -676,6 +720,10 @@
   .rinfo.in, .rewards.in, .rbtns.in { opacity: 1; transform: none; }
   .rinfo { background: rgba(255, 255, 255, .94); border-radius: 22px; padding: 10px 20px; max-width: 560px; }
   .rinfo h2 { margin: 0; font-size: 26px; }
+  .evoready { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; padding: 6px 8px 6px 6px; border-radius: 999px; background: linear-gradient(#fff6d6, #ffe7a3); box-shadow: 0 0 0 2px #ffd36b; }
+  .evoready img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; object-position: center 35%; }
+  .evoready b { font: 600 17px var(--font-ui); color: #6a4300; }
+  .evobtn { padding: 6px 14px; font-size: 15px; background: linear-gradient(#ffe68a, #ffc93d); color: #5a3900; }
   .pw { margin: 4px 0 0; font: 600 16px/1.35 var(--font-body); color: var(--ink2); }
   .qk { margin: 4px 0 0; font: 600 14px var(--font-body); color: var(--muted); font-style: italic; }
   .rewards { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 720px; }

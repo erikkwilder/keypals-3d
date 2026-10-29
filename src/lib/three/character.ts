@@ -89,6 +89,8 @@ export class Character {
   private outfit: THREE.Object3D | null = null;
   private blob: THREE.Mesh;
   outfitId = 'none';
+  /** worn things that move on their own every frame (gear3d: a cape's sway, bubbles, flames) */
+  readonly tickers = new Set<(dt: number) => void>();
 
   private constructor(id: FriendId, model: THREE.Object3D, clips: THREE.AnimationClip[]) {
     this.id = id;
@@ -263,6 +265,7 @@ export class Character {
   /** Advance the moves, then lay planted feet flat (turned only about the up axis, as in the bind pose). */
   update(dt: number) {
     this.mixer.update(dt);
+    for (const f of this.tickers) f(dt);
     // the blob only on the ground (seated on a ride, the ride is underneath)
     this.blob.visible = charLook.blob && this.groundFeet;
     if (!this.groundFeet || !this.feet.length) return;

@@ -5,12 +5,14 @@ import * as THREE from 'three';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
 import { makeOutfit } from './outfits3d';
+import { wearGear, wearKit } from './gear3d';
+import type { Slot } from '../adventure/gear';
 import type { FriendId } from '../art/cast';
 import type { Island } from './island';
 import type { View } from './runScene';
 
 /** `shadowed`: buddies shown in shadowy black and white (not on the team yet). */
-type Opts = { buddies: FriendId[]; view: View; spot?: number; outfits?: Partial<Record<FriendId, string>>; orbit?: boolean; shadowed?: FriendId[] };
+type Opts = { buddies: FriendId[]; view: View; spot?: number; outfits?: Partial<Record<FriendId, string>>; orbit?: boolean; shadowed?: FriendId[]; /** hand, back and shoe gear */ gear?: Partial<Record<FriendId, Partial<Record<Slot, string>>>> };
 
 export class ShowScene implements Controller {
   /** menus don't need 60 frames a second */
@@ -60,7 +62,11 @@ export class ShowScene implements Controller {
       loads.push(c.loadMoves());
       const o = opts.outfits?.[c.id];
       if (opts.shadowed?.includes(c.id)) c.shadowed();
-      else if (o && o !== 'none') c.wear(o, makeOutfit);
+      else {
+        if (o && o !== 'none') c.wear(o, makeOutfit);
+        const g = opts.gear?.[c.id];
+        if (g) wearKit(c, g);
+      }
     }
     const sc = new ShowScene(island, ok, opts);
     sc.movesReady = Promise.all(loads);
@@ -107,6 +113,8 @@ export class ShowScene implements Controller {
     this.movesReady.then(() => { if (this.selected === id && c.has('wave1')) this.start(this.chars.indexOf(c), 'wave1'); });
   }
   async wear(id: FriendId, outfit: string) { await this.chars.find(c => c.id === id)?.wear(outfit, makeOutfit); }
+  /** Put a piece of hand, back or shoe gear on (null takes it off). */
+  async wearGear(id: FriendId, slot: Slot, item: string | null) { const c = this.chars.find(x => x.id === id); if (c) await wearGear(c, slot, item); }
   dance(id: FriendId, dance: string) {
     const i = this.chars.findIndex(c => c.id === id);
     if (i < 0) return;

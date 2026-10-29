@@ -9,7 +9,10 @@
   import { palOf, setLook } from '../engine/profile';
   import { levelFromXp } from '../engine/stickers';
   import { joinProgress, onTeam, UNLOCKS } from '../engine/team';
-  import { BUDDY_ROLE, GEAR, ROLE } from '../adventure/glimmers';
+  import { BUDDY_ROLE, GEAR, RARITY, ROLE } from '../adventure/glimmers';
+  import { advOf, advView, ISLAND, markSeen } from '../adventure/state';
+  import { ITEMS, ITEM, SETS, SET_IDS, SLOTS, SLOT_NAME, buyGear, gearView, howToGet, setItems, setsOn, wearGear as putOn, wornOf, type GearItem, type SetId, type Slot } from '../adventure/gear';
+  import Coach from '../ui/Coach.svelte';
   import { sfx } from '../audio/sound';
   import { stage } from '../three/stage';
   import { ShowScene } from '../three/showScene';
@@ -23,7 +26,16 @@
   let who = $state<FriendId>(game.profile!.buddy);
   const pal = $derived(palOf(p, who));
   const lvl = $derived(levelFromXp(pal.xp));
-  let tab = $state<'outfits' | 'dances'>(game.closetTab);
+  let tab = $state<'outfits' | 'dances' | 'gear'>(game.closetTab);
+  // gear: the slot being picked for, and a piece (or set) shown big with what it does and how to get it
+  let slot = $state<Slot>('hand');
+  let peek = $state<GearItem | null>(null);
+  let setPeek = $state<SetId | null>(null);
+  const base = import.meta.env.BASE_URL;
+  const adv = $derived(advView(p));
+  const bg = $derived(gearView(adv, who));
+  const setsWorn = $derived(setsOn(bg));
+  const gearTip = $derived(tab === 'gear' && !adv.seen.includes('gear1'));
   // a few dances bump into some buddies' heads or hats: those buddies don't get them
   const DANCES = $derived(forBuddy(ALL_DANCES, who));
   const outfitsOpen = $derived(OUTFITS.filter(o => !locked(o)).length);
@@ -38,7 +50,7 @@
 
   async function show(id: FriendId) {
     const old = scene;
-    const sc = await ShowScene.create({ buddies: [id], view: viewOf(), spot: 10, outfits: { [id]: palOf(game.profile!, id).outfit }, shadowed: onTeam(game.profile!, id) ? [] : [id] });
+    const sc = await ShowScene.create({ buddies: [id], view: viewOf(), spot: 10, outfits: { [id]: palOf(game.profile!, id).outfit }, shadowed: onTeam(game.profile!, id) ? [] : [id], gear: { [id]: wornOf(advView(game.profile!), id) } });
     if (disposed || who !== id) { sc.dispose(); return; }
     scene = sc;
     stage.use(sc);
@@ -72,6 +84,24 @@
     scene?.dance(who, r.id);
     sfx.pop();
   }
+  // ---------- gear ----------
+  function tapPiece(it: GearItem) {
+    if (!bg.owned.includes(it.id)) { peek = it; sfx.pop(); return; }
+    const on = bg.on[it.slot] === it.id;
+    game.update(pp => { putOn(advOf(pp), who, it.slot, on ? null : it.id); });
+    scene?.wearGear(who, it.slot, on ? null : it.id);
+    if (on) sfx.pop(); else { burst++; sfx.badge(); }
+  }
+  function buyPiece(it: GearItem) {
+    let r: { ok: boolean; why?: string } = { ok: false };
+    game.update(pp => { r = buyGear(advOf(pp), who, it.id); });
+    if (!r.ok) { sfx.miss(); if (r.why) game.say(r.why); return; }
+    scene?.wearGear(who, it.slot, it.id);
+    peek = null; burst++; sfx.complete();
+    game.say(`${FRIEND[who].name} got the ${it.name}!`);
+  }
+  function setTab(t: 'outfits' | 'dances' | 'gear') { tab = t; game.closetTab = t; sfx.pop(); }
+  const island = (id: string) => ISLAND[id as keyof typeof ISLAND]?.name ?? id;
   const joined = $derived(onTeam(p, who));
   const join = $derived(joinProgress(p, who));
   function makeBuddy() { if (!joined) return; game.update(pp => { pp.buddy = who; }); burst++; sfx.complete(); scene?.dance(who, pal.dance); }
@@ -114,10 +144,53 @@
       </div>
       {#if joined}
       <div class="tabs">
-        <button class:on={tab === 'outfits'} onclick={() => { tab = 'outfits'; game.closetTab = 'outfits'; sfx.pop(); }}><TileArt kind="outfits" size={40} /><span>Outfits</span><em>{outfitsOpen}/{OUTFITS.length}</em></button>
-        <button class:on={tab === 'dances'} onclick={() => { tab = 'dances'; game.closetTab = 'dances'; sfx.pop(); }}><TileArt kind="dances" size={40} /><span>Dances</span><em>{dancesOpen}/{DANCES.length}</em></button>
+        <button class:on={tab === 'outfits'} onclick={() => setTab('outfits')}><TileArt kind="outfits" size={40} /><span>Outfits</span><em>{outfitsOpen}/{OUTFITS.length}</em></button>
+        <button class:on={tab === 'gear'} class="geartab" onclick={() => setTab('gear')}><img src="{base}gear/hero_cape.webp" alt="" /><span>Gear</span><em>{bg.owned.length}/{ITEMS.length}</em></button>
+        <button class:on={tab === 'dances'} onclick={() => setTab('dances')}><TileArt kind="dances" size={40} /><span>Dances</span><em>{dancesOpen}/{DANCES.length}</em></button>
       </div>
-      <p class="tabnote">{tab === 'outfits' ? 'Outfits open up as your friendship grows, and each one helps in Adventure battles.' : `Your finish dance plays when you finish a lesson or trip, and it's ${FRIEND[who].name}'s big Finale move in Adventure.`}</p>
+      <p class="tabnote">{tab === 'outfits' ? 'Outfits open up as your friendship grows, and each one helps in Adventure battles.' : tab === 'gear' ? 'Gear helps in Adventure battles. Wear all three pieces of a set for a bonus!' : `Your finish dance plays when you finish a lesson or trip, and it's ${FRIEND[who].name}'s big Finale move in Adventure.`}</p>
+      {#if tab === 'gear'}
+        <div class="gearpane scroll">
+          <div class="gslots">
+            <button class="gslot hat" onclick={() => setTab('outfits')} title="Hats are on the Outfits tab">
+              <span class="gpic">{#if pal.outfit !== 'none'}<img src="{base}outfits/{pal.outfit}.webp" alt="" />{:else}<span class="plus">+</span>{/if}</span>
+              <small>Hat</small>
+            </button>
+            {#each SLOTS as s (s)}
+              {@const it = bg.on[s] ? ITEM[bg.on[s]!] : null}
+              <button class="gslot" class:on={slot === s} style:--rc={it ? RARITY[it.rarity].color : null} onclick={() => { slot = s; sfx.pop(); }}>
+                <span class="gpic">{#if it}<img src="{base}gear/{it.id}.webp" alt="" />{:else}<span class="plus">+</span>{/if}</span>
+                <small>{SLOT_NAME[s]}</small>
+              </button>
+            {/each}
+          </div>
+          <div class="gitems">
+            {#each ITEMS.filter(i => i.slot === slot) as it (it.id)}
+              {@const mine = bg.owned.includes(it.id)}
+              {@const wearing = bg.on[it.slot] === it.id}
+              <button class="gtile" class:wearing class:notyet={!mine} style:--rc={RARITY[it.rarity].color} onclick={() => tapPiece(it)}>
+                <span class="grar">{RARITY[it.rarity].name}</span>
+                <img src="{base}gear/{it.id}.webp" alt="" />
+                <b>{it.name}</b>
+                <span class="gpow">{it.text}</span>
+                {#if wearing}<em class="gst on">✓ Wearing</em>
+                {:else if mine}<em class="gst">Tap to wear</em>
+                {:else if it.price !== null}<em class="gst buy"><img src="{base}game/icon-shell.webp" alt="" />{it.price}</em>
+                {:else}<em class="gst champ">🏆 Champion prize</em>{/if}
+              </button>
+            {/each}
+          </div>
+          <div class="gsets">
+            {#each SET_IDS as sid (sid)}
+              {@const done = setsWorn.includes(sid)}
+              <button class="gset" class:done onclick={() => { setPeek = sid; sfx.pop(); }}>
+                <span class="gsicons">{#each setItems(sid) as it}<img class:off={bg.on[it.slot] !== it.id} src="{base}gear/{it.id}.webp" alt="" />{/each}</span>
+                <span class="gsname"><b>{SETS[sid].name}</b><small>{done ? '✓ Bonus on!' : `${setItems(sid).filter(i => bg.on[i.slot] === i.id).length} of 3 on`}</small></span>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {:else}
       <div class="grid scroll">
         {#if tab === 'outfits'}
           <button class="of" class:on={pal.outfit === 'none'} onclick={() => wear(null)}>
@@ -146,11 +219,56 @@
           {/each}
         {/if}
       </div>
+      {/if}
       {:else}
         <div class="card soon"><p>When {FRIEND[who].name} joins your team, they start their own friendship, and outfits and dances open up as you play together.</p></div>
       {/if}
     </div>
   </div>
+
+  {#if gearTip && joined}<Coach text="New! Pick a spot, then tap a piece to put it on. Gear helps in Adventure battles." at=".gslot.on" button="Got it" onok={() => game.update(pp => markSeen(pp, 'gear1'))} />{/if}
+
+  {#if peek}
+    {@const it = peek}
+    {@const short = it.price !== null ? Math.max(0, it.price - adv.shells) : 0}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="gbg" onclick={() => (peek = null)}>
+      <div class="gcard card" style:--rc={RARITY[it.rarity].color} onclick={(e) => e.stopPropagation()}>
+        <img class="gbig" src="{base}gear/{it.id}.webp" alt="" />
+        <div class="gtext">
+          <small class="grarity">{RARITY[it.rarity].name} · {SLOT_NAME[it.slot]}</small>
+          <h3>{it.name}</h3>
+          <p><b>In battles:</b> {it.text}</p>
+          <p class="gsetline">Part of the <b>{SETS[it.set].name}</b>. Wear all three for: {SETS[it.set].text}</p>
+          {#if it.price !== null}
+            <button class="btn btn-primary gbuy" disabled={short > 0} onclick={() => buyPiece(it)}><img src="{base}game/icon-shell.webp" alt="" />{short > 0 ? `You need ${short} more shells` : `Buy for ${it.price} shells`}</button>
+            <p class="muted gnote">For {FRIEND[who].name}. You have {adv.shells} shells: battles and practice earn more.</p>
+          {:else}
+            <p class="gchamp">🏆 Beat the <b>{island(it.champion!)}</b> Champion with {FRIEND[who].name} to win it.</p>
+          {/if}
+        </div>
+        <button class="btn gclose" onclick={() => (peek = null)}>OK</button>
+      </div>
+    </div>
+  {/if}
+
+  {#if setPeek}
+    {@const sid = setPeek}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="gbg" onclick={() => (setPeek = null)}>
+      <div class="gcard card setcard" onclick={(e) => e.stopPropagation()}>
+        <div class="setpics">{#each setItems(sid) as it}<img class:off={bg.on[it.slot] !== it.id} src="{base}gear/{it.id}.webp" alt="" />{/each}</div>
+        <div class="gtext">
+          <h3>{SETS[sid].name}</h3>
+          <p><b>Wear all three:</b> {SETS[sid].text}</p>
+          <ul>{#each setItems(sid) as it}<li class:on={bg.on[it.slot] === it.id}>{bg.on[it.slot] === it.id ? '✓' : '○'} {it.name} <span class="muted">({SLOT_NAME[it.slot].toLowerCase()}{bg.owned.includes(it.id) ? '' : `: ${howToGet(it, island)}`})</span></li>{/each}</ul>
+        </div>
+        <button class="btn gclose" onclick={() => (setPeek = null)}>OK</button>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -202,5 +320,70 @@
   .rar.epic { background: #efe2ff; color: #7a4fd0; }
   .rar.legendary { background: #fff1c2; color: #8a6400; }
   .lock { display: flex; align-items: center; gap: 4px; font: 800 12px var(--font-body); color: var(--muted); }
-  @media (max-width: 760px) { .body { grid-template-columns: 1fr; grid-template-rows: 46vh 1fr; } }
+  .tabs .geartab img { width: 40px; height: 40px; object-fit: contain; }
+  /* gear: the four spots on the buddy, the pieces for the chosen spot, the sets */
+  .gearpane { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px 2px 8px; }
+  .gslots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .gslot { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px 4px; border-radius: 18px; border: 3px solid transparent; background: rgba(255, 255, 255, .92); cursor: pointer; box-shadow: var(--shadow-sm); font: inherit; }
+  .gslot.on { border-color: var(--primary-hi); background: #fff; }
+  .gslot.hat { opacity: .9; }
+  .gpic { width: 50px; height: 50px; display: grid; place-items: center; border-radius: 16px; background: radial-gradient(circle at 50% 40%, #fff, #f1ecfb); box-shadow: inset 0 0 0 2px var(--rc, #e4ddf3); }
+  .gpic img { width: 44px; height: 44px; object-fit: contain; }
+  .gpic .plus { font: 600 30px/1 var(--font-ui); color: #b8acd6; }
+  .gslot small { font: 800 12px var(--font-body); color: var(--ink2); }
+  .gitems { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .gtile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 18px 6px 6px; border-radius: 20px; border: 3px solid #fff; background: linear-gradient(180deg, #fff, #faf7ff); cursor: pointer; box-shadow: 0 0 0 2px var(--rc), var(--shadow-sm); font: inherit; text-align: center; transition: transform .15s; }
+  .gtile:hover { transform: translateY(-3px); }
+  .gtile.wearing { background: linear-gradient(180deg, #fff, #eefcf4); box-shadow: 0 0 0 3px #2fbf73, 0 0 18px rgba(47, 191, 115, .35); }
+  .gtile > img { width: 58px; height: 58px; object-fit: contain; filter: drop-shadow(0 6px 8px rgba(40, 20, 80, .2)); }
+  .gtile.notyet > img { filter: saturate(.75) drop-shadow(0 6px 8px rgba(40, 20, 80, .15)); }
+  .gtile b { font: 600 17px/1.1 var(--font-ui); color: var(--ink); }
+  .gpow { font: 600 12px/1.25 var(--font-body); color: var(--ink2); }
+  .grar { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); font: 800 10px var(--font-body); color: #fff; background: var(--rc); padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .gst { margin-top: auto; font: 800 12px var(--font-body); font-style: normal; color: var(--ink2); background: var(--bg2); padding: 3px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
+  .gst.on { background: #2fbf73; color: #fff; }
+  .gst.buy { background: #fff3d6; color: #7a5300; }
+  .gst.buy img { width: 18px; height: 18px; object-fit: contain; }
+  .gst.champ { background: #fff1c2; color: #8a6400; }
+  .gsets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .gset { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 4px 6px; border-radius: 16px; border: 3px solid transparent; background: rgba(255, 255, 255, .9); cursor: pointer; font: inherit; box-shadow: var(--shadow-sm); }
+  .gset.done { border-color: #ffd36b; background: #fffaf0; box-shadow: 0 0 14px rgba(255, 200, 80, .45); }
+  .gsicons { display: flex; }
+  .gsicons img, .setpics img { width: 28px; height: 28px; object-fit: contain; }
+  .gsicons img.off, .setpics img.off { filter: grayscale(1) opacity(.4); }
+  .gsname { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
+  .gsname b { font: 600 14px var(--font-ui); }
+  .gsname small { font: 700 11px var(--font-body); color: var(--muted); }
+  .gbg { position: fixed; inset: 0; z-index: 30; background: rgba(40, 28, 70, .4); display: grid; place-items: center; padding: 16px; }
+  .gcard { width: min(520px, 94vw); padding: 18px 20px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; box-shadow: 0 0 0 4px var(--rc, #fff), var(--shadow); }
+  .gbig { width: 130px; height: 130px; object-fit: contain; }
+  .gtext h3 { margin: 0 0 4px; font-size: 24px; }
+  .gtext p { margin: 0 0 6px; font: 600 15px/1.4 var(--font-body); color: var(--ink2); }
+  .grarity { font: 800 12px var(--font-body); color: var(--rc); text-transform: uppercase; letter-spacing: .04em; }
+  .gsetline { font-size: 13px !important; color: var(--muted) !important; }
+  .gbuy { display: inline-flex; align-items: center; gap: 6px; }
+  .gbuy img { width: 22px; height: 22px; object-fit: contain; }
+  .gnote { margin-top: 6px !important; font-size: 12px !important; }
+  .gchamp { background: #fff7dc; border-radius: 12px; padding: 6px 10px; }
+  .gclose { grid-column: 1 / -1; justify-self: end; }
+  .setpics { display: flex; flex-direction: column; gap: 6px; }
+  .setpics img { width: 56px; height: 56px; }
+  .gtext ul { margin: 4px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font: 600 14px var(--font-body); color: var(--muted); }
+  .gtext li.on { color: #1f9a6a; }
+  @media (max-width: 760px) {
+    .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 46vh 1fr; }
+    .side { min-width: 0; }
+    .tabs button { font-size: 16px; gap: 4px; padding: 6px 4px; min-width: 0; }
+    .tabs button em { display: none; }
+    .tabs button :global(svg), .tabs .geartab img { width: 30px; height: 30px; }
+    .gtile { padding: 20px 4px 8px; }
+    .gtile > img { width: 60px; height: 60px; }
+    .gtile b { font-size: 14px; }
+    .gpow { font-size: 11px; }
+    .gpic { width: 48px; height: 48px; } .gpic img { width: 40px; height: 40px; }
+    .gcard { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+    .gbig { width: 110px; height: 110px; }
+    .gset { flex-direction: column; gap: 2px; }
+    .gsname { align-items: center; text-align: center; }
+  }
 </style>

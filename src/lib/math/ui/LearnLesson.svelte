@@ -1,0 +1,294 @@
+<script lang="ts">
+  // One Learn lesson: the buddy talks you through the trick while the picture moves (Next / Back), then
+  // three questions of your own with the picture still there to help, then the finish: the trick is
+  // saved, shells for the first time, and your eggs grow a little (it counts as practice).
+  import { onDestroy, onMount } from 'svelte';
+  import { game } from '../../state/game.svelte';
+  import { sfx } from '../../audio/sound';
+  import { advView, markSeen } from '../../adventure/state';
+  import { FRIEND } from '../../art/cast';
+  import { STRAND } from '../course';
+  import { answerOf } from '../facts';
+  import { LESSON, askText, boundsOf, coverOf, finishLesson, hideAnswer, hintFor, LEARN_SHELLS } from '../learn';
+  import LearnBoard from './LearnBoard.svelte';
+  import NumPad from './NumPad.svelte';
+  import Critter from '../../ui/Critter.svelte';
+  import Confetti from '../../ui/Confetti.svelte';
+  import Coach from '../../ui/Coach.svelte';
+
+  type Props = { id: string; embedded?: boolean; onclose: () => void; onpractice?: () => void };
+  let { id, embedded = false, onclose, onpractice }: Props = $props();
+  const base = import.meta.env.BASE_URL;
+  const lesson = $derived(LESSON[id]);
+  const strand = $derived(STRAND[lesson.op]);
+  const buddy = $derived(game.profile!.buddy);
+
+  let phase = $state<'watch' | 'try' | 'done'>('watch');
+  let i = $state(0);
+  let k = $state(0);
+  let typed = $state('');
+  let misses = $state(0);
+  let said = $state<string | null>(null);
+  let shake = $state(0);
+  let hop = $state(0);
+  let burst = $state(0);
+  let locked = $state(false);
+  let result = $state<{ first: boolean; shells: number; eggs: number } | null>(null);
+  let info = $state<'what' | 'shells' | 'eggs' | 'trick' | null>(null);
+  let w = $state(1280);
+  const narrow = $derived(w < 760);
+  let coach = $state(!new Set(advView(game.profile!).seen ?? []).has('learn1'));
+
+  const step = $derived(lesson.steps[Math.min(i, lesson.steps.length - 1)]);
+  const fact = $derived(lesson.tries[Math.min(k, 2)]);
+  const ans = $derived(String(answerOf(fact)));
+  const board = $derived(phase === 'try' ? lesson.pic(fact) : step.board);
+  // the picture is zoomed to the part it uses: the same for every watch step, so nothing jumps
+  const watchView = $derived(boundsOf(lesson.steps.map(s => s.board)));
+  const view = $derived(phase === 'try' ? boundsOf([board]) : watchView);
+  let vh = $state(900);
+  const total = $derived(lesson.steps.length + 3);
+  const at = $derived(phase === 'watch' ? i : phase === 'try' ? lesson.steps.length + k : total);
+  const PRAISE = ['Yes! You got it!', 'That\'s it!', 'Brilliant!', 'You did it!', 'Spot on!'];
+  const speech = $derived(
+    phase === 'watch' ? step.say
+    : phase === 'try' ? (said ?? (k === 0 ? `Your turn! Use the trick: what is ${askText(fact)}?` : `Now this one: ${askText(fact)}?`))
+    : `You learned ${lesson.title}! It's saved in your tricks.`,
+  );
+  /** "8 + 5 = [13]": the part in brackets lit up */
+  const eqParts = $derived(step.eq.split(/(\[[^\]]+\])/).filter(Boolean).map(s => (s.startsWith('[') ? { lit: true, t: s.slice(1, -1) } : { lit: false, t: s })));
+
+  function next() {
+    if (phase === 'watch') {
+      sfx.pop();
+      if (coach) closeCoach();
+      if (i < lesson.steps.length - 1) i++;
+      else { phase = 'try'; k = 0; typed = ''; said = null; misses = 0; hop++; }
+    } else if (phase === 'done') leave();
+  }
+  function back() { if (phase === 'watch' && i > 0) { sfx.click(); i--; } }
+  function closeCoach() { coach = false; game.update(pp => markSeen(pp, 'learn1')); }
+
+  function digit(d: string) {
+    if (phase !== 'try' || locked) return;
+    if (typed.length >= ans.length) typed = '';
+    typed += d;
+    sfx.click();
+    if (typed.length === ans.length) check();
+  }
+  function backspace() { if (phase === 'try' && !locked) typed = typed.slice(0, -1); }
+  function check() {
+    if (typed === ans) {
+      locked = true;
+      said = PRAISE[(k + misses) % PRAISE.length];
+      hop++; sfx.star(k);
+      setTimeout(() => {
+        locked = false; typed = ''; misses = 0; said = null;
+        if (k < 2) k++;
+        else finish();
+      }, 1100);
+    } else {
+      misses++; shake++; sfx.miss();
+      const t = hintFor(lesson, fact);
+      said = misses === 1 ? `Not quite. Try the trick: ${hideAnswer(t, fact)}` : `Here's how: ${t} Type ${ans}.`;
+      setTimeout(() => { if (!locked) typed = ''; }, 500);
+    }
+  }
+  function finish() {
+    let r = { first: false, shells: 0, eggs: 0 };
+    game.update(pp => { const x = finishLesson(pp, id); r = { first: x.first, shells: x.shells, eggs: x.eggsReady.length }; });
+    result = r;
+    phase = 'done'; burst++; sfx.complete(); hop++;
+  }
+  function leave() { sfx.click(); onclose(); }
+
+  function onKey(e: KeyboardEvent) {
+    if (game.sheet || game.settingsOpen) return;
+    if (info) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); info = null; } return; }
+    const mine = (fn: () => void) => { e.preventDefault(); e.stopPropagation(); fn(); };
+    if (phase === 'try') {
+      if (/^[0-9]$/.test(e.key)) return mine(() => digit(e.key));
+      if (e.key === 'Backspace') return mine(backspace);
+    }
+    if (e.key === 'Enter' || e.key === ' ' || (e.key === 'ArrowRight' && phase === 'watch')) return mine(next);
+    if (e.key === 'ArrowLeft') return mine(back);
+    if (e.key === 'Escape') return mine(leave);
+  }
+  // a lesson opened over a math trip owns the keyboard until it closes
+  onMount(() => { addEventListener('keydown', onKey, true); });
+  onDestroy(() => removeEventListener('keydown', onKey, true));
+</script>
+
+<svelte:window bind:innerHeight={vh} />
+<div class="lesson" class:narrow class:done={phase === 'done'} bind:clientWidth={w} style:--sc={strand.color}>
+  <div class="side">
+    {#key speech}<div class="bubble" class:right={locked} class:oops={phase === 'try' && misses > 0 && !locked}><p>{speech}</p></div>{/key}
+    <div class="buddy" class:cheer={phase === 'done'}><Critter friend={buddy} size={narrow ? 64 : vh > 820 ? 290 : 230} round={narrow} pulse={{ kind: 'hop', n: hop }} mood={phase === 'done' ? 'dance' : ''} /></div>
+  </div>
+
+  <div class="boardcard">
+    <div class="top">
+      <button class="chip" onclick={() => { info = 'what'; sfx.pop(); }} title="What is this?"><img src="{base}learn/tile.webp" alt="" /><span><small>Learn</small><b>{lesson.title}</b></span></button>
+      <div class="dots" aria-label="Step {Math.min(at + 1, total)} of {total}">
+        {#each Array(total) as _, n}<span class:on={n < at} class:now={n === at} class:you={n >= lesson.steps.length}></span>{/each}
+      </div>
+      <button class="x" onclick={leave} aria-label={embedded ? 'Back to my trip' : 'Close the lesson'}>×</button>
+    </div>
+
+    {#if phase !== 'done'}
+      <div class="paper" class:trying={phase === 'try'}>
+        <LearnBoard {board} {buddy} {view} />
+        {#if phase === 'try'}<span class="yourturn">Your turn {k + 1} of 3</span>{/if}
+      </div>
+      {#if phase === 'watch'}
+        {#key i}<div class="eq">{#each eqParts as p}{#if p.lit}<span class="lit">{p.t}</span>{:else}<span>{p.t}</span>{/if}{/each}</div>{/key}
+        <div class="ctl">
+          <button class="btn ghost" onclick={back} disabled={i === 0}>‹ Back</button>
+          <button class="btn btn-primary btn-big nextbtn" onclick={next}>{i < lesson.steps.length - 1 ? 'Next' : 'My turn!'} <span class="kbd">enter</span></button>
+        </div>
+      {:else}
+        {#key shake}<div class="eq ask" class:shake={shake > 0}><span>{askText(fact)} =</span><span class="box" class:good={locked}>{typed || ' '}</span></div>{/key}
+        <NumPad ondigit={digit} onback={backspace} compact={narrow} lit={null} />
+      {/if}
+    {:else}
+      <div class="finish">
+        <img class="ftile" src="{base}learn/tile.webp" alt="" />
+        <h2>You learned {lesson.title}!</h2>
+        <div class="paper small"><LearnBoard board={coverOf(lesson)} {buddy} view={boundsOf([coverOf(lesson)])} still /></div>
+        <div class="prizes">
+          {#if result?.shells}<button class="prize" onclick={() => (info = 'shells')}><img src="{base}game/icon-shell.webp" alt="" /><b>+{result.shells}</b><small>shells</small></button>{/if}
+          <button class="prize" onclick={() => (info = 'trick')}><span class="bulb">💡</span><b>Saved</b><small>trick</small></button>
+          <button class="prize" onclick={() => (info = 'eggs')}><img src="{base}game/egg-common.webp" alt="" /><b>{result?.eggs ? 'Ready!' : 'Grew'}</b><small>eggs</small></button>
+        </div>
+        <p class="tapnote">Tap a prize to see what it's for</p>
+        <div class="ctl">
+          {#if embedded}
+            <button class="btn btn-primary btn-big" onclick={leave}>Back to my trip <span class="kbd">enter</span></button>
+          {:else}
+            {#if onpractice}<button class="btn btn-big" onclick={() => { sfx.click(); onpractice?.(); }}>Practise it now</button>{/if}
+            <button class="btn btn-primary btn-big" onclick={leave}>More tricks <span class="kbd">enter</span></button>
+          {/if}
+        </div>
+      </div>
+    {/if}
+  </div>
+  <Confetti {burst} x={60} y={40} />
+
+  {#if info}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="infobg" onclick={() => (info = null)}>
+      <div class="infobox" onclick={(e) => e.stopPropagation()}>
+        {#if info === 'what'}
+          <img class="ibig" src="{base}learn/tile.webp" alt="" />
+          <div><h3>A Learn lesson</h3><p>{FRIEND[buddy].name} shows you a trick with a moving picture. Then you try three. Learned tricks come with you: in battles, a 💡 Trick button helps on cards like these.</p></div>
+        {:else if info === 'shells'}
+          <img class="ibig" src="{base}game/icon-shell.webp" alt="" />
+          <div><h3>Shells</h3><p>Adventure money! Spend them in the Island Shop. A new trick gives {LEARN_SHELLS} shells the first time you learn it.</p></div>
+        {:else if info === 'eggs'}
+          <img class="ibig" src="{base}game/egg-common.webp" alt="" />
+          <div><h3>Your eggs grew</h3><p>A lesson counts as practice: your three right answers made your Adventure eggs grow.</p></div>
+        {:else}
+          <span class="ibig bulbbig">💡</span>
+          <div><h3>Trick saved</h3><p>It's in your tricks now. In a battle, tap 💡 Trick on a card like these and {FRIEND[buddy].name} gives you a hint.</p></div>
+        {/if}
+        <button class="btn btn-primary" onclick={() => (info = null)}>OK</button>
+      </div>
+    </div>
+  {/if}
+  {#if coach && phase === 'watch' && i === 0}<Coach text="Watch the picture move, then tap Next. After the trick, you try three!" at=".nextbtn" button="Got it" onok={closeCoach} />{/if}
+</div>
+
+<style>
+  .lesson { position: relative; height: 100%; width: 100%; max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 22px; align-items: center; padding: 14px 24px 18px; }
+  .side { display: flex; flex-direction: column; align-items: center; gap: 10px; align-self: center; }
+  .bubble { position: relative; background: #fff; border-radius: 24px; padding: 14px 18px; box-shadow: 0 0 0 3px #fff, 0 14px 30px -14px rgba(40, 20, 80, .55); animation: bubble .35s cubic-bezier(.3, 1.4, .5, 1) both; }
+  .bubble::after { content: ''; position: absolute; left: 50%; bottom: -16px; margin-left: -14px; border: 14px solid transparent; border-top-color: #fff; border-bottom: 0; }
+  .bubble.oops { box-shadow: 0 0 0 4px #ffc2d6, 0 14px 30px -14px rgba(40, 20, 80, .55); }
+  .bubble.right { box-shadow: 0 0 0 4px #9be7c4, 0 14px 30px -14px rgba(40, 20, 80, .55); }
+  .bubble p { margin: 0; font: 600 21px/1.35 var(--font-ui); color: var(--ink); text-align: center; }
+  @keyframes bubble { from { opacity: 0; transform: translateY(8px) scale(.94); } }
+  .buddy { filter: drop-shadow(0 16px 18px rgba(40, 20, 80, .35)); }
+  .buddy.cheer { animation: cheer 1s ease-in-out infinite; }
+  @keyframes cheer { 50% { transform: translateY(-10px) rotate(-3deg); } }
+
+  .boardcard { min-width: 0; background: rgba(255, 255, 255, .96); border-radius: 30px; padding: 12px 18px 16px; box-shadow: 0 0 0 4px rgba(255, 255, 255, .7), 0 26px 50px -26px rgba(40, 20, 80, .6); display: flex; flex-direction: column; gap: 10px; }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .chip { display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; background: color-mix(in srgb, var(--sc) 14%, #fff); border-radius: 18px; padding: 4px 14px 4px 4px; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--sc) 35%, #fff); text-align: left; }
+  .chip img { width: 40px; height: 46px; object-fit: contain; }
+  .chip small { display: block; font: 800 11px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sc); }
+  .chip b { font: 600 21px/1.1 var(--font-ui); color: var(--ink); }
+  .dots { flex: 1; display: flex; justify-content: center; gap: 7px; flex-wrap: wrap; }
+  .dots span { width: 12px; height: 12px; border-radius: 50%; background: #e7e1f3; transition: background .3s, transform .3s; }
+  .dots span.you { border-radius: 4px; }
+  .dots span.on { background: var(--sc); }
+  .dots span.now { background: #ffc93a; transform: scale(1.35); }
+  .x { flex: none; width: 42px; height: 42px; border-radius: 50%; border: 0; cursor: pointer; background: var(--bg2); font: 600 28px/1 var(--font-ui); color: var(--ink2); }
+  .paper { position: relative; aspect-ratio: 1.76; width: min(100%, calc((100dvh - 330px) * 1.76)); margin: 0 auto; background: linear-gradient(#fffdf7, #fbf6ea); border-radius: 22px; box-shadow: inset 0 0 0 3px #f1e6cf; padding: 6px 10px; }
+  /* the picture fills the paper (absolute, so a tall picture can't stretch the box) */
+  .paper { min-height: 0; overflow: hidden; }
+  .paper :global(.lb) { position: absolute; left: 8px; top: 6px; width: calc(100% - 16px); height: calc(100% - 12px); }
+  .paper.trying { width: min(100%, calc((100dvh - 420px) * 1.76)); }
+  .paper.small { width: min(100%, 420px); }
+  .yourturn { position: absolute; left: 12px; top: 10px; font: 700 13px var(--font-body); background: #ffc93a; color: #5a3b00; padding: 3px 12px; border-radius: 999px; }
+  .eq { text-align: center; font: 600 clamp(28px, 4.2vh, 42px)/1.2 var(--font-ui); color: var(--ink); animation: bubble .3s ease-out both; white-space: pre-wrap; }
+  .eq .lit { display: inline-block; background: #ffc93a; color: #4a2f00; padding: 0 14px; border-radius: 14px; box-shadow: 0 4px 0 #e0a51c; margin: 0 2px; }
+  .eq.ask { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: clamp(34px, 5vh, 50px); }
+  .box { min-width: 1.6em; padding: 0 12px; border-radius: 16px; background: #f4f0fb; box-shadow: inset 0 0 0 3px #d9cff0; text-align: center; }
+  .box.good { background: #d9f7e8; box-shadow: inset 0 0 0 3px #4fcf9f; }
+  .shake { animation: shake .35s; }
+  @keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+  .ctl { display: flex; gap: 12px; justify-content: space-between; align-items: center; }
+  .ctl .btn-primary { margin-left: auto; }
+  .ghost { background: var(--bg2); color: var(--ink2); box-shadow: none; }
+  .ghost:disabled { opacity: .35; }
+  .kbd { background: rgba(255, 255, 255, .25); border-color: rgba(255, 255, 255, .4); color: inherit; font-size: 11px; height: 22px; }
+
+  .finish { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+  .ftile { width: 92px; animation: bubble .5s cubic-bezier(.3, 1.6, .5, 1) both; }
+  .finish h2 { margin: 0; font-size: clamp(28px, 4vh, 40px); color: var(--ink); }
+  .prizes { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .prize { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100px; height: 108px; gap: 2px; border: 0; border-radius: 22px; background: #fff; cursor: pointer; box-shadow: 0 0 0 3px #ffe9a8, var(--shadow-sm); transition: transform .15s; }
+  .prize:hover { transform: translateY(-3px); }
+  .prize img { width: 46px; height: 46px; object-fit: contain; }
+  .prize .bulb { font-size: 36px; line-height: 46px; }
+  .prize b { font: 600 21px/1 var(--font-ui); color: var(--ink); }
+  .prize small { font: 700 12px var(--font-body); color: var(--muted); }
+  .tapnote { margin: 0; font: 700 14px var(--font-body); color: var(--muted); }
+  .finish .ctl { width: 100%; justify-content: center; }
+  .finish .ctl .btn-primary { margin-left: 0; }
+
+  .infobg { position: fixed; inset: 0; z-index: 45; background: rgba(40, 28, 70, .4); display: grid; place-items: center; }
+  .infobox { width: min(520px, 92vw); background: #fff; border-radius: 26px; padding: 18px 20px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; box-shadow: var(--shadow); }
+  .infobox h3 { margin: 0 0 4px; font-size: 22px; }
+  .infobox p { margin: 0; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }
+  .infobox > .btn { grid-column: 1 / -1; justify-self: end; }
+  .ibig { width: 90px; height: 96px; object-fit: contain; }
+  .bulbbig { display: grid; place-items: center; font-size: 60px; }
+
+  /* phones: the buddy and what it says on one row, the picture under it, the pad at the bottom */
+  .narrow { grid-template-columns: 1fr; align-content: start; gap: 10px; padding: 10px 10px 12px; }
+  .narrow .side { flex-direction: row-reverse; align-items: center; gap: 8px; }
+  .narrow .bubble { flex: 1; padding: 10px 14px; }
+  .narrow .bubble::after { left: -14px; top: 50%; bottom: auto; margin: -12px 0 0; border: 12px solid transparent; border-right-color: #fff; border-left: 0; }
+  .narrow .bubble p { font-size: 17px; text-align: left; }
+  .narrow .boardcard { padding: 10px 10px 12px; border-radius: 24px; gap: 8px; }
+  .narrow .chip b { font-size: 17px; } .narrow .chip img { width: 32px; height: 36px; }
+  .narrow .top { flex-wrap: wrap; row-gap: 6px; }
+  .narrow .dots { order: 3; flex-basis: 100%; gap: 6px; } .narrow .dots span { width: 10px; height: 10px; }
+  .narrow .paper { width: 100%; aspect-ratio: 1.15; padding: 4px; }
+  /* your turn on a phone: a shorter picture so the number pad fits under it */
+  .narrow .paper.trying { width: 100%; aspect-ratio: 2; padding: 4px; }
+  .narrow .eq.ask { font-size: 34px; }
+  .narrow .paper.small { aspect-ratio: 1.6; }
+  .narrow .ctl .btn-big { font-size: 18px; padding: 12px 18px; }
+  .narrow .kbd { display: none; }
+  .narrow .infobox { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .narrow { overflow-y: auto; }
+  .narrow .ftile { width: 56px; }
+  .narrow .finish { gap: 8px; }
+  .narrow .finish h2 { font-size: 24px; }
+  .narrow .paper.small { aspect-ratio: 2.2; }
+  .narrow .prize { width: 84px; height: 88px; } .narrow .prize img { width: 36px; height: 36px; } .narrow .prize b { font-size: 18px; }
+  .narrow .finish .ctl { flex-wrap: wrap; }
+</style>

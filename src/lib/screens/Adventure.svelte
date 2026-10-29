@@ -7,10 +7,12 @@
   import { sfx } from '../audio/sound';
   import { nextLesson } from '../engine/profile';
   import { mathOf, nextMathLesson } from '../math/progress';
+  import { nextToLearn } from '../math/learn';
   import { FRIEND } from '../art/cast';
   import { GLIMMER, GLIMMERS, RARITY, glimmersOf, type GlimmerId, type Rarity } from '../adventure/glimmers';
   import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, ISLANDS, markSeen, NODES, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, type MapNode, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
+  import { ITEMS, buyGear, gearView, type GearItem } from '../adventure/gear';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
@@ -19,6 +21,8 @@
   import Confetti from '../ui/Confetti.svelte';
 
   const base = import.meta.env.BASE_URL;
+  // Learn: the next trick not learned yet, offered on a practice stop
+  const learnTip = $derived.by(() => { const pr = game.profile; if (!pr) return null; const mm = mathOf(pr); return nextToLearn(mm, nextMathLesson(mm, mm.totals.trips ? (mm.strand ?? 'x') : '+')); });
   const p = $derived(game.profile!);
   const a = $derived(advView(p));
   let tall = $state(innerWidth < 760 || innerHeight > innerWidth * 1.1);
@@ -103,6 +107,16 @@
     if (k === 'typing') { game.setHome('typing'); game.startLesson(nextLesson(p).id); }
     else { game.setHome('math'); game.startMath(nextMathLesson(mathOf(p)).id); }
   }
+  // gear in the shop: for the buddy you're playing with (each buddy keeps its own)
+  const myGear = $derived(gearView(a, game.profile!.buddy));
+  function buyPiece(it: GearItem) {
+    let r: { ok: boolean; why?: string } = { ok: false };
+    const who = game.profile!.buddy;
+    game.update(pp => { r = buyGear(advOf(pp), who, it.id); });
+    const res = r as { ok: boolean; why?: string };
+    if (res.ok) { sfx.complete(); burst++; game.say(`${FRIEND[who].name} has the ${it.name} on! Change gear on the Keypals screen.`); }
+    else { sfx.miss(); game.say(res.why ?? 'Not now.'); }
+  }
   function buyIt(id: string) {
     let r: ReturnType<typeof buy> = { ok: false };
     game.update(pp => { r = buy(pp, id, id === 'treat' ? (team[0] ?? undefined) : undefined); });
@@ -160,6 +174,14 @@
     <NavTile label="Shop" tone="mint" title="Spend shells on eggs and treats" onclick={() => { shop = true; }}>
       {#snippet art()}<img class="tileimg" src="{base}game/icon-shell.webp" alt="" />{/snippet}
     </NavTile>
+    {#if a.settings.versus !== false}
+    <NavTile label="Duel" tone="sky" title="Family Duel: take turns with someone on this screen" onclick={() => { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); }}>
+      {#snippet art()}<img class="tileimg" src="{base}game/tile-duel.webp" alt="" />{/snippet}
+    </NavTile>
+    <NavTile label="Rivals" tone="pink" title="Rival Ghosts: battle someone's ghost" onclick={() => game.go('rivals')}>
+      {#snippet art()}<img class="tileimg" src="{base}game/tile-rivals.webp" alt="" />{/snippet}
+    </NavTile>
+    {/if}
   </div>
 
   {#if !play.open}
@@ -190,6 +212,7 @@
             <p>Do one practice: a math trip, a typing lesson or a playground game. Then come back here for a reward.</p>
             <p class="muted">Practice also makes your eggs grow{a.settings.rule === 'balanced' ? ' and earns more Adventure time' : ''}.{a.settings.rule === 'open' ? ' You can skip ahead for now: the reward waits here.' : ''}</p>
             <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>Math trip</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing lesson</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
+            {#if learnTip}<button class="learnlink" onclick={() => game.openLearn(learnTip!.id, 'adventure')}><img src="{base}learn/tile.webp" alt="" /><span><small>A new trick to learn</small><b>{learnTip.title}</b></span><em>Learn it ▶</em></button>{/if}
           {/if}
         {:else}
           {#if n.kind === 'champion'}
@@ -229,6 +252,20 @@
               <img src="{base}game/{it.egg ? `egg-${it.egg}` : 'icon-star'}.webp" alt="" />
               <b>{it.name}</b><span>{it.text}{it.id === 'treat' && team[0] ? ` (for ${GLIMMER[team[0]].name})` : ''}</span>
               <button class="btn btn-primary" disabled={a.shells < it.price || (it.id === 'treat' && !team[0])} onclick={() => buyIt(it.id)}><img src="{base}game/icon-shell.webp" alt="" />{it.price}</button>
+            </div>
+          {/each}
+        </div>
+        <div class="gearhead"><b>Gear for {FRIEND[game.profile!.buddy].name}</b><span class="muted">Each piece helps in battles. Wear a whole set for a bonus.</span></div>
+        <div class="gearshop">
+          {#each ITEMS as it (it.id)}
+            {@const mine = myGear.owned.includes(it.id)}
+            <div class="gpiece" class:mine style:--rc={RARITY[it.rarity].color}>
+              <img src="{base}gear/{it.id}.webp" alt="" />
+              <b>{it.name}</b>
+              <span>{it.text}</span>
+              {#if mine}<em class="have">✓ {FRIEND[game.profile!.buddy].name} has it</em>
+              {:else if it.price === null}<em class="champ">🏆 {ISLAND[it.champion!].name} Champion prize</em>
+              {:else}<button class="btn btn-primary" disabled={a.shells < it.price} onclick={() => buyPiece(it)}><img src="{base}game/icon-shell.webp" alt="" />{it.price}</button>{/if}
             </div>
           {/each}
         </div>
@@ -295,6 +332,12 @@
   .closed { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 6; padding: 22px 26px; text-align: center; width: min(460px, 92vw); }
   .closed h2 { margin: 0 0 6px; } .closed p { font-weight: 600; color: var(--ink2); }
   .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .learnlink { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; border: 0; cursor: pointer; text-align: left; background: linear-gradient(#fffaf0, #ffefc6); border-radius: 18px; padding: 6px 14px 6px 6px; box-shadow: 0 0 0 3px #ffd36b; }
+  .learnlink img { width: 38px; height: 46px; object-fit: contain; }
+  .learnlink span { flex: 1; }
+  .learnlink small { display: block; font: 800 11px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: #a86a00; }
+  .learnlink b { font: 600 18px var(--font-ui); color: var(--ink); }
+  .learnlink em { font: 700 14px var(--font-body); font-style: normal; color: #6b4300; background: #ffd36b; padding: 5px 12px; border-radius: 999px; }
   .row.end { justify-content: flex-end; }
   .sheetbg { position: absolute; inset: 0; z-index: 10; background: rgba(40, 28, 70, .35); display: grid; place-items: center; animation: fade .2s; }
   @keyframes fade { from { opacity: 0; } }
@@ -328,6 +371,20 @@
   .item b { font: 600 18px var(--font-ui); } .item span { font: 600 13px var(--font-body); color: var(--muted); grid-column: 2; }
   .item .btn { grid-row: 1 / span 2; grid-column: 3; display: flex; align-items: center; gap: 4px; }
   .item .btn img { width: 22px; height: 22px; object-fit: contain; }
+  .gearhead { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+  .gearhead b { font: 600 20px var(--font-ui); }
+  .gearhead span { font: 600 13px var(--font-body); }
+  .gearshop { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .gpiece { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; background: #faf8fe; border-radius: 18px; padding: 8px 6px; box-shadow: inset 0 0 0 2px var(--rc); }
+  .gpiece > img { width: 56px; height: 56px; object-fit: contain; }
+  .gpiece b { font: 600 15px/1.1 var(--font-ui); }
+  .gpiece span { font: 600 11.5px/1.3 var(--font-body); color: var(--muted); }
+  .gpiece .btn { margin-top: auto; display: flex; align-items: center; gap: 4px; padding: 6px 12px; }
+  .gpiece .btn img { width: 20px; height: 20px; object-fit: contain; }
+  .gpiece em { margin-top: auto; font: 800 11px var(--font-body); font-style: normal; padding: 3px 8px; border-radius: 999px; }
+  .gpiece em.have { background: #2fbf73; color: #fff; }
+  .gpiece em.champ { background: #fff1c2; color: #8a6400; }
+  .gpiece.mine { background: #f2fcf6; }
 
   .introbg { position: absolute; inset: 0; z-index: 30; background: rgba(30, 20, 60, .55); display: grid; place-items: center; padding: 16px; animation: fade .3s; }
   .introcard { width: min(880px, 96vw); overflow: hidden; display: grid; grid-template-columns: 1.15fr 1fr; padding: 0; }
@@ -342,7 +399,8 @@
   .tall :global(.hd .tt span) { display: none; }
   .tall .chip { font-size: 15px; padding: 2px 8px 2px 2px; } .tall .chip img { width: 24px; height: 24px; } .tall .chip.time { padding: 4px 8px; font-size: 13px; } .tall .chip.help { width: 32px; height: 32px; font-size: 18px; padding: 0; }
   .tall .dock { position: static; flex: none; justify-content: center; gap: 8px; padding: 8px 8px 10px; background: rgba(255, 255, 255, .92); border-top: var(--panel-border); }
-  .tall .dock :global(.tile) { width: 96px; height: 92px; }
+  .tall .dock { gap: 6px; padding: 8px 6px 10px; }
+  .tall .dock :global(.tile) { width: calc((100vw - 36px) / 5); max-width: 96px; min-width: 0; height: 84px; padding: 6px 2px; }
   .tall .ww { width: 92px; font-size: 13px; }
   .tall .introcard { grid-template-columns: 1fr; }
   .tall .pic { min-height: 210px; }

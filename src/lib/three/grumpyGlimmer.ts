@@ -35,7 +35,10 @@ export class GrumpyGlimmer {
   /** 1 = as grumpy as can be, 0 = cheered right up */
   mood = 1; private shown = 1;
   lookAt = new THREE.Vector3();
-  fx: Fx | null = null;
+  private _fx: Fx | null = null;
+  /** the scene's effects (an evolved one's aura uses them too) */
+  get fx() { return this._fx; }
+  set fx(f: Fx | null) { this._fx = f; this.glimmer.fx = f; }
   private cloud = new THREE.Group();
   private puffs: { s: THREE.Sprite; base: THREE.Vector3; ph: number; w: number }[] = [];
   private rain: THREE.LineSegments; private rainPos: Float32Array; private rainN = 80;
@@ -79,11 +82,13 @@ export class GrumpyGlimmer {
     this.root.add(this.mark);
   }
 
-  static async create(id: GlimmerId, champion: boolean): Promise<GrumpyGlimmer> {
+  /** `evolved`: the grown-up form (the third island's Champion), a fifth taller with its markings and aura
+   *  once it cheers up. */
+  static async create(id: GlimmerId, champion: boolean, evolved = false): Promise<GrumpyGlimmer> {
     const r = GLIMMER[id].rarity;
     const h = champion ? 1.35 : r === 'epic' || r === 'mythic' ? 1.05 : 0.95;
-    const [g, t1, t2] = await Promise.all([GlimmerModel.create(id, h), loadTexture('game/storm1.webp'), loadTexture('game/storm2.webp')]);
-    return new GrumpyGlimmer(g, h, [t1, t2], champion);
+    const [g, t1, t2] = await Promise.all([GlimmerModel.create(id, h, { evolved }), loadTexture('game/storm1.webp'), loadTexture('game/storm2.webp')]);
+    return new GrumpyGlimmer(g, g.height, [t1, t2], champion);
   }
 
   private drop(i: number, anywhere = false) {

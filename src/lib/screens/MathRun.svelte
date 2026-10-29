@@ -24,6 +24,8 @@
   import { applyMathRun, mathOf } from '../math/progress';
   import NumPad from '../math/ui/NumPad.svelte';
   import DotPicture from '../math/ui/DotPicture.svelte';
+  import LearnLesson from '../math/ui/LearnLesson.svelte';
+  import { isLearned, isLearnStop, lessonForFact, lessonForStop } from '../math/learn';
   import RideLadder from '../ui/RideLadder.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -99,6 +101,9 @@
   const answer = $derived(fact ? answerOf(fact) : 0);
   const digits = $derived(String(answer).length);
   const trick = $derived(fact ? trickOf(fact) : null);
+  // Learn: the lesson for this stop's new trick (on the start card), and for the fact on the help card
+  const introLesson = $derived(isLearnStop(lesson) ? lessonForStop(lesson) : null);
+  const helpLesson = $derived(fact ? lessonForFact(fact) : null);
   const trickText = $derived(trick?.say ?? '');
   const sign = $derived(fact ? opSign(fact) : '×');
   const showHelp = $derived(phase === 'play' && (mode === 'learn' || mode === 'fix'));
@@ -317,6 +322,7 @@
     startMusic(worldOf(lesson));
   });
   onDestroy(() => {
+    game.learnOverlay = null;
     if (!keepScene) stage.use(null);
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('blur', onBlur);
@@ -382,6 +388,7 @@
         <div class="pic"><DotPicture {fact} size={compact ? 150 : 210} /></div>
         <p>{trickText}</p>
         <div class="typeit">Type <b>{answer}</b> to go on</div>
+        {#if helpLesson}<button class="watchl small" onclick={() => { sfx.click(); game.learnOverlay = helpLesson!.id; }}><img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" /><b>Watch the lesson</b></button>{/if}
       </div>
     {/if}
 
@@ -429,6 +436,7 @@
           <div class="meetbuddy"><Critter friend={profile.buddy} size={110} mood="dance" /></div>
         {/if}
         {#if lesson.kind !== 'meet'}<p class="blurb">{lesson.blurb}</p>{/if}
+        {#if introLesson}<button class="watchl" onclick={() => { sfx.click(); game.learnOverlay = introLesson!.id; }}><img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" /><span><b>{isLearned(mathOf(profile), introLesson.id) ? 'Watch the lesson again' : 'Watch the lesson first'}</b><small>{introLesson.title}: {buddy.name} shows you the trick</small></span></button>{/if}
         {#if !calm}
           <div class="goals">
             {#each starAt as s, i}<div class="goal"><Stars n={i + 1} of={i + 1} size={20} /><span>score {s}</span></div>{/each}
@@ -460,6 +468,13 @@
           <NavTile size="lg" tone="sky" kind="home" label="Home" onclick={leave} />
         </div>
       </div>
+    </div>
+  {/if}
+
+  {#if game.learnOverlay}
+    <!-- a Learn lesson over the trip: the trip waits underneath -->
+    <div class="learnlay" style:background-image="url({import.meta.env.BASE_URL}learn/{compact ? 'room-tall' : 'room'}.webp)">
+      {#key game.learnOverlay}<LearnLesson id={game.learnOverlay} embedded onclose={() => (game.learnOverlay = null)} />{/key}
     </div>
   {/if}
 </div>
@@ -508,6 +523,16 @@
   .help p { margin: 0; font: 600 16px/1.35 var(--font-body); color: var(--ink2); text-align: center; }
   .typeit { font: 700 15px var(--font-body); color: var(--muted); background: var(--bg2); padding: 5px 14px; border-radius: 999px; }
   .typeit b { font: 600 20px var(--font-ui); color: var(--primary-edge); }
+  .watchl { display: flex; align-items: center; gap: 10px; border: 0; cursor: pointer; text-align: left; margin: 4px auto 0; background: linear-gradient(#fffaf0, #ffefc6); border-radius: 18px; padding: 6px 16px 6px 6px; box-shadow: 0 0 0 3px #ffd36b, 0 4px 0 #e6bd63; transition: transform .15s; }
+  .watchl:hover { transform: translateY(-2px); }
+  .watchl img { width: 40px; height: 48px; object-fit: contain; }
+  .watchl b { display: block; font: 600 18px var(--font-ui); color: #6b4300; }
+  .watchl small { display: block; font: 600 13px var(--font-body); color: #8a6a2a; }
+  .watchl.small { padding: 3px 12px 3px 3px; border-radius: 14px; }
+  .watchl.small img { width: 26px; height: 32px; }
+  .watchl.small b { font-size: 15px; }
+  .learnlay { position: absolute; inset: 0; z-index: 30; display: flex; background-size: cover; background-position: center; }
+  .learnlay::before { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(255, 250, 240, .2), rgba(255, 248, 235, .55)); pointer-events: none; }
 
   .announce { position: absolute; left: 0; right: 0; bottom: 0; top: 40%; overflow: hidden; pointer-events: none; z-index: 8; }
   .banner { position: absolute; left: 55%; right: 0; top: 0; bottom: 10%; justify-content: center; display: flex; flex-direction: column; align-items: center; pointer-events: none; animation: banner 1.5s cubic-bezier(.3, .8, .3, 1) forwards; }

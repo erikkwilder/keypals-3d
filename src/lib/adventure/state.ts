@@ -13,7 +13,9 @@ import { lessonFacts } from '../math/course';
 import { factId, parseFact, seedPartner, updateFact, type Fact, type Op } from '../math/facts';
 import { GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, rarityRank, type Element, type GlimmerId, type Rarity } from './glimmers';
 import { grumpFor, type Foe, type Pool, type Subject } from './battle';
+import { championPrize, type BuddyGear, type GearItem } from './gear';
 import type { RegionId } from '../engine/course';
+import { newStats, noteStats, type GhostStats, type RivalState } from './ghosts';
 
 // ---------- the map ----------
 export type IslandId = 'meadow' | 'treetops' | 'bay';
@@ -43,9 +45,11 @@ export type AdvSettings = {
   capMin: number;
   /** battles use only this kind of math (or all of it) */
   focus: 'all' | Op;
+  /** Family Duel and Rival Ghosts (on this device only) are open; grown-ups can turn them off */
+  versus?: boolean;
 };
 export const DEFAULT_SETTINGS: AdvSettings = { rule: 'balanced', ratio: 1, freeMin: 10, capMin: 0, focus: 'all' };
-export type Owned = { level: number; xp: number; got: number };
+export type Owned = { level: number; xp: number; got: number; evolved?: boolean };
 export type Adventure = {
   shells: number; xp: number;
   glimmers: Partial<Record<GlimmerId, Owned>>;
@@ -69,11 +73,15 @@ export type Adventure = {
   fresh: GlimmerId[];
   /** tips and intros already shown ('intro', 'battle1', 'map1', 'strong', 'perfect') */
   seen: string[];
+  /** each buddy's hand, back and shoe gear (gear.ts) */
+  gear: Partial<Record<string, BuddyGear>>;
+  /** how this player plays (for their Rival Ghost), their Rival Ghosts season, and Family Duels played */
+  ghost?: GhostStats; rivals?: RivalState; duels?: { played: number; won: number };
 };
 export const newAdventure = (): Adventure => ({
   shells: 0, xp: 0, glimmers: {}, team: [null, null], incubator: [null, null, null], nest: [], eggsMade: 0, nodes: {},
   practiceSessions: 0, stopAt: {}, subject: 'math', day: { key: '', ms: 0, answers: 0, right: 0 }, settings: { ...DEFAULT_SETTINGS },
-  battles: 0, wins: 0, perfects: 0, fresh: [], seen: [],
+  battles: 0, wins: 0, perfects: 0, fresh: [], seen: [], gear: {},
 });
 /** The player's adventure, filled in (older saves have none). Changes go into the profile. */
 export function advOf(p: Profile): Adventure {
@@ -93,7 +101,7 @@ export function advView(p: Profile): Adventure {
 export const owns = (a: Adventure, id: GlimmerId) => !!a.glimmers[id];
 export const xpNeed = (level: number) => 20 + level * 10;
 export const MAX_LEVEL = 20;
-function giveXp(o: Owned, xp: number): number {
+export function giveXp(o: Owned, xp: number): number {
   let ups = 0;
   o.xp += xp;
   while (o.level < MAX_LEVEL && o.xp >= xpNeed(o.level)) { o.xp -= xpNeed(o.level); o.level++; ups++; }
@@ -138,7 +146,7 @@ export const PLAY_RULES: Record<PlayRule, { name: string; text: string }> = {
   balanced: { name: 'Balanced', text: 'Practice earns play time, plus some free minutes every day.' },
   practiceFirst: { name: 'Practice first', text: 'Adventure opens once today\'s practice goal is reached.' },
 };
-function today(a: Adventure, now: number) { const k = dayKey(now); if (a.day.key !== k) a.day = { key: k, ms: 0, answers: 0, right: 0 }; return a.day; }
+export function today(a: Adventure, now: number) { const k = dayKey(now); if (a.day.key !== k) a.day = { key: k, ms: 0, answers: 0, right: 0 }; return a.day; }
 export function practiceMinToday(p: Profile, now = Date.now()) { return (p.days[dayKey(now)]?.ms ?? 0) / 60000; }
 /** Whether Adventure is open now, and how many play minutes are left today (null: no limit). */
 export function playLeft(p: Profile, now = Date.now()): { open: boolean; left: number | null; why: string } {
@@ -213,7 +221,8 @@ export function foeFor(p: Profile, node: MapNode, pool: Pool, seed: number): Foe
   if (node.kind === 'champion') {
     const g = GLIMMER[isl.champion];
     const max = grumpFor(pool, true);
-    return { glimmer: g.id, rarity: g.rarity, champion: true, element: g.element, grump: max, max, hit: 4 + islandN };
+    // the third island's Champion has grown up: it comes evolved, glowing, for a bigger finale
+    return { glimmer: g.id, rarity: g.rarity, champion: true, element: g.element, grump: max, max, hit: 4 + islandN, evolved: islandN >= 2 };
   }
   const r = roll(rng, isl.odds);
   // the very first battle is always Puddle Pup (the one in the story)
@@ -272,7 +281,7 @@ export function hatch(p: Profile, slot: number, seed = Date.now()): Hatch | null
   return { id, rarity: e.rarity, ...out };
 }
 /** A Glimmer joins (or, if you have it, it brings stardust: XP for the one you have). */
-function meet(a: Adventure, id: GlimmerId): { isNew: boolean; level: number; ups: number } {
+export function meet(a: Adventure, id: GlimmerId): { isNew: boolean; level: number; ups: number } {
   const o = a.glimmers[id];
   if (!o) {
     a.glimmers[id] = { level: 1, xp: 0, got: Date.now() };
@@ -326,6 +335,8 @@ export type BattleOutcome = {
   xp: XpInfo; rewards: Reward[];
   teamUps: { id: GlimmerId; level: number }[];
   firstClear: boolean; islandDone: IslandId | null;
+  /** a Champion's gear prize, for the buddy who beat it */
+  gear?: GearItem | null;
 };
 
 export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
@@ -334,6 +345,8 @@ export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
   const day = today(a, r.at);
   day.ms += r.ms; day.answers += r.answers; day.right += r.right;
   a.battles++;
+  // how you play, for your Rival Ghost
+  noteStats((a.ghost ??= newStats()), { answers: r.answers, right: r.right, thinkMs: r.answered.length ? r.answered.reduce((t, x) => t + x.thinkMs, 0) * (r.answers / r.answered.length) : r.ms * 0.55 });
   // the answers count for the fact memory, as in practice
   if (r.subject === 'math' && r.answered.length) {
     const m = (p.math = mathOf(p)), dk = dayKey(r.at);
@@ -357,8 +370,12 @@ export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
   out.firstClear = !cleared(a, r.node);
   a.nodes[r.node] = (a.nodes[r.node] ?? 0) + 1;
   if (out.firstClear && node.kind === 'champion') out.islandDone = isl.id;
+  // a Champion gives its piece of gear to the buddy who beat it
+  if (node.kind === 'champion') out.gear = championPrize(a, p.buddy, isl.id);
   const id = r.foe.glimmer, rarity = r.foe.rarity, shimmered: Rarity | null = null;
   out.met = { id, rarity, shimmered, ...meet(a, id) };
+  // an evolved Champion stays grown up when it joins you
+  if (r.foe.evolved && a.glimmers[id]) a.glimmers[id]!.evolved = true;
   // shells
   let shells = 12 + islandN * 4 + RARITY[rarity].shells + (r.perfect ? 10 : 0) + (node.kind === 'champion' ? 50 : 0) + (r.treasureNose ? 6 : 0);
   if (r.perfect && r.crystal) shells += 10 + RARITY[rarity].shells;
@@ -373,5 +390,5 @@ export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
 }
 
 /** Glimmers on the team that are owned, with their levels. */
-export function teamOf(a: Adventure) { return a.team.filter((t): t is GlimmerId => !!t && owns(a, t)).map(id => ({ id, level: a.glimmers[id]!.level })); }
+export function teamOf(a: Adventure) { return a.team.filter((t): t is GlimmerId => !!t && owns(a, t)).map(id => ({ id, level: a.glimmers[id]!.level, evolved: !!a.glimmers[id]!.evolved })); }
 export { GLIMMERS };

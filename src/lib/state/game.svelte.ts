@@ -5,7 +5,7 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
-export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs';
+export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals';
 
 function load(): SaveFile {
   try {
@@ -53,12 +53,26 @@ class Game {
   /** which tab the sticker book opens on */
   stickerTab = $state<'stickers' | 'medals' | 'rides'>('stickers');
   /** which tab Keypals opens on */
-  closetTab = $state<'outfits' | 'dances'>('outfits');
+  closetTab = $state<'outfits' | 'dances' | 'gear'>('outfits');
   /** Adventure: the map stop being battled, and a fresh key so "battle again" starts a new one */
   battleNode = $state<string | null>(null);
   battleKey = $state(0);
   /** the Glimmer to show first on the Glimmers screen (a new one to put on the team) */
   glimmerSel = $state<string | null>(null);
+  /** Family Duel or Rival Ghosts, and the rival picked (the duel screen rebuilds when duelKey bumps) */
+  duelMode = $state<'duel' | 'rival'>('duel');
+  duelRival = $state<import('../adventure/ghosts').Rival | null>(null);
+  duelKey = $state(0);
+  /** Learn: the lesson open on the Learn screen (null: the list of tricks), and where Back goes */
+  learnId = $state<string | null>(null);
+  learnBack = $state<Screen>('map');
+  /** a Learn lesson opened over a math trip (the trip waits underneath) */
+  learnOverlay = $state<string | null>(null);
+  openLearn(id: string | null = null, back: Screen = this.screen === 'learn' ? this.learnBack : this.screen) {
+    this.learnId = id;
+    this.learnBack = back;
+    this.screen = 'learn';
+  }
 
   get profile(): Profile | null {
     return this.save.profiles.find(p => p.id === this.save.activeId) ?? null;
@@ -99,14 +113,14 @@ class Game {
   openSettings() { this.settingsOpen = true; }
   closeSettings() { this.settingsOpen = false; }
   /** something is open on top of the screen and owns the keyboard */
-  get modalOpen() { return this.sheet !== null || this.settingsOpen || this.chartLesson !== null; }
+  get modalOpen() { return this.sheet !== null || this.settingsOpen || this.chartLesson !== null || this.learnOverlay !== null; }
   openChart(id: string) { this.chartLesson = id; }
   closeChart() { this.chartLesson = null; }
   openStickers(tab: 'stickers' | 'medals' | 'rides' = 'stickers') {
     this.stickerTab = tab;
     this.screen = 'stickers';
   }
-  openCloset(tab: 'outfits' | 'dances' = 'outfits') {
+  openCloset(tab: 'outfits' | 'dances' | 'gear' = 'outfits') {
     this.closetTab = tab;
     this.screen = 'closet';
   }

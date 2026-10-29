@@ -23,6 +23,7 @@
   import Stars from '../ui/Stars.svelte';
   import Ring from '../ui/Ring.svelte';
   import Icon from '../ui/Icon.svelte';
+  import { isLearnStop, isLearned, lessonForStop, LESSONS, type Lesson } from '../math/learn';
 
   const p = $derived(game.profile!);
   const m = $derived(mathOf(p));
@@ -42,6 +43,10 @@
   const blooms = $derived(stageCounts(m, ALL_GARDEN_IDS)[3]);
   const dancesOpen = $derived(DANCES.filter(d => d.level <= levelFromXp(palOf(p).xp).level).length);
   const fresh = $derived(m.totals.trips === 0);
+  // Learn: the lesson to watch before the next stop (if it's a new trick not learned yet)
+  const learnedCount = $derived(LESSONS.filter(l => isLearned(m, l.id)).length);
+  const learnNext = $derived.by(() => { if (!op || !isLearnStop(next)) return null; const l = lessonForStop(next); return l && !isLearned(m, l.id) ? l : null; });
+  function watch(l: Lesson) { sfx.click(); game.openLearn(l.id, 'map'); }
   let scroller: HTMLDivElement | undefined = $state();
   let sw = $state(1280);
   const tile = $derived(sw < 760 ? 'sm' : 'md');
@@ -99,6 +104,9 @@
     </div>
     <div class="spacer"></div>
     <div class="navs">
+      <NavTile size={tile} tone="butter" label="Learn" title="Learn: your buddy shows you each trick" badge={learnedCount || ''} onclick={() => game.openLearn(null, 'map')}>
+        {#snippet art()}<img class="learnart" src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" style:height={tile === 'sm' ? '40px' : '64px'} />{/snippet}
+      </NavTile>
       <NavTile size={tile} tone="mint" label="Garden" title="Fact Garden: every fact you know" badge={blooms || ''} onclick={() => game.go('garden')}>
         {#snippet art()}<Flower stage={3} size={tile === 'sm' ? 38 : 58} hue={320} />{/snippet}
       </NavTile>
@@ -182,6 +190,18 @@
             <span class="tbl" style:background={strand.color}>{r.chip}</span>
             <div><h2>{r.name}</h2><p>{r.blurb}</p></div>
           </div>
+          <div class="learns">
+            {#each r.lessons.filter(isLearnStop) as st (st.id)}
+              {@const ll = lessonForStop(st)}
+              {#if ll}
+                {@const got = isLearned(m, ll.id)}
+                <button class="learnchip" class:got onclick={() => watch(ll)} title="Watch the lesson: {ll.title}">
+                  <img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" />
+                  <span><small>{got ? '✓ Learned' : 'Learn it first'}</small><b>{ll.title}</b></span>
+                </button>
+              {/if}
+            {/each}
+          </div>
           <div class="count" title="Facts in bloom">{bloomed(r)}/{regionFacts(r).length} <span class="flower">✿</span></div>
         </div>
         <svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -213,6 +233,7 @@
 
   {#if op}
   <div class="go">
+    {#if learnNext}<button class="btn btn-big learnfirst" onclick={() => watch(learnNext!)}><img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" />Learn it first</button>{/if}
     <button class="btn btn-primary btn-big" onclick={() => start(next)}>
       {fresh ? 'Start' : 'Keep going'}: {next.title} <span class="kbd">enter</span>
     </button>
@@ -309,7 +330,18 @@
   .donebadge { position: absolute; right: 16px; bottom: 14px; z-index: 4; font: 600 18px var(--font-ui); background: var(--mint); color: #0f4a36; padding: 6px 14px; border-radius: 999px; box-shadow: var(--shadow-sm); }
   .soon { flex: none; margin: 0; text-align: center; font: 700 15px var(--font-body); color: var(--muted); }
   .endpad { height: 40px; flex: none; }
-  .go { position: absolute; bottom: 22px; left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100vw - 32px); z-index: 6; }
+  .go { position: absolute; bottom: 22px; left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100vw - 32px); z-index: 6; display: flex; gap: 10px; justify-content: center; }
+  .learnfirst { display: flex; align-items: center; gap: 8px; background: linear-gradient(#fffaf0, #ffe9b8); color: #6b4300; box-shadow: 0 5px 0 #e0b45c; }
+  .learnfirst img { width: 34px; height: 40px; object-fit: contain; margin: -6px 0; }
+  .learnart { width: auto; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(60, 40, 10, .25)); }
+  .learns { flex: 1; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; min-width: 0; }
+  .learnchip { pointer-events: auto; display: flex; align-items: center; gap: 6px; border: 0; cursor: pointer; text-align: left; background: rgba(255, 249, 232, .96); border-radius: 16px; padding: 4px 12px 4px 4px; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); transition: transform .15s; }
+  .learnchip:hover { transform: translateY(-2px); }
+  .learnchip img { width: 34px; height: 40px; object-fit: contain; }
+  .learnchip small { display: block; font: 800 11px var(--font-body); color: #a86a00; }
+  .learnchip b { font: 600 16px/1.1 var(--font-ui); color: var(--ink); white-space: nowrap; }
+  .learnchip.got { background: rgba(240, 252, 246, .96); box-shadow: 0 0 0 3px #9be7c4, var(--shadow-sm); }
+  .learnchip.got small { color: #1f7a54; }
   .go .btn { max-width: 100%; }
   .go .kbd { background: rgba(255, 255, 255, .25); border-color: rgba(255, 255, 255, .4); color: inherit; font-size: 11px; height: 22px; }
 
@@ -333,6 +365,15 @@
     .go .btn { font-size: 18px; padding: 12px 18px; white-space: normal; }
   }
   @media (max-width: 760px) { .pill.goal span { display: none; } }
+  @media (max-width: 760px) {
+    /* phones: just the little easel (yellow ring: still to learn, green: learned) */
+    .learnchip { padding: 4px; border-radius: 14px; }
+    .learnchip img { width: 30px; height: 34px; }
+    .learnchip span { display: none; }
+    .learns { flex: none; gap: 4px; }
+    .learnfirst img { display: none; }
+    .go { gap: 6px; }
+  }
 
   /* phones: one header row; the nav tiles show their pictures only, the goal pill and FancyAnt button go */
   @media (max-width: 760px) {

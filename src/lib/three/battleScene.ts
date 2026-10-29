@@ -7,6 +7,8 @@ import * as THREE from 'three';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
 import { makeOutfit } from './outfits3d';
+import { wearKit } from './gear3d';
+import type { Slot } from '../adventure/gear';
 import { loadGltf, loadTexture } from './assets';
 import { Fx, type Emit } from './fx';
 import { GrumpyGlimmer } from './grumpyGlimmer';
@@ -19,7 +21,7 @@ import { ELEMENT, ELEMENTS, GLIMMER, RARITY, type Element, type GlimmerId, type 
 import type { MischiefKind } from '../adventure/battle';
 
 const UP = new THREE.Vector3(0, 1, 0);
-type Opts = { buddy: FriendId; outfit: string; dance: string; region: RegionId; team: GlimmerId[]; foe: { glimmer: GlimmerId; rarity: Rarity; champion: boolean }; view: View };
+type Opts = { buddy: FriendId; outfit: string; dance: string; region: RegionId; team: GlimmerId[]; foe: { glimmer: GlimmerId; rarity: Rarity; champion: boolean; evolved?: boolean }; view: View; /** which team members are grown up */ teamEvolved?: boolean[]; /** hand, back and shoe gear */ kit?: Partial<Record<Slot, string>> };
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
 export class BattleScene implements Controller {
@@ -74,19 +76,20 @@ export class BattleScene implements Controller {
     const spots = this.compact
       ? [this.buddyAt.clone().addScaledVector(this.right, -0.7).addScaledVector(this.n, -0.75), this.buddyAt.clone().addScaledVector(this.right, 0.4).addScaledVector(this.n, -1.15)]
       : [this.buddyAt.clone().addScaledVector(this.right, -1.0).addScaledVector(this.n, 0.4), this.buddyAt.clone().addScaledVector(this.right, -0.7).addScaledVector(this.n, -0.95)];
-    team.forEach((g, i) => { if (!g) return; const s = spots[i]; s.y = island.height(s.x, s.z); g.root.position.copy(s); stage.scene.add(g.root); g.face = this.foeAt.clone(); });
+    team.forEach((g, i) => { if (!g) return; const s = spots[i]; s.y = island.height(s.x, s.z); g.root.position.copy(s); stage.scene.add(g.root); g.face = this.foeAt.clone(); g.fx = this.fx; });
     this.fx.setScale(innerHeight * Math.min(2, devicePixelRatio || 1), stage.camera.fov);
   }
 
   static async create(opts: Opts): Promise<BattleScene> {
     const [island, me, ...team] = await Promise.all([
       stage.getIsland(opts.region), Character.create(opts.buddy),
-      ...opts.team.slice(0, 2).map(id => GlimmerModel.create(id, GLIMMER[id].rarity === 'legendary' || GLIMMER[id].rarity === 'mythic' ? 0.8 : 0.62).catch(() => null)),
+      ...opts.team.slice(0, 2).map((id, i) => GlimmerModel.create(id, GLIMMER[id].rarity === 'legendary' || GLIMMER[id].rarity === 'mythic' ? 0.8 : 0.62, { evolved: opts.teamEvolved?.[i] }).catch(() => null)),
     ]);
     if (!me) throw new Error('character missing');
     if (opts.outfit && opts.outfit !== 'none') me.wear(opts.outfit, makeOutfit);
+    if (opts.kit) wearKit(me, opts.kit);
     await me.loadMoves();
-    const grumble = await GrumpyGlimmer.create(opts.foe.glimmer, opts.foe.champion);
+    const grumble = await GrumpyGlimmer.create(opts.foe.glimmer, opts.foe.champion, opts.foe.evolved);
     const sc = new BattleScene(island, me, grumble, team as (GlimmerModel | null)[], opts);
     await sc.buildArena();
     return sc;
@@ -449,8 +452,8 @@ export class BattleScene implements Controller {
 }
 
 // ---------- how each element's power looks ----------
-type CastLook = { color: number; arc: number; trail: (at: THREE.Vector3, k: number) => Emit; impact: (at: THREE.Vector3, k: number) => Emit[] };
-const CAST: Record<Element, CastLook> = {
+export type CastLook = { color: number; arc: number; trail: (at: THREE.Vector3, k: number) => Emit; impact: (at: THREE.Vector3, k: number) => Emit[] };
+export const CAST: Record<Element, CastLook> = {
   sun: {
     color: 0xffc23d, arc: 1.0,
     trail: (at, k) => ({ at, count: Math.round(4 * k), shape: ['star', 'dot', 'spark'], color: [0xffe066, 0xffb02e, 0xffffff], to: 0xff6a00, speed: [0.2, 0.9], life: [0.3, 0.6], size: [0.1, 0.22], drag: 2 }),

@@ -149,6 +149,8 @@
             {/if}
             <label>Most Adventure a day
               <select value={adv?.settings.capMin ?? 0} onchange={(e) => setAdv({ capMin: Number((e.currentTarget as HTMLSelectElement).value) })}>{#each [0, 15, 20, 30, 45, 60] as m}<option value={m}>{m ? `${m} min` : 'No limit'}</option>{/each}</select></label>
+            <label>Family Duel and Rival Ghosts
+              <select value={adv?.settings.versus === false ? 'off' : 'on'} onchange={(e) => setAdv({ versus: (e.currentTarget as HTMLSelectElement).value === 'on' })}><option value="on">On (players on this device only)</option><option value="off">Off</option></select></label>
             <label>Battles use
               <select value={adv?.settings.focus ?? 'all'} onchange={(e) => setAdv({ focus: (e.currentTarget as HTMLSelectElement).value as AdvSettings['focus'] })}><option value="all">All the math met so far</option><option value="+">Adding only</option><option value="-">Taking away only</option><option value="x">Times only</option><option value="/">Sharing only</option></select></label>
           </div>

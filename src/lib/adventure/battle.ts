@@ -8,7 +8,8 @@
 // Finale stars. Pure: the screen calls play / block / finale / swap and animates the events that come back.
 import { mulberry32, type Rng } from '../engine/rng';
 import { answerOf, type Fact, type Op } from '../math/facts';
-import { ELEMENT, ELEMENTS, GLIMMER, powerNum, strong, type Element, type GearKind, type GlimmerId, type Rarity, type RoleId } from './glimmers';
+import { ELEMENT, ELEMENTS, EVOLVE_BOOST, GLIMMER, powerNum, strong, type Element, type GearKind, type GlimmerId, type Rarity, type RoleId } from './glimmers';
+import type { KitKind } from './gear';
 
 export type Subject = 'math' | 'typing';
 /** What a battle draws on. Math: facts and how well each is known (stage 3 = in bloom), and whether open
@@ -35,14 +36,18 @@ export const MISCHIEF: Record<Element, { kind: MischiefKind; name: string }> = {
   stone: { kind: 'pebbles', name: 'Pebbles are coming' }, leaf: { kind: 'gust', name: 'Wind is coming' },
 };
 
-export type Foe = { glimmer: GlimmerId; rarity: Rarity; champion: boolean; element: Element; grump: number; max: number; hit: number };
-export type Member = { id: GlimmerId; level: number };
-export type Setup = { pool: Pool; seed: number; sparkMax: number; role: RoleId; gear: GearKind | null; team: Member[]; foe: Foe; fastMs?: number };
+export type Foe = { glimmer: GlimmerId; rarity: Rarity; champion: boolean; element: Element; grump: number; max: number; hit: number; evolved?: boolean };
+/** `evolved`: grown up, so its power works as if it were EVOLVE_BOOST levels higher, plus its own perk */
+export type Member = { id: GlimmerId; level: number; evolved?: boolean };
+/** `kit`: the hand, back and shoe gear's powers and any set bonus (gear.ts) */
+export type Setup = { pool: Pool; seed: number; sparkMax: number; role: RoleId; gear: GearKind | null; team: Member[]; foe: Foe; fastMs?: number; kit?: KitKind[] };
 
 export type BEvent =
   | { k: 'cast'; card: Card; value: number; ok: boolean; perfect: boolean; super: boolean }
-  | { k: 'extra'; by: 'glimmer' | 'role' | 'gear'; id?: GlimmerId; what: string; value: number }
-  | { k: 'heal'; by: 'glimmer' | 'role' | 'gear'; id?: GlimmerId; what: string; value: number }
+  | { k: 'extra'; by: 'glimmer' | 'role' | 'gear'; id?: GlimmerId; what: string; value: number; item?: string }
+  | { k: 'heal'; by: 'glimmer' | 'role' | 'gear'; id?: GlimmerId; what: string; value: number; item?: string }
+  /** a piece of gear did something that isn't cheer or energy (a bubble shield, an extra Finale star, half a hit) */
+  | { k: 'gear'; item: string; what: string; did: string }
   | { k: 'freeze'; id: GlimmerId }
   | { k: 'dazzle' }
   | { k: 'streakKept'; id: GlimmerId }
@@ -61,6 +66,8 @@ export type Phase = 'pick' | 'block' | 'won' | 'lost';
 export type Battle = {
   subject: Subject; pool: Pool; rng: Rng; fastMs: number;
   spark: number; sparkMax: number; role: RoleId; gear: GearKind | null; team: Member[];
+  /** hand, back and shoe gear (and set bonuses) */
+  kit: KitKind[];
   foe: Foe; cards: Card[]; phase: Phase; block: Block | null;
   streak: number; finale: number; turn: number; nextId: number;
   /** the Grumble skips its next mischief (frozen) / its next one is halved (dazzled) */
@@ -68,6 +75,8 @@ export type Battle = {
   /** first mischiefs that do nothing (Pebble Shell, Hover) */
   free: { by: string; id?: GlimmerId }[];
   used: { hide: boolean; retry: boolean; glow: boolean; aurora: boolean; secondwind: boolean; swap: boolean };
+  /** times a twice-a-battle power has gone (an evolved Fern Fox, Spark Moth or Sky Whale gets two) */
+  twice: { hide: number; glow: number; secondwind: number };
   rights: number; mischiefs: number; perfect: boolean;
   stats: { answers: number; right: number; fast: number; blocks: number; blocked: number; damage: number; cheer: number };
   /** facts answered (for the fact memory) */
@@ -76,25 +85,43 @@ export type Battle = {
 
 export const FINALE_AT = 5;
 const has = (b: Battle, kind: string) => b.team.find(m => GLIMMER[m.id].power.kind === kind);
+/** the level a member's power works at (evolved ones are stronger) */
+const lv = (m: Member) => m.level + (m.evolved ? EVOLVE_BOOST : 0);
+/** an evolved member with this power (its perk applies) */
+const evo = (b: Battle, kind: string) => b.team.find(m => m.evolved && GLIMMER[m.id].power.kind === kind);
+/** a once-a-battle power that an evolved Glimmer gets twice: may it go now? (counts the use) */
+function again(b: Battle, key: 'hide' | 'glow' | 'secondwind', m: Member): boolean {
+  if (b.twice[key] >= (m.evolved ? 2 : 1)) return false;
+  b.twice[key]++; return true;
+}
 
 export function newBattle(s: Setup): Battle {
   const rng = mulberry32(s.seed);
   const b: Battle = {
     subject: s.pool.subject, pool: s.pool, rng, fastMs: s.fastMs ?? 4000,
-    spark: s.sparkMax, sparkMax: s.sparkMax, role: s.role, gear: s.gear, team: s.team.slice(0, 2),
+    spark: s.sparkMax, sparkMax: s.sparkMax, role: s.role, gear: s.gear, team: s.team.slice(0, 2), kit: s.kit ?? [],
     foe: { ...s.foe }, cards: [], phase: 'pick', block: null,
     streak: 0, finale: 0, turn: 0, nextId: 1, frozen: false, dazzled: false, free: [],
     used: { hide: false, retry: false, glow: false, aurora: false, secondwind: false, swap: false },
+    twice: { hide: 0, glow: 0, secondwind: 0 },
     rights: 0, mischiefs: 0, perfect: false,
     stats: { answers: 0, right: 0, fast: 0, blocks: 0, blocked: 0, damage: 0, cheer: 0 },
     answered: [],
   };
   const shell = has(b, 'shell');
   if (shell) b.free.push({ by: 'Pebble Shell', id: shell.id });
+  if (shell?.evolved) b.free.push({ by: 'Boulder Shell', id: shell.id });
+  // a Great Aurora Stag starts you off with two Finale stars
+  if (evo(b, 'aurora')) b.finale = 2;
   if (s.gear === 'hover') b.free.push({ by: 'Hover' });
+  // gear that works from the start: Spring Shoes (more energy), Fairy Wings (Finale stars), the Sky set
+  if (kit(b, 'spring')) { b.sparkMax += 4; b.spark += 4; }
+  if (kit(b, 'wings')) b.finale = Math.max(b.finale, 2);
+  if (kit(b, 'skyset')) b.free.push({ by: 'Sky set' });
   deal(b);
   return b;
 }
+const kit = (b: Battle, k: KitKind) => b.kit.includes(k);
 
 /** Spark to start a battle with: grows with the buddy's friendship level. */
 export const sparkFor = (level: number, role: RoleId) => 12 + Math.min(18, Math.max(1, level)) + (role === 'heart' ? 6 : 0);
@@ -194,44 +221,59 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
   if (ok) {
     b.stats.right++; if (fast) b.stats.fast++;
     b.rights++; b.streak++;
-    b.finale += (b.gear === 'royal' ? 2 : 1) + (card.super ? 1 : 0) + (card.element === 'leaf' && has(b, 'blossom') ? 1 : 0);
+    b.finale += (b.gear === 'royal' ? 2 : 1) + (card.super ? 1 : 0) + (card.element === 'leaf' && has(b, 'blossom') ? 1 : 0) + (card.element === 'tide' && evo(b, 'song') ? 1 : 0);
     if (card.super) { b.dazzled = true; ev.push({ k: 'dazzle' }); }
+    // gear: Rocket Sneakers fill an extra star on a fast answer; the Bubble Wand's bubble every 4th
+    if (fast && kit(b, 'zoom') && b.finale < FINALE_AT) { b.finale++; ev.push({ k: 'gear', item: 'rocket_sneakers', what: 'Rocket Sneakers', did: '+1 Finale star' }); }
+    if (kit(b, 'bubble') && b.rights % 4 === 0) { b.free.push({ by: 'Bubble Wand' }); ev.push({ k: 'gear', item: 'bubble_wand', what: 'Bubble Wand', did: 'bubble shield!' }); }
   } else {
     const fox = has(b, 'hide');
-    if (fox && !b.used.hide && b.streak > 0) { b.used.hide = true; ev.push({ k: 'streakKept', id: fox.id }); }
+    if (fox && b.streak > 0 && again(b, 'hide', fox)) { b.used.hide = true; ev.push({ k: 'streakKept', id: fox.id }); }
     // five right in a row fills the Finale: a slip starts the row again
     else { b.streak = 0; b.finale = 0; }
   }
   if (perfect) { b.perfect = true; ev.push({ k: 'won', perfect: true }); b.phase = 'won'; return ev; }
   if (b.foe.grump > 0) {
     // extras, each its own little cheer
-    const extra = (by: 'glimmer' | 'role' | 'gear', what: string, n: number, id?: GlimmerId) => {
+    const extra = (by: 'glimmer' | 'role' | 'gear', what: string, n: number, id?: GlimmerId, item?: string) => {
       if (n <= 0 || b.foe.grump <= 0) return;
       const v = Math.min(n, b.foe.grump); b.foe.grump -= v; b.stats.cheer += v;
-      ev.push({ k: 'extra', by, what, value: v, id });
+      ev.push({ k: 'extra', by, what, value: v, id, item });
     };
     if (ok && b.gear === 'confetti') extra('gear', 'Confetti', 1);
+    if (ok && kit(b, 'kite') && b.streak > 0 && b.streak % 3 === 0) extra('gear', 'Sky Kite', 3, undefined, 'sky_kite');
+    if (fast && kit(b, 'rocketpack')) extra('gear', 'Rocket Pack', 2, undefined, 'rocket_pack');
     if (ok && b.role === 'speed' && (b.subject === 'math' ? a.thinkMs < 3000 : fast)) extra('role', 'Dash', 3);
     for (const m of b.team) {
       const k = GLIMMER[m.id].power.kind;
-      if (k === 'splash' && ok && a.thinkMs < 4000) extra('glimmer', 'Splash', powerNum(3, m.level), m.id);
-      if (k === 'ember') extra('glimmer', 'Ember puff', powerNum(4, m.level), m.id);
-      if (k === 'lanterns' && ok && b.rights % 3 === 0) extra('glimmer', 'Three lanterns', powerNum(10, m.level, 3), m.id);
+      if (k === 'splash' && ok && a.thinkMs < 4000) extra('glimmer', 'Splash', powerNum(3, lv(m)), m.id);
+      if (k === 'ember') extra('glimmer', 'Ember puff', powerNum(4, lv(m)), m.id);
+      if (k === 'lanterns' && ok && b.rights % 3 === 0) extra('glimmer', 'Three lanterns', powerNum(10, lv(m), 3), m.id);
+      // grown-up perks
+      if (m.evolved && ok) {
+        if (k === 'splash' && card.element === 'tide') extra('glimmer', 'Tidal splash', 2, m.id);
+        if (k === 'ember' && card.element === 'sun') extra('glimmer', 'Flare', 3, m.id);
+        if (k === 'crystal' && card.super) extra('glimmer', 'Diamond shine', 2, m.id);
+        if (k === 'blossom' && card.element === 'leaf') extra('glimmer', 'Bloom breath', 2, m.id);
+      }
     }
   }
   // healing
-  const heal = (by: 'glimmer' | 'role' | 'gear', what: string, n: number, id?: GlimmerId) => {
+  const heal = (by: 'glimmer' | 'role' | 'gear', what: string, n: number, id?: GlimmerId, item?: string) => {
     const v = Math.min(n, b.sparkMax - b.spark); if (v <= 0) return;
-    b.spark += v; ev.push({ k: 'heal', by, what, value: v, id });
+    b.spark += v; ev.push({ k: 'heal', by, what, value: v, id, item });
   };
   if (ok && card.bloom && b.gear === 'bloomheal') heal('gear', 'Bloom', 2);
+  if (ok && kit(b, 'playset') && b.rights % 5 === 0) heal('gear', 'Playground set', 3, undefined, 'bubble_wand');
+  if (fast && kit(b, 'champset')) heal('gear', 'Champion set', 1, undefined, 'rocket_pack');
   if (ok && b.role === 'helper' && b.streak > 0 && b.streak % 3 === 0) heal('role', 'Helping hand', 3);
   for (const m of b.team) {
     const k = GLIMMER[m.id].power.kind;
-    if (k === 'nibble') heal('glimmer', 'Nibble', powerNum(1, m.level, 6), m.id);
-    if (k === 'song' && ok && card.element === 'tide') heal('glimmer', 'Whale song', powerNum(3, m.level), m.id);
-    if (k === 'blossom' && ok) heal('glimmer', 'Blossom', powerNum(1, m.level, 8), m.id);
-    if (k === 'freeze' && ok && b.streak > 0 && b.streak % 3 === 0 && !b.frozen) { b.frozen = true; ev.push({ k: 'freeze', id: m.id }); }
+    if (k === 'nibble') heal('glimmer', 'Nibble', powerNum(1, lv(m), 6), m.id);
+    if (k === 'nibble' && m.evolved && ok && card.super) heal('glimmer', 'Blossom snack', 2, m.id);
+    if (k === 'song' && ok && card.element === 'tide') heal('glimmer', 'Whale song', powerNum(3, lv(m)), m.id);
+    if (k === 'blossom' && ok) heal('glimmer', 'Blossom', powerNum(1, lv(m), 8), m.id);
+    if (k === 'freeze' && ok && b.streak > 0 && b.streak % (m.evolved ? 2 : 3) === 0 && !b.frozen) { b.frozen = true; ev.push({ k: 'freeze', id: m.id }); }
     if (k === 'aurora' && ok && !b.used.aurora && b.rights >= 2) { b.used.aurora = true; b.finale = Math.max(b.finale, FINALE_AT); ev.push({ k: 'aurora' }); }
   }
   b.finale = Math.min(FINALE_AT, b.finale);
@@ -245,9 +287,12 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
 export function finale(b: Battle): BEvent[] {
   if (b.finale < FINALE_AT || b.phase !== 'pick') return [];
   b.finale = 0;
-  const v = Math.min(b.foe.grump, Math.max(6, Math.round(b.foe.max * 0.3)));
+  // a Starlight Fox makes the Finale 10 bigger
+  // the Boombox turns it up: twice as strong
+  const v = Math.min(b.foe.grump, (Math.max(6, Math.round(b.foe.max * 0.3)) + (evo(b, 'lanterns') ? 10 : 0)) * (kit(b, 'boombox') ? 2 : 1));
   b.foe.grump -= v; b.stats.cheer += v;
   const ev: BEvent[] = [{ k: 'finale', value: v }];
+  if (kit(b, 'boombox')) ev.unshift({ k: 'gear', item: 'boombox', what: 'Boombox', did: 'twice as strong!' });
   if (b.foe.grump <= 0) { ev.push({ k: 'won', perfect: false }); b.phase = 'won'; }
   return ev;
 }
@@ -263,9 +308,9 @@ function grumbleTurn(b: Battle): BEvent[] {
   if (free) return [{ k: 'mischief', kind: m.kind, name: m.name, damage: 0, result: 'skip', why: free.by, id: free.id }, ...nextTurn(b)];
   if (b.role === 'steady' && b.mischiefs % 2 === 0) hit = Math.ceil(hit / 2);
   const seal = has(b, 'coolhead');
-  const limitMs = b.subject === 'math' ? 5000 + (seal ? powerNum(2, seal.level, 8) * 1000 : 0) + (b.gear === 'shieldwall' ? 2000 : 0) : 0;
+  const limitMs = b.subject === 'math' ? 5000 + (seal ? powerNum(2, lv(seal), 8) * 1000 : 0) + (b.gear === 'shieldwall' ? 2000 : 0) : 0;
   const block: Block = { kind: m.kind, name: m.name, hit, limitMs, ...blockPrompt(b) };
-  if (b.subject === 'typing') block.limitMs = 2000 + 800 * (block.word?.length ?? 4) + (seal ? powerNum(2, seal.level, 8) * 1000 : 0) + (b.gear === 'shieldwall' ? 2000 : 0);
+  if (b.subject === 'typing') block.limitMs = 2000 + 800 * (block.word?.length ?? 4) + (seal ? powerNum(2, lv(seal), 8) * 1000 : 0) + (b.gear === 'shieldwall' ? 2000 : 0);
   b.block = block;
   b.phase = 'block';
   return [];
@@ -289,16 +334,27 @@ export function block(b: Battle, ok: boolean, ms: number): BEvent[] {
   if (b.subject === 'math' && bl.fact) b.answered.push({ f: bl.fact, ok, thinkMs: ms });
   // right and in time: blocked. Too late or wrong: it lands
   const result: 'full' | 'none' = ok && ms <= bl.limitMs ? 'full' : 'none';
-  const damage = result === 'full' ? 0 : bl.hit;
+  // the Hero Cape catches half of a hit that lands
+  const caped = result === 'none' && kit(b, 'cape');
+  const damage = result === 'full' ? 0 : caped ? Math.ceil(bl.hit / 2) : bl.hit;
   if (damage === 0) b.stats.blocked++;
   b.spark = Math.max(0, b.spark - damage);
   b.stats.damage += damage;
   b.block = null;
   const ev: BEvent[] = [{ k: 'mischief', kind: bl.kind, name: bl.name, damage, result }];
+  if (caped) ev.push({ k: 'gear', item: 'hero_cape', what: 'Hero Cape', did: 'only half the hit' });
   if (result === 'full' && b.role === 'builder' && b.spark < b.sparkMax) { b.spark += 1; ev.push({ k: 'heal', by: 'role', what: 'Builder', value: 1 }); }
+  if (result === 'full' && kit(b, 'cloudstep') && b.spark < b.sparkMax) { const v = Math.min(2, b.sparkMax - b.spark); b.spark += v; ev.push({ k: 'heal', by: 'gear', what: 'Cloud Slippers', value: v, item: 'cloud_slippers' }); }
+  // a Blizzard Seal turns every block into a little cheer
+  const seal = evo(b, 'coolhead');
+  if (result === 'full' && seal && b.foe.grump > 0) {
+    const v = Math.min(2, b.foe.grump); b.foe.grump -= v; b.stats.cheer += v;
+    ev.push({ k: 'extra', by: 'glimmer', what: 'Snow flurry', value: v, id: seal.id });
+    if (b.foe.grump <= 0) { ev.push({ k: 'won', perfect: false }); b.phase = 'won'; return ev; }
+  }
   const whale = has(b, 'secondwind');
-  if (whale && !b.used.secondwind && b.spark > 0 && b.spark <= b.sparkMax / 3) {
-    b.used.secondwind = true; const v = Math.min(b.sparkMax - b.spark, powerNum(10, whale.level, 3)); b.spark += v; ev.push({ k: 'secondwind', value: v });
+  if (whale && b.spark > 0 && b.spark <= b.sparkMax / 3 && again(b, 'secondwind', whale)) {
+    b.used.secondwind = true; const v = Math.min(b.sparkMax - b.spark, powerNum(10, lv(whale), 3)); b.spark += v; ev.push({ k: 'secondwind', value: v });
   }
   if (b.spark <= 0) { b.phase = 'lost'; ev.push({ k: 'lost' }); return ev; }
   ev.push(...nextTurn(b));
@@ -313,6 +369,9 @@ function nextTurn(b: Battle): BEvent[] {
 
 /** Spark Moth's glow: once a battle (the screen shows the trick for a card). */
 export function useGlow(b: Battle): boolean {
-  if (b.used.glow || !has(b, 'glow')) return false;
+  const moth = has(b, 'glow');
+  if (!moth || !again(b, 'glow', moth)) return false;
   b.used.glow = true; return true;
 }
+/** Can Hint still be used this battle? (an evolved Sunbeam Moth gives two) */
+export function glowLeft(b: Battle): boolean { const moth = has(b, 'glow'); return !!moth && b.twice.glow < (moth.evolved ? 2 : 1); }
