@@ -4,7 +4,8 @@
   // in bloom. A glow at a plant's foot is its latest answer (green quick, gold slow, pink missed) and a
   // water drop floats over one due a check-up. Tap a plant to see exactly where it stands and why; tap a
   // bed's chip (or the arrows) to look at that bed up close. Plants that grew since the last visit pop
-  // up one after another. It's also the grown-ups' view of what a child knows.
+  // up one after another. It's also the grown-ups' view of what a child knows. The skill areas (fractions
+  // first) get plots of their own beside the four: a bed for each skill, a plant for each kind of question.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { stage } from '../three/stage';
@@ -17,6 +18,12 @@
   import CloseButton from '../ui/CloseButton.svelte';
   import Critter from '../ui/Critter.svelte';
   import NavTile from '../ui/NavTile.svelte';
+  import { mulberry32 } from '../engine/rng';
+  import { AREA, AREAS, SKILL, skillsOf, splitKey } from '../math/skills/registry';
+  import { SKILL_REGIONS } from '../math/skills/course';
+  import { skillMem } from '../math/skills/progress';
+  import type { AreaId } from '../math/skills/types';
+  import SkillPrompt from '../math/skills/ui/SkillPrompt.svelte';
 
   const base = import.meta.env.BASE_URL;
   const pic = (n: string) => `${base}garden/${n}.webp`;
@@ -25,6 +32,12 @@
   const p = $derived(game.profile!);
   const m = $derived(mathOf(p));
   let op = $state<Op>(mathOf(game.profile!).strand ?? 'x');
+  // the skill areas' plots (after the four fact plots), and the one showing (null: a fact plot)
+  const AREA_PLOTS = AREAS.filter(a => a.live && !a.op);
+  let area = $state<AreaId | null>(!game.mathOp && game.mathArea && AREA_PLOTS.some(a => a.id === game.mathArea) ? game.mathArea : null);
+  const keysOf = (a: AreaId) => skillsOf(a).flatMap(sk => sk.subs.map(sb => `${sk.id}:${sb.id}`));
+  const ALL_KEYS = AREA_PLOTS.flatMap(a => keysOf(a.id));
+  const keyCounts = (keys: string[]) => { const c = [0, 0, 0, 0]; for (const k of keys) c[skillMem(m)[k]?.stage ?? 0]++; return c; };
   const R11 = Array.from({ length: 11 }, (_, i) => i);
   // each operation's garden: a bed for each row, a plant for each column
   const GRID: Record<Op, { rows: number[]; cols: number[]; fact: (r: number, c: number) => Fact; bedLabel: (r: number) => string; note: string }> = {
@@ -35,9 +48,11 @@
   };
   const grid = $derived(GRID[op]);
   const ids = $derived(GARDEN_BY_OP[op]);
-  const counts = $derived(stageCounts(m, ids));
+  const counts = $derived(area ? keyCounts(keysOf(area)) : stageCounts(m, ids));
   const plotOf = (o: Op) => STRANDS.findIndex(s => s.op === o);
-  const due = $derived(ids.filter(id => isDue(m.facts[id], Date.now())));
+  const areaPlot = (a: AreaId) => STRANDS.length + AREA_PLOTS.findIndex(x => x.id === a);
+  const curPlot = $derived(area ? areaPlot(area) : plotOf(op));
+  const due = $derived(area ? keysOf(area).filter(k => isDue(skillMem(m)[k], Date.now())) : ids.filter(id => isDue(m.facts[id], Date.now())));
   const fastS = $derived(Math.round((m.fastMs ?? FAST_MS) / 1000));
   // which region teaches each fact, for "it comes up on the ... trips"
   const REGION_OF = new Map<string, string>();
@@ -46,17 +61,31 @@
   // growth since the last visit: those plants pop up, one after another
   const seenBefore = mathOf(game.profile!).gardenSeen;
   const grewIds = ALL_GARDEN_IDS.filter(id => (mathOf(game.profile!).facts[id]?.stage ?? 0) > (seenBefore?.[id] ?? 0));
+  const grewKeys = ALL_KEYS.filter(k => (skillMem(mathOf(game.profile!))[k]?.stage ?? 0) > (seenBefore?.[k] ?? 0));
   const firstVisit = !seenBefore;
   // where every fact grows: its plot, bed and column
   const WHERE = new Map<string, { op: Op; bed: number; col: number }>();
   for (const s of STRANDS) GRID[s.op].rows.forEach((rw, bed) => GRID[s.op].cols.forEach((c, col) => WHERE.set(factId(GRID[s.op].fact(rw, c)), { op: s.op, bed, col })));
+  const KEY_WHERE = new Map<string, { area: AreaId; bed: number }>();
+  for (const a of AREA_PLOTS) skillsOf(a.id).forEach((sk, bed) => sk.subs.forEach(sb => KEY_WHERE.set(`${sk.id}:${sb.id}`, { area: a.id, bed })));
 
   /** The four plots for the 3D garden, from the save. */
   function plots(): GPlot[] {
     const mm = mathOf(game.profile!), now = Date.now();
     // only plants in the plot that's open at first pop up (the others have already grown when you get there)
-    const order = new Map(grewIds.filter(id => WHERE.get(id)?.op === op).map((id, i) => [id, i]));
-    return STRANDS.map(s => ({
+    const order = new Map(area ? grewKeys.filter(k => KEY_WHERE.get(k)?.area === area).map((k, i) => [k, i]) : grewIds.filter(id => WHERE.get(id)?.op === op).map((id, i) => [id, i]));
+    const mem = skillMem(mm);
+    const skillPlots: GPlot[] = AREA_PLOTS.map(a => ({
+      op: a.id, title: a.name, sign: a.sign ?? a.name[0], color: a.color, spread: true,
+      beds: skillsOf(a.id).map((sk, j) => ({
+        label: sk.short ?? sk.name, color: j % 6,
+        plants: sk.subs.map(sb => {
+          const id = `${sk.id}:${sb.id}`, st = mem[id];
+          return { id, stage: (st?.stage ?? 0) as Stage, latest: st?.seen ? (st.latest ?? null) : null, due: isDue(st, now), grew: firstVisit ? -1 : order.get(id) ?? -1 };
+        }),
+      })),
+    }));
+    return [...STRANDS.map(s => ({
       op: s.op, title: s.name, sign: opSign(s.op), color: s.color,
       beds: GRID[s.op].rows.map((rw, j) => ({
         label: GRID[s.op].bedLabel(rw), color: j % 6,
@@ -65,7 +94,7 @@
           return { id, stage: (st?.stage ?? 0) as Stage, latest: st?.seen ? (st.latest ?? null) : null, due: isDue(st, now), grew: firstVisit ? -1 : order.get(id) ?? -1 };
         }),
       })),
-    }));
+    })), ...skillPlots];
   }
 
   // ---------- the 3D garden ----------
@@ -85,8 +114,9 @@
     addEventListener('resize', onResize);
     const snap: Record<string, number> = {};
     for (const id of ALL_GARDEN_IDS) { const s = mathOf(game.profile!).facts[id]?.stage; if (s) snap[id] = s; }
+    for (const k of ALL_KEYS) { const s = skillMem(mathOf(game.profile!))[k]?.stage; if (s) snap[k] = s; }
     try {
-      const sc = await GardenScene.create({ plots: plots(), buddy: game.profile!.buddy, view: viewOf(), plot: plotOf(op) });
+      const sc = await GardenScene.create({ plots: plots(), buddy: game.profile!.buddy, view: viewOf(), plot: curPlot });
       if (disposed) { sc.dispose(); return; }
       scene = sc; stage.use(sc);
       requestAnimationFrame(onResize);
@@ -95,7 +125,7 @@
     } catch (e) { console.error(e); }
     loading = false;
     game.update(pp => { pp.math = { ...mathOf(pp), gardenSeen: snap }; });
-    if (grewIds.length && !firstVisit) setTimeout(() => sfx.star(2), 900);
+    if ((grewIds.length || grewKeys.length) && !firstVisit) setTimeout(() => sfx.star(2), 900);
     raf = requestAnimationFrame(follow);
   });
   onDestroy(() => { disposed = true; cancelAnimationFrame(raf); cancelAnimationFrame(holdRaf); removeEventListener('resize', onResize); viewEl?.removeEventListener('wheel', onWheel); if (scene && stage.current() === scene) stage.use(null); });
@@ -104,15 +134,17 @@
   let raf = 0;
   let tag = $state<{ x: number; y: number } | null>(null);
   function follow() {
-    const at = picked && scene ? scene.screenOf(factId(picked)) : null, r = viewEl?.getBoundingClientRect();
+    const id = picked ? factId(picked) : pickedKey;
+    const at = id && scene ? scene.screenOf(id) : null, r = viewEl?.getBoundingClientRect();
     tag = at && r ? { x: at.x * innerWidth - r.left, y: at.y * innerHeight - r.top } : null;
     raf = requestAnimationFrame(follow);
   }
 
-  function setOp(o: Op) { if (o === op) return; op = o; bed = null; picked = null; looking = false; scene?.select(null); scene?.show(plotOf(o), null); sfx.click(); }
-  function goBed(b: number | null) { bed = b; looking = false; scene?.show(plotOf(op), b); sfx.click(); }
+  function setOp(o: Op) { if (o === op && !area) return; op = o; area = null; bed = null; unpick(); looking = false; scene?.select(null); scene?.show(plotOf(o), null); sfx.click(); }
+  function setArea(a: AreaId) { if (a === area) return; area = a; bed = null; unpick(); looking = false; scene?.select(null); scene?.show(areaPlot(a), null); sfx.click(); }
+  function goBed(b: number | null) { bed = b; looking = false; scene?.show(curPlot, b); sfx.click(); }
   function step(d: number) {
-    const n = grid.rows.length;
+    const n = beds.length;
     goBed(bed === null ? (d > 0 ? 0 : n - 1) : bed + d < 0 || bed + d >= n ? null : bed + d);
   }
   // ---------- steering the camera yourself ----------
@@ -179,20 +211,45 @@
     if (!h) return;
     const w = WHERE.get(h.id);
     if (w) pick(GRID[w.op].fact(GRID[w.op].rows[w.bed], GRID[w.op].cols[w.col]));
+    else if (KEY_WHERE.has(h.id)) pickKey(h.id);
   }
 
   let picked = $state<Fact | null>(null);
-  const pickedStat = $derived(picked ? m.facts[factId(picked)] : undefined);
+  /** or a skill plant: its memory key (skill:sub) */
+  let pickedKey = $state<string | null>(null);
+  const pickedStat = $derived(picked ? m.facts[factId(picked)] : pickedKey ? skillMem(m)[pickedKey] : undefined);
   const partner = $derived(picked && factId(partnerOf(picked)) !== factId(picked) ? partnerOf(picked) : null);
   const partnerStat = $derived(partner ? m.facts[factId(partner)] : undefined);
   function pick(f: Fact) {
     const w = WHERE.get(factId(f));
-    picked = f; sfx.pop();
+    picked = f; pickedKey = null; sfx.pop();
     // (when you're steering the camera yourself, it stays where you put it)
-    if (w) { if (w.op !== op) op = w.op; if (bed !== w.bed && !looking) { bed = w.bed; scene?.show(plotOf(w.op), w.bed); } }
+    if (w) { if (w.op !== op || area) { op = w.op; area = null; } if (bed !== w.bed && !looking) { bed = w.bed; scene?.show(plotOf(w.op), w.bed); } }
     scene?.select(factId(f));
   }
-  function unpick() { picked = null; scene?.select(null); }
+  function pickKey(k: string) {
+    const w = KEY_WHERE.get(k);
+    pickedKey = k; picked = null; sfx.pop();
+    if (w) { if (w.area !== area) area = w.area; if (bed !== w.bed) { bed = w.bed; scene?.show(areaPlot(w.area), w.bed); } }
+    scene?.select(k);
+  }
+  function unpick() { picked = null; pickedKey = null; scene?.select(null); }
+  /** a skill plant: its skill, the kind of question, and one like it to look at */
+  const pk = $derived(pickedKey ? { ...splitKey(pickedKey) } : null);
+  const pkSkill = $derived(pk ? SKILL[pk.skill] : null);
+  const pkSub = $derived(pk && pkSkill ? pkSkill.subs.find(sb => sb.id === pk.sub)?.label ?? pk.sub : '');
+  const pkExample = $derived(pk && pkSkill ? pkSkill.make(mulberry32(11), pk.sub, 1) : null);
+  /** Why a skill plant is where it is, in a child's words. */
+  function keyStory(k: string): string {
+    const s = skillMem(m)[k], sk = SKILL[splitKey(k).skill];
+    if (s?.seen) {
+      if (s.stage === 3) return 'In bloom: you got these right quickly on three different days.';
+      if (s.stage === 2) return `A bud: you can do these. Get them right quickly on ${BLOOM_DAYS} different days and it blooms.`;
+      return 'A sprout: you have met these. Get one right and it grows a bud.';
+    }
+    const where = SKILL_REGIONS.find(r => r.lessons.some(l => l.learn.includes(sk?.id ?? '')));
+    return `A seed, not asked yet. It comes up on the ${where?.name ?? AREA[sk?.area ?? 'fractions'].name} trips.`;
+  }
 
   const show = (f: Fact) => `${f.a} ${opSign(f)} ${f.b}`;
   /** Why a fact is where it is, in a child's words. */
@@ -218,19 +275,26 @@
   }
 
   // the beds: each row, how much of it is in bloom
-  const beds = $derived(grid.rows.map((rw, j) => {
+  const beds = $derived(area ? skillsOf(area).map((sk, j) => {
+    const st = sk.subs.map(sb => skillMem(m)[`${sk.id}:${sb.id}`]?.stage ?? 0);
+    return { j, label: sk.short ?? sk.name, total: st.length, bloom: st.filter(s => s === 3).length, grow: st.filter(s => s > 0).length };
+  }) : grid.rows.map((rw, j) => {
     const bid = grid.cols.map(c => factId(grid.fact(rw, c)));
     const st = bid.map(id => m.facts[id]?.stage ?? 0);
     return { j, label: grid.bedLabel(rw), total: bid.length, bloom: st.filter(s => s === 3).length, grow: st.filter(s => s > 0).length };
   }));
+  const note = $derived(area ? `A bed for each kind of ${AREA[area].name.toLowerCase()} question, and a plant for each step of it. Quick means starting within about ${Math.round(Math.min(...skillsOf(area).map(sk => sk.fastMs)) / 1000)} seconds: these take longer than facts.` : grid.note);
 
   function setFast(s: number) { game.update(pp => { pp.math = { ...mathOf(pp), fastMs: s * 1000 }; }); }
   let help = $state(false);
   function onKey(e: KeyboardEvent) {
     if (e.key !== 'Escape' || game.modalOpen) return;
-    if (help) help = false; else if (picked) unpick(); else if (bed !== null) goBed(null); else game.go(game.home);
+    if (help) help = false; else if (picked || pickedKey) unpick(); else if (bed !== null) goBed(null); else game.go(game.home);
   }
+  const skillGrowing = ALL_KEYS.some(k => (skillMem(mathOf(game.profile!))[k]?.stage ?? 0) > 0);
   let say = $state(grewIds.length && !firstVisit ? `${grewIds.length} ${grewIds.length === 1 ? 'fact grew' : 'facts grew'} since you last looked!`
+    : grewKeys.length && !firstVisit ? `${grewKeys.length} new ${grewKeys.length === 1 ? 'plant grew' : 'plants grew'} since you last looked!`
+    : area && skillGrowing ? `Your ${AREA[area].name.toLowerCase()} are growing. Quick answers on different days make flowers bloom.`
     : stageCounts(mathOf(game.profile!), ALL_GARDEN_IDS)[3] ? 'Tap any plant to see how it\'s doing!'
     : stageCounts(mathOf(game.profile!), ALL_GARDEN_IDS)[1] + stageCounts(mathOf(game.profile!), ALL_GARDEN_IDS)[2] ? 'Your garden is growing. Quick answers on different days make flowers bloom.'
     : 'Every fact you learn grows here. Take a trip on the Times Trail to plant your first ones!');
@@ -257,8 +321,14 @@
       <div class="tabs" role="tablist" aria-label="Which garden">
         {#each STRANDS as st (st.op)}
           {@const n = stageCounts(m, GARDEN_BY_OP[st.op])[3]}
-          <button role="tab" aria-selected={op === st.op} class:on={op === st.op} style:--sc={st.color} onclick={() => setOp(st.op)}>
+          <button role="tab" aria-selected={!area && op === st.op} class:on={!area && op === st.op} style:--sc={st.color} onclick={() => setOp(st.op)}>
             <img src="{base}{st.art}" alt="" /><span>{st.name}</span>{#if n}<em><img src={STAGE_PIC[3]} alt="" />{n}</em>{/if}
+          </button>
+        {/each}
+        {#each AREA_PLOTS as a (a.id)}
+          {@const n = keyCounts(keysOf(a.id))[3]}
+          <button role="tab" aria-selected={area === a.id} class:on={area === a.id} style:--sc={a.color} onclick={() => setArea(a.id)}>
+            <img src="{base}{a.art}" alt="" /><span>{a.name}</span>{#if n}<em><img src={STAGE_PIC[3]} alt="" />{n}</em>{/if}
           </button>
         {/each}
       </div>
@@ -266,7 +336,7 @@
       <div class="say"><Critter friend={p.buddy} look={p.settings.look} size={narrow ? 40 : 52} round /><p>{say}</p></div>
 
       {#if loading}<div class="loadpill"><img src={STAGE_PIC[1]} alt="" />Planting your garden…</div>{/if}
-      {#if picked && tag}<div class="tag" style:left="{tag.x}px" style:top="{tag.y}px">{show(picked)}</div>{/if}
+      {#if (picked || pickedKey) && tag}<div class="tag" style:left="{tag.x}px" style:top="{tag.y}px">{picked ? show(picked) : pkSub}</div>{/if}
 
       <!-- walk the view along, and back to where the garden was looking -->
       <div class="pad" aria-label="Move around">
@@ -299,18 +369,20 @@
     </div>
 
     <aside class="side">
-      {#if picked}
+      {#if picked || pickedKey}
         {@const st = (pickedStat?.stage ?? 0) as Stage}
-        <div class="card detail" role="dialog" aria-label={show(picked)}>
+        <div class="card detail" role="dialog" aria-label={picked ? show(picked) : pkSkill?.name}>
           <span class="x"><CloseButton onclick={unpick} size={36} /></span>
           <div class="dhead">
             <span class="dpic s{st}"><img src={STAGE_PIC[st]} alt="" /></span>
             <div>
-              <div class="dfact">{show(picked)} = <b>{answerOf(picked)}</b></div>
+              {#if picked}<div class="dfact">{show(picked)} = <b>{answerOf(picked)}</b></div>
+              {:else}<div class="dfact dskill">{pkSkill?.name}<small>{pkSub}</small></div>{/if}
               <div class="dstage s{st}">{STAGE_WORD[st]}</div>
             </div>
           </div>
-          <p class="story">{story(picked)}</p>
+          {#if pkExample}<div class="dex"><small>Like this:</small><SkillPrompt parts={pkExample.prompt} size={26} picSize={96} done /></div>{/if}
+          <p class="story">{picked ? story(picked) : keyStory(pickedKey!)}</p>
           {#if pickedStat?.seen}
             <div class="stats">
               {#if pickedStat.latest}<span class="last"><img src={pic(pickedStat.latest === 'fast' ? 'quick' : pickedStat.latest === 'slow' ? 'slow' : 'missed')} alt="" />last time: <b>{pickedStat.latest === 'fast' ? 'quick' : pickedStat.latest === 'slow' ? 'slow' : 'missed'}</b></span>{/if}
@@ -323,10 +395,10 @@
             {/if}
             {#if st === 3 && pickedStat.due}<p class="next"><img src={pic('due')} alt="" />Next check-up: {new Date(pickedStat.due).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}.</p>{/if}
           {/if}
-          {#if partner}
+          {#if picked && partner}
             <button class="turn" onclick={() => pick(partner!)}>
               <img src={STAGE_PIC[(partnerStat?.stage ?? 0) as Stage]} alt="" />
-              <span>{picked.op === '-' || picked.op === '/' ? 'Family' : 'Turnaround'}: <b>{show(partner)}</b> · {STAGE_WORD[partnerStat?.stage ?? 0]}</span>
+              <span>{picked!.op === '-' || picked!.op === '/' ? 'Family' : 'Turnaround'}: <b>{show(partner)}</b> · {STAGE_WORD[partnerStat?.stage ?? 0]}</span>
             </button>
           {/if}
         </div>
@@ -341,7 +413,7 @@
               <li><img src={STAGE_PIC[s]} alt="" /><b>{STAGE_WORD[s]}</b><small>{['not asked yet', 'you met it', 'you got it right', `quick on ${BLOOM_DAYS} different days`][s]}</small></li>
             {/each}
           </ol>
-          <p class="foot">A slip moves a fact back one step. Blooms get check-ups after 1, 3, 7, 14 and 30 days to stay fresh. {grid.note}</p>
+          <p class="foot">A slip moves a fact back one step. Blooms get check-ups after 1, 3, 7, 14 and 30 days to stay fresh. {note}</p>
           {#if due.length}<p class="duenote"><img src={pic('due')} alt="" /><span><b>{due.length}</b> {due.length === 1 ? 'plant needs' : 'plants need'} a check-up. They come up on your next trips.</span></p>{/if}
           <details class="grown">
             <summary>For grown-ups</summary>
@@ -353,7 +425,7 @@
 
       {#if !narrow}
         <div class="card bedlist">
-          <b class="h">{STRAND[op].name} beds</b>
+          <b class="h">{area ? AREA[area].name : STRAND[op].name} beds</b>
           {#each beds as b (b.j)}
             <button class="brow" class:on={bed === b.j} onclick={() => goBed(b.j)}>
               <span class="bl">{b.label}</span>
@@ -405,6 +477,10 @@
   .loadpill { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 8px; background: #fff; padding: 6px 18px 6px 6px; border-radius: 999px; font: 600 18px var(--font-ui); color: var(--ink2); box-shadow: var(--shadow-sm); }
   .loadpill img { width: 40px; height: 40px; animation: bob 1s ease-in-out infinite; }
   @keyframes bob { 50% { transform: translateY(-4px) rotate(-6deg); } }
+  .dskill { display: flex; flex-direction: column; font-size: 22px !important; line-height: 1.1; }
+  .dskill small { font: 700 14px var(--font-body); color: var(--muted); }
+  .dex { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fbf8f1; border-radius: 14px; padding: 6px 10px; margin: 8px 0 0; }
+  .dex > small { font: 700 12px var(--font-body); color: var(--muted); }
   .tag { position: absolute; transform: translate(-50%, -100%); pointer-events: none; font: 600 18px var(--font-ui); color: var(--ink); background: #fff; padding: 2px 12px; border-radius: 999px; box-shadow: 0 0 0 3px #ffd34d, 0 8px 18px -8px rgba(30, 20, 60, .5); white-space: nowrap; }
   .key { position: absolute; right: 12px; top: 64px; display: flex; flex-direction: column; gap: 2px; background: rgba(255, 255, 255, .92); border-radius: 16px; padding: 6px 12px 6px 6px; box-shadow: 0 6px 18px -10px rgba(30, 40, 20, .5); font: 700 13px var(--font-body); color: var(--ink2); }
   .key span { display: flex; align-items: center; gap: 6px; }
@@ -465,10 +541,10 @@
   .grown label { display: block; margin-top: 6px; font: 600 14px/1.5 var(--font-body); color: var(--ink2); }
   .grown select { font: 700 14px var(--font-body); border-radius: 8px; border: 2px solid #e4dcf2; padding: 2px 6px; background: #fff; }
   .grown small { display: block; margin-top: 6px; font: 600 12.5px/1.35 var(--font-body); color: var(--muted); }
-  .brow { width: 100%; display: grid; grid-template-columns: 52px 1fr 48px; align-items: center; gap: 8px; margin: 2px 0; padding: 3px 6px; border: 0; border-radius: 10px; background: none; cursor: pointer; text-align: left; }
+  .brow { width: 100%; display: grid; grid-template-columns: minmax(52px, auto) 1fr 48px; align-items: center; gap: 8px; margin: 2px 0; padding: 3px 6px; border: 0; border-radius: 10px; background: none; cursor: pointer; text-align: left; }
   .brow:hover { background: #f6f2ea; }
   .brow.on { background: #efe8ff; }
-  .bl { font: 600 16px var(--font-ui); color: var(--ink); }
+  .bl { font: 600 16px var(--font-ui); color: var(--ink); white-space: nowrap; }
   .bar2 { position: relative; height: 12px; border-radius: 999px; background: #efe9e0; overflow: hidden; }
   .bar2 i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
   .bar2 .g { background: #9fdcb5; } .bar2 .b { background: linear-gradient(90deg, #ff9ec7, #ff6fae); }

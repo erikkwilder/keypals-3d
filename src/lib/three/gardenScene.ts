@@ -32,7 +32,10 @@ export type GPlant = {
 };
 /** one bed: a row of the garden (a times table, a "+3" row), plants left to right by column 0 to 10 */
 export type GBed = { label: string; color: number; plants: GPlant[] };
-export type GPlot = { op: Op; title: string; sign: string; color: string; beds: GBed[] };
+/** one plot: a fact strand (`op` is its sign: x, +...) or a skill area (`op` is the area id, a bed for each
+ *  skill and a plant for each kind of question). `spread` plots space their plants along the beds and
+ *  have plain front boards (the fact plots number their columns 0 to 10). */
+export type GPlot = { op: Op | string; title: string; sign: string; color: string; beds: GBed[]; spread?: boolean };
 
 // ---------- the layout, in metres ----------
 const CELL = 0.62;
@@ -42,7 +45,8 @@ const SOIL_Y = BED_H - 0.05;
 const ROW = 1.35;
 const PLOT_GAP = 17;
 const PATH_Z = 1.55;
-const plotX = (i: number) => (i - 1.5) * PLOT_GAP;
+/** a plot's middle, for plot i of n side by side along the path */
+const plotX = (i: number, n = 4) => (i - (n - 1) / 2) * PLOT_GAP;
 const bedZ = (j: number) => -j * ROW;
 const plantX = (c: number) => -BED_L / 2 + 0.25 + (c + 0.5) * CELL;
 const HEIGHT: Record<Stage, number> = { 0: 0, 1: 0.16, 2: 0.44, 3: 0.58 };
@@ -102,8 +106,11 @@ function plankCanvas(w: number, h: number, planks: HTMLImageElement | null): HTM
   return cv;
 }
 const fontUi = () => (getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim() || 'Fredoka, sans-serif');
-function textOn(x: CanvasRenderingContext2D, text: string, cx: number, cy: number, size: number, fill = '#fff8e6', stroke = '#5b3416') {
-  x.font = `600 ${size}px ${fontUi()}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+function textOn(x: CanvasRenderingContext2D, text: string, cx: number, cy: number, size: number, fill = '#fff8e6', stroke = '#5b3416', maxW = Infinity) {
+  x.font = `600 ${size}px ${fontUi()}`;
+  // a long word shrinks to fit its board
+  const w = x.measureText(text).width; if (w > maxW) { size = Math.floor(size * maxW / w); x.font = `600 ${size}px ${fontUi()}`; }
+  x.textAlign = 'center'; x.textBaseline = 'middle';
   x.lineJoin = 'round'; x.lineWidth = size * 0.18; x.strokeStyle = stroke; x.strokeText(text, cx, cy);
   x.fillStyle = fill; x.fillText(text, cx, cy);
 }
@@ -179,6 +186,8 @@ export class GardenScene implements Controller {
     const root = new THREE.Group();
     const rnd = rand(29);
     const base = import.meta.env.BASE_URL;
+    // plots side by side along the path (four fact plots, then any skill areas); the paths reach the last one
+    const NP = o.plots.length, EDGE = Math.max(38, plotX(NP - 1, NP) + BED_L / 2 + 3);
     await document.fonts?.ready;
     const [grassTex, dirtTex, planksTex, postTex, rockTex, cloudTex, leafTex, budTex, headTex, flyTex, seedTex, dropTex, tealTex, planksImg] = await Promise.all([
       loadTexture('world/grass.webp', { repeat: true }), loadTexture('world/dirt.webp', { repeat: true }), loadTexture('world/planks.webp', { repeat: true }),
@@ -232,8 +241,8 @@ export class GardenScene implements Controller {
       g.rotateX(-Math.PI / 2); g.rotateY(-Math.atan2(z1 - z0, x1 - x0)); g.translate((x0 + x1) / 2, 0.01, (z0 + z1) / 2);
       paths.push(g);
     };
-    strip(-38, PATH_Z, 38, PATH_Z, 1.7);
-    for (const x of [0, -PLOT_GAP, PLOT_GAP]) strip(x, PATH_Z, x, -16, 1.3);
+    strip(-EDGE, PATH_Z, EDGE, PATH_Z, 1.7);
+    for (let i = 0; i < NP - 1; i++) { const x = (plotX(i, NP) + plotX(i + 1, NP)) / 2; strip(x, PATH_Z, x, -16, 1.3); }
     strip(-9, -16.5, 9, -16.5, 1.3);
     strip(0, -16.5, 0, -23, 1.5);
     const pathMesh = new THREE.Mesh(keep(mergeGeometries(paths)!), pathMat); pathMesh.receiveShadow = true; root.add(pathMesh);
@@ -257,7 +266,7 @@ export class GardenScene implements Controller {
     const signMats: THREE.Material[] = [];
     const signMeshes: THREE.Mesh[] = [];
     o.plots.forEach((pl, pi) => {
-      const X = plotX(pi);
+      const X = plotX(pi, NP);
       // the signs: one canvas for the plot, a row for each bed
       const sc = plankCanvas(512, 128 * pl.beds.length, planksImg), sx = sc.getContext('2d')!;
       const signGeo: THREE.BufferGeometry[] = [];
@@ -267,14 +276,15 @@ export class GardenScene implements Controller {
         add(frames, tiledBox(BED_L, BED_H, RIM, 0.9), X, BED_H / 2, Z - BED_D / 2 + RIM / 2);
         add(frames, tiledBox(RIM, BED_H, BED_D - 2 * RIM, 0.9), X - BED_L / 2 + RIM / 2, BED_H / 2, Z);
         add(frames, tiledBox(RIM, BED_H, BED_D - 2 * RIM, 0.9), X + BED_L / 2 - RIM / 2, BED_H / 2, Z);
-        const front = new THREE.BoxGeometry(BED_L, BED_H, RIM); add(fronts, front, X, BED_H / 2, Z + BED_D / 2 - RIM / 2);
+        if (pl.spread) add(frames, tiledBox(BED_L, BED_H, RIM, 0.9), X, BED_H / 2, Z + BED_D / 2 - RIM / 2);
+        else add(fronts, new THREE.BoxGeometry(BED_L, BED_H, RIM), X, BED_H / 2, Z + BED_D / 2 - RIM / 2);
         add(soils, tiledBox(BED_L - 2 * RIM, SOIL_Y, BED_D - 2 * RIM, 1.2), X, SOIL_Y / 2, Z);
         // the sign: a post and a board at the bed's left end, turned a little toward the path
         const sxp = X - BED_L / 2 - 0.62, szp = Z + 0.1;
         add(posts, new THREE.CylinderGeometry(0.04, 0.05, 0.66, 7), sxp, 0.33, szp);
         const row = j * 128;
         sx.save(); sx.strokeStyle = '#5b3416'; sx.lineWidth = 10; sx.strokeRect(5, row + 5, 502, 118); sx.restore();
-        textOn(sx, bd.label, 256, row + 68, 96);
+        textOn(sx, bd.label, 256, row + 68, 96, undefined, undefined, 470);
         const board = new THREE.PlaneGeometry(1.05, 0.3);
         const uv = board.attributes.uv as THREE.BufferAttribute;
         for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - (j + 1 - uv.getY(i)) / pl.beds.length);
@@ -292,13 +302,14 @@ export class GardenScene implements Controller {
       tx.strokeStyle = '#5b3416'; tx.lineWidth = 16; tx.strokeRect(8, 8, 1008, 240);
       tx.fillStyle = pl.color; tx.beginPath(); tx.arc(128, 128, 82, 0, Math.PI * 2); tx.fill(); tx.strokeStyle = '#fff'; tx.lineWidth = 10; tx.stroke();
       textOn(tx, pl.sign, 128, 136, 120, '#fff', 'rgba(0,0,0,.25)');
-      textOn(tx, pl.title, 600, 132, 104);
+      textOn(tx, pl.title, 600, 132, 104, undefined, undefined, 740);
       const tt = keep(new THREE.CanvasTexture(tc)); tt.colorSpace = THREE.SRGBColorSpace; tt.anisotropy = 8;
       const title = new THREE.Mesh(keep(new THREE.PlaneGeometry(2.2, 0.55)), keep(new THREE.MeshStandardMaterial({ map: tt, roughness: 0.8 })));
       title.position.set(X - BED_L / 2 + 0.4, 1.05, PATH_Z + 1.25); title.rotation.y = 0.12; title.castShadow = true; root.add(title);
       for (const dx of [-0.95, 0.95]) posts.push(new THREE.CylinderGeometry(0.05, 0.06, 1.3, 7).translate(X - BED_L / 2 + 0.4 + dx * Math.cos(0.12), 0.65, PATH_Z + 1.2 - dx * Math.sin(0.12)));
     });
     for (const [list, mat] of [[frames, planksMat], [fronts, numMat], [soils, soilMat], [posts, postMat]] as const) {
+      if (!list.length) continue;
       const m = new THREE.Mesh(keep(mergeGeometries(list as THREE.BufferGeometry[])!), mat);
       m.castShadow = true; m.receiveShadow = true; root.add(m);
       (list as THREE.BufferGeometry[]).forEach(g => g.dispose());
@@ -325,7 +336,8 @@ export class GardenScene implements Controller {
     // a soft pool of colour on the soil (not added light: that washed every colour out to yellow)
     const glowMat = keep(new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, opacity: 0.8, polygonOffset: true, polygonOffsetFactor: -3 }));
 
-    const all = o.plots.flatMap((pl, pi) => pl.beds.flatMap((bd, j) => bd.plants.map((pt, c) => ({ pt, pi, j, c, color: bd.color }))));
+    // a spread plot's few plants share out the bed's length (the fact plots: one per numbered column)
+    const all = o.plots.flatMap((pl, pi) => pl.beds.flatMap((bd, j) => bd.plants.map((pt, c) => ({ pt, pi, j, c, x: pl.spread ? (c + 0.5) * (11 / Math.max(1, bd.plants.length)) - 0.5 : c, color: bd.color }))));
     const count = (f: (x: typeof all[number]) => boolean) => Math.max(1, all.filter(f).length);
     const mk = (geo: THREE.BufferGeometry, mat: THREE.Material, n: number, shadow = false) => {
       const m = new THREE.InstancedMesh(geo, mat, n); m.count = 0; m.castShadow = shadow; m.receiveShadow = false; m.frustumCulled = false; root.add(m); return m;
@@ -355,8 +367,8 @@ export class GardenScene implements Controller {
     const hitIds: GardenScene['hitIds'] = [];
     const dropAt: THREE.Vector3[] = [];
     const prnd = rand(7);
-    for (const { pt, pi, j, c, color } of all) {
-      const pos = new THREE.Vector3(plotX(pi) + plantX(c) + (prnd() - 0.5) * 0.05, SOIL_Y, bedZ(j) + (prnd() - 0.5) * 0.08);
+    for (const { pt, pi, j, c, x, color } of all) {
+      const pos = new THREE.Vector3(plotX(pi, NP) + plantX(x) + (prnd() - 0.5) * 0.05, SOIL_Y, bedZ(j) + (prnd() - 0.5) * 0.08);
       const ry = (prnd() - 0.5) * 0.7, slots: Slot[] = [];
       if (pt.stage === 0) slots.push(put(mounds, pos, ry * 0.4, 0.85 + prnd() * 0.25));
       if (pt.stage >= 1) slots.push(put(leaves, pos, ry, pt.stage === 1 ? 0.8 : 1.05));
@@ -378,7 +390,7 @@ export class GardenScene implements Controller {
       model('world/tree_puffy.glb', 5.4), model('world/tree_puffy2.glb', 6.2), model('world/tree_round.glb', 4.6), model('world/bush.glb', 0.9),
       model('world/mushroom.glb', 0.7), model('world/hobbit_hill.glb', 4.2), model('world/boulder.glb', 1), model('world/island.glb', 10),
     ]);
-    const clear = (x: number, z: number) => !(Math.abs(x) < 35 && z > -17.5 && z < 4.5) && !(Math.abs(x) < 6 && z < -16 && z > -28);
+    const clear = (x: number, z: number) => !(Math.abs(x) < EDGE - 3 && z > -17.5 && z < 4.5) && !(Math.abs(x) < 6 && z < -16 && z > -28);
     const place = (m: THREE.Object3D | null, n: number, rMin: number, rMax: number, sMin: number, sMax: number) => {
       if (!m) return;
       for (let i = 0, tries = 0; i < n && tries < n * 30; tries++) {
@@ -390,8 +402,8 @@ export class GardenScene implements Controller {
     place(puffy, 10, 18, 44, 0.8, 1.2); place(puffy2, 8, 18, 44, 0.8, 1.15); place(round, 8, 16, 42, 0.8, 1.2);
     place(bush, 28, 8, 44, 0.7, 1.4); place(boulder, 10, 10, 44, 0.6, 1.5); place(mush, 20, 6, 40, 0.6, 1.3);
     // a few bushes and mushrooms right by the beds (never on the paths)
-    if (bush) for (let pi = 0; pi < o.plots.length; pi++) for (const [dx, dz] of [[BED_L / 2 + 2.1, -2], [BED_L / 2 + 2.2, -7.5], [-BED_L / 2 - 1.5, -10]]) { const c = bush.clone(true); c.position.set(plotX(pi) + dx, 0, dz); c.scale.setScalar(0.7 + rnd() * 0.4); root.add(c); }
-    if (mush) for (let pi = 0; pi < o.plots.length; pi++) for (const [dx, dz] of [[BED_L / 2 + 0.7, 0.4], [-BED_L / 2 - 1.1, -4.6]]) { const c = mush.clone(true); c.position.set(plotX(pi) + dx, 0, dz); c.scale.setScalar(0.6 + rnd() * 0.5); root.add(c); }
+    if (bush) for (let pi = 0; pi < o.plots.length; pi++) for (const [dx, dz] of [[BED_L / 2 + 2.1, -2], [BED_L / 2 + 2.2, -7.5], [-BED_L / 2 - 1.5, -10]]) { const c = bush.clone(true); c.position.set(plotX(pi, NP) + dx, 0, dz); c.scale.setScalar(0.7 + rnd() * 0.4); root.add(c); }
+    if (mush) for (let pi = 0; pi < o.plots.length; pi++) for (const [dx, dz] of [[BED_L / 2 + 0.7, 0.4], [-BED_L / 2 - 1.1, -4.6]]) { const c = mush.clone(true); c.position.set(plotX(pi, NP) + dx, 0, dz); c.scale.setScalar(0.6 + rnd() * 0.5); root.add(c); }
     if (hill) { hill.position.set(0, 0, -27); root.add(hill); }
     if (isl) for (let i = 0; i < 6; i++) { const c = isl.clone(true); const a = rnd() * Math.PI * 2; c.position.set(Math.cos(a) * (90 + rnd() * 80), -6 + rnd() * 26, Math.sin(a) * (90 + rnd() * 80) - 40); c.scale.setScalar(0.7 + rnd() * 1.6); c.rotation.y = rnd() * 6; root.add(c); }
     // a painted watering can by each plot
@@ -405,7 +417,7 @@ export class GardenScene implements Controller {
     ];
     const canGeo = keep(mergeGeometries(canParts.map(g => g.index ? g.toNonIndexed() : g))!);
     canParts.forEach(g => g.dispose());
-    for (let pi = 0; pi < o.plots.length; pi++) { const c = new THREE.Mesh(canGeo, canMat); c.position.set(plotX(pi) + BED_L / 2 + 0.55, 0, PATH_Z - 0.75); c.rotation.y = -2.2; c.castShadow = true; root.add(c); }
+    for (let pi = 0; pi < o.plots.length; pi++) { const c = new THREE.Mesh(canGeo, canMat); c.position.set(plotX(pi, NP) + BED_L / 2 + 0.55, 0, PATH_Z - 0.75); c.rotation.y = -2.2; c.castShadow = true; root.add(c); }
 
     const garden: Island = {
       trail: { length: 100, at: (s: number): TrailPoint => ({ p: new THREE.Vector3(s, 0, PATH_Z), t: new THREE.Vector3(1, 0, 0), n: new THREE.Vector3(0, 0, 1) } as TrailPoint) },
@@ -445,7 +457,7 @@ export class GardenScene implements Controller {
       void dressUp(me);
       void me.loadMoves();
       sc.me = me;
-      const start = new THREE.Vector3(plotX(sc.plot) - 2, 0, PATH_Z);
+      const start = new THREE.Vector3(plotX(sc.plot, NP) - 2, 0, PATH_Z);
       me.root.position.copy(start); sc.walk.to.copy(start);
     }
     await sleep(0);
@@ -461,7 +473,7 @@ export class GardenScene implements Controller {
     // arrives: along the path in front of the plots, then up the grass aisle beside the beds to the bed
     const me = this.me;
     if (!me) return;
-    const X = plotX(plot), at = me.root.position.clone().setY(0), route: THREE.Vector3[] = [];
+    const X = plotX(plot, this.plots.length), at = me.root.position.clone().setY(0), route: THREE.Vector3[] = [];
     const aisle = X + BED_L / 2 + 0.75;
     if (Math.abs(at.z - PATH_Z) > 0.35) route.push(new THREE.Vector3(at.x, 0, PATH_Z));
     if (bed === null) {
@@ -592,7 +604,7 @@ export class GardenScene implements Controller {
       this.drops.mesh.instanceMatrix.needsUpdate = true;
     }
     this.bedGlow.visible = this.bed !== null;
-    if (this.bed !== null) { this.bedGlow.position.set(plotX(this.plot), BED_H + 0.02, bedZ(this.bed)); (this.bedGlow.material as THREE.MeshBasicMaterial).opacity = 0.55 + Math.sin(t * 3) * 0.3; }
+    if (this.bed !== null) { this.bedGlow.position.set(plotX(this.plot, this.plots.length), BED_H + 0.02, bedZ(this.bed)); (this.bedGlow.material as THREE.MeshBasicMaterial).opacity = 0.55 + Math.sin(t * 3) * 0.3; }
     if (this.ring.visible) { this.ring.position.y = SOIL_Y + 0.03 + Math.sin(t * 3) * 0.015; this.ring.rotation.z = t * 0.8; }
     this.butterflyFly(t);
     this.buddy(dt, t);
@@ -605,7 +617,7 @@ export class GardenScene implements Controller {
   }
 
   private butterflyFly(t: number) {
-    const X = plotX(this.plot), nb = this.plots[this.plot]?.beds.length ?? 11;
+    const X = plotX(this.plot, this.plots.length), nb = this.plots[this.plot]?.beds.length ?? 11;
     this.butterflies.forEach((b, i) => {
       const tt = t * b.sp + b.ph;
       const p = new THREE.Vector3(X + Math.sin(tt * 0.7) * (BED_L / 2 + 0.6) + Math.sin(tt * 2.1) * 0.3, 0.75 + Math.sin(tt * 1.3) * 0.35 + (i % 2) * 0.3, -((nb - 1) * ROW) / 2 + Math.cos(tt * 0.5 + i) * ((nb * ROW) / 2) + Math.cos(tt * 1.7) * 0.3);
@@ -623,7 +635,7 @@ export class GardenScene implements Controller {
     const me = this.me;
     if (!me) return;
     if (!me.root.visible) me.root.visible = true;
-    const w = this.walk, X = plotX(this.plot);
+    const w = this.walk, X = plotX(this.plot, this.plots.length);
     const turnTo = (a: number, k: number) => { const d = Math.atan2(Math.sin(a - me.root.rotation.y), Math.cos(a - me.root.rotation.y)); me.root.rotation.y += d * Math.min(1, dt * k); };
     if (w.mode === 'travel') {
       // along the route: running while there's a long way to go, walking the last few metres
@@ -680,7 +692,7 @@ export class GardenScene implements Controller {
   private camera(dt: number, t: number) {
     const cam = stage.camera, v = this.view, tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
     const bandH = Math.max(0.2, v.bottom - v.top), bandW = Math.max(0.2, v.right - v.left);
-    const X = plotX(this.plot), nb = this.plots[this.plot]?.beds.length ?? 11;
+    const X = plotX(this.plot, this.plots.length), nb = this.plots[this.plot]?.beds.length ?? 11;
     let center: THREE.Vector3, halfW: number, halfH: number, dir: THREE.Vector3;
     if (this.free) {
       // the player's camera: round the spot they're looking at, quick to answer a finger
@@ -734,7 +746,7 @@ export class GardenScene implements Controller {
   focus() {
     if (this.free) return this.free.target.clone().setY(0);
     if (this.walk.mode === 'travel' && this.me) return this.me.root.position.clone().setY(0);
-    return new THREE.Vector3(plotX(this.plot), 0, -4);
+    return new THREE.Vector3(plotX(this.plot, this.plots.length), 0, -4);
   }
   dispose() {
     this.me?.dispose();

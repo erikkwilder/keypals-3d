@@ -8,13 +8,19 @@
 // Finale stars. Pure: the screen calls play / block / finale / swap and animates the events that come back.
 import { mulberry32, type Rng } from '../engine/rng';
 import { answerOf, type Fact, type Op } from '../math/facts';
+import { SKILL, splitKey } from '../math/skills/registry';
+import type { Answer as SkillAnswer, Item } from '../math/skills/types';
 import { ELEMENT, ELEMENTS, EVOLVE_BOOST, GLIMMER, powerBase, powerNum, strong, type Element, type GearKind, type GlimmerId, type Rarity, type RoleId } from './glimmers';
 import type { KitKind } from './gear';
 
 export type Subject = 'math' | 'typing';
 /** What a battle draws on. Math: facts and how well each is known (stage 3 = in bloom), and whether open
- *  cards (7 × ?) are in play. Typing: words the player can type with the keys learned so far. */
-export type Pool = { subject: 'math'; facts: { f: Fact; stage: number; w?: number }[]; open: boolean } | { subject: 'typing'; words: string[] };
+ *  cards (7 × ?) are in play; skills from the other areas (fractions...) by memory key (`skill:sub`), and
+ *  how many of the cards are those (`mix`, 0..1; blocks stay facts). Typing: words the player can type
+ *  with the keys learned so far. */
+export type Pool = { subject: 'math'; facts: { f: Fact; stage: number; w?: number }[]; open: boolean; skills?: { key: string; stage: number; w?: number }[]; mix?: number } | { subject: 'typing'; words: string[] };
+/** What a skill question cheers: more for the harder ones (its weight, 1..5), shown on the card. */
+export const itemCheer = (it: Item) => 4 + 4 * Math.max(1, Math.min(5, it.weight));
 
 export type Card = {
   id: number; element: Element; name: string;
@@ -26,6 +32,8 @@ export type Card = {
   open?: { a: number; op: Op; max: number };
   /** typing: a word to type */
   word?: string;
+  /** math: a skill question (a fraction to name, two to compare...) and the cheer it's worth */
+  item?: Item; value?: number;
   /** a fact already in bloom in the Fact Garden */
   bloom: boolean;
   /** one you missed earlier in this battle, back for another go */
@@ -88,6 +96,8 @@ export type Battle = {
   stats: { answers: number; right: number; fast: number; blocks: number; blocked: number; damage: number; cheer: number };
   /** facts answered (for the fact memory) */
   answered: { f: Fact; ok: boolean; thinkMs: number }[];
+  /** skill questions answered, by memory key (for the skill memory) */
+  skillAnswers: { key: string; ok: boolean; thinkMs: number }[];
   /** facts (or words) missed in this battle: one comes back in each new hand until it's answered right */
   missed: (Fact | string)[];
 };
@@ -118,6 +128,7 @@ export function newBattle(s: Setup): Battle {
     rights: 0, mischiefs: 0, perfect: false,
     stats: { answers: 0, right: 0, fast: 0, blocks: 0, blocked: 0, damage: 0, cheer: 0 },
     answered: [],
+    skillAnswers: [],
     missed: [],
   };
   // Pebble Shell blocks the first rain or zap, Pinecone Curl the first two; grown up, one more
@@ -140,9 +151,17 @@ export const sparkFor = (level: number, role: RoleId) => 12 + Math.min(18, Math.
 
 /** How big a Grumble is: about seven good cards' worth (a Champion, about eleven), so there's room for a Finale. */
 export function grumpFor(pool: Pool, champion: boolean): number {
-  const avg = pool.subject === 'math'
+  let avg = pool.subject === 'math'
     ? pool.facts.reduce((a, x) => a + Math.max(1, answerOf(x.f)), 0) / Math.max(1, pool.facts.length)
     : pool.words.reduce((a, w) => a + w.length, 0) / Math.max(1, pool.words.length);
+  // skill cards: what one of each kind is worth, mixed in as often as they're dealt
+  const mix = skillMix(pool);
+  if (mix > 0 && pool.subject === 'math' && pool.skills?.length) {
+    const rng = mulberry32(7);
+    const items = pool.skills.map(x => makeItem(rng, x)).filter((it): it is Item => !!it);
+    const iavg = items.reduce((a, it) => a + itemCheer(it), 0) / Math.max(1, items.length);
+    avg = (1 - mix) * avg + mix * iavg;
+  }
   return Math.max(champion ? 30 : 16, Math.round(avg * (champion ? 11 : 7)));
 }
 
@@ -151,6 +170,19 @@ const pick = <T>(rng: Rng, xs: readonly T[]) => xs[Math.floor(rng() * xs.length)
 
 function newCard(b: Battle, element: Element): Card {
   return { id: b.nextId++, element, name: ELEMENT[element].card, super: strong(element, b.foe.element), bloom: false };
+}
+/** How many of a math hand's cards are skill questions (all of them when there are no facts to deal). */
+const skillMix = (pool: Pool) => (pool.subject !== 'math' || !pool.skills?.length ? 0 : !pool.facts.length ? 1 : Math.max(0, Math.min(1, pool.mix ?? 0)));
+/** A fresh question for a skill memory key, a notch harder once it's budding. */
+function makeItem(rng: Rng, x: { key: string; stage: number }): Item | null {
+  const { skill, sub } = splitKey(x.key), s = SKILL[skill];
+  return s && !s.facts ? s.make(rng, sub, x.stage >= 2 ? 2 : 1) : null;
+}
+function itemCard(b: Battle, c: Card, x: { key: string; stage: number }): boolean {
+  const it = makeItem(b.rng, x);
+  if (!it) return false;
+  c.item = it; c.value = itemCheer(it); c.bloom = x.stage === 3;
+  return true;
 }
 
 /** A fresh hand: three cards (four with the Lasso), different elements, and when the Grumble is nearly
@@ -163,11 +195,22 @@ export function deal(b: Battle) {
   const cards: Card[] = [];
   const g = b.foe.grump;
   if (b.pool.subject === 'math') {
-    const facts = b.pool.facts;
-    const finishers = b.flat ? [] : facts.filter(x => answerOf(x.f) === g);
+    const facts = b.pool.facts, skills = b.pool.skills ?? [], mix = skillMix(b.pool);
+    const finishers = b.flat || mix >= 1 ? [] : facts.filter(x => answerOf(x.f) === g);
     const used = new Set<string>();
     els.forEach((e, i) => {
       const c = newCard(b, e);
+      // a skill question (fractions...) for some cards, as many as the pool's mix; one missed earlier in
+      // this battle comes back (a fresh one like it) in the second card until it's answered right
+      if (mix > 0) {
+        const backKey = i === 1 ? b.missed.find((m): m is string => typeof m === 'string') : undefined;
+        if (backKey && itemCard(b, c, { key: backKey, stage: skills.find(x => x.key === backKey)?.stage ?? 1 })) { c.again = true; used.add(backKey); cards.push(c); return; }
+        if (mix >= 1 || b.rng() < mix) {
+          let x = pickWeighted(b.rng, skills);
+          for (let t = 0; t < 6 && used.has(x.key) && skills.length > 1; t++) x = pickWeighted(b.rng, skills);
+          if (itemCard(b, c, x)) { used.add(x.key); cards.push(c); return; }
+        }
+      }
       const openOk = b.pool.subject === 'math' && b.pool.open && i === 1 && b.rng() < 0.6;
       // a card that lands it exactly turns up sometimes, not nearly always: a Perfect Cheer (and its egg)
       // should take planning, and small sums used to get one almost every battle
@@ -180,7 +223,7 @@ export function deal(b: Battle) {
       // a fact missed earlier in this battle comes back (in the second card) until it's answered right
       const back = i === 1 ? b.missed.find((m): m is Fact => typeof m !== 'string') : undefined;
       if (!c.fact && back) { c.fact = back; c.again = true; c.open = undefined; used.add(`${back.a}${back.op ?? 'x'}${back.b}`); }
-      if (!c.fact && !c.open) {
+      if (!c.fact && !c.open && facts.length) {
         // mostly facts not shown yet this hand; the shaky ones (missed lately, slow, not in bloom) more often
         for (let t = 0; t < 8; t++) { const x = pickWeighted(b.rng, facts); const id = `${x.f.a}${x.f.op ?? 'x'}${x.f.b}`; if (!used.has(id) || t === 7) { used.add(id); c.fact = x.f; c.bloom = x.stage === 3; break; } }
       }
@@ -228,31 +271,34 @@ export function swap(b: Battle): boolean {
 export const openFact = (o: NonNullable<Card['open']>, n: number): Fact => (o.op === 'x' ? { a: o.a, b: n } : { a: o.a, b: n, op: o.op });
 
 // ---------- your turn ----------
-export type Answer = { ok: boolean; value: number; thinkMs: number; fact?: Fact };
+export type Answer = { ok: boolean; value: number; thinkMs: number; fact?: Fact; given?: SkillAnswer };
 
 /** Play a card. Math: `value` is the answer typed, `fact` the fact answered (an open card's, once its
- *  number is chosen). Typing: `value` is the letters typed right. Returns the events to show. */
+ *  number is chosen); a skill card's answer is `given` (checked here, by its skill). Typing: `value` is
+ *  the letters typed right. Returns the events to show. */
 export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
   const card = b.cards.find(c => c.id === cardId);
   if (!card || b.phase !== 'pick') return [];
   const ev: BEvent[] = [];
-  const fact = a.fact ?? card.fact;
-  const ok = b.subject === 'math' ? !!fact && a.ok && a.value === answerOf(fact) : a.ok && a.value > 0;
+  const fact = card.item ? undefined : a.fact ?? card.fact;
+  const it = card.item, sk = it ? SKILL[it.skill] : undefined;
+  const ok = it ? !!a.given && !!sk && sk.check(it, a.given) : b.subject === 'math' ? !!fact && a.ok && a.value === answerOf(fact) : a.ok && a.value > 0;
   // the Wizard Hat: one wrong answer becomes a retry
   if (!ok && b.gear === 'retry' && !b.used.retry) { b.used.retry = true; return [{ k: 'retry' }]; }
   b.stats.answers++;
   if (fact) b.answered.push({ f: fact, ok, thinkMs: a.thinkMs });
+  if (it) b.skillAnswers.push({ key: it.key, ok, thinkMs: a.thinkMs });
   // remember a miss so it comes back; a right answer clears it
-  const key: Fact | string | undefined = fact ?? card.word;
+  const key: Fact | string | undefined = fact ?? it?.key ?? card.word;
   if (key !== undefined) {
     const same = (m: Fact | string) => (typeof m === 'string' || typeof key === 'string' ? m === key : m.a === key.a && m.b === key.b && (m.op ?? 'x') === (key.op ?? 'x'));
     const i = b.missed.findIndex(same);
     if (ok && i >= 0) b.missed.splice(i, 1);
     else if (!ok && i < 0) b.missed.push(key);
   }
-  const real = ok ? (b.subject === 'math' ? answerOf(fact!) : a.value) : 0;
+  const real = ok ? (it ? card.value ?? itemCheer(it) : b.subject === 'math' ? answerOf(fact!) : a.value) : 0;
   const value = ok ? b.flat || real : 0;
-  const fast = ok && (b.subject === 'math' ? a.thinkMs <= b.fastMs : a.thinkMs <= 450 * Math.max(1, real) + 600);
+  const fast = ok && (it ? a.thinkMs <= (sk?.fastMs ?? b.fastMs) : b.subject === 'math' ? a.thinkMs <= b.fastMs : a.thinkMs <= 450 * Math.max(1, real) + 600);
   // landing it exactly is a battle thing: in a duel every answer counts the same
   const perfect = ok && !b.flat && value === b.foe.grump;
   b.foe.grump = Math.max(0, b.foe.grump - value);
@@ -285,10 +331,10 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
     if (ok && b.gear === 'confetti') extra('gear', 'Confetti', 1);
     if (ok && kit(b, 'kite') && b.streak > 0 && b.streak % 3 === 0) extra('gear', 'Sky Kite', 3, undefined, 'sky_kite');
     if (fast && kit(b, 'rocketpack')) extra('gear', 'Rocket Pack', 2, undefined, 'rocket_pack');
-    if (ok && b.role === 'speed' && (b.subject === 'math' && !b.flat ? a.thinkMs < 3000 : fast)) extra('role', 'Dash', 3);
+    if (ok && b.role === 'speed' && (b.subject === 'math' && !b.flat && !it ? a.thinkMs < 3000 : fast)) extra('role', 'Dash', 3);
     for (const m of b.team) {
       const k = GLIMMER[m.id].power.kind, pw = GLIMMER[m.id].power.name;
-      if (k === 'splash' && ok && (b.flat ? fast : a.thinkMs < 4000)) extra('glimmer', pw, powerNum(powerBase(m.id, 3), lv(m)), m.id);
+      if (k === 'splash' && ok && (b.flat || it ? fast : a.thinkMs < 4000)) extra('glimmer', pw, powerNum(powerBase(m.id, 3), lv(m)), m.id);
       if (k === 'ember') extra('glimmer', pw, powerNum(powerBase(m.id, 4), lv(m)), m.id);
       if (k === 'lanterns' && ok && b.rights % 3 === 0) extra('glimmer', pw, powerNum(powerBase(m.id, 10), lv(m), 3), m.id);
       // cards of its own element cheer more (Sunny Snail: Sun cards)

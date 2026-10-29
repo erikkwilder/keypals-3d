@@ -24,6 +24,10 @@
   import { learnedTrick } from '../math/learn';
   import { ITEM, SLOT_NAME, SLOTS, battleWornOf, kitOf, startPerks } from '../adventure/gear';
   import { mathOf as mathOfLearn } from '../math/progress';
+  import { answerText } from '../math/skills/text';
+  import type { Answer as SkillAnswer } from '../math/skills/types';
+  import SkillPrompt from '../math/skills/ui/SkillPrompt.svelte';
+  import SkillInput from '../math/skills/ui/SkillInput.svelte';
   import Coach from '../ui/Coach.svelte';
   import NumPad from '../math/ui/NumPad.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -73,6 +77,8 @@
   let typed = $state('');
   let wordPos = $state(0); let wordErr = $state(0); let shakeKey = $state(0);
   let shownAt = 0;
+  /** a skill card's answer as it's typed (shown in the question's gap) */
+  let skFill = $state<{ kind: 'number'; text: string } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null } | null>(null);
   // blocking
   let blk = $state<{ name: string; fact?: Fact; word?: string; limitMs: number } | null>(null);
   let blockAt = 0; let blockLeft = $state(1); let blockTimer = 0;
@@ -106,7 +112,7 @@
   const evolvedIds = new Set(team.filter(m => m.evolved).map(m => m.id));
   const myName = (id: GlimmerId) => glimmerName(id, evolvedIds.has(id));
   const myArt = (id: GlimmerId) => `${base}game/glimmers/face/${id}${evolvedIds.has(id) ? '-evo' : ''}.webp`;
-  const canPerfect = $derived(subject === 'math' ? cards.some(c => c.fact && answerOf(c.fact) === grumpNow) : cards.some(c => c.word?.length === grumpNow));
+  const canPerfect = $derived(subject === 'math' ? cards.some(c => (c.item ? c.value : c.fact ? answerOf(c.fact) : -1) === grumpNow) : cards.some(c => c.word?.length === grumpNow));
 
   // the end
   let out = $state<BattleOutcome | null>(null);
@@ -140,7 +146,7 @@
       bigBanner = null; sync(); ui = 'pick';
       // gear that works from the start says so
       startPerks(kit).forEach((g, i) => setTimeout(() => { if (!disposed) { sfx.helper(); helped(undefined, g.what, g.did, `${base}gear/${g.item}.webp`); } }, 300 + i * 700));
-      if (firstBattle) tip('t-cards', 'Tap a card, then type the answer. Every right answer cheers it up, and bigger answers cheer more!', '.cards');
+      if (firstBattle) tip('t-cards', b.cards.some(c => c.item) ? 'Tap a card and answer it. Every right answer cheers it up, and harder cards cheer more (see the number on each)!' : 'Tap a card, then type the answer. Every right answer cheers it up, and bigger answers cheer more!', '.cards');
     }, champion ? 2800 : 2300);
   });
   onDestroy(() => { disposed = true; cancelAnimationFrame(raf); clearInterval(blockTimer); removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
@@ -186,7 +192,7 @@
   function choose(n: number) { if (!sel?.open) return; choice = n; typed = ''; shownAt = performance.now(); sfx.pop(); }
   function digit(d: string) {
     if (ui === 'block') { blockTyped += d; if (blk?.fact && blockTyped.length >= String(answerOf(blk.fact)).length) submitBlock(); return; }
-    if (ui !== 'answer' || !sel || subject !== 'math') return;
+    if (ui !== 'answer' || !sel || subject !== 'math' || sel.item) return;
     if (sel.open && choice === null) { const n = Number(d); if (n <= sel.open.max) choose(n === 0 && sel.open.op === 'x' ? 10 : n); return; }
     typed += d; sfx.click();
     if (typed.length >= ansLen) submit();
@@ -206,11 +212,23 @@
     sel = null; typed = '';
     await run(ev);
   }
+  /** A skill card (a fraction to name, two to compare...): its own input checks in, the engine marks it. */
+  async function submitItem(given: SkillAnswer) {
+    const c = sel; if (!c?.item || ui !== 'answer') return;
+    const think = performance.now() - shownAt;
+    ui = 'busy';
+    const ev = play(b, c.id, { ok: true, value: 0, thinkMs: think, given });
+    if (ev.length === 1 && ev[0].k === 'retry') { sfx.miss(); say(`${GEAR[outfit]?.name ?? 'Second Chance'}: have another go!`, 'good'); skFill = null; ui = 'answer'; shakeKey++; return; }
+    sel = null; skFill = null;
+    await run(ev);
+  }
 
   // typing cards and typing blocks
   function onKey(e: KeyboardEvent) {
     if (ui === 'won' || ui === 'lost') { if (e.key === 'Enter') { e.preventDefault(); toMap(); } return; }
     if (subject === 'math') {
+      // a skill card's own input takes the keys
+      if (ui === 'answer' && sel?.item) { if (e.key === 'Escape') back(); return; }
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
       else if (e.key === 'Backspace') { e.preventDefault(); backspace(); }
       else if (e.key === 'Escape') back();
@@ -246,10 +264,10 @@
   }
   function swapCards() { if (doSwap(b)) { swapOk = false; cards = b.cards.slice(); sfx.whoosh(); say('Trickster: new cards!'); } }
   function askGlow() {
-    const f = fact(sel);
-    if (!useGlow(b) || !f) return;
+    const f = fact(sel), it = sel?.item;
+    if ((!f && !it) || !useGlow(b)) return;
     glowOk = glowLeft(b);
-    glowText = subject === 'math' ? trickOf(f).say : '';
+    glowText = it ? it.trick?.say ?? it.explain : subject === 'math' && f ? trickOf(f).say : '';
     sfx.hint();
   }
 
@@ -265,7 +283,7 @@
           float('foe', `−${e.value}`, e.card.element);
           if (e.perfect) { sfx.perfect(); bigBanner = { text: 'Perfect Cheer!', sub: `Exactly ${e.value}!`, kind: 'perfect', key: Date.now() }; burst++; }
           else if (e.super) say(`⚡ Strong! ${ELEMENT[e.card.element].name} beats ${ELEMENT[b.foe.element].name}.`, 'super');
-        } else { say(subject === 'math' && e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
+        } else { say(e.card.item ? `Not quite: it's ${answerText(e.card.item)}` : subject === 'math' && e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
         sync();
       } else if (e.k === 'extra') {
         const slot = e.id ? team.findIndex(m => m.id === e.id) : -1;
@@ -352,7 +370,7 @@
     sync(); if (!perfect) sfx.cheeredUp(0.5); // (a Perfect Cheer already played its fanfare)
     let o: BattleOutcome | null = null;
     game.update(pp => {
-      o = applyBattle(pp, { node: node.id, subject, won: true, perfect, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, team: team.map(t => t.id), crystal: team.some(m => GLIMMER[m.id].power.kind === 'crystal'), treasureNose: gear?.kind === 'treasure', at: Date.now(), seed });
+      o = applyBattle(pp, { node: node.id, subject, won: true, perfect, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, skillAnswers: b.skillAnswers, team: team.map(t => t.id), crystal: team.some(m => GLIMMER[m.id].power.kind === 'crystal'), treasureNose: gear?.kind === 'treasure', at: Date.now(), seed });
     });
     const res = o as BattleOutcome | null;
     if (!res?.met) { out = res; ui = 'won'; return; }
@@ -369,7 +387,7 @@
     ui = 'lost'; coach = null;
     game.update(pp => markSeen(pp, 'battle1', ...seen));
     scene?.lose(); sfx.tryAgain();
-    game.update(pp => { out = applyBattle(pp, { node: node.id, subject, won: false, perfect: false, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, team: team.map(t => t.id), crystal: false, treasureNose: false, at: Date.now(), seed }); });
+    game.update(pp => { out = applyBattle(pp, { node: node.id, subject, won: false, perfect: false, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, skillAnswers: b.skillAnswers, team: team.map(t => t.id), crystal: false, treasureNose: false, at: Date.now(), seed }); });
   }
   function toMap() { game.go('adventure'); }
   function again() { game.battleKey++; }
@@ -429,7 +447,7 @@
         {#each cards as c, i (c.id)}
           <button class="card el-{c.element}" class:super={c.super} class:bloom={c.bloom} style:--d="{i * 0.08}s" onclick={() => pick(c)} disabled={ui !== 'pick'}>
             <img class="ci" src="{base}game/icon-{c.element}.webp" alt={ELEMENT[c.element].name} />
-            <span class="ct"><b>{#if c.fact}{factText(c.fact)}{:else}{c.word}{/if}</b>
+            <span class="ct">{#if c.item}<b class="it"><SkillPrompt parts={c.item.prompt} size={narrow ? 17 : 26} picSize={narrow ? 44 : 62} done /></b><em class="cv">+{c.value} cheer</em>{:else}<b>{#if c.fact}{factText(c.fact)}{:else}{c.word}{/if}</b>{/if}
               {#if c.again}<em class="ag">Have another go!</em>{:else if c.super}<em><Icon name="bolt" size={14} /> Strong</em>{:else if c.bloom}<em class="bl">You know this one</em>{/if}</span>
           </button>
         {/each}
@@ -440,7 +458,14 @@
       </div>
     {:else if ui === 'answer' && sel}
       <div class="answer el-{sel.element}">
-        {#if subject === 'math'}
+        {#if sel.item}
+          {@const it = sel.item}
+          <p class="ask">{it.ask} <b>+{sel.value} cheer</b></p>
+          {#key shakeKey}<div class="iq" class:shake={shakeKey > 0}><SkillPrompt parts={it.prompt} fill={skFill} size={narrow ? 34 : 46} picSize={narrow ? 96 : 130} /></div>{/key}
+          {#if glowOk && !glowText}<button class="glowbtn" onclick={askGlow}><Icon name="bulb" size={20} /> Hint from {myName('sparkmoth')}</button>{/if}
+          {#if glowText}<p class="glow"><Icon name="bulb" size={20} /> {glowText}</p>{/if}
+          {#key `${sel.id}-${shakeKey}`}<SkillInput item={it} compact={narrow} bind:fill={skFill} onanswer={submitItem} />{/key}
+        {:else if subject === 'math'}
           {@const f = fact(sel)!}
           {@const tk = learnedTrick(mathOfLearn(game.profile!), f)}
           {#key shakeKey}<div class="eq" class:shake={shakeKey > 0}><span>{factText(f)} =</span><span class="box">{typed || ' '}</span></div>{/key}
@@ -675,6 +700,9 @@
   .ct em.bl { color: #c2348a; }
   .ct em.ag { color: #1f6fb8; }
   .ct b { font: 600 clamp(28px, 3.4vw, 42px)/1.05 var(--font-ui); color: #2a1f45; white-space: nowrap; }
+  .ct b.it { white-space: normal; }
+  .ct em.cv { color: #2f8a52; }
+  .iq { display: flex; justify-content: center; }
   .cards .el-sun.card { background: linear-gradient(160deg, #fff6c4, #ffd36b); }
   .cards .el-tide.card { background: linear-gradient(160deg, #e2f4ff, #8fd0ff); }
   .cards .el-frost.card { background: linear-gradient(160deg, #f6f0ff, #c8b8ff); }

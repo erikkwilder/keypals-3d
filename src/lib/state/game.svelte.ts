@@ -5,7 +5,7 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
-export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop';
+export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills';
 
 function load(): SaveFile {
   try {
@@ -195,6 +195,19 @@ class Game {
   get homeGame(): 'typing' | 'math' { return this.profile?.math?.home ?? 'typing'; }
   setHome(g: 'typing' | 'math') {
     this.update(p => { p.math = { ...(p.math ?? { facts: {}, lessons: {}, history: [], totals: { trips: 0, facts: 0, ms: 0 } }), home: g }; });
+  }
+  // ---- the skill areas (fractions and on): their trips and results live in src/lib/math/skills ----
+  skillLessonId = $state('frac-a-1');
+  /** the player the grown-ups' skills report is about (null: the one playing) */
+  skillsFor = $state<string | null>(null);
+  /** the area the math map shows (a skill area), or null */
+  mathArea = $state<import('../math/skills/types').AreaId | null>(null);
+  skillLast = $state<(import('../math/skills/progress').SkillOutcome & { lessonId: string; stats: import('../math/meter').TripStats; results: import('../math/skills/progress').SkillResult[]; stars: number; bestRide: number; finished: boolean }) | null>(null);
+  startSkill(id: string, replay = false) {
+    this.quickStart = replay;
+    this.skillLessonId = id;
+    this.runKey++;
+    this.screen = 'skillRun';
   }
   startMath(id: string, replay = false) {
     this.quickStart = replay;

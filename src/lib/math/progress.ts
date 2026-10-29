@@ -42,6 +42,9 @@ export type MathProgress = {
   gardenSeen?: Record<string, number>;
   /** the strand played last: +, −, × or ÷ (home's Play carries on there) */
   strand?: Op;
+  /** the skill areas' memory (fractions and on), one record per skill and sub (`fr-name:4`), kept like
+   *  the facts' own: sprout, bud, bloom, reviews (math/skills) */
+  skills?: Record<string, FactStat>;
   /** the Number Playground: best stars per level of each game */
   play?: Partial<Record<import('./playground').PlayGame, import('./playground').PlayRecord>>;
 };

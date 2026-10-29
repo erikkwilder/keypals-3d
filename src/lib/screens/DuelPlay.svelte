@@ -26,6 +26,10 @@
   import { advView, markSeen } from '../adventure/state';
   import Coach from '../ui/Coach.svelte';
   import NumPad from '../math/ui/NumPad.svelte';
+  import { answerText } from '../math/skills/text';
+  import type { Answer as SkillAnswer } from '../math/skills/types';
+  import SkillPrompt from '../math/skills/ui/SkillPrompt.svelte';
+  import SkillInput from '../math/skills/ui/SkillInput.svelte';
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
   import Icon from '../ui/Icon.svelte';
@@ -56,6 +60,8 @@
   // answering
   let sel = $state<Card | null>(null);
   let typed = $state('');
+  /** a skill card's answer as it's typed (shown in the question's gap) */
+  let skFill = $state<{ kind: 'number'; text: string } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null } | null>(null);
   let wordPos = $state(0); let wordErr = $state(0); let shakeKey = $state(0);
   let shownAt = 0;
   // a rain cloud's quick one
@@ -183,7 +189,7 @@
   function digit(dg: string) {
     if (ghosting) return;
     if (ui === 'rain') { rainTyped += dg; if (rain?.fact && rainTyped.length >= String(answerOf(rain.fact)).length) submitRain(); return; }
-    if (ui !== 'answer' || !sel || subject !== 'math') return;
+    if (ui !== 'answer' || !sel || subject !== 'math' || sel.item) return;
     typed += dg; sfx.click();
     if (typed.length >= ansLen) submit();
   }
@@ -200,6 +206,17 @@
       : duelPlay(d, c.id, { ok: true, value: Math.max(1, (c.word?.length ?? 1) - wordErr), thinkMs: think });
     if (ev.length === 1 && ev[0].k === 'retry') { sfx.miss(); say('Second Chance: have another go!', 'good'); typed = ''; wordPos = 0; wordErr = 0; ui = 'answer'; shakeKey++; return; }
     sel = null; typed = '';
+    await run(ev, side);
+  }
+  /** A skill card (fractions...): its own input checks in; every right one fills the same DUEL_CARD. */
+  async function submitItem(given: SkillAnswer) {
+    const c = sel; if (!c?.item || ui !== 'answer' || ghosting) return;
+    const think = performance.now() - shownAt;
+    ui = 'busy';
+    const side = d.turn;
+    const ev = duelPlay(d, c.id, { ok: true, value: 0, thinkMs: think, given });
+    if (ev.length === 1 && ev[0].k === 'retry') { sfx.miss(); say('Second Chance: have another go!', 'good'); skFill = null; ui = 'answer'; shakeKey++; return; }
+    sel = null; skFill = null;
     await run(ev, side);
   }
   /** A ghost's turn: it thinks (at its player's pace, shortened), picks a card and answers it. */
@@ -227,6 +244,8 @@
     if (ui === 'finale' && (e.key === 'f' || e.key === 'F' || e.key === 'Enter')) { e.preventDefault(); doFinale(); return; }
     if (ui === 'pick') { pickKey(e); return; }
     if (subject === 'math') {
+      // a skill card's own input takes the keys
+      if (ui === 'answer' && sel?.item) return;
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
       else if (e.key === 'Backspace') { e.preventDefault(); backspace(); }
       return;
@@ -313,7 +332,7 @@
           float('glimmer', `+${e.value}`, 'cheer', undefined, SIDE[side]);
           if (e.perfect) { sfx.perfect(); bigBanner = { text: 'Perfect Cheer!', sub: `${nameOf(side)} landed it exactly!`, kind: 'perfect', key: Date.now() }; }
           else if (e.super) say(`⚡ Strong! ${ELEMENT[e.card.element].name} beats ${ELEMENT[g.element].name}.`, 'super');
-        } else { say(e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
+        } else { say(e.card.item ? `Not quite: it's ${answerText(e.card.item)}` : e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
         sync();
       } else if (e.k === 'extra') {
         const slot = e.id ? d.sides[side].team.findIndex(m => m.id === e.id) : -1;
@@ -374,7 +393,7 @@
     const won = (i: number) => w === i || d.tie;
     const runOf = (i: number) => {
       const s = d.sides[i];
-      return { mode, won: won(i), perfect: won(i) && s.b.stats.right === s.b.stats.answers, glimmer, rarity: g.rarity, answers: s.b.stats.answers, right: s.b.stats.right, thinkMs: s.thinkMs, big: 0, picks: 0, answered: s.b.answered, ms, at, rival: rival ?? undefined, subject: s.subject };
+      return { mode, won: won(i), perfect: won(i) && s.b.stats.right === s.b.stats.answers, glimmer, rarity: g.rarity, answers: s.b.stats.answers, right: s.b.stats.right, thinkMs: s.thinkMs, big: 0, picks: 0, answered: s.b.answered, skillAnswers: s.b.skillAnswers, ms, at, rival: rival ?? undefined, subject: s.subject };
     };
     const outs: (VersusOutcome | null)[] = [null, null];
     d.sides.forEach((s, i) => {
@@ -453,7 +472,12 @@
     {:else if ui === 'answer' && sel}
       <div class="answer el-{sel.element}" class:ghostly={ghosting}>
         <p class="who"><span class="nmchip">{curSide.name}{ghosting ? "'s ghost" : ''}</span>{ghosting ? 'is answering' : 'your question:'}</p>
-        {#if sel.fact}
+        {#if sel.item}
+          {@const it = sel.item}
+          <p class="ask">{it.ask}</p>
+          {#key shakeKey}<div class="iq" class:shake={shakeKey > 0}><SkillPrompt parts={it.prompt} fill={ghosting ? null : skFill} size={narrow ? 34 : 46} picSize={narrow ? 96 : 130} done={ghosting} />{#if ghosting}<span class="box">{typed || ' '}</span>{/if}</div>{/key}
+          {#if !ghosting}{#key `${sel.id}-${shakeKey}`}<SkillInput item={it} compact={narrow} bind:fill={skFill} onanswer={submitItem} />{/key}{/if}
+        {:else if sel.fact}
           {#key shakeKey}<div class="eq" class:shake={shakeKey > 0}><span>{factText(sel.fact)} =</span><span class="box">{typed || ' '}</span></div>{/key}
           {#if !ghosting}<NumPad ondigit={digit} onback={backspace} compact={narrow} />{/if}
         {:else}
@@ -703,6 +727,7 @@
   .shake { animation: shake .35s; }
   @keyframes shake { 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
   .ask { margin: 0; font: 600 20px var(--font-ui); color: var(--ink2); text-align: center; }
+  .iq { display: flex; align-items: center; justify-content: center; gap: 14px; font: 600 clamp(40px, 6vw, 64px)/1 var(--font-ui); color: var(--ink); }
   .word { display: flex; gap: 4px; font: 600 clamp(44px, 7vw, 72px)/1 var(--font-ui); letter-spacing: .02em; }
   .word span { color: #b8b0cc; padding: 0 2px; border-bottom: 5px solid transparent; }
   .word span.done { color: var(--ink); }

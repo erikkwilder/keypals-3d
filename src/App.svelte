@@ -29,6 +29,9 @@
   import Rivals from './lib/screens/Rivals.svelte';
   import MathRun from './lib/screens/MathRun.svelte';
   import MathResults from './lib/screens/MathResults.svelte';
+  import SkillRun from './lib/screens/SkillRun.svelte';
+  import SkillResults from './lib/screens/SkillResults.svelte';
+  import SkillsReport from './lib/screens/SkillsReport.svelte';
   import FactGarden from './lib/screens/FactGarden.svelte';
   import { stage } from './lib/three/stage';
   import QuickSettings from './lib/ui/QuickSettings.svelte';
@@ -57,7 +60,7 @@
   // sound, once per player; a typing lesson asks for itself, before its coach starts talking
   $effect(() => {
     const scr = game.screen;
-    if (!['mathRun', 'playground', 'battle', 'duel'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
+    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
     setTimeout(() => { if (game.screen === scr && game.profile && !game.profile.soundSetup && !game.sheet) game.openSheet('setup'); }, 300);
   });
 
@@ -66,7 +69,7 @@
   const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs']);
   $effect(() => {
     const scr = game.screen;
-    if (scr !== 'run' && scr !== 'mathRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
+    if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
   });
 
   let canvas: HTMLCanvasElement | undefined = $state();
@@ -97,6 +100,9 @@
   {:else if game.screen === 'grownups'}<Grownups />
   {:else if game.screen === 'mathRun'}{#key game.runKey}<MathRun />{/key}
   {:else if game.screen === 'mathResults'}<MathResults />
+  {:else if game.screen === 'skillRun'}{#key game.runKey}<SkillRun />{/key}
+  {:else if game.screen === 'skillResults'}<SkillResults />
+  {:else if game.screen === 'skills'}<SkillsReport />
   {:else if game.screen === 'garden'}<FactGarden />
   {:else if game.screen === 'playground'}<Playground />
   {:else if game.screen === 'adventure'}<Adventure />

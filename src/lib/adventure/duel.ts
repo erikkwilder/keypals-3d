@@ -12,6 +12,7 @@
 // give a little cheer instead, so every Glimmer helps.
 import { mulberry32, type Rng } from '../engine/rng';
 import { answerOf, type Fact } from '../math/facts';
+import { givenText, nearMiss } from '../math/skills/text';
 import { newBattle, play, finale, FINALE_AT, type Battle, type BEvent, type Member, type Pool, type Subject, type Answer } from './battle';
 import { GLIMMER, powerNum, type GearKind, type GlimmerId, type RoleId } from './glimmers';
 import type { FriendId } from '../art/cast';
@@ -186,11 +187,15 @@ export function ghostMove(d: Duel): GhostMove | null {
   const s = cur(d), g = s.ghost;
   if (!g || d.phase !== 'pick' || !s.b.cards.length) return null;
   const r = d.rng;
-  const cards = s.b.cards.filter(c => c.fact || c.word);
+  const cards = s.b.cards.filter(c => c.fact || c.word || c.item);
   const strong = cards.filter(c => c.super);
   const card = strong.length && r() < 0.85 ? pickOne(r, strong) : pickOne(r, cards);
   const ok = r() < Math.min(0.98, g.acc + (card.bloom ? 0.05 : 0));
   const thinkMs = Math.round(g.thinkMs * (0.6 + r() * 0.8));
+  if (card.item) {
+    const it = card.item, given = ok ? it.answer : nearMiss(it, r);
+    return { cardId: card.id, answer: { ok, value: 0, thinkMs, given }, typed: givenText(it, given), thinkMs };
+  }
   if (card.fact) {
     const right = answerOf(card.fact);
     const wrong = Math.max(0, right + (r() < 0.5 ? -1 : 1) * (1 + Math.floor(r() * 2)));
