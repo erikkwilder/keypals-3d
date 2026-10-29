@@ -16,6 +16,7 @@ import { loadGltf } from './assets';
 import { NO_NUDGE, type Nudge, type WearSlot } from '../adventure/gear';
 import { LIB } from '../adventure/wardrobe';
 import { VIBE } from '../adventure/vibes';
+import { COLOUR, colourSoon } from '../adventure/colours';
 type Slot = WearSlot;
 
 type Worn = { id: string; objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void; nz: { v: Nudge }; onNudge: (() => void)[] };
@@ -27,7 +28,7 @@ type Pts = THREE.Vector3[];
 type Fit = {
   /** bind units in a metre (the model is scaled down to its height) */
   unit: number; minY: number; H: number;
-  back: { cx: number; top: number; z: number; w: number; shoulder: number } | null;
+  back: { cx: number; top: number; z: number; w: number; shoulder: number; span: number } | null;
   /** the back's outline seen from the side, from the shoulders down: the backmost point at each height
    *  (a backpack, a shell, a tail's root), so a cape can drape over it instead of hanging off it */
   backLine: { top: number; bottom: number; z: number[] } | null;
@@ -137,7 +138,12 @@ function fitOf(c: Character): Fit {
     // the shoulder joints themselves (the arms' vertices hang lower when a buddy stands with its arms down)
     const joints = ['LeftArm', 'RightArm'].map(n => { const bn = c.bones[n], sk = bn && skinned(c).find(m => m.skeleton.bones.includes(bn)); return sk ? new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(sk.skeleton.boneInverses[sk.skeleton.bones.indexOf(bn)]).invert()).y : null; }).filter((y): y is number => y !== null);
     const shoulder = joints.length ? joints.reduce((a, y) => a + y, 0) / joints.length : top;
-    back = { cx, top, shoulder, z: pct((near.length > 10 ? near : torso).map(p => p.z), 0.02), w: pct(torso.map(p => p.x), 0.95) - pct(torso.map(p => p.x), 0.05) };
+    const w = pct(torso.map(p => p.x), 0.95) - pct(torso.map(p => p.x), 0.05);
+    // from one shoulder joint to the other: what a necklace or a scarf has to go round (the spine's own
+    // vertices are only the middle of the back, far too narrow on a buddy in a puffy coat)
+    const jx = ['LeftArm', 'RightArm'].map(n => { const bn = c.bones[n], sk = bn && skinned(c).find(m => m.skeleton.bones.includes(bn)); return sk ? new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(sk.skeleton.boneInverses[sk.skeleton.bones.indexOf(bn)]).invert()).x : null; }).filter((x): x is number => x !== null);
+    const span = jx.length === 2 ? Math.max(w, Math.abs(jx[0] - jx[1])) : w * 1.6;
+    back = { cx, top, shoulder, z: pct((near.length > 10 ? near : torso).map(p => p.z), 0.02), w, span };
   }
   let backLine: Fit['backLine'] = null;
   if (back) {
@@ -212,6 +218,7 @@ function fitOf(c: Character): Fit {
   fits.set(c, f);
   return f;
 }
+if (import.meta.env.DEV) (window as unknown as { __fit: typeof fitOf }).__fit = (c: Character) => fitOf(c);
 /** A group that rides on a bone but whose children are placed in bind space. */
 function onBone(c: Character, name: string): THREE.Group | null {
   const bone = c.bones[name];
@@ -782,11 +789,23 @@ async function libModel(x: Ctx): Promise<Built | null> {
     // where the head meets the shoulders
     bone = 'Spine02';
     const y = Math.min(hd.neck, (b?.top ?? hd.neck) + f.H * 0.04) - f.H * 0.015;
-    const wraps = size.z > size.x * 0.45;
-    at = new THREE.Vector3(hd.cx, y, wraps ? (hd.zmid + lineAt(f.frontLine, y, hd.front)) / 2 : lineAt(f.frontLine, y, hd.front));
-    // sized to the shoulders, not the head (big ears made a lei the size of the buddy)
-    width = b?.w ?? hd.face;
-    anchor.set(mid.x, wraps ? box.max.y - size.y * 0.3 : mid.y, wraps ? mid.z : box.min.z);
+    // a ring that goes round the neck (a puffy scarf) is deep; a lei, a chain or a medal is a flat piece
+    // lying on the chest, its top at the neck
+    const wraps = size.z > size.x * 0.65;
+    // sized to the shoulders (joint to joint), not the head (big ears made a lei the size of the buddy)
+    // and not the spine (a puffy coat made a scarf a thin string round the neck)
+    width = b?.span ?? hd.face;
+    const k = (lib.size * width) / Math.max(1e-6, size.x);
+    const tall = size.y > size.x * 0.8;
+    anchor.set(mid.x, wraps ? box.max.y - size.y * 0.3 : tall ? box.max.y - size.y * 0.22 : mid.y, wraps ? mid.z : box.min.z);
+    // the frontmost point of the body over the piece's height (a puffy coat or a round tummy): the
+    // piece lies on it, never inside
+    const below = (anchor.y - box.min.y) * k;
+    let front = -Infinity;
+    for (let t = 0; t <= 1; t += 0.125) front = Math.max(front, lineAt(f.frontLine, y - below * t, hd.front));
+    if (!Number.isFinite(front)) front = hd.front;
+    if (wraps) at = new THREE.Vector3(hd.cx, y, Math.max((hd.zmid + lineAt(f.frontLine, y, hd.front)) / 2, front + f.H * 0.008 - (box.max.z - mid.z) * k));
+    else at = new THREE.Vector3(hd.cx, y, front + f.H * 0.004);
   } else if (lib.slot === 'back' && b) {
     // centred on the upper back, between the shoulder blades, facing out; it rests on whatever is
     // furthest back over its height (a backpack, a shell), so nothing of the buddy's own hides it
@@ -962,6 +981,8 @@ function takeOff(w: { objs: THREE.Object3D[] }) {
 /** Put a piece on a slot (null takes it off), with its nudge. Wearing the same piece again only moves
  *  it. Safe to call again while one is still loading. */
 export async function wearGear(c: Character, slot: Slot, id: string | null, nudge: Nudge | null = null) {
+  // a colour isn't a thing to wear: it paints the buddy itself
+  if (slot === 'colour') { c.setColour(id && !colourSoon(c.id) ? COLOUR[id] ?? null : null); return; }
   const rig = rigOf(c);
   const cur = rig.worn[slot];
   if ((cur?.id ?? null) === id && rig.want[slot] === undefined) {
@@ -976,11 +997,68 @@ export async function wearGear(c: Character, slot: Slot, id: string | null, nudg
   const built = await build(x).catch(e => { console.warn('gear', id, e); return null; });
   if (rig.want[slot] !== id) { if (built) takeOff(built); return; }
   delete rig.want[slot];
-  if (built) rig.worn[slot] = { id, ...built, nz: x.nz, onNudge: x.onNudge };
+  if (built) {
+    // tagged, so a tap on the buddy in the Wardrobe can tell what was touched (wornAt)
+    for (const o of built.objs) o.userData.wear = { slot, id };
+    rig.worn[slot] = { id, ...built, nz: x.nz, onNudge: x.onNudge };
+  }
+}
+/** What a ray hits first of what a buddy wears (the Wardrobe: tap a thing on the buddy to move it). The
+ *  hat counts too; a vibe's sprites count when the ray has a camera. Null: nothing worn there. */
+export function wornAt(c: Character, ray: THREE.Raycaster): { slot: Slot; id: string; point: THREE.Vector3 } | null {
+  const targets: THREE.Object3D[] = [];
+  for (const w of Object.values(rigs.get(c)?.worn ?? {})) if (w) targets.push(...w.objs);
+  const hat = c.hatHolder();
+  if (hat) targets.push(hat);
+  let best: { slot: Slot; id: string; point: THREE.Vector3; d: number } | null = null;
+  for (const t of targets) {
+    const tag = (t.userData.wear ?? null) as { slot: Slot; id: string } | null;
+    if (!tag) continue;
+    let hits: THREE.Intersection[] = [];
+    try { hits = ray.intersectObject(t, true); } catch { hits = []; }
+    // a little allowance for thin things (a necklace, glasses): the nearest hit wins
+    const h = hits.find(x => (x.object as THREE.Mesh).isMesh || (x.object as THREE.Sprite).isSprite);
+    if (h && (!best || h.distance < best.d)) best = { ...tag, point: h.point.clone(), d: h.distance };
+  }
+  return best ? { slot: best.slot, id: best.id, point: best.point } : null;
+}
+// the outline round a thing being moved: its own shape drawn again a few pixels bigger, inside out, in
+// gold (the same width on screen however near it is), gently pulsing
+let rimMat: THREE.MeshBasicMaterial | null = null;
+function rim() {
+  if (rimMat) return rimMat;
+  rimMat = new THREE.MeshBasicMaterial({ color: 0xffc23d, side: THREE.BackSide, transparent: true, opacity: 0.9, depthWrite: false });
+  rimMat.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+      mvPosition.xyz += normalize(normalMatrix * normal) * (-mvPosition.z) * 0.0065;
+      gl_Position = projectionMatrix * mvPosition;`);
+  };
+  return rimMat;
+}
+/** A gold outline round a worn thing while it's being moved (null: none). */
+export function highlightWorn(c: Character, slot: Slot | null) {
+  const targets: THREE.Object3D[] = [];
+  for (const w of Object.values(rigs.get(c)?.worn ?? {})) if (w) targets.push(...w.objs);
+  const hat = c.hatHolder();
+  if (hat) targets.push(hat);
+  for (const t of targets) {
+    const rims: THREE.Object3D[] = [];
+    t.traverse(o => { if (o.userData.rim) rims.push(o); });
+    rims.forEach(o => o.removeFromParent());
+    if (!slot || (t.userData.wear as { slot: Slot } | undefined)?.slot !== slot) continue;
+    const meshes: THREE.Mesh[] = [];
+    t.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh && !(m as THREE.SkinnedMesh).isSkinnedMesh && m.geometry?.attributes.normal && m.visible) meshes.push(m); });
+    for (const m of meshes) {
+      const r = new THREE.Mesh(m.geometry, rim());
+      r.userData.rim = true; r.raycast = () => {}; r.renderOrder = m.renderOrder;
+      r.onBeforeRender = () => { rim().opacity = 0.78 + 0.22 * Math.sin(performance.now() / 160); };
+      m.add(r);
+    }
+  }
 }
 /** Wear everything for every slot but the head (missing slots are taken off), with the nudges. */
 export async function wearKit(c: Character, kit: Partial<Record<Slot, string>>, nudge: Record<string, Nudge> = {}) {
-  await Promise.all((['face', 'neck', 'back', 'hand', 'feet', 'vibe'] as Slot[]).map(s => { const id = kit[s] ?? null; return wearGear(c, s, id, id ? nudge[id] ?? null : null); }));
+  await Promise.all((['face', 'neck', 'back', 'hand', 'feet', 'vibe', 'colour'] as Slot[]).map(s => { const id = kit[s] ?? null; return wearGear(c, s, id, id ? nudge[id] ?? null : null); }));
 }
 /** Live nudge while moving a piece in the Wardrobe (no rebuild). */
 export function nudgeGear(c: Character, slot: Slot, n: Nudge) {

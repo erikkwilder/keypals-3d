@@ -27,10 +27,15 @@ export const TOP = CHAIN.length - 1;
 /** the jar inside: width, height, the line you mustn't fill past (from the top), and how round its bottom corners are */
 export const JAR = { w: 480, h: 600, line: 92, corner: 110 };
 /** eggs you can be given: the first five of the chain, small ones more often */
-const DROP_WEIGHTS = [30, 26, 20, 14, 10];
-/** points for making each one (making the biggest from two of them: a Glimmer party) */
-export const pointsFor = (tier: number) => Math.round(((tier * (tier + 1)) / 2) * 10);
-export const PARTY_POINTS = 1000;
+const DROP_WEIGHTS = [24, 22, 20, 18, 16];
+/** points for making each one: little merges are worth a little, big ones a lot (making the biggest from
+ *  two of them: a Glimmer party), so planning for big merges and chains beats dropping anywhere fast */
+export const pointsFor = (tier: number) => Math.round(4 * Math.pow(tier, 2.4));
+export const PARTY_POINTS = 2500;
+/** each merge in a chain counts this much more than the one before */
+export const CHAIN_BONUS = 0.75;
+/** the shortest wait between drops, and the longest wait for the last egg to land */
+export const COOLDOWN = 0.6, LAND_WAIT = 1.6;
 /** merges this close together make a chain */
 export const CHAIN_GAP = 0.9;
 /** seconds over the line before the jar is full (a warning shows first) */
@@ -39,12 +44,14 @@ export const OVER_WARN = 0.35, OVER_FULL = 2.6;
 export const EGG_TIME = 0.22;
 
 /** `egg`: still an egg (it cracks open just after it's let go); `armed`: counts for the line (it has landed) */
-export type Ball = { id: number; tier: number; body: Matter.Body; born: number; egg: boolean; armed: boolean; squash: number; grow: number; merging: boolean };
+export type Ball = { id: number; tier: number; body: Matter.Body; born: number; egg: boolean; armed: boolean; squash: number; grow: number; merging: boolean;
+  /** a dropped egg that hasn't touched anything yet (landing right on its twin is a "nice aim") */
+  falling?: boolean };
 export type DropEvent =
   | { k: 'drop'; tier: number; x: number }
   | { k: 'crack'; id: number; x: number; y: number; tier: number }
   | { k: 'land'; id: number; x: number; y: number; force: number }
-  | { k: 'merge'; tier: number; x: number; y: number; points: number; chain: number }
+  | { k: 'merge'; tier: number; x: number; y: number; points: number; chain: number; aim?: boolean }
   | { k: 'party'; x: number; y: number; points: number }
   | { k: 'gustWarn'; dir: -1 | 1 }
   | { k: 'gust'; dir: -1 | 1 }
@@ -66,14 +73,16 @@ export class DropGame {
   aim = JAR.w / 2;
   /** seconds since the start (game time) */
   t = 0;
-  /** you can drop again after this */
+  /** you can drop again after this (and once the last egg has landed) */
   private readyAt = 0;
+  private lastDrop: Ball | null = null;
+  private drops = 0;
   chain = 0; private lastMerge = -9;
   best = { chain: 0, tier: 0, merges: 0 };
   over = 0; warning = false; done = false;
   /** wind: next gust time, the warning before it, the gust itself */
   private gustAt: number; gust: { dir: -1 | 1; warnUntil: number; until: number } | null = null;
-  private pending: [Ball, Ball][] = [];
+  private pending: [Ball, Ball, boolean][] = [];
   private events: DropEvent[] = [];
 
   constructor(seed: number) {
@@ -102,8 +111,9 @@ export class DropGame {
   }
 
   private pick(): number {
-    // keep small eggs coming while the jar only has small ones (the first few drops)
-    const top = Math.max(2, Math.min(4, 1 + Math.floor(this.balls.length / 3)));
+    // small eggs for the first few drops, then any of the first five (going by drops, not by what's in
+    // the jar: otherwise quick merging kept the eggs tiny and the jar never filled)
+    const top = this.drops < 3 ? 2 : this.drops < 8 ? 3 : 4;
     const ws = DROP_WEIGHTS.slice(0, top + 1), sum = ws.reduce((a, b) => a + b, 0);
     let r = this.rng() * sum;
     for (let i = 0; i < ws.length; i++) { r -= ws[i]; if (r < 0) return i; }
@@ -114,30 +124,43 @@ export class DropGame {
   private touch(pairs: Matter.Pair[], first: boolean) {
     for (const p of pairs) {
       const a = this.ballOf(p.bodyA), b = this.ballOf(p.bodyB);
-      // a new egg lands: it counts for the line from now on, and squashes a little
-      for (const x of [a, b]) if (x && !x.armed && first) { x.armed = true; }
+      // a new egg lands: it counts for the line from now on, and squashes a little; landing straight on
+      // its twin is a nice aim (that merge scores double)
+      const aimed = first && !!a && !!b && a.tier === b.tier && (!!a.falling || !!b.falling);
+      for (const x of [a, b]) if (x && first) { x.armed = true; x.falling = false; }
       if (first) {
         const speed = Math.abs((p.bodyA.velocity.y - p.bodyB.velocity.y)) + Math.abs(p.bodyA.velocity.x - p.bodyB.velocity.x);
         for (const x of [a, b]) if (x) { x.squash = Math.min(0.35, x.squash + speed * 0.03); if (speed > 2.5) this.events.push({ k: 'land', id: x.id, x: x.body.position.x, y: x.body.position.y, force: speed }); }
       }
       if (!a || !b || a.tier !== b.tier || a.merging || b.merging) continue;
       a.merging = b.merging = true;
-      this.pending.push([a, b]);
+      this.pending.push([a, b, aimed]);
     }
   }
 
   /** Move the cloud (jar units); the egg stays inside the jar. */
   setAim(x: number) { const r = CHAIN[this.hold].r; this.aim = Math.max(r + 2, Math.min(JAR.w - r - 2, x)); }
-  canDrop() { return !this.done && this.t >= this.readyAt; }
+  /** You can drop once the wait is over and the last egg has landed (or fallen well clear of the top). */
+  canDrop() { return !this.done && this.readiness() >= 1; }
+  /** How ready the next egg is (0..1), for the cloud's glow. */
+  readiness() {
+    if (this.done) return 0;
+    const wait = Math.min(1, Math.max(0, 1 - (this.readyAt - this.t) / COOLDOWN));
+    const b = this.lastDrop;
+    if (!b || !this.balls.includes(b)) return wait;
+    const clear = b.armed || b.body.position.y - CHAIN[b.tier].r > JAR.line + 90 || this.t - b.born > LAND_WAIT;
+    return clear ? wait : Math.min(wait, 0.85);
+  }
   /** Let go of the egg. */
   drop(): boolean {
     if (!this.canDrop()) return false;
     const tier = this.hold, r = CHAIN[tier].r;
     const x = Math.max(r + 2, Math.min(JAR.w - r - 2, this.aim));
-    this.add(tier, x, JAR.line - r - 30, false);
+    this.lastDrop = this.add(tier, x, JAR.line - r - 30, false);
     this.events.push({ k: 'drop', tier, x });
+    this.drops++;
     this.hold = this.next; this.next = this.pick();
-    this.readyAt = this.t + 0.5;
+    this.readyAt = this.t + COOLDOWN;
     return true;
   }
 
@@ -147,7 +170,7 @@ export class DropGame {
     const start = born ? 0.55 : 1;
     const body = Matter.Bodies.circle(x, y, r * start, { restitution: 0.12, friction: 0.08, frictionStatic: 0.4, frictionAir: 0.004, density: 0.0012, label: 'ball' });
     Matter.Composite.add(this.engine.world, body);
-    const ball: Ball = { id: this.nextId++, tier, body, born: this.t, egg: !born, armed: born, squash: born ? 0.3 : 0, grow: start, merging: false };
+    const ball: Ball = { id: this.nextId++, tier, body, born: this.t, egg: !born, armed: born, squash: born ? 0.3 : 0, grow: start, merging: false, falling: !born };
     this.balls.push(ball);
     return ball;
   }
@@ -165,7 +188,7 @@ export class DropGame {
     const n = Math.ceil(dt / (1 / 120));
     for (let i = 0; i < n; i++) Matter.Engine.update(this.engine, (dt / n) * 1000);
     // merges found while stepping
-    for (const [a, b] of this.pending.splice(0)) {
+    for (const [a, b, aimed] of this.pending.splice(0)) {
       if (!this.balls.includes(a) || !this.balls.includes(b)) continue;
       const x = (a.body.position.x + b.body.position.x) / 2, y = (a.body.position.y + b.body.position.y) / 2;
       const vx = (a.body.velocity.x + b.body.velocity.x) / 2, vy = (a.body.velocity.y + b.body.velocity.y) / 2;
@@ -173,19 +196,19 @@ export class DropGame {
       this.chain = this.t - this.lastMerge < CHAIN_GAP ? this.chain + 1 : 1;
       this.lastMerge = this.t;
       this.best.merges++; this.best.chain = Math.max(this.best.chain, this.chain);
-      const mult = 1 + (this.chain - 1) * 0.5;
+      const mult = 1 + (this.chain - 1) * CHAIN_BONUS;
       if (a.tier === TOP) {
         const pts = Math.round(PARTY_POINTS * mult);
         this.score += pts;
         this.events.push({ k: 'party', x, y, points: pts });
         continue;
       }
-      const tier = a.tier + 1, pts = Math.round(pointsFor(tier) * mult);
+      const tier = a.tier + 1, pts = Math.round(pointsFor(tier) * mult * (aimed ? 3 : 1));
       this.score += pts;
       this.best.tier = Math.max(this.best.tier, tier);
       const nb = this.add(tier, x, y, true);
       Matter.Body.setVelocity(nb.body, { x: vx * 0.5, y: Math.min(vy, 0) * 0.5 });
-      this.events.push({ k: 'merge', tier, x, y, points: pts, chain: this.chain });
+      this.events.push({ k: 'merge', tier, x, y, points: pts, chain: this.chain, aim: aimed });
     }
     for (const b of this.balls) {
       // newly made ones grow to full size

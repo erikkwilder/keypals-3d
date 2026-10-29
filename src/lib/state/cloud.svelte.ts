@@ -19,7 +19,31 @@ export const cloud = $state({
   /** players saved under the signed-in account */
   players: [] as CloudPlayer[],
   busy: false,
+  /** a grown-up was signed in on this computer and isn't any more (the sign-in ran out, or was ended on
+   *  another computer): Home says so until they sign in again or choose to stay signed out */
+  signedOut: null as null | { name: string },
+  /** the next Grown-ups screen opens straight on "Saving online" (from the menu or a save-status chip) */
+  focusAccount: false,
 });
+
+// ---------- remembering that a grown-up signed in here, so a lost sign-in can be noticed ----------
+const SIGNED = 'kp-signed-in';
+function rememberSignIn(name: string) { try { localStorage.setItem(SIGNED, name); } catch { /* private window: nothing to remember */ } }
+function forgetSignIn() { try { localStorage.removeItem(SIGNED); } catch { /* nothing to do */ } }
+function signedInBefore(): string | null { try { return localStorage.getItem(SIGNED); } catch { return null; } }
+/** "Stay signed out": the banner goes away (signing in again brings saving back). */
+export function staySignedOut() { forgetSignIn(); cloud.signedOut = null; }
+
+/** Where a player's progress is kept, in words for the save chip: online in the grown-up's account, online
+ *  with a save code, only on this computer, or here because saving online isn't available here. */
+export function saveStatus(p: Profile | null): { kind: 'account' | 'code' | 'local' | 'here'; text: string; short: string } {
+  if (!cloud.online) return { kind: 'here', text: 'Saved on this computer', short: 'Saved here' };
+  if (p?.cloud && cloud.account) { const who = cloud.account.name?.split(' ')[0] ?? cloud.account.email ?? 'your grown-up'; return { kind: 'account', text: `Saved online as ${who}`, short: 'Saved online' }; }
+  if (p?.cloud) return { kind: 'code', text: 'Saved online with a save code', short: 'Saved online' };
+  return { kind: 'local', text: 'Only on this computer: keep your progress safe', short: 'Not saved online' };
+}
+/** Open the grown-ups' "Saving online" (behind the grown-up check). */
+export function goSaveOnline() { cloud.focusAccount = true; game.go('grownups'); }
 
 async function call<T = Record<string, unknown>>(path: string, init: RequestInit = {}): Promise<T> {
   const r = await fetch(`api${path}`, { credentials: 'same-origin', ...init, headers: { 'content-type': 'application/json', ...(init.headers ?? {}) } });
@@ -55,6 +79,9 @@ const changedHere = (p: Profile) => !!p.cloud && (p.updatedAt ?? 0) > p.cloud.at
 export async function refreshAccount() {
   try { const me = await call<{ account: typeof cloud.account; players: CloudPlayer[] }>('/me'); cloud.account = me.account; cloud.players = me.players; }
   catch { cloud.account = null; cloud.players = []; }
+  // signed in: remember it; was signed in here and isn't now: say so
+  if (cloud.account) { rememberSignIn(cloud.account.name ?? cloud.account.email ?? 'you'); cloud.signedOut = null; }
+  else { const was = signedInBefore(); cloud.signedOut = was ? { name: was } : null; }
 }
 
 /** Give a player a save code (and file it under the signed-in grown-up, if any). */
@@ -165,12 +192,13 @@ async function pullAll() {
 
 // ---------- grown-up sign-in ----------
 export function signIn(provider: 'google' | 'microsoft') { location.href = `api/auth/${provider}/start`; }
-export async function signOut() { await call('/auth/logout', { method: 'POST' }).catch(() => null); cloud.account = null; cloud.players = []; }
+export async function signOut() { await call('/auth/logout', { method: 'POST' }).catch(() => null); cloud.account = null; cloud.players = []; forgetSignIn(); cloud.signedOut = null; }
 export async function deleteAccount(withPlayers: boolean) {
   await call('/me', { method: 'DELETE', body: JSON.stringify({ players: withPlayers }) });
   if (withPlayers) for (const p of game.save.profiles) { if (p.cloud) dropBase(p.cloud.code); delete p.cloud; }
   game.persist();
   cloud.account = null; cloud.players = [];
+  forgetSignIn(); cloud.signedOut = null;
 }
 /** File every player on this computer under the signed-in grown-up (giving codes where needed). */
 export async function keepAllInAccount() {
@@ -213,6 +241,8 @@ export function remindLater(p: Profile) { try { localStorage.setItem(LATER + p.i
 
 /** Once, at start: find the server, catch up with other computers, finish a sign-in that just came back. */
 export async function startCloud() {
+  // (development: the save chips and the signed-out banner can be checked by setting this)
+  if (import.meta.env.DEV) (window as unknown as { __cloud: typeof cloud }).__cloud = cloud;
   try {
     const c = await call<{ google: boolean; microsoft: boolean }>('/config');
     cloud.online = true; cloud.google = c.google; cloud.microsoft = c.microsoft;
@@ -220,6 +250,11 @@ export async function startCloud() {
   game.onProfileChange = schedulePush;
   await refreshAccount();
   await pullAll();
+  // a sign-in can run out while the game is open: check again when the game comes back into view, and
+  // every quarter of an hour
+  const recheck = () => { if (document.visibilityState === 'visible') void refreshAccount(); };
+  document.addEventListener('visibilitychange', recheck);
+  setInterval(recheck, 15 * 60000);
   const m = location.hash.match(/signin=(\w+)/);
   if (m) {
     history.replaceState(null, '', location.pathname + location.search);

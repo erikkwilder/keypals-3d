@@ -21,8 +21,10 @@ export type ArcadeGame = {
   art: string;
   /** the scores for one, two and three stars */
   stars: [number, number, number];
-  /** round length in seconds */
+  /** round length in seconds (where good play adds time: the clock it starts on) */
   secs: number;
+  /** good play adds time (the game calls hud.addTime); the round never runs longer than this */
+  maxSecs?: number;
   /** the cabinet's colour */
   color: string;
   /** how to play, in a few short lines for the start card */
@@ -31,9 +33,9 @@ export type ArcadeGame = {
 
 export const ARCADE_GAMES: ArcadeGame[] = [
   {
-    id: 'slalom', name: 'Sky Slalom', blurb: 'Race down the snowy sky mountain. Steer through the gate with the right answer!',
-    learns: 'Quick facts', art: 'arcade/cab-slalom.webp', stars: [1500, 3500, 6500], secs: 75, color: '#3d9cf0',
-    how: ['Steer left and right', 'Ride through the right answer', 'Right ones in a row build a combo'],
+    id: 'slalom', name: 'Sky Slalom', blurb: 'Race down the snowy sky mountain. Steer through the gate with the right answer, and keep the run going!',
+    learns: 'Quick facts', art: 'arcade/cab-slalom.webp', stars: [4000, 10000, 25000], secs: 60, maxSecs: 240, color: '#3d9cf0',
+    how: ['Ride through the right answer: it adds time and speed', 'Golden rings give a burst of speed', 'Right ones in a row fill your turbo: press space to fire it!'],
   },
   {
     id: 'catch', name: 'Glimmer Catch', blurb: 'Glimmers float down with sums on them. Catch every one that makes the number!',
@@ -41,9 +43,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     how: ['Move your buddy and the net', 'Catch the ones that make the number', 'A golden Glimmer is worth a lot!'],
   },
   {
-    id: 'tower', name: 'Tower Stack', blurb: 'Answer to drop the block. Quick and right lands it straight: build the tallest tower!',
-    learns: 'Quick, careful facts', art: 'arcade/cab-tower.webp', stars: [1200, 3000, 5500], secs: 90, color: '#f08a3c',
-    how: ['Type the answer to drop the block', 'Quick and right lands it straight', 'Wobbly towers can tumble!'],
+    id: 'tower', name: 'Tower Stack', blurb: 'The block swings on the crane. Answer to light it up, then drop it right on top. Build the tallest tower!',
+    learns: 'Quick, careful facts', art: 'arcade/cab-tower.webp', stars: [2000, 5000, 10000], secs: 90, color: '#f08a3c',
+    how: ['Type the answer: the block lights up', 'Tap or press space to drop it on top', 'Dead centre is a Perfect: a Glimmer moves in!'],
   },
 ];
 export const ARCADE: Record<ArcadeId, ArcadeGame> = Object.fromEntries(ARCADE_GAMES.map(g => [g.id, g])) as Record<ArcadeId, ArcadeGame>;

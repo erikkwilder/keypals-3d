@@ -13,6 +13,10 @@ export type ArcadeHud = {
   score(points: number, at?: { x: number; y: number } | null, label?: string): void;
   /** right ones in a row */
   combo(n: number): void;
+  /** good play adds seconds to the clock (games with maxSecs) */
+  addTime(secs: number): void;
+  /** Stop the clock for a moment (a how-to at the start), so it doesn't eat the round. */
+  hold(secs: number): void;
   /** the round ends early (Tower Stack's third topple) */
   end(): void;
 };
@@ -21,6 +25,8 @@ export type GameProps = {
   phase: Phase;
   /** how far through the round (0..1): the games speed up as it goes */
   progress: number;
+  /** seconds played so far */
+  elapsed: number;
   compact: boolean;
   hud: ArcadeHud;
   /** the 3D scene is ready */

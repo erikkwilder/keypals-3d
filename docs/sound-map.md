@@ -1,7 +1,10 @@
 # Keypals sound map
 
-Every sound is made live with Web Audio in `src/lib/audio/sound.ts` (no sound files). Open the game with
-`#sounds` on the address to hear each one with a Play button, plus "Hear a whole battle" in order.
+Almost every sound is made live with Web Audio in `src/lib/audio/sound.ts`. The few that have to sound
+real (an eggshell cracking, a fish splashing) are short recordings in `public/sfx/`, made for Keypals with
+ElevenLabs' sound generator, trimmed, faded and levelled, and played through the same effects channel (a
+made-live stand-in plays if one can't load). Open the game with `#sounds` on the address to hear each one
+with a Play button, plus "Hear a whole battle" in order.
 
 ## The rules
 
@@ -21,6 +24,10 @@ Every sound is made live with Web Audio in `src/lib/audio/sound.ts` (no sound fi
    the run up.
 7. **One moment, one sound.** Starting a battle sounds the same in Adventure, a Family Duel and a Rival
    Ghosts game. Buying anything sounds like shells. Putting anything on sounds like "fwip, ding".
+8. **Whooshes swell in and go up.** A burst of noise that starts at full volume sounds like a snap or a
+   crack, and one that sweeps down sounds like something deflating: both read as "bad". Every whoosh
+   fades in over a good part of its length, rises, and the happy ones land on a bright note (2026-10-30,
+   after Erik heard "Off we go", the battle start and the fish splash as bad sounds).
 
 ## The table
 
@@ -35,10 +42,10 @@ Every sound is made live with Web Audio in `src/lib/audio/sound.ts` (no sound fi
 | **Buttons and screens** | | | |
 | Tap a button | `click()` | a click | |
 | Open a card, pick a tab, an info box | `pop()` | a bubbly pop | |
-| Off we go: a lesson, a trip, a duel, a rival game | `whoosh()` | a whoosh | it was a "Finished!" fanfare on Start the duel and on Battle! for a rival; a start isn't a finish |
+| Off we go: a lesson, a trip, a duel, a rival game | `whoosh()` | an airy whoosh that swells in and rises, landing on a bright two-note chime with a sparkle | it started at full volume, so it sounded like a snap (Erik: "sounds like a bad thing, like a snap or a crack") |
 | Locked, not enough shells, a code that didn't work | `nope()` | two soft knocks | was the "wrong answer" sound, which made locked buttons feel like mistakes |
 | **Battles** (Adventure, Family Duel, Rival Ghosts) | | | |
-| A battle starts | `battleStart()` | a drum, a rising "here we go", then the grumpy "hmph-hmph" | was a low sawtooth buzz (a buzzer), the "bad sound" at the start |
+| A battle starts | `battleStart()` | two drum hits, a rising "here we go", a bright chord with a sparkle | starting is exciting: it ends up, never on the grumpy "hmph" (Erik heard the "hmph" at the end as the start being bad); the grumble stays its own sound |
 | A power flies | `cast(element)` | each element its own swoosh (stone now thunks up, not down) | plays only when the answer was right |
 | The cheer lands | `hit(size)` | a soft thump and notes going up, more notes when bigger | the bright notes now lead; the thump no longer slides down like a sigh |
 | Perfect Cheer | `perfect()` | a bright fanfare | |
@@ -58,7 +65,7 @@ Every sound is made live with Web Audio in `src/lib/audio/sound.ts` (no sound fi
 | Out of energy | `tryAgain()` | a soft "aww", then a little lift | used to be silent |
 | **Family Duel and Rival Ghosts only** | | | |
 | Next player's turn | `turn(side)` | a friendly doorbell (player 1 a little higher) | tells you whose turn it is without looking |
-| A rain cloud flies to the other side | `rainSend()` | a rising whoosh and thunder | |
+| A rain cloud flies to the other side | `rainSend()` | a cheeky "fwoosh", a boing up and a "ding-ding!" | sending one is your reward for three in a row, so it's happy for the sender; the other side hears the rising "watch out" when it arrives |
 | A ghost's (or another player's) power didn't land | `fizzle()` | a soft puff | a ghost's miss used to play your "wrong" sound |
 | Last turn | `lastTurn()` | a drum and two notes going up | was the medal sound |
 | **Prizes** | | | |
@@ -70,10 +77,20 @@ Every sound is made live with Web Audio in `src/lib/audio/sound.ts` (no sound fi
 | Put it on (outfit, gear, team Glimmer, Play as, Make my buddy) | `equip()` | "fwip" and a ding | was the medal sound or "Finished!" |
 | Friendship goes up | `levelUp(n)` | a rising run and a shimmer | |
 | Treasure | `treasure(step)` | a rising run, longer for better treasure | |
-| An egg cracks | `crack()` | a crisp crack | |
+| An egg hatches | `crack(1..3)`, then `crack(4)` | three real eggshell cracks (recorded), each bigger, then the shell bursting open with pieces tinkling | the made-live crack didn't sound like an egg; timed to the cracks growing across the egg in the hatch |
+| Cut the pizza (Pizza Rush) | `slice()` | a crisp "shhk" that lifts, and a tick | it used the egg crack |
 | A Glimmer appears (battle, duel, egg) | `reveal(rarity)` | a run up, grander for rarer ones | |
 | A Glimmer evolves | `evolveCharge(n)` then `evolve(rarity)` | a hum that climbs a step at a time, then a sweep into its reveal | was the heal sound on repeat, then the Finale drum roll |
 | The hands cheer (finger lesson) | `cheer()` | three quick notes up | was the medal sound |
+| A fish leaps, Puddle Pup paddles by (swim lessons and trips) | `splashSmall()` | a real little splash and "plop" (recorded, two takes, pitch varied a touch) | the made-live one swept down and read as a bad sound |
+| Steering the sled, squeaking past a gate, a gust in Glimmer Drop | `carve()`, `nearMiss()`, `gust()` | soft swells that rise | they started at full volume or swept down |
+| Sky Slalom: the wind | `wind(speed)`, every frame | soft air that swells and brightens with the speed, quiet even at turbo, and fades by itself when the run stops | new |
+| Sky Slalom: through a boost ring | `ringPass()` | an airy swell and a bright "ting-ting-ting!" going up | it borrowed the golden-letter bell |
+| Sky Slalom: turbo ready, then fired | `turboReady()`, `turbo()` | a bright "ding-DING!"; then a rocket "vwoooom" that climbs and a chord on top | they borrowed the Finale and the unlock sounds |
+| Tower Stack: the crane brings a block, it drops, it lands | `creak()`, `blockDrop()`, `thunk(height)` | a quiet wooden ratchet (recorded); a light "fwip"; a real wooden "tok" (recorded, two takes), a touch brighter as the tower grows | the drop borrowed the sled carve; the made-live "tok" slid down |
+| Tower Stack: a perfect landing | `thunk()`, `sparkle()`, `ding(combo)` | the "tok" with a sparkle and a ding that climbs with the streak | |
+| Tower Stack: a block misses the top | `blockSlip()` | a soft puff and a cartoon "boing" | it borrowed the "Off we go" whoosh |
+| Pizza Rush: the next customer steps up | `nextUp()` | a friendly shop bell, "ding-dong" going up | new |
 
 Ride changes and "10 in a row" in typing lessons stay silent on purpose: a sound there pulled attention
 from typing. The banner and confetti show it instead.

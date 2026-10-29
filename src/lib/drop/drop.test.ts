@@ -9,8 +9,9 @@ describe('Glimmer Drop', () => {
   it('has a chain of eleven that grows, and scores more for bigger merges', () => {
     expect(CHAIN).toHaveLength(11);
     for (let i = 1; i < CHAIN.length; i++) expect(CHAIN[i].r).toBeGreaterThan(CHAIN[i - 1].r);
-    expect(pointsFor(1)).toBe(10);
-    expect(pointsFor(10)).toBeGreaterThan(pointsFor(5));
+    // little merges are worth a little, big ones a lot
+    expect(pointsFor(1)).toBe(4);
+    expect(pointsFor(10)).toBeGreaterThan(pointsFor(5) * 4);
   });
   it('a day\'s jar gives everyone the same eggs in the same order', () => {
     const a = new DropGame(daySeed('2026-10-30')), b = new DropGame(daySeed('2026-10-30'));

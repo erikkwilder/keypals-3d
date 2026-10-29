@@ -7,7 +7,7 @@ describe('music stations', () => {
     expect(new Set(files).size).toBe(files.length);
     for (const s of STATIONS) {
       if (s.id === 'originals') expect(s.tracks).toHaveLength(0);
-      else expect(s.tracks.length, s.id).toBeGreaterThanOrEqual(3);
+      else expect(s.tracks.length, s.id).toBeGreaterThanOrEqual(7);
       for (const t of s.tracks) { expect(t.file).toMatch(/^[a-z0-9-]+$/); expect(t.title.length).toBeGreaterThan(0); expect(t.artist.length).toBeGreaterThan(0); }
     }
   });

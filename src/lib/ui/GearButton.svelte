@@ -1,15 +1,19 @@
 <script lang="ts">
   // The settings gear that sits on every screen and opens the quick settings sheet, with the music
-  // button beside it (pick your music from anywhere).
+  // button beside it (pick your music from anywhere) and the compass that opens the menu (go anywhere).
+  // A screen with no player yet (the title, the player list) has no menu: there's nowhere to go.
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
   import TileArt from './TileArt.svelte';
   import MusicButton from './MusicButton.svelte';
-  type Props = { size?: number; floating?: boolean; music?: boolean };
-  let { size = 44, floating = false, music = true }: Props = $props();
+  import MenuButton from './MenuButton.svelte';
+  type Props = { size?: number; floating?: boolean; music?: boolean; menu?: boolean };
+  let { size = 44, floating = false, music = true, menu = true }: Props = $props();
+  const noMenu = new Set(['title', 'players', 'newPlayer']);
 </script>
 
 <span class="pair" class:floating>
+  {#if menu && game.profile && !noMenu.has(game.screen)}<MenuButton {size} />{/if}
   {#if music}<MusicButton {size} />{/if}
   <button class="gear" aria-label="Settings" title="Settings" onclick={() => { sfx.click(); game.openSettings(); }}>
     <TileArt kind="settings" {size} />

@@ -29,6 +29,15 @@
   // back from the skills report: still open, on the same player
   const backFrom = game.skillsFor; game.skillsFor = null;
   let unlocked = $state(grownupOpen() || !!backFrom);
+  // opened from a save chip or the menu: go straight to "Saving online" once the grown-up check is passed
+  let acctEl: HTMLDivElement | undefined = $state();
+  let flashAcct = $state(false);
+  const wantAcct = cloud.focusAccount; cloud.focusAccount = false;
+  $effect(() => {
+    if (!wantAcct || !unlocked || !acctEl) return;
+    const el = acctEl;
+    requestAnimationFrame(() => { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); flashAcct = true; setTimeout(() => (flashAcct = false), 1600); });
+  });
   /** players in the signed-in grown-up's account that aren't on this computer yet */
   const waiting = $derived(cloud.players.filter(cp => !here.has(cp.code)));
   /** the player whose save code card is being printed */
@@ -113,6 +122,61 @@
         {/each}
       </div>
       {#if p}
+        <!-- first on the page: where progress is kept, signing in, save codes (the save chips open straight here) -->
+        <div class="card pane acct" bind:this={acctEl} class:flash={flashAcct}>
+          <h3>Saving online</h3>
+          {#if !cloud.online}
+            <p class="muted small">Progress is kept on this computer. Saving online works on fancyant.com/keypals.</p>
+          {:else if p}
+            {#if p.cloud}
+              <p class="small"><b>{p.name}'s save code:</b> <span class="code">{showCode(p.cloud.code)}</span></p>
+              <p class="muted small">Type it on any computer ("Already play on another computer?" on the player screen) to bring {p.name}'s progress over. It keeps saving as {p.name} plays. If two computers both play, their progress is combined, so nothing is lost.</p>
+              <div class="row">
+                <button class="btn btn-primary" onclick={() => (printing = p ?? null)}>Print a code card</button>
+                <button class="btn" disabled={cloud.busy} onclick={() => act(() => forgetCode(p.id), 'Stopped saving online. Progress stays on this computer.')}>Stop saving {p.name} online</button>
+              </div>
+            {:else}
+              <p class="muted small">Turn on saving online so {p.name}'s progress is safe if this browser is cleared or the device is lost, and to play on another computer too. It saves only the nickname and game progress.</p>
+              <div class="row"><button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(() => makeCode(p.id), `${p.name} is saved online. Print the code card to keep it safe.`)}>Save {p.name} online</button></div>
+            {/if}
+          {/if}
+          {#if cloud.online && (cloud.google || cloud.microsoft || cloud.account)}
+            <h4>Parents and teachers</h4>
+            {#if cloud.account}
+              <p class="small">Signed in as <b>{cloud.account.name ?? cloud.account.email}</b>{#if cloud.account.email && cloud.account.name}{' '}({cloud.account.email}){/if}. Players on this computer are kept in your account and saved online.</p>
+              {#if waiting.length}
+                <p class="muted small">In your account, not on this computer yet: {waiting.map(cp => cp.name).join(', ')}.</p>
+                <div class="row">
+                  <button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(async () => { const n = await addAllFromAccount(); return n; }, `Added ${waiting.length === 1 ? waiting[0].name : `all ${waiting.length} players`} to this computer.`)}>Add all my players</button>
+                  {#if waiting.length > 1}{#each waiting as cp (cp.code)}<button class="btn" disabled={cloud.busy} onclick={() => act(() => openCode(cp.code), `${cp.name} is on this computer now.`)}>Add {cp.name}</button>{/each}{/if}
+                </div>
+              {/if}
+              <div class="row">
+                <button class="btn" onclick={() => act(signOut)}>Sign out</button>
+                {#if !confirmDelete}<button class="btn" onclick={() => (confirmDelete = true)}>Delete my account</button>
+                {:else}
+                  <button class="btn" onclick={() => act(() => deleteAccount(false), 'Account deleted. Players keep their save codes.')}>Delete account, keep players' codes</button>
+                  <button class="btn" onclick={() => act(() => deleteAccount(true), 'Account and saved players deleted.')}>Delete account and saved players</button>
+                {/if}
+              </div>
+            {:else}
+              <p class="muted small">Sign in to keep all your players together and bring them to any computer in one go, with no codes to remember. Children don't sign in or give an email.</p>
+              <div class="row">
+                {#if cloud.google}<button class="btn" onclick={() => signIn('google')}>Sign in with Google</button>{/if}
+                {#if cloud.microsoft}<button class="btn" onclick={() => signIn('microsoft')}>Sign in with Microsoft</button>{/if}
+              </div>
+            {/if}
+          {/if}
+          {#if saveMsg}<p class="small msg">{saveMsg}</p>{/if}
+          <p class="muted small"><a href="privacy" target="_blank" rel="noopener">How we look after your information</a></p>
+          <h4>Progress file</h4>
+          <p class="muted small">Or keep a copy yourself: save a file, and load it on another computer.</p>
+          <div class="row">
+            <button class="btn" onclick={exportSave}>Save progress to a file</button>
+            <button class="btn" onclick={() => fileInput?.click()}>Load progress from a file</button>
+            <input type="file" accept="application/json,.json" bind:this={fileInput} onchange={importSave} hidden />
+          </div>
+        </div>
         <div class="cards">
           <div class="stat card"><b>{fmtMin(p.totals.ms)}</b><span>practiced</span></div>
           <div class="stat card"><b>{passedCount}/{ALL_LESSONS.length}</b><span>lessons passed</span></div>
@@ -185,60 +249,6 @@
           <textarea bind:value={words} rows="5" placeholder="because, friend, beautiful, enough..."></textarea>
           <button class="btn btn-primary" onclick={saveWords}>Save word list</button>
         </div>
-        <div class="card pane">
-          <h3>Saving online</h3>
-          {#if !cloud.online}
-            <p class="muted small">Progress is kept on this computer. Saving online works on fancyant.com/keypals.</p>
-          {:else if p}
-            {#if p.cloud}
-              <p class="small"><b>{p.name}'s save code:</b> <span class="code">{showCode(p.cloud.code)}</span></p>
-              <p class="muted small">Type it on any computer ("Already play on another computer?" on the player screen) to bring {p.name}'s progress over. It keeps saving as {p.name} plays. If two computers both play, their progress is combined, so nothing is lost.</p>
-              <div class="row">
-                <button class="btn btn-primary" onclick={() => (printing = p ?? null)}>Print a code card</button>
-                <button class="btn" disabled={cloud.busy} onclick={() => act(() => forgetCode(p.id), 'Stopped saving online. Progress stays on this computer.')}>Stop saving {p.name} online</button>
-              </div>
-            {:else}
-              <p class="muted small">Turn on saving online so {p.name}'s progress is safe if this browser is cleared or the device is lost, and to play on another computer too. It saves only the nickname and game progress.</p>
-              <div class="row"><button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(() => makeCode(p.id), `${p.name} is saved online. Print the code card to keep it safe.`)}>Save {p.name} online</button></div>
-            {/if}
-          {/if}
-          {#if cloud.online && (cloud.google || cloud.microsoft || cloud.account)}
-            <h4>Parents and teachers</h4>
-            {#if cloud.account}
-              <p class="small">Signed in as <b>{cloud.account.name ?? cloud.account.email}</b>{#if cloud.account.email && cloud.account.name}{' '}({cloud.account.email}){/if}. Players on this computer are kept in your account and saved online.</p>
-              {#if waiting.length}
-                <p class="muted small">In your account, not on this computer yet: {waiting.map(cp => cp.name).join(', ')}.</p>
-                <div class="row">
-                  <button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(async () => { const n = await addAllFromAccount(); return n; }, `Added ${waiting.length === 1 ? waiting[0].name : `all ${waiting.length} players`} to this computer.`)}>Add all my players</button>
-                  {#if waiting.length > 1}{#each waiting as cp (cp.code)}<button class="btn" disabled={cloud.busy} onclick={() => act(() => openCode(cp.code), `${cp.name} is on this computer now.`)}>Add {cp.name}</button>{/each}{/if}
-                </div>
-              {/if}
-              <div class="row">
-                <button class="btn" onclick={() => act(signOut)}>Sign out</button>
-                {#if !confirmDelete}<button class="btn" onclick={() => (confirmDelete = true)}>Delete my account</button>
-                {:else}
-                  <button class="btn" onclick={() => act(() => deleteAccount(false), 'Account deleted. Players keep their save codes.')}>Delete account, keep players' codes</button>
-                  <button class="btn" onclick={() => act(() => deleteAccount(true), 'Account and saved players deleted.')}>Delete account and saved players</button>
-                {/if}
-              </div>
-            {:else}
-              <p class="muted small">Sign in to keep all your players together and bring them to any computer in one go, with no codes to remember. Children don't sign in or give an email.</p>
-              <div class="row">
-                {#if cloud.google}<button class="btn" onclick={() => signIn('google')}>Sign in with Google</button>{/if}
-                {#if cloud.microsoft}<button class="btn" onclick={() => signIn('microsoft')}>Sign in with Microsoft</button>{/if}
-              </div>
-            {/if}
-          {/if}
-          {#if saveMsg}<p class="small msg">{saveMsg}</p>{/if}
-          <p class="muted small"><a href="privacy" target="_blank" rel="noopener">How we look after your information</a></p>
-          <h4>Progress file</h4>
-          <p class="muted small">Or keep a copy yourself: save a file, and load it on another computer.</p>
-          <div class="row">
-            <button class="btn" onclick={exportSave}>Save progress to a file</button>
-            <button class="btn" onclick={() => fileInput?.click()}>Load progress from a file</button>
-            <input type="file" accept="application/json,.json" bind:this={fileInput} onchange={importSave} hidden />
-          </div>
-        </div>
       {/if}
       {#if printing?.cloud}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -288,6 +298,8 @@
   .stat span { font-size: 13px; color: var(--muted); font-weight: 700; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   .pane { padding: 18px 20px; }
+  .acct { scroll-margin-top: 12px; transition: box-shadow .4s; }
+  .acct.flash { box-shadow: 0 0 0 4px #7fd6a6, 0 0 30px rgba(80, 200, 140, .5); }
   .advset { margin-bottom: 12px; }
   .rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
   .rule { display: flex; flex-direction: column; gap: 3px; text-align: left; border: 3px solid #ece6f6; background: #fff; border-radius: 16px; padding: 10px 12px; cursor: pointer; }

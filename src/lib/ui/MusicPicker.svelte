@@ -5,7 +5,7 @@
   // player. "Keypals Originals" is the music the game makes itself, in a style you pick.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { MUSIC_STYLES, musicNow, onMusic, setMusicStation, setMusicStyle, sfx, skipTrack, unlockAudio, type MusicStyleId, type NowPlaying } from '../audio/sound';
+  import { MUSIC_STYLES, musicNow, onMusic, playStation, resumeMusic, setMusicStyle, sfx, skipTrack, unlockAudio, type MusicStyleId, type NowPlaying } from '../audio/sound';
   import { AUTO, STATIONS, STATION, type StationChoice } from '../audio/stations';
   import TileArt from './TileArt.svelte';
   import CloseButton from './CloseButton.svelte';
@@ -21,10 +21,11 @@
     unlockAudio();
     sfx.click();
     game.update(pp => { pp.settings.musicStation = c; if (pp.settings.music === false) pp.settings.music = true; });
-    setMusicStation(c);
+    // play it now, wherever you are (on the title screen the music hadn't started, so a pick did nothing)
+    playStation(c);
   }
   function style(id: MusicStyleId | 'mix') { sfx.click(); game.update(pp => { pp.settings.musicStyle = id; }); setMusicStyle(id); }
-  function toggle() { game.update(pp => { pp.settings.music = pp.settings.music === false; }); }
+  function toggle() { unlockAudio(); game.update(pp => { pp.settings.music = pp.settings.music === false; }); if (game.settings.music !== false) setTimeout(resumeMusic, 0); }
   const close = () => game.closeMusic();
   function onKey(e: KeyboardEvent) {
     // the picker owns the keyboard while it's open (a lesson or battle underneath doesn't hear it)

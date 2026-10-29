@@ -11,6 +11,7 @@
   import Logo from '../ui/Logo.svelte';
   import SaveCodeForm from '../ui/SaveCodeForm.svelte';
   import SafeReminder from '../ui/SafeReminder.svelte';
+  import { cloud, goSaveOnline } from '../state/cloud.svelte';
 
   function pick(id: string) {
     sfx.click();
@@ -48,6 +49,12 @@
   <div class="foot">
     <button class="btn btn-ghost" onclick={() => game.go('title')}>Back</button>
     <button class="btn btn-ghost" onclick={() => game.go('grownups')}>Grown-ups</button>
+    <!-- signing in, easy to find, and easy to see once it's done -->
+    {#if cloud.online && cloud.account}
+      <button class="btn btn-ghost acct on" onclick={goSaveOnline} title="Saving online: see or change it"><img src="{import.meta.env.BASE_URL}icons/cloud-save.webp" alt="" />Signed in as {cloud.account.name?.split(' ')[0] ?? cloud.account.email}</button>
+    {:else if cloud.online && (cloud.google || cloud.microsoft)}
+      <button class="btn btn-ghost acct" onclick={goSaveOnline}><img src="{import.meta.env.BASE_URL}icons/cloud-save.webp" alt="" />{cloud.signedOut ? 'Signed out: sign in again' : 'Grown-ups: sign in'}</button>
+    {/if}
   </div>
 </div>
 
@@ -66,5 +73,8 @@
   .tag { background: var(--bg2); padding: 2px 8px; border-radius: 999px; }
   .add { justify-content: center; border-style: dashed; background: rgba(255, 255, 255, .6); min-height: 230px; }
   .plus { width: 90px; height: 90px; border-radius: 50%; display: grid; place-items: center; font: 600 54px/1 var(--font-ui); background: var(--bg2); color: var(--primary); }
-  .foot { margin-top: 26px; display: flex; gap: 12px; }
+  .foot { margin-top: 26px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .acct { display: inline-flex; align-items: center; gap: 6px; }
+  .acct img { width: 28px; height: 28px; object-fit: contain; margin: -4px 0; }
+  .acct.on { color: #0f6a48; }
 </style>

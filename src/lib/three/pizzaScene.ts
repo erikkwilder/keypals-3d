@@ -41,6 +41,13 @@ export class PizzaScene {
   tall = false;
   private slotX = [-1.8, 0, 1.8];
   private disposed = false;
+  /** the customer whose order is up: lit by a spotlight, stepped forward and bigger; the others wait
+   *  back a little, smaller and paler */
+  private active: number | null = null;
+  private spot: THREE.Group;
+  private spotX = 0; private spotK = 0;
+  private lookX = 0;
+  private camAim = new THREE.Vector3(0, 0.2, -0.5);
 
   private constructor(private canvas: HTMLCanvasElement) {
     const r = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
@@ -63,8 +70,31 @@ export class PizzaScene {
     catcher.rotation.x = -Math.PI / 2; catcher.position.y = -0.09; catcher.receiveShadow = true;
     this.scene.add(catcher);
     this.buildPeel();
-    this.scene.add(this.peel, this.pizza, this.fx.root);
+    this.spot = this.buildSpot();
+    this.scene.add(this.peel, this.pizza, this.fx.root, this.spot);
   }
+  /** A warm spotlight: a pool of light on the counter and a soft beam from above. */
+  private buildSpot() {
+    const g = new THREE.Group();
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d')!;
+    const grd = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grd.addColorStop(0, 'rgba(255,236,170,0.95)'); grd.addColorStop(0.55, 'rgba(255,214,110,0.45)'); grd.addColorStop(1, 'rgba(255,214,110,0)');
+    x.fillStyle = grd; x.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(0.85, 40), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    pool.rotation.x = -Math.PI / 2; pool.position.y = -0.07;
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.85, 3.2, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe6a0, transparent: true, opacity: 0.12, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    beam.position.y = 1.5;
+    // a warm glow behind them too: the pool is mostly hidden under the pizza for the middle customer
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    halo.scale.setScalar(1.7); halo.position.set(0, 0.5, -0.3);
+    g.add(pool, beam, halo);
+    g.userData.pool = pool; g.userData.beam = beam; g.userData.halo = halo;
+    return g;
+  }
+  /** Whose order is up now (null: nobody). */
+  setActive(slot: number | null) { this.active = slot; }
 
   static async create(canvas: HTMLCanvasElement): Promise<PizzaScene> {
     const s = new PizzaScene(canvas);
@@ -271,9 +301,26 @@ export class PizzaScene {
       if (!c) continue;
       c.t = Math.min(1, c.t + dt / 0.9);
       c.x = c.from + (this.slotX[c.slot] - c.from) * ease(c.t);
-      c.model.root.position.set(c.x, -0.09, CUST_Z);
+      // the one whose order is up steps forward into the light, a little bigger; the others wait back
+      const on = this.active === c.slot, any = this.active !== null;
+      const k = (c.model.root.userData.onK ?? 0) + (((on ? 1 : any ? -1 : 0)) - (c.model.root.userData.onK ?? 0)) * Math.min(1, dt * 6);
+      c.model.root.userData.onK = k;
+      c.model.root.position.set(c.x, -0.09 + (on ? Math.abs(Math.sin(this.t * 4)) * 0.04 : 0), CUST_Z + k * (k > 0 ? 0.32 : 0.22));
+      c.model.root.scale.setScalar(1 + k * (k > 0 ? 0.16 : 0.12));
+      c.model.setGrey(Math.max(0, -k) * 0.45);
       c.model.update(dt, this.t);
     }
+    // the spotlight slides to whoever's up; the camera turns a little toward them
+    const ac = this.active !== null ? this.cust[this.active] : null;
+    const wantK = ac ? 1 : 0;
+    this.spotK += (wantK - this.spotK) * Math.min(1, dt * 6);
+    if (ac) this.spotX += (ac.x - this.spotX) * Math.min(1, dt * 8);
+    this.spot.position.set(this.spotX, 0, CUST_Z + 0.32);
+    (this.spot.userData.pool.material as THREE.MeshBasicMaterial).opacity = this.spotK * (0.85 + Math.sin(this.t * 3) * 0.1);
+    (this.spot.userData.beam.material as THREE.MeshBasicMaterial).opacity = this.spotK * 0.16;
+    (this.spot.userData.halo.material as THREE.SpriteMaterial).opacity = this.spotK * (0.7 + Math.sin(this.t * 3) * 0.08);
+    this.lookX += ((ac ? ac.x * (this.tall ? 0.15 : 0.22) : 0) - this.lookX) * Math.min(1, dt * 2.5);
+    if (!this.tall) { this.camAim.set(this.lookX, 0.2, -0.5); this.camera.lookAt(this.camAim); }
     // a customer leaving hops off backwards and shrinks away (walking sideways crossed the others)
     for (const c of this.gone) {
       c.t += dt / 0.8;
@@ -293,6 +340,7 @@ export class PizzaScene {
     cancelAnimationFrame(this.raf);
     for (const c of [...this.cust, ...this.gone]) c?.model.dispose();
     this.fx.dispose();
+    for (const k of ['pool', 'beam', 'halo']) { const m = (this.spot.userData[k] as THREE.Mesh).material as THREE.MeshBasicMaterial; m.map?.dispose(); m.dispose(); }
     this.scene.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh && !m.userData.glimmer) { m.geometry?.dispose(); } });
     this.top?.dispose();
     this.renderer.dispose();

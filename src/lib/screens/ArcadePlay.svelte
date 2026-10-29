@@ -41,13 +41,17 @@
   let combo = $state(0);
   let bestCombo = $state(0);
   let left = $state(G.secs);
+  /** seconds played (time added by good play doesn't change it) */
+  let elapsed = $state(0);
+  let held = 0; // seconds the clock waits (a game's how-to)
+  let timePop = $state<{ n: number; text: string } | null>(null);
   let count = $state(3);
   let pops = $state<{ n: number; text: string; label: string; x: number; y: number; big: boolean }[]>([]);
   let popN = 0;
   let outcome = $state<ArcadeOutcome | null>(null);
   let w = $state(1280);
   const compact = $derived(w < 700);
-  const progress = $derived(Math.max(0, Math.min(1, 1 - left / G.secs)));
+  const progress = $derived(Math.max(0, Math.min(1, elapsed / G.secs)));
   const answered: Answered[] = [];
   let raf = 0, last = 0;
   let timers: ReturnType<typeof setTimeout>[] = [];
@@ -66,6 +70,14 @@
       if (points >= 50) scoreBump++;
     },
     combo(n) { combo = n; bestCombo = Math.max(bestCombo, n); },
+    addTime(secs) {
+      if (phase !== 'play' || !G.maxSecs) return;
+      left = Math.min(99, left + secs);
+      const n = (timePop?.n ?? 0) + 1;
+      timePop = { n, text: `+${Math.round(secs * 10) / 10}s` };
+      later(900, () => { if (timePop?.n === n) timePop = null; });
+    },
+    hold(secs) { held = Math.max(held, secs); },
     end() { if (phase === 'play') finish(); },
   };
 
@@ -87,7 +99,7 @@
   }
   function settle() {
     const p = $state.snapshot(game.profile!) as Profile;
-    const out = applyArcade(p, { id, score, ms: Math.round((G.secs - Math.max(0, left)) * 1000), at: Date.now(), answered, daily });
+    const out = applyArcade(p, { id, score, ms: Math.round(elapsed * 1000), at: Date.now(), answered, daily });
     game.replaceProfile(out.profile);
     outcome = out;
     lastDone = id;
@@ -101,7 +113,8 @@
   function frame(t: number) {
     raf = requestAnimationFrame(frame);
     const dt = last ? Math.min(0.1, (t - last) / 1000) : 0; last = t;
-    if (phase === 'play') { left = Math.max(0, left - dt); if (left <= 0) finish(); }
+    if (phase === 'play' && held > 0) held = Math.max(0, held - dt);
+    else if (phase === 'play') { left = Math.max(0, left - dt); elapsed += dt; if (left <= 0 || (G.maxSecs && elapsed >= G.maxSecs)) finish(); }
   }
   function onKey(e: KeyboardEvent) {
     if (e.metaKey || e.ctrlKey || e.altKey || game.modalOpen) return;
@@ -132,9 +145,9 @@
 </script>
 
 <div class="aplay g-{id}" class:compact bind:clientWidth={w}>
-  {#if id === 'slalom'}<SkySlalom {deck} {rng} buddy={p0.buddy} {fastMs} {phase} {progress} {compact} {hud} onready={ready} />
-  {:else if id === 'catch'}<GlimmerCatch {deck} {rng} buddy={p0.buddy} {fastMs} {phase} {progress} {compact} {hud} onready={ready} />
-  {:else}<TowerStack {deck} {rng} buddy={p0.buddy} {fastMs} {phase} {progress} {compact} {hud} onready={ready} />{/if}
+  {#if id === 'slalom'}<SkySlalom {deck} {rng} buddy={p0.buddy} {fastMs} {phase} {progress} {elapsed} {compact} {hud} onready={ready} />
+  {:else if id === 'catch'}<GlimmerCatch {deck} {rng} buddy={p0.buddy} {fastMs} {phase} {progress} {elapsed} {compact} {hud} onready={ready} />
+  {:else}<TowerStack {deck} {rng} buddy={p0.buddy} {fastMs} {phase} {progress} {elapsed} {compact} {hud} onready={ready} />{/if}
 
   {#if phase === 'loading'}<div class="loading"><img src="{import.meta.env.BASE_URL}{G.art}" alt="" /><span>Getting {G.name} ready…</span></div>{/if}
 
@@ -148,7 +161,7 @@
         </div>
       </div>
       <div class="rgt">
-        <div class="clock" class:low={left <= 10 && phase === 'play'}><Icon name="clock" size={compact ? 22 : 28} /><b>{clock}</b></div>
+        <div class="clock" class:low={left <= 10 && phase === 'play'}><Icon name="clock" size={compact ? 22 : 28} /><b>{clock}</b>{#if timePop}{#key timePop.n}<span class="tpop">{timePop.text}</span>{/key}{/if}</div>
         <MusicButton size={compact ? 30 : 38} />
       </div>
     </div>
@@ -177,7 +190,7 @@
           <ul class="how">{#each G.how as line, i}<li><span>{i + 1}</span>{line}</li>{/each}</ul>
           <div class="goals">{#each G.stars as s, i}<div class="goal"><Stars n={i + 1} of={i + 1} size={18} /><span>{fmt(s)}</span></div>{/each}</div>
           {#if daily}<div class="dailyline"><img src="{import.meta.env.BASE_URL}icons/daily.webp" alt="" />Beat <b>{fmt(dailyGoal(id))}</b> today for <b>{DAILY_SHELLS}</b> bonus shells. Everyone gets the same course today!</div>{/if}
-          <div class="best muted">{rec.plays ? `Your best: ${fmt(rec.best)}` : 'First go! Every answer counts as practice.'} · {Math.round(G.secs)} seconds</div>
+          <div class="best muted">{rec.plays ? `Your best: ${fmt(rec.best)}` : 'First go! Every answer counts as practice.'} · {G.maxSecs ? `${Math.round(G.secs)} seconds to start: right answers add time` : `${Math.round(G.secs)} seconds`}</div>
           <div class="tiles">
             <NavTile size="md" tone="sky" kind="close" label="Back" onclick={leave} />
             <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={begin} />
@@ -231,6 +244,9 @@
   .clock b { font: 600 26px/1 var(--font-ui); color: var(--ink); font-variant-numeric: tabular-nums; }
   .clock.low { background: #fff0f4; box-shadow: 0 0 0 3px #ffb3c9; animation: tick 1s ease-in-out infinite; }
   .clock.low b { color: #c0265a; }
+  .clock { position: relative; }
+  .tpop { position: absolute; right: 6px; top: 100%; margin-top: 4px; font: 700 18px/1 var(--font-ui); color: #1a8a4a; background: #eafff2; padding: 4px 9px; border-radius: 999px; box-shadow: 0 0 0 2px #9be6b8; animation: tpop .9s ease-out forwards; white-space: nowrap; }
+  @keyframes tpop { 0% { transform: translateY(-6px) scale(.6); opacity: 0; } 20% { transform: translateY(0) scale(1.1); opacity: 1; } 75% { opacity: 1; } 100% { transform: translateY(8px); opacity: 0; } }
   @keyframes tick { 50% { transform: scale(1.06); } }
   .nextstar { position: absolute; left: 16px; top: 132px; display: flex; align-items: center; gap: 6px; font: 700 13px var(--font-body); color: #fff; text-shadow: 0 1px 4px rgba(20, 30, 70, .7); z-index: 7; pointer-events: none; }
 

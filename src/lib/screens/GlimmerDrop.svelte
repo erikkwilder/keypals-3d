@@ -335,13 +335,25 @@
     c.restore();
     // the cloud lid sitting on the jar's mouth
     if (lidImg.complete && lidImg.naturalWidth) { const w = (JAR.w + 20) * k * 1.08, h = w * (lidImg.naturalHeight / lidImg.naturalWidth); c.drawImage(lidImg, X(JAR.w / 2) - w / 2, Y(-24) - h * 0.86, w, h); }
-    // the egg you're holding, in front of the cloud, on a soft glow so it's easy to find
-    if (g && phase === 'play' && !g.done && g.canDrop()) {
+    // the egg you're holding, in front of the cloud. It grows in while the last one is still falling (you
+    // can't drop yet: a ring fills round it), then glows gold when it's ready to drop
+    if (g && phase === 'play' && !g.done) {
+      const ready = g.readiness(), on = ready >= 1;
       const r = CHAIN[g.hold].r * k, ex = X(aimDraw), ey = Y(JAR.line - CHAIN[g.hold].r - 46);
+      const grow = on ? 1 : 0.55 + 0.4 * ready;
       const glow = c.createRadialGradient(ex, ey, 0, ex, ey, r * 2.4);
-      glow.addColorStop(0, 'rgba(255,250,210,.85)'); glow.addColorStop(1, 'rgba(255,250,210,0)');
+      glow.addColorStop(0, on ? `rgba(255,224,102,${0.8 + Math.sin(t * 8) * 0.12})` : 'rgba(255,250,230,.35)'); glow.addColorStop(1, 'rgba(255,250,210,0)');
       c.fillStyle = glow; c.beginPath(); c.arc(ex, ey, r * 2.4, 0, Math.PI * 2); c.fill();
-      drawEgg(c, g.hold, ex, ey, r, t * 3);
+      if (!on) {
+        c.save(); c.lineCap = 'round';
+        c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = Math.max(3, 6 * k);
+        c.beginPath(); c.arc(ex, ey, r * 1.35, 0, Math.PI * 2); c.stroke();
+        c.strokeStyle = '#ffd34a'; c.beginPath(); c.arc(ex, ey, r * 1.35, -Math.PI / 2, -Math.PI / 2 + ready * Math.PI * 2); c.stroke();
+        c.restore();
+        c.globalAlpha = 0.55;
+      }
+      drawEgg(c, g.hold, ex, ey, r * grow, on ? t * 3 : 0);
+      c.globalAlpha = 1;
     }
     // wind on its way: arrows across the jar
     if (gustDir) {
@@ -394,7 +406,7 @@
         pop(X(e.x), Y(e.y), e.tier, e.chain);
         // MERGE! +N where it happened (tiny merges just show the points); chains say how long they are
         // (from four in a row the big word comes up over the jar instead, so here it's just the points)
-        const word = e.chain >= 4 ? '' : e.chain >= 2 ? CHAIN_WORDS[e.chain] : e.tier >= 2 ? 'Merge!' : '';
+        const word = e.aim ? 'Nice aim!' : e.chain >= 4 ? '' : e.chain >= 2 ? CHAIN_WORDS[e.chain] : e.tier >= 2 ? 'Merge!' : '';
         float(e.x, e.y - CHAIN[e.tier].r * 0.6, word, `+${e.points}`, Math.min(1.9, 0.85 + e.tier * 0.04 + (e.chain - 1) * 0.28) * (narrow ? 0.72 : 1));
         shake = Math.max(shake, Math.min(1, (e.chain >= 2 ? 0.2 + e.chain * 0.16 : 0) + (e.tier >= 6 ? 0.3 : 0)));
         // the long ones: the jar flashes and the big word comes up over everything
@@ -489,7 +501,8 @@
   }
   function leave() {
     if (g && phase === 'play') { const ms = unsaved; unsaved = 0; if (ms > 0) game.update(pp => spendPlay(pp, ms)); }
-    game.go('adventure');
+    // Glimmer Drop lives in the Arcade now
+    game.go('arcade');
   }
   function practice(kind: 'math' | 'typing') {
     if (kind === 'typing') { game.setHome('typing'); game.startLesson(nextLesson(p).id); }
@@ -522,12 +535,13 @@
 
 <div class="drop" class:narrow>
   <div class="top">
-    <button class="back" onclick={leave} aria-label="Back to the Adventure map"><Icon name="back" size={30} /></button>
+    <button class="back" onclick={leave} aria-label="Back to the Arcade"><Icon name="back" size={30} /></button>
     <div class="title"><small>Just for fun</small><b>Glimmer Drop</b></div>
     {#if phase !== 'menu'}<span class="chip mode">{mode === 'daily' ? "Today's jar" : 'Free play'}</span>{/if}
     <span class="sp"></span>
     {#if left !== null}<span class="chip time" class:low={left < 2} title={PLAY_RULES[advView(p).settings.rule].text}><Icon name="clock" size={20} /> {Math.max(0, Math.ceil(left))}<span class="mn">&nbsp;min</span></span>{/if}
-    <GearButton size={narrow ? 40 : 46} />
+    <!-- phones: the menu and gear fit beside the timer; music is in the gear sheet -->
+    <GearButton size={narrow ? 40 : 46} music={!narrow} />
   </div>
 
   <div class="main">
@@ -594,7 +608,7 @@
         <h1>Glimmer Drop</h1>
         <div class="how">
           <div><img src="{base}game/egg-common.webp" alt="" /><p><b>Drop an egg</b> Move it over the jar, then tap.</p></div>
-          <div><span class="pair"><img src={sprite(1)} alt="" /><img src={sprite(1)} alt="" /><i>→</i><img src={sprite(2)} alt="" /></span><p><b>Two the same</b> bump and grow into a bigger Glimmer.</p></div>
+          <div><span class="pair"><img src={sprite(1)} alt="" /><img src={sprite(1)} alt="" /><i>→</i><img src={sprite(2)} alt="" /></span><p><b>Two the same</b> bump and grow into a bigger Glimmer. Land right on its twin for triple points!</p></div>
           <div><span class="line"></span><p><b>Don't fill past the line</b> or the jar is full.</p></div>
         </div>
         {#if canPlay}
@@ -745,7 +759,7 @@
     .top { padding: 8px 8px 2px; gap: 6px; }
     .back { width: 42px; height: 42px; }
     .title { padding: 2px 12px; } .title b { font-size: 18px; } .title small { display: none; }
-    .chip.mode { display: none; }
+    .chip.mode { display: none; } .chip.time .mn { display: none; }
     .score { padding: 4px 12px; } .score b { font-size: 26px; }
     .warnpill { top: 70px; font-size: 14px; } .warnpill.time { top: 104px; }
     .how { grid-template-columns: 1fr; }

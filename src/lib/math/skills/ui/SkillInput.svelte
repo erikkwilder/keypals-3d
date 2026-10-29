@@ -55,6 +55,15 @@
   const fr = $derived(fill?.kind === 'fraction' ? fill : { kind: 'fraction' as const, n: '', d: '', focus: 'n' as const });
   function frChange(v: { n: string; d: string; focus: 'n' | 'd' }) { fill = { kind: 'fraction', ...v }; }
   function frSubmit() { if (fr.n && fr.d && Number(fr.d) > 0) onanswer({ kind: 'fraction', n: Number(fr.n), d: Number(fr.d) }); }
+  const want = $derived(item.answer.kind === 'fraction' ? { n: item.answer.n, d: item.answer.d } : null);
+  // how the fraction pad works, shown the first few fraction questions on this device
+  const HINT_KEY = 'kp-frac-hint';
+  let hint = $state(false);
+  $effect(() => {
+    void item.id;
+    if (item.input !== 'fraction') return;
+    try { const seen = Number(localStorage.getItem(HINT_KEY) ?? 0); hint = seen < 6; localStorage.setItem(HINT_KEY, String(seen + 1)); } catch { hint = true; }
+  });
   const Custom = $derived(item.custom ? CUSTOM.get(item.custom.name) : undefined);
 </script>
 
@@ -66,7 +75,7 @@
     {#if !whole}<button class="ok" disabled={!text || disabled} onpointerdown={(e) => { e.preventDefault(); submitNumber(); }} tabindex="-1"><Icon name="check" size={28} /><span>Check</span></button>{/if}
   </div>
 {:else if item.input === 'fraction'}
-  <FractionPad n={fr.n} d={fr.d} focus={fr.focus ?? 'n'} {disabled} {compact} onchange={frChange} onsubmit={frSubmit} {onfirst} />
+  <FractionPad n={fr.n} d={fr.d} focus={fr.focus ?? 'n'} {want} {hint} {disabled} {compact} onchange={frChange} onsubmit={frSubmit} {onfirst} />
 {:else if item.input === 'choice' && item.choices}
   <ChoiceInput choices={item.choices} {disabled} {compact} {marked} onpick={(id) => { onfirst(); onanswer({ kind: 'choice', id }); }} />
 {:else if item.input === 'numberline' && item.line}

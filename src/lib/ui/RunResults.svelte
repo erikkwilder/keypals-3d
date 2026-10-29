@@ -323,7 +323,9 @@
             <button class="ipic outfit tap rar-{e.rarity}" onclick={() => peekAt(e)} title="Take a look"><img class="othumb" src="{import.meta.env.BASE_URL}outfits/{e.id}.webp" alt="" /></button>
             <button class="wear" onclick={() => wear(e.id)} disabled={heroOutfit === e.id}>{heroOutfit === e.id ? 'Wearing' : 'Wear it'}</button>
           {:else if e.kind === 'dance'}
-            <button class="ipic outfit dance tap rar-{e.rarity}" onclick={() => dance(e.id)} title="See it danced"><span class="note"><Icon name="dance" dance={e.id} size={44} /></span><span class="dname">{e.name}</span></button>
+            <!-- the dance's picture fills its tile; its name sits under it like every other keepsake, so a long name never runs into the button -->
+            <button class="ipic outfit dance tap rar-{e.rarity}" onclick={() => dance(e.id)} title="See it danced: {e.name}"><span class="note"><Icon name="dance" dance={e.id} size={Math.round(cell * 0.62)} /></span></button>
+            <span class="iname dname">{e.name}</span>
             <button class="wear" onclick={() => dance(e.id, true)} disabled={myDance === e.id && dancingNow === e.id}>{myDance === e.id ? 'My dance!' : 'Dance it'}</button>
           {:else if e.kind === 'medal'}
             <button class="ipic medal tap" onclick={() => show(e)} title="What's this?">{@html renderMedal(e.m, e.m.tier)}</button>
@@ -499,7 +501,8 @@
 
 <style>
   .results { background: transparent; }
-  .dancebtn { display: inline-flex; align-items: center; gap: 6px; position: absolute; left: 60px; top: 2%; z-index: 8; font: 600 18px var(--font-ui); color: #fff; background: linear-gradient(135deg, #b98cff, #ff7ab8); border: 0; border-radius: 999px; padding: 10px 18px; box-shadow: 0 0 0 4px #fff, 0 10px 24px -10px rgba(124, 92, 245, .7); cursor: pointer; }
+  /* clear of the menu, music and gear buttons in the corner */
+  .dancebtn { display: inline-flex; align-items: center; gap: 6px; position: absolute; left: 224px; top: 2%; z-index: 8; font: 600 18px var(--font-ui); color: #fff; background: linear-gradient(135deg, #b98cff, #ff7ab8); border: 0; border-radius: 999px; padding: 10px 18px; box-shadow: 0 0 0 4px #fff, 0 10px 24px -10px rgba(124, 92, 245, .7); cursor: pointer; }
   /* the prize beside the buddy */
   .prize { position: absolute; z-index: 7; width: var(--sz); height: var(--sz); transform: translate(-50%, -50%); pointer-events: none; }
   .prize > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 12px 18px rgba(60, 40, 110, .35)); animation: prize-in .9s cubic-bezier(.2, .9, .3, 1.4) both, prize-bob 2.4s 1s ease-in-out infinite; }
@@ -544,7 +547,7 @@
   .dmore { margin: 0 0 10px; font: 600 14px/1.35 var(--font-body); color: var(--muted); }
   .dance { display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #efe4ff, #ffe4f1) !important; }
   .note { font-size: calc(var(--s) * 0.42); line-height: 1; color: #9b6bff; }
-  .dname { font: 700 12px/1.1 var(--font-body); color: var(--ink2); text-align: center; padding: 0 4px; }
+  .dname { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; }
   .corner { position: absolute; top: 16px; left: 18px; z-index: 8; }
   .hero { position: absolute; left: 2.5%; width: 44%; top: 2%; height: 55%; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; pointer-events: none; }
   .hero.full { height: 94%; }
@@ -649,7 +652,7 @@
   .narrow .hero { position: relative; order: 0; left: auto; top: auto; width: 100%; height: 42vh; flex: none; padding-bottom: 8px; }
   .narrow .hero.full { height: 42vh; }
   .narrow .ridepic { bottom: 70px; }
-  .narrow .dancebtn { left: 58px; top: 12px; font-size: 15px; padding: 7px 13px; }
+  .narrow .dancebtn { left: 12px; top: 74px; font-size: 15px; padding: 7px 13px; }
   .narrow .ehead { flex-wrap: wrap; row-gap: 0; }
   .narrow .rbicon { width: 42px; height: 42px; } .narrow .rbicon svg { width: 30px; height: 30px; }
   .narrow .ridebanner { padding: 6px 16px 6px 6px; }

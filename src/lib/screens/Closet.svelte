@@ -3,8 +3,10 @@
   // Wardrobe has every slot (head, face, neck, back, hand, feet): everything you have is yours, so any
   // buddy can wear it, and each buddy keeps its own look. Tap a thing you're wearing and "Move it" to
   // nudge it into place on this buddy. Dances unlock as each buddy's own friendship grows. Buddies not on
-  // the team yet show in shadowy grey with what brings them in.
-  import { onDestroy, onMount } from 'svelte';
+  // the team yet show in shadowy grey with what brings them in. Tapping a thing on the buddy itself
+  // picks it up to move, too.
+  import { onDestroy, onMount, tick } from 'svelte';
+  import { Raycaster, Vector2 } from 'three';
   import { game } from '../state/game.svelte';
   import { BUDDIES, FRIEND, type FriendId } from '../art/cast';
   import { DANCES as ALL_DANCES, forBuddy, type Reward } from '../engine/rewards';
@@ -15,7 +17,8 @@
   import { advView, ISLAND, markSeen } from '../adventure/state';
   import { ITEM, NO_NUDGE, SETS, SET_IDS, SLOT_NAME, WEAR_SLOTS, setItems, setsOn, lookView, type Nudge, type SetId, type WearSlot } from '../adventure/gear';
   import { CATALOG, CAT, bestFriendship, buyItem, howText, nudgeItem, nudgeOf, ownsItem, wearItem, wornIn, type CatalogItem } from '../adventure/wardrobe';
-  import { nudgeGear } from '../three/gear3d';
+  import { highlightWorn, nudgeGear, wornAt } from '../three/gear3d';
+  import { colourSoon } from '../adventure/colours';
   import Coach from '../ui/Coach.svelte';
   import { sfx } from '../audio/sound';
   import { stage } from '../three/stage';
@@ -72,7 +75,8 @@
   }
   function onResize() { if (scene) scene.view = viewOf(); }
 
-  function pick(id: FriendId) { if (id === who) return; who = id; moving = null; sfx.pop(); show(id); }
+  function pick(id: FriendId) { if (id === who) return; who = id; moving = null; if (slot === 'colour' && colourSoon(id)) slot = 'head'; sfx.pop(); show(id); }
+  const soonNote = () => { sfx.pop(); game.say(`${FRIEND[who].name}'s colours are coming soon! Every other buddy can wear yours.`); };
   function locked(r: Reward) { return r.level > lvl.level; }
   function nope(r: Reward) {
     shake = r.id; setTimeout(() => (shake = null), 400); sfx.nope();
@@ -115,11 +119,42 @@
 
   // ---------- Move it: nudge a worn thing into place on this buddy ----------
   let moving = $state<{ slot: WearSlot; id: string; n: Nudge } | null>(null);
-  function startMove() {
-    const id = onSlot(slot);
-    if (!id) return;
-    moving = { slot, id, n: nudgeOf(p, who, id) };
+  // (a colour isn't a thing on the buddy: nothing to move)
+  const movable = (sl: WearSlot) => sl !== 'colour' && !!onSlot(sl);
+  const wearsAny = $derived(WEAR_SLOTS.some(s => s !== 'colour' && !!look.on[s]));
+  function startMove(sl: WearSlot = slot) {
+    const id = onSlot(sl);
+    if (!id || sl === 'colour') return;
+    if (moving) cancelMove();
+    slot = sl;
+    moving = { slot: sl, id, n: nudgeOf(p, who, id) };
     sfx.pop();
+    // phones: the Move it card is under the buddy, so bring it into view
+    void tick().then(() => document.querySelector('.closet .mover')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+  }
+  // the thing being moved glows a little on the buddy
+  const movingSlot = $derived(moving?.slot ?? null);
+  $effect(() => {
+    const s = movingSlot, c = scene?.char(who);
+    if (!s || !c) return;
+    highlightWorn(c, s);
+    return () => highlightWorn(c, null);
+  });
+  // tap a thing on the buddy (a tap, not a drag to turn) to pick it up and move it
+  let tapAt: { x: number; y: number; t: number } | null = null;
+  function stageDown(e: PointerEvent) { tapAt = e.target === stageEl ? { x: e.clientX, y: e.clientY, t: performance.now() } : null; }
+  function stageUp(e: PointerEvent) {
+    const d = tapAt; tapAt = null;
+    if (!d || !joined || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 || performance.now() - d.t > 600) return;
+    const c = scene?.char(who);
+    if (!c) return;
+    const ray = new Raycaster();
+    ray.setFromCamera(new Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), stage.camera);
+    ray.camera = stage.camera;
+    const hit = wornAt(c, ray);
+    if (!hit || hit.slot === 'colour') return;
+    if (tab !== 'wear') setTab('wear');
+    startMove(hit.slot);
   }
   const STEP = 0.012;
   function nudge(d: Partial<Nudge>, k = 1) {
@@ -161,8 +196,8 @@
   function hold(d: Partial<Nudge>) { nudge(d); clearInterval(holdTimer); holdTimer = window.setInterval(() => nudge(d), 90); }
   function release() { clearInterval(holdTimer); }
 
-  onMount(() => { show(who); addEventListener('resize', onResize); addEventListener('pointerup', release); });
-  onDestroy(() => { disposed = true; clearInterval(holdTimer); removeEventListener('resize', onResize); removeEventListener('pointerup', release); if (scene && stage.current() === scene) stage.use(null); });
+  onMount(() => { show(who); addEventListener('resize', onResize); addEventListener('pointerup', release); stageEl?.addEventListener('pointerdown', stageDown); stageEl?.addEventListener('pointerup', stageUp); });
+  onDestroy(() => { disposed = true; clearInterval(holdTimer); removeEventListener('resize', onResize); removeEventListener('pointerup', release); stageEl?.removeEventListener('pointerdown', stageDown); stageEl?.removeEventListener('pointerup', stageUp); if (scene && stage.current() === scene) stage.use(null); });
 </script>
 
 <div class="screen closet">
@@ -182,6 +217,7 @@
     <div class="stagebox" bind:this={stageEl}>
       <Confetti {burst} count={50} x={50} y={45} />
       <Turntable scene={() => scene} el={stageEl} />
+      {#if joined && wearsAny && !moving && tab === 'wear'}<p class="taphint"><Icon name="hand" size={18} /> Tap something you're wearing to move it</p>{/if}
     </div>
     <div class="side">
       <div class="who card">
@@ -235,17 +271,28 @@
             {#each WEAR_SLOTS as s (s)}
               {@const id = onSlot(s)}
               {@const it = id ? CAT[id] : null}
-              <button class="gslot" class:on={slot === s} style:--rc={it ? RARITY[it.rarity].color : null} onclick={() => { slot = s; moving = null; sfx.pop(); }}>
-                <span class="gpic">{#if it}<img src="{base}{it.icon}" alt="" />{:else}<span class="plus">+</span>{/if}</span>
-                <small>{SLOT_NAME[s]}</small>
-              </button>
+              <div class="gsw">
+                {#if s === 'colour' && colourSoon(who)}
+                <button class="gslot soon" onclick={soonNote} title="{FRIEND[who].name}'s colours are coming soon">
+                  <span class="gpic"><img src="{base}colours/colour_rainbow.webp" alt="" /></span>
+                  <small>{SLOT_NAME[s]}</small>
+                </button>
+                <em class="soonpill">soon</em>
+                {:else}
+                <button class="gslot" class:on={slot === s} style:--rc={it ? RARITY[it.rarity].color : null} onclick={() => { slot = s; moving = null; sfx.pop(); }}>
+                  <span class="gpic">{#if it}<img src="{base}{it.icon}" alt="" />{:else}<span class="plus">+</span>{/if}</span>
+                  <small>{SLOT_NAME[s]}</small>
+                </button>
+                {/if}
+                {#if movable(s)}<button class="gmv" onclick={() => startMove(s)} title="Move the {it?.name}" aria-label="Move the {it?.name}"><Icon name="hand" size={15} /></button>{/if}
+              </div>
             {/each}
           </div>
           {#if onSlot(slot)}
             {@const cur = CAT[onSlot(slot)!]}
             <div class="wearing">
               <span><b>{cur?.name}</b> is on.</span>
-              <button class="btn movebtn" onclick={startMove}><Icon name="hand" size={18} /> Move it</button>
+              {#if slot !== 'colour'}<button class="btn movebtn" onclick={() => startMove()}><Icon name="hand" size={18} /> Move it</button>{/if}
               <button class="btn" onclick={() => takeOff(slot)}>Take off</button>
             </div>
           {/if}
@@ -398,10 +445,19 @@
   .lock { display: flex; align-items: center; gap: 4px; font: 800 12px var(--font-body); color: var(--muted); }
   /* gear: the four spots on the buddy, the pieces for the chosen spot, the sets */
   .gearpane { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px 2px 8px; }
-  .gslots { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+  .gslots { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+  .gsw { position: relative; display: grid; }
+  /* a little Move it button on every spot with something on it */
+  .gmv { position: absolute; top: -4px; right: -4px; width: 28px; height: 28px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; color: #5a3d00; background: linear-gradient(135deg, #ffe58a, #ffc94d); box-shadow: 0 0 0 2px #fff, var(--shadow-sm); }
+  .gmv:active { transform: translateY(1px); }
+  .taphint { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 3; margin: 0; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; pointer-events: none; font: 700 14px var(--font-body); color: #5a3d00; background: rgba(255, 244, 214, .95); padding: 5px 14px; border-radius: 999px; box-shadow: 0 0 0 2px #ffd36b, var(--shadow-sm); }
   .gslot { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px 4px; border-radius: 18px; border: 3px solid transparent; background: rgba(255, 255, 255, .92); cursor: pointer; box-shadow: var(--shadow-sm); font: inherit; }
   .gslot.on { border-color: var(--primary-hi); background: #fff; }
   .gslot.hat { opacity: .9; }
+  /* a buddy whose colours aren't ready: a soft grey paint splat, and a kind note when tapped */
+  .gslot.soon .gpic img { filter: grayscale(1) opacity(.45); }
+  .gslot.soon small { color: var(--muted); }
+  .soonpill { position: absolute; top: -5px; right: -4px; pointer-events: none; font: 800 10px var(--font-body); font-style: normal; color: #fff; background: #9b8cc9; padding: 2px 7px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
   .gpic { width: 50px; height: 50px; display: grid; place-items: center; border-radius: 16px; background: radial-gradient(circle at 50% 40%, #fff, #f1ecfb); box-shadow: inset 0 0 0 2px var(--rc, #e4ddf3); }
   .gpic img { width: 44px; height: 44px; object-fit: contain; }
   .gpic .plus { font: 600 30px/1 var(--font-ui); color: #b8acd6; }
@@ -421,9 +477,10 @@
   .gst.buy img { width: 18px; height: 18px; object-fit: contain; }
   .gst.champ { background: #fff1c2; color: #8a6400; }
   .gst.gift { background: #ffe4f0; color: #b02a6a; }
-  .wearing { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(255, 255, 255, .92); border-radius: 16px; padding: 6px 8px 6px 14px; box-shadow: var(--shadow-sm); font: 600 15px var(--font-body); color: var(--ink2); }
-  .wearing span { flex: 1; min-width: 120px; }
-  .wearing .btn { padding: 6px 14px; font-size: 15px; }
+  /* (div: the gear tiles use .wearing too) */
+  div.wearing { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(255, 255, 255, .92); border-radius: 16px; padding: 6px 8px 6px 14px; box-shadow: var(--shadow-sm); font: 600 15px var(--font-body); color: var(--ink2); }
+  div.wearing span { flex: 1; min-width: 120px; }
+  div.wearing .btn { padding: 6px 14px; font-size: 15px; }
   .movebtn { background: linear-gradient(135deg, #ffe58a, #ffc94d) !important; color: #5a3d00 !important; }
   .tabs .shopbtn { flex: 0 0 auto; }
   .tabs .shopbtn img { width: 34px; height: 34px; object-fit: contain; }

@@ -1,7 +1,7 @@
 <script lang="ts">
   // The Island Shop: one shop for the whole game, opened from Home, the Adventure map and the Wardrobe.
-  // Things to wear (every slot, filtered by where it goes and by what it's like) and the Adventure's
-  // eggs and treats, all for shells. Tap a thing to try it on your buddy (nothing changes until you
+  // Things to wear (every slot, filtered by where it goes, what it's like and whether it's yours yet,
+  // sorted by price, newest or rarest) and the Adventure's eggs and treats, all for shells. Tap a thing to try it on your buddy (nothing changes until you
   // buy it or wear it); what you buy is yours for every buddy.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
@@ -9,6 +9,7 @@
   import { GLIMMER, RARITY } from '../adventure/glimmers';
   import { advView, buy, EGG_ODDS, ISLAND, SHOP, teamOf } from '../adventure/state';
   import { SLOT_NAME, WEAR_SLOTS, type WearSlot } from '../adventure/gear';
+  import { colourSoon } from '../adventure/colours';
   import { CATALOG, CAT, VIBES, bestFriendship, buyItem, howText, ownsItem, wearItem, wornIn, type CatalogItem, type Vibe } from '../adventure/wardrobe';
   import { sfx } from '../audio/sound';
   import { stage } from '../three/stage';
@@ -30,10 +31,35 @@
   let sel = $state<CatalogItem | null>(null);
   let burst = $state(0);
   const RAR_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
-  // what's for sale first (cheapest first), then friendship gifts and Champion prizes
+  // which things to show, and in what order
+  type Show = 'all' | 'mine' | 'notyet' | 'afford' | 'gift' | 'prize';
+  type Sort = 'cheap' | 'pricey' | 'new' | 'rare';
+  const SHOWS: { id: Show; name: string; icon?: 'check' | 'heart' | 'trophy' }[] = [
+    { id: 'all', name: 'Everything' }, { id: 'mine', name: 'Mine', icon: 'check' }, { id: 'notyet', name: 'Not mine yet' },
+    { id: 'afford', name: 'I can buy' }, { id: 'gift', name: 'Friendship gifts', icon: 'heart' }, { id: 'prize', name: 'Champion prizes', icon: 'trophy' },
+  ];
+  const SORTS: { id: Sort; name: string }[] = [{ id: 'cheap', name: 'Cheapest' }, { id: 'pricey', name: 'Priciest' }, { id: 'new', name: 'Newest' }, { id: 'rare', name: 'Rarest' }];
+  let show = $state<Show>('all');
+  let sort = $state<Sort>('cheap');
+  const shows = (c: CatalogItem) => {
+    const mine = ownsItem(p, c.id);
+    return show === 'all' || (show === 'mine' && mine) || (show === 'notyet' && !mine)
+      || (show === 'afford' && !mine && c.how === 'shop' && (c.price ?? 0) <= adv.shells)
+      || (show === 'gift' && c.how === 'friendship') || (show === 'prize' && c.how === 'champion');
+  };
+  // (the catalog grows at the end, so later means newer; things for sale come before gifts and prizes)
+  const age = new Map(CATALOG.map((c, i) => [c.id, i]));
+  const rank = (c: CatalogItem) => RAR_ORDER.indexOf(c.rarity);
+  const forSale = (a: CatalogItem, b: CatalogItem) => (a.how === 'shop' ? 0 : 1) - (b.how === 'shop' ? 0 : 1);
+  const ORDER: Record<Sort, (a: CatalogItem, b: CatalogItem) => number> = {
+    cheap: (a, b) => forSale(a, b) || (a.price ?? 0) - (b.price ?? 0) || rank(a) - rank(b),
+    pricey: (a, b) => forSale(a, b) || (b.price ?? 0) - (a.price ?? 0) || rank(b) - rank(a),
+    new: (a, b) => age.get(b.id)! - age.get(a.id)!,
+    rare: (a, b) => rank(b) - rank(a) || (b.price ?? 0) - (a.price ?? 0),
+  };
   const list = $derived(CATALOG
-    .filter(c => (slot === 'all' || c.slot === slot) && (vibe === 'all' || c.vibe === vibe))
-    .sort((a, b) => (a.how === 'shop' ? 0 : 1) - (b.how === 'shop' ? 0 : 1) || (a.price ?? 0) - (b.price ?? 0) || RAR_ORDER.indexOf(a.rarity) - RAR_ORDER.indexOf(b.rarity)));
+    .filter(c => (slot === 'all' || c.slot === slot) && (vibe === 'all' || c.vibe === vibe) && shows(c))
+    .sort(ORDER[sort]));
 
   // ---------- the buddy on show, trying things on ----------
   let scene: ShowScene | null = null;
@@ -58,6 +84,7 @@
   /** Tap a thing: try it on (the buddy's real look comes back when you pick something else or leave). */
   function tryOn(c: CatalogItem) {
     sel = c; sfx.pop();
+    if (c.slot === 'colour' && colourSoon(who)) game.say(`${FRIEND[who].name}'s colours are coming soon! Every other buddy can wear this one.`);
     if (!scene) return;
     // (compare ids: a $state value is a proxy, never === the plain item)
     void scene.redress(who).then(() => { if (sel?.id !== c.id) return; if (c.slot === 'head') { scene?.char(who)?.nudgeHat(null); void scene?.wear(who, c.id); } else void scene?.wearGear(who, c.slot, c.id); });
@@ -123,6 +150,13 @@
       </div>
       {#if tab === 'wear'}
         <div class="filters">
+          <div class="chips shows">
+            {#each SHOWS as s (s.id)}<button class:on={show === s.id} onclick={() => { show = s.id; sfx.pop(); }}>{#if s.id === 'afford'}<img src="{base}game/icon-shell.webp" alt="" />{:else if s.icon}<Icon name={s.icon} size={14} />{/if}{s.name}</button>{/each}
+          </div>
+          <div class="chips sorts">
+            <span class="sortby">Sort:</span>
+            {#each SORTS as o (o.id)}<button class:on={sort === o.id} onclick={() => { sort = o.id; sfx.pop(); }}>{o.name}</button>{/each}
+          </div>
           <div class="chips">
             <button class:on={slot === 'all'} onclick={() => { slot = 'all'; sfx.pop(); }}>All</button>
             {#each WEAR_SLOTS as s (s)}<button class:on={slot === s} onclick={() => { slot = s; sfx.pop(); }}>{SLOT_NAME[s]}</button>{/each}
@@ -146,7 +180,7 @@
               {:else}<em class="champ"><Icon name="trophy" size={14} /> Prize</em>{/if}
             </button>
           {:else}
-            <p class="none">Nothing like that yet. Try another vibe!</p>
+            <p class="none">{show === 'afford' ? `Nothing here for ${adv.shells} shells yet. Practice and battles earn more!` : show === 'mine' ? 'None of these are yours yet.' : 'Nothing like that here. Try another chip!'}</p>
           {/each}
         </div>
       {:else}
@@ -193,6 +227,11 @@
   .chips button { border: 0; cursor: pointer; font: 700 14px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); padding: 5px 12px; border-radius: 999px; box-shadow: inset 0 0 0 2px #e4ddf3; }
   .chips button.on { background: var(--primary); color: #fff; box-shadow: none; }
   .vibes button.on { background: #ff8fb8; }
+  .chips button { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .chips button img { width: 18px; height: 18px; object-fit: contain; margin: -2px 0; }
+  .shows button.on { background: #2fbf73; }
+  .sorts button.on { background: #ffc94d; color: #5a3d00; }
+  .sortby { align-self: center; font: 800 13px var(--font-body); color: var(--ink2); white-space: nowrap; background: rgba(255, 255, 255, .7); padding: 4px 8px; border-radius: 999px; }
   .grid { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; align-content: start; padding: 4px 2px 8px; }
   .it { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 18px 6px 8px; border-radius: 20px; border: 3px solid #fff; background: linear-gradient(180deg, #fff, #faf7ff); cursor: pointer; box-shadow: 0 0 0 2px var(--rc), var(--shadow-sm); font: inherit; text-align: center; transition: transform .15s; }
   .it:hover { transform: translateY(-3px); }
@@ -218,9 +257,15 @@
   .foot { margin: 0; font: 600 13px var(--font-body); color: var(--muted); text-align: center; }
   @media (max-width: 760px) {
     .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 44vh 1fr; padding: 8px 10px; gap: 8px; }
-    .side { min-width: 0; }
+    /* phones: the whole panel under the buddy scrolls, so the chips never squeeze the things to a sliver */
+    .side { min-width: 0; overflow-y: auto; padding-bottom: 12px; }
+    .grid, .eggs { flex: none; overflow: visible; }
     .tabs button { font-size: 15px; } .tabs button img { width: 28px; height: 28px; } .tabs button em { display: none; }
     .chips button { font-size: 12px; padding: 4px 9px; }
+    /* phones: each row of chips slides sideways instead of piling up over the things */
+    .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+    .chips::-webkit-scrollbar { display: none; }
+    .sortby { font-size: 12px; }
     .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
     .it > img { width: 52px; height: 52px; }
     .it b { font-size: 13px; }

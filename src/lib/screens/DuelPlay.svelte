@@ -475,7 +475,7 @@
         {#if sel.item}
           {@const it = sel.item}
           <p class="ask">{it.ask}</p>
-          {#key shakeKey}<div class="iq" class:shake={shakeKey > 0}><SkillPrompt parts={it.prompt} fill={ghosting ? null : skFill} size={narrow ? 34 : 46} picSize={narrow ? 96 : 130} done={ghosting} />{#if ghosting}<span class="box">{typed || ' '}</span>{/if}</div>{/key}
+          {#key shakeKey}<div class="iq" class:shake={shakeKey > 0}><SkillPrompt parts={it.prompt} fill={ghosting ? null : skFill} size={narrow ? 34 : 46} picSize={narrow ? 96 : 130} done={ghosting} onpick={(w) => { if (skFill?.kind === 'fraction') skFill = { ...skFill, focus: w }; }} />{#if ghosting}<span class="box">{typed || ' '}</span>{/if}</div>{/key}
           {#if !ghosting}{#key `${sel.id}-${shakeKey}`}<SkillInput item={it} compact={narrow} bind:fill={skFill} onanswer={submitItem} />{/key}{/if}
         {:else if sel.fact}
           {#key shakeKey}<div class="eq" class:shake={shakeKey > 0}><span>{factText(sel.fact)} =</span><span class="box">{typed || ' '}</span></div>{/key}

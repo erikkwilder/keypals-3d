@@ -7,6 +7,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { Tween } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
+  import { fade } from 'svelte/transition';
   import { game } from '../state/game.svelte';
   import { stage } from '../three/stage';
   import { BattleScene } from '../three/battleScene';
@@ -462,7 +463,7 @@
         {#if sel.item}
           {@const it = sel.item}
           <p class="ask">{it.ask} <b>+{sel.value} cheer</b></p>
-          {#key shakeKey}<div class="iq" class:shake={shakeKey > 0}><SkillPrompt parts={it.prompt} fill={skFill} size={narrow ? 34 : 46} picSize={narrow ? 96 : 130} /></div>{/key}
+          {#key shakeKey}<div class="iq" class:shake={shakeKey > 0}><SkillPrompt parts={it.prompt} fill={skFill} size={narrow ? 34 : 46} picSize={narrow ? 96 : 130} onpick={(w) => { if (skFill?.kind === 'fraction') skFill = { ...skFill, focus: w }; }} /></div>{/key}
           {#if glowOk && !glowText}<button class="glowbtn" onclick={askGlow}><Icon name="bulb" size={20} /> Hint from {myName('sparkmoth')}</button>{/if}
           {#if glowText}<p class="glow"><Icon name="bulb" size={20} /> {glowText}</p>{/if}
           {#key `${sel.id}-${shakeKey}`}<SkillInput item={it} compact={narrow} bind:fill={skFill} onanswer={submitItem} />{/key}
@@ -538,6 +539,21 @@
     </div>
   {/if}
 
+  <!-- while the arena loads: a painted cover (buddy vs the grumpy Glimmer), never a blank screen -->
+  {#if ui === 'loading'}
+    <div class="loadcover" out:fade={{ duration: 450 }} style:background-image="url({new URL(`${base}regions/${island.region}.webp`, document.baseURI).href})">
+      <div class="lc card">
+        <small>{island.name}</small>
+        <div class="vs">
+          <span class="lp"><Critter friend={p0.buddy} accessory={outfitOf(p0)} size={narrow ? 84 : 128} /><b>{FRIEND[p0.buddy].name}</b></span>
+          <i>vs</i>
+          <span class="lp foe"><img src="{base}game/glimmers/face/{foe.glimmer}{foe.evolved ? '-evo' : ''}.webp" alt="" /><b>{foeName}</b></span>
+        </div>
+        <p>Getting the arena ready<span class="dots"><i>.</i><i>.</i><i>.</i></span></p>
+      </div>
+    </div>
+  {/if}
+
   {#if coach}<Coach text={coach.text} at={coach.at} button={coach.button} onok={() => (coach = null)} />{/if}
 
   {#if help}
@@ -610,6 +626,20 @@
 </div>
 
 <style>
+  .loadcover { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; background-size: cover; background-position: center; }
+  .loadcover::before { content: ''; position: absolute; inset: 0; backdrop-filter: blur(8px); background: rgba(255, 250, 255, .25); }
+  .lc { position: relative; padding: 22px 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .lc small { font: 800 12px var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .lc p { margin: 0; font: 600 22px var(--font-ui); color: var(--ink2); }
+  .vs { display: flex; align-items: center; gap: 22px; }
+  .vs > i { font: 600 36px var(--font-ui); font-style: normal; color: var(--primary); }
+  .lp { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .lp b { font: 600 17px var(--font-ui); color: #fff; background: #7c5cf5; padding: 2px 12px; border-radius: 999px; white-space: nowrap; }
+  .lp.foe b { background: #5d6a86; }
+  .lp.foe img { width: 128px; height: 128px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 4px #fff, 0 6px 16px -6px rgba(30, 20, 60, .5); filter: saturate(.55) brightness(.92); }
+  .narrow .lp.foe img { width: 84px; height: 84px; }
+  .dots i { font-style: normal; animation: dot 1.2s infinite; } .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
+  @keyframes dot { 50% { opacity: .2; } }
   .battle { position: fixed; inset: 0; display: flex; flex-direction: column; pointer-events: none; font-family: var(--font-body); }
   .battle > * { pointer-events: auto; }
   .stage { flex: 1; min-height: 0; pointer-events: none; }

@@ -99,7 +99,7 @@
     active = best;
     if (best === null) return;
     const o = slots[best]!.order;
-    activeAt = performance.now();
+    activeAt = performance.now(); sfx.nextUp();
     scene?.newPizza(o.slices ?? 1);
     cutInto = o.slices ?? 1; picked = 0;
     if (o.slices === null) { cutPulse++; say("How many slices? Cut the pizza!"); }
@@ -148,7 +148,7 @@
   }
   function cut(n: number) {
     if (phase !== 'play' || !scene || active === null) return;
-    sfx.crack();
+    sfx.slice();
     scene.setCut(n); cutInto = n; picked = 0;
   }
 
@@ -207,6 +207,8 @@
     if (phase !== 'play' && e.key === 'Enter') { e.preventDefault(); start(daily); }
   }
   const secs = $derived(Math.ceil(left / 1000));
+  // the customer whose order is up gets the spotlight in 3D too
+  $effect(() => { scene?.setActive(phase === 'play' ? active : null); });
   const patience = (c: Cust | null) => (c ? Math.max(0, 1 - c.waited / c.order.patienceMs) : 0);
   const meter = $derived(Math.min(1, score / STAR_AT[2]));
 </script>
@@ -221,10 +223,11 @@
     {#if c && heads[i] && phase === 'play'}
       {@const isOn = i === active}
       <div class="bubble" class:on={isOn} class:leaving={c.leaving} style:left="clamp(66px, {heads[i]!.x}px, calc(100% - 66px))" style:top="max({heads[i]!.y}px, var(--btop))" style:--pat={patience(c)}>
+        {#if isOn && !c.leaving}<div class="up"><img src="{base}icons/down.webp" alt="" /><span>Your order!</span></div>{/if}
         <div class="bin">
-          {#each c.order.parts as f, j}{#if j}<span class="plus">+</span>{/if}<Frac n={f.n} d={f.d} size={isOn ? 40 : 28} />{/each}
+          {#each c.order.parts as f, j}{#if j}<span class="plus">+</span>{/if}<Frac n={f.n} d={f.d} size={isOn ? 44 : 24} />{/each}
         </div>
-        {#if isOn && !c.leaving}<span class="ring" aria-hidden="true"></span>{/if}
+        {#if isOn && !c.leaving}<span class="ring" aria-hidden="true"></span>{:else if !c.leaving}<span class="wait">next</span>{/if}
       </div>
     {/if}
   {/each}
@@ -243,11 +246,12 @@
     {/if}
   </div>
 
-  {#if msg && phase === 'play'}{#key msg.key}<div class="msg {msg.kind}">{msg.text}</div>{/key}{/if}
   {#if pop}{#key pop.key}<div class="pop">{pop.text}</div>{/key}{/if}
 
   {#if phase === 'play'}
     <div class="bottom">
+      <!-- tips and feedback sit just above what you have and Serve (up top they hid the "Your order!" arrow) -->
+      {#if msg}{#key msg.key}<div class="msg {msg.kind}">{msg.text}</div>{/key}{/if}
       {#if needCut}
         {#key cutPulse}
           <div class="cutter" class:pulse={cutPulse > 0}>
@@ -275,7 +279,7 @@
         <h1>Pizza Rush</h1>
         <p class="lead">Glimmers are hungry! Read each order, cut the pizza, tap the slices and serve. Two minutes, as many orders as you can.</p>
         <ol class="how">
-          <li><span><Frac n={3} d={4} size={26} /></span>The glowing bubble is the next order.</li>
+          <li><span><Frac n={3} d={4} size={26} /></span>The Glimmer in the spotlight, with the glowing bubble and the arrow, is the order to make now.</li>
           <li><span><svg viewBox="-12 -12 24 24" aria-hidden="true"><circle r="11" fill="#f2b24a" stroke="#c77b2a" stroke-width="1.6" />{#each Array(4) as _, k}<line x1="0" y1="0" x2={Math.cos((k / 4) * Math.PI * 2) * 11} y2={Math.sin((k / 4) * Math.PI * 2) * 11} stroke="#7a3d12" stroke-width="1.3" />{/each}</svg></span>Cut it if it's whole, then tap the slices.</li>
           <li><span><Icon name="bolt" size={24} /></span>Right in a row makes a combo. Quick ones score more.</li>
         </ol>
@@ -348,7 +352,13 @@
   @keyframes tickle { 50% { transform: scale(1.07); } }
 
   .bubble { position: absolute; z-index: 3; transform: translate(-50%, calc(-100% - 10px)); pointer-events: none; transition: opacity .3s, transform .3s; }
-  .bin { position: relative; display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 22px; padding: 6px 14px; box-shadow: 0 6px 16px rgba(80, 40, 10, .3); opacity: .82; }
+  .bin { position: relative; display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 22px; padding: 6px 14px; box-shadow: 0 6px 16px rgba(80, 40, 10, .3); opacity: .6; transform: scale(.85); transform-origin: 50% 100%; filter: saturate(.6); }
+  .bubble.on .bin { transform: none; filter: none; }
+  .up { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; animation: hop .7s ease-in-out infinite; }
+  .up span { order: -1; font: 700 15px var(--font-ui); color: #fff; background: linear-gradient(#ffb43d, #ff7a1f); padding: 3px 12px; border-radius: 999px; box-shadow: 0 0 0 3px #fff, 0 4px 10px rgba(200, 90, 20, .4); white-space: nowrap; }
+  .up img { width: 40px; height: 40px; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(80, 40, 10, .3)); }
+  @keyframes hop { 50% { transform: translateX(-50%) translateY(-8px); } }
+  .wait { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 12px; font: 800 11px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: rgba(255, 255, 255, .95); background: rgba(80, 50, 30, .55); padding: 2px 8px; border-radius: 999px; }
   .bin::after { content: ''; position: absolute; left: 50%; bottom: -9px; width: 18px; height: 18px; background: #fff; transform: translateX(-50%) rotate(45deg); border-radius: 3px; }
   .bubble.on .bin { opacity: 1; padding: 8px 18px; box-shadow: 0 0 0 4px #ffd36b, 0 0 30px rgba(255, 210, 107, .9), 0 8px 20px rgba(80, 40, 10, .35); animation: glowb 1.4s ease-in-out infinite; }
   @keyframes glowb { 50% { box-shadow: 0 0 0 5px #ffd36b, 0 0 42px rgba(255, 210, 107, 1), 0 8px 20px rgba(80, 40, 10, .35); } }
@@ -357,10 +367,10 @@
   .bubble.on .plus { font-size: 34px; }
   .ring { position: absolute; left: 50%; bottom: -40px; transform: translateX(-50%); width: 120px; height: 10px; border-radius: 999px; background: linear-gradient(90deg, #4fcf9f calc(var(--pat) * 100%), rgba(255, 255, 255, .7) 0); box-shadow: 0 0 0 2px #fff; }
 
-  .msg { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); z-index: 6; font: 600 20px var(--font-ui); padding: 8px 20px; border-radius: 999px; background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); max-width: min(92vw, 640px); text-align: center; animation: drop .35s cubic-bezier(.3, .8, .4, 1.4); pointer-events: none; }
+  .msg { position: relative; z-index: 6; font: 600 20px var(--font-ui); padding: 8px 20px; border-radius: 999px; background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); max-width: min(92vw, 640px); text-align: center; animation: drop .35s cubic-bezier(.3, .8, .4, 1.4); pointer-events: none; }
   .msg.good { background: linear-gradient(#5fe0a6, #2fb57a); color: #fff; }
   .msg.oops { background: #fff3e6; color: #b54a1a; box-shadow: 0 0 0 3px #ffb47a; }
-  @keyframes drop { from { transform: translate(-50%, -16px); opacity: 0; } }
+  @keyframes drop { from { transform: translateY(12px); opacity: 0; } }
   .pop { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 6; font: 600 40px var(--font-ui); color: #fff; text-shadow: 0 3px 0 #e8452c, 0 6px 18px rgba(0, 0, 0, .3); animation: rise 1.1s ease-out forwards; pointer-events: none; white-space: nowrap; }
   @keyframes rise { from { transform: translate(-50%, -20%) scale(.7); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } to { transform: translate(-50%, -160%); opacity: 0; } }
 
@@ -419,7 +429,7 @@
     .meter { order: 9; flex-basis: 100%; max-width: none; margin: 4px 14px 0; }
     .clock { width: 50px; height: 50px; } .clock span { width: 38px; height: 38px; font-size: 18px; }
     .combo { font-size: 15px; padding: 3px 10px; }
-    .msg { top: 112px; font-size: 16px; }
+    .msg { font-size: 16px; }
     .cutter { gap: 4px; padding: 6px 8px; flex-wrap: wrap; justify-content: center; }
     .clabel { flex-basis: 100%; text-align: center; font-size: 13px; }
     .cut { padding: 4px 7px 4px 4px; } .cut svg { width: 26px; height: 26px; } .cut b { font-size: 18px; }

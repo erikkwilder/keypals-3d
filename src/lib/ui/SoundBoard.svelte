@@ -2,12 +2,14 @@
   // Every sound in the game, in plain words, with a Play button: open the game with #sounds on the
   // address. The same moment makes the same sound everywhere; docs/sound-map.md says why each one sounds
   // the way it does.
-  import { sfx, unlockAudio } from '../audio/sound';
+  import { preloadSfx, sfx, unlockAudio } from '../audio/sound';
   import { game } from '../state/game.svelte';
 
   type Item = { say: string; like: string; play: () => void };
   type Group = { name: string; blurb: string; items: Item[] };
   const later = (ms: number, f: () => void) => setTimeout(f, ms);
+  // the recorded ones (eggshell cracks, splashes, wooden blocks) load ahead so the first Play isn't late
+  preloadSfx('egg-crack-1', 'egg-crack-2', 'egg-crack-3', 'egg-crack-4', 'splash-1', 'splash-2', 'block-1', 'block-2', 'crane-creak');
 
   const GROUPS: Group[] = [
     {
@@ -24,14 +26,14 @@
       items: [
         { say: 'Tap a button', like: 'a click', play: () => sfx.click() },
         { say: 'Open a card, pick a tab', like: 'a bubbly pop', play: () => sfx.pop() },
-        { say: 'Off we go (a lesson, a battle, a duel)', like: 'a whoosh', play: () => sfx.whoosh() },
+        { say: 'Off we go (a lesson, a trip, a game)', like: 'an airy whoosh that swells up into a bright two-note chime', play: () => sfx.whoosh() },
         { say: 'Locked, or not enough shells', like: 'two soft knocks ("not yet")', play: () => sfx.nope() },
       ],
     },
     {
       name: 'Battles', blurb: 'The grumpy Glimmer grumbles like a cartoon, never like a buzzer. Watch-out sounds go up.',
       items: [
-        { say: 'A battle starts', like: 'a drum, a rising "here we go", then the Glimmer\'s "hmph-hmph"', play: () => sfx.battleStart() },
+        { say: 'A battle starts', like: 'two drum hits, a rising "here we go" and a bright chord with a sparkle (no grumpy "hmph" on the end)', play: () => sfx.battleStart() },
         { say: 'The grumpy Glimmer, on its own', like: 'a wobbly cartoon "hmph-hmph"', play: () => sfx.grumble() },
         { say: 'A power flies (sun, tide, frost, leaf, stone)', like: 'each element has its own swoosh', play: () => { (['sun', 'tide', 'frost', 'leaf', 'stone'] as const).forEach((el, i) => later(i * 650, () => sfx.cast(el))); } },
         { say: 'The cheer lands (small, then big)', like: 'a soft thump and notes going up', play: () => { sfx.hit(0.2); later(650, () => sfx.hit(1)); } },
@@ -56,7 +58,7 @@
       items: [
         { say: 'Player 1\'s turn', like: 'a friendly doorbell', play: () => sfx.turn(0) },
         { say: 'Player 2\'s turn', like: 'the doorbell, a little lower', play: () => sfx.turn(1) },
-        { say: 'You send a rain cloud over', like: 'a rising whoosh and thunder', play: () => sfx.rainSend() },
+        { say: 'You send a rain cloud over', like: 'a cheeky "fwoosh", a boing up and a "ding-ding!" (it\'s good for you)', play: () => sfx.rainSend() },
         { say: 'A ghost\'s power didn\'t land', like: 'a soft puff', play: () => sfx.fizzle() },
         { say: 'Last turn!', like: 'a drum and two notes going up', play: () => sfx.lastTurn() },
       ],
@@ -72,10 +74,30 @@
         { say: 'Put it on (an outfit, gear, a team Glimmer)', like: '"fwip" and a ding', play: () => sfx.equip() },
         { say: 'Friendship goes up a level', like: 'a rising run and a shimmer', play: () => sfx.levelUp(3) },
         { say: 'Treasure (a small one, then a big one)', like: 'a rising run, longer for better treasure', play: () => { sfx.treasure(1); later(1500, () => sfx.treasure(8)); } },
-        { say: 'An egg cracks', like: 'a crisp crack', play: () => [0, 1, 2].forEach(i => later(i * 520, () => sfx.crack())) },
+        { say: 'An egg hatches', like: 'three real eggshell cracks, each bigger, then the shell bursting open', play: () => { [1, 2, 3].forEach(i => later((i - 1) * 650, () => sfx.crack(i))); later(2050, () => sfx.crack(4)); later(2150, () => sfx.reveal(2)); } },
         { say: 'A Glimmer appears (common, then legendary)', like: 'a run up, grander for rarer ones', play: () => { sfx.reveal(0); later(1900, () => sfx.reveal(4)); } },
         { say: 'A Glimmer evolves', like: 'a hum that climbs, then a sweep into its reveal', play: () => { [0, 1, 2, 3].forEach(i => later(i * 700, () => sfx.evolveCharge(i))); later(2800, () => sfx.evolve(3)); } },
         { say: 'A little "yay" (the hands cheer in a finger lesson)', like: 'three quick notes up', play: () => sfx.cheer() },
+      ],
+    },
+    {
+      name: 'Games', blurb: 'The Arcade, Pizza Rush and Glimmer Drop: whooshes swell in and go up.',
+      items: [
+        { say: 'Cut the pizza', like: 'a crisp "shhk" and a tick', play: () => sfx.slice() },
+        { say: 'Steering the sled', like: 'a soft "shff" of snow', play: () => sfx.carve() },
+        { say: 'Squeaking past a gate', like: 'a swell and a bright note', play: () => sfx.nearMiss() },
+        { say: 'An egg drops into the jar', like: 'a little rising "fwip"', play: () => sfx.dropEgg() },
+        { say: 'A gust of wind', like: 'a breathy swell and a whistle up', play: () => sfx.gust() },
+        { say: 'Sky Slalom: the wind as you speed up', like: 'soft air that swells and brightens with the speed, then fades', play: () => { let v = 0.15; const id = setInterval(() => { v = Math.min(1, v + 0.012); sfx.wind(v); }, 30); later(2600, () => clearInterval(id)); } },
+        { say: 'Through a boost ring', like: 'an airy swell and "ting-ting-ting!" going up', play: () => sfx.ringPass() },
+        { say: 'Turbo is ready', like: 'a bright "ding-DING!" with a shimmer', play: () => sfx.turboReady() },
+        { say: 'Turbo!', like: 'a rocket "vwoooom" that climbs, then a bright chord', play: () => sfx.turbo() },
+        { say: 'Tower Stack: the crane brings a block', like: 'a quiet little wooden ratchet', play: () => sfx.creak() },
+        { say: 'A block drops', like: 'a light airy "fwip"', play: () => sfx.blockDrop() },
+        { say: 'A block lands (low, then high on the tower)', like: 'a real wooden "tok"', play: () => { sfx.thunk(0); later(500, () => sfx.thunk(20)); } },
+        { say: 'A perfect landing', like: 'the "tok", a sparkle and a ding', play: () => { sfx.thunk(4); sfx.sparkle(); sfx.ding(3); } },
+        { say: 'A block misses the top', like: 'a soft puff and a cartoon "boing"', play: () => sfx.blockSlip() },
+        { say: 'Pizza Rush: the next customer', like: 'a friendly shop bell, "ding-dong" going up', play: () => sfx.nextUp() },
       ],
     },
     {
@@ -83,7 +105,7 @@
       items: [
         { say: 'A shooting star at the finish', like: 'a soft high sparkle falling away', play: () => sfx.twinkle() },
         { say: 'A flying saucer', like: 'a wobbly cartoon "wooo-OOO"', play: () => sfx.ufo() },
-        { say: 'A fish leaps, Puddle Pup splashes', like: 'a small splash', play: () => sfx.splashSmall() },
+        { say: 'A fish leaps, Puddle Pup splashes', like: 'a real little splash and "plop"', play: () => sfx.splashSmall() },
         { say: 'Your buddy giggles (tickled on Home)', like: 'quick little rising squeaks', play: () => sfx.giggle() },
         { say: 'A sneeze (a tickled buddy, a grumpy Glimmer)', like: '"ah... ah... ACHOO!"', play: () => sfx.sneeze() },
         { say: 'A golden letter typed', like: 'a bright bell with a shimmer', play: () => sfx.golden() },

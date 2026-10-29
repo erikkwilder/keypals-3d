@@ -14,6 +14,7 @@
   import { GLIMMER, GLIMMERS, RARITY, glimmersOf, type GlimmerId, type Rarity } from '../adventure/glimmers';
   import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, islandsOf, markSeen, nodesOf, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, worldOpen, type MapNode, type WorldId, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
+  import { DuelScene } from '../three/duelScene';
   import { WORLD_PIN, WORLD_PINS, lastWorld, mapOf, type WorldPin } from '../adventure/worlds';
   import { nextSkillLesson } from '../math/skills/course';
     import Header from '../ui/Header.svelte';
@@ -23,6 +24,7 @@
   import Coach from '../ui/Coach.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
+  import MenuButton from '../ui/MenuButton.svelte';
 
   const base = import.meta.env.BASE_URL;
   // Learn: the next trick not learned yet, offered on a practice stop
@@ -86,6 +88,8 @@
     fit();
     // a practice stop reached: the next practice session finishes it
     reach(world);
+    // build the arena of the next battle while the map is up, so a battle opens without a blank moment
+    { const c = currentNode(advView(game.profile!), world); if (c) DuelScene.warm(ISLAND[c.island].region); }
     const seen = new Set(advView(game.profile!).seen ?? []);
     if (!seen.has('intro')) intro = 0;
     else if (!seen.has('map1') && !advView(game.profile!).battles) mapTip = true;
@@ -159,6 +163,7 @@
       <button class="chip help" onclick={() => { intro = 0; sfx.pop(); }} title="How Adventure works"><Icon name="help" size={28} /></button>
       <span class="chip shells" title="Shells: spend them in the shop"><img src="{base}game/icon-shell.webp" alt="" />{a.shells}</span>
       {#if play.left !== null}<span class="chip time" class:low={play.left < 3} title={PLAY_RULES[a.settings.rule].text}><Icon name="clock" size={20} /> {Math.max(0, Math.floor(play.left))}<span class="mn">&nbsp;min</span></span>{/if}
+      {#if tall}<MenuButton size={32} />{/if}
     {/snippet}
   </Header>
 
@@ -198,9 +203,6 @@
     </NavTile>
     <NavTile label="Shop" tone="mint" title="The Island Shop: things to wear, eggs and treats" onclick={() => game.openShop()}>
       {#snippet art()}<img class="tileimg" src="{base}game/icon-shell.webp" alt="" />{/snippet}
-    </NavTile>
-    <NavTile label="Drop" tone="butter" badge={a.seen?.includes('drop1') ? undefined : 'New'} title="Glimmer Drop: a just-for-fun game, played with your play time" onclick={() => { if (!a.seen?.includes('drop1')) game.update(pp => markSeen(pp, 'drop1')); game.go('drop'); }}>
-      {#snippet art()}<img class="tileimg" src="{base}drop/tile.webp" alt="" />{/snippet}
     </NavTile>
     {#if a.settings.versus !== false}
     <NavTile label="Duel" tone="sky" badge={a.seen?.includes('duel1') ? undefined : 'New'} title="Family Duel: take turns with someone on this screen" onclick={() => { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); }}>
@@ -438,6 +440,9 @@
   .dots i.on { background: var(--primary); width: 24px; border-radius: 999px; }
 
   .tall :global(.hd .tt span) { display: none; }
+  /* phone header holds back, title, help, shells, time and the menu compass on one row */
+  .tall :global(.hd) { gap: 8px; padding: 10px 10px; } .tall :global(.hd .rt) { gap: 6px; } .tall :global(.hd h1) { font-size: 22px; } .tall :global(.hd .tt) { min-width: 0; }
+  @media (max-width: 380px) { .tall :global(.hd h1) { font-size: 19px; } .tall :global(.hd) { gap: 6px; padding: 10px 8px; } }
   .tall .chip { font-size: 15px; padding: 2px 8px 2px 2px; } .tall .chip img { width: 24px; height: 24px; } .tall .chip.time { padding: 4px 8px; font-size: 13px; }
   /* phone header: smaller painted icons so the title keeps its room */
   .tall .chip.time { gap: 3px; padding: 4px 7px 4px 4px; } .tall .chip.time :global(.ico) { width: 16px; height: 16px; } .tall .chip.help :global(.ico) { width: 22px; height: 22px; } .tall .chip.time .mn { display: none; } .tall .chip.help { width: 32px; height: 32px; font-size: 18px; padding: 0; }

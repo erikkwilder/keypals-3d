@@ -16,6 +16,7 @@
   import Bubbles from '../math/play/Bubbles.svelte';
   import BuildIt from '../math/play/BuildIt.svelte';
   import NavTile from '../ui/NavTile.svelte';
+  import MenuButton from '../ui/MenuButton.svelte';
   import Critter from '../ui/Critter.svelte';
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
@@ -89,6 +90,7 @@
     <div class="spacer"></div>
     {#if playing}<button class="btn ghost" onclick={backToGames}>Back to games</button>
     {:else}<NavTile size="sm" tone="mint" kind="map" label="Math map" onclick={() => game.go('map')} />{/if}
+    <MenuButton size={36} />
   </header>
 
   <div class="body scroll">

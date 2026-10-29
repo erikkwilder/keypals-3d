@@ -21,6 +21,22 @@ The code is in `src/lib/fun/`.
 | **Pumpkins** | Along the island trail | Pumpkins sit beside the trail. | 20 October to 2 November |
 | **Snow** | The island trail | Soft snow falls. | December to 6 January |
 
+## In the Fact Garden
+
+You can walk your buddy anywhere on the garden island: arrow keys or W A S D on a computer, the arrow pad
+or a tap on the ground on a phone. Walk up to a plant to see its fact. These are all behind the plots, past
+the path that runs behind the beds, and they're there every visit. (The code is in
+`src/lib/three/gardenScene.ts`, `secretsUp`.)
+
+| What | Where | How to find it |
+|---|---|---|
+| **The Seed Library** | The little round door in the hill behind the plots | Walk up to the door: it swings open, a warm light comes on, and a Sproutbun hops out of a room lined with jars of seeds. "Shh... this is the Seed Library! Every fact you learn starts as one of these seeds." Walk away and the door closes. |
+| **The shy frog** | The pond, back left | Walk up to the pond: the frog on the lily pad jumps in with a splash and hides, then pops up on another pad a few seconds later. |
+| **The wishing well** | Back right | Walk up to the well and it echoes your name back, quieter each time: "Hello, Sam!", "...hello, Sam...", "...sam...". |
+| **The scarecrow** | Back left, near the pond | It turns its head to watch you. If your buddy wears a hat, the scarecrow wears the same one ("The scarecrow copied your hat!"); if not, it asks you to put one on in the Wardrobe. |
+| **The bouncy mushroom** | Back right, a big red mushroom | Walk into it: your buddy bounces high off its cap ("Boing!"). |
+| **The golden flower** | Behind the hill, at the very back | A golden bud that sparkles. Once you have 10 flowers in bloom, it opens into a golden flower ("That's you!"). |
+
 ## On the screen
 
 | What | Where | How to find it |

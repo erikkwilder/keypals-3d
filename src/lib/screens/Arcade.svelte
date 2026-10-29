@@ -2,10 +2,12 @@
   // The Arcade: a painted plaza on a sky island, the 3D buddy waving you in, and the game cabinets, each
   // with your best score and stars. Today's challenge sits on a banner: one game a day, the same course
   // for everyone in the family, and bonus shells for beating its goal. Arcade rounds count as practice:
-  // every answer feeds the fact memory, and they earn stars, shells and treasure (not lessons).
+  // every answer feeds the fact memory, and they earn stars, shells and treasure (not lessons). Glimmer
+  // Drop stands here too: just for fun, played with the same play time as Adventure.
   import { onDestroy, onMount } from 'svelte';
   import { game, type Screen } from '../state/game.svelte';
-  import { advView } from '../adventure/state';
+  import { advView, playLeft } from '../adventure/state';
+  import { dropOf } from '../drop/save';
   import { ARCADE, ARCADE_GAMES, arcadeOf, dailyBeaten, dailyGame, dailyGoal, DAILY_SHELLS, type ArcadeId } from '../arcade/arcade';
   import { stage } from '../three/stage';
   import { PlazaScene } from '../three/arcade/plaza';
@@ -22,6 +24,11 @@
   const beaten = $derived(dailyBeaten(p, today));
   const buddyName = FRIEND[game.profile!.buddy].name;
   const fmt = (n: number) => n.toLocaleString('en-US');
+  const drop = $derived(dropOf(p));
+  const time = $derived(playLeft(p));
+  const playText = $derived(!time.open ? 'Play time is used up today' : time.left === null ? 'Uses play time' : `${Math.max(0, Math.floor(time.left))} min of play time left`);
+  /** back to wherever the Arcade was opened from: Home or the math map */
+  const back = () => game.go(game.home);
 
   let scene: PlazaScene | null = null;
   let spotEl: HTMLDivElement | undefined = $state();
@@ -45,19 +52,22 @@
   }
   /** Pizza Rush is the Fractions area's game, on its own screen */
   function openPizza() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('pizza' as Screen); }
-  function hover(id: ArcadeId | 'pizza' | null, el?: HTMLElement) {
+  /** Glimmer Drop: just for fun, on its own screen (it spends play time) */
+  function openDrop() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('drop'); }
+  function hover(id: ArcadeId | 'pizza' | 'drop' | null, el?: HTMLElement) {
     if (!scene) return;
     if (!id || !el) { scene.look(null); say = 'Pick a game to play!'; return; }
     const r = el.getBoundingClientRect();
     scene.look((r.left + r.width / 2) / innerWidth);
-    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : 'Pizza! Slice it up!';
+    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'drop' ? 'Squish them together!' : 'Pizza! Slice it up!';
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'Escape') { game.go('map'); return; }
+    if (e.key === 'Escape') { back(); return; }
     const n = Number(e.key);
     if (n >= 1 && n <= ARCADE_GAMES.length) play(ARCADE_GAMES[n - 1].id);
     if (n === ARCADE_GAMES.length + 1) openPizza();
+    if (n === ARCADE_GAMES.length + 2) openDrop();
     if (e.key === 'd' || e.key === 'D') play(today, true);
   }
 
@@ -79,10 +89,10 @@
   <div class="paint" style:background-image="url({import.meta.env.BASE_URL}arcade/bg-plaza.webp)"></div>
 
   <header class="top">
-    <button class="btn btn-icon" aria-label="Back to the math map" onclick={() => { sfx.click(); game.go('map'); }}><Icon name="back" /></button>
+    <button class="btn btn-icon" aria-label="Back" onclick={() => { sfx.click(); back(); }}><Icon name="back" /></button>
     <img class="sign" src="{import.meta.env.BASE_URL}arcade/sign.webp" alt="Arcade" />
     <div class="rt">
-      <span class="wallet"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><b>{fmt(shells)}</b>{#if !compact} shells{/if}</span>
+      {#if w >= 430}<span class="wallet"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><b>{fmt(shells)}</b>{#if !compact} shells{/if}</span>{/if}
       <GearButton size={compact ? 32 : 38} />
     </div>
   </header>
@@ -124,8 +134,15 @@
           <span class="plate"><b>Pizza Rush</b><span class="bs">Slice up fractions</span></span>
           {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 1}</span>{/if}
         </button>
+        <!-- Glimmer Drop: not practice, just for fun, so it uses play time (the same minutes as Adventure) -->
+        <button class="cab fun" style:--c="#9a6cf0" style:--d="{(ARCADE_GAMES.length + 1) * 90}ms" onclick={openDrop} onpointerenter={(e) => hover('drop', e.currentTarget)} onpointerleave={() => hover(null)}>
+          <span class="ribbon fun">Just for fun</span>
+          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-drop.webp" alt="" />
+          <span class="plate"><b>Glimmer Drop</b><span class="bs">{drop.best ? `Best score ${fmt(drop.best)}` : 'New! Give it a go'}</span><span class="pt" class:out={!time.open}>{playText}</span></span>
+          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 2}</span>{/if}
+        </button>
       </div>
-      <p class="note">Arcade games count as practice: every answer helps your Fact Garden grow, and you earn shells and treasure.</p>
+      <p class="note">Arcade games count as practice: every answer helps your Fact Garden grow, and you earn shells and treasure. Glimmer Drop is just for fun and uses play time.</p>
     </div>
   </div>
 </div>
@@ -160,7 +177,7 @@
   .daily.done .dgo { background: #fff; box-shadow: 0 4px 0 #b6e6cc; }
   .daily.done small { color: #1f8a55; } .daily.done b { color: #0f5a3c; } .daily.done .dtext span { color: #2f6a4a; }
 
-  .cabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.6%; align-items: end; }
+  .cabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1.4%; align-items: end; }
   .cab { position: relative; display: flex; flex-direction: column; align-items: center; border: 0; background: none; padding: 0; cursor: pointer; animation: rise-in .5s var(--d) cubic-bezier(.3, .8, .4, 1.3) both; transition: transform .18s; }
   .cab:hover, .cab:focus-visible { transform: translateY(-8px) scale(1.03); }
   .cab:hover .art { filter: drop-shadow(0 18px 18px rgba(40, 30, 90, .35)) brightness(1.06); }
@@ -170,6 +187,9 @@
   .plate b { font: 600 clamp(17px, 1.6vw, 22px)/1.1 var(--font-ui); color: var(--ink); white-space: nowrap; }
   .bs { font: 700 13px var(--font-body); color: var(--muted); white-space: nowrap; }
   .kbd { position: absolute; top: 6px; left: 8px; z-index: 2; }
+  .ribbon.fun { background: linear-gradient(#b48cff, #8a5ce8); box-shadow: 0 3px 0 #6a3fc4; top: 30%; font-size: 13px; }
+  .pt { font: 800 11.5px var(--font-body); color: #6a3fc4; background: #f1eaff; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .pt.out { color: #9a4a00; background: #fff1dc; }
   .ribbon { position: absolute; top: 4%; right: -4px; z-index: 2; padding: 4px 10px; border-radius: 10px; background: linear-gradient(#ffb43d, #f08a1c); color: #fff; font: 600 15px var(--font-ui); box-shadow: 0 3px 0 #c0650a; transform: rotate(8deg); }
   @keyframes rise-in { 0% { transform: translateY(40px) scale(.9); opacity: 0; } 100% { transform: none; opacity: 1; } }
   .note { margin: 0; align-self: center; text-align: center; font: 700 13.5px var(--font-body); color: #fff; text-shadow: 0 1px 4px rgba(40, 30, 60, .8); }

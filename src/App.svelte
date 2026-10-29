@@ -1,5 +1,6 @@
 <script lang="ts">
   import MusicPicker from './lib/ui/MusicPicker.svelte';
+  import GlobalMenu from './lib/ui/GlobalMenu.svelte';
   import { onMount } from 'svelte';
   import { game } from './lib/state/game.svelte';
   import { configureSound, startMusic, unlockAudio, setMusicStyle, setMusicStation } from './lib/audio/sound';
@@ -126,6 +127,7 @@
   {#if game.chartLesson && game.profile}{#key game.chartLesson}<LessonChart />{/key}{/if}
   {#if game.sheet}<QuickSettings />{/if}
   {#if game.musicOpen}<MusicPicker />{/if}
+  {#if game.menuOpen && game.profile}<GlobalMenu />{/if}
   <FunLayer />
   {#if game.toast}<div class="toast">{game.toast}</div>{/if}
 </main>

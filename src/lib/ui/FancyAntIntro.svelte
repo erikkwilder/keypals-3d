@@ -11,9 +11,8 @@
   // The FancyAnt film when the game opens: the ant flies in, lands, checks itself in the mirror and fixes
   // its bow tie (6.5 s, no sound, so it can start by itself). Any key or tap skips it. With reduced motion,
   // or if the film can't start (a phone saving power, a slow line), the last frame shows for a moment
-  // instead. On a wide screen the whole film shows, with a soft blurred copy of it filling the sides; on a
-  // tall one it's a band across the middle (a little cropped at the sides), with the film's own pink above
-  // and its blue floor below so there's no edge to see.
+  // instead. The film fills the whole screen at every size (cropped a little where the screen is a
+  // different shape from the film), kept centred on the ant, so there are no bands at the edges.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   type Props = { onDone: () => void };
@@ -23,8 +22,6 @@
   let still = $state(false);
   let named = $state(false);
   let video: HTMLVideoElement | undefined = $state();
-  let back: HTMLVideoElement | undefined = $state();
-  const wide = innerWidth / Math.max(1, innerHeight) >= 1.2;
   const timers: ReturnType<typeof setTimeout>[] = [];
   const later = (f: () => void, ms: number) => timers.push(setTimeout(f, ms));
 
@@ -43,7 +40,6 @@
     const reduced = game.settings.reducedMotion || matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced) { showStill(1800); return; }
     video?.play().catch(() => showStill(1800));
-    back?.play().catch(() => {});
     // nothing moving after a second and a half: show the last frame and move on
     later(() => { if (!still && (!video || video.currentTime < 0.05)) showStill(1600); }, 1500);
     // never longer than the film and a breath
@@ -52,12 +48,7 @@
   onDestroy(() => { timers.forEach(clearTimeout); window.removeEventListener('keydown', onKey, true); });
 </script>
 
-<div class="intro" class:leaving class:wide role="presentation" onclick={finish}>
-  {#if wide}
-    <!-- the same film, blurred and filling the screen behind it, so the sides match what's happening -->
-    {#if still}<img class="back" src="{base}brand/intro-end.webp" alt="" />
-    {:else}<video class="back" bind:this={back} muted playsinline autoplay preload="auto" poster="{base}brand/intro-poster.webp" aria-hidden="true"><source src="{base}brand/intro.webm" type="video/webm" /><source src="{base}brand/intro.mp4" type="video/mp4" /></video>{/if}
-  {/if}
+<div class="intro" class:leaving role="presentation" onclick={finish}>
   {#if still}
     <img class="film" src="{base}brand/intro-end.webp" alt="The FancyAnt ant straightens its bow tie in a mirror" />
   {:else}
@@ -77,11 +68,9 @@
   .intro { position: fixed; inset: 0; z-index: 200; cursor: pointer; display: grid; place-items: center; overflow: hidden;
     background: linear-gradient(#f2cce0 0 50%, #b2def4 50% 100%); transition: opacity .42s ease; }
   .intro.leaving { opacity: 0; }
-  /* tall screens: a band across the middle, a little cropped at the sides so the ant is bigger */
-  .film { position: relative; width: 100%; height: min(46vh, 150vw); object-fit: cover; display: block; }
-  /* wide screens: the whole film, in front of its blurred copy */
-  .wide .film { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-  .back { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); object-fit: cover; filter: blur(28px) saturate(1.05); opacity: .9; }
+  /* the film fills the screen edge to edge; where the screen is a different shape it's cropped, kept on
+     the ant (it lands just right of centre, with the mirror to its left) and on its antennae at the top */
+  .film { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 54% 38%; display: block; }
   .name { position: absolute; left: 50%; bottom: 6%; translate: -50% 0; display: flex; flex-direction: column; align-items: center; gap: 2px; background: rgba(255, 255, 255, .88); padding: 10px 26px 9px; border-radius: 24px; box-shadow: 0 10px 30px -14px rgba(60, 30, 90, .5); white-space: nowrap; opacity: 0; transform: translateY(14px); transition: opacity .45s ease, transform .45s cubic-bezier(.3, .8, .4, 1.4); pointer-events: none; }
   .name.in { opacity: 1; transform: none; }
   .name b { font: 600 clamp(26px, 4vw, 40px)/1 var(--font-ui); color: #2b2140; text-shadow: 0 2px 0 rgba(255, 255, 255, .6); }

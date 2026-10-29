@@ -25,6 +25,7 @@
   import { SkillTripPicker, type SkillPick } from '../math/skills/picker';
   import { applySkillRun, type SkillResult } from '../math/skills/progress';
   import { answerParts, shortText } from '../math/skills/text';
+  import { asChoices, choiceChance, CHOICE_RIGHT } from '../math/skills/choices';
   import type { Answer } from '../math/skills/types';
   import SkillPrompt from '../math/skills/ui/SkillPrompt.svelte';
   import SkillInput from '../math/skills/ui/SkillInput.svelte';
@@ -44,6 +45,10 @@
   const regionName = lesson.region === 'start' ? area.name : SKILL_REGION[lesson.region].name;
   const tempo = tempoOf(lesson.area);
   const picker = new SkillTripPicker({ lesson, mem: m.skills ?? {}, now: Date.now() });
+  // some questions are asked as choices (likely mistakes to pick from): often while a kind is new
+  const mix = mulberry32(Date.now() % 1e9);
+  /** this question was turned into choices */
+  let choiced = false;
   let calm = $state(!!m.calm);
   const meter = new FactMeter(grown, !!m.calm);
   const record = m.lessons[lesson.id];
@@ -97,7 +102,10 @@
     const pk = picker.next();
     trip = picker.progress;
     if (!pk) { finish(); return; }
-    pick = pk; feedback = null; marked = null; firstAt = null; busy = false;
+    const stage = m.skills?.[pk.item.key]?.stage ?? 0;
+    const ch = mix() < choiceChance(stage, lesson.kind) ? asChoices(pk.item, mix) : null;
+    choiced = !!ch;
+    pick = ch ? { ...pk, item: ch } : pk; feedback = null; marked = null; firstAt = null; busy = false;
     shownAt = performance.now(); meter.shown(shownAt);
     mode = pk.reason === 'new' ? 'learn' : 'ask';
     if (mode === 'learn') say(`New one! ${pk.item.trick?.name ?? SKILL[pk.item.skill].name}.`, 1800);
@@ -108,14 +116,16 @@
   function answer(a: Answer) {
     if (phase !== 'play' || !item || !skill || busy) return;
     const t = performance.now();
-    const ok = skill.check(item, a);
+    // a question asked as choices: the right choice (its own check might look for a typed answer)
+    const ok = choiced ? a.kind === 'choice' && a.id === CHOICE_RIGHT : skill.check(item, a);
     if (a.kind === 'choice') marked = { id: a.id, ok };
     const base = { id: item.id, key: item.key, label: shortText(item) };
     if (mode === 'ask') {
       const thinkMs = (firstAt ?? t) - shownAt;
       if (ok) {
         const speed = speedOf({ ok, thinkMs, fastMs: skill.fastMs });
-        results.push({ ...base, ok: true, speed, thinkMs, ms: t - shownAt, intro: false });
+        // picking from choices counts as right, but only a typed answer grows a bloom
+        results.push({ ...base, ok: true, speed: choiced && speed === 'fast' ? 'slow' : speed, thinkMs, ms: t - shownAt, intro: false });
         eggWarm++;
         picker.answer(true);
         meter.push(true, (t - shownAt) / tempo);
@@ -259,7 +269,7 @@
         <div class="ask">{item.ask}</div>
         {#key shake}
           <div class="q" class:right={feedback === 'right'} class:fast={feedback === 'fast'} class:wrong={feedback === 'wrong' && mode === 'fix'} class:shake={shake > 0 && feedback !== 'right' && feedback !== 'fast'}>
-            <SkillPrompt parts={item.prompt} {fill} size={compact ? 46 : 74} picSize={compact ? 120 : 190} done={feedback === 'right' || feedback === 'fast'} />
+            <SkillPrompt parts={item.prompt} {fill} size={compact ? 46 : 74} picSize={compact ? 120 : 190} done={feedback === 'right' || feedback === 'fast'} onpick={(w) => { if (fill?.kind === 'fraction') fill = { ...fill, focus: w }; }} />
           </div>
         {/key}
         {#if streakPop}{#key streakPop.n}<div class="streak">{streakPop.text}</div>{/key}{/if}

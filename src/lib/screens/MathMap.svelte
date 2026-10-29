@@ -147,7 +147,7 @@
       <NavTile size={tile} tone="butter" kind="stickers" label="Stickers" badge={STICKERS.filter(s => bookView(p).stickers[s.id]).length || ''} onclick={() => game.openStickers('stickers')} />
       <NavTile size={tile} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (bookView(p).medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
     </div>
-    <FancyAntButton variant="round" />
+    <span class="fa"><FancyAntButton variant="round" /></span>
     <GearButton size={44} />
   </header>
 
@@ -411,6 +411,14 @@
   .pill b { font: 600 20px var(--font-ui); color: var(--ink); }
   .spacer { flex: 1; }
   .navs { display: flex; gap: 10px; }
+  .fa { display: contents; }
+  /* laptops: seven tiles, the pills and the menu, music and gear buttons share one row */
+  @media (min-width: 761px) and (max-width: 1599px) {
+    .bar :global(.tile.md) { min-width: 88px; padding: 8px 8px; }
+    .navs { gap: 8px; }
+    .fa { display: none; }
+  }
+  @media (min-width: 761px) and (max-width: 1379px) { .pill.goal span { display: none; } }
   .scroller { flex: 1; min-height: 0; padding: 18px 22px 120px; display: flex; flex-direction: column; gap: 22px; }
   .intro { flex: none; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
   .hello { flex: 1 1 320px; }

@@ -11,7 +11,7 @@
 // belly-sliding beside you (1 in 3); fish leaping out of the bay; Puddle Pup paddling by the lane
 // (1 in 3); and the shooting star at the finish.
 import * as THREE from 'three';
-import { sfx } from '../audio/sound';
+import { preloadSfx, sfx } from '../audio/sound';
 import { stage } from '../three/stage';
 import { chance, recall, remember, season } from './luck';
 import { world } from './bus';
@@ -197,6 +197,7 @@ type CourseCtx = {
   slopeY?: (x: number) => number;
 };
 export function courseEggs(move: 'climb' | 'slide' | 'swim', c: CourseCtx) {
+  if (move === 'swim') preloadSfx('splash-1', 'splash-2');
   const group = new THREE.Group(); c.root.add(group);
   const star = finishStar(group, c.keep);
   star.arm();

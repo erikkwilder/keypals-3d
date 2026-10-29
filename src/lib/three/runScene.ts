@@ -8,6 +8,7 @@ import { stage, type Controller } from './stage';
 import { Character } from './character';
 import { vehicle, type Vehicle } from './rides3d';
 import { reach } from './ik';
+import { sitOnSled } from './sledSeat';
 import { dressUp } from './dress';
 import { RIDES } from '../engine/rides';
 import type { FriendId } from '../art/cast';
@@ -341,13 +342,10 @@ export class RunScene implements Controller {
     } else if (kind === 'slide') {
       const yaw = Math.atan2(f.t.x, f.t.z), pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
       if (sled) { sled.visible = true; sled.position.copy(f.p); sled.rotation.set(0, yaw - Math.PI / 2, -pitch); }
-      // sitting on the sled, legs forward (the chair pose), hips on the deck
+      // sitting on the sled (hips on the deck, legs out along it: sitOnSled, after the update below)
       me.play(me.has('sit') ? 'sit' : me.has('seated') ? 'seated' : 'idle', 0.25);
       me.root.position.copy(f.p);
       me.root.rotation.set(pitch, yaw, 0, 'YXZ');
-      me.update(0); me.root.updateMatrixWorld(true);
-      const hips = me.bones.Hips?.getWorldPosition(new THREE.Vector3());
-      if (hips) me.root.position.y += f.p.y + 0.3 - hips.y;
       if (v > 2.5 && now - this.splashT > 0.18) { this.splashT = now; this.puff.burst(f.p.clone().addScaledVector(f.t, -0.6), 3, 0xffffff); }
     } else if (this.pos >= this.swimExit()[0]) {
       // at the swim steps: stand up in the water and walk up them onto the dock, dripping
@@ -372,6 +370,7 @@ export class RunScene implements Controller {
     }
     me.update(dt);
     me.root.updateMatrixWorld(true);
+    if (kind === 'slide' && sled) sitOnSled(me, sled, dt);
   }
 
   /** The ghost racer on a course, beside the buddy and moving the same way: up the cliff a little to the
@@ -393,9 +392,6 @@ export class RunScene implements Controller {
       this.ghostSled?.rotation.set(0, yaw - Math.PI / 2, -pitch);
       g.play(g.has('sit') ? 'sit' : 'idle', 0.25);
       g.root.position.copy(p); g.root.rotation.set(pitch, yaw, 0, 'YXZ');
-      g.update(0); g.root.updateMatrixWorld(true);
-      const hips = g.bones.Hips?.getWorldPosition(new THREE.Vector3());
-      if (hips) g.root.position.y += p.y + 0.3 - hips.y;
     } else {
       // the ghost walks up the same swim steps, in its own lane
       const out = s >= this.swimExit()[0], onDock = s >= this.finishS - 0.2;
@@ -410,6 +406,7 @@ export class RunScene implements Controller {
       }
     }
     if (g.root.visible) g.update(dt);
+    if (g.root.visible && kind === 'slide' && this.ghostSled) { g.root.updateMatrixWorld(true); sitOnSled(g, this.ghostSled, dt); }
   }
 
   private arrive() {

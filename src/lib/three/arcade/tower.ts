@@ -1,9 +1,10 @@
 // Tower Stack: build a tower of chunky toy blocks on a little floating island in the sky. Each block
-// hangs from a rope with a sum on its front; type the answer and it drops. Quick and right, it lands
-// straight on top; the longer the thinking, the more the block swings on its rope, so a slow answer lands
-// off to one side; a wrong one slips off and tumbles into the clouds. Lean too far and the top of the
-// tower topples. The tower sways like a real stack (a spring at its base, slower as it grows), and the
-// buddy rides a hot air balloon beside it, rising as it grows.
+// swings on the crane's rope, side to side, all the time (faster as the tower grows), with a sum on its
+// front. The block is dim until it's answered right; then it lights up, and you drop it (a tap or the
+// space bar) at the moment it's over the top of the tower. Dead centre is a Perfect, and a Glimmer moves
+// in to that floor; off-centre, it hangs over and the tower sways more; too far off and it falls. Lean
+// too far and the top of the tower topples. The tower sways like a real stack (a spring at its base,
+// slower as it grows), and the buddy rides a hot air balloon beside it, rising as it grows.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { stage, type Controller } from '../stage';
@@ -20,7 +21,9 @@ const COLORS = [0xff6f91, 0xffc93d, 0x4fc3f7, 0x7ed957, 0xb388ff, 0xff9f43, 0x2e
 const INK = ['#8a1d3c', '#7a4a00', '#0b4f7a', '#2f6a12', '#4b2a8a', '#7a3a00', '#0c5a52'];
 const FOV = 38;
 
-type Block = { mesh: THREE.Group; x: number; y: number; face: THREE.Mesh; tex: THREE.CanvasTexture; color: number };
+type Block = { mesh: THREE.Group; x: number; y: number; face: THREE.Mesh; tex: THREE.CanvasTexture; color: number; resident?: THREE.Sprite };
+/** the Glimmers who move in to Perfect floors */
+const RESIDENTS = ['puddlepup', 'sproutbun', 'embernewt', 'fernfox', 'frostowl', 'sparkmoth', 'pebbletort', 'snowseal', 'sunsnail', 'mushmouse', 'bubbleocto', 'popcornpuff', 'rainbootfrog', 'mittenyeti', 'cactuskit', 'cometcat'];
 type Loose = { mesh: THREE.Group; v: THREE.Vector3; w: number; age: number; tex: THREE.CanvasTexture | null };
 export type Landed = { perfect: boolean; offset: number; slipped: boolean; toppled: number; height: number };
 
@@ -49,7 +52,14 @@ export class TowerScene implements Controller {
   private tower = new THREE.Group();
   private blocks: Block[] = [];
   private loose: Loose[] = [];
-  private hanging: { mesh: THREE.Group; face: THREE.Mesh; tex: THREE.CanvasTexture; color: number; ink: string; since: number } | null = null;
+  private hanging: { mesh: THREE.Group; face: THREE.Mesh; body: THREE.Mesh; glow: THREE.Mesh; tex: THREE.CanvasTexture; color: number; ink: string; since: number; lit: boolean } | null = null;
+  /** the crane's swing: where in it the block is, and how wide */
+  private phase = 0;
+  readonly swingAmp = BW * 0.85;
+  private residentTex: (THREE.Texture | null)[] = [];
+  private glowMat: THREE.MeshBasicMaterial;
+  /** Glimmers living in the tower */
+  residents = 0;
   private falling: { mesh: THREE.Group; face: THREE.Mesh; tex: THREE.CanvasTexture; color: number; ink: string; x0: number; x: number; y: number; vy: number; goalY: number; slip: number; answer: string } | null = null;
   private rope: THREE.Mesh;
   private hook: THREE.Mesh;
@@ -80,7 +90,8 @@ export class TowerScene implements Controller {
     const ropeMat = new THREE.MeshStandardMaterial({ color: 0xc9a46b, roughness: 0.9 });
     this.rope = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 6), ropeMat);
     this.hook = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.03, 8, 16, Math.PI * 1.4), new THREE.MeshStandardMaterial({ color: 0x8d97a6, metalness: 0.8, roughness: 0.35 }));
-    this.own.push(this.boxGeo, this.faceGeo, this.rope.geometry, ropeMat, this.hook.geometry, this.hook.material as THREE.Material);
+    this.glowMat = new THREE.MeshBasicMaterial({ color: 0xfff1a0, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false });
+    this.own.push(this.boxGeo, this.faceGeo, this.rope.geometry, ropeMat, this.hook.geometry, this.hook.material as THREE.Material, this.glowMat);
     this.root.add(this.rope, this.hook);
     // the buddy in the balloon's basket (or on its own, if the balloon didn't load)
     this.root.add(this.basket);
@@ -93,9 +104,10 @@ export class TowerScene implements Controller {
 
   static async create(o: { buddy: FriendId }): Promise<TowerScene> {
     await fontLoaded();
-    const [me, bg, isl, bal, tex] = await Promise.all([
+    const [me, bg, isl, bal, tex, faces] = await Promise.all([
       Character.create(o.buddy), paintedBackground('arcade/bg-tower.webp', 0.5, 0.6),
       loadGltf('world/island.glb'), loadGltf('world/hot_air_balloon.glb'), loadTexture('arcade/block.webp', { color: true }),
+      Promise.all(RESIDENTS.map(id => loadTexture(`game/glimmers/face/${id}.webp`, { color: true }))),
     ]);
     if (!me) throw new Error('character missing');
     void dressUp(me);
@@ -119,7 +131,9 @@ export class TowerScene implements Controller {
       balloon.position.set(-(box.min.x + box.max.x) / 2 * k, -box.min.y * k, -(box.min.z + box.max.z) / 2 * k);
       balloon.traverse(m => { if ((m as THREE.Mesh).isMesh) m.castShadow = true; });
     }
-    return new TowerScene(arcadeIsland(), me, base, balloon, tex, bg);
+    const sc = new TowerScene(arcadeIsland(), me, base, balloon, tex, bg);
+    sc.residentTex = faces;
+    return sc;
   }
 
   /** Blocks standing. */
@@ -129,6 +143,13 @@ export class TowerScene implements Controller {
   private mat(color: number) {
     let m = this.mats.get(color);
     if (!m) { m = new THREE.MeshStandardMaterial({ map: this.blockTex, color, roughness: 0.45 }); this.mats.set(color, m); this.own.push(m); }
+    return m;
+  }
+  /** a block not yet unlocked: its colour washed out to a pale grey */
+  private dimMat(color: number) {
+    const key = -1 - color;
+    let m = this.mats.get(key);
+    if (!m) { const c = new THREE.Color(color).lerp(new THREE.Color(0xb9bfcc), 0.72); m = new THREE.MeshStandardMaterial({ map: this.blockTex, color: c, roughness: 0.7 }); this.mats.set(key, m); this.own.push(m); }
     return m;
   }
   private makeBlock(text: string, color: number, ink: string) {
@@ -142,34 +163,52 @@ export class TowerScene implements Controller {
     return { g, face, tex };
   }
 
-  /** A new block on the rope, with this sum on its front. */
+  /** A new block on the rope, dim, with this sum on its front. */
   hang(text: string) {
     const k = this.colorN++ % COLORS.length;
     const { g, face, tex } = this.makeBlock(text, COLORS[k], INK[k]);
+    const body = g.children[0] as THREE.Mesh;
+    body.material = this.dimMat(COLORS[k]);
+    const glow = new THREE.Mesh(this.boxGeo, this.glowMat);
+    glow.scale.set(1.12, 1.25, 1.12); glow.visible = false;
+    g.add(glow);
     this.root.add(g);
-    this.hanging = { mesh: g, face, tex, color: COLORS[k], ink: INK[k], since: this.t };
+    this.hanging = { mesh: g, face, body, glow, tex, color: COLORS[k], ink: INK[k], since: this.t, lit: false };
     g.scale.setScalar(0.01);
   }
-  /** How far the hanging block is off centre right now (it swings wider the longer the thinking). */
-  /** How wide the hanging block swings: hardly at all while the answer is quick, wider the longer it takes. */
-  private amp() {
-    const h = this.hanging;
-    if (!h) return 0;
-    const ms = (this.t - h.since) * 1000, F = this.fastMs;
-    return 0.04 + Math.min(1, Math.max(0, (ms - F * 0.55) / (F * 1.6))) * 0.78;
-  }
-  private swing() { const h = this.hanging; return h ? this.amp() * Math.sin((this.t - h.since) * 2.6 + 0.6) : 0; }
-  /** Let go. Right: it drops toward the side it's swinging, as far out as the swing has grown (so a slow
-   *  answer never lands straight by luck). Wrong: it slips off the side. */
-  release(right: boolean, answer: string) {
+  /** A new sum on the hanging block (after a wrong answer: it stays dim). */
+  relabel(text: string) {
     const h = this.hanging;
     if (!h) return;
-    const amp = this.amp(), cur = this.swing();
+    const tex = faceTex(text, h.ink);
+    h.tex.dispose(); h.tex = tex;
+    (h.face.material as THREE.MeshStandardMaterial).map = tex; (h.face.material as THREE.MeshStandardMaterial).needsUpdate = true;
+    h.mesh.scale.setScalar(0.85);
+  }
+  /** Answered right: the block lights up, and its answer shows on its front. */
+  light(answer: string) {
+    const h = this.hanging;
+    if (!h || h.lit) return;
+    h.lit = true;
+    h.body.material = this.mat(h.color);
+    h.glow.visible = true;
+    this.relabel(answer);
+    h.mesh.scale.setScalar(1.15);
+    this.fx.emit({ at: h.mesh.position.clone(), count: 24, shape: ['star', 'spark'], color: [0xffe066, 0xffffff], speed: [1, 2.5], radius: 0.6, life: [0.4, 0.8], size: [0.1, 0.22], drag: 1.6 });
+  }
+  get unlocked() { return !!this.hanging?.lit; }
+  /** How long one swing takes: slower for a little tower, quicker as it grows. */
+  private period() { return Math.max(1.25, 2.6 - this.blocks.length * 0.075); }
+  private swing() { return this.hanging ? this.swingAmp * Math.sin(this.phase) : 0; }
+  /** Let go of a lit block: it drops straight down from where it is in its swing. */
+  drop(): boolean {
+    const h = this.hanging;
+    if (!h || !h.lit || this.falling) return false;
     this.hanging = null;
-    const side = Math.sign(cur) || (Math.random() < 0.5 ? -1 : 1);
-    const off = right ? (amp < 0.1 ? cur : side * Math.max(Math.abs(cur), amp * 0.8)) : side * BW * 0.62;
-    const y = h.mesh.position.y;
-    this.falling = { mesh: h.mesh, face: h.face, tex: h.tex, color: h.color, ink: h.ink, x0: h.mesh.position.x, x: this.topX() + off, y, vy: 0, goalY: this.topY() + BH / 2, slip: right ? 0 : side, answer };
+    const x = h.mesh.position.x;
+    h.glow.visible = false;
+    this.falling = { mesh: h.mesh, face: h.face, tex: h.tex, color: h.color, ink: h.ink, x0: x, x, y: h.mesh.position.y, vy: 0, goalY: this.topY() + BH / 2, slip: 0, answer: '' };
+    return true;
   }
 
   /** The buddy's reaction. */
@@ -188,13 +227,15 @@ export class TowerScene implements Controller {
     if (!this.paused) this.physics(dt);
     // the hanging block: pops in, swings on its rope below the hook
     const topY = this.topY(), hangY = topY + 2.5;
+    if (!this.paused) this.phase += dt * (Math.PI * 2) / this.period();
     if (this.hanging) {
       const h = this.hanging, x = this.topX() + this.swing();
-      h.mesh.scale.setScalar(Math.min(1, h.mesh.scale.x + dt * 5));
+      const s = h.mesh.scale.x; h.mesh.scale.setScalar(s < 1 ? Math.min(1, s + dt * 5) : Math.max(1, s - dt * 1.5));
       h.mesh.position.set(x, hangY, 0);
-      h.mesh.rotation.z = -this.swing() * 0.12;
+      h.mesh.rotation.z = -Math.cos(this.phase) * 0.1;
+      if (h.lit) (h.glow.material as THREE.MeshBasicMaterial).opacity = 0.3 + Math.sin(t * 9) * 0.15;
     }
-    const hx = this.hanging ? this.hanging.mesh.position.x : this.topX();
+    const hx = this.hanging ? this.hanging.mesh.position.x : this.topX() + this.swing();
     const hookY = (this.hanging ? hangY : topY + 2.5) + BH / 2 + 0.12;
     this.hook.position.set(hx, hookY, 0); this.hook.rotation.z = Math.PI * 0.8;
     this.rope.scale.y = 30; this.rope.position.set(hx, hookY + 15.1, 0);
@@ -259,21 +300,33 @@ export class TowerScene implements Controller {
       this.onLanded?.({ perfect: false, offset: off, slipped: true, toppled: 0, height: this.blocks.length });
       return;
     }
-    // it stands: the number shows on its front now
-    const tex = faceTex(f.answer, f.ink);
-    f.tex.dispose();
-    (f.face.material as THREE.MeshStandardMaterial).map = tex; (f.face.material as THREE.MeshStandardMaterial).needsUpdate = true;
+    // it stands (the answer is already on its front)
+    const tex = f.tex;
     // into the tower (which sways about the base)
     f.mesh.position.set(f.x, y, 0);
     f.mesh.rotation.set(0, 0, 0);
     this.tower.add(f.mesh);
     const b: Block = { mesh: f.mesh, x: f.x, y, face: f.face, tex, color: f.color };
+    f.mesh.scale.setScalar(1);
     this.blocks.push(b);
     b.mesh.scale.set(1.08, 0.82, 1.08);
     b.mesh.userData.squash = 0;
-    const perfect = Math.abs(off) < 0.1;
-    this.omega += off * 0.22 + (perfect ? 0 : Math.sign(off) * 0.02);
-    if (perfect) this.fx.emit({ at: new THREE.Vector3(f.x, y + 0.4, 0.4), count: 30, shape: ['star', 'spark'], color: [0xffe066, 0xffffff, 0xffb81f], speed: [1.5, 3.5], radius: 0.4, life: [0.5, 1], size: [0.12, 0.26], drag: 1.6, up: 0.6 });
+    const perfect = Math.abs(off) < 0.12;
+    // an overhang sets the tower swaying: the further off, the more
+    this.omega += off * 0.32 + (perfect ? 0 : Math.sign(off) * 0.03);
+    if (perfect) {
+      this.fx.emit({ at: new THREE.Vector3(f.x, y + 0.4, 0.4), count: 30, shape: ['star', 'spark'], color: [0xffe066, 0xffffff, 0xffb81f], speed: [1.5, 3.5], radius: 0.4, life: [0.5, 1], size: [0.12, 0.26], drag: 1.6, up: 0.6 });
+      // a Glimmer moves in to this floor, peeking out from the corner
+      const tx = this.residentTex[this.residents % Math.max(1, this.residentTex.length)];
+      if (tx) {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true }));
+        sp.position.set((this.residents % 2 ? -1 : 1) * BW * 0.36, BH * 0.18, BD / 2 + 0.12);
+        sp.scale.setScalar(0.01); sp.userData.grow = 0;
+        f.mesh.add(sp);
+        b.resident = sp;
+      }
+      this.residents++;
+    }
     // too much leaning anywhere in the stack: the top part topples over
     const toppled = this.checkTopple();
     this.onLanded?.({ perfect, offset: off, slipped: false, toppled, height: this.blocks.length });
@@ -322,15 +375,17 @@ export class TowerScene implements Controller {
     this.fx.setScale(innerHeight, FOV);
     // shadows follow the top
     this.sun.position.set(5, topY + 12, 9); this.sun.target.position.set(0, topY - 2, 0);
-    // landed blocks spring back from their squash
+    // landed blocks spring back from their squash; residents pop in with a bounce
     for (const b of this.blocks) {
       const s = b.mesh.scale;
       if (s.y < 1) { s.y = Math.min(1, s.y + dt * 1.2); s.x = s.z = 1 + (1 - s.y) * 0.4; }
+      const r = b.resident;
+      if (r && r.userData.grow < 1) { r.userData.grow = Math.min(1, r.userData.grow + dt * 3); const g = r.userData.grow; r.scale.setScalar(0.5 * (g < 0.7 ? g / 0.7 * 1.15 : 1.15 - (g - 0.7) / 0.3 * 0.15)); }
     }
   }
   focus() { return new THREE.Vector3(0, this.topY(), 0); }
   dispose() {
-    for (const b of this.blocks) { b.tex.dispose(); (b.face.material as THREE.Material).dispose(); }
+    for (const b of this.blocks) { b.tex.dispose(); (b.face.material as THREE.Material).dispose(); b.resident?.material.dispose(); }
     for (const l of this.loose) l.tex?.dispose();
     this.hanging?.tex.dispose(); this.falling?.tex.dispose();
     this.me.dispose();

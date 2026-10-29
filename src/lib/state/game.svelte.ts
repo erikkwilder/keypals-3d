@@ -129,8 +129,12 @@ class Game {
   musicOpen = $state(false);
   openMusic() { this.musicOpen = true; }
   closeMusic() { this.musicOpen = false; }
+  /** the menu that goes anywhere in the game (and shows everything you've earned) */
+  menuOpen = $state(false);
+  openMenu() { this.menuOpen = true; }
+  closeMenu() { this.menuOpen = false; }
   /** something is open on top of the screen and owns the keyboard */
-  get modalOpen() { return this.sheet !== null || this.settingsOpen || this.musicOpen || this.chartLesson !== null || this.learnOverlay !== null; }
+  get modalOpen() { return this.sheet !== null || this.settingsOpen || this.musicOpen || this.menuOpen || this.chartLesson !== null || this.learnOverlay !== null; }
   openChart(id: string) { this.chartLesson = id; }
   closeChart() { this.chartLesson = null; }
   openStickers(tab: 'stickers' | 'medals' | 'rides' = 'stickers') {

@@ -1,4 +1,6 @@
-// All sound is made live with Web Audio: no sound files to license or download.
+// Almost all sound is made live with Web Audio. A few effects that need to sound real (an eggshell
+// cracking, a fish splashing) are short recordings in public/sfx/, made for Keypals with ElevenLabs'
+// sound generator, and played through the same effects channel.
 
 import type { Finger } from '../art/cast';
 import { AUTO, STATION, type MusicPlace, type StationChoice, type StationId } from './stations';
@@ -73,7 +75,10 @@ function tone(freq: number, o: ToneOpts = {}) {
   osc.stop(t0 + dur + 0.05);
 }
 
-function noise(dur: number, o: { gain?: number; freq?: number; q?: number; delay?: number; sweepTo?: number; kind?: BiquadFilterType } = {}) {
+/** Filtered noise: whooshes, shimmers, puffs. `attack` is how long it takes to swell in: a noise burst that
+ *  starts at full volume sounds like a snap or a crack, so whooshes swell in (a third of their length or
+ *  more) and even short taps get a few milliseconds. */
+function noise(dur: number, o: { gain?: number; freq?: number; q?: number; delay?: number; sweepTo?: number; kind?: BiquadFilterType; attack?: number } = {}) {
   const c = ac();
   if (!c || !enabled) return;
   const t0 = c.currentTime + (o.delay ?? 0);
@@ -89,10 +94,48 @@ function noise(dur: number, o: { gain?: number; freq?: number; q?: number; delay
   if (o.sweepTo) f.frequency.exponentialRampToValueAtTime(o.sweepTo, t0 + dur);
   f.Q.value = o.q ?? 1.2;
   const g = c.createGain();
-  g.gain.setValueAtTime(o.gain ?? 0.15, t0);
+  const att = Math.min(dur * 0.8, Math.max(0.004, o.attack ?? 0.004));
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(o.gain ?? 0.15, t0 + att);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   src.connect(f); f.connect(g); g.connect(sfxBus!);
   src.start(t0);
+  src.stop(t0 + dur + 0.05);
+}
+
+// ---------- recorded effects (public/sfx/<name>.mp3) ----------
+const samples = new Map<string, Promise<AudioBuffer | null>>();
+function sampleOf(name: string): Promise<AudioBuffer | null> {
+  let p = samples.get(name);
+  if (!p) {
+    const c = ac();
+    if (!c) return Promise.resolve(null);
+    p = fetch(`${import.meta.env.BASE_URL}sfx/${name}.mp3`)
+      .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then(b => c.decodeAudioData(b))
+      .catch(() => null);
+    samples.set(name, p);
+  }
+  return p;
+}
+/** Fetch recorded effects ahead of time (a screen that will use them calls this when it opens). */
+export function preloadSfx(...names: string[]) { for (const n of names) void sampleOf(n); }
+/** Play a recorded effect through the effects channel; if it isn't there (still loading the first time,
+ *  or missing), `fallback` plays a made-live stand-in instead so nothing goes quiet. */
+function play(name: string, o: { gain?: number; rate?: number; delay?: number } = {}, fallback?: () => void) {
+  const c = ac();
+  if (!c || !enabled) return;
+  const asked = c.currentTime + (o.delay ?? 0);
+  void sampleOf(name).then(buf => {
+    if (!buf) { fallback?.(); return; }
+    const src = c.createBufferSource(), g = c.createGain();
+    src.buffer = buf;
+    src.playbackRate.value = o.rate ?? 1;
+    g.gain.value = o.gain ?? 1;
+    src.connect(g); g.connect(sfxBus!);
+    // a buffer that took a moment to arrive plays straight away (never in the past)
+    src.start(Math.max(c.currentTime, asked));
+  });
 }
 
 /** A tone with a wobble in it (vibrato): the grumpy Glimmer's little "hmph", the evolution hum. */
@@ -116,8 +159,45 @@ function wobble(freq: number, o: { dur: number; gain: number; rate: number; dept
   osc.start(t0); lfo.start(t0); osc.stop(t0 + o.dur + 0.05); lfo.stop(t0 + o.dur + 0.05);
 }
 
+// ---------- the wind (Sky Slalom): a soft airy loop that rises with the speed ----------
+let wind: { src: AudioBufferSourceNode; f: BiquadFilterNode; g: GainNode; idle: ReturnType<typeof setTimeout> | null } | null = null;
+/** Keep the wind blowing at `level` (0 to 1: the speed). Called every frame; it swells and brightens as the
+ *  level climbs, and fades away by itself a moment after the calls stop (the run is paused or over). */
+function windAt(level: number) {
+  const c = ac();
+  if (!c || !enabled) return;
+  const v = Math.max(0, Math.min(1, level));
+  if (!wind) {
+    if (v < 0.02) return;
+    // two seconds of soft "brown" noise (air, not hiss), its end faded into its start so the loop never clicks
+    const len = c.sampleRate * 2, x = Math.floor(c.sampleRate * 0.25), raw = new Float32Array(len + x);
+    let last = 0;
+    for (let i = 0; i < raw.length; i++) { last = (last + 0.04 * (Math.random() * 2 - 1)) / 1.04; raw[i] = last * 3.5; }
+    const buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = i < x ? raw[i] * (i / x) + raw[len + i] * (1 - i / x) : raw[i];
+    const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = buf; src.loop = true;
+    f.type = 'bandpass'; f.Q.value = 0.6; f.frequency.value = 380;
+    g.gain.value = 0.0001;
+    src.connect(f); f.connect(g); g.connect(sfxBus!); src.start();
+    wind = { src, f, g, idle: null };
+  }
+  const t = c.currentTime;
+  wind.g.gain.setTargetAtTime(0.0001 + (0.25 * v + 0.75 * v * v) * 0.1, t, 0.25);
+  wind.f.frequency.setTargetAtTime(380 + v * 1100, t, 0.3);
+  if (wind.idle) clearTimeout(wind.idle);
+  wind.idle = setTimeout(stopWind, 300);
+}
+function stopWind() {
+  const c = ac(), w = wind;
+  wind = null;
+  if (!c || !w) return;
+  w.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.2);
+  w.src.stop(c.currentTime + 1.2);
+}
+
 // pentatonic scale, C major
-const PENTA = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25, 783.99, 880.0, 1046.5];
+const PENTA =[261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25, 783.99, 880.0, 1046.5];
 const FINGER_NOTE: Record<Finger, number> = { LP: 0, LR: 1, LM: 2, LI: 3, TH: 4, RI: 5, RM: 6, RR: 7, RP: 8 };
 
 // One sound language for the whole game (the full table is in docs/sound-map.md, and #sounds plays them
@@ -152,8 +232,14 @@ export const sfx = {
   click() { tone(660, { type: 'sine', dur: 0.06, gain: 0.06 }); },
   /** Something opens or is picked (a card, a tab, an info box). */
   pop() { tone(880, { type: 'sine', dur: 0.08, gain: 0.08, slideTo: 1320 }); },
-  /** Off we go: a lesson, a trip, a battle or a duel is starting. */
-  whoosh() { noise(0.35, { gain: 0.08, freq: 500, sweepTo: 3000, q: 0.8 }); },
+  /** Off we go: a lesson, a trip, a battle or a duel is starting. An airy whoosh that swells in and rises,
+   *  landing on a bright little two-note chime with a sparkle on top (happy, never a snap). */
+  whoosh() {
+    noise(0.42, { gain: 0.07, freq: 420, sweepTo: 2600, q: 0.7, attack: 0.24 });
+    tone(1046.5, { type: 'triangle', dur: 0.16, gain: 0.06, delay: 0.3 });
+    tone(1567.98, { type: 'triangle', dur: 0.32, gain: 0.06, delay: 0.38 });
+    noise(0.45, { gain: 0.025, freq: 9000, q: 0.7, sweepTo: 12000, delay: 0.34, attack: 0.08 });
+  },
   /** Not yet: a locked stop, a buddy you haven't met, not enough shells. Two soft knocks, nothing falls. */
   nope() {
     [0, 0.11].forEach(d => { tone(420, { type: 'sine', dur: 0.06, gain: 0.07, delay: d }); noise(0.03, { gain: 0.035, freq: 1400, q: 4, delay: d }); });
@@ -204,21 +290,23 @@ export const sfx = {
   },
   /** Put something on, or someone on your team: a quick "fwip" and a ding. */
   equip() {
-    noise(0.15, { gain: 0.06, freq: 1500, sweepTo: 5000, q: 0.9 });
+    noise(0.15, { gain: 0.06, freq: 1500, sweepTo: 5000, q: 0.9, attack: 0.06 });
     tone(1318.5, { type: 'triangle', dur: 0.25, gain: 0.07, delay: 0.1 });
     tone(1975.5, { type: 'sine', dur: 0.3, gain: 0.03, delay: 0.14 });
   },
   /** A little "yay" (the hands cheering in a finger lesson). */
   cheer() { [659.25, 783.99, 1046.5].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.16, gain: 0.07, delay: i * 0.06 })); },
   // ---------- battles, duels and rival games ----------
-  /** A battle or duel begins: a drum, a rising "here we go", then the grumpy Glimmer's "hmph". */
+  /** A battle or duel begins: two drum hits, a rising "here we go" and a bright chord with a sparkle.
+   *  It's exciting, so it ends up, not down (the grumpy Glimmer's grumble is its own sound, for later). */
   battleStart() {
-    tone(130, { type: 'sine', dur: 0.32, gain: 0.13, slideTo: 70 });
-    noise(0.12, { gain: 0.05, freq: 1500, q: 0.8 });
-    [392, 523.25, 659.25].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.2, gain: 0.09, delay: 0.08 + i * 0.09 }));
-    tone(783.99, { type: 'triangle', dur: 0.45, gain: 0.09, delay: 0.35 });
-    tone(1567.98, { type: 'sine', dur: 0.5, gain: 0.03, delay: 0.37 });
-    sfx.grumble(0.95);
+    tone(150, { type: 'sine', dur: 0.18, gain: 0.11, slideTo: 95 });
+    tone(150, { type: 'sine', dur: 0.18, gain: 0.11, slideTo: 95, delay: 0.16 });
+    noise(0.3, { gain: 0.05, freq: 700, sweepTo: 3200, q: 0.7, attack: 0.16, delay: 0.12 });
+    [392, 523.25, 659.25].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.2, gain: 0.09, delay: 0.3 + i * 0.08 }));
+    [783.99, 987.77, 1174.66].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.6, gain: 0.07, delay: 0.56 + i * 0.015 }));
+    tone(1567.98, { type: 'sine', dur: 0.7, gain: 0.035, delay: 0.6 });
+    noise(0.6, { gain: 0.03, freq: 9000, q: 0.7, sweepTo: 12000, delay: 0.58, attack: 0.1 });
   },
   /** The grumpy Glimmer's voice: a cartoon "hmph-hmph", grumpy but cute (never a buzzer). */
   grumble(delay = 0) {
@@ -228,10 +316,10 @@ export const sfx = {
   },
   /** A power flies: each element has its own sound. */
   cast(el: 'sun' | 'frost' | 'tide' | 'stone' | 'leaf') {
-    if (el === 'sun') { tone(523.25, { type: 'triangle', dur: 0.35, gain: 0.1, slideTo: 1046.5 }); noise(0.4, { gain: 0.05, freq: 3000, sweepTo: 9000, q: 0.7 }); }
-    if (el === 'tide') { noise(0.45, { gain: 0.09, freq: 700, sweepTo: 2400, q: 1.5 }); tone(330, { type: 'sine', dur: 0.3, gain: 0.07, slideTo: 660 }); }
+    if (el === 'sun') { tone(523.25, { type: 'triangle', dur: 0.35, gain: 0.1, slideTo: 1046.5 }); noise(0.4, { gain: 0.05, freq: 3000, sweepTo: 9000, q: 0.7, attack: 0.1 }); }
+    if (el === 'tide') { noise(0.45, { gain: 0.09, freq: 700, sweepTo: 2400, q: 1.5, attack: 0.12 }); tone(330, { type: 'sine', dur: 0.3, gain: 0.07, slideTo: 660 }); }
     if (el === 'frost') { [1318.5, 1567.98, 2093].forEach((n, i) => tone(n, { type: 'sine', dur: 0.25, gain: 0.05, delay: i * 0.05 })); noise(0.3, { gain: 0.04, freq: 8000, q: 2 }); }
-    if (el === 'leaf') { noise(0.5, { gain: 0.07, freq: 1200, sweepTo: 4000, q: 0.6 }); tone(587.33, { type: 'triangle', dur: 0.2, gain: 0.06, delay: 0.1, slideTo: 880 }); }
+    if (el === 'leaf') { noise(0.5, { gain: 0.07, freq: 1200, sweepTo: 4000, q: 0.6, attack: 0.15 }); tone(587.33, { type: 'triangle', dur: 0.2, gain: 0.06, delay: 0.1, slideTo: 880 }); }
     if (el === 'stone') { tone(196, { type: 'triangle', dur: 0.16, gain: 0.08, slideTo: 262 }); noise(0.25, { gain: 0.08, freq: 400, q: 1 }); }
   },
   /** The cheer lands: a soft thump and bright notes going up; bigger numbers, more notes. */
@@ -242,7 +330,7 @@ export const sfx = {
   },
   /** Someone else's power didn't land (the other player's or a ghost's miss): a soft puff, nothing sad. */
   fizzle() {
-    noise(0.25, { gain: 0.06, freq: 1800, sweepTo: 500, q: 0.7 });
+    noise(0.22, { gain: 0.045, freq: 1400, sweepTo: 900, q: 0.7, attack: 0.07 });
     tone(660, { type: 'sine', dur: 0.12, gain: 0.03 });
   },
   /** A Perfect Cheer: a bright fanfare. */
@@ -257,11 +345,13 @@ export const sfx = {
   },
   /** (rain coming, by its old name) */
   uhoh() { sfx.rainComing(); },
-  /** A duel: your rain cloud flies over to the other side. */
+  /** A duel: your rain cloud flies over to the other side. It's a win for you: a cheeky "fwoosh" that
+   *  rises, a playful "boing" up and a two-note "ding-ding!" (the other side hears its warning later). */
   rainSend() {
-    noise(0.4, { gain: 0.08, freq: 600, sweepTo: 3500, q: 0.8 });
-    tone(392, { type: 'triangle', dur: 0.3, gain: 0.06, slideTo: 784 });
-    noise(0.6, { gain: 0.1, freq: 140, q: 0.5, delay: 0.25, kind: 'lowpass' });
+    noise(0.4, { gain: 0.07, freq: 500, sweepTo: 3200, q: 0.7, attack: 0.2 });
+    tone(330, { type: 'triangle', dur: 0.28, gain: 0.07, slideTo: 880, delay: 0.12 });
+    tone(1318.5, { type: 'triangle', dur: 0.14, gain: 0.07, delay: 0.38 });
+    tone(1760, { type: 'triangle', dur: 0.3, gain: 0.07, delay: 0.48 });
   },
   /** The grumpy cloud's zap flies: a cartoon crackle. */
   zap() {
@@ -289,7 +379,7 @@ export const sfx = {
   finale() { for (let i = 0; i < 8; i++) noise(0.06, { gain: 0.06 + i * 0.006, freq: 1200, q: 0.8, delay: i * 0.06 }); [392, 493.88, 587.33, 783.99].forEach((n, i) => tone(n, { type: 'triangle', dur: 1.2, gain: 0.07, delay: 0.5 + i * 0.03 })); },
   /** Aurora (the Finale is ready all at once): a shimmering wash. */
   aurora() {
-    noise(1.2, { gain: 0.04, freq: 6000, q: 0.5, sweepTo: 11000 });
+    noise(1.2, { gain: 0.04, freq: 6000, q: 0.5, sweepTo: 11000, attack: 0.4 });
     [523.25, 659.25, 783.99, 987.77].forEach((n, i) => tone(n * 2, { type: 'sine', dur: 1.4, gain: 0.03, attack: 0.4, delay: i * 0.08 }));
   },
   /** A duel: the next player's turn. A friendly doorbell, a little higher for player 1. */
@@ -308,7 +398,7 @@ export const sfx = {
   },
   /** The grumpy Glimmer cheers up (you won): a rising swish, a POP as the cloud bursts, a happy run up. */
   cheeredUp(at = 0.45) {
-    noise(at, { gain: 0.05, freq: 500, sweepTo: 4000, q: 0.8 });
+    noise(at, { gain: 0.05, freq: 500, sweepTo: 4000, q: 0.8, attack: at * 0.7 });
     noise(0.08, { gain: 0.16, freq: 1500, q: 0.7, delay: at });
     [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.22, gain: 0.09, delay: at + 0.04 + i * 0.05 }));
     tone(700, { type: 'sine', dur: 0.35, gain: 0.04, slideTo: 1600, delay: at + 0.05 });
@@ -322,8 +412,14 @@ export const sfx = {
     tone(523.25, { type: 'sine', dur: 0.45, gain: 0.045, delay: 0.84 });
   },
   // ---------- Glimmers, eggs and treasure ----------
-  /** An egg wobbles, cracks. */
-  crack() { noise(0.12, { gain: 0.12, freq: 2500, q: 2 }); tone(1600, { type: 'square', dur: 0.05, gain: 0.03 }); },
+  /** An egg cracks: a real eggshell crack (recorded). `step` 1, 2, 3 get bigger; 4 is the shell bursting
+   *  open as the Glimmer pops out. */
+  crack(step = 1) {
+    const s = Math.max(1, Math.min(4, step));
+    play(`egg-crack-${s}`, { gain: s >= 4 ? 0.42 : 0.28 + s * 0.03 }, () => { noise(0.08, { gain: 0.1, freq: 3200, q: 2.2 }); noise(0.05, { gain: 0.07, freq: 5200, q: 3, delay: 0.05 }); });
+  },
+  /** A pizza cutter rolls through (Pizza Rush): a crisp "shhk" that swells and lifts, and a soft tick. */
+  slice() { noise(0.16, { gain: 0.05, freq: 3000, q: 1.1, sweepTo: 5200, attack: 0.05 }); tone(1318.5, { type: 'sine', dur: 0.06, gain: 0.03, delay: 0.12 }); },
   /** A Glimmer appears: the rarer, the grander (0 common .. 5 mythic). */
   reveal(rank: number) {
     const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98, 2093];
@@ -341,7 +437,7 @@ export const sfx = {
   },
   /** The evolution: a big rising sweep into the Glimmer's reveal. */
   evolve(rank: number) {
-    noise(0.5, { gain: 0.09, freq: 400, sweepTo: 6000, q: 0.8 });
+    noise(0.5, { gain: 0.09, freq: 400, sweepTo: 6000, q: 0.8, attack: 0.3 });
     tone(262, { type: 'triangle', dur: 0.45, gain: 0.07, slideTo: 1046.5 });
     setTimeout(() => sfx.reveal(rank), 380);
   },
@@ -359,8 +455,11 @@ export const sfx = {
   twinkle() { [2637, 2093, 1760, 1568].forEach((n, i) => tone(n, { type: 'sine', dur: 0.5, gain: 0.035, delay: i * 0.09 })); noise(0.8, { gain: 0.025, freq: 9000, q: 0.7, sweepTo: 4000 }); },
   /** A little flying saucer: a wobbly "wooo-OOO-ooo" (a cartoon theremin). */
   ufo() { wobble(520, { dur: 1.6, gain: 0.05, rate: 7, depth: 0.06, type: 'sine', slideTo: 880 }); wobble(880, { dur: 1.2, gain: 0.04, rate: 6, depth: 0.08, type: 'sine', slideTo: 440, delay: 1.5 }); },
-  /** A small splash (a fish, a paddling pup). */
-  splashSmall(k = 1) { noise(0.32, { gain: 0.07 * k, freq: 1400, q: 0.7, sweepTo: 600 }); tone(900, { type: 'sine', dur: 0.08, gain: 0.03 * k, slideTo: 1500, delay: 0.05 }); },
+  /** A small splash (a fish leaping, a paddling pup): a playful splash and "plop" (recorded), a little
+   *  different each time. */
+  splashSmall(k = 1) {
+    play(Math.random() < 0.5 ? 'splash-1' : 'splash-2', { gain: 0.3 * k, rate: 0.94 + Math.random() * 0.12 }, () => { noise(0.25, { gain: 0.05 * k, freq: 1200, q: 0.7, sweepTo: 2400, attack: 0.04 }); tone(520, { type: 'sine', dur: 0.12, gain: 0.04 * k, slideTo: 1100, delay: 0.08 }); });
+  },
   /** Your buddy giggles (tickled on Home): quick little rising squeaks. */
   giggle() { [0, 1, 2, 3].forEach(i => tone(700 + i * 90, { type: 'triangle', dur: 0.09, gain: 0.05, slideTo: 1000 + i * 90, delay: i * 0.1 })); },
   /** "Ah... ah... ACHOO!" (a tickled buddy, a grumpy Glimmer): two breaths in, then a puff. */
@@ -369,7 +468,7 @@ export const sfx = {
   golden() { [1046.5, 1318.5, 1568, 2093].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.5, gain: 0.07, delay: i * 0.05 })); noise(0.9, { gain: 0.04, freq: 8000, q: 0.6, sweepTo: 12000, delay: 0.1 }); },
   // ---------- Glimmer Drop ----------
   /** An egg let go from the cloud: a soft little "fwip". */
-  dropEgg() { noise(0.12, { gain: 0.05, freq: 1800, q: 1.2, sweepTo: 900 }); tone(520, { type: 'sine', dur: 0.09, gain: 0.04, slideTo: 380 }); },
+  dropEgg() { noise(0.12, { gain: 0.04, freq: 1200, q: 1.2, sweepTo: 2400, attack: 0.04 }); tone(520, { type: 'sine', dur: 0.09, gain: 0.04, slideTo: 700 }); },
   /** Something bumps down in the jar: a soft plush thud, deeper for bigger Glimmers (0..10). */
   plop(tier: number, k = 1) { tone(220 - tier * 12, { type: 'sine', dur: 0.12, gain: Math.min(0.08, 0.025 + 0.012 * k), slideTo: 140 - tier * 6 }); },
   /** Two pop and merge: a bubbly pop and a chime that climbs with the Glimmer's size and the chain. */
@@ -385,9 +484,9 @@ export const sfx = {
   /** Two of the biggest make a Glimmer party: a fanfare with sparkles. */
   party() { [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.5, 1567.98].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.24, gain: 0.08, delay: i * 0.08 })); noise(1.2, { gain: 0.05, freq: 9000, q: 0.6, sweepTo: 13000, delay: 0.3 }); },
   /** Wind on its way: a breathy rising whistle. */
-  gustWarn() { noise(1.2, { gain: 0.05, freq: 600, q: 1.4, sweepTo: 1800 }); wobble(700, { dur: 1.1, gain: 0.025, rate: 5, depth: 0.04, type: 'sine', slideTo: 980 }); },
+  gustWarn() { noise(1.2, { gain: 0.05, freq: 600, q: 1.4, sweepTo: 1800, attack: 0.5 }); wobble(700, { dur: 1.1, gain: 0.025, rate: 5, depth: 0.04, type: 'sine', slideTo: 980 }); },
   /** The gust itself: a whoosh. */
-  gust() { noise(1.1, { gain: 0.1, freq: 400, q: 0.7, sweepTo: 2600 }); },
+  gust() { noise(1.1, { gain: 0.08, freq: 400, q: 0.7, sweepTo: 2600, attack: 0.45 }); tone(784, { type: 'sine', dur: 0.5, gain: 0.025, slideTo: 1175, delay: 0.5 }); },
   /** The jar is near the top: a gentle two-note "careful". */
   brink() { tone(660, { type: 'sine', dur: 0.14, gain: 0.05 }); tone(880, { type: 'sine', dur: 0.18, gain: 0.05, delay: 0.16 }); },
   /** The jar is full: a soft, kind "that's it" (not a fail buzzer). */
@@ -405,23 +504,61 @@ export const sfx = {
     tone(f * 1.5, { type: 'sine', dur: 0.3, gain: 0.035, delay: 0.04 });
   },
   /** A sled turning hard: a crisp "shff" of snow. */
-  carve() { noise(0.18, { gain: 0.06, freq: 4200, q: 0.9, sweepTo: 2200 }); },
+  carve() { noise(0.2, { gain: 0.05, freq: 2600, q: 0.9, sweepTo: 4200, attack: 0.07 }); },
   /** Squeaking past just in time. */
-  nearMiss() { noise(0.28, { gain: 0.07, freq: 900, q: 0.7, sweepTo: 4200 }); tone(1174.66, { type: 'sine', dur: 0.12, gain: 0.04, delay: 0.12 }); },
+  nearMiss() { noise(0.28, { gain: 0.07, freq: 900, q: 0.7, sweepTo: 4200, attack: 0.12 }); tone(1174.66, { type: 'sine', dur: 0.12, gain: 0.04, delay: 0.12 }); },
   /** A wrong gate: a soft thump into the snow and a puff (the answer shows; nothing harsh). */
   crash() { tone(130, { type: 'sine', dur: 0.25, gain: 0.12, slideTo: 70 }); noise(0.45, { gain: 0.08, freq: 1600, q: 0.6, sweepTo: 500, delay: 0.02 }); },
   /** A Glimmer into the net: a round little pop. */
   catchPop(combo = 0) { tone(620 + Math.min(10, combo) * 40, { type: 'sine', dur: 0.1, gain: 0.08, slideTo: 1240 + Math.min(10, combo) * 60 }); noise(0.05, { gain: 0.04, freq: 5000, q: 2, delay: 0.02 }); },
   /** A Glimmer that doesn't make the number boinks off the net. */
   boink() { tone(300, { type: 'triangle', dur: 0.16, gain: 0.07, slideTo: 520 }); tone(420, { type: 'sine', dur: 0.12, gain: 0.04, slideTo: 260, delay: 0.12 }); },
-  /** A block lands on the tower: a wooden "tok", deeper as the tower grows. */
-  thunk(h = 0) { const f = Math.max(140, 300 - h * 6); tone(f, { type: 'triangle', dur: 0.12, gain: 0.12, slideTo: f * 0.7 }); noise(0.07, { gain: 0.08, freq: 1400, q: 1.6 }); },
+  /** A block lands on the tower: a real wooden "tok" (two takes, so a tall tower doesn't repeat itself),
+   *  a touch brighter as the tower grows. */
+  thunk(h = 0) {
+    const f = Math.max(140, 300 - h * 6);
+    play(Math.random() < 0.5 ? 'block-1' : 'block-2', { gain: 0.3, rate: Math.min(1.25, 0.95 + h * 0.012) }, () => { tone(f, { type: 'triangle', dur: 0.12, gain: 0.12, slideTo: f * 0.7 }); noise(0.07, { gain: 0.08, freq: 1400, q: 1.6 }); });
+  },
+  /** A lit block lets go: a light airy "fwip" (never a falling whistle). */
+  blockDrop() { noise(0.22, { gain: 0.05, freq: 1200, q: 0.8, sweepTo: 2600, attack: 0.1 }); tone(660, { type: 'sine', dur: 0.12, gain: 0.03, slideTo: 990, attack: 0.04 }); },
+  /** A block that missed the top: a soft puff and a cartoon "boing" (a miss, so gentle, never a buzzer). */
+  blockSlip() { noise(0.3, { gain: 0.05, freq: 800, q: 0.7, sweepTo: 1600, attack: 0.12 }); tone(300, { type: 'triangle', dur: 0.16, gain: 0.07, slideTo: 520, delay: 0.1 }); tone(420, { type: 'sine', dur: 0.12, gain: 0.04, slideTo: 300, delay: 0.24 }); },
+  /** The crane winds the next block in: a quiet little wooden ratchet. */
+  creak() { play('crane-creak', { gain: 0.16 }, () => wobble(330, { dur: 0.4, gain: 0.025, rate: 22, depth: 0.05, type: 'triangle', tone: 1200, attack: 0.08 })); },
   /** A perfect landing: a sparkle on top of the thunk. */
   sparkle() { [1568, 2093, 2637].forEach((n, i) => tone(n, { type: 'sine', dur: 0.25, gain: 0.04, delay: 0.04 + i * 0.05 })); noise(0.4, { gain: 0.025, freq: 9000, q: 0.8, delay: 0.05 }); },
   /** The top of the tower tipping over: a long creak and a whoosh down. */
   topple() { wobble(220, { dur: 0.6, gain: 0.05, rate: 9, depth: 0.04, type: 'triangle', slideTo: 150 }); noise(0.8, { gain: 0.08, freq: 2400, q: 0.7, sweepTo: 300, delay: 0.35 }); },
   /** Time's up: two warm notes. */
   timeUp() { tone(783.99, { type: 'triangle', dur: 0.2, gain: 0.08 }); tone(1046.5, { type: 'triangle', dur: 0.45, gain: 0.08, delay: 0.16 }); },
+  /** Through a golden boost ring: an airy swell and a bright run up, "whoom, ting-ting-ting!" */
+  ringPass() {
+    noise(0.3, { gain: 0.06, freq: 700, q: 0.7, sweepTo: 3600, attack: 0.16 });
+    [1046.5, 1318.5, 1568, 2093].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.22, gain: 0.06, delay: 0.14 + i * 0.045 }));
+    tone(2637, { type: 'sine', dur: 0.5, gain: 0.025, delay: 0.32 });
+  },
+  /** The turbo is full and ready to fire: a bright "ding-DING!" with a shimmer. */
+  turboReady() {
+    tone(1318.5, { type: 'triangle', dur: 0.14, gain: 0.07 });
+    tone(1975.5, { type: 'triangle', dur: 0.4, gain: 0.08, delay: 0.11 });
+    tone(2637, { type: 'sine', dur: 0.5, gain: 0.03, delay: 0.14 });
+    noise(0.5, { gain: 0.03, freq: 9000, q: 0.8, delay: 0.12, attack: 0.08 });
+  },
+  /** Turbo! A rocket "vwoooom" that climbs, a rush of air, and a bright chord on top. */
+  turbo() {
+    tone(160, { type: 'triangle', dur: 0.75, gain: 0.09, slideTo: 640, attack: 0.12 });
+    tone(240, { type: 'square', dur: 0.6, gain: 0.02, slideTo: 960, attack: 0.1 });
+    noise(0.8, { gain: 0.09, freq: 500, q: 0.6, sweepTo: 4000, attack: 0.3 });
+    [523.25, 659.25, 783.99, 1046.5].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.55, gain: 0.05, delay: 0.45 + i * 0.03 }));
+    noise(0.6, { gain: 0.03, freq: 9000, q: 0.8, delay: 0.5, attack: 0.1 });
+  },
+  /** The wind on the slopes: call it every frame with the speed (0 to 1); it stops by itself. */
+  wind(level: number) { windAt(level); },
+  /** Pizza Rush: the next customer steps up to the counter: a friendly shop bell, "ding-dong" going up. */
+  nextUp() {
+    tone(783.99, { type: 'sine', dur: 0.35, gain: 0.07 }); tone(1567.98, { type: 'sine', dur: 0.25, gain: 0.02 });
+    tone(1046.5, { type: 'sine', dur: 0.6, gain: 0.08, delay: 0.16 }); tone(2093, { type: 'sine', dur: 0.4, gain: 0.02, delay: 0.16 });
+  },
   /** A new best score: a little fanfare. */
   newBest() { [523.25, 659.25, 783.99, 1046.5].forEach((n, i) => tone(n, { type: 'square', dur: 0.14, gain: 0.04, delay: i * 0.09 })); [1046.5, 1318.5, 1568].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.7, gain: 0.06, delay: 0.38 + i * 0.02 })); },
 };
@@ -907,6 +1044,31 @@ export function setMusicStation(choice: StationChoice) {
   stationChoice = choice;
   if (started) applyMusic(); else tell();
 }
+/** Someone picked a station in the music picker: it starts playing straight away, even where the music
+ *  hasn't started yet (the title screen, the first moments of a visit). */
+export function playStation(choice: StationChoice) {
+  stationChoice = choice;
+  started = true;
+  applyMusic();
+}
+/** Music was switched back on (or the page came back): carry on where it was. */
+export function resumeMusic() {
+  if (!started) { started = true; applyMusic(); return; }
+  wake();
+}
+/** Wake the sound up: the browser suspends it until a tap or key, and pauses it when the page goes into
+ *  the back/forward cache. Called on page show, when the tab comes back, and on every tap or key (cheap
+ *  when everything is already playing). */
+function wake() {
+  if (!ctx) return;
+  if (ctx.state !== 'running') void ctx.resume();
+  if (deck && deck.el.paused && musicOn && enabled && started) playDeck(deck);
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('pageshow', (e) => { if (e.persisted) wake(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+  for (const ev of ['pointerdown', 'keydown', 'touchend'] as const) window.addEventListener(ev, wake, { capture: true, passive: true });
+}
 /** The next song on this station. */
 export function skipTrack() { const id = currentStation(); if (id !== 'originals') playTrack(id); else if (playing) { const r = playing.region; stopSynth(); startSynth(r); tell(); } }
 
@@ -927,5 +1089,14 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
     deck: () => (deck ? { src: deck.el.src.split('/').pop(), paused: deck.el.paused, time: Math.round(deck.el.currentTime * 10) / 10, gain: deck.gain.gain.value, station: deck.station } : null),
     synth: () => ({ on: !!musicTimer, gain: synthBus?.gain.value }),
     endSoon: () => { if (deck && deck.el.duration) deck.el.currentTime = deck.el.duration - 1.5; },
+    state: () => ctx?.state ?? 'none',
+    /** how loud the game's output is right now (RMS), to check something is really playing */
+    level: () => {
+      if (!ctx || !master) return null;
+      const w = window as unknown as { __an?: AnalyserNode };
+      if (!w.__an) { w.__an = ctx.createAnalyser(); w.__an.fftSize = 2048; master.connect(w.__an); }
+      const d = new Float32Array(w.__an.fftSize); w.__an.getFloatTimeDomainData(d);
+      return Math.sqrt(d.reduce((a, x) => a + x * x, 0) / d.length);
+    },
   };
 }

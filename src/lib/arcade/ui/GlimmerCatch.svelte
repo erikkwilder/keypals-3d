@@ -3,6 +3,9 @@
   // Run the buddy under the ones that make the number and catch them in the net; the others boink off.
   // Four caught and the number changes. Now and then a golden Glimmer floats down: worth a lot.
   // Move with the arrow keys (or A and D), by dragging or tapping where to run, or the arrow buttons.
+  // The first time each round, a few seconds' how-to plays first: a hand taps under a Glimmer that makes
+  // the number, the buddy runs there and catches it (a tick); one that doesn't make it gets a cross and
+  // floats away.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../../state/game.svelte';
   import { stage } from '../../three/stage';
@@ -27,6 +30,9 @@
   let spawnIn = 0, sinceRight = 0, targetAge = 0;
   let lastX = 0;
   let raf = 0, last = 0;
+  /** the how-to at the start: a right one and a wrong one, with their sums */
+  let demo = $state<{ right: string; wrong: string; rid: string; wid: string } | null>(null);
+  const FACES = ['puddlepup', 'sproutbun', 'fernfox', 'sunsnail', 'mushmouse', 'bubbleocto', 'snowseal', 'popcornpuff'];
 
   const swap = (f: Fact): Fact | null => ((f.op ?? 'x') === 'x' || f.op === '+') && f.a !== f.b ? { ...f, a: f.b, b: f.a } : null;
   /** A new number to make: one of the player's facts' answers (the shaky ones more often), the facts
@@ -120,7 +126,17 @@
     scene.paused = ph === 'paused';
     scene.running = ph === 'play';
     if (ph !== 'play') scene.hold(0);
-    if (ph === 'play' && !started) { started = true; newTarget(); spawnIn = 0.3; sfx.whoosh(); }
+    if (ph === 'play' && !started) {
+      started = true; newTarget(); sfx.whoosh();
+      // the how-to first (the Glimmers start falling once it's done)
+      const r = rights[Math.floor(rng() * rights.length)], w = wrongs[Math.floor(rng() * wrongs.length)];
+      if (r && w) {
+        demo = { right: factText(r), wrong: factText(w), rid: FACES[Math.floor(rng() * FACES.length)], wid: FACES[Math.floor(rng() * FACES.length)] };
+        spawnIn = 4.2;
+        hud.hold(4.2);
+        setTimeout(() => (demo = null), 4100);
+      } else spawnIn = 0.3;
+    }
     if ((ph === 'ending' || ph === 'done') && !ended) { ended = true; scene.clear(); scene.react('done'); target = null; }
   });
 
@@ -150,9 +166,10 @@
   {#if target != null && (phase === 'play' || phase === 'paused')}
     {#key flip}
       <div class="card">
-        <span class="make">Make</span>
-        <b>{target}</b>
-        <span class="dots">{#each Array(PER) as _, i}<i class:on={i < caught}></i>{/each}</span>
+        <div class="cl">
+          <div class="row"><span class="make">Make</span><b>{target}</b><span class="dots">{#each Array(PER) as _, i}<i class:on={i < caught}></i>{/each}</span></div>
+          <span class="sub">Catch the Glimmers that make {target}</span>
+        </div>
       </div>
     {/key}
   {/if}
@@ -163,6 +180,20 @@
     {#if !compact}<div class="keys">Run with <span class="kbd">←</span> <span class="kbd">→</span> or drag</div>{/if}
   {/if}
   {#key bump}{#if bump}<div class="glow"></div>{/if}{/key}
+
+  {#if demo && target != null}
+    {@const B = import.meta.env.BASE_URL}
+    <!-- the how-to: catch the one that makes the number, let the other one go -->
+    <div class="demo" aria-hidden="true">
+      <div class="stagebox">
+        <div class="dg right"><img src="{B}game/glimmers/face/{demo.rid}.webp" alt="" /><span>{demo.right}</span><i class="tick"><img src="{B}icons/check.webp" alt="" /></i></div>
+        <div class="dg wrong"><img src="{B}game/glimmers/face/{demo.wid}.webp" alt="" /><span>{demo.wrong}</span><i class="no"><img src="{B}icons/close.webp" alt="" /></i></div>
+        <div class="net"><img src="{B}portraits/{buddy}-head.png" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')} /></div>
+        <img class="hand" src="{B}icons/tap.webp" alt="" />
+      </div>
+      <p><b>{demo.right} = {target}</b> Catch it! <span class="x">{demo.wrong} isn't {target}: let it go.</span></p>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -170,6 +201,9 @@
   .touch { position: absolute; inset: 0; touch-action: none; }
   .card { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 8px 26px 10px; border-radius: 30px; z-index: 4; pointer-events: none;
     background: linear-gradient(#fffef9, #fff3dc); box-shadow: 0 0 0 4px rgba(255, 255, 255, .85), 0 14px 30px -12px rgba(110, 60, 20, .5); animation: card-in .4s cubic-bezier(.3, .8, .4, 1.4); }
+  .cl { display: flex; flex-direction: column; align-items: center; }
+  .row { display: flex; align-items: center; gap: 14px; }
+  .sub { font: 700 15px var(--font-body); color: #7a5a2a; margin-top: -4px; }
   .make { font: 600 30px var(--font-ui); color: #6a4a1a; }
   .card b { font: 600 clamp(56px, 9vh, 96px)/1 var(--font-ui); color: #2a1f45; min-width: 1.3ch; text-align: center; }
   .dots { display: grid; grid-template-columns: repeat(2, 16px); gap: 6px; }
@@ -186,7 +220,33 @@
   .glow { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 80%, rgba(255, 240, 160, .35), rgba(255, 240, 160, 0) 60%); animation: fade .6s ease-out forwards; z-index: 2; }
   @keyframes fade { 0% { opacity: 1; } 100% { opacity: 0; } }
 
+  /* the how-to */
+  .demo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -42%); z-index: 6; width: min(520px, 92vw); padding: 14px 16px 12px; border-radius: 26px; background: rgba(255, 255, 255, .94); box-shadow: 0 0 0 4px #ffe6a0, 0 18px 40px -16px rgba(80, 50, 10, .55); pointer-events: none; animation: pop-in .35s cubic-bezier(.3, .8, .4, 1.4), demo-out .4s 3.7s ease-in forwards; }
+  @keyframes demo-out { to { opacity: 0; transform: translate(-50%, -42%) scale(.92); } }
+  .stagebox { position: relative; height: 190px; border-radius: 18px; background: linear-gradient(#cfeaff, #f4fbe8); overflow: hidden; }
+  .dg { position: absolute; top: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .dg img { width: 58px; height: 58px; border-radius: 50%; box-shadow: 0 0 0 3px #fff; }
+  .dg span { font: 600 20px var(--font-ui); color: #2a1f45; background: #fff; padding: 1px 10px; border-radius: 999px; box-shadow: var(--shadow-sm); }
+  .dg.right { left: 22%; animation: fallright 3.6s ease-in forwards; }
+  .dg.wrong { left: 62%; animation: fallwrong 3.6s ease-in-out forwards; }
+  @keyframes fallright { 0% { transform: translateY(-80px); } 35% { transform: translateY(18px); } 62% { transform: translateY(78px) scale(1); } 72% { transform: translateY(96px) scale(.6); opacity: 1; } 80%, 100% { transform: translateY(96px) scale(.2); opacity: 0; } }
+  @keyframes fallwrong { 0% { transform: translateY(-80px); } 35% { transform: translateY(18px); } 60% { transform: translateY(60px); } 100% { transform: translateY(-60px) translateX(60px) rotate(20deg); opacity: 0; } }
+  .tick, .no { position: absolute; right: -16px; top: -6px; width: 34px; height: 34px; opacity: 0; }
+  .tick img, .no img { width: 100%; height: 100%; object-fit: contain; border-radius: 0; box-shadow: none; }
+  .tick { animation: show .3s 2.2s forwards; }
+  .no { animation: show .3s 1.9s forwards; }
+  @keyframes show { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+  .net { position: absolute; bottom: 8px; left: 60%; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #fff, #ffe6a0); box-shadow: 0 0 0 3px #fff, var(--shadow-sm); display: grid; place-items: center; animation: runnet 3.6s ease-in-out forwards; }
+  .net img { width: 60px; height: 60px; object-fit: contain; }
+  @keyframes runnet { 0%, 32% { left: 60%; } 58%, 100% { left: calc(22% - 6px); } }
+  .hand { position: absolute; width: 56px; height: 56px; object-fit: contain; left: 60%; bottom: 40px; opacity: 0; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .25)); animation: tapdemo 3.6s ease-in-out forwards; }
+  @keyframes tapdemo { 0% { opacity: 0; left: 60%; } 12% { opacity: 1; left: 45%; } 28% { left: calc(22% + 4px); transform: scale(1); } 34% { transform: scale(.82); } 40% { transform: scale(1); } 60% { opacity: 1; } 70%, 100% { opacity: 0; left: calc(22% + 4px); } }
+  .demo p { margin: 10px 0 0; text-align: center; font: 700 16px/1.4 var(--font-body); color: var(--ink2); }
+  .demo p b { color: #1a8a4a; margin-right: 4px; }
+  .demo .x { display: block; color: #b54a1a; }
+
   .compact .card { top: 100px; padding: 6px 18px 8px; gap: 10px; }
+  .compact .sub { font-size: 13px; }
   .compact .make { font-size: 22px; }
   .compact .card b { font-size: 54px; }
   .compact .arrow { width: 76px; height: 76px; bottom: 12px; }

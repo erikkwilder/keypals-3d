@@ -17,7 +17,7 @@ export type Wearable = {
   model?: string;
   /** feet: 'wear/tile-<id>.webp', a painted tile for the shoe shell */
   shoeTile?: string;
-  /** head: width as a share of the head's; face: of the face's; neck: of the shoulders'; back: of the back's; hand: height as a share of the buddy's */
+  /** head: width as a share of the head's; face: of the face's; neck: of the shoulders' (joint to joint); back: of the back's; hand: height as a share of the buddy's */
   size: number;
   /** head: how far it slides down over the head, as a share of its own height */
   sink?: number;
@@ -85,17 +85,17 @@ export const WEARABLES: Wearable[] = [
   { id: 'binocular_specs', name: 'Binocular Specs', slot: 'face', rarity: 'rare', price: 220, vibe: 'goofy', size: 0.95,
     model: 'wear/binocular_specs.glb', icon: 'wear/binocular_specs.webp', text: 'Spot a Glimmer from the other side of the island.' },
   // ---------- neck ----------
-  { id: 'cloud_scarf', name: 'Puffy Cloud Scarf', slot: 'neck', rarity: 'common', price: 70, vibe: 'cosy', size: 1.0,
+  { id: 'cloud_scarf', name: 'Puffy Cloud Scarf', slot: 'neck', rarity: 'common', price: 70, vibe: 'cosy', size: 1.1,
     model: 'wear/cloud_scarf.glb', icon: 'wear/cloud_scarf.webp', text: 'Made from an actual cloud. Very soft. Slightly damp.' },
-  { id: 'gold_medal', name: 'Big Gold Medal', slot: 'neck', rarity: 'uncommon', price: 160, vibe: 'sporty', size: 0.55,
+  { id: 'gold_medal', name: 'Big Gold Medal', slot: 'neck', rarity: 'uncommon', price: 160, vibe: 'sporty', size: 0.36,
     model: 'wear/gold_medal.glb', icon: 'wear/gold_medal.webp', text: 'For being awesome at being you.' },
-  { id: 'polka_bowtie', name: 'Polka-Dot Bow Tie', slot: 'neck', rarity: 'common', price: 50, vibe: 'fancy', size: 0.95,
+  { id: 'polka_bowtie', name: 'Polka-Dot Bow Tie', slot: 'neck', rarity: 'common', price: 50, vibe: 'fancy', size: 0.55,
     model: 'wear/polka_bowtie.glb', icon: 'wear/polka_bowtie.webp', text: 'Instantly 100 percent more fancy. Science.' },
-  { id: 'flower_lei', name: 'Flower Lei', slot: 'neck', rarity: 'common', price: 60, vibe: 'cosy', size: 0.95,
+  { id: 'flower_lei', name: 'Flower Lei', slot: 'neck', rarity: 'common', price: 60, vibe: 'cosy', size: 1.0,
     model: 'wear/flower_lei.glb', icon: 'wear/flower_lei.webp', text: 'Smells like a beach holiday. Says aloha to everyone.' },
-  { id: 'candy_necklace', name: 'Candy Necklace', slot: 'neck', rarity: 'common', price: 40, vibe: 'goofy', size: 0.85,
+  { id: 'candy_necklace', name: 'Candy Necklace', slot: 'neck', rarity: 'common', price: 40, vibe: 'goofy', size: 0.9,
     model: 'wear/candy_necklace.glb', icon: 'wear/candy_necklace.webp', text: 'Snack and style. It is both.' },
-  { id: 'banana_chain', name: 'Banana Bling', slot: 'neck', rarity: 'rare', price: 260, vibe: 'goofy', size: 0.85,
+  { id: 'banana_chain', name: 'Banana Bling', slot: 'neck', rarity: 'rare', price: 260, vibe: 'goofy', size: 0.8,
     model: 'wear/banana_chain.glb', icon: 'wear/banana_chain.webp', text: 'A gold chain. With a banana. Because why not.' },
   // ---------- back ----------
   { id: 'toaster_pack', name: 'Toaster Backpack', slot: 'back', rarity: 'rare', price: 300, vibe: 'goofy', size: 1.7,

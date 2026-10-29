@@ -18,6 +18,7 @@
   import CloseButton from '../ui/CloseButton.svelte';
   import Critter from '../ui/Critter.svelte';
   import NavTile from '../ui/NavTile.svelte';
+  import MenuButton from '../ui/MenuButton.svelte';
   import { mulberry32 } from '../engine/rng';
   import { AREA, AREAS, SKILL, skillsOf, splitKey } from '../math/skills/registry';
   import { SKILL_REGIONS } from '../math/skills/course';
@@ -116,9 +117,18 @@
     for (const id of ALL_GARDEN_IDS) { const s = mathOf(game.profile!).facts[id]?.stage; if (s) snap[id] = s; }
     for (const k of ALL_KEYS) { const s = skillMem(mathOf(game.profile!))[k]?.stage; if (s) snap[k] = s; }
     try {
-      const sc = await GardenScene.create({ plots: plots(), buddy: game.profile!.buddy, view: viewOf(), plot: curPlot });
+      const blooms = stageCounts(mathOf(game.profile!), ALL_GARDEN_IDS)[3] + keyCounts(ALL_KEYS)[3];
+      const sc = await GardenScene.create({ plots: plots(), buddy: game.profile!.buddy, view: viewOf(), plot: curPlot, name: game.profile!.name, blooms });
       if (disposed) { sc.dispose(); return; }
       scene = sc; stage.use(sc);
+      // walking the buddy round: the tabs and beds follow it, the plant beside it shows, the surprises talk
+      sc.onSay = (text) => { say = text; };
+      sc.onWhere = (pl, b) => {
+        if (pl < STRANDS.length) { if (op !== STRANDS[pl].op || area) { op = STRANDS[pl].op; area = null; } }
+        else { const a = AREA_PLOTS[pl - STRANDS.length]; if (a && area !== a.id) area = a.id; }
+        bed = b;
+      };
+      sc.onNear = (id) => peek(id);
       requestAnimationFrame(onResize);
       // scrolling zooms the garden, not the page
       viewEl?.addEventListener('wheel', onWheel, { passive: false });
@@ -128,7 +138,7 @@
     if ((grewIds.length || grewKeys.length) && !firstVisit) setTimeout(() => sfx.star(2), 900);
     raf = requestAnimationFrame(follow);
   });
-  onDestroy(() => { disposed = true; cancelAnimationFrame(raf); cancelAnimationFrame(holdRaf); removeEventListener('resize', onResize); viewEl?.removeEventListener('wheel', onWheel); if (scene && stage.current() === scene) stage.use(null); });
+  onDestroy(() => { disposed = true; cancelAnimationFrame(raf); cancelAnimationFrame(driveRaf); removeEventListener('resize', onResize); viewEl?.removeEventListener('wheel', onWheel); if (scene && stage.current() === scene) stage.use(null); });
 
   // the picked plant's little name tag follows it on screen
   let raf = 0;
@@ -191,24 +201,38 @@
     steered();
   }
   function steered() { looking = true; hinted = true; }
-  /** held arrows walk the view along, every frame until let go */
-  let hold: 'up' | 'down' | 'left' | 'right' | null = null, holdRaf = 0, holdT = 0;
-  function holdOn(d: 'up' | 'down' | 'left' | 'right', e: PointerEvent) {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    hold = d; holdT = performance.now(); steered(); sfx.click();
-    cancelAnimationFrame(holdRaf);
-    const tick = () => { if (!hold || !scene) return; const n = performance.now(); scene.nudge(hold, Math.min(0.05, (n - holdT) / 1000)); holdT = n; holdRaf = requestAnimationFrame(tick); };
-    holdRaf = requestAnimationFrame(tick);
+  // ---------- walking the buddy round the island yourself ----------
+  // the arrow keys or W A S D, the arrows on screen (held), or a tap on the ground
+  type Dir = 'up' | 'down' | 'left' | 'right';
+  const KEYDIR: Record<string, Dir> = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
+  const keysHeld = new Set<Dir>(), padHeld = new Set<Dir>();
+  let driveRaf = 0, driving = false;
+  function driveTick() {
+    const on = (d: Dir) => keysHeld.has(d) || padHeld.has(d);
+    const x = (on('right') ? 1 : 0) - (on('left') ? 1 : 0), z = (on('up') ? 1 : 0) - (on('down') ? 1 : 0);
+    scene?.drive(x, z);
+    if (x || z) { if (!driving) { driving = true; steered(); } driveRaf = requestAnimationFrame(driveTick); }
+    else { driving = false; driveRaf = 0; }
   }
-  function holdOff() { hold = null; cancelAnimationFrame(holdRaf); }
-  function backToGarden() { scene?.resetView(); looking = false; sfx.click(); }
+  function startDrive() { if (!driveRaf) driveRaf = requestAnimationFrame(driveTick); }
+  function holdOn(d: Dir, e: PointerEvent) {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    padHeld.add(d); sfx.click(); startDrive();
+  }
+  function holdOff(d: Dir) { padHeld.delete(d); }
+  function keyUp(e: KeyboardEvent) { const d = KEYDIR[e.code]; if (d) keysHeld.delete(d); }
+  function backToGarden() {
+    // walked off somewhere: the buddy heads back to the plot (or bed) you were at, and the garden frames it
+    if (scene?.walking) scene.show(curPlot, bed); else scene?.resetView();
+    looking = false; sfx.click();
+  }
 
-  /** a tap on the garden: a plant opens its card, the buddy cheers */
+  /** a tap on the garden: a plant opens its card, the buddy cheers, the ground: walk there */
   function tapAt(x: number, y: number) {
     if (!scene) return;
     const h = scene.pickAt(x, y);
     if (h === 'buddy') { say = `${['Hi!', 'Water break!', 'Look how they grow!', 'Wheee!'][Math.floor(Math.random() * 4)]}`; sfx.pop(); return; }
-    if (!h) return;
+    if (!h) { if (scene.walkTo(x, y)) { steered(); sfx.click(); } return; }
     const w = WHERE.get(h.id);
     if (w) pick(GRID[w.op].fact(GRID[w.op].rows[w.bed], GRID[w.op].cols[w.col]));
     else if (KEY_WHERE.has(h.id)) pickKey(h.id);
@@ -220,20 +244,32 @@
   const pickedStat = $derived(picked ? m.facts[factId(picked)] : pickedKey ? skillMem(m)[pickedKey] : undefined);
   const partner = $derived(picked && factId(partnerOf(picked)) !== factId(picked) ? partnerOf(picked) : null);
   const partnerStat = $derived(partner ? m.facts[factId(partner)] : undefined);
+  /** a phone shows the plant's little tag as you walk by, and its card when you tap the tag (or the plant) */
+  let cardOpen = $state(true);
+  /** walked up to a plant: its card (on a phone, just its tag) */
+  function peek(id: string | null) {
+    if (!id) { if (narrow && !cardOpen) unpick(); return; }
+    const w = WHERE.get(id);
+    if (w) { picked = GRID[w.op].fact(GRID[w.op].rows[w.bed], GRID[w.op].cols[w.col]); pickedKey = null; }
+    else if (KEY_WHERE.has(id)) { pickedKey = id; picked = null; }
+    else return;
+    cardOpen = !narrow;
+    scene?.select(id);
+  }
   function pick(f: Fact) {
     const w = WHERE.get(factId(f));
-    picked = f; pickedKey = null; sfx.pop();
+    picked = f; pickedKey = null; cardOpen = true; sfx.pop();
     // (when you're steering the camera yourself, it stays where you put it)
     if (w) { if (w.op !== op || area) { op = w.op; area = null; } if (bed !== w.bed && !looking) { bed = w.bed; scene?.show(plotOf(w.op), w.bed); } }
     scene?.select(factId(f));
   }
   function pickKey(k: string) {
     const w = KEY_WHERE.get(k);
-    pickedKey = k; picked = null; sfx.pop();
+    pickedKey = k; picked = null; cardOpen = true; sfx.pop();
     if (w) { if (w.area !== area) area = w.area; if (bed !== w.bed) { bed = w.bed; scene?.show(areaPlot(w.area), w.bed); } }
     scene?.select(k);
   }
-  function unpick() { picked = null; pickedKey = null; scene?.select(null); }
+  function unpick() { picked = null; pickedKey = null; cardOpen = true; scene?.select(null); }
   /** a skill plant: its skill, the kind of question, and one like it to look at */
   const pk = $derived(pickedKey ? { ...splitKey(pickedKey) } : null);
   const pkSkill = $derived(pk ? SKILL[pk.skill] : null);
@@ -288,6 +324,8 @@
   function setFast(s: number) { game.update(pp => { pp.math = { ...mathOf(pp), fastMs: s * 1000 }; }); }
   let help = $state(false);
   function onKey(e: KeyboardEvent) {
+    const d = KEYDIR[e.code], tag = (e.target as HTMLElement | null)?.tagName;
+    if (d && !game.modalOpen && tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') { e.preventDefault(); keysHeld.add(d); startDrive(); return; }
     if (e.key !== 'Escape' || game.modalOpen) return;
     if (help) help = false; else if (picked || pickedKey) unpick(); else if (bed !== null) goBed(null); else game.go(game.home);
   }
@@ -300,7 +338,7 @@
     : 'Every fact you learn grows here. Take a trip on the Times Trail to plant your first ones!');
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} onkeyup={keyUp} onblur={() => { keysHeld.clear(); padHeld.clear(); }} />
 
 <div class="screen garden" class:narrow>
   <header class="bar">
@@ -312,6 +350,7 @@
       <span title="Sprouts"><img src={STAGE_PIC[1]} alt="" /><b>{counts[1]}</b><small>sprout</small></span>
     </div>
     <button class="helpbtn" onclick={() => { help = !help; sfx.pop(); }} aria-label="How the garden works">?</button>
+    <MenuButton size={36} />
   </header>
 
   <div class="main">
@@ -336,18 +375,22 @@
       <div class="say"><Critter friend={p.buddy} look={p.settings.look} size={narrow ? 40 : 52} round /><p>{say}</p></div>
 
       {#if loading}<div class="loadpill"><img src={STAGE_PIC[1]} alt="" />Planting your garden…</div>{/if}
-      {#if (picked || pickedKey) && tag}<div class="tag" style:left="{tag.x}px" style:top="{tag.y}px">{picked ? show(picked) : pkSub}</div>{/if}
+      {#if (picked || pickedKey) && tag}
+        {#if narrow && !cardOpen}<button class="tag open" style:left="{tag.x}px" style:top="{tag.y}px" onclick={() => { cardOpen = true; sfx.pop(); }}>{picked ? show(picked) : pkSub}<small>tap</small></button>
+        {:else}<div class="tag" style:left="{tag.x}px" style:top="{tag.y}px">{picked ? show(picked) : pkSub}</div>{/if}
+      {/if}
 
-      <!-- walk the view along, and back to where the garden was looking -->
-      <div class="pad" aria-label="Move around">
+      <!-- walk your buddy round the island, and back to where the garden was looking -->
+      <div class="pad" aria-label="Walk your buddy">
         {#each [['up', 90], ['left', 0], ['right', 180], ['down', -90]] as [d, rot] (d)}
-          <button class="mv {d}" onpointerdown={(e) => holdOn(d as 'up' | 'down' | 'left' | 'right', e)} onpointerup={holdOff} onpointercancel={holdOff} aria-label="Move {d}"><img src={iconUrl('back')} alt="" style:transform="rotate({rot}deg)" /></button>
+          <button class="mv {d}" onpointerdown={(e) => holdOn(d as Dir, e)} onpointerup={() => holdOff(d as Dir)} onpointercancel={() => holdOff(d as Dir)} onlostpointercapture={() => holdOff(d as Dir)} aria-label="Walk {d}"><img src={iconUrl('back')} alt="" style:transform="rotate({rot}deg)" /></button>
         {/each}
+        <span class="padme"><Critter friend={p.buddy} look={p.settings.look} size={narrow ? 30 : 34} round /></span>
       </div>
       {#if looking}
         <button class="backview" onclick={backToGarden}><img src={iconUrl(bed === null ? 'garden' : 'redo')} alt="" />{bed === null ? 'Back to the whole garden' : 'Back to the bed'}</button>
       {:else if !hinted && !loading}
-        <p class="hint">Drag to look around · {narrow ? 'pinch' : 'scroll'} to zoom in</p>
+        <p class="hint">{narrow ? 'Tap the ground to walk there · drag to look around' : 'Walk with the arrow keys or W A S D · drag to look around'}</p>
       {/if}
 
       <div class="key" aria-label="What the glows mean">
@@ -369,7 +412,7 @@
     </div>
 
     <aside class="side">
-      {#if picked || pickedKey}
+      {#if (picked || pickedKey) && (!narrow || cardOpen)}
         {@const st = (pickedStat?.stage ?? 0) as Stage}
         <div class="card detail" role="dialog" aria-label={picked ? show(picked) : pkSkill?.name}>
           <span class="x"><CloseButton onclick={unpick} size={36} /></span>
@@ -482,6 +525,9 @@
   .dex { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fbf8f1; border-radius: 14px; padding: 6px 10px; margin: 8px 0 0; }
   .dex > small { font: 700 12px var(--font-body); color: var(--muted); }
   .tag { position: absolute; transform: translate(-50%, -100%); pointer-events: none; font: 600 18px var(--font-ui); color: var(--ink); background: #fff; padding: 2px 12px; border-radius: 999px; box-shadow: 0 0 0 3px #ffd34d, 0 8px 18px -8px rgba(30, 20, 60, .5); white-space: nowrap; }
+  .tag.open { pointer-events: auto; cursor: pointer; border: 0; display: flex; align-items: center; gap: 6px; }
+  .tag.open small { font: 800 11px var(--font-body); color: #fff; background: var(--primary); border-radius: 999px; padding: 1px 7px; }
+  .padme { grid-area: 2 / 2; display: grid; place-items: center; pointer-events: none; }
   .key { position: absolute; right: 12px; top: 64px; display: flex; flex-direction: column; gap: 2px; background: rgba(255, 255, 255, .92); border-radius: 16px; padding: 6px 12px 6px 6px; box-shadow: 0 6px 18px -10px rgba(30, 40, 20, .5); font: 700 13px var(--font-body); color: var(--ink2); }
   .key span { display: flex; align-items: center; gap: 6px; }
   .key img { width: 28px; height: 28px; object-fit: contain; }

@@ -51,6 +51,349 @@ function liftColours(m: THREE.SkinnedMesh, vivid = 1.28, bright = 1.06) {
   }
 }
 
+// ---------- colours: paint a buddy a new colour (adventure/colours.ts) ----------
+/** The colour a buddy is made in (its fur, skin or box), read from its own texture where its head is
+ *  (a hat or a jacket doesn't count): the middle hue, how wide a band, how colourful a pixel has to be,
+ *  and whether the buddy is black or dark grey (then darkness is what's painted, not a hue). */
+type Band = { h: number; w: number; s: number; dark: boolean; v: number; sm: number };
+const bodyHues = new Map<string, Band>();
+/** Momo's cap, Fizz's fin and Axel's frills are bigger than their fur and skin on their heads, Tuck's
+ *  skin is close to his jacket, and Mochi is a black cat with bright eyes ('dark': paint the darkness) */
+const BODY_HINT: Partial<Record<FriendId, string>> = { monkey: '#3a6fd0', fish: '#3b8fc4', axolotl: '#86a85a', turtle: '#7f9c45', cat: 'dark' };
+if (import.meta.env.DEV) (window as unknown as { __bands: typeof bodyHues }).__bands = bodyHues;
+function hsvOf(r: number, g: number, b: number): [number, number, number] {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d > 1e-6) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [((h / 6) + 1) % 1, mx > 0 ? d / mx : 0, mx];
+}
+const hueGap = (a: number, b: number) => Math.abs(((a - b + 1.5) % 1) - 0.5);
+/** sRGB (0..1) to Lab: how far apart two colours look */
+function labOf(r: number, g: number, b: number): [number, number, number] {
+  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const R = lin(r), G = lin(g), B = lin(b);
+  const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const x = f((0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.9505), y = f(0.2126 * R + 0.7152 * G + 0.0722 * B), z = f((0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.089);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
+  const f = (n: number) => { const k = (n + h * 6) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); };
+  return [f(5), f(3), f(1)];
+}
+function bodyHue(id: FriendId, model: THREE.Object3D): Band {
+  const known = bodyHues.get(id);
+  if (known) return known;
+  const hex = FRIEND[id].color, cast = hsvOf(parseInt(hex.slice(1, 3), 16) / 255, parseInt(hex.slice(3, 5), 16) / 255, parseInt(hex.slice(5, 7), 16) / 255)[0];
+  let out: Band = { h: cast, w: 0.07, s: 0.2, dark: false, v: 0.7, sm: 0.5 };
+  try {
+    let mesh: THREE.SkinnedMesh | null = null;
+    model.traverse(o => { const m = o as THREE.SkinnedMesh; if (!mesh && m.isSkinnedMesh && m.geometry.attributes.uv) mesh = m; });
+    const m = mesh as THREE.SkinnedMesh | null;
+    const mt = m && ((Array.isArray(m.material) ? m.material[0] : m.material) as THREE.MeshStandardMaterial);
+    const img = mt?.map?.image as CanvasImageSource | undefined;
+    if (m && img) {
+      const N = 256, cv = document.createElement('canvas'); cv.width = cv.height = N;
+      const cx = cv.getContext('2d', { willReadFrequently: true })!;
+      cx.drawImage(img, 0, 0, N, N);
+      const px = cx.getImageData(0, 0, N, N).data;
+      // the head's own surface (triangles the Head bone moves), each spot weighted by its area, so the
+      // skin or fur counts for more than the eyes and teeth, which have lots of little triangles
+      const hi = m.skeleton.bones.findIndex(b => b.name === 'Head');
+      const uv = m.geometry.attributes.uv, pos = m.geometry.attributes.position, si = m.geometry.attributes.skinIndex, sw = m.geometry.attributes.skinWeight;
+      const ix = m.geometry.index, tris = ix ? ix.count / 3 : pos.count / 3;
+      const onHead = new Uint8Array(pos.count);
+      for (let i = 0; i < pos.count; i++) { let w = 0; for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === hi) w += sw.getComponent(i, k); onHead[i] = w >= 0.6 ? 1 : 0; }
+      const head: [number, number, number, number][] = [];
+      const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
+      for (let t = 0; t < tris; t++) {
+        const a = ix ? ix.getX(t * 3) : t * 3, b = ix ? ix.getX(t * 3 + 1) : t * 3 + 1, c = ix ? ix.getX(t * 3 + 2) : t * 3 + 2;
+        if (!onHead[a] || !onHead[b] || !onHead[c]) continue;
+        A.fromBufferAttribute(pos, a); B.fromBufferAttribute(pos, b); C.fromBufferAttribute(pos, c);
+        const area = B.sub(A).cross(C.sub(A)).length() / 2;
+        const u = (uv.getX(a) + uv.getX(b) + uv.getX(c)) / 3, v = (uv.getY(a) + uv.getY(b) + uv.getY(c)) / 3;
+        const x = Math.min(N - 1, Math.max(0, Math.floor((u % 1 + 1) % 1 * N))), y = Math.min(N - 1, Math.max(0, Math.floor((v % 1 + 1) % 1 * N)));
+        const j = (y * N + x) * 4;
+        const [h, sat, val] = hsvOf(px[j] / 255, px[j + 1] / 255, px[j + 2] / 255);
+        head.push([h, sat, val, area]);
+      }
+      const total = head.reduce((a, x) => a + x[3], 0);
+      const colourful = head.filter(([, sat, v]) => sat >= 0.22 && v >= 0.15), cTotal = colourful.reduce((a, x) => a + x[3], 0);
+      if (head.length > 30 && cTotal >= total * 0.25 && BODY_HINT[id] !== 'dark') {
+        // the commonest colourful hue on the head (by area), then the middle and spread of the hues near it
+        const bins = new Array(36).fill(0);
+        for (const [h, , , ar] of colourful) bins[Math.floor(h * 36) % 36] += ar;
+        // (a few buddies wear a lot of another colour on their heads: start from their own skin or fur)
+        const hint = BODY_HINT[id];
+        const top = hint ? hsvOf(parseInt(hint.slice(1, 3), 16) / 255, parseInt(hint.slice(3, 5), 16) / 255, parseInt(hint.slice(5, 7), 16) / 255)[0] : bins.indexOf(Math.max(...bins)) / 36 + 1 / 72;
+        const near = colourful.filter(([h]) => hueGap(h, top) < 0.08), nT = near.reduce((a, x) => a + x[3], 0) || 1;
+        const sx = near.reduce((a, [h, , , ar]) => a + Math.cos(h * Math.PI * 2) * ar, 0), sy = near.reduce((a, [h, , , ar]) => a + Math.sin(h * Math.PI * 2) * ar, 0);
+        const mean = ((Math.atan2(sy, sx) / (Math.PI * 2)) + 1) % 1;
+        const sd = Math.sqrt(near.reduce((a, [h, , , ar]) => a + hueGap(h, mean) ** 2 * ar, 0) / nT);
+        // how colourful the body is: a pale face or a grey tummy nearby stays as it is
+        const ss = near.map(([, sat]) => sat).sort((a, b) => a - b);
+        // and how light it is (a dark brown monkey and a light blue dino end up just as bright in a colour)
+        const v = near.reduce((a, [, , val, ar]) => a + val * ar, 0) / nT;
+        out = { h: mean, w: Math.max(0.05, Math.min(0.1, sd * 2.2 + 0.02)), s: Math.max(0.2, Math.min(0.45, (ss[Math.floor(ss.length * 0.25)] ?? 0.25) * 0.8)), dark: false, v, sm: near.reduce((a, [, sat, , ar]) => a + sat * ar, 0) / nT };
+      } else if (head.length > 30 && (BODY_HINT[id] === 'dark' || head.filter(([, , v]) => v < 0.3).reduce((a, x) => a + x[3], 0) >= total * 0.45)) {
+        // a black or dark grey buddy (Ink, Mochi): its darkness is what gets the colour
+        const darkBits = head.filter(([, , val]) => val < 0.3), dT = darkBits.reduce((a, x) => a + x[3], 0) || 1;
+        out = { h: cast, w: 0.07, s: 0.2, dark: true, v: darkBits.reduce((a, [, , val, ar]) => a + val * ar, 0) / dT, sm: 0.1 };
+      }
+    }
+  } catch { /* a texture that can't be read: the cast's colour */ }
+  bodyHues.set(id, out);
+  return out;
+}
+// ---------- the mask: which bits of the buddy are its own colour ----------
+// The buddy's own surface: the triangles in the colour its head is made in (a jacket or hat in another
+// colour isn't), in pieces big enough to be fur or skin rather than a pattern, with clothes a buddy
+// wears in its own colour left out by name below. Drawn into a picture the shape of its texture.
+type Zone = 'head' | 'neck' | 'torso' | 'arm' | 'forearm' | 'hand' | 'thigh' | 'shin' | 'foot';
+const ZONE: Record<string, Zone> = {
+  Head: 'head', head_end: 'head', headfront: 'head', neck: 'neck', Hips: 'torso', Spine: 'torso', Spine01: 'torso', Spine02: 'torso', LeftShoulder: 'torso', RightShoulder: 'torso',
+  LeftArm: 'arm', RightArm: 'arm', LeftForeArm: 'forearm', RightForeArm: 'forearm', LeftHand: 'hand', RightHand: 'hand',
+  LeftUpLeg: 'thigh', RightUpLeg: 'thigh', LeftLeg: 'shin', RightLeg: 'shin', LeftFoot: 'foot', RightFoot: 'foot', LeftToeBase: 'foot', RightToeBase: 'foot',
+};
+/** Clothes in a buddy's own colour stay as they are: the parts of the body they cover (skip; or only:
+ *  the parts where the fur or skin shows), or boxes round them (cut), with boxes kept anyway (keep: a
+ *  tail out of a jacket). Boxes are shares of the buddy's size, [left, bottom, back, right, top, front],
+ *  0 to 1. tol: how far from the body's colour still counts (1: as found); bright: how much lighter
+ *  than the body a bit of it can be (a paler face). */
+type Box = [number, number, number, number, number, number];
+type Fix = { skip?: Zone[]; only?: Zone[]; cut?: Box[]; keep?: Box[]; tol?: number; bright?: number };
+const PAINT_FIX: Partial<Record<FriendId, Fix>> = {
+  // jackets, sweaters and hoods in the buddy's own colour (and tails that hang out of them)
+  cheetah: { skip: ['torso', 'arm', 'forearm'], keep: [[0, 0, 0, 1, 0.62, 0.32]] },
+  monkey: { skip: ['torso', 'arm', 'forearm'], keep: [[0, 0, 0, 1, 0.6, 0.15]] },
+  turtle: { only: ['head', 'neck', 'hand', 'shin'], tol: 0.7 },
+  sweater: { skip: ['torso', 'arm', 'forearm'] },
+  dog: { skip: ['torso', 'arm', 'forearm'] },
+  // Moss's bucket hat is the same brown as his fur, and his jeans have brown pockets
+  sloth: { only: ['head', 'hand'], cut: [[0, 0.83, 0, 1, 1, 1]] },
+  // Ember's colour is her white hair: her white shirt and shoes stay white
+  elf: { only: ['head', 'hand'] },
+  // a coat in many yellows, and a paler face
+  fluff: { tol: 2.6, bright: 2.1 }, diver: { tol: 2.6, bright: 2.1 },
+  // brown tips on a tan coat, and straw in many yellows
+  terrier: { tol: 1.7, bright: 1.8 }, straw: { tol: 2.2, bright: 2.1 },
+};
+const ZONES: Zone[] = ['head', 'neck', 'torso', 'arm', 'forearm', 'hand', 'thigh', 'shin', 'foot'];
+type Plan = { mask: THREE.CanvasTexture; h: number; hw: number; s: number; lum: number; grey: boolean };
+const plans = new Map<string, Plan | null>();
+if (import.meta.env.DEV) (window as unknown as { __plans: typeof plans }).__plans = plans;
+const luma = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
+function paintPlan(id: FriendId, model: THREE.Object3D): Plan | null {
+  if (plans.has(id)) return plans.get(id)!;
+  let out: Plan | null = null;
+  try { out = buildPlan(id, model); } catch { out = null; }
+  plans.set(id, out);
+  return out;
+}
+function headRef(m: THREE.SkinnedMesh, px: Uint8ClampedArray, N: number, band: Band) {
+  const hi = m.skeleton.bones.findIndex(b => b.name === 'Head');
+  const g = m.geometry, uv = g.attributes.uv, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+  const pts: [number, number, number][] = [];
+  for (let i = 0; i < uv.count; i += 1) {
+    let w = 0;
+    for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === hi) w += sw.getComponent(i, k);
+    if (w < 0.6) continue;
+    const x = Math.min(N - 1, Math.max(0, Math.floor(((uv.getX(i) % 1) + 1) % 1 * N))), y = Math.min(N - 1, Math.max(0, Math.floor(((uv.getY(i) % 1) + 1) % 1 * N)));
+    const j = (y * N + x) * 4, r = px[j] / 255, gg = px[j + 1] / 255, b = px[j + 2] / 255;
+    const [h, sat, val] = hsvOf(r, gg, b);
+    if (band.dark ? val < 0.3 : hueGap(h, band.h) <= band.w && sat >= band.s) pts.push(labOf(r, gg, b));
+  }
+  if (pts.length < 10) return { L: 50, a: 0, b: 0, tol: 12 };
+  const med = (xs: number[]) => xs.sort((p, q) => p - q)[Math.floor(xs.length / 2)];
+  const L = med(pts.map(p => p[0])), a = med(pts.map(p => p[1])), b = med(pts.map(p => p[2]));
+  const d = pts.map(([pl, pa, pb]) => { const k = Math.min(L / Math.max(8, pl), 2); return Math.hypot(pa * k - a, pb * k - b); }).sort((p, q) => p - q);
+  return { L, a, b, tol: Math.max(8, Math.min(16, d[Math.floor(d.length * 0.8)] * 1.5)) };
+}
+function buildPlan(id: FriendId, model: THREE.Object3D): Plan | null {
+  const band = bodyHue(id, model);
+  let mesh: THREE.SkinnedMesh | null = null;
+  model.traverse(o => { const m = o as THREE.SkinnedMesh; if (!mesh && m.isSkinnedMesh && m.geometry.attributes.uv) mesh = m; });
+  const m = mesh as THREE.SkinnedMesh | null;
+  const img = m && ((Array.isArray(m.material) ? m.material[0] : m.material) as THREE.MeshStandardMaterial).map?.image as CanvasImageSource | undefined;
+  if (!m || !img) return null;
+  const N = 1024, cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const cx = cv.getContext('2d', { willReadFrequently: true })!;
+  cx.drawImage(img, 0, 0, N, N);
+  const px = cx.getImageData(0, 0, N, N).data;
+  const g = m.geometry, uv = g.attributes.uv, pos = g.attributes.position, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, ix = g.index;
+  const tris = ix ? ix.count / 3 : pos.count / 3;
+  const vid = (t: number, k: number) => (ix ? ix.getX(t * 3 + k) : t * 3 + k);
+  // each vertex: its part of the body (the bone that moves it most), and the same spot on the mesh
+  // for vertices split at a seam in the texture
+  const zone: Zone[] = [], weld = new Int32Array(pos.count), keys = new Map<string, number>();
+  const names = m.skeleton.bones.map(b => ZONE[b.name] ?? 'torso');
+  for (let i = 0; i < pos.count; i++) {
+    let best = 0, bw = -1;
+    for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; best = si.getComponent(i, k); } }
+    zone.push(names[best] ?? 'torso');
+    const key = `${Math.round(pos.getX(i) * 1e4)},${Math.round(pos.getY(i) * 1e4)},${Math.round(pos.getZ(i) * 1e4)}`;
+    weld[i] = keys.get(key) ?? (keys.set(key, keys.size), keys.size - 1);
+  }
+  g.computeBoundingBox();
+  const bb = g.boundingBox!, sz = bb.getSize(new THREE.Vector3());
+  const fix = PAINT_FIX[id] ?? {}, skip = new Set(fix.only ? ZONES.filter(z => !fix.only!.includes(z)) : fix.skip ?? []);
+  const inBox = (p: THREE.Vector3, bx: Box) => {
+    const x = (p.x - bb.min.x) / sz.x, y = (p.y - bb.min.y) / sz.y, z = (p.z - bb.min.z) / sz.z;
+    return x >= bx[0] && x <= bx[3] && y >= bx[1] && y <= bx[4] && z >= bx[2] && z <= bx[5];
+  };
+  // each triangle: is it the body's colour (most of four spots on it), its part, its area
+  const sample = (u: number, v: number) => {
+    const x = Math.min(N - 1, Math.max(0, Math.floor(((u % 1) + 1) % 1 * N))), y = Math.min(N - 1, Math.max(0, Math.floor(((v % 1) + 1) % 1 * N)));
+    const j = (y * N + x) * 4;
+    return [px[j] / 255, px[j + 1] / 255, px[j + 2] / 255] as const;
+  };
+  // the body's colour as it looks (Lab), from the head's surface in the body's hue: a pixel is the body's
+  // if its colour (not counting how light it is: shading) is close to that, and it's not far lighter or darker
+  const ref = headRef(m, px, N, band), tol = ref.tol * (PAINT_FIX[id]?.tol ?? 1);
+  const like = (r: number, gg: number, b: number) => {
+    const [L, a, bb] = labOf(r, gg, b);
+    if (band.dark) { const [, sat, val] = hsvOf(r, gg, b); return sat < 0.3 && val < 0.42 && val > 0.03; }
+    // (darker bits of a colour are less colourful: compare at the body's lightness)
+    const k = ref.L / Math.max(8, L);
+    return Math.hypot(a * Math.min(k, 2) - ref.a, bb * Math.min(k, 2) - ref.b) <= tol && L >= ref.L * 0.42 && L <= ref.L * (PAINT_FIX[id]?.bright ?? 1.5) + 6;
+  };
+  const body = new Uint8Array(tris), tz: Zone[] = [], area = new Float32Array(tris), stat: [number, number, number, number][] = [];
+  const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
+  for (let t = 0; t < tris; t++) {
+    const a = vid(t, 0), b = vid(t, 1), c = vid(t, 2);
+    const ua = uv.getX(a), va = uv.getY(a), ub = uv.getX(b), vb = uv.getY(b), uc = uv.getX(c), vc = uv.getY(c);
+    const mu = (ua + ub + uc) / 3, mv = (va + vb + vc) / 3;
+    let n = 0, sr = 0, sg = 0, sb = 0;
+    for (const [u, v] of [[mu, mv], [(mu * 2 + ua) / 3, (mv * 2 + va) / 3], [(mu * 2 + ub) / 3, (mv * 2 + vb) / 3], [(mu * 2 + uc) / 3, (mv * 2 + vc) / 3]]) {
+      const [r, gg, bb] = sample(u, v);
+      if (like(r, gg, bb)) { n++; sr += r; sg += gg; sb += bb; }
+    }
+    A.fromBufferAttribute(pos, a); B.fromBufferAttribute(pos, b); C.fromBufferAttribute(pos, c);
+    area[t] = B.clone().sub(A).cross(C.clone().sub(A)).length() / 2;
+    const zs = [zone[a], zone[b], zone[c]];
+    tz.push(zs[0] === zs[1] || zs[0] === zs[2] ? zs[0] : zs[1]);
+    const mid = A.clone().add(B).add(C).divideScalar(3);
+    const out = (skip.has(tz[t]) || (fix.cut ?? []).some(bx => inBox(mid, bx))) && !(fix.keep ?? []).some(bx => inBox(mid, bx));
+    body[t] = n >= 2 && !out ? 1 : 0;
+    if (out) tz[t] = 'skip' as Zone;
+    stat.push(n ? [sr / n, sg / n, sb / n, n] : [0, 0, 0, 0]);
+  }
+  // which triangles touch each spot on the mesh
+  const start = new Int32Array(keys.size + 1);
+  for (let t = 0; t < tris; t++) for (let k = 0; k < 3; k++) start[weld[vid(t, k)] + 1]++;
+  for (let i = 0; i < keys.size; i++) start[i + 1] += start[i];
+  const fill = start.slice(0, keys.size), around = new Int32Array(tris * 3);
+  for (let t = 0; t < tris; t++) for (let k = 0; k < 3; k++) around[fill[weld[vid(t, k)]]++] = t;
+  const each = (t: number, f: (o: number) => void) => { for (let k = 0; k < 3; k++) { const w = weld[vid(t, k)]; for (let q = start[w]; q < start[w + 1]; q++) if (around[q] !== t) f(around[q]); } };
+  // the body's colour in pieces across the mesh: big pieces (or ones on the head) are the buddy, little
+  // ones are a pattern on its clothes that happens to match
+  const inn = new Uint8Array(tris), comp = new Int32Array(tris).fill(-1);
+  let bodyArea = 0;
+  for (let t = 0; t < tris; t++) if (body[t]) bodyArea += area[t];
+  for (let t0 = 0; t0 < tris; t0++) {
+    if (!body[t0] || comp[t0] >= 0) continue;
+    const list = [t0], stack = [t0];
+    comp[t0] = t0;
+    let ar = 0, head = false;
+    while (stack.length) {
+      const t = stack.pop()!; ar += area[t]; head ||= tz[t] === 'head';
+      each(t, o => { if (body[o] && comp[o] < 0) { comp[o] = t0; stack.push(o); list.push(o); } });
+    }
+    if (head || ar >= bodyArea * 0.012) list.forEach(t => (inn[t] = 1));
+  }
+  if (!inn.some(Boolean)) return null;
+  // close little holes (a spot, a stripe, a crease): a triangle mostly surrounded by the body joins it
+  for (let pass = 0; pass < 2; pass++) {
+    const add: number[] = [];
+    for (let t = 0; t < tris; t++) {
+      if (inn[t] || (tz[t] as string) === 'skip') continue;
+      let tot = 0, yes = 0;
+      each(t, o => { tot++; yes += inn[o]; });
+      if (tot && yes / tot >= 0.7) add.push(t);
+    }
+    add.forEach(t => (inn[t] = 1));
+  }
+  // the body's colour, from its own triangles (by area)
+  let wsum = 0, L = 0, S = 0, hx = 0, hy = 0;
+  for (let t = 0; t < tris; t++) {
+    if (!inn[t] || !stat[t][3]) continue;
+    const [r, gg, b] = stat[t], [h, sat] = hsvOf(r, gg, b), w = area[t];
+    wsum += w; L += luma(r, gg, b) * w; S += sat * w; hx += Math.cos(h * Math.PI * 2) * w * sat; hy += Math.sin(h * Math.PI * 2) * w * sat;
+  }
+  if (!wsum) return null;
+  // draw the mask: the body's triangles in white, a pixel or so wider so the edges of the texture's pieces
+  // don't show as thin lines in the old colour (the pixel test in the shader keeps it off the clothes)
+  const mc = document.createElement('canvas'); mc.width = mc.height = N;
+  const mx = mc.getContext('2d')!;
+  mx.fillStyle = '#000'; mx.fillRect(0, 0, N, N);
+  mx.fillStyle = mx.strokeStyle = '#fff'; mx.lineWidth = 2; mx.lineJoin = 'round';
+  mx.beginPath();
+  for (let t = 0; t < tris; t++) {
+    if (!inn[t]) continue;
+    const a = vid(t, 0), b = vid(t, 1), c = vid(t, 2);
+    mx.moveTo(uv.getX(a) * N, uv.getY(a) * N); mx.lineTo(uv.getX(b) * N, uv.getY(b) * N); mx.lineTo(uv.getX(c) * N, uv.getY(c) * N); mx.closePath();
+  }
+  mx.fill(); mx.stroke();
+  const soft = document.createElement('canvas'); soft.width = soft.height = N;
+  const sx = soft.getContext('2d')!;
+  sx.filter = 'blur(0.8px)'; sx.drawImage(mc, 0, 0);
+  const mask = new THREE.CanvasTexture(soft);
+  // (no smaller copies: those blur the pieces' edges into lines when the buddy is small on screen)
+  mask.flipY = false; mask.colorSpace = THREE.NoColorSpace; mask.generateMipmaps = false; mask.minFilter = THREE.LinearFilter;
+  const S0 = S / wsum;
+  return { mask, h: ((Math.atan2(hy, hx) / (Math.PI * 2)) + 1) % 1, hw: Math.max(0.06, band.w * 1.2) * (fix.tol ?? 1), s: S0, lum: Math.max(0.04, L / wsum), grey: band.dark || S0 < 0.16 };
+}
+const PAINT_HEAD = `uniform float uPaint; uniform sampler2D uMask; uniform float uLum; uniform float uSB; uniform float uH0; uniform float uHW; uniform float uGrey;
+uniform float uHT; uniform float uST; uniform float uK; uniform float uMode; uniform float uPTime;
+vec3 kpHsv(vec3 c) { vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0); vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g)); vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r)); float d = q.x - min(q.w, q.y); float e = 1.0e-10; return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x); }
+vec3 kpRgb(vec3 c) { vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0); vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www); return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y); }
+`;
+// The new colour keeps the buddy's own light and shade: each pixel as much lighter or darker than the
+// body's middle as it was, its hue moved round by the same amount, and dark markings (stripes, spots,
+// lines) and bits in other colours (a nose, a tummy) left as they are.
+const PAINT_BODY = `
+#ifdef USE_MAP
+if (uPaint > 0.5) {
+  float m = texture2D(uMask, vMapUv).r;
+  if (m > 0.004) {
+    vec3 sc = pow(max(diffuseColor.rgb, vec3(0.0)), vec3(1.0 / 2.2));
+    vec3 hsv = kpHsv(sc);
+    float L = dot(sc, vec3(0.299, 0.587, 0.114));
+    float r = L / uLum;
+    float dh = fract(hsv.x - uH0 + 0.5) - 0.5;
+    // dark markings (stripes, spots, lines) take the new hue but stay just as dark as they were
+    float body = smoothstep(0.3, 0.52, r);
+    float hw = uHW * mix(3.0, 1.0, body);
+    float like = uGrey > 0.5 ? 1.0 - smoothstep(0.24, 0.4, hsv.y)
+      : mix(1.0, 1.0 - smoothstep(hw, hw * 2.0, abs(dh)), smoothstep(0.1, 0.25, hsv.y));
+    float w = m * like;
+    if (w > 0.001) {
+      float hue = fract(uHT + (uGrey > 0.5 ? 0.0 : dh * 0.35) + 1.0);
+      float sat = clamp(uST * mix(1.0, clamp(hsv.y / max(uSB, 0.05), 0.65, 1.3), uGrey > 0.5 ? 0.0 : 0.5), 0.0, 1.0);
+      if (uMode > 1.5 && uMode < 2.5) { hue = fract(uPTime * 0.05 + vMapUv.y * 1.4 + vMapUv.x * 0.7); sat = 0.62; }
+      float Ln = mix(L, clamp(uLum * uK * pow(max(r, 0.0), 0.85), 0.0, 1.0), body);
+      sat *= mix(0.75, 1.0, body);
+      vec3 base = kpRgb(vec3(hue, sat, 1.0));
+      vec3 rgb = base * (Ln / max(dot(base, vec3(0.299, 0.587, 0.114)), 0.05));
+      float top = max(rgb.r, max(rgb.g, rgb.b));
+      if (top > 1.0) rgb = mix(rgb / top, vec3(1.0), clamp((top - 1.0) * 0.4, 0.0, 1.0));
+      if (uMode > 0.5 && uMode < 1.5) {
+        float sweep = pow(max(0.0, sin(vMapUv.y * 9.0 + vMapUv.x * 4.0 - uPTime * 2.2)), 8.0);
+        rgb += vec3(1.0, 0.86, 0.5) * sweep * 0.35;
+      }
+      if (uMode > 2.5) {
+        vec2 g = floor(vMapUv * 240.0);
+        float rr = fract(sin(dot(g, vec2(12.9898, 78.233))) * 43758.5453);
+        rgb += vec3(1.0, 0.95, 1.0) * step(0.988, rr) * (0.55 + 0.45 * sin(uPTime * 3.0 + rr * 40.0)) * 0.85;
+        float n = sin(vMapUv.x * 7.0 + uPTime * 0.3) * sin(vMapUv.y * 6.0 - uPTime * 0.2);
+        rgb = mix(rgb, rgb * vec3(0.85, 0.9, 1.35) + vec3(0.06, 0.0, 0.08), 0.3 + 0.3 * n);
+      }
+      diffuseColor.rgb = mix(diffuseColor.rgb, pow(max(rgb, vec3(0.0)), vec3(2.2)), w);
+    }
+  }
+}
+#endif
+`;
+
 /** Shared looks: smooth mode (older computers) has no real shadows, so each buddy gets a soft blob under its feet. */
 export const charLook = { blob: false };
 let blobParts: { geo: THREE.CircleGeometry; mat: THREE.MeshBasicMaterial } | null = null;
@@ -191,8 +534,51 @@ export class Character {
     this.addClips(clips);
   }
 
+  // ---------- a new colour (adventure/colours.ts) ----------
+  private paint: { u: Record<string, THREE.IUniform>; tick: (dt: number) => void } | null = null;
+  private isShadowed = false;
+  /** Paint the buddy a new colour (null: its own colour). Only the buddy's own hue changes; the eyes, the
+   *  mouth and clothes in other colours stay as they are. Gold, rainbow and galaxy move a little. */
+  setColour(c: { hue: number; sat: number; light: number; mode: 'plain' | 'gold' | 'rainbow' | 'galaxy' } | null) {
+    if (this.isShadowed) return;
+    if (!c) { if (this.paint) this.paint.u.uPaint.value = 0; return; }
+    if (!this.paint) {
+      const plan = paintPlan(this.id, this.model);
+      if (!plan) return;
+      const u: Record<string, THREE.IUniform> = {
+        uPaint: { value: 1 }, uMask: { value: plan.mask }, uLum: { value: plan.lum }, uSB: { value: plan.s }, uH0: { value: plan.h }, uHW: { value: plan.hw }, uGrey: { value: plan.grey ? 1 : 0 },
+        uHT: { value: 0 }, uST: { value: 0 }, uK: { value: 1 }, uMode: { value: 0 }, uPTime: { value: 0 },
+      };
+      this.model.traverse(o => {
+        const m = o as THREE.Mesh;
+        if (!m.isMesh) return;
+        const one = (mat: THREE.Material) => {
+          const cl = mat.clone(), prev = mat.onBeforeCompile;
+          cl.onBeforeCompile = (sh, r) => {
+            prev.call(mat, sh, r);
+            Object.assign(sh.uniforms, u);
+            sh.fragmentShader = PAINT_HEAD + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n' + PAINT_BODY);
+          };
+          cl.customProgramCacheKey = () => 'kp-paint';
+          return cl;
+        };
+        m.material = Array.isArray(m.material) ? m.material.map(one) : one(m.material);
+      });
+      const tick = (dt: number) => { (u.uPTime.value as number) += dt; };
+      this.tickers.add(tick);
+      this.paint = { u, tick };
+    }
+    const u = this.paint.u, lum = u.uLum.value as number;
+    // how light the new colour is, against how light the buddy is
+    const [r, g, b] = hsvToRgb(c.hue, c.sat, Math.min(1, 0.78 * c.light));
+    u.uPaint.value = 1; u.uHT.value = c.hue; u.uST.value = c.sat;
+    u.uK.value = Math.max(0.3, Math.min(2.6, luma(r, g, b) / lum));
+    u.uMode.value = c.mode === 'gold' ? 1 : c.mode === 'rainbow' ? 2 : c.mode === 'galaxy' ? 3 : 0;
+  }
+
   /** Shown in shadowy black and white (a buddy who hasn't joined the team yet). */
   shadowed() {
+    this.isShadowed = true;
     this.model.traverse(o => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
@@ -364,6 +750,9 @@ export class Character {
     h.scale.setScalar(n?.s ?? 1);
   }
 
+  /** The hat's holder (the Wardrobe taps it to move it), or null without a hat. */
+  hatHolder(): THREE.Object3D | null { return this.outfit; }
+
   /** Put an outfit on the head; `make` builds a fresh copy of the outfit's model. */
   async wear(id: string, make: (id: string) => Promise<THREE.Object3D | null>) {
     if (id === this.outfitId) return;
@@ -382,6 +771,7 @@ export class Character {
     holder.position.copy(fit.top);
     holder.quaternion.copy(fit.basis);
     holder.traverse(o => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+    holder.userData.wear = { slot: 'head', id };
     head.add(holder);
     this.outfit = holder;
     if (this.hatN) this.nudgeHat(this.hatN);
