@@ -62,6 +62,8 @@ for (const [t, rs] of ordered) {
     for (let i = PIECE; i < d.length; i += PIECE) lines.push(`UPDATE players SET data = data || ${q(d.slice(i, i + PIECE))} WHERE code = ${q(r.code)};`);
   }
 }
+// a player a grown-up deleted everywhere since the backup stays deleted (worker.js: the gone table)
+lines.push('DELETE FROM players WHERE code IN (SELECT code FROM gone);');
 const dir = mkdtempSync(join(tmpdir(), 'kp-restore-')), file = join(dir, 'restore.sql');
 writeFileSync(file, lines.join('\n'));
 try { wrangler(['d1', 'execute', DB, ...where(LOCAL), '--file', file, ...(LOCAL ? [] : ['--yes'])], { stdio: ['ignore', 'ignore', 'inherit'] }); }

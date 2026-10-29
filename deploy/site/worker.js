@@ -120,6 +120,12 @@ async function finishSignIn(env, url, p) {
 }
 
 // ---------- players (save codes) ----------
+/** A player deleted everywhere by a grown-up answers "gone" (410) with when, so a computer that still has
+ *  a copy removes it instead of keeping or re-sending it. */
+async function goneAnswer(env, code) {
+  const g = await env.DB.prepare('SELECT at FROM gone WHERE code = ?').bind(code).first();
+  return g ? json({ code, gone: true, at: g.at, error: 'A grown-up deleted this player.' }, 410) : null;
+}
 async function readBody(request, maxBytes = 400000) {
   const text = await request.text();
   if (text.length > maxBytes) return null;
@@ -149,7 +155,8 @@ async function api(request, env, url) {
     const now = Date.now();
     for (let tries = 0; tries < 5; tries++) {
       const code = newCode();
-      const r = await env.DB.prepare('INSERT OR IGNORE INTO players (code, data, updated, created, opened) VALUES (?, ?, ?, ?, ?)').bind(code, JSON.stringify(body.profile), now, now, now).run();
+      // (never a code that was deleted everywhere: computers may still be told it's gone)
+      const r = await env.DB.prepare('INSERT OR IGNORE INTO players (code, data, updated, created, opened) SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM gone WHERE code = ?)').bind(code, JSON.stringify(body.profile), now, now, now, code).run();
       if (r.meta.changes) {
         const acct = await currentAccount(env, request);
         if (acct) await env.DB.prepare('UPDATE players SET account = ? WHERE code = ?').bind(acct.id, code).run();
@@ -166,7 +173,7 @@ async function api(request, env, url) {
       // guessing codes is slow: a few dozen tries an hour from one address
       if (await limited(env, request, 'open', 60, 60)) return fail(429, 'Too many tries from here. Try again later.');
       const row = await env.DB.prepare('SELECT data, updated FROM players WHERE code = ?').bind(code).first();
-      if (!row) return fail(404, "That save code wasn't found. Check the words and number.");
+      if (!row) return (await goneAnswer(env, code)) ?? fail(404, "That save code wasn't found. Check the words and number.");
       await env.DB.prepare('UPDATE players SET opened = ? WHERE code = ?').bind(Date.now(), code).run();
       return json({ code, profile: JSON.parse(row.data), updated: row.updated });
     }
@@ -175,7 +182,8 @@ async function api(request, env, url) {
       const body = await readBody(request);
       if (!body || typeof body.profile !== 'object') return fail(400, 'No player to save.');
       const row = await env.DB.prepare('SELECT updated FROM players WHERE code = ?').bind(code).first();
-      if (!row) return fail(404, 'That save code no longer exists.');
+      // deleted everywhere by a grown-up: an old copy can't bring it back
+      if (!row) return (await goneAnswer(env, code)) ?? fail(404, 'That save code no longer exists.');
       // always later than the copy it replaces, so the next save's `base` is unique
       const at = Math.max(Number(body.updated) || Date.now(), row.updated + 1);
       const data = JSON.stringify(body.profile);
@@ -213,7 +221,9 @@ async function api(request, env, url) {
     if (!acct) return fail(401, 'Not signed in.');
     const rows = await env.DB.prepare('SELECT code, data, updated FROM players WHERE account = ? ORDER BY updated DESC').bind(acct.id).all();
     const players = rows.results.map(r => { const d = JSON.parse(r.data); return { code: r.code, name: d.name, buddy: d.buddy, updated: r.updated }; });
-    return json({ account: { name: acct.name, email: acct.email, provider: acct.provider }, players });
+    // players this grown-up deleted everywhere: every computer signed in removes its copy
+    const gone = (await env.DB.prepare('SELECT code, at FROM gone WHERE account = ? ORDER BY at DESC LIMIT 500').bind(acct.id).all()).results;
+    return json({ account: { name: acct.name, email: acct.email, provider: acct.provider }, players, gone });
   }
   if (path === '/me' && method === 'DELETE') {
     const acct = await currentAccount(env, request);
@@ -222,8 +232,36 @@ async function api(request, env, url) {
     if (body.players) await env.DB.prepare('DELETE FROM players WHERE account = ?').bind(acct.id).run();
     else await env.DB.prepare('UPDATE players SET account = NULL WHERE account = ?').bind(acct.id).run();
     await env.DB.prepare('DELETE FROM sessions WHERE account = ?').bind(acct.id).run();
+    await env.DB.prepare('UPDATE gone SET account = NULL WHERE account = ?').bind(acct.id).run();
     await env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(acct.id).run();
     return json({ ok: true }, 200, { 'set-cookie': cookie('kp_session', '', 0) });
+  }
+  // a player in the account, in full (for bringing it to this computer: no code guessing to slow down here)
+  m = path.match(/^\/me\/players\/([^/]+)$/);
+  if (m && method === 'GET') {
+    const acct = await currentAccount(env, request);
+    if (!acct) return fail(401, 'Not signed in.');
+    if (await limited(env, request, 'sync', 600, 60)) return fail(429, 'Too many tries from here. Try again later.');
+    const code = cleanCode(decodeURIComponent(m[1]));
+    const row = await env.DB.prepare('SELECT data, updated FROM players WHERE code = ? AND account = ?').bind(code, acct.id).first();
+    if (!row) return (await goneAnswer(env, code)) ?? fail(404, 'That player was not found.');
+    await env.DB.prepare('UPDATE players SET opened = ? WHERE code = ?').bind(Date.now(), code).run();
+    return json({ code, profile: JSON.parse(row.data), updated: row.updated });
+  }
+  // delete a player everywhere: the saved copy goes, and a tombstone (the code and when, no data) tells
+  // every other computer to remove its copy too
+  m = path.match(/^\/me\/players\/([^/]+)\/everywhere$/);
+  if (m && method === 'DELETE') {
+    const acct = await currentAccount(env, request);
+    if (!acct) return fail(401, 'Not signed in.');
+    const code = cleanCode(decodeURIComponent(m[1]));
+    const row = await env.DB.prepare('SELECT account FROM players WHERE code = ?').bind(code).first();
+    if (!row || row.account !== acct.id) return (await goneAnswer(env, code)) ?? fail(404, 'That player was not found in your account.');
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM players WHERE code = ? AND account = ?').bind(code, acct.id),
+      env.DB.prepare('INSERT OR REPLACE INTO gone (code, account, at) VALUES (?, ?, ?)').bind(code, acct.id, Date.now()),
+    ]);
+    return json({ ok: true });
   }
   m = path.match(/^\/me\/players\/([^/]+)$/);
   if (m && (method === 'PUT' || method === 'DELETE')) {
@@ -243,6 +281,7 @@ async function tidy(env) {
   await env.DB.prepare('DELETE FROM sessions WHERE expires < ?').bind(now).run();
   await env.DB.prepare('DELETE FROM limits WHERE reset < ?').bind(now).run();
   await env.DB.prepare('DELETE FROM accounts WHERE seen < ?').bind(now - 3 * 365 * DAY).run();
+  await env.DB.prepare('DELETE FROM gone WHERE at < ?').bind(now - 3 * 365 * DAY).run();
   await env.DB.prepare('UPDATE players SET account = NULL WHERE account IS NOT NULL AND account NOT IN (SELECT id FROM accounts)').run();
 }
 

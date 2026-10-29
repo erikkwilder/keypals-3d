@@ -13,6 +13,8 @@
   import { LAYOUTS } from '../engine/layouts';
   import { homeDemo } from '../engine/demos';
   import { stage, graphicsPref, type GraphicsPref } from '../three/stage';
+  import GrownupGate from '../ui/GrownupGate.svelte';
+  import { cloud, inAccount, deleteEverywhere, deleteHereOnly } from '../state/cloud.svelte';
 
   let { overlay = false }: { overlay?: boolean } = $props();
   const p = $derived(game.profile!);
@@ -46,10 +48,26 @@
     if (n) game.update(pp => { pp.name = n; });
     game.say('Name saved');
   }
-  function remove() {
-    game.removePlayer(p.id);
+  // deleting a player: behind the grown-up check; a player kept in the signed-in grown-up's account can go
+  // everywhere (every computer) or from this computer only
+  let gate = $state(false);
+  let delBusy = $state(false);
+  let delMsg = $state<string | null>(null);
+  const everywhereAsk = $derived(!!cloud.account && inAccount(p));
+  function leave() {
     game.closeSettings();
     game.go(game.save.profiles.length ? 'players' : 'newPlayer');
+  }
+  function remove() {
+    game.removePlayer(p.id);
+    leave();
+  }
+  function removeHereOnly() { deleteHereOnly(p.id); leave(); }
+  async function removeEverywhere() {
+    delBusy = true; delMsg = null;
+    try { const name = p.name; await deleteEverywhere(p.id); leave(); game.say(`${name} was deleted from your account and every computer.`, 5000); }
+    catch (e) { delMsg = (e as Error).message; }
+    finally { delBusy = false; }
   }
 </script>
 
@@ -151,9 +169,30 @@
       <h2>Player</h2>
       <div class="row">Name <input class="txt" bind:value={newName} maxlength="16" /> <button class="btn" onclick={rename}>Save</button></div>
       {#if !confirmDelete}
-        <button class="btn danger" onclick={() => (confirmDelete = true)}>Delete this player</button>
+        <button class="btn danger" onclick={() => (gate = true)}>Delete this player</button>
+      {:else if everywhereAsk}
+        <div class="warn ask">
+          <p><b>Delete {p.name} everywhere, or just from this computer?</b></p>
+          <p class="hint">Everywhere: {p.name} and all their stars and stickers are deleted from your account and from every computer it's on. Just this computer: {p.name} stays in your account and won't come back here unless you add them again on the Grown-ups screen.</p>
+          <div class="btns">
+            <button class="btn" onclick={() => (confirmDelete = false)}>Keep</button>
+            <button class="btn" disabled={delBusy} onclick={removeHereOnly}>Just this computer</button>
+            <button class="btn danger" disabled={delBusy} onclick={removeEverywhere}>Delete everywhere</button>
+          </div>
+          {#if delMsg}<p class="hint">{delMsg}</p>{/if}
+        </div>
       {:else}
         <div class="row warn">Delete {p.name} and all their stars and stickers? <button class="btn" onclick={() => (confirmDelete = false)}>Keep</button><button class="btn danger" onclick={remove}>Yes, delete</button></div>
+      {/if}
+      {#if gate}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="gbg" onclick={() => (gate = false)}>
+          <div class="gcard card" onclick={(e) => e.stopPropagation()}>
+            <GrownupGate title="Deleting a player" note="A quick check that you're a grown-up." onpass={() => { gate = false; confirmDelete = true; }} />
+            <button class="btn btn-ghost" onclick={() => (gate = false)}>Not now</button>
+          </div>
+        </div>
       {/if}
     </section>
     <section class="about">
@@ -200,6 +239,11 @@
   .font span { font-size: 12px; color: var(--muted); font-family: var(--font-body); }
   .danger { color: #c0396f; }
   .warn { color: #c0396f; }
+  .ask { padding: 12px 14px; border-radius: 16px; background: #fff3f6; box-shadow: inset 0 0 0 2px #ffd3df; }
+  .ask p { margin: 0 0 6px; }
+  .ask .btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .gbg { position: fixed; inset: 0; z-index: 90; background: rgba(40, 28, 70, .45); display: grid; place-items: center; padding: 16px; }
+  .gcard { width: min(520px, 100%); padding: 10px 16px 16px; display: flex; flex-direction: column; align-items: center; }
   .musicpick { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; padding: 4px 14px 4px 4px; background: #f4efff; cursor: pointer; font: 700 15px var(--font-body); color: var(--ink2); box-shadow: inset 0 0 0 2px #e2d8ff; }
   .musicpick img { width: 34px; height: 34px; object-fit: contain; }
   .musicpick b { color: var(--primary); }

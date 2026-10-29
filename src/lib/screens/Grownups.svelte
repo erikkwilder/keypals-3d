@@ -13,7 +13,8 @@
   import { AREAS } from '../math/skills/registry';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
-  import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, openCode, addAllFromAccount, grownupOpen, showCode } from '../state/cloud.svelte';
+  import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, addFromAccount, addAllFromAccount, grownupOpen, showCode } from '../state/cloud.svelte';
+  import { notHereCodes } from '../state/sync';
   import GrownupGate from '../ui/GrownupGate.svelte';
   import CodeCard from '../ui/CodeCard.svelte';
 
@@ -40,6 +41,8 @@
   });
   /** players in the signed-in grown-up's account that aren't on this computer yet */
   const waiting = $derived(cloud.players.filter(cp => !here.has(cp.code)));
+  /** removed from this computer only ("just this computer"): they stay in the account */
+  const removedHere = $derived.by(() => { void game.save.profiles.length; return new Set(notHereCodes()); });
   /** the player whose save code card is being printed */
   let printing = $state<Profile | null>(null);
 
@@ -143,12 +146,12 @@
           {#if cloud.online && (cloud.google || cloud.microsoft || cloud.account)}
             <h4>Parents and teachers</h4>
             {#if cloud.account}
-              <p class="small">Signed in as <b>{cloud.account.name ?? cloud.account.email}</b>{#if cloud.account.email && cloud.account.name}{' '}({cloud.account.email}){/if}. Players on this computer are kept in your account and saved online.</p>
+              <p class="small">Signed in as <b>{cloud.account.name ?? cloud.account.email}</b>{#if cloud.account.email && cloud.account.name}{' '}({cloud.account.email}){/if}. Players on this computer are kept in your account and saved online. Every computer you sign in on shows the same players, and a player deleted everywhere goes from all of them.</p>
               {#if waiting.length}
-                <p class="muted small">In your account, not on this computer yet: {waiting.map(cp => cp.name).join(', ')}.</p>
+                <p class="muted small">In your account, not on this computer: {waiting.map(cp => cp.name).join(', ')}{waiting.some(cp => removedHere.has(cp.code)) ? ' (removed from this computer only)' : ''}.</p>
                 <div class="row">
-                  <button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(async () => { const n = await addAllFromAccount(); return n; }, `Added ${waiting.length === 1 ? waiting[0].name : `all ${waiting.length} players`} to this computer.`)}>Add all my players</button>
-                  {#if waiting.length > 1}{#each waiting as cp (cp.code)}<button class="btn" disabled={cloud.busy} onclick={() => act(() => openCode(cp.code), `${cp.name} is on this computer now.`)}>Add {cp.name}</button>{/each}{/if}
+                  <button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(async () => { const n = await addAllFromAccount(); return n; }, `Added ${waiting.length === 1 ? waiting[0].name : `all ${waiting.length} players`} to this computer.`)}>{waiting.length === 1 ? `Add ${waiting[0].name} here` : 'Add them all here'}</button>
+                  {#if waiting.length > 1}{#each waiting as cp (cp.code)}<button class="btn" disabled={cloud.busy} onclick={() => act(() => addFromAccount(cp.code), `${cp.name} is on this computer now.`)}>Add {cp.name}</button>{/each}{/if}
                 </div>
               {/if}
               <div class="row">

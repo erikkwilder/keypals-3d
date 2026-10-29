@@ -39,3 +39,12 @@ CREATE TABLE IF NOT EXISTS limits (
   n INTEGER NOT NULL,
   reset INTEGER NOT NULL
 );
+-- players a grown-up deleted everywhere: only the code, whose account it was in, and when (no player data),
+-- so a computer that was offline removes its copy too and an old copy can never bring the player back.
+-- Kept 3 years.
+CREATE TABLE IF NOT EXISTS gone (
+  code TEXT PRIMARY KEY,
+  account TEXT,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS gone_account ON gone(account);

@@ -164,6 +164,7 @@ class Game {
     this.save.profiles.push(p);
     this.save.activeId = p.id;
     this.persist();
+    this.onPlayerAdded?.();
     return p;
   }
 
@@ -197,6 +198,8 @@ class Game {
 
   /** told after a player changes (online saving sends the new copy) */
   onProfileChange: (() => void) | null = null;
+  /** told after a player is made (a grown-up signed in here files it under the account) */
+  onPlayerAdded: (() => void) | null = null;
 
   /** replaying a lesson skips its intro card and starts right away */
   quickStart = false;

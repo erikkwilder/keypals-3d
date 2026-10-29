@@ -11,7 +11,10 @@
   import Logo from '../ui/Logo.svelte';
   import SaveCodeForm from '../ui/SaveCodeForm.svelte';
   import SafeReminder from '../ui/SafeReminder.svelte';
-  import { cloud, goSaveOnline } from '../state/cloud.svelte';
+  import { cloud, goSaveOnline, catchUpSoon } from '../state/cloud.svelte';
+  import { onMount } from 'svelte';
+  // players added or deleted on another computer show up here (at most once a minute)
+  onMount(() => catchUpSoon());
 
   function pick(id: string) {
     sfx.click();
