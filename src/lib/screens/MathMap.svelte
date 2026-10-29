@@ -241,6 +241,13 @@
           <span class="ptext"><b>Pizza Rush</b><small>Arcade: serve fraction pizzas to hungry Glimmers.{(m.arcade?.['pizza-rush']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['pizza-rush'].best}` : ''}</small></span>
         </button>
       {/if}
+      {#if area === 'place'}
+        <!-- the place value arcade game (its cabinet is in the Arcade too) -->
+        <button class="placement arcade" onclick={() => { sfx.click(); import('../math/place/builder').then(b => { b.builderOpen.toy = false; b.builderOpen.from = 'map'; game.go('builder'); }); }}>
+          <img src="{import.meta.env.BASE_URL}math/place/ten.webp" alt="" />
+          <span class="ptext"><b>Number Builder</b><small>Arcade: build numbers with hundreds, tens and ones.{(m.arcade?.['number-builder']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['number-builder'].best}` : ''}</small></span>
+        </button>
+      {/if}
     </section>
 
     {#each skillRegions as r, ri (r.id)}

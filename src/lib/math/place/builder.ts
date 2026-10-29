@@ -163,3 +163,6 @@ export function applyBuild(p0: Profile, run: BuildRun): BuildOutcome {
   const done = settlePractice(p, { at: run.at, ms: run.ms, finished: true, stars, medals: stars === 3 ? ['three'] : [], right: Math.round(run.built * 2.5), xp: () => Math.round((25 + stars * 12 + Math.min(12, run.built) * 2) * (p.settings.grown ? 0.8 : 1)) });
   return { ...done, profile: p, stars, newBest, newDaily, best: rec.best };
 }
+
+/** How the Number Builder screen opens: the game, or the Playground's calm Block Table; and where Back goes. */
+export const builderOpen: { toy: boolean; from: 'arcade' | 'map' | 'playground' } = { toy: false, from: 'map' };

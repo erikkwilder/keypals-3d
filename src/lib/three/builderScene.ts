@@ -120,9 +120,9 @@ export class BuilderScene {
   private slot(kind: Kind, i: number): THREE.Vector3 {
     if (kind === 'h') return new THREE.Vector3(COL.h + i * 0.012, U / 2 + i * (U + 0.004), i * 0.012);
     if (kind === 't') return new THREE.Vector3(COL.t - 0.75 + (i % 9) * 0.188, U / 2 + Math.floor(i / 9) * U, 0);
-    // ones: two columns of five, a third column for any over ten (until they trade)
-    const c = Math.floor(i / 5), r = i % 5;
-    return new THREE.Vector3(COL.o - 0.28 + c * 0.24, U / 2, -0.62 + r * 0.31);
+    // ones: two columns of five in the middle, more columns either side for any over ten (until they trade)
+    const c = Math.floor(i / 5) % 4, r = i % 5;
+    return new THREE.Vector3(COL.o + [-0.14, 0.14, 0.42, -0.42][c], U / 2 + Math.floor(i / 20) * U, -0.62 + r * 0.31);
   }
   private count(kind: Kind) { return this.blocks.filter(b => b.kind === kind && b.leaving < 0).length; }
 
@@ -169,6 +169,16 @@ export class BuilderScene {
       this.relayout(kind);
     }, 650);
   }
+  /** One block breaks into ten of the next one down (a rod into ten ones, a flat into ten rods). */
+  split(kind: 't' | 'h') {
+    const b = this.blocks.filter(x => x.kind === kind && x.leaving < 0).at(-1);
+    if (!b) return;
+    const from = b.mesh.position.clone();
+    b.leaving = 0;
+    const down: Kind = kind === 't' ? 'o' : 't';
+    for (let k = 0; k < 10; k++) this.add(down, from.clone().add(kind === 't' ? new THREE.Vector3(0, 0.12, (k - 4.5) * U) : new THREE.Vector3((k - 4.5) * U, 0.12, 0)));
+    this.fx.emit({ at: from.clone().add(new THREE.Vector3(0, 0.2, 0)), count: 30, shape: ['spark', 'dot'], color: [COLOR[down], 0xffffff], speed: [0.8, 2], up: 1, life: [0.4, 0.8], size: [0.04, 0.09], drag: 1.5 });
+  }
   /** Put every block of a kind back in its place in the pattern. */
   private relayout(kind: Kind) {
     this.blocks.filter(b => b.kind === kind && b.leaving < 0).forEach((b, i) => { b.to = this.slot(kind, i); });
@@ -197,15 +207,10 @@ export class BuilderScene {
   }
   /** Not quite: the mat gives a little shake and the helper looks worried. */
   shake() { this.shakeT = 0.4; this.helper?.play('sad'); }
-  /** Where a tray's label goes on the screen (px), above its far edge. */
-  labelAt(kind: Kind): { x: number; y: number } {
-    const p = new THREE.Vector3(COL[kind], 0.05, -MAT_D / 2 - 0.05).project(this.camera);
+  /** Where a tray's front edge is on the screen (px): its bin of blocks goes just below. */
+  trayAt(kind: Kind): { x: number; y: number } {
+    const p = new THREE.Vector3(COL[kind], -0.12, MAT_D / 2).project(this.camera);
     return { x: (p.x * 0.5 + 0.5) * this.w, y: (-p.y * 0.5 + 0.5) * this.h };
-  }
-  /** Where the mat's front edge is (px), to keep the controls clear of it. */
-  frontAt(): number {
-    const p = new THREE.Vector3(0, 0, MAT_D / 2).project(this.camera);
-    return (-p.y * 0.5 + 0.5) * this.h;
   }
 
   resize() {
@@ -238,6 +243,7 @@ export class BuilderScene {
     this.raf = requestAnimationFrame(this.frame);
     const dt = Math.min(0.05, (now - (this.last || now)) / 1000); this.last = now; this.t += dt;
     for (const b of this.blocks) {
+      if (b.leaving >= 0) continue;
       if (b.drop < 1) {
         // falling in, with a little bounce at the bottom
         b.drop = Math.min(1, b.drop + dt * 2.6);

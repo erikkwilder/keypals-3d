@@ -23,6 +23,7 @@
   import Adventure from './lib/screens/Adventure.svelte';
   import Battle from './lib/screens/Battle.svelte';
   import PizzaRush from './lib/screens/PizzaRush.svelte';
+  import NumberBuilder from './lib/screens/NumberBuilder.svelte';
   import Glimmers from './lib/screens/Glimmers.svelte';
   import Eggs from './lib/screens/Eggs.svelte';
   import Learn from './lib/screens/Learn.svelte';
@@ -64,13 +65,13 @@
   // sound, once per player; a typing lesson asks for itself, before its coach starts talking
   $effect(() => {
     const scr = game.screen;
-    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel', 'drop', 'arcadePlay', 'pizza'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
+    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel', 'drop', 'arcadePlay', 'pizza', 'builder'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
     setTimeout(() => { if (game.screen === scr && game.profile && !game.profile.soundSetup && !game.sheet) game.openSheet('setup'); }, 300);
   });
 
   // menu music on the screens around the lessons; Adventure's own on its screens and the Arcade's (Auto
   // plays an adventure there; a picked station just keeps playing)
-  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza']);
+  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder']);
   $effect(() => {
     const scr = game.screen;
     if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
@@ -117,6 +118,7 @@
   {:else if game.screen === 'duel'}{#key game.duelKey}<Duel />{/key}
   {:else if game.screen === 'rivals'}<Rivals />
   {:else if game.screen === 'pizza'}<PizzaRush />
+  {:else if game.screen === 'builder'}<NumberBuilder />
   {:else if game.screen === 'drop'}<GlimmerDrop />
   {:else if game.screen === 'arcade'}<Arcade />
   {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}

@@ -20,6 +20,7 @@
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
+  import { builderOpen } from '../math/place/builder';
 
   const p = $derived(game.profile!);
   let playing = $state<{ g: PlayGame; level: number; key: number } | null>(null);
@@ -75,6 +76,7 @@
     bonds: 'Learns: number bonds, pairs that make 5, 10, 20 and 100.',
     build: 'Learns: place value, hundreds, tens and ones, trading ten for one.',
   };
+  function openBlocks() { sfx.click(); builderOpen.toy = true; builderOpen.from = 'playground'; game.go('builder'); }
   function backToGames() { playing = null; done = null; if (scene && stage.current() === scene) stage.use(null); scene?.dispose(); scene = null; }
   // each game's painted picture (number line with a hopping frog, bubbles, place-value blocks)
   const ART: Record<PlayGame, 'line' | 'bubbles' | 'blocks'> = { line: 'line', bonds: 'bubbles', build: 'blocks' };
@@ -129,6 +131,17 @@
             <button class="btn btn-primary play" onclick={() => start(g.id, nxt)}>Play level {nxt}</button>
           </section>
         {/each}
+        <!-- the Block Table: a calm 3D place value mat with no levels and no clock (screen 'builder', toy mode) -->
+        <section class="game toy" style:--gc="#2d6fb8">
+          <button class="gpic" onclick={openBlocks} aria-label="Open the Block Table">
+            <img src="{import.meta.env.BASE_URL}math/play-blocks.webp" alt="" />
+          </button>
+          <div class="tbody">
+            <h2>Block Table</h2>
+            <p class="gblurb">Build any number with hundreds, tens and ones, and see it written out. Trade ten cubes for a rod, or break a rod into ten cubes. <span class="what">Learns: tens and ones, hundreds, trading.</span></p>
+            <button class="btn btn-primary play" onclick={openBlocks}>Open the Block Table</button>
+          </div>
+        </section>
       </div>
     {/if}
   </div>
@@ -182,6 +195,11 @@
   .game > :not(.gpic) { margin-left: 16px; margin-right: 16px; }
   .gpic { position: relative; border: 0; padding: 0; cursor: pointer; aspect-ratio: 16 / 8; overflow: hidden; background: #dfe9f5; }
   .gpic img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s; }
+  .toy { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: center; padding: 0; }
+  .toy > .gpic { height: 100%; aspect-ratio: auto; min-height: 170px; }
+  .toy .tbody { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px 0; }
+  .toy h2 { margin: 0; font: 600 26px var(--font-ui); color: var(--gc); }
+  .toy .play { align-self: flex-start; }
   .game:hover .gpic img { transform: scale(1.05); }
   .gname { position: absolute; left: 12px; bottom: 10px; display: flex; align-items: center; gap: 8px; font: 600 25px var(--font-ui); color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, .5); }
   .gart { flex: none; display: grid; place-items: center; width: 50px; height: 46px; border-radius: 12px; background: color-mix(in srgb, var(--gc) 22%, #fff); box-shadow: 0 0 0 3px #fff; }
@@ -214,5 +232,5 @@
   .chip { display: inline-flex; align-items: center; gap: 4px; font: 700 13px var(--font-body); background: #f6f1ff; border-radius: 999px; padding: 4px 10px; }
   .chip.new { background: #fff3c4; }
   .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
-  @media (max-width: 900px) { .bar :global(.tile .lbl) { display: none; } .games { grid-template-columns: 1fr; } .body { padding: 10px 10px 20px; } .bar { padding: 8px 10px; } .bar h1 { font-size: 20px; } .hello p { font-size: 15px; } .hello :global(.critter-host) { width: 64px !important; height: 64px !important; } }
+  @media (max-width: 900px) { .bar :global(.tile .lbl) { display: none; } .games { grid-template-columns: 1fr; } .body { padding: 10px 10px 20px; } .bar { padding: 8px 10px; } .bar h1 { font-size: 20px; } .hello p { font-size: 15px; } .hello :global(.critter-host) { width: 64px !important; height: 64px !important; } .toy { grid-template-columns: 1fr; } .toy > .gpic { aspect-ratio: 16 / 8; min-height: 0; } .toy .tbody { padding: 0; } }
 </style>

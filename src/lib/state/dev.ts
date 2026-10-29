@@ -65,6 +65,8 @@ export function devBoot() {
   if (key === 'rivals') { ensure(); game.go('rivals'); }
   // Pizza Rush, the fractions arcade game: #pizza
   if (key === 'pizza') { ensure(); game.go('pizza'); }
+  // Number Builder, the place value arcade game: #builder; the Playground's Block Table: #builder=toy
+  if (key === 'builder') { ensure(); import('../math/place/builder').then(b => { b.builderOpen.toy = val === 'toy'; b.builderOpen.from = val === 'toy' ? 'playground' : 'map'; game.go('builder'); }); }
   // Glimmer Drop: #drop
   if (key === 'drop') { ensure(); game.go('drop'); }
   // the Arcade: #arcade (the plaza), #arcade=slalom|catch|tower (straight into a round), #arcade=daily

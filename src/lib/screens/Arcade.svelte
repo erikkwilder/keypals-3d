@@ -14,9 +14,11 @@
   import Stars from '../ui/Stars.svelte';
   import Icon from '../ui/Icon.svelte';
   import GearButton from '../ui/GearButton.svelte';
+  import { builderOf, builderOpen } from '../math/place/builder';
 
   const p = $derived(game.profile!);
   const save = $derived(arcadeOf(p));
+  const builderBest = $derived(builderOf(p).best);
   const shells = $derived(advView(p).shells);
   const today = dailyGame();
   const beaten = $derived(dailyBeaten(p, today));
@@ -45,12 +47,14 @@
   }
   /** Pizza Rush is the Fractions area's game, on its own screen */
   function openPizza() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('pizza' as Screen); }
-  function hover(id: ArcadeId | 'pizza' | null, el?: HTMLElement) {
+  /** Number Builder is the Place value area's game, on its own screen too */
+  function openBuilder() { unlockAudio(); sfx.click(); scene?.cheer(); builderOpen.toy = false; builderOpen.from = 'arcade'; game.go('builder' as Screen); }
+  function hover(id: ArcadeId | 'pizza' | 'builder' | null, el?: HTMLElement) {
     if (!scene) return;
     if (!id || !el) { scene.look(null); say = 'Pick a game to play!'; return; }
     const r = el.getBoundingClientRect();
     scene.look((r.left + r.width / 2) / innerWidth);
-    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : 'Pizza! Slice it up!';
+    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'builder' ? 'Build it with blocks!' : 'Pizza! Slice it up!';
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -58,6 +62,7 @@
     const n = Number(e.key);
     if (n >= 1 && n <= ARCADE_GAMES.length) play(ARCADE_GAMES[n - 1].id);
     if (n === ARCADE_GAMES.length + 1) openPizza();
+    if (n === ARCADE_GAMES.length + 2) openBuilder();
     if (e.key === 'd' || e.key === 'D') play(today, true);
   }
 
@@ -123,6 +128,11 @@
           <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-pizza.webp" alt="" />
           <span class="plate"><b>Pizza Rush</b><span class="bs">Slice up fractions</span></span>
           {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 1}</span>{/if}
+        </button>
+        <button class="cab" style:--c="#2d6fb8" style:--d="{(ARCADE_GAMES.length + 1) * 90}ms" onclick={openBuilder} onpointerenter={(e) => hover('builder', e.currentTarget)} onpointerleave={() => hover(null)}>
+          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-builder.webp" alt="" />
+          <span class="plate"><b>Number Builder</b><span class="bs">{builderBest ? `Best score ${builderBest}` : 'Build numbers with blocks'}</span></span>
+          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 2}</span>{/if}
         </button>
       </div>
       <p class="note">Arcade games count as practice: every answer helps your Fact Garden grow, and you earn shells and treasure.</p>
