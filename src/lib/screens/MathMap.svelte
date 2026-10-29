@@ -1,6 +1,7 @@
 <script lang="ts">
   // Math home: the Times Trail. One region per table, each on one of the islands, four stops each:
-  // meet the table, practise, mix, and the checkpoint run (open from the start, to test out).
+  // meet the table, practise, mix, and the checkpoint run (open from the start, to test out). The other
+  // areas of K-8 math (fractions first) sit beside the four fact strands with regions of their own.
   import { onMount, tick } from 'svelte';
   import { game } from '../state/game.svelte';
   import { bookView, outfitOf, palOf, todayMs } from '../engine/profile';
@@ -24,12 +25,30 @@
   import Icon from '../ui/Icon.svelte';
   import TileArt from '../ui/TileArt.svelte';
   import { isLearnStop, isLearned, lessonForStop, LESSONS, type Lesson } from '../math/learn';
+  import { AREA, AREAS, SKILL } from '../math/skills/registry';
+  import { SKILL_LESSONS, SKILL_PLACEMENTS, nextSkillLesson, skillMovedOn, skillPassed, skillRegionOpen, skillRegionsOf, skillUnlocked, type SkillLesson, type SkillRegion } from '../math/skills/course';
+  import { keyStage } from '../math/skills/progress';
+  import type { AreaId } from '../math/skills/types';
 
   const p = $derived(game.profile!);
   const m = $derived(mathOf(p));
   const look = $derived(p.settings.look);
   // which part of math is showing: one strand, or (null) the five big cards to choose from
   let op = $state<Op | null>(game.mathOp);
+  // or one of the other areas (fractions...): its own regions and lessons
+  let area = $state<AreaId | null>(game.mathOp ? null : game.mathArea);
+  const showing = $derived(op !== null || area !== null);
+  const AREA_TABS = AREAS.filter(a => a.live && !a.op);
+  const SOON = AREAS.filter(a => !a.live);
+  const skillRegions = $derived(area ? skillRegionsOf(area) : []);
+  const skillPlacement = $derived(area ? SKILL_PLACEMENTS[area] : undefined);
+  const nextSkill = $derived(nextSkillLesson(m, area ?? 'fractions'));
+  const areaStars = (a: AreaId) => SKILL_LESSONS.filter(l => l.area === a).reduce((t, l) => t + (m.lessons[l.id]?.stars ?? 0), 0);
+  const areaDone = (a: AreaId) => skillRegionsOf(a).filter(r => skillPassed(m, r.lessons.at(-1)!.id)).length;
+  const areaFresh = (a: AreaId) => !SKILL_LESSONS.some(l => l.area === a && m.lessons[l.id]);
+  /** a skill region's kinds of question (skill and sub) in bloom, of all of them */
+  const regionKeys = (r: SkillRegion) => r.skills.flatMap(id => SKILL[id].subs.map(sb => `${id}:${sb.id}`));
+  const keysBloomed = (r: SkillRegion) => regionKeys(r).filter(k => keyStage(m, k) === 3).length;
   const strand = $derived(STRAND[op ?? 'x']);
   const regions = $derived(op ? regionsOf(op) : []);
   const placement = $derived(PLACEMENTS[op ?? 'x']);
@@ -68,7 +87,13 @@
   /** a region's facts in bloom, of all of them */
   const regionFacts = (r: MathRegion) => r.groups.flatMap(groupFacts);
   const bloomed = (r: MathRegion) => regionFacts(r).filter(f => (m.facts[factId(f)]?.stage ?? 0) === 3).length;
-  function pickStrand(o: Op | null) { if (o === op) return; sfx.click(); op = o; game.mathOp = o; if (o) game.update(pp => { pp.math = { ...mathOf(pp), strand: o }; }); scroller?.scrollTo({ top: 0 }); }
+  function pickStrand(o: Op | null) { if (o === op && !area) return; sfx.click(); op = o; game.mathOp = o; area = null; game.mathArea = null; if (o) game.update(pp => { pp.math = { ...mathOf(pp), strand: o }; }); scroller?.scrollTo({ top: 0 }); }
+  function pickArea(a: AreaId) { if (a === area) return; sfx.click(); area = a; game.mathArea = a; op = null; game.mathOp = null; scroller?.scrollTo({ top: 0 }); }
+  function startSkill(l: SkillLesson) {
+    if (!skillUnlocked(m, l)) { sfx.nope(); game.say(l.n > 1 ? 'Finish the stop before this one first!' : 'Pass the checkpoint before this one to open it!'); return; }
+    sfx.click();
+    game.startSkill(l.id);
+  }
 
   function start(l: MathLesson) {
     if (!mathUnlocked(m, l)) {
@@ -82,12 +107,14 @@
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
     if ((e.key === 'Enter' || e.key === ' ') && op) { e.preventDefault(); start(next); }
-    if (e.key === 'Escape') { if (op) pickStrand(null); else game.go('hub'); }
+    else if ((e.key === 'Enter' || e.key === ' ') && area) { e.preventDefault(); startSkill(nextSkill); }
+    if (e.key === 'Escape') { if (showing) pickStrand(null); else game.go('hub'); }
   }
   onMount(async () => {
     await tick();
-    const reg = next.region === 'start' ? null : scroller?.querySelector(`[data-region="${next.region}"]`) as HTMLElement | null;
-    if (reg && scroller && next.n !== 1) scroller.scrollTo({ top: Math.max(0, reg.offsetTop - scroller.offsetTop - 16), behavior: 'instant' as ScrollBehavior });
+    const nx = area ? nextSkill : next;
+    const reg = nx.region === 'start' ? null : scroller?.querySelector(`[data-region="${nx.region}"]`) as HTMLElement | null;
+    if (reg && scroller && nx.n !== 1) scroller.scrollTo({ top: Math.max(0, reg.offsetTop - scroller.offsetTop - 16), behavior: 'instant' as ScrollBehavior });
   });
 </script>
 
@@ -120,13 +147,18 @@
     <GearButton size={44} />
   </header>
 
-  {#if op}
+  {#if showing}
     <!-- the strands stay in reach: a row of picture tabs that never scrolls away -->
     <nav class="sbar" aria-label="Which kind of math">
       <button class="sall" onclick={() => pickStrand(null)} title="All of math"><Icon name="map" /><span>All math</span></button>
       {#each STRANDS as st (st.op)}
         <button class="stab" class:on={st.op === op} style:--sc={st.color} onclick={() => pickStrand(st.op)} aria-pressed={st.op === op}>
           <img src="{import.meta.env.BASE_URL}{st.art}" alt="" /><span>{st.name}</span>
+        </button>
+      {/each}
+      {#each AREA_TABS as a (a.id)}
+        <button class="stab" class:on={a.id === area} style:--sc={a.color} onclick={() => pickArea(a.id)} aria-pressed={a.id === area}>
+          <img src="{import.meta.env.BASE_URL}{a.art}" alt="" /><span>{a.name}</span>
         </button>
       {/each}
       <button class="stab" style:--sc="#f2a63a" onclick={() => { sfx.click(); game.go('playground'); }}>
@@ -136,7 +168,7 @@
   {/if}
 
   <div class="scroller scroll" bind:this={scroller}>
-    {#if !op}
+    {#if !showing}
       <section class="choose">
         <h1>What kind of math?</h1>
         <div class="cards">
@@ -154,6 +186,20 @@
               </div>
             </article>
           {/each}
+          {#each AREA_TABS as a (a.id)}
+            {@const nx = nextSkillLesson(m, a.id)}
+            <article class="scard" style:--sc={a.color}>
+              <button class="sart" onclick={() => pickArea(a.id)} aria-label="Open {a.name}">
+                <img src="{import.meta.env.BASE_URL}{a.art}" alt="" />
+                <span class="sname2"><span class="sg sgt">{skillRegionsOf(a.id)[0]?.chip ?? ''}</span>{a.name}</span>
+              </button>
+              <div class="sinfo">
+                <p>{a.blurb}</p>
+                <div class="sstat"><span><Stars n={1} of={1} size={15} /><b>{areaStars(a.id)}</b> stars</span><span><b>{areaDone(a.id)}</b>/{skillRegionsOf(a.id).length} islands</span><span>Grades {a.grades}</span></div>
+                <div class="sact"><button class="btn btn-primary" onclick={() => startSkill(nx)}>Play: {nx.title}</button><button class="btn ghost" onclick={() => pickArea(a.id)}>Map</button></div>
+              </div>
+            </article>
+          {/each}
           <article class="scard" style:--sc="#f2a63a">
             <button class="sart" onclick={() => { sfx.click(); game.go('playground'); }} aria-label="Open the Number Playground">
               <img src="{import.meta.env.BASE_URL}math/strand-playground.webp" alt="" />
@@ -166,8 +212,61 @@
             </div>
           </article>
         </div>
+        {#if SOON.length}
+          <div class="soonrow"><b>Coming next</b>{#each SOON as a (a.id)}<span class="soonchip" style:--sc={a.color}>{a.name}<small>Grades {a.grades}</small></span>{/each}</div>
+        {/if}
         <p class="movenote">Every kind of math has all four ways to move: run the trail, climb the cliff, swim the bay and sled the slope.</p>
       </section>
+    {:else if area}
+    {@const ar = AREA[area]}
+    <section class="intro">
+      <div class="hello">
+        <h1 style:color={ar.color}>{ar.name}</h1>
+        <p>{ar.blurb}</p>
+      </div>
+      {#if skillPlacement}
+        <button class="placement" class:done={skillPassed(m, skillPlacement.id) || (m.lessons[skillPlacement.id]?.finishes ?? 0) > 0} onclick={() => startSkill(skillPlacement!)}>
+          <span class="pdisc"><Icon name="flag" /></span>
+          <span class="ptext"><b>{skillPlacement.title}</b><small>Know some {ar.name.toLowerCase()} already? A quick mix shows where to start.</small></span>
+        </button>
+      {/if}
+    </section>
+
+    {#each skillRegions as r, ri (r.id)}
+      {@const open = skillRegionOpen(m, r.id)}
+      {@const done = r.lessons.filter(l => skillMovedOn(m, l)).length}
+      <section class="region" class:locked={!open} data-region={r.id}>
+        <div class="art" style:background-image="url({import.meta.env.BASE_URL}regions/{r.world}.webp)"></div>
+        <div class="rhead">
+          <div class="rname">
+            <span class="tbl" style:background={ar.color}>{r.chip}</span>
+            <div><h2>{r.name}</h2><p>{r.blurb}</p></div>
+          </div>
+          <div class="count" title="Kinds of question in bloom">{keysBloomed(r)}/{regionKeys(r).length} <Icon name="bloom" size={17} /></div>
+        </div>
+        <svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <path d={pathD(r.lessons.length)} fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity=".85" />
+          <path d={pathD(r.lessons.length)} fill="none" stroke="rgba(120,90,190,.35)" stroke-width="3" stroke-dasharray="2 10" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+        </svg>
+        {#each r.lessons as l, i (l.id)}
+          {@const pos = nodePos(i, r.lessons.length)}
+          {@const unlocked = skillUnlocked(m, l)}
+          {@const rec = m.lessons[l.id]}
+          {@const isNext = l.id === nextSkill.id}
+          <button class="node" class:locked={!unlocked} class:next={isNext} class:done={skillMovedOn(m, l)} class:check={l.kind === 'check'}
+            style:left="{pos.x}%" style:top="{pos.y}%" onclick={() => startSkill(l)} title={l.title}>
+            <span class="disc">{#if !unlocked}<Icon name="lock" />{:else}<Icon name={KIND_ICON[l.kind] ?? 'book'} />{/if}</span>
+            {#if rec && rec.bestRide > 0}<span class="ride" title="Best: {rideName(rec.bestRide, l.move)}"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff', l.move)}</svg></span>{/if}
+            <span class="lbl">{l.title}</span>
+            <span class="mv" title="{MOVE_NAME[l.move]}"><Icon name={l.move} size={15} /> {MOVE_NAME[l.move]}</span>
+            <Stars n={rec?.stars ?? 0} size={14} />
+            {#if isNext}<span class="buddy"><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={64} mood="dance" /></span>{/if}
+          </button>
+        {/each}
+        {#if !open}<div class="lockveil"><Icon name="lock" /> Pass {skillRegions[ri - 1]?.name} to open</div>{/if}
+        {#if done === r.lessons.length}<div class="donebadge">Done!</div>{/if}
+      </section>
+    {/each}
     {:else}
     <section class="intro">
       <div class="hello">
@@ -231,7 +330,13 @@
     <div class="endpad"></div>
   </div>
 
-  {#if op}
+  {#if area}
+  <div class="go">
+    <button class="btn btn-primary btn-big" onclick={() => startSkill(nextSkill)}>
+      {areaFresh(area) ? 'Start' : 'Keep going'}: {nextSkill.title} <span class="kbd">enter</span>
+    </button>
+  </div>
+  {:else if op}
   <div class="go">
     {#if learnNext}<button class="btn btn-big learnfirst" onclick={() => watch(learnNext!)}><img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" />Learn it first</button>{/if}
     <button class="btn btn-primary btn-big" onclick={() => start(next)}>
@@ -267,6 +372,11 @@
   .sact { display: flex; gap: 8px; margin-top: auto; }
   .sact .btn-primary { flex: 1; background: linear-gradient(color-mix(in srgb, var(--sc) 70%, #fff), var(--sc)); box-shadow: 0 5px 0 color-mix(in srgb, var(--sc) 70%, #000); }
   .ghost { background: var(--bg2); color: var(--ink); box-shadow: none; }
+  .sgt { width: auto; min-width: 40px; padding: 0 8px; border-radius: 999px; font-size: 20px; }
+  .soonrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 18px 0 0; }
+  .soonrow b { font: 600 18px var(--font-ui); color: var(--ink2); margin-right: 4px; }
+  .soonchip { display: inline-flex; flex-direction: column; align-items: center; background: #fff; border-radius: 16px; padding: 5px 12px; box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--sc) 45%, #fff); font: 600 15px var(--font-ui); color: var(--ink2); }
+  .soonchip small { font: 700 11px var(--font-body); color: var(--muted); }
   .movenote { text-align: center; font: 600 15px var(--font-body); color: var(--muted); margin: 16px 0 0; }
   .mv { display: inline-flex; align-items: center; gap: 3px; font: 700 11px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 1px 7px 1px 3px; margin-top: 2px; }
   @media (max-width: 1000px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

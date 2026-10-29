@@ -119,7 +119,6 @@ describe('skill trips', () => {
     let p = newProfile('Mia', 'dino');
     const a = playTrip('frac-a-1', p, T0);
     expect(a.out.record.finishes).toBe(1);
-    expect(a.out.stars).toBeUndefined; // stars live on the record
     expect(a.out.record.stars).toBeGreaterThan(0);
     expect(a.out.shells).toBeGreaterThan(0);
     expect(a.out.xp.gained).toBeGreaterThan(30);

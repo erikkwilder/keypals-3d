@@ -10,6 +10,7 @@
   import { openExternal, saveTextFile } from '../state/platform';
   import { addTester } from '../state/dev';
   import { advOf, advView, PLAY_RULES, type AdvSettings, type PlayRule } from '../adventure/state';
+  import { AREAS } from '../math/skills/registry';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, openCode } from '../state/cloud.svelte';
@@ -22,7 +23,9 @@
   const here = $derived(new Set(game.save.profiles.map(x => x.cloud?.code).filter(Boolean)));
   let confirmDelete = $state(false);
 
-  let unlocked = $state(false);
+  // back from the skills report: still open, on the same player
+  const backFrom = game.skillsFor; game.skillsFor = null;
+  let unlocked = $state(!!backFrom);
   let holding = $state(0);
   let holdTimer: ReturnType<typeof setInterval> | undefined;
   function startHold() {
@@ -35,7 +38,7 @@
   }
   function stopHold() { clearInterval(holdTimer); if (!unlocked) holding = 0; }
 
-  let selected = $state(game.profile?.id ?? game.save.profiles[0]?.id ?? '');
+  let selected = $state(backFrom ?? game.profile?.id ?? game.save.profiles[0]?.id ?? '');
   const p = $derived<Profile | undefined>(game.save.profiles.find(x => x.id === selected));
   let words = $state(game.save.profiles.find(x => x.id === selected)?.customText ?? '');
   $effect(() => { words = p?.customText ?? ''; });
@@ -132,6 +135,10 @@
           <div><h3>Try every level</h3><p class="muted">Adds a player called Tester with every typing lesson, math trip and playground level open, every buddy on the team, and every outfit and dance. Your own players aren't changed.</p></div>
           <button class="btn btn-primary" onclick={() => { addTester(); game.go('hub'); }}>Open Tester</button>
         </div>
+        <div class="card tryall">
+          <div><h3>Math skills by grade</h3><p class="muted">Every math skill from kindergarten to 8th grade, with its school standard and where {p.name} is on each: not started, growing or solid.</p></div>
+          <button class="btn btn-primary" onclick={() => { game.skillsFor = p!.id; game.go('skills'); }}>See skills</button>
+        </div>
         <div class="card pane advset">
           <h3>Adventure: play time</h3>
           <p class="muted small">Adventure is the battle mode. Every move in a battle is still a math answer or a typed word, and practice is where the eggs hatch. Choose how play time works for {p.name}.</p>
@@ -152,7 +159,7 @@
             <label>Family Duel and Rival Ghosts
               <select value={adv?.settings.versus === false ? 'off' : 'on'} onchange={(e) => setAdv({ versus: (e.currentTarget as HTMLSelectElement).value === 'on' })}><option value="on">On (players on this device only)</option><option value="off">Off</option></select></label>
             <label>Battles use
-              <select value={adv?.settings.focus ?? 'all'} onchange={(e) => setAdv({ focus: (e.currentTarget as HTMLSelectElement).value as AdvSettings['focus'] })}><option value="all">All the math met so far</option><option value="+">Adding only</option><option value="-">Taking away only</option><option value="x">Times only</option><option value="/">Sharing only</option></select></label>
+              <select value={adv?.settings.focus ?? 'all'} onchange={(e) => setAdv({ focus: (e.currentTarget as HTMLSelectElement).value as AdvSettings['focus'] })}><option value="all">All the math met so far</option><option value="+">Adding only</option><option value="-">Taking away only</option><option value="x">Times only</option><option value="/">Sharing only</option>{#each AREAS.filter(a => a.live && !a.op) as a (a.id)}<option value={a.id}>{a.name} only</option>{/each}</select></label>
           </div>
           <p class="playline">Today: <b>{fmtMin(practiceToday)}</b> practice{#if adv?.day.key === dayKey(Date.now())}, <b>{fmtMin(adv.day.ms)}</b> Adventure: <b>{adv.day.answers}</b> answers in battles, <b>{adv.day.answers ? Math.round((adv.day.right / adv.day.answers) * 100) : 0}%</b> right{:else}, no Adventure yet{/if}.</p>
         </div>

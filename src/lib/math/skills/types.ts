@@ -71,6 +71,8 @@ export type Skill = {
   /** its name for kids, and what it means in plain words for grown-ups */
   name: string;
   plain: string;
+  /** a word or two for its bed sign in the garden (the name if not given) */
+  short?: string;
   input: InputKind;
   subs: SubSkill[];
   /** quick means starting to answer within this long (fractions take longer than facts) */
@@ -87,6 +89,8 @@ export type Area = {
   id: AreaId; name: string; grades: string; blurb: string; color: string;
   /** banner picture */
   art: string;
+  /** the sign on its garden plot (a fraction, a ruler...); the first letter of its name if not given */
+  sign?: string;
   /** live: playable now; soon: listed for grown-ups, not built yet */
   live: boolean;
   /** the fact strand it is (the first four areas) */

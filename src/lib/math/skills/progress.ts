@@ -26,6 +26,12 @@ export function skillStatus(m: MathProgress, skillId: string): 'not started' | '
   return stages.every(x => x >= 2) && stages.filter(x => x === 3).length >= Math.ceil(stages.length / 2) ? 'solid' : 'growing';
 }
 
+/** Answers from a battle or a duel count for the skill memory, as in practice. */
+export function noteSkillAnswers(m: MathProgress, answers: { key: string; ok: boolean; thinkMs: number }[], at: number) {
+  const mem = (m.skills = { ...(m.skills ?? {}) }), day = dayKey(at);
+  for (const x of answers) mem[x.key] = updateFact(mem[x.key], { ok: x.ok, thinkMs: x.thinkMs, day, at, fastMs: SKILL[splitKey(x.key).skill]?.fastMs });
+}
+
 /** One answered question: its memory key and the question's id. */
 export type SkillResult = FactResult & { key: string; label: string };
 

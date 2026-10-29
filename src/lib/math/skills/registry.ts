@@ -13,7 +13,7 @@ export const AREAS: Area[] = [
   { id: 'minus', op: '-', name: 'Taking away', grades: '1-2', blurb: 'Taking away within 20.', color: '#7c5cf5', art: `${base}strand-minus.webp`, live: true },
   { id: 'times', op: 'x', name: 'Times tables', grades: '3', blurb: 'Every times table, 0 to 10.', color: '#ef7d2b', art: `${base}strand-times.webp`, live: true },
   { id: 'share', op: '/', name: 'Sharing', grades: '3', blurb: 'Dividing, thinking of the times tables.', color: '#2fa898', art: `${base}strand-share.webp`, live: true },
-  { id: 'fractions', name: 'Fractions', grades: '3-5', blurb: 'Parts of a whole: naming, comparing, equal fractions and adding.', color: '#e0567a', art: `${base}area-fractions.webp`, live: true },
+  { id: 'fractions', name: 'Fractions', grades: '3-5', blurb: 'Parts of a whole: naming, comparing, equal fractions and adding.', color: '#e0567a', art: `${base}area-fractions.webp`, sign: '½', live: true },
   { id: 'place', name: 'Place value and big numbers', grades: 'K-4', blurb: 'Tens and ones, hundreds, thousands, rounding.', color: '#5a8de8', art: `${base}area-fractions.webp`, live: false },
   { id: 'decimals', name: 'Decimals and money', grades: '2-5', blurb: 'Coins and change, tenths and hundredths.', color: '#d9a21b', art: `${base}area-fractions.webp`, live: false },
   { id: 'measure', name: 'Measurement and time', grades: '1-5', blurb: 'Clocks, lengths, weights, area and perimeter.', color: '#8a6bd6', art: `${base}area-fractions.webp`, live: false },

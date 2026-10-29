@@ -26,7 +26,7 @@ export function checkAnswer(want: Answer, given: Answer): boolean {
 // ---------- what fraction is shaded? ----------
 export const frName: Skill = {
   id: 'fr-name', area: 'fractions', grade: 3, standard: '3.NF.A.1',
-  name: 'Name the fraction', plain: 'Says what fraction of a shape is shaded: 3 of 4 equal parts is 3/4.',
+  name: 'Name the fraction', short: 'Name it', plain: 'Says what fraction of a shape is shaded: 3 of 4 equal parts is 3/4.',
   input: 'fraction', fastMs: 6000,
   subs: [2, 3, 4, 6, 8].map(d => ({ id: String(d), label: NAME[d] })),
   make(rng, sub, level) {
@@ -80,7 +80,7 @@ const WHY: Record<string, string> = {
 };
 export const frCompare: Skill = {
   id: 'fr-compare', area: 'fractions', grade: 3, standard: '3.NF.A.3d',
-  name: 'Which is bigger?', plain: 'Compares two fractions: same bottom, same top, one piece each, or each against a half.',
+  name: 'Which is bigger?', short: 'Bigger?', plain: 'Compares two fractions: same bottom, same top, one piece each, or each against a half.',
   input: 'choice', fastMs: 6000,
   subs: [{ id: 'same-d', label: 'same bottom' }, { id: 'same-n', label: 'same top' }, { id: 'unit', label: 'one piece each' }, { id: 'half', label: 'next to a half' }],
   make(rng, sub, level) {
@@ -105,7 +105,7 @@ export const frCompare: Skill = {
 // ---------- equal fractions ----------
 export const frEqual: Skill = {
   id: 'fr-equal', area: 'fractions', grade: 4, standard: '4.NF.A.1',
-  name: 'Equal fractions', plain: 'Finds equal fractions: 1/2 = 2/4, by multiplying (or dividing) the top and bottom by the same number.',
+  name: 'Equal fractions', short: 'Equal', plain: 'Finds equal fractions: 1/2 = 2/4, by multiplying (or dividing) the top and bottom by the same number.',
   input: 'number', fastMs: 6000,
   subs: [{ id: 'x2', label: 'times 2' }, { id: 'x3', label: 'times 3' }, { id: 'x4', label: 'times 4' }, { id: 'smaller', label: 'make it smaller' }],
   make(rng, sub, level) {
@@ -131,7 +131,7 @@ export const frEqual: Skill = {
 // ---------- adding with the same bottom number ----------
 export const frAdd: Skill = {
   id: 'fr-add', area: 'fractions', grade: 4, standard: '4.NF.B.3',
-  name: 'Add fractions', plain: 'Adds fractions with the same bottom number: 2/5 + 1/5 = 3/5 (equal answers like 4/8 = 1/2 count).',
+  name: 'Add fractions', short: 'Add', plain: 'Adds fractions with the same bottom number: 2/5 + 1/5 = 3/5 (equal answers like 4/8 = 1/2 count).',
   input: 'fraction', fastMs: 7000,
   subs: [{ id: 'small', label: 'halves to fifths' }, { id: 'mid', label: 'sixths to tenths' }, { id: 'over', label: 'more than one whole' }],
   make(rng, sub, level) {

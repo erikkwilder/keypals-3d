@@ -12,6 +12,10 @@ import { WORDS_KIDS } from '../content/words';
 import { mathOf, nextMathLesson } from '../math/progress';
 import { lessonFacts } from '../math/course';
 import { factId, parseFact, seedPartner, updateFact, weakness, type Fact, type Op } from '../math/facts';
+import { AREA, SKILL, splitKey } from '../math/skills/registry';
+import { nextSkillLesson } from '../math/skills/course';
+import { noteSkillAnswers } from '../math/skills/progress';
+import type { AreaId } from '../math/skills/types';
 import { EVOLVE_BOOST, GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, powerBase, powerNum, rarityRank, type Element, type GlimmerId, type Rarity } from './glimmers';
 import { grumpFor, type Foe, type Pool, type Subject } from './battle';
 import { championPrize, type BuddyGear, type GearItem, type Wardrobe } from './gear';
@@ -44,8 +48,8 @@ export type AdvSettings = {
   freeMin: number;
   /** most play minutes a day (0: no limit) */
   capMin: number;
-  /** battles use only this kind of math (or all of it) */
-  focus: 'all' | Op;
+  /** battles use only this kind of math (or all of it): a fact kind, or a skill area such as fractions */
+  focus: 'all' | Op | AreaId;
   /** Family Duel and Rival Ghosts (on this device only) are open; grown-ups can turn them off */
   versus?: boolean;
 };
@@ -168,10 +172,13 @@ export function playLeft(p: Profile, now = Date.now()): { open: boolean; left: n
  *  plus facts. Open cards come in once some times or plus facts are known well. */
 export function mathPool(p: Profile): Pool {
   const m = mathOf(p), focus = advView(p).settings.focus;
-  const ok = (f: Fact) => focus === 'all' || (f.op ?? 'x') === focus;
+  // a skill area the grown-ups chose (fractions...): every card is one of its questions, and the quick
+  // blocks use the facts met so far
+  const area = focus !== 'all' && focus.length > 1 && AREA[focus as AreaId] && !AREA[focus as AreaId].op ? (focus as AreaId) : null;
+  const ok = (f: Fact) => focus === 'all' || !!area || (f.op ?? 'x') === focus;
   let facts = Object.entries(m.facts).filter(([, s]) => s.seen > 0 || s.stage > 0).map(([id, s]) => ({ f: parseFact(id), stage: s.stage })).filter(x => ok(x.f));
   if (facts.length < 8) {
-    const op: Op = focus !== 'all' ? focus : facts.length ? (facts[0].f.op ?? 'x') : '+';
+    const op: Op = focus !== 'all' && !area ? (focus as Op) : facts.length ? (facts[0].f.op ?? 'x') : '+';
     const extra = lessonFacts(nextMathLesson(m, op)).filter(f => !facts.some(x => factId(x.f) === factId(f)));
     facts = facts.concat(extra.map(f => ({ f, stage: m.facts[factId(f)]?.stage ?? 0 })));
   }
@@ -179,7 +186,7 @@ export function mathPool(p: Profile): Pool {
   // that's all there is; a brand-new player gets friendly sums to 10 instead
   const real = facts.filter(x => { const op = x.f.op ?? 'x', { a, b } = x.f; return op === 'x' ? a > 1 && b > 1 : op === '+' ? a > 0 && b > 0 : op === '-' ? b > 0 && a !== b : b > 1 && a !== b; });
   if (real.length >= 6) facts = real;
-  else if (focus === 'all' || focus === '+') {
+  else if (focus === 'all' || area || focus === '+') {
     const have = new Set(facts.map(x => factId(x.f)));
     for (let a = 1; a <= 5; a++) for (let b = 1; b <= 5; b++) { const f: Fact = { a, b, op: '+' }; if (!have.has(factId(f))) facts.push({ f, stage: m.facts[factId(f)]?.stage ?? 0 }); }
     facts = facts.filter(x => (x.f.op ?? 'x') !== '+' || (x.f.a > 0 && x.f.b > 0));
@@ -187,7 +194,20 @@ export function mathPool(p: Profile): Pool {
   // how shaky each one is, so battles deal the ones that need practice more often
   for (const x of facts) (x as { w?: number }).w = weakness(m.facts[factId(x.f)], m.fastMs);
   // open cards (7 × ?) are kept for later: they confused first-time players
-  return { subject: 'math', facts, open: false };
+  const skills = skillPool(m, area);
+  return { subject: 'math', facts, open: false, skills, mix: !skills.length ? 0 : area ? 1 : focus === 'all' ? SKILL_MIX : 0 };
+}
+/** How many battle cards are skill questions once a skill area is started (the rest are facts). */
+export const SKILL_MIX = 0.35;
+/** The skill questions a battle can deal: every skill sub met so far in the live areas (or only the
+ *  grown-ups' chosen area, which starts with its first lesson's skills when nothing is met yet), the
+ *  shaky ones weighted up like facts. */
+export function skillPool(m: ReturnType<typeof mathOf>, area: AreaId | null): { key: string; stage: number; w: number }[] {
+  const mem = m.skills ?? {};
+  const live = (key: string) => { const sk = SKILL[splitKey(key).skill]; return !!sk && !sk.facts && AREA[sk.area]?.live && (!area || sk.area === area); };
+  let keys = Object.entries(mem).filter(([k, s]) => (s.seen > 0 || s.stage > 0) && live(k)).map(([k]) => k);
+  if (!keys.length && area) keys = nextSkillLesson(m, area).skills.flatMap(id => SKILL[id].subs.slice(0, 2).map(sb => `${id}:${sb.id}`));
+  return keys.map(key => ({ key, stage: mem[key]?.stage ?? 0, w: weakness(mem[key], SKILL[splitKey(key).skill].fastMs) }));
 }
 /** Typing: words made only of the keys learned so far. */
 export function typingPool(p: Profile): Pool {
@@ -338,6 +358,8 @@ export const BATTLE_FRIENDSHIP = { win: 80, perfect: 20, champion: 120, tried: 2
 export type BattleRun = {
   node: string; subject: Subject; won: boolean; perfect: boolean; foe: Foe; ms: number;
   answers: number; right: number; answered: { f: Fact; ok: boolean; thinkMs: number }[];
+  /** skill questions answered (fractions...), for the skill memory */
+  skillAnswers?: { key: string; ok: boolean; thinkMs: number }[];
   team: GlimmerId[]; crystal: boolean; treasureNose: boolean; at: number; seed: number;
 };
 export type BattleOutcome = {
@@ -367,6 +389,7 @@ export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
     const m = (p.math = mathOf(p)), dk = dayKey(r.at);
     for (const x of r.answered) { const id = factId(x.f); m.facts[id] = updateFact(m.facts[id], { ok: x.ok, thinkMs: x.thinkMs, day: dk, at: r.at, fastMs: m.fastMs }); seedPartner(m.facts, x.f); }
   }
+  if (r.subject === 'math' && r.skillAnswers?.length) noteSkillAnswers((p.math = mathOf(p)), r.skillAnswers, r.at);
   // your buddy's friendship, paced like practice minute for minute (BATTLE_FRIENDSHIP), and any
   // stickers it brings (the same as after practice: engine/settle.ts)
   const F = BATTLE_FRIENDSHIP;
