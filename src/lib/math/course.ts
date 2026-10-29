@@ -123,6 +123,40 @@ export function groupFacts(g: string): Fact[] {
   return [];
 }
 
+// ---------- how hard a fact is, in rungs (skills/types.ts) ----------
+// The fact strands have rungs of their own: a fact's rung is how hard it is in its strand, 1 to 6, so the
+// same ability scale (skills/ability.ts) works for facts and for fractions alike.
+//   +  1 count on 0, 1, 2 · 2 doubles and near doubles · 3 making ten, plus 10 and plus 9 · 4 bridging
+//      ten to 11 · 5 bridging to 12 · 6 bridging to 13 and 14 (8 + 6, 7 + 6)
+//   −  its own families: 1 count back · 2 doubles back and take ten · 3 from ten, take 9 · 4-6 think
+//      addition, by how big the number taken from is (to 11, 12-13, 14-15)
+//   ×  by the easier of its two tables: 1 the 0s, 1s, 2s and 10s · 2 the 5s · 3 the 3s and 4s · 4 the 6s
+//      and 9s · 5 the 7s and 8s; one rung more when both numbers are 3 or more and it's 40 or more (6 × 7,
+//      8 × 8 are 6)
+//   ÷  as the times fact that undoes it
+const TABLE_RUNG: Record<number, number> = { 0: 1, 1: 1, 2: 1, 10: 1, 5: 2, 3: 3, 4: 3, 6: 4, 9: 4, 7: 5, 8: 5 };
+export function factRung(f: Fact): number {
+  const op = f.op ?? 'x';
+  if (op === '+') { const g = plusGroup(f), s = f.a + f.b; return g === '+s' ? 1 : g === '+d' ? 2 : g === '+t' ? 3 : s <= 11 ? 4 : s <= 12 ? 5 : 6; }
+  if (op === '-') { const g = minusGroup(f); return g === '-s' ? 1 : g === '-d' ? 2 : g === '-t' ? 3 : f.a <= 11 ? 4 : f.a <= 13 ? 5 : 6; }
+  const [a, b] = op === '/' ? [f.b, f.b ? f.a / f.b : 0] : [f.a, f.b];
+  const easy = Math.min(TABLE_RUNG[a] ?? 5, TABLE_RUNG[b] ?? 5);
+  return Math.min(6, easy + (a >= 3 && b >= 3 && a * b >= 40 ? 1 : 0));
+}
+/** What a fact trip's rung means besides which facts come up most (math/picker.ts): how much of the rest
+ *  of the strand is mixed back in, whether the dot picture shows with the question, and how quick counts as
+ *  quick (times the grown-ups' setting) for the ability. */
+export type FactRungSpec = { older: number; dots: boolean; speed: number };
+export const FACT_RUNGS: FactRungSpec[] = [
+  { older: 0, dots: true, speed: 1.5 },
+  { older: 0.05, dots: false, speed: 1.3 },
+  { older: 0.1, dots: false, speed: 1.15 },
+  { older: 0.2, dots: false, speed: 1 },
+  { older: 0.3, dots: false, speed: 0.9 },
+  { older: 0.4, dots: false, speed: 0.8 },
+];
+export const factRungSpec = (rung: number) => FACT_RUNGS[Math.max(1, Math.min(6, Math.round(rung))) - 1];
+
 // ---------- tricks: what the buddy says on the help card ----------
 
 /** Each times table's trick. */
