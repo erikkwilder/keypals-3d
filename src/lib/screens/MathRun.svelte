@@ -441,7 +441,7 @@
           <div class="goals">
             {#each starAt as s, i}<div class="goal"><Stars n={i + 1} of={i + 1} size={20} /><span>score {s}</span></div>{/each}
           </div>
-          <p class="howscore">Your score is right answers a minute. Quick, right answers climb the rides. No clock, so take the time you need.</p>
+          <p class="howscore">Your score is right answers a minute. Quick, right answers move you up the speed steps. No clock, so take the time you need.</p>
         {:else}
           <p class="howscore">Calm mode: no rides and no speed. Just you, {buddy.name} and the facts.</p>
         {/if}
