@@ -52,5 +52,125 @@
   "lulu.done": {
     "seed": 101,
     "why": "first take started at full level with no lead-in"
+  },
+  "ep.count-on.s2": {
+    "text": "Hop 2: 8. So 6 plus 2 is 8!",
+    "why": "math signs read as words"
+  },
+  "ep.doubles.s1": {
+    "text": "And 6 more, just like a mirror! 6 plus 6 is 12.",
+    "why": "math signs read as words"
+  },
+  "ep.doubles.s2": {
+    "text": "Near doubles are one more. 6 plus 7 is the double, and 1 more...",
+    "why": "math signs read as words"
+  },
+  "ep.make-ten.s3": {
+    "text": "Plus 9 is plus 10, then 1 back. 5 plus 10 is 15...",
+    "why": "math signs read as words"
+  },
+  "ep.make-ten.s4": {
+    "text": "...then hop 1 back: 14. So 5 plus 9 is 14!",
+    "why": "math signs read as words"
+  },
+  "ep.bridge-ten.s0": {
+    "text": "8 plus 5. 8 cookies in one tin, and 5 in the other.",
+    "why": "math signs read as words"
+  },
+  "ep.count-back.s2": {
+    "text": "Hop 2: 7. So 9 take away 2 is 7!",
+    "why": "math signs read as words"
+  },
+  "ep.doubles-back.s0": {
+    "text": "You know 7 plus 7 is 14.",
+    "why": "math signs read as words"
+  },
+  "ep.doubles-back.s1": {
+    "text": "Take one row away: 7 are left. 14 take away 7 is 7!",
+    "why": "math signs read as words"
+  },
+  "ep.doubles-back.s3": {
+    "text": "The ten goes, the 6 stay. 16 take away 10 is 6!",
+    "why": "math signs read as words"
+  },
+  "ep.ten-back.s2": {
+    "text": "Take away 9? Take away 10 first: 15 take away 10 is 5...",
+    "why": "math signs read as words"
+  },
+  "ep.ten-back.s3": {
+    "text": "...then give 1 back: 6. So 15 take away 9 is 6!",
+    "why": "math signs read as words"
+  },
+  "ep.think-plus.s0": {
+    "text": "13 take away 5? Turn it around: 5 plus what makes 13?",
+    "why": "math signs read as words"
+  },
+  "ep.think-plus.s3": {
+    "text": "So 13 take away 5 is 8!",
+    "why": "math signs read as words"
+  },
+  "ep.zero-one.s2": {
+    "text": "Times 0 means zero groups. 5 times 0: no groups of 5 at all...",
+    "why": "math signs read as words"
+  },
+  "ep.times-2.s0": {
+    "text": "6 times 2 means 2 groups of 6. Here is one group.",
+    "why": "math signs read as words"
+  },
+  "ep.times-2.s1": {
+    "text": "And the second group: it is a double! 6 plus 6 is 12.",
+    "why": "math signs read as words"
+  },
+  "ep.times-2.s2": {
+    "text": "Turn it round and it is the same: 2 times 6 is 12 too.",
+    "why": "math signs read as words"
+  },
+  "ep.times-10.s0": {
+    "text": "4 times 10 means 4 sticks of ten blocks.",
+    "why": "math signs read as words"
+  },
+  "ep.times-5.s0": {
+    "text": "6 times 10 is 60: 6 sticks of ten.",
+    "why": "math signs read as words"
+  },
+  "ep.times-5.s2": {
+    "text": "Half of 60 is 30. So 6 times 5 is 30!",
+    "why": "math signs read as words"
+  },
+  "ep.times-4.s0": {
+    "text": "3 times 4. Start with one row of 3.",
+    "why": "math signs read as words"
+  },
+  "ep.times-3.s0": {
+    "text": "6 times 3. Double 6 is 12.",
+    "why": "math signs read as words"
+  },
+  "ep.times-9.s0": {
+    "text": "4 times 9. First, 4 times 10 is 40.",
+    "why": "math signs read as words"
+  },
+  "ep.times-6.s0": {
+    "text": "4 times 6. First, 4 times 5 is 20.",
+    "why": "math signs read as words"
+  },
+  "ep.times-8.s0": {
+    "text": "3 times 8. Start with 3.",
+    "why": "math signs read as words"
+  },
+  "ep.times-7.s0": {
+    "text": "6 times 7. First, 6 times 5 is 30.",
+    "why": "math signs read as words"
+  },
+  "ep.times-7.s1": {
+    "text": "Then 6 times 2 is 12.",
+    "why": "math signs read as words"
+  },
+  "ep.think-times.s0": {
+    "text": "12 divided by 3 means share 12 into 3 groups.",
+    "why": "math signs read as words"
+  },
+  "ep.think-times.s3": {
+    "text": "Think times: 4 times 3 is 12, so 12 divided by 3 is 4.",
+    "why": "math signs read as words"
   }
 }

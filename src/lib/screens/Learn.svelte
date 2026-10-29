@@ -1,8 +1,8 @@
 <script lang="ts">
-  // Learn: every trick as a short lesson with the buddy. Your 3D buddy stands on the island beside the
-  // list (above it on a phone) and says what's next; the list shows what to learn next, the tricks you've
-  // learned (watch them again any time) and every lesson by kind of math. Nothing is locked. A lesson
-  // keeps the same buddy: it points at the board, cheers, shrugs and dances.
+  // Learn: every trick as a short episode in a 3D place (math/ui/Episode.svelte). Your 3D buddy stands
+  // on the island beside the list (above it on a phone) and says what's next; the list shows a trick
+  // that's due its quick check, what to learn next, the tricks you've learned (watch them again any
+  // time) and every episode by kind of math, each in its own place with its Glimmer. Nothing is locked.
   import { onDestroy, onMount, tick } from 'svelte';
   import { stage } from '../three/stage';
   import { LearnScene } from '../three/learnScene';
@@ -10,9 +10,12 @@
   import { sfx } from '../audio/sound';
   import { STRANDS, MATH_LESSONS } from '../math/course';
   import { mathOf, nextMathLesson } from '../math/progress';
-  import { LESSON, LESSONS, boundsOf, coverOf, isLearned, nextToLearn, type Lesson } from '../math/learn';
-  import LearnBoard from '../math/ui/LearnBoard.svelte';
-  import LearnLesson from '../math/ui/LearnLesson.svelte';
+  import { LESSON, LESSONS, checkDue, isLearned, nextToLearn, type Lesson } from '../math/learn';
+  import { setOf } from '../math/episodes';
+  import { GLIMMER } from '../adventure/glimmers';
+  import { glimmerArt } from '../adventure/evolve';
+  import { FRIEND } from '../art/cast';
+  import Episode from '../math/ui/Episode.svelte';
   import Header from '../ui/Header.svelte';
   import Icon from '../ui/Icon.svelte';
 
@@ -25,17 +28,21 @@
   const learned = $derived(LESSONS.filter(l => isLearned(m, l.id)));
   const nextStop = $derived(nextMathLesson(m, m.strand ?? 'x'));
   const hero = $derived(nextToLearn(m, nextStop));
+  const due = $derived(checkDue(m));
   let tall = $state(false);
   const open = $derived(game.learnId ? LESSON[game.learnId] ?? null : null);
+  /** the open episode is just its next-day quick check */
+  let checking = $state(false);
   // the 3D buddy, for the list and the lessons
   let scene = $state<LearnScene | null>(null);
   let spotEl: HTMLDivElement | undefined = $state();
   let listEl: HTMLDivElement | undefined = $state();
   let gone = false;
-  const hello = $derived(hero ? (isLearned(m, hero.id) ? `Want to see ${hero.title} again? Tap Watch!` : `${p.name}, I'll show you a trick: ${hero.title}! It takes about two minutes.`) : 'Pick a trick to watch!');
+  const hello = $derived(due ? `${p.name}, do you remember ${due.title}? Quick check!` : hero ? (isLearned(m, hero.id) ? `Want to see ${hero.title} again? Tap Watch!` : `${p.name}, I'll show you a trick: ${hero.title}! It takes about two minutes.`) : 'Pick a trick to watch!');
 
-  function watch(l: Lesson) { sfx.click(); game.learnId = l.id; }
-  function close() { game.learnId = null; }
+  function watch(l: Lesson) { sfx.click(); checking = false; game.learnId = l.id; }
+  function quickCheck(l: Lesson) { sfx.click(); checking = true; game.learnId = l.id; }
+  function close() { game.learnId = null; checking = false; }
   /** the first stop that uses this trick, to practise it right after */
   function practiceStop(l: Lesson) {
     if (l.id === 'zero-one') return 'twins-1';
@@ -53,7 +60,9 @@
     onR(); addEventListener('resize', onR);
     void LearnScene.create({ buddy, region: 'village', view: { top: 0.2, bottom: 0.85, left: 0, right: 0.3 } }).then(async sc => {
       if (gone) { sc.dispose(); return; }
-      scene = sc; stage.use(sc);
+      // (an episode that opened first keeps the stage; the buddy takes it back when the episode closes)
+      scene = sc;
+      if (!game.learnId) stage.use(sc);
       await tick();
       sc.area(spotEl ?? null); sc.board(listEl ?? null); sc.wave();
     }).catch(e => console.error(e));
@@ -61,18 +70,17 @@
   });
   onDestroy(() => { gone = true; if (scene && stage.current() === scene) stage.use(null); else scene?.dispose(); });
   // back from a lesson: the buddy stands beside the list again and points at it
-  $effect(() => { if (!open && scene) tick().then(() => { scene?.area(spotEl ?? null); scene?.board(listEl ?? null); }); });
+  $effect(() => { if (!open && scene) tick().then(() => { if (scene && stage.current() !== scene) stage.use(scene); scene?.area(spotEl ?? null); scene?.board(listEl ?? null); }); });
 </script>
 
 <div class="screen learn" class:tall style:--board="url({boardArt})">
-  <div class="veil"></div>
-  <Header title={open ? 'Learn a trick' : 'Learn'} sub={open ? undefined : `${learned.length} of ${LESSONS.length} tricks learned`} {back} />
-
   {#if open}
-    {#key open.id}
-      <div class="lessonwrap"><LearnLesson id={open.id} pal={scene} onclose={close} onpractice={practiceStop(open) ? () => practise(open) : undefined} /></div>
+    {#key `${open.id}-${checking}`}
+      <Episode id={open.id} check={checking} onclose={close} onpractice={practiceStop(open) ? () => practise(open) : undefined} onwatch={() => { checking = false; }} />
     {/key}
   {:else}
+  <div class="veil"></div>
+  <Header title="Learn" sub={`${learned.length} of ${LESSONS.length} tricks learned`} {back} />
     <div class="room">
     <div class="side">
       {#key hello}<div class="bubble"><p>{hello}</p></div>{/key}
@@ -80,13 +88,27 @@
       <div class="spot" bind:this={spotEl} aria-hidden="true"></div>
     </div>
     <div class="list scroll" bind:this={listEl}>
+      {#if due}
+        {@const ds = setOf(due.id)}
+        <section class="due" style:--sc={STRANDS.find(s => s.op === due.op)?.color}>
+          <img class="dglim" src="{base}{glimmerArt(ds.star)}" alt="" />
+          <div class="dtext"><small>Quick check</small><b>Do you remember {due.title}?</b><span>One question, and the trick is yours for good.</span></div>
+          <button class="btn btn-primary" onclick={() => quickCheck(due)}><Icon name="bulb" size={22} /> Check it</button>
+        </section>
+      {/if}
       {#if hero}
+        {@const hs = setOf(hero.id)}
         <section class="hero" style:--sc={STRANDS.find(s => s.op === hero.op)?.color}>
-          <button class="hpic" onclick={() => watch(hero)} aria-label="Watch {hero.title}"><LearnBoard board={coverOf(hero)} view={boundsOf([coverOf(hero)])} {buddy} still /></button>
+          <button class="hpic" style:--set="url({base}{hs.backdrop})" onclick={() => watch(hero)} aria-label="Watch {hero.title}">
+            <img class="pface" src="{base}portraits/{buddy}-head.png" alt="" />
+            <img class="gface" src="{base}{glimmerArt(hs.star)}" alt="" />
+            <span class="play"><Icon name="play" size={34} /></span>
+            <span class="where">{hs.name}</span>
+          </button>
           <div class="htext">
             <small>{isLearned(m, hero.id) ? 'Watch again' : 'Next to learn'}</small>
             <h2>{hero.title}</h2>
-            <p>{hero.blurb}</p>
+            <p>{GLIMMER[hs.star].name} and {FRIEND[buddy].name} need your help. {hero.blurb}</p>
             <button class="btn btn-primary btn-big" onclick={() => watch(hero)}><Icon name="play" size={26} /> Watch: {hero.title}</button>
           </div>
         </section>
@@ -110,8 +132,13 @@
           <div class="grid">
             {#each ls as l (l.id)}
               {@const done = isLearned(m, l.id)}
+              {@const ls2 = setOf(l.id)}
               <article class="lcard" class:done>
-                <button class="lpic" onclick={() => watch(l)} aria-label="Watch {l.title}"><LearnBoard board={coverOf(l)} view={boundsOf([coverOf(l)])} {buddy} still /></button>
+                <button class="lpic" style:--set="url({base}{ls2.backdrop})" onclick={() => watch(l)} aria-label="Watch {l.title}">
+                  <img class="gface" src="{base}{glimmerArt(ls2.star)}" alt="" />
+                  <span class="play small"><Icon name="play" size={24} /></span>
+                  <span class="where">{ls2.name}</span>
+                </button>
                 <div class="ltext">
                   <b>{l.title}</b>
                   <span>{l.blurb}</span>
@@ -142,14 +169,25 @@
   .bubble::after { content: ''; position: absolute; left: 50%; bottom: -14px; margin-left: -12px; border: 12px solid transparent; border-top-color: #fff; border-bottom: 0; }
   .bubble p { margin: 0; font: 600 18px/1.35 var(--font-ui); color: var(--ink); text-align: center; }
   @keyframes bubble { from { opacity: 0; transform: translateY(8px) scale(.94); } }
-  .lessonwrap { position: relative; flex: 1; min-height: 0; display: flex; }
   .list { position: relative; min-height: 0; padding: 18px 22px 18px 4px; display: flex; flex-direction: column; gap: 18px; max-width: 1000px; width: 100%; }
   .hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: center; background: rgba(255, 255, 255, .95); border-radius: 30px; padding: 16px 20px; box-shadow: 0 0 0 4px rgba(255, 255, 255, .7), 0 24px 44px -26px rgba(40, 20, 80, .6); }
   /* each lesson's picture on its painted board (the frame keeps its size, the paper stretches) */
-  .hpic, .lpic { display: block; width: 100%; aspect-ratio: 1.76; padding: 0; cursor: pointer; background: none; border: 12px solid transparent; border-image: var(--board) 64 fill / 12px stretch; transition: transform .15s; filter: drop-shadow(0 6px 8px rgba(90, 60, 20, .2)); box-sizing: border-box; }
+  /* each episode's picture: its painted place, its Glimmer (and on the big one, your buddy) */
+  .hpic, .lpic { position: relative; display: block; width: 100%; aspect-ratio: 1.76; padding: 0; cursor: pointer; border: 0; border-radius: 20px; overflow: hidden; background: var(--set) center 30% / cover; box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .6), 0 10px 18px -10px rgba(90, 60, 20, .5); transition: transform .15s; }
   .hpic:hover, .lpic:hover { transform: translateY(-3px); }
-  .hpic, .lpic { position: relative; overflow: hidden; }
-  .hpic :global(.lb), .lpic :global(.lb) { position: absolute; left: 4px; top: 3px; width: calc(100% - 8px); height: calc(100% - 6px); }
+  .hpic::after, .lpic::after { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(0, 0, 0, 0) 55%, rgba(50, 25, 5, .45)); }
+  .gface { position: absolute; right: 4%; bottom: 4%; width: 34%; aspect-ratio: 1; object-fit: contain; z-index: 1; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .35)); }
+  .pface { position: absolute; left: 4%; bottom: 4%; width: 30%; aspect-ratio: 1; object-fit: contain; z-index: 1; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .35)); }
+  .play { position: absolute; left: 50%; top: 46%; translate: -50% -50%; z-index: 1; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: rgba(255, 255, 255, .92); color: var(--sc); box-shadow: 0 0 0 5px rgba(255, 255, 255, .4), 0 8px 18px rgba(0, 0, 0, .3); }
+  .play.small { width: 44px; height: 44px; left: 12%; top: 16%; }
+  .where { position: absolute; left: 10px; top: 8px; z-index: 1; font: 800 11px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+  .lpic .where { left: auto; right: 10px; }
+  .due { display: flex; align-items: center; gap: 14px; background: linear-gradient(100deg, #fff7dc, #fff); border-radius: 26px; padding: 10px 16px; box-shadow: 0 0 0 3px #ffd75e, 0 18px 36px -26px rgba(40, 20, 80, .55); }
+  .dglim { width: 70px; height: 70px; object-fit: contain; flex: none; }
+  .dtext { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .dtext small { font: 800 12px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: #b07a10; }
+  .dtext b { font: 600 22px var(--font-ui); color: var(--ink); }
+  .dtext span { font: 600 14px var(--font-body); color: var(--muted); }
   .htext small { font: 800 12px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sc); }
   .htext h2 { margin: 2px 0 4px; font-size: clamp(30px, 3.6vw, 44px); }
   .htext p { margin: 0 0 10px; font: 600 17px/1.35 var(--font-body); color: var(--ink2); }

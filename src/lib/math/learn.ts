@@ -6,7 +6,7 @@
 // The pictures are plain data (dots with ids and places), so moving from one step to the next only
 // changes numbers: the same dot slides to its new place, new dots pop in, gone ones float away.
 
-import type { Profile } from '../engine/profile';
+import { dayKey, type Profile } from '../engine/profile';
 import { earnShells, notePractice } from '../adventure/state';
 import type { Rarity } from '../adventure/glimmers';
 import { minusGroup, plusGroup, STRAND, TRICK, trickFor, trickOf, type MathLesson, type MathRegionId } from './course';
@@ -427,13 +427,26 @@ export function nextToLearn(m: MathProgress, next: MathLesson | null): Lesson | 
 export const LEARN_SHELLS = 8;
 /** Finish a lesson (call inside game.update): the trick is saved, its three right answers warm the eggs,
  *  and the first time earns shells. (It isn't a practice session: it doesn't finish a map practice stop.) */
-export function finishLesson(p: Profile, id: string): { first: boolean; shells: number; eggsReady: Rarity[] } {
+export function finishLesson(p: Profile, id: string, now = Date.now()): { first: boolean; shells: number; eggsReady: Rarity[] } {
   const m = (p.math = mathOf(p));
   const first = !(m.learned ?? []).includes(id);
-  if (first) m.learned = [...(m.learned ?? []), id];
+  if (first) { m.learned = [...(m.learned ?? []), id]; m.learnedOn = { ...(m.learnedOn ?? {}), [id]: dayKey(now) }; }
   const shells = first ? earnShells(p, LEARN_SHELLS) : 0;
   const eggsReady = notePractice(p, 3, false);
   return { first, shells, eggsReady };
+}
+
+/** The trick that's due its quick check: learned on an earlier day, not checked yet (the oldest first).
+ *  (Tricks learned before the checks began have no day, so they never come due.) */
+export function checkDue(m: MathProgress, now = Date.now()): Lesson | null {
+  const today = dayKey(now), on = m.learnedOn ?? {}, done = new Set(m.checked ?? []);
+  const id = (m.learned ?? []).find(x => on[x] && on[x] < today && !done.has(x) && LESSON[x]);
+  return id ? LESSON[id] : null;
+}
+/** The quick check is done (call inside game.update). */
+export function markChecked(p: Profile, id: string) {
+  const m = (p.math = mathOf(p));
+  if (!(m.checked ?? []).includes(id)) m.checked = [...(m.checked ?? []), id];
 }
 
 /** A learned trick for a battle card: the buddy's words with the answer left for you to say.

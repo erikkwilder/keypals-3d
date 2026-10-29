@@ -25,7 +25,7 @@
   import { applyMathRun, mathOf } from '../math/progress';
   import NumPad from '../math/ui/NumPad.svelte';
   import DotPicture from '../math/ui/DotPicture.svelte';
-  import LearnLesson from '../math/ui/LearnLesson.svelte';
+  import Episode from '../math/ui/Episode.svelte';
   import { isLearned, isLearnStop, lessonForFact, lessonForStop } from '../math/learn';
   import RideLadder from '../ui/RideLadder.svelte';
   import NavTile from '../ui/NavTile.svelte';
@@ -483,9 +483,9 @@
 
   {#if game.learnOverlay}
     <!-- a Learn lesson over the trip: the trip waits underneath -->
-    <!-- the lesson borrows the 3D stage for its buddy, so the trip's view behind is see-through -->
+    <!-- the episode borrows the 3D stage for its place, and gives the trip its view back after -->
     <div class="learnlay">
-      {#key game.learnOverlay}<LearnLesson id={game.learnOverlay} embedded onclose={() => (game.learnOverlay = null)} />{/key}
+      {#key game.learnOverlay}<Episode id={game.learnOverlay} embedded onclose={() => (game.learnOverlay = null)} />{/key}
     </div>
   {/if}
 </div>
@@ -545,7 +545,7 @@
   .watchl.small img { width: 26px; height: 32px; }
   .watchl.small b { font-size: 15px; }
   .learnlay { position: absolute; inset: 0; z-index: 30; display: flex; }
-  .learnlay::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255, 250, 240, 0) 22%, rgba(255, 248, 235, .35) 60%); pointer-events: none; }
+
 
   .announce { position: absolute; left: 0; right: 0; bottom: 0; top: 40%; overflow: hidden; pointer-events: none; z-index: 8; }
   .banner { position: absolute; left: 55%; right: 0; top: 0; bottom: 10%; justify-content: center; display: flex; flex-direction: column; align-items: center; pointer-events: none; animation: banner 1.5s cubic-bezier(.3, .8, .3, 1) forwards; }
