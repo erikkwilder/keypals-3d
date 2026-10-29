@@ -137,6 +137,9 @@
       <NavTile size={tile} tone="mint" label="Garden" title="Fact Garden: every fact you know" badge={blooms || ''} onclick={() => game.go('garden')}>
         {#snippet art()}<TileArt kind="garden" size={tile === 'sm' ? 40 : 62} />{/snippet}
       </NavTile>
+      <NavTile size={tile} tone="lilac" label="Arcade" title="Arcade: quick score games on your facts" onclick={() => game.go('arcade')}>
+        {#snippet art()}<img class="learnart" src="{import.meta.env.BASE_URL}icons/arcade.webp" alt="" style:height={tile === 'sm' ? '40px' : '62px'} />{/snippet}
+      </NavTile>
       <NavTile size={tile} tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
         {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={tile === 'sm' ? 40 : 62} round />{/snippet}
       </NavTile>

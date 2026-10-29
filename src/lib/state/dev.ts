@@ -1,4 +1,4 @@
-// Shortcuts for checking screens: add #run=village-1, #map, #math, #mathrun=twins-2, #garden, #results, #stickers, #closet, #dances,
+// Shortcuts for checking screens: add #run=village-1, #map, #math, #mathrun=twins-2, #garden, #arcade, #arcade=slalom, #results, #stickers, #closet, #dances,
 // #settings, #grownups or #new to the address. #tester (works on the live site too) adds a player
 // called "Tester" who has passed every lesson and has every buddy at friendship 26, for trying the
 // later levels, outfits and dances; it never touches other players.
@@ -65,6 +65,8 @@ export function devBoot() {
   if (key === 'pizza') { ensure(); game.go('pizza'); }
   // Glimmer Drop: #drop
   if (key === 'drop') { ensure(); game.go('drop'); }
+  // the Arcade: #arcade (the plaza), #arcade=slalom|catch|tower (straight into a round), #arcade=daily
+  if (key === 'arcade') { ensure(); game.setHome('math'); if (val === 'daily') import('../arcade/arcade').then(a => game.playArcade(a.dailyGame(), true)); else if (val) game.playArcade(val as 'slalom' | 'catch' | 'tower'); else game.go('arcade'); }
   // Learn: #learn (the list of tricks) or #learn=make-ten (that lesson)
   if (key === 'learn') { ensure(); game.openLearn(val || null, 'map'); }
   // evolutions: #evolve=puddlepup (level 5, ready to evolve), #evolved=puddlepup,sparkmoth (grown up, on the team)

@@ -163,6 +163,7 @@
             <button class="btn btn-primary play" onclick={() => play('math')}>{mFresh ? 'Start math' : 'Play'} <span class="kbd">M</span></button>
             <button class="btn ghost" onclick={() => open('math')}>Map</button>
             <button class="btn ghost" onclick={() => { sfx.click(); game.setHome('math'); game.go('garden'); }}>Garden</button>
+            <button class="btn ghost arc" onclick={() => { sfx.click(); game.setHome('math'); game.go('arcade'); }}><img src="{import.meta.env.BASE_URL}icons/arcade.webp" alt="" />Arcade</button>
           </div>
         </div>
       </section>
@@ -298,7 +299,9 @@
   .bar2 { position: relative; height: 10px; border-radius: 999px; background: #efeaf6; overflow: hidden; }
   .bar2 i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--tone); z-index: 2; }
   .bar2 i.g { background: #9fdcb5; z-index: 1; }
-  .acts { display: flex; gap: 8px; align-items: center; }
+  .acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .acts .arc { display: inline-flex; align-items: center; gap: 4px; }
+  .acts .arc img { width: 26px; height: 26px; object-fit: contain; margin: -4px 0 -4px -4px; }
   .play { flex: 1; font-size: 22px; padding: 12px 18px; background: linear-gradient(color-mix(in srgb, var(--tone) 70%, #fff), var(--tone)); box-shadow: 0 5px 0 color-mix(in srgb, var(--tone) 70%, #000); }
   .play .kbd { background: rgba(255, 255, 255, .25); border-color: rgba(255, 255, 255, .4); color: inherit; font-size: 12px; height: 22px; }
   .ghost { background: var(--bg2); color: var(--ink); box-shadow: none; font-size: 17px; padding: 12px 16px; }

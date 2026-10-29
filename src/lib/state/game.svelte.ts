@@ -5,7 +5,7 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
-export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'drop';
+export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'drop' | 'arcade' | 'arcadePlay';
 
 function load(): SaveFile {
   try {
@@ -69,6 +69,16 @@ class Game {
   /** Learn: the lesson open on the Learn screen (null: the list of tricks), and where Back goes */
   learnId = $state<string | null>(null);
   learnBack = $state<Screen>('map');
+  /** the Arcade: the game being played, today's challenge or a free round, and a key so "play again" starts fresh */
+  arcadeGame = $state<import('../arcade/arcade').ArcadeId>('slalom');
+  arcadeDaily = $state(false);
+  arcadeKey = $state(0);
+  playArcade(id: import('../arcade/arcade').ArcadeId, daily = false) {
+    this.arcadeGame = id;
+    this.arcadeDaily = daily;
+    this.arcadeKey++;
+    this.screen = 'arcadePlay';
+  }
   /** a Learn lesson opened over a math trip (the trip waits underneath) */
   learnOverlay = $state<string | null>(null);
   openLearn(id: string | null = null, back: Screen = this.screen === 'learn' ? this.learnBack : this.screen) {

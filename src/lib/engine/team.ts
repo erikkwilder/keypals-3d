@@ -20,7 +20,8 @@ export function teamStats(p: Profile) {
   const three = Object.values(p.lessons).filter(r => r.stars >= 3).length + Object.values(m.lessons).filter(r => r.stars >= 3).length;
   const kinds = new Set(Object.keys(m.lessons).map(id => id.split('-')[0]).map(r => MATH_REGIONS.find(x => x.id === r || x.id.startsWith(r))?.op).filter(Boolean));
   return {
-    stars: totalStars(p) + mathStarsTotal(m) + playStars,
+    // stars from every game: typing, math trips, the playground and each Arcade game's best
+    stars: totalStars(p) + mathStarsTotal(m) + playStars + Object.values(p.arcade ?? {}).reduce((t, r) => t + (r?.stars ?? 0), 0),
     regions: typingRegions + mathRegions,
     blooms: ALL_GARDEN_IDS.filter(id => m.facts[id]?.stage === 3).length,
     days: Object.values(p.days).filter(d => d.ms > 0).length,

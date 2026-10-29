@@ -35,6 +35,8 @@
   import SkillResults from './lib/screens/SkillResults.svelte';
   import SkillsReport from './lib/screens/SkillsReport.svelte';
   import FactGarden from './lib/screens/FactGarden.svelte';
+  import Arcade from './lib/screens/Arcade.svelte';
+  import ArcadePlay from './lib/screens/ArcadePlay.svelte';
   import { stage } from './lib/three/stage';
   import QuickSettings from './lib/ui/QuickSettings.svelte';
   import FunLayer from './lib/fun/FunLayer.svelte';
@@ -62,13 +64,13 @@
   // sound, once per player; a typing lesson asks for itself, before its coach starts talking
   $effect(() => {
     const scr = game.screen;
-    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel', 'drop'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
+    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel', 'drop', 'arcadePlay', 'pizza'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
     setTimeout(() => { if (game.screen === scr && game.profile && !game.profile.soundSetup && !game.sheet) game.openSheet('setup'); }, 300);
   });
 
-  // menu music on the screens around the lessons; Adventure's own on its screens (Auto plays an
-  // adventure there; a picked station just keeps playing)
-  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs', 'drop']);
+  // menu music on the screens around the lessons; Adventure's own on its screens and the Arcade's (Auto
+  // plays an adventure there; a picked station just keeps playing)
+  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza']);
   $effect(() => {
     const scr = game.screen;
     if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
@@ -116,6 +118,8 @@
   {:else if game.screen === 'rivals'}<Rivals />
   {:else if game.screen === 'pizza'}<PizzaRush />
   {:else if game.screen === 'drop'}<GlimmerDrop />
+  {:else if game.screen === 'arcade'}<Arcade />
+  {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}
   {/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}
