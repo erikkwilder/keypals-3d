@@ -154,8 +154,8 @@ export const FRAC_LESSONS: FracLesson[] = [
   {
     id: 'frac-of-a-set', title: 'Part of a Set', blurb: '2 of 6 cupcakes is 2/6. 1/3 of 12? Share 12 into 3 groups.', set: 'picnic', skill: 'fr-set', art: 'learn/frac/card-cupcakes.webp',
     steps: [
-      { say: '', board: board({ dots: cakes('k', 6, 6, 72, 300, 170, () => 'a') }), eq: '6 cupcakes' },
-      { say: '', board: board({ dots: cakes('k', 6, 6, 72, 300, 170, i => (i < 2 ? 'c' : 'a')) }), eq: '[2] of 6 = [2/6]' },
+      { say: '', board: board({ dots: cakes('k', 6, 6, 84, 300, 220, () => 'a') }), eq: '6 cupcakes' },
+      { say: '', board: board({ dots: cakes('k', 6, 6, 84, 300, 220, i => (i < 2 ? 'c' : 'a')) }), eq: '[2] of 6 = [2/6]' },
       { say: '', board: board({ plates: shareOut(0, 3).plates, dots: cakes('t', 12, 6, 58, 300, 296, () => 'a') }), eq: '1/3 of 12', do: 'watch' },
       { say: '', board: board({ plates: shareOut(0, 3).plates, dots: onPlates('t', 12, shareOut(0, 3).plates, 78, () => 'a') }), eq: '12 shared into 3 = [4] each' },
       { say: '', board: board({ plates: shareOut(0, 3).plates, dots: onPlates('t', 12, shareOut(0, 3).plates, 78, (_, p) => (p === 0 ? 'c' : 'a')) }), eq: '1/3 of 12 = [4]' },

@@ -78,13 +78,16 @@ function cupcake() {
   const fill = new THREE.CylinderGeometry(0.8, 0.8, 0.2, 32); fill.translate(0, 0.84, 0); rings.push(fill.toNonIndexed());
   const icing = mergeGeometries(rings);
   icing.computeVertexNormals();
-  return { main: icing, extra: cup, height: 1.9 };
+  // (a little bigger than a counter: a cupcake you'd want)
+  const S = 1.25;
+  icing.scale(S, S, S); cup.scale(S, S, S);
+  return { main: icing, extra: cup, height: 1.9 * S };
 }
 
 // ---------- looks ----------
 /** the colours a hue tints each thing: a = as it comes, b = the second lot, c = the gold ones you count */
 const TINT: Record<'a' | 'b' | 'c', number> = { a: 0xffffff, b: 0xffc2d6, c: 0xfff1c4 };
-const ICING: Record<'a' | 'b' | 'c', number> = { a: 0x8cc4ff, b: 0xff9cc8, c: 0xffd75a };
+const ICING: Record<'a' | 'b' | 'c', number> = { a: 0x62b0ff, b: 0xff9cc8, c: 0xffd75a };
 
 export type FracTex = { pie: THREE.Texture | null; pizza: THREE.Texture | null; choc: THREE.Texture | null };
 
@@ -99,7 +102,8 @@ export function shapeMats(s: Shape, hue: Hue, out: boolean, tex: FracTex, cache:
     return [top, side];
   }
   if (s.k === 'chunk') {
-    const base = h === 'b' ? 0xf2a6c0 : 0xffffff;
+    // (the warm light makes the painted milk chocolate look like copper: a shade darker)
+    const base = h === 'b' ? 0xf2a6c0 : h === 'c' ? 0xd9b49a : 0x8f6a5a;
     return cache(`f-choc-${h}`, () => new THREE.MeshPhysicalMaterial({ map: tex.choc, color: base, roughness: 0.32, clearcoat: 0.6, clearcoatRoughness: 0.25, emissive: h === 'c' ? 0xffa21a : 0x000000, emissiveIntensity: glow }));
   }
   return cache(`f-icing-${h}`, () => new THREE.MeshPhysicalMaterial({ color: ICING[h], roughness: 0.45, sheen: 1, sheenColor: new THREE.Color(0xffffff), clearcoat: 0.3, emissive: ICING[h], emissiveIntensity: h === 'c' ? 0.25 : 0.06 }));

@@ -668,9 +668,22 @@ export class EpisodeScene implements Controller {
   private makePlank(from: number, to: number) {
     const g = new THREE.Group();
     const a = this.boardPoint(LX0 - 22, LY), b = this.boardPoint(LX1 + 22, LY);
-    const len = b.x - a.x, depth = 0.09;
+    const len = b.x - a.x, depth = this.plankDepth;
     const tex = this.plankTex?.clone() ?? null;
     if (tex) { tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(len / 0.6, 1); tex.needsUpdate = true; }
+    const den = this.board?.line?.den;
+    if (this.close && den) {
+      // a fraction's plank: one piece of wood for each equal jump, the colours taking turns, so you can
+      // see the equal parts (and a darker end beyond 0 and beyond the last number)
+      const H = 0.06, piece = (x0: number, x1: number, color: number) => {
+        const m = new THREE.Mesh(new RoundedBoxGeometry(x1 - x0, H, depth, 2, 0.014), new THREE.MeshStandardMaterial({ map: tex, color, roughness: 0.8 }));
+        m.position.set((x0 + x1) / 2, TY + H / 2, a.z); m.castShadow = true; m.receiveShadow = true; g.add(m);
+      };
+      piece(a.x, this.linePoint(from).x - 0.004, 0x9a6438);
+      for (let n = from; n < to; n++) piece(this.linePoint(n).x + 0.004, this.linePoint(n + 1).x - 0.004, (n - from) % 2 ? 0xb87440 : 0xf7d6a0);
+      piece(this.linePoint(to).x + 0.004, b.x, 0x9a6438);
+      return g;
+    }
     const plank = new THREE.Mesh(new RoundedBoxGeometry(len, 0.04, depth, 2, 0.012), new THREE.MeshStandardMaterial({ map: tex, color: 0xd9a86a, roughness: 0.8 }));
     plank.position.set((a.x + b.x) / 2, TY + 0.02, a.z);
     plank.castShadow = true; plank.receiveShadow = true;
@@ -687,9 +700,10 @@ export class EpisodeScene implements Controller {
     g.add(pm);
     return g;
   }
-  /** where number n sits on the plank */
+  /** the plank's width (a fraction's plank is a broad one, to see its equal parts) */
+  private get plankDepth() { return this.close ? 0.17 : 0.09; }
   /** where the Glimmer stands for number n: just behind the plank, so the numbers stay in sight */
-  private standAt(n: number) { return this.linePoint(n).add(new THREE.Vector3(0, 0, -0.05)); }
+  private standAt(n: number) { return this.linePoint(n).add(new THREE.Vector3(0, 0, -this.plankDepth / 2 - 0.005)); }
   linePoint(n: number): THREE.Vector3 {
     const ln = this.board?.line;
     const x = ln ? LX0 + ((n - ln.from) / Math.max(1, ln.to - ln.from)) * (LX1 - LX0) : BW / 2;
@@ -723,7 +737,7 @@ export class EpisodeScene implements Controller {
     p.y += Math.min(0.3, 0.07 + this.linePoint(h.a).distanceTo(this.linePoint(h.b)) * 0.25) + 0.05;
     return p;
   }
-  tickPoint(n: number): THREE.Vector3 { return this.linePoint(n).add(new THREE.Vector3(0, -0.02, 0.085)); }
+  tickPoint(n: number): THREE.Vector3 { return this.linePoint(n).add(new THREE.Vector3(0, -0.02, this.plankDepth / 2 + 0.04)); }
   private hopPal(to: THREE.Vector3, instant: boolean) {
     this.palFrom.copy(this.palAt); this.palTo.copy(to);
     this.palHop0 = instant ? -9 : this.now;

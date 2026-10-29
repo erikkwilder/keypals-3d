@@ -87,7 +87,7 @@
   const q = $derived<EpQ>(check ? lesson.tries[2] : lesson.tries[Math.min(k, 1)]);
   const ans = $derived(q.ans);
   /** a question to work out ("What fraction is on the plate?") or a sum ("6 + 3"), and its answer after it */
-  const asks = (x: EpQ) => /\?$/.test(x.text);
+  const asks = (x: EpQ) => /(\?|\.\.\.)$/.test(x.text);
   const total = lesson.steps.length + 4;
   const at = $derived(phase === 'intro' || phase === 'load' ? -1 : phase === 'step' ? i : phase === 'teach' ? lesson.steps.length : phase === 'turn' ? lesson.steps.length + 1 + k : total - 1);
   /** "8 + 5 = [13]": the part in brackets lit up */
