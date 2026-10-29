@@ -369,6 +369,36 @@ export const sfx = {
   golden() { [1046.5, 1318.5, 1568, 2093].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.5, gain: 0.07, delay: i * 0.05 })); noise(0.9, { gain: 0.04, freq: 8000, q: 0.6, sweepTo: 12000, delay: 0.1 }); },
   /** A secret found: a little magic run up and back. */
   secret() { [523.25, 659.25, 783.99, 1046.5, 1318.5, 1046.5, 1318.5, 1568].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.18, gain: 0.06, delay: i * 0.065 })); },
+
+  // ---------- the Arcade ----------
+  /** The countdown: three soft beeps (3, 2, 1), then a bright "go!" (0). */
+  countBeep(n: number) { if (n > 0) tone(659.25, { type: 'triangle', dur: 0.14, gain: 0.08 }); else { tone(1046.5, { type: 'triangle', dur: 0.32, gain: 0.1 }); tone(1568, { type: 'sine', dur: 0.4, gain: 0.04, delay: 0.03 }); } },
+  /** Through the right gate (or a right catch, a block on the tower): a ding that climbs with the combo. */
+  ding(combo: number) {
+    const f = PENTA[Math.min(PENTA.length - 1, Math.max(0, combo))] * 2;
+    tone(f, { type: 'triangle', dur: 0.16, gain: 0.08 });
+    tone(f * 1.5, { type: 'sine', dur: 0.3, gain: 0.035, delay: 0.04 });
+  },
+  /** A sled turning hard: a crisp "shff" of snow. */
+  carve() { noise(0.18, { gain: 0.06, freq: 4200, q: 0.9, sweepTo: 2200 }); },
+  /** Squeaking past just in time. */
+  nearMiss() { noise(0.28, { gain: 0.07, freq: 900, q: 0.7, sweepTo: 4200 }); tone(1174.66, { type: 'sine', dur: 0.12, gain: 0.04, delay: 0.12 }); },
+  /** A wrong gate: a soft thump into the snow and a puff (the answer shows; nothing harsh). */
+  crash() { tone(130, { type: 'sine', dur: 0.25, gain: 0.12, slideTo: 70 }); noise(0.45, { gain: 0.08, freq: 1600, q: 0.6, sweepTo: 500, delay: 0.02 }); },
+  /** A Glimmer into the net: a round little pop. */
+  catchPop(combo = 0) { tone(620 + Math.min(10, combo) * 40, { type: 'sine', dur: 0.1, gain: 0.08, slideTo: 1240 + Math.min(10, combo) * 60 }); noise(0.05, { gain: 0.04, freq: 5000, q: 2, delay: 0.02 }); },
+  /** A Glimmer that doesn't make the number boinks off the net. */
+  boink() { tone(300, { type: 'triangle', dur: 0.16, gain: 0.07, slideTo: 520 }); tone(420, { type: 'sine', dur: 0.12, gain: 0.04, slideTo: 260, delay: 0.12 }); },
+  /** A block lands on the tower: a wooden "tok", deeper as the tower grows. */
+  thunk(h = 0) { const f = Math.max(140, 300 - h * 6); tone(f, { type: 'triangle', dur: 0.12, gain: 0.12, slideTo: f * 0.7 }); noise(0.07, { gain: 0.08, freq: 1400, q: 1.6 }); },
+  /** A perfect landing: a sparkle on top of the thunk. */
+  sparkle() { [1568, 2093, 2637].forEach((n, i) => tone(n, { type: 'sine', dur: 0.25, gain: 0.04, delay: 0.04 + i * 0.05 })); noise(0.4, { gain: 0.025, freq: 9000, q: 0.8, delay: 0.05 }); },
+  /** The top of the tower tipping over: a long creak and a whoosh down. */
+  topple() { wobble(220, { dur: 0.6, gain: 0.05, rate: 9, depth: 0.04, type: 'triangle', slideTo: 150 }); noise(0.8, { gain: 0.08, freq: 2400, q: 0.7, sweepTo: 300, delay: 0.35 }); },
+  /** Time's up: two warm notes. */
+  timeUp() { tone(783.99, { type: 'triangle', dur: 0.2, gain: 0.08 }); tone(1046.5, { type: 'triangle', dur: 0.45, gain: 0.08, delay: 0.16 }); },
+  /** A new best score: a little fanfare. */
+  newBest() { [523.25, 659.25, 783.99, 1046.5].forEach((n, i) => tone(n, { type: 'square', dur: 0.14, gain: 0.04, delay: i * 0.09 })); [1046.5, 1318.5, 1568].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.7, gain: 0.06, delay: 0.38 + i * 0.02 })); },
 };
 
 // ---------- melody mode: each right key plays the next note of a tune ----------
