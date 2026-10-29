@@ -272,4 +272,45 @@ export const EPISODE_LINES: Line[] = [
   coach("ep.think-times.card", "You won the Share It Out card! Share it out, and think of the times table."),
 ];
 
-export const ALL_LINES: Line[] = [...HOME_TUTORIAL, ...LESSON_LINES, ...FINGER_LINES, ...REGION_LINES, ...COACH_BARKS, ...FRIEND_LINES, ...EPISODE_LINES];
+// The decimals and money episodes (src/lib/math/market/episodes.ts, the same words): the coach tells each
+// market story, says each step, and hands over the card.
+export const MARKET_EPISODE_LINES: Line[] = [
+  coach("ep.dec-coins.intro", "Welcome to the sky market! Rock Candy Armadillo rolled in with a pile of coins. Let's count them, biggest first."),
+  coach("ep.dec-coins.s0", "Every coin has its own value. A penny is 1 cent, a nickel 5, a dime 10, and a quarter 25."),
+  coach("ep.dec-coins.s1", "To count a pile, line the coins up from biggest to smallest."),
+  coach("ep.dec-coins.s2", "Start with the quarter: 25. Then count on by tens: 35, 45."),
+  coach("ep.dec-coins.s3", "Then on by five: 50. And one more: 51 cents!"),
+  coach("ep.dec-coins.card", "You won the Biggest First card! Line the coins up from biggest to smallest, then count on."),
+  coach("ep.dec-change.intro", "Teakettle Dragon runs the lemonade stall. A shopper pays 50 cents for a 35 cent lemonade. How much change?"),
+  coach("ep.dec-change.s0", "The lemonade costs 35 cents. The shopper pays with two quarters: 50 cents."),
+  coach("ep.dec-change.s1", "Shopkeepers count up from the price. Start at 35."),
+  coach("ep.dec-change.s2", "A nickel makes 40. A dime makes 50!"),
+  coach("ep.dec-change.s3", "The change is the coins you counted: a nickel and a dime. 15 cents!"),
+  coach("ep.dec-change.card", "You won the Count Up card! Start at the price and count up to what they paid."),
+  coach("ep.dec-tenths.intro", "Popcorn Puffling found a chocolate bar with 10 pieces. Each piece is one tenth!"),
+  coach("ep.dec-tenths.s0", "The whole bar is 1. It snaps into 10 equal pieces."),
+  coach("ep.dec-tenths.s1", "One piece is one tenth. We write it 1 over 10, or 0.1."),
+  coach("ep.dec-tenths.s2", "Three pieces are three tenths: 0.3."),
+  coach("ep.dec-tenths.s3", "The first digit after the point counts tenths. 0.7 is 7 pieces."),
+  coach("ep.dec-tenths.card", "You won the Tenths card! The first digit after the point counts tenths."),
+  coach("ep.dec-hundredths.intro", "Geode Mole dug up a giant chocolate slab of 100 squares. Each square is one hundredth."),
+  coach("ep.dec-hundredths.s0", "100 squares make 1 whole. One square is 1 over 100, or 0.01."),
+  coach("ep.dec-hundredths.s1", "A row of 10 squares is one tenth: 0.1, the same as 0.10."),
+  coach("ep.dec-hundredths.s2", "Three rows and 5 more squares: 35 hundredths, 0.35."),
+  coach("ep.dec-hundredths.s3", "Money works the same way. A dollar is 100 cents, so 35 cents is 35 hundredths of a dollar."),
+  coach("ep.dec-hundredths.card", "You won the Hundredths card! Two digits after the point count hundredths, like cents."),
+  coach("ep.dec-compare.intro", "Rock Candy Armadillo wants the bigger piece of chocolate. Which is more: 0.5 or 0.45?"),
+  coach("ep.dec-compare.s0", "0.45 has more digits, so it looks bigger. But is it?"),
+  coach("ep.dec-compare.s1", "Give them the same number of digits. 0.5 is the same as 0.50."),
+  coach("ep.dec-compare.s2", "50 hundredths and 45 hundredths. 50 is more!"),
+  coach("ep.dec-compare.s3", "So 0.5 is bigger. Line up the points, fill in a zero, then compare."),
+  coach("ep.dec-compare.card", "You won the Line Up the Points card! Fill in zeros so the digits match, then compare."),
+  coach("ep.dec-add.intro", "Teakettle Dragon sells a muffin for $1.25 and a juice for 50 cents. How much for both?"),
+  coach("ep.dec-add.s0", "Write 50 cents as $0.50, and line up the points: cents under cents."),
+  coach("ep.dec-add.s1", "Add the hundredths first: 5 and 0 is 5."),
+  coach("ep.dec-add.s2", "Then the tenths: 2 and 5 is 7."),
+  coach("ep.dec-add.s3", "Then the ones: 1. The point drops straight down. $1.75!"),
+  coach("ep.dec-add.card", "You won the Line Up and Add card! Points in a line, then add like whole numbers."),
+];
+
+export const ALL_LINES: Line[] = [...HOME_TUTORIAL, ...LESSON_LINES, ...FINGER_LINES, ...REGION_LINES, ...COACH_BARKS, ...FRIEND_LINES, ...EPISODE_LINES, ...MARKET_EPISODE_LINES];

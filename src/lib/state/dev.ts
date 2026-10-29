@@ -65,6 +65,8 @@ export function devBoot() {
   if (key === 'pizza') { ensure(); game.go('pizza'); }
   // Market Dash, the money arcade game: #market
   if (key === 'market') { ensure(); game.go('market'); }
+  // a money Learn episode over the Decimals and money map: #market-learn=dec-coins
+  if (key === 'market-learn') { ensure(); game.mathArea = 'decimals'; game.mathOp = null; game.go('map'); game.learnOverlay = val || 'dec-coins'; }
   // Glimmer Drop: #drop
   if (key === 'drop') { ensure(); game.go('drop'); }
   // the Arcade: #arcade (the plaza), #arcade=slalom|catch|tower (straight into a round), #arcade=daily
