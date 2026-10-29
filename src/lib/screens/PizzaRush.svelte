@@ -163,7 +163,7 @@
       const pts = orderScore(o, combo, ms);
       score += pts; combo++; bestCombo = Math.max(bestCombo, combo); served++;
       musicEnergy(Math.min(1, 0.4 + combo * 0.08));
-      pop = { text: `+${pts}${combo > 1 ? `  Combo ×${comboMult(combo - 1)}` : ''}`, key: Date.now() };
+      pop = { text: `+${pts}`, key: Date.now() };
       combo >= 3 ? sfx.perfect() : sfx.cheer();
       scene.serve(active);
       scene.cheer(active);
