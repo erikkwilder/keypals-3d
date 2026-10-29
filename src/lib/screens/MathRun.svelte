@@ -474,7 +474,8 @@
 
   {#if game.learnOverlay}
     <!-- a Learn lesson over the trip: the trip waits underneath -->
-    <div class="learnlay" style:background-image="url({import.meta.env.BASE_URL}learn/{compact ? 'room-tall' : 'room'}.webp)">
+    <!-- the lesson borrows the 3D stage for its buddy, so the trip's view behind is see-through -->
+    <div class="learnlay">
       {#key game.learnOverlay}<LearnLesson id={game.learnOverlay} embedded onclose={() => (game.learnOverlay = null)} />{/key}
     </div>
   {/if}
@@ -532,8 +533,8 @@
   .watchl.small { padding: 3px 12px 3px 3px; border-radius: 14px; }
   .watchl.small img { width: 26px; height: 32px; }
   .watchl.small b { font-size: 15px; }
-  .learnlay { position: absolute; inset: 0; z-index: 30; display: flex; background-size: cover; background-position: center; }
-  .learnlay::before { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(255, 250, 240, .2), rgba(255, 248, 235, .55)); pointer-events: none; }
+  .learnlay { position: absolute; inset: 0; z-index: 30; display: flex; }
+  .learnlay::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255, 250, 240, 0) 22%, rgba(255, 248, 235, .35) 60%); pointer-events: none; }
 
   .announce { position: absolute; left: 0; right: 0; bottom: 0; top: 40%; overflow: hidden; pointer-events: none; z-index: 8; }
   .banner { position: absolute; left: 55%; right: 0; top: 0; bottom: 10%; justify-content: center; display: flex; flex-direction: column; align-items: center; pointer-events: none; animation: banner 1.5s cubic-bezier(.3, .8, .3, 1) forwards; }
