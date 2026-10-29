@@ -116,7 +116,7 @@
 </script>
 
 <div class="screen adv" class:tall>
-  <Header title="Adventure" back={() => game.go('hub')} sub="{met} of {GLIMMERS.length} Glimmers found">
+  <Header title="Adventure" back={() => game.go('hub')} sub="{met} of {GLIMMERS.length} Glimmers found" gear={!tall}>
     {#snippet right()}
       <button class="chip help" onclick={() => { intro = 0; sfx.pop(); }} title="How Adventure works">?</button>
       <span class="chip shells" title="Shells: spend them in the shop"><img src="{base}game/icon-shell.webp" alt="" />{a.shells}</span>
@@ -336,7 +336,7 @@
 
   .tall :global(.hd .tt span) { display: none; }
   .tall .chip { font-size: 15px; padding: 2px 8px 2px 2px; } .tall .chip img { width: 24px; height: 24px; } .tall .chip.time { padding: 4px 8px; font-size: 13px; } .tall .chip.help { width: 32px; height: 32px; font-size: 18px; padding: 0; }
-  .tall .dock { left: 8px; right: 8px; bottom: 8px; justify-content: center; gap: 8px; }
+  .tall .dock { position: static; flex: none; justify-content: center; gap: 8px; padding: 8px 8px 10px; background: rgba(255, 255, 255, .92); border-top: var(--panel-border); }
   .tall .dock :global(.tile) { width: 96px; height: 92px; }
   .tall .ww { width: 92px; font-size: 13px; }
   .tall .introcard { grid-template-columns: 1fr; }
