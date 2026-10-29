@@ -2,8 +2,8 @@
   // A painted fraction picture: a cherry pie cut into equal slices (the eaten ones show the plate), or a
   // chocolate bar cut into equal pieces (the empty ones show the wooden tray). The paintings are cut by
   // exact slice shapes, so the parts are truly equal.
-  import type { Pic } from '../types';
-  type Props = { pic: Pic; size?: number };
+  import type { FracPic } from '../types';
+  type Props = { pic: FracPic; size?: number };
   let { pic, size = 150 }: Props = $props();
   const base = import.meta.env.BASE_URL;
   const uid = `fp${Math.random().toString(36).slice(2, 8)}`;

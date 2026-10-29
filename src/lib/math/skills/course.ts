@@ -33,6 +33,39 @@ const MILL_SKILLS = ['fr-times', 'fr-unlike'];
 const PIE: Omit<SkillRegion, 'lessons'> = { id: 'frac-a', area: 'fractions', name: 'Pie Pantry', blurb: 'What a fraction is: equal parts, one piece, part of a set, the number line, and which is bigger.', world: 'village', chip: '½ ¾', skills: PIE_SKILLS };
 const BAKER: Omit<SkillRegion, 'lessons'> = { id: 'frac-b', area: 'fractions', name: "Baker's Bridge", blurb: 'Equal fractions, adding and taking away slices, and mixed numbers.', world: 'treetops', chip: '2/4 = ½', skills: BAKER_SKILLS };
 const MILL: Omit<SkillRegion, 'lessons'> = { id: 'frac-c', area: 'fractions', name: 'Waterfall Mill', blurb: 'A whole number times a fraction, and adding fractions with different bottoms.', world: 'shores', chip: '½ + ¼', skills: MILL_SKILLS };
+// Decimals and money, grades 2 to 5, on three islands: Coin Corner (counting coins, making amounts, change),
+// the Chocolate Stall (tenths and hundredths as a bar and a slab, and which is bigger) and the Counting House
+// (adding and taking away decimals, rounding, and times or divide by 10 and 100).
+const COIN_SKILLS = ['dm-coins', 'dm-make', 'dm-change'];
+const CHOC_SKILLS = ['dm-tenths', 'dm-hund', 'dm-compare'];
+const HOUSE_SKILLS = ['dm-add', 'dm-sub', 'dm-round', 'dm-ten'];
+const COIN: Omit<SkillRegion, 'lessons'> = { id: 'dec-a', area: 'decimals', name: 'Coin Corner', blurb: 'Pennies, nickels, dimes and quarters: count them, make amounts, and give change.', world: 'village', chip: '25¢ 10¢', skills: COIN_SKILLS };
+const CHOC: Omit<SkillRegion, 'lessons'> = { id: 'dec-b', area: 'decimals', name: 'Chocolate Stall', blurb: 'Tenths and hundredths: a bar of 10, a slab of 100, and which decimal is bigger.', world: 'treetops', chip: '0.7 0.35', skills: CHOC_SKILLS };
+const HOUSE: Omit<SkillRegion, 'lessons'> = { id: 'dec-c', area: 'decimals', name: 'Counting House', blurb: 'Adding and taking away decimals, rounding, and times or divide by 10 and 100.', world: 'shores', chip: '1.25 + 0.5', skills: HOUSE_SKILLS };
+const DECIMAL_REGIONS = [
+  region(COIN, [
+    ['Meet the Coins', 'meet', ['dm-coins'], ['dm-coins'], 5, 'run', 'Penny 1¢, nickel 5¢, dime 10¢, quarter 25¢. Count the biggest first.'],
+    ['Make It', 'meet', ['dm-make', 'dm-coins'], ['dm-make'], 4, 'swim', 'Make an amount: take the biggest coin that fits, then the next.'],
+    ['Count Up for Change', 'meet', ['dm-change', 'dm-coins'], ['dm-change'], 5, 'climb', 'Change? Start at the price and count up to what was paid.'],
+    ['Coin Corner Mix', 'mix', COIN_SKILLS, [], 5, 'slide', 'Everything so far, all mixed up.'],
+    ['Coin Corner Run', 'check', COIN_SKILLS, [], 6, 'run', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(CHOC, [
+    ['Tenths', 'meet', ['dm-tenths'], ['dm-tenths'], 6, 'run', 'A bar of 10 pieces: each piece is a tenth, 0.1. Seven pieces is 0.7.'],
+    ['Hundredths', 'meet', ['dm-hund', 'dm-tenths'], ['dm-hund'], 5, 'swim', 'A slab of 100 squares: each is a hundredth, 0.01, like a cent in a dollar.'],
+    ['Bigger or Smaller', 'meet', ['dm-compare', 'dm-hund'], ['dm-compare'], 6, 'climb', 'Line up the points: 0.4 is 0.40, and that beats 0.38.'],
+    ['Chocolate Mix', 'mix', CHOC_SKILLS, [], 6, 'slide', 'Everything on this island, all mixed up.'],
+    ['Chocolate Stall Run', 'check', CHOC_SKILLS, [], 6, 'run', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(HOUSE, [
+    ['Adding Decimals', 'meet', ['dm-add', 'dm-hund'], ['dm-add'], 5, 'climb', 'Line up the points, add like whole numbers, and keep the point.'],
+    ['Taking Away', 'meet', ['dm-sub', 'dm-add'], ['dm-sub'], 5, 'swim', 'Line up the points (fill gaps with zeros), then take away.'],
+    ['Rounding', 'meet', ['dm-round', 'dm-compare'], ['dm-round'], 5, 'slide', 'Look next door: 5 or more goes up, 4 or less stays.'],
+    ['Times Ten', 'meet', ['dm-ten', 'dm-tenths'], ['dm-ten'], 5, 'run', 'Times 10 slides every digit one place bigger; divide slides it smaller.'],
+    ['Counting House Mix', 'mix', [...HOUSE_SKILLS, 'dm-compare'], [], 5, 'climb', 'This island and the last, all mixed up.'],
+    ['Counting House Run', 'check', HOUSE_SKILLS, [], 5, 'swim', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+];
 export const SKILL_REGIONS: SkillRegion[] = [
   region(PIE, [
     ['Meet Fractions', 'meet', ['fr-name'], ['fr-name'], 6, 'run', 'The bottom number is how many equal parts; the top is how many you have.'],
@@ -58,9 +91,11 @@ export const SKILL_REGIONS: SkillRegion[] = [
     ['Waterfall Mix', 'mix', [...MILL_SKILLS, 'fr-add', 'fr-sub', 'fr-mixed'], [], 5, 'run', 'This island and the last, all mixed up.'],
     ['Waterfall Mill Run', 'check', MILL_SKILLS, [], 5, 'climb', 'Every kind of question on this island. Already know them? Start here.'],
   ]),
+  ...DECIMAL_REGIONS,
 ];
 
 export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
+  decimals: { id: 'start-decimals', region: 'start', area: 'decimals', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...COIN_SKILLS, ...CHOC_SKILLS, ...HOUSE_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of money and decimals. Answer what you know and skip ahead!' },
   fractions: { id: 'start-fractions', region: 'start', area: 'fractions', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...PIE_SKILLS, ...BAKER_SKILLS, ...MILL_SKILLS], learn: [], goal: 6, move: 'run', world: 'village', blurb: 'A quick mix of fractions. Answer what you know and skip ahead!' },
 };
 /** The Learn episode that teaches each fraction skill (a hook for math/learn.ts: an episode added with
@@ -68,6 +103,10 @@ export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
 export const SKILL_EPISODES: Record<string, string> = {
   'fr-name': 'frac-parts', 'fr-unit': 'frac-one-piece', 'fr-set': 'frac-of-a-set', 'fr-line': 'frac-number-line', 'fr-compare': 'frac-bigger',
   'fr-equal': 'frac-equal', 'fr-add': 'frac-add', 'fr-sub': 'frac-take-away', 'fr-mixed': 'frac-mixed', 'fr-times': 'frac-times', 'fr-unlike': 'frac-unlike',
+  // decimals and money (the market): counting coins biggest first, change by counting up, tenths,
+  // hundredths, lining up the point to compare and to add
+  'dm-coins': 'dec-coins', 'dm-make': 'dec-coins', 'dm-change': 'dec-change', 'dm-tenths': 'dec-tenths', 'dm-hund': 'dec-hundredths',
+  'dm-compare': 'dec-compare', 'dm-add': 'dec-add', 'dm-sub': 'dec-add',
 };
 export const SKILL_LESSONS: SkillLesson[] = SKILL_REGIONS.flatMap(r => r.lessons);
 export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS].map(l => [l!.id, l!]));
@@ -76,7 +115,7 @@ export const skillRegionsOf = (area: AreaId) => SKILL_REGIONS.filter(r => r.area
 export const isSkillLesson = (id: string) => !!SKILL_LESSON[id];
 /** How much longer a skill question takes than a fact: speeds, treasure and rides are scaled by it so a
  *  good fraction trip feels as fast as a good times-table trip. */
-export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5 };
+export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, decimals: 2.5 };
 export const tempoOf = (area: AreaId) => TEMPO[area] ?? 2;
 
 // ---------- what's open ----------

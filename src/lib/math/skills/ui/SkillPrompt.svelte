@@ -5,6 +5,8 @@
   import type { Part } from '../types';
   import Frac from './Frac.svelte';
   import FractionPic from './FractionPic.svelte';
+  import MoneyPic from './MoneyPic.svelte';
+  import { moneyText } from '../decimals';
   type Fill = { kind: 'number'; text: string } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null };
   type Props = { parts: Part[]; fill?: Fill | null; size?: number; picSize?: number; done?: boolean };
   let { parts, fill = null, size = 56, picSize = 150, done = false }: Props = $props();
@@ -16,7 +18,8 @@
     {#if p.t === 'text'}<span class="tx">{p.s}</span>
     {:else if p.t === 'num'}<span class="n">{p.n}</span>
     {:else if p.t === 'op'}<span class="op" class:word={p.s.length > 1}>{p.s}</span>
-    {:else if p.t === 'pic'}<FractionPic pic={p.pic} size={picSize} />
+    {:else if p.t === 'pic'}{#if p.pic.kind === 'coins' || p.pic.kind === 'grid'}<MoneyPic pic={p.pic} size={picSize} />{:else}<FractionPic pic={p.pic} size={picSize} />{/if}
+    {:else if p.t === 'money'}<span class="n money">{moneyText(p.cents, p.dollars)}</span>
     {:else if p.t === 'frac'}
       <Frac n={p.n ?? (fill?.kind === 'number' ? fill.text : null)} d={p.d ?? (fill?.kind === 'number' ? fill.text : null)} size={size * 0.82} focus={(p.n === null || p.d === null) && !done ? (p.n === null ? 'n' : 'd') : null} />
     {:else if p.t === 'blank'}
@@ -35,6 +38,7 @@
 <style>
   .sp { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: calc(var(--fs) * .28); font: 600 var(--fs)/1 var(--font-ui); color: var(--ink); }
   .op { color: var(--primary); }
+  .money { color: #b7791f; }
   .op.word { font-size: calc(var(--fs) * .5); color: var(--muted); }
   .tx { font-size: calc(var(--fs) * .5); }
   .box { min-width: calc(var(--fs) * 1.4); padding: 4px 12px; border-radius: 18px; background: #fff; box-shadow: inset 0 0 0 4px #a98cff, 0 0 0 6px #efe9ff; text-align: center; min-height: calc(var(--fs) * 1.1); display: grid; place-items: center; }
