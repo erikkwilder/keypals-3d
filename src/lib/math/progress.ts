@@ -1,21 +1,22 @@
 // The math game's part of a player's save, and what happens after every trip: the fact memory, lesson
 // records, unlocking, and the same rewards as typing (the buddy's friendship, outfits and dances,
-// medals, stickers, treasure, the daily goal). Pure functions over plain data, like engine/profile.ts.
+// medals, stickers, shells, eggs, the daily goal: engine/settle.ts). Pure functions over plain data, like
+// engine/profile.ts.
 
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
 import { dayKey, buddyPal } from '../engine/profile';
-import { welcomeNew } from '../engine/team';
-import { AWARD } from '../engine/achievements';
-import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from '../engine/stickers';
-import { newBetween, type Reward } from '../engine/rewards';
-import { groupFacts, MATH_LESSON, MATH_LESSONS, MATH_REGION, PLACEMENTS, regionsOf, type MathLesson, type MathRegionId } from './course';
-import { earnShells, notePractice, practiceShells } from '../adventure/state';
+import { newPalProgress, type PalProgress, type StickerDef } from '../engine/stickers';
+import type { Reward } from '../engine/rewards';
+import { settlePractice } from '../engine/settle';
+import { groupFacts, moveOf, MATH_LESSON, MATH_LESSONS, MATH_REGION, PLACEMENTS, regionsOf, type MathLesson, type MathRegionId } from './course';
 import { factId, familyOf, newStat, parseFact, seedPartner, updateFact, FAST_MS, type FactStat, type Op, type Stage } from './facts';
-import { mathTreasureFor, type FactResult, type TripStats } from './meter';
+import type { FactResult, TripStats } from './meter';
 
 export type MathLessonRecord = {
   stars: number; bestScore: number; bestFpm: number; bestAcc: number; bestRide: number;
-  attempts: number; finishes: number; passes: number; lastAt: number; treasure: number;
+  attempts: number; finishes: number; passes: number; lastAt: number;
+  /** (old saves: the treasure step, no longer used) */
+  treasure?: number;
   /** passed by testing out (a checkpoint taken first, or the placement trip) */
   testedOut?: boolean;
 };
@@ -123,8 +124,6 @@ export type MathOutcome = {
   medals: MedalWin[];
   stickers: StickerDef[];
   rewards: Reward[];
-  treasure: number;
-  newBestTreasure: boolean;
   xp: XpInfo;
   before: MathLessonRecord | null;
   record: MathLessonRecord;
@@ -182,9 +181,8 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
 
   // ---- the lesson record ----
   const before = m.lessons[lesson.id] ? { ...m.lessons[lesson.id] } : null;
-  const prev = before ?? { stars: 0, bestScore: 0, bestFpm: 0, bestAcc: 0, bestRide: 0, attempts: 0, finishes: 0, passes: 0, lastAt: 0, treasure: -1 };
+  const prev = before ?? { stars: 0, bestScore: 0, bestFpm: 0, bestAcc: 0, bestRide: 0, attempts: 0, finishes: 0, passes: 0, lastAt: 0 };
   const passedNow = run.stars > 0;
-  const treasure = run.finished ? mathTreasureFor(st.score, grown) : -1;
   const record: MathLessonRecord = {
     ...prev,
     stars: Math.max(prev.stars, run.stars),
@@ -196,7 +194,6 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
     finishes: prev.finishes + (run.finished ? 1 : 0),
     passes: prev.passes + (passedNow ? 1 : 0),
     lastAt: run.at,
-    treasure: Math.max(prev.treasure, treasure),
   };
   m.lessons[lesson.id] = record;
   m.strand = lesson.op;
@@ -212,7 +209,7 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
       const cp = r.lessons.at(-1)!;
       const was = m.lessons[cp.id];
       if ((was?.stars ?? 0) > 0) continue;
-      m.lessons[cp.id] = { ...(was ?? { bestScore: 0, bestFpm: 0, bestAcc: 0, bestRide: 0, attempts: 0, finishes: 0, passes: 0, lastAt: run.at, treasure: -1 }), stars: 1, testedOut: true };
+      m.lessons[cp.id] = { ...(was ?? { bestScore: 0, bestFpm: 0, bestAcc: 0, bestRide: 0, attempts: 0, finishes: 0, passes: 0, lastAt: run.at }), stars: 1, testedOut: true };
       testedOut.push(r.id);
     }
   }
@@ -221,30 +218,19 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
   m.history.push({ at: run.at, lessonId: lesson.id, fpm: st.fpm, acc: st.acc, score: st.score, stars: run.stars, ride: run.bestRide, ms: st.ms });
   if (m.history.length > 300) m.history.splice(0, m.history.length - 300);
 
-  // ---- the day: math time counts toward the same daily goal ----
-  const d = (p.days[day] ??= { ms: 0, runs: 0 });
-  const wasGoal = !!d.goal;
-  d.ms += st.ms;
-  d.runs++;
-  if (!d.goal && d.ms >= p.settings.dailyGoalMin * 60000) d.goal = true;
-  const goalJustHit = !wasGoal && !!d.goal;
   p.rideBest = Math.max(p.rideBest, run.bestRide);
 
-  // ---- medals ----
+  // ---- medals (reaching today's goal adds the goal medal) ----
   const medals: string[] = [];
-  if (run.finished && st.asked >= 10) {
-    if (st.misses === 0) medals.push('clean');
-  }
+  if (run.finished && st.asked >= 10 && st.misses === 0) medals.push('clean');
   if (before && run.bestRide > before.bestRide) medals.push('pb');
   if (st.bestFastRow >= 10) medals.push('quickdraw');
   if (grew.bloomed.length) medals.push('bloom');
   if (passedNow && prev.attempts === 0) medals.push('firsttry');
   if (run.stars === 3) medals.push('three');
-  if (goalJustHit) medals.push('goal');
 
-  // ---- the buddy's own progress: the same friendship, outfits, dances and stickers as typing ----
+  // ---- the buddy's own counters (the stickers read them) ----
   const pal: PalProgress = buddyPal(p);
-  const lvlBefore = levelFromXp(pal.xp);
   pal.runs++;
   if (run.stars === 3) pal.stars3++;
   const perfect = run.finished && st.misses === 0 && st.asked >= 10;
@@ -252,46 +238,23 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
   if (run.finished && st.acc >= 0.97 && st.asked >= 10) pal.sharp++;
   pal.rideBest = Math.max(pal.rideBest, run.bestRide);
   if (run.napped && run.finished) pal.naps++;
-  if (goalJustHit && !pal.goalDays.includes(day)) pal.goalDays.push(day);
-  const newBestTreasure = treasure > pal.treasureBest;
-  pal.treasureBest = Math.max(pal.treasureBest, treasure);
-  if (run.finished) pal.dances++;
-  const medalWins: MedalWin[] = [];
-  for (const id of medals) {
-    const was = pal.medals[id] ?? 0;
-    pal.medals[id] = was + 1;
-    const tier = medalTier(was + 1);
-    if (AWARD[id]) medalWins.push({ ...AWARD[id], count: was + 1, tier, tierUp: tier > medalTier(was) });
-  }
-  pal.medalsTotal += medals.length;
-  const gained = tripXp(st, run.stars, medals.length, run.finished, grown);
-  pal.xp += gained;
-  const lvlAfter = levelFromXp(pal.xp);
-  pal.level = lvlAfter.level;
-  const rewards = newBetween(lvlBefore.level, lvlAfter.level);
-  for (const r of rewards) if (!pal.seen.includes('reward:' + r.id)) pal.seen.push('reward:' + r.id);
-  const stickers: StickerDef[] = [];
-  for (const s of STICKERS) {
-    if (pal.stickers[s.id]) continue;
-    if (s.check(pal, { grown, friend: p.buddy })) { pal.stickers[s.id] = run.at; stickers.push(s); pal.seen.push('sticker:' + s.id); }
-  }
+
+  // ---- the same ending as every practice game: math time counts toward the same daily goal, the same
+  // friendship, outfits, dances and stickers as typing, and every right answer warms the eggs ----
+  const done = settlePractice(p, { at: run.at, ms: st.ms, finished: run.finished, stars: run.stars, medals, right: run.results.filter(x => x.ok).length, xp: n => tripXp(st, run.stars, n, run.finished, grown), move: moveOf(lesson) });
 
   let regionJustDone: MathRegionId | null = null;
   if (lesson.region !== 'start' && lesson.kind === 'check' && passedNow && !(before && before.stars > 0)) regionJustDone = lesson.region;
 
-  const buddies = welcomeNew(p);
-  // every right answer warms the Adventure eggs
-  const eggsReady = run.finished ? notePractice(p, run.results.filter(x => x.ok).length) : [];
-  const shells = run.finished ? earnShells(p, practiceShells({ stars: run.stars, medals: medals.length, stickers: stickers.length, treasure })) : 0;
   return {
-    eggsReady, shells,
-    buddies,
-    profile: p, medals: medalWins, stickers, rewards, treasure, newBestTreasure,
-    xp: { gained, before: lvlBefore, after: lvlAfter },
+    eggsReady: done.eggsReady, shells: done.shells,
+    buddies: done.buddies,
+    profile: p, medals: done.medals, stickers: done.stickers, rewards: done.rewards,
+    xp: done.xp,
     before, record,
     newBestScore: !!before && run.finished && st.score > before.bestScore,
     newBestRide: !!before && run.bestRide > before.bestRide,
-    goalJustHit, regionJustDone, grew, slipped, testedOut,
+    goalJustHit: done.goalJustHit, regionJustDone, grew, slipped, testedOut,
   };
 }
 

@@ -42,14 +42,14 @@
     if (!scene || evolving || !ready(sel)) return;
     const id = sel;
     evolving = id; swapping = false; sfx.whoosh(); tipDone();
-    const hum = setInterval(() => sfx.heal(), 700);
+    let hs = 0; const hum = setInterval(() => sfx.evolveCharge(hs++), 700);
     await scene.evolve(id, () => {
       clearInterval(hum);
       game.update(pp => { evolve(pp, id); });
-      sfx.finale(); sfx.reveal(rarityRank(GLIMMER[id].rarity));
+      sfx.evolve(rarityRank(GLIMMER[id].rarity));
     });
     clearInterval(hum);
-    setTimeout(() => { evolving = null; grown = id; sfx.complete(); }, 1300);
+    setTimeout(() => { evolving = null; grown = id; sfx.pop(); }, 1300);
   }
   // first time one is ready: a tip at the button
   const tipOn = $derived(!evolving && !grown && owns(a, sel) && ready(sel) && !(a.seen ?? []).includes('evolve1'));
@@ -92,7 +92,7 @@
   }
   function setTeam(slot: number) {
     game.update(pp => { const ad = advOf(pp); const other = ad.team.indexOf(sel); if (other >= 0) ad.team[other] = null; ad.team[slot] = sel; });
-    sfx.badge(); scene?.poke(); swapping = false;
+    sfx.equip(); scene?.poke(); swapping = false;
     game.say(`${nameOf(sel)} is on your team!`);
   }
   function add() {

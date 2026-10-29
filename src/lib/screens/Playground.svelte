@@ -23,7 +23,7 @@
 
   const p = $derived(game.profile!);
   let playing = $state<{ g: PlayGame; level: number; key: number } | null>(null);
-  let done = $state<{ stars: 1 | 2 | 3; out: PlayOutcome; g: PlayGame; level: number } | null>(null);
+  let done = $state<{ stars: 0 | 1 | 2 | 3; out: PlayOutcome; g: PlayGame; level: number } | null>(null);
   let burst = $state(0);
   let k = 0;
   // the 3D island and buddy behind each game
@@ -52,11 +52,11 @@
   onDestroy(() => { if (scene && stage.current() === scene) stage.use(null); scene?.dispose(); });
 
   function start(g: PlayGame, level: number) {
-    if (!playUnlocked(p, g, level)) { sfx.miss(); game.say('Get a star on the level before to open this one!'); return; }
+    if (!playUnlocked(p, g, level)) { sfx.nope(); game.say('Get a star on the level before to open this one!'); return; }
     sfx.click(); done = null; const same = playing?.g === g; playing = { g, level, key: ++k };
     if (!same || !scene) openWorld(g);
   }
-  function finished(r: { stars: 1 | 2 | 3; ms: number }) {
+  function finished(r: { stars: 0 | 1 | 2 | 3; ms: number }) {
     if (!playing) return;
     const out = applyPlay($state.snapshot(game.profile!) as Profile, { game: playing.g, level: playing.level, stars: r.stars, ms: r.ms, at: Date.now() });
     game.replaceProfile(out.profile);
@@ -142,10 +142,10 @@
     <div class="veil">
       <div class="card endc">
         <Critter friend={p.buddy} accessory={outfitOf(p)} size={110} mood="dance" />
-        <h2>{done.stars === 3 ? 'Brilliant!' : done.stars === 2 ? 'Great work!' : 'Round done!'}</h2>
+        <h2>{done.stars === 3 ? 'Brilliant!' : done.stars === 2 ? 'Great work!' : done.stars === 1 ? 'Round done!' : 'Nearly!'}</h2>
         <p class="sub">{g.name} · level {done.level}</p>
         <Stars n={done.stars} of={3} size={54} animate />
-        {#if done.out.opened}<p class="open">Level {done.out.opened} is open!</p>{/if}
+        {#if done.out.opened}<p class="open">Level {done.out.opened} is open!</p>{:else if done.stars === 0}<p class="open">A few more right for a star. Have another go!</p>{/if}
         <div class="xp">
           <div class="xptop"><span>{FRIEND[p.buddy].name} · ♥ Friendship {done.out.xp.after.level}</span><b>+{done.out.xp.gained} XP</b></div>
           <div class="xbar"><i style:width="{(done.out.xp.after.into / done.out.xp.after.need) * 100}%"></i></div>

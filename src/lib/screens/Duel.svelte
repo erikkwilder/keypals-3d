@@ -14,6 +14,8 @@
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import DuelPlay from './DuelPlay.svelte';
+  import { DuelScene } from '../three/duelScene';
+  import { DUEL_CARD } from '../adventure/duel';
 
   const base = import.meta.env.BASE_URL;
   const backdrop = new URL(`${base}game/intro-duel.webp`, document.baseURI).href;
@@ -23,6 +25,8 @@
   const SIDE = ['#3d9cf0', '#f0675a'];
   // the New badge on the Duel tile goes once you've been here
   if (!advView(me).seen?.includes('duel1')) game.update(pp => markSeen(pp, 'duel1'));
+  // build the arena while the players choose, so the duel opens straight away
+  DuelScene.warm('treetops');
 
   /** The Glimmer in the middle: any that isn't a Champion, rarer ones less often. */
   function rollGlimmer(seed: number): GlimmerId {
@@ -62,10 +66,12 @@
   let sides = $state<[SideSetup, SideSetup] | null>(null);
   let glimmer = $state<GlimmerId>(rollGlimmer(Date.now() % 1e9));
   let key = $state(0);
+  // players take it in turns to go first, game by game (a ghost always lets you go first)
+  let first = $state<0 | 1>(0);
   if (mode === 'rival' && rival) sides = [sideOf(me), rivalSide(rival, me, game.save.profiles)];
   function start() {
     if (same) return;
-    sfx.complete();
+    sfx.whoosh();
     sides = [sideFor(0), sideFor(1)];
     glimmer = rollGlimmer(Date.now() % 1e9);
     key++;
@@ -73,7 +79,7 @@
   function again() {
     // the same players again (their teams and levels may have changed), with a new Glimmer
     if (mode === 'rival' && rival) sides = [sideOf(game.profile!), rivalSide(rival, game.profile!, game.save.profiles)];
-    else sides = [sideFor(0), sideFor(1)];
+    else { sides = [sideFor(0), sideFor(1)]; first = (1 - first) as 0 | 1; }
     glimmer = rollGlimmer(Date.now() % 1e9);
     key++;
   }
@@ -85,7 +91,7 @@
 </script>
 
 {#if sides}
-  {#key key}<DuelPlay {sides} {glimmer} {mode} {rival} onagain={again} onexit={exit} />{/key}
+  {#key key}<DuelPlay {sides} {glimmer} {mode} {rival} {first} onagain={again} onexit={exit} />{/key}
 {:else}
   <div class="setup" style:background-image="url({backdrop})">
     <Header title="Family Duel" sub="Take turns on one screen" back={() => game.go('adventure')} />
@@ -95,9 +101,9 @@
         <div>
           <h2>Who can cheer up the grumpy Glimmer first?</h2>
           <ul>
-            <li><b>Take turns</b> answering your own questions.</li>
-            <li><b>Fair for everyone:</b> little sums or big times tables, the race is just as long.</li>
-            <li><b>The winner</b> gets the Glimmer!</li>
+            <li><b>Take turns:</b> pick a card, it flips over, answer what's on it.</li>
+            <li><b>Fair for everyone:</b> your own questions, and every right answer is +{DUEL_CARD}, little sums or big times tables.</li>
+            <li><b>Right in a row</b> wins it, and your team of Glimmers helps. The winner gets the Glimmer!</li>
           </ul>
         </div>
       </div>

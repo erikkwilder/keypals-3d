@@ -1,14 +1,18 @@
 // Family Duel and Rival Ghosts: two players take turns to cheer up one grumpy Glimmer, and whoever
 // cheers it up first wins it. Each side plays the Adventure rules (cards, Glimmer powers, the Finale)
-// with questions at its own level, and each side's cheer bar is sized to its own questions (about seven
-// good cards), so a six-year-old on sums and a grown-up on times tables need about as many right answers.
+// with questions at its own level. To keep it fair and about skill, the cards lie face down until you
+// pick one (no hunting for the easy one), and every right answer cheers the same DUEL_CARD whatever the
+// question, on bars of the same size: a six-year-old on sums and a grown-up on times tables need just as
+// many right answers. Getting them right in a row (for the Finale and rain clouds) and your team of
+// Glimmers and gear are what pull you ahead. Both get the same number of turns: if the one who went
+// first fills their bar, the other gets a last turn, and if they fill theirs too it's a tie.
 // Three right in a row sends a little rain cloud over to the other side: they block it with a quick one
 // at the start of their turn, or it washes away a bit of their cheer. The Glimmer itself doesn't throw
 // mischief in a duel (it's watching to see who cheers it up), and helpers that would give energy back
 // give a little cheer instead, so every Glimmer helps.
 import { mulberry32, type Rng } from '../engine/rng';
 import { answerOf, type Fact } from '../math/facts';
-import { newBattle, play, finale, grumpFor, FINALE_AT, type Battle, type BEvent, type Card, type Member, type Pool, type Subject, type Answer } from './battle';
+import { newBattle, play, finale, FINALE_AT, type Battle, type BEvent, type Member, type Pool, type Subject, type Answer } from './battle';
 import { GLIMMER, powerNum, type GearKind, type GlimmerId, type RoleId } from './glimmers';
 import type { FriendId } from '../art/cast';
 import type { KitKind, Slot } from './gear';
@@ -28,24 +32,30 @@ export type RainPrompt = { fact?: Fact; word?: string; limitMs: number };
 export type Duel = {
   sides: [Side, Side]; turn: 0 | 1; glimmer: GlimmerId; phase: DuelPhase; winner: 0 | 1 | null;
   rng: Rng; turns: number; rain: RainPrompt | null; perfect: boolean;
+  /** who went first; the side that has filled its bar while the other has its last turn; a tie */
+  first: 0 | 1; filled: 0 | 1 | null; tie: boolean;
 };
 export type DEvent = BEvent
   | { k: 'sendRain'; to: 0 | 1 }
   | { k: 'rainBlocked'; by?: string; id?: GlimmerId }
   | { k: 'rainHit'; value: number }
-  | { k: 'turn'; side: 0 | 1 };
+  | { k: 'turn'; side: 0 | 1 }
+  /** the one who went first has filled their bar: the other gets one last turn to tie */
+  | { k: 'lastTurn'; side: 0 | 1 };
 
 /** three right in a row sends a rain cloud over */
 export const RAIN_EVERY = 3;
+/** each side's bar, and what every right answer fills of it */
+export const DUEL_BAR = 100, DUEL_CARD = 10;
 
-export function newDuel(a: SideSetup, b: SideSetup, glimmer: GlimmerId, seed: number): Duel {
+export function newDuel(a: SideSetup, b: SideSetup, glimmer: GlimmerId, seed: number, first: 0 | 1 = 0): Duel {
   const g = GLIMMER[glimmer];
   const side = (s: SideSetup, i: number): Side => {
-    const max = grumpFor(s.pool, false);
-    const bt = newBattle({ pool: s.pool, seed: seed + i * 7919, sparkMax: 99, role: s.role, gear: s.gear, team: s.team, foe: { glimmer, rarity: g.rarity, champion: false, element: g.element, grump: max, max, hit: 0 }, fastMs: s.fastMs, kit: s.kit });
+    const max = DUEL_BAR;
+    const bt = newBattle({ pool: s.pool, seed: seed + i * 7919, sparkMax: 99, role: s.role, gear: s.gear, team: s.team, foe: { glimmer, rarity: g.rarity, champion: false, element: g.element, grump: max, max, hit: 0 }, fastMs: s.fastMs, kit: s.kit, flat: DUEL_CARD });
     return { ...s, b: bt, rainIn: false, sent: 0, blocked: 0, finales: 0, thinkMs: 0, big: 0, picks: 0 };
   };
-  return { sides: [side(a, 0), side(b, 1)], turn: 0, glimmer, phase: 'pick', winner: null, rng: mulberry32(seed ^ 0x2f6b), turns: 0, rain: null, perfect: false };
+  return { sides: [side(a, 0), side(b, 1)], turn: first, glimmer, phase: 'pick', winner: null, rng: mulberry32(seed ^ 0x2f6b), turns: 0, rain: null, perfect: false, first, filled: null, tie: false };
 }
 
 export const cur = (d: Duel) => d.sides[d.turn];
@@ -58,9 +68,6 @@ export function duelPlay(d: Duel, cardId: number, a: Answer): DEvent[] {
   const s = cur(d);
   const card = s.b.cards.find(c => c.id === cardId);
   if (!card) return [];
-  // was it the biggest card in the hand? (how the ghost of this player will choose)
-  const val = (c: Card) => (c.fact ? answerOf(c.fact) : c.word?.length ?? 0);
-  s.picks++; if (val(card) >= Math.max(...s.b.cards.map(val))) s.big++;
   s.thinkMs += a.thinkMs;
   // the Glimmer stays still in a duel: no mischief after the card
   s.b.frozen = true;
@@ -82,7 +89,7 @@ export function duelPlay(d: Duel, cardId: number, a: Answer): DEvent[] {
   // Frost Owl: three right in a row freezes the next rain cloud that comes your way
   const owl = s.team.find(m => GLIMMER[m.id].power.kind === 'freeze');
   if (ok && owl && s.b.streak > 0 && s.b.streak % 3 === 0) { s.b.free.push({ by: 'Frost Owl', id: owl.id }); out.push({ k: 'freeze', id: owl.id }); }
-  if (s.b.foe.grump <= 0) return win(d, out, ev.some(e => e.k === 'won' && e.perfect));
+  if (s.b.foe.grump <= 0) return full(d, out);
   if (ok && s.b.streak > 0 && s.b.streak % RAIN_EVERY === 0) {
     const to = (1 - d.turn) as 0 | 1;
     d.sides[to].rainIn = true; s.sent++;
@@ -99,17 +106,32 @@ export function duelFinale(d: Duel): DEvent[] {
   s.b.phase = 'pick';
   const ev: DEvent[] = finale(s.b).filter(e => e.k !== 'won');
   s.finales++;
-  if (s.b.foe.grump <= 0) return win(d, ev, false);
+  if (s.b.foe.grump <= 0) return full(d, ev);
   return endTurn(d, ev);
 }
 
-function win(d: Duel, out: DEvent[], perfect: boolean): DEvent[] {
-  d.phase = 'won'; d.winner = d.turn; d.perfect = perfect;
-  out.push({ k: 'won', perfect });
+/** a perfect duel: won without a wrong answer */
+const clean = (s: Side) => s.b.stats.right === s.b.stats.answers;
+function win(d: Duel, out: DEvent[], side: 0 | 1, tie = false): DEvent[] {
+  d.phase = 'won'; d.winner = side; d.tie = tie; d.perfect = clean(d.sides[side]);
+  out.push({ k: 'won', perfect: d.perfect });
   return out;
+}
+/** A bar is full. Whoever went first gives the other a last turn (the same number of turns each); the
+ *  one who went second wins straight away, or ties if the first is already full. */
+function full(d: Duel, out: DEvent[]): DEvent[] {
+  if (d.filled !== null) return win(d, out, d.filled, true);
+  if (d.turn === d.first) {
+    d.filled = d.turn;
+    out.push({ k: 'lastTurn', side: (1 - d.turn) as 0 | 1 });
+    return endTurn(d, out);
+  }
+  return win(d, out, d.turn);
 }
 
 function endTurn(d: Duel, out: DEvent[]): DEvent[] {
+  // the last turn is over without filling the bar: the one who filled first wins
+  if (d.filled !== null && d.turn !== d.filled) return win(d, out, d.filled);
   d.turn = (1 - d.turn) as 0 | 1; d.turns++;
   out.push({ k: 'turn', side: d.turn });
   const n = cur(d);
@@ -155,17 +177,16 @@ export function duelRain(d: Duel, ok: boolean, ms: number): DEvent[] {
 
 // ---------- a ghost's turn ----------
 export type GhostMove = { cardId: number; answer: Answer; typed: string; thinkMs: number };
-/** What a ghost does on its turn: which card, right or not, and how long it thinks (its real pace,
- *  shortened on screen so nobody waits long). */
+/** What a ghost does on its turn: which card (the cards are face down, so like anyone it goes for a
+ *  strong one when there is one), right or not, and how long it thinks (its real pace, shortened on
+ *  screen so nobody waits long). */
 export function ghostMove(d: Duel): GhostMove | null {
   const s = cur(d), g = s.ghost;
   if (!g || d.phase !== 'pick' || !s.b.cards.length) return null;
   const r = d.rng;
-  const val = (c: Card) => (c.fact ? answerOf(c.fact) : c.word?.length ?? 0);
   const cards = s.b.cards.filter(c => c.fact || c.word);
-  const exact = cards.find(c => val(c) === s.b.foe.grump);
-  const byBig = cards.slice().sort((x, y) => val(y) - val(x));
-  const card = exact && r() < g.acc ? exact : r() < g.big ? byBig[0] : pickOne(r, cards);
+  const strong = cards.filter(c => c.super);
+  const card = strong.length && r() < 0.85 ? pickOne(r, strong) : pickOne(r, cards);
   const ok = r() < Math.min(0.98, g.acc + (card.bloom ? 0.05 : 0));
   const thinkMs = Math.round(g.thinkMs * (0.6 + r() * 0.8));
   if (card.fact) {

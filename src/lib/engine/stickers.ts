@@ -3,7 +3,7 @@
 // background, pose) and how it's earned (a check over that friend's progress and the run).
 
 import type { FriendId } from '../art/cast';
-import { RIDES } from './rides';
+import { LADDERS, RIDES, type Move } from './rides';
 import type { RegionId } from './course';
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
@@ -19,10 +19,12 @@ export type PalProgress = {
   goalDays: string[]; regions: string[]; comebacks: number; naps: number; seen: string[];
   /** the celebration at the finish (a dance id, or 'cheer') */
   dance: string;
-  /** the best treasure step any run has earned (-1: none yet) */
+  /** (old saves: the best treasure step; treasure is no longer earned) */
   treasureBest: number;
   /** celebrations danced at the finish */
   dances: number;
+  /** the courses finished: climb, slide, swim (the trail is 'run') */
+  moves?: Move[];
 };
 
 export const newPalProgress = (): PalProgress => ({
@@ -42,6 +44,8 @@ export type StickerDef = {
 };
 
 const S = (d: StickerDef) => d;
+/** A speed step in each way of moving: "a skateboard, Quick Climber, Sled or Swim" */
+const speedWords = (tier: number) => { const n = (['run', 'climb', 'slide', 'swim'] as Move[]).map(m => LADDERS[m][tier].name); return `${n[0] === 'Skateboard' || n[0] === 'Bike' || n[0] === 'Car' || n[0] === 'Rocket' ? 'a ' + n[0].toLowerCase() : n[0]} on the trail, ${n[1]}, ${n[2]} or ${n[3]}`; };
 const REGION_STICKERS: [RegionId, string, string, number][] = [
   ['village', 'Island Parade', 'Pass the Island Parade.', 140],
   ['treetops', 'Canopy Champ', 'Pass the Canopy Run.', 120],
@@ -57,8 +61,9 @@ const SPEEDS = [10, 15, 20, 28, 36];
 const ALL_STICKERS: StickerDef[] = [
   // journey
   ...REGION_STICKERS.map(([r, name, desc, hue], i) => S({ id: `trip-${r}`, name, desc: `${desc} (with this Keypal)`, rarity: i < 2 ? 'common' : i < 5 ? 'rare' : 'epic', shape: 'shield', bg: 'rays', hue, hue2: (hue + 40) % 360, pose: 'proud', prop: 'mountain', region: r, check: p => p.regions.includes(r) })),
-  // rides
-  ...RIDES.slice(1).map((r, i) => S({ id: `ridestar-${r.id}`, name: `${r.name} Star`, desc: i === 0 ? 'Break into a run during a lesson.' : `Reach the ${r.name} during a lesson.`, rarity: i < 2 ? 'common' : i < 3 ? 'rare' : i < 4 ? 'epic' : 'legendary', shape: i === 4 ? 'burst' : 'circle', bg: i >= 3 ? 'stars' : 'stripes', hue: [338, 160, 200, 300, 52][i], hue2: [200, 200, 160, 338, 330][i], pose: 'ride', prop: 'ride', ride: i + 1, check: p => p.rideBest >= i + 1 })),
+  // speed steps: the same six on every course (a bike on the trail is a Speed Climber up the cliff), so
+  // the words name the step and the art shows the trail's ride
+  ...RIDES.slice(1).map((r, i) => S({ id: `ridestar-${r.id}`, name: ['Off and Running', 'Picking Up Speed', 'Zooming Along', 'Full Speed', 'Top Speed!'][i], desc: `Reach speed ${i + 2} of 6 in a lesson or trip: ${speedWords(i + 1)}.`, rarity: i < 2 ? 'common' : i < 3 ? 'rare' : i < 4 ? 'epic' : 'legendary', shape: i === 4 ? 'burst' : 'circle', bg: i >= 3 ? 'stars' : 'stripes', hue: [338, 160, 200, 300, 52][i], hue2: [200, 200, 160, 338, 330][i], pose: 'ride', prop: 'ride', ride: i + 1, check: p => p.rideBest >= i + 1 })),
   // three-star runs
   ...[1, 5, 15, 30].map((n, i) => S({ id: `three-${n}`, name: ['Triple Treat', 'Star Sprinkle', 'Star Shower', 'Galaxy Brain'][i], desc: n === 1 ? 'Earn three stars on a lesson.' : `Earn three stars ${n} times.`, rarity: (['common', 'rare', 'epic', 'legendary'] as Rarity[])[i], shape: 'star', bg: 'stars', hue: 48, hue2: 330, pose: 'cheer', prop: 'star', number: n > 1 ? String(n) : undefined, check: p => p.stars3 >= n })),
   // accuracy
@@ -75,7 +80,9 @@ const ALL_STICKERS: StickerDef[] = [
   ...[1000, 5000, 20000].map((n, i) => S({ id: `chars-${n}`, name: ['Word Nibbler', 'Bookworm', 'Library Legend'][i], desc: `Type ${n.toLocaleString('en-US')} letters together.`, rarity: (['common', 'rare', 'epic'] as Rarity[])[i], shape: 'hex', bg: 'waves', hue: [140, 120, 100][i], hue2: [200, 160, 52][i], pose: 'cool', prop: 'book', check: p => p.chars >= n })),
   // levels
   ...[5, 10, 20, 30].map((n, i) => S({ id: `level-${n}`, name: `Friendship ${n}`, desc: `Reach friendship ${n} with this buddy.`, rarity: (['common', 'rare', 'epic', 'legendary'] as Rarity[])[i], shape: 'shield', bg: 'confetti', hue: [200, 268, 330, 48][i], hue2: [160, 200, 268, 330][i], pose: 'proud', prop: 'number', number: String(n), check: p => p.level >= n })),
-  // treasure and dancing
+  // the courses
+  ...(['climb', 'slide', 'swim'] as const).map((mv, i) => S({ id: `move-${mv}`, name: ['Cliff Climber', 'Snow Zoomer', 'Bay Swimmer'][i], desc: ['Climb to the top of a cliff in a lesson or trip.', 'Sled down a snowy slope to the finish.', 'Swim across the bay to the finish.'][i], rarity: 'common', shape: (['shield', 'ticket', 'cloud'] as StickerShape[])[i], bg: (['rays', 'stripes', 'waves'] as StickerBg[])[i], hue: [25, 205, 185][i], hue2: [52, 268, 160][i], pose: (['proud', 'cheer', 'wave'] as StickerPose[])[i], prop: i === 0 ? 'mountain' : 'star', check: p => !!p.moves?.includes(mv) })),
+  // treasure (no longer earned) and dancing
   ...[3, 6, 9].map((t, i) => S({ id: `treasure-${t}`, name: ['Treasure Hunter', 'Treasure Keeper', 'Dragon Hoard'][i], desc: `Earn a ${['Copper Coin', 'Ruby', 'Rainbow Star'][i]} or better on a run.`, rarity: (['common', 'rare', 'legendary'] as Rarity[])[i], shape: 'hex', bg: 'rays', hue: [30, 345, 300][i], hue2: [52, 268, 52][i], pose: 'cheer', prop: 'treasure', check: p => p.treasureBest >= t })),
   ...[1, 10, 50].map((n, i) => S({ id: `dance-${n}`, name: ['First Dance', 'Dance Party', 'Dance Legend'][i], desc: n === 1 ? 'Dance at the finish line.' : `Dance at the finish line ${n} times.`, rarity: (['common', 'rare', 'epic'] as Rarity[])[i], shape: 'star', bg: 'confetti', hue: [300, 268, 330][i], hue2: [52, 200, 160][i], pose: 'cheer', prop: 'music', number: n > 1 ? String(n) : undefined, check: p => p.dances >= n })),
   // goals, medals, comebacks
@@ -88,7 +95,8 @@ const ALL_STICKERS: StickerDef[] = [
 
 // Pared down (2026-10-28) from 55 to 35 a buddy: the ones that repeated another sticker, a medal or a
 // count are no longer won. Saved games keep any already won; the book shows the 35.
-const RETIRED_STICKERS = new Set(['three-30', 'clean-row', 'sharp-10', 'streak-50', 'streak-200', 'speed-15', 'speed-36',
+// (2026-10-29) the treasure stickers went with the treasure; the three course stickers took their place.
+const RETIRED_STICKERS = new Set(['treasure-3', 'treasure-6', 'treasure-9', 'three-30', 'clean-row', 'sharp-10', 'streak-50', 'streak-200', 'speed-15', 'speed-36',
   'runs-25', 'runs-50', 'chars-1000', 'chars-5000', 'chars-20000', 'dance-10', 'dance-50', 'goal-15', 'medals-10', 'medals-50',
   'comeback', 'comeback-5', 'sleepy']);
 export const STICKERS: StickerDef[] = ALL_STICKERS.filter(s => !RETIRED_STICKERS.has(s.id));

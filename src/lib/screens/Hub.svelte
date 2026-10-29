@@ -6,7 +6,8 @@
   import { ALL_LESSONS, REGION, lessonTitle } from '../engine/course';
   import { nextLesson, outfitOf, palOf, passed, todayMs, totalStars } from '../engine/profile';
   import { DANCES, forBuddy } from '../engine/rewards';
-  import { levelFromXp } from '../engine/stickers';
+  import { levelFromXp, STICKERS } from '../engine/stickers';
+  import { MEDALS } from '../engine/achievements';
   import { FRIEND } from '../art/cast';
   import { sfx } from '../audio/sound';
   import { MATH_LESSONS, MATH_REGION, STRAND, worldOf } from '../math/course';
@@ -101,8 +102,8 @@
         {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={tsz === 'sm' ? 36 : 58} round />{/snippet}
       </NavTile>
       <NavTile size={tsz} tone="lilac" kind="dances" label="Dances" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
-      <NavTile size={tsz} tone="butter" kind="stickers" label="Stickers" badge={Object.keys(pal.stickers).length || ''} onclick={() => game.openStickers('stickers')} />
-      <NavTile size={tsz} tone="sky" kind="medals" label="Medals" badge={pal.medalsTotal || ''} onclick={() => game.openStickers('medals')} />
+      <NavTile size={tsz} tone="butter" kind="stickers" label="Stickers" badge={STICKERS.filter(s => pal.stickers[s.id]).length || ''} onclick={() => game.openStickers('stickers')} />
+      <NavTile size={tsz} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (pal.medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
     </div>
     {#if sw >= 860}<FancyAntButton variant="round" />{/if}
     <GearButton size={sw < 860 ? 36 : 44} />
@@ -118,7 +119,7 @@
       <section class="door typing">
         <!-- the picture as an inline style: a relative url() inside a custom property resolves against the stylesheet's folder, not the page -->
         <button class="banner" style:background-image="url({import.meta.env.BASE_URL}regions/{tNext.region}.webp)" onclick={() => open('typing')} aria-label="Open the Typing map">
-          <span class="sign"><svg viewBox="0 0 32 24" aria-hidden="true"><rect x="2" y="3" width="28" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2.4" /><path d="M7 9h2M12 9h2M17 9h2M22 9h3M8 15h16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" /></svg></span>
+          <span class="sign"><img src="{import.meta.env.BASE_URL}game/icon-typing.webp" alt="" /></span>
           <span class="name">Typing</span>
           <span class="tag">All ten fingers, no peeking</span>
         </button>
@@ -139,7 +140,7 @@
 
       <section class="door math">
         <button class="banner" style:background-image="url({import.meta.env.BASE_URL}regions/{worldOf(mNext)}.webp)" onclick={() => open('math')} aria-label="Open the Math map">
-          <span class="sign"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 7v8M5 11h8M19 11h8M7 21l4 4M11 21l-4 4M19 21h8M19 25h8" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" /></svg></span>
+          <span class="sign"><img src="{import.meta.env.BASE_URL}game/icon-math.webp" alt="" /></span>
           <span class="name">Math</span>
           <span class="tag">Add, take away, times and share</span>
         </button>
@@ -167,7 +168,7 @@
         </button>
         <div class="ainfo">
           <div class="astats">
-            <span><img src="{import.meta.env.BASE_URL}game/icon-star.webp" alt="" /><b>{advFound}</b>/14 Glimmers</span>
+            <span><img class="gface" src="{import.meta.env.BASE_URL}game/glimmers/face/puddlepup.webp" alt="" /><b>{advFound}</b>/14 Glimmers</span>
             <span><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><b>{adv.shells}</b> shells</span>
             {#if advReady}<span class="ready"><img src="{import.meta.env.BASE_URL}game/egg-rare.webp" alt="" /><b>{advReady}</b> ready to hatch!</span>{/if}
           </div>
@@ -188,7 +189,17 @@
           <div class="gs"><div class="gpic" style:background-image="url({import.meta.env.BASE_URL}game/intro-practice.webp)"></div><b>1. Practice</b><p>Typing lessons, math trips and the playground. They earn stars that open new lessons, friendship with your buddy, and shells. Every right answer makes your eggs grow.</p></div>
           <div class="gs"><div class="gpic" style:background-image="url({import.meta.env.BASE_URL}regions/village.webp)"><span class="gb"><Critter friend={p.buddy} size={90} /></span></div><b>2. Your Keypals</b><p>Friendship with each buddy opens new outfits and dances. New buddies join as you play. Outfits and dances help in Adventure too.</p></div>
           <div class="gs"><div class="gpic" style:background-image="url({import.meta.env.BASE_URL}game/intro-story.webp)"></div><b>3. Adventure</b><p>Cheer up grumpy Glimmers with your answers, and they join your team. Duel your family, race Rival Ghosts, and help your Glimmers grow up!</p></div>
-          <div class="gs"><div class="gpic trophies"><TileArt kind="stickers" size={80} /><TileArt kind="medals" size={80} /></div><b>4. Stickers and medals</b><p>For the great things you do: three stars, no slips, fast answers. Each one earns shells too.</p></div>
+          <div class="gs"><div class="gpic trophies"><TileArt kind="stickers" size={80} /><TileArt kind="medals" size={80} /></div><b>4. Stickers and medals</b><p>Medals are for great things you can do again and again: three stars, no slips, quick answers. Stickers are for firsts. Both earn shells.</p></div>
+        </div>
+        <!-- everything there is to earn, one line each: the same in every game -->
+        <h3 class="gh">What you earn</h3>
+        <div class="earn">
+          <div class="ei"><img src="{import.meta.env.BASE_URL}game/icon-star.webp" alt="" /><p><b>Stars</b> How well a lesson, trip or round went. They open the next one, and new Keypals join as you collect them.</p></div>
+          <div class="ei"><span class="eh">♥</span><p><b>Friendship</b> Grows every time you play with your buddy, in practice or Adventure. It opens outfits and dances.</p></div>
+          <div class="ei"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><p><b>Shells</b> Earned by playing. Spend them in the Island Shop on eggs, treats and gear.</p></div>
+          <div class="ei"><img src="{import.meta.env.BASE_URL}game/egg-common.webp" alt="" /><p><b>Eggs and Glimmers</b> Right answers in practice hatch eggs; battles bring Glimmers too. They level up and help in battles.</p></div>
+          <div class="ei"><img src="{import.meta.env.BASE_URL}game/icon-medals.webp" alt="" /><p><b>Medals and stickers</b> For the great things you do. Your buddy keeps their own book.</p></div>
+          <div class="ei"><img src="{import.meta.env.BASE_URL}game/league-0.webp" alt="" /><p><b>Leagues</b> Only in Rival Ghosts: win points this week to move up a league.</p></div>
         </div>
         <button class="btn btn-primary" onclick={closeGuide}>Let's play!</button>
       </div>
@@ -223,7 +234,15 @@
   .gpic .gb { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); }
   .gpic.trophies { display: flex; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(135deg, #fff4c2, #e6f1ff); }
   .guide > .btn { align-self: flex-end; font-size: 20px; padding: 10px 22px; }
-  @media (max-width: 760px) { .gsteps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .guide h2 { font-size: 24px; } .gs b { font-size: 16px; } .gs p { font-size: 12.5px; } .pill.shells span { display: none; } }
+  .gh { margin: 4px 0 -4px; font-size: 22px; }
+  .earn { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .ei { display: flex; gap: 10px; align-items: flex-start; background: #faf8fe; border-radius: 16px; padding: 10px 12px; }
+  .ei img, .ei .eh { width: 44px; height: 44px; flex: none; object-fit: contain; }
+  .ei .eh { display: grid; place-items: center; font: 600 34px/1 var(--font-ui); color: #ef5f9a; }
+  .ei p { margin: 0; font: 600 13.5px/1.4 var(--font-body); color: var(--ink2); }
+  .ei p b { display: block; font: 600 16px var(--font-ui); color: var(--ink); }
+  .gface { border-radius: 50%; }
+  @media (max-width: 760px) { .earn { grid-template-columns: 1fr; } .gsteps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .guide h2 { font-size: 24px; } .gs b { font-size: 16px; } .gs p { font-size: 12.5px; } .pill.shells span { display: none; } }
   .tiles { display: flex; gap: 8px; }
   .body { flex: 1; min-height: 0; padding: 18px 24px 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
   .hello { display: flex; align-items: center; gap: 14px; }
@@ -234,9 +253,9 @@
   .doors { display: grid; grid-template-columns: repeat(2, minmax(0, 520px)); gap: 26px; width: 100%; justify-content: center; }
   .door.adventure { grid-column: 1 / -1; flex-direction: row; min-height: 190px; }
   .abanner { flex: 1.6; position: relative; border: 0; cursor: pointer; background-size: cover; background-position: center 55%; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; padding: 16px 20px; text-align: left; }
-  .abanner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(40, 20, 80, .55), transparent 60%); }
+  .abanner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(40, 20, 80, .62)), linear-gradient(90deg, rgba(40, 20, 80, .45), transparent 60%); }
   .aname { position: relative; font: 600 42px/1 var(--font-ui); color: #fff; text-shadow: 0 3px 10px rgba(30, 10, 60, .6); }
-  .abanner .tag { position: relative; }
+  .abanner .tag { position: relative; color: #fff; text-shadow: 0 1px 2px rgba(30, 10, 60, .8), 0 2px 10px rgba(30, 10, 60, .55); }
   .ainfo { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 16px 20px; }
   .astats { display: flex; flex-direction: column; gap: 6px; }
   .astats span { display: flex; align-items: center; gap: 8px; font: 700 15px var(--font-body); color: var(--ink2); }
@@ -250,8 +269,9 @@
   .typing { --shade: rgba(84, 52, 190, .88); --tone: #7c5cf5; }
   .math { --shade: rgba(214, 96, 24, .88); --tone: #ef7d2b; }
   .banner > * { position: relative; }
-  .sign { position: absolute; top: 14px; left: 16px; width: 54px; height: 54px; border-radius: 16px; display: grid; place-items: center; background: var(--tone); box-shadow: 0 0 0 4px rgba(255, 255, 255, .85); }
-  .sign svg { width: 34px; height: 34px; }
+  .sign { position: absolute; top: 12px; left: 14px; width: 74px; height: 74px; border-radius: 22px; display: grid; place-items: center; background: linear-gradient(#fff, #f6f2ff); box-shadow: 0 0 0 4px var(--tone), 0 8px 18px -6px rgba(30, 10, 60, .45); transition: transform .2s cubic-bezier(.3, .8, .4, 1.5); }
+  .sign img { width: 62px; height: 62px; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(60, 30, 110, .25)); }
+  .banner:hover .sign { transform: scale(1.06) rotate(-4deg); }
   .name { font: 600 clamp(38px, 5.4vh, 54px)/1 var(--font-ui); text-shadow: 0 3px 12px rgba(0, 0, 0, .25); }
   .tag { font: 700 16px var(--font-body); opacity: .95; }
   .info { padding: 14px 20px 18px; display: flex; flex-direction: column; gap: 10px; }
@@ -294,8 +314,8 @@
     .astats { flex-direction: row; flex-wrap: wrap; gap: 4px 12px; flex: 1; }
     .astats b { font-size: 16px; } .astats img { width: 24px; height: 24px; }
     .banner { height: 96px; padding: 10px 14px; }
-    .sign { width: 40px; height: 40px; top: 10px; left: auto; right: 12px; border-radius: 12px; }
-    .sign svg { width: 26px; height: 26px; }
+    .sign { width: 52px; height: 52px; top: 10px; left: auto; right: 12px; border-radius: 16px; box-shadow: 0 0 0 3px var(--tone), 0 6px 12px -6px rgba(30, 10, 60, .45); }
+    .sign img { width: 44px; height: 44px; }
     .name { font-size: 34px; }
     .tag { font-size: 13px; }
     .info { padding: 10px 14px 12px; gap: 7px; }

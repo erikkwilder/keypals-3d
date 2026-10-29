@@ -6,7 +6,7 @@
   import { outfitOf, palOf, todayMs } from '../engine/profile';
   import { DANCES } from '../engine/rewards';
   import { levelFromXp } from '../engine/stickers';
-  import { RIDES } from '../engine/rides';
+  import { rideName } from '../engine/rides';
   import { rideIcon } from '../art/vehicles';
   import { sfx } from '../audio/sound';
   import { MATH_LESSONS, MOVE_NAME, PLACEMENTS, STRANDS, STRAND, groupFacts, moveOf, regionsOf, type MathLesson, type MathRegion } from '../math/course';
@@ -72,7 +72,7 @@
 
   function start(l: MathLesson) {
     if (!mathUnlocked(m, l)) {
-      sfx.miss();
+      sfx.nope();
       game.say(l.n > 1 ? 'Finish the stop before this one first!' : 'Pass the checkpoint before this one to open it!');
       return;
     }
@@ -216,7 +216,7 @@
           <button class="node" class:locked={!unlocked} class:next={isNext} class:done={mathMovedOn(m, l)} class:check={l.kind === 'check'}
             style:left="{pos.x}%" style:top="{pos.y}%" onclick={() => start(l)} title={l.title}>
             <span class="disc">{#if !unlocked}<Icon name="lock" />{:else}<Icon name={KIND_ICON[l.kind] ?? 'book'} />{/if}</span>
-            {#if rec && rec.bestRide > 0}<span class="ride" title="Best ride: {RIDES[rec.bestRide].name}"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff')}</svg></span>{/if}
+            {#if rec && rec.bestRide > 0}<span class="ride" title="Best: {rideName(rec.bestRide, moveOf(l))}"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff', moveOf(l))}</svg></span>{/if}
             <span class="lbl">{l.title}</span>
             <span class="mv" title="{MOVE_NAME[moveOf(l)]}">{MOVE_ICON[moveOf(l)]} {MOVE_NAME[moveOf(l)]}</span>
             <Stars n={rec?.stars ?? 0} size={14} />

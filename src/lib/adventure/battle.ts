@@ -39,8 +39,9 @@ export const MISCHIEF: Record<Element, { kind: MischiefKind; name: string }> = {
 export type Foe = { glimmer: GlimmerId; rarity: Rarity; champion: boolean; element: Element; grump: number; max: number; hit: number; evolved?: boolean };
 /** `evolved`: grown up, so its power works as if it were EVOLVE_BOOST levels higher, plus its own perk */
 export type Member = { id: GlimmerId; level: number; evolved?: boolean };
-/** `kit`: the hand, back and shoe gear's powers and any set bonus (gear.ts) */
-export type Setup = { pool: Pool; seed: number; sparkMax: number; role: RoleId; gear: GearKind | null; team: Member[]; foe: Foe; fastMs?: number; kit?: KitKind[] };
+/** `kit`: the hand, back and shoe gear's powers and any set bonus (gear.ts). `flat`: every right answer
+ *  cheers this much whatever the question (duels: little sums and big times tables count the same). */
+export type Setup = { pool: Pool; seed: number; sparkMax: number; role: RoleId; gear: GearKind | null; team: Member[]; foe: Foe; fastMs?: number; kit?: KitKind[]; flat?: number };
 
 export type BEvent =
   | { k: 'cast'; card: Card; value: number; ok: boolean; perfect: boolean; super: boolean }
@@ -68,6 +69,8 @@ export type Battle = {
   spark: number; sparkMax: number; role: RoleId; gear: GearKind | null; team: Member[];
   /** hand, back and shoe gear (and set bonuses) */
   kit: KitKind[];
+  /** every right answer cheers this much (0: as much as the answer, as in a battle) */
+  flat: number;
   foe: Foe; cards: Card[]; phase: Phase; block: Block | null;
   streak: number; finale: number; turn: number; nextId: number;
   /** the Grumble skips its next mischief (frozen) / its next one is halved (dazzled) */
@@ -84,6 +87,8 @@ export type Battle = {
 };
 
 export const FINALE_AT = 5;
+/** how often a hand has a card that finishes the Grumble exactly, when one exists */
+export const FINISHER_ODDS = 0.4;
 const has = (b: Battle, kind: string) => b.team.find(m => GLIMMER[m.id].power.kind === kind);
 /** the level a member's power works at (evolved ones are stronger) */
 const lv = (m: Member) => m.level + (m.evolved ? EVOLVE_BOOST : 0);
@@ -99,7 +104,7 @@ export function newBattle(s: Setup): Battle {
   const rng = mulberry32(s.seed);
   const b: Battle = {
     subject: s.pool.subject, pool: s.pool, rng, fastMs: s.fastMs ?? 4000,
-    spark: s.sparkMax, sparkMax: s.sparkMax, role: s.role, gear: s.gear, team: s.team.slice(0, 2), kit: s.kit ?? [],
+    spark: s.sparkMax, sparkMax: s.sparkMax, role: s.role, gear: s.gear, team: s.team.slice(0, 2), kit: s.kit ?? [], flat: s.flat ?? 0,
     foe: { ...s.foe }, cards: [], phase: 'pick', block: null,
     streak: 0, finale: 0, turn: 0, nextId: 1, frozen: false, dazzled: false, free: [],
     used: { hide: false, retry: false, glow: false, aurora: false, secondwind: false, swap: false },
@@ -152,12 +157,14 @@ export function deal(b: Battle) {
   const g = b.foe.grump;
   if (b.pool.subject === 'math') {
     const facts = b.pool.facts;
-    const finishers = facts.filter(x => answerOf(x.f) === g);
+    const finishers = b.flat ? [] : facts.filter(x => answerOf(x.f) === g);
     const used = new Set<string>();
     els.forEach((e, i) => {
       const c = newCard(b, e);
       const openOk = b.pool.subject === 'math' && b.pool.open && i === 1 && b.rng() < 0.6;
-      if (i === 0 && finishers.length && b.rng() < 0.75) { const x = pick(b.rng, finishers); c.fact = x.f; c.bloom = x.stage === 3; }
+      // a card that lands it exactly turns up sometimes, not nearly always: a Perfect Cheer (and its egg)
+      // should take planning, and small sums used to get one almost every battle
+      if (i === 0 && finishers.length && b.rng() < FINISHER_ODDS) { const x = pick(b.rng, finishers); c.fact = x.f; c.bloom = x.stage === 3; }
       else if (openOk) {
         const base = facts.filter(x => (x.f.op ?? 'x') === 'x' || x.f.op === '+');
         const x = base.length ? pick(b.rng, base) : null;
@@ -171,12 +178,15 @@ export function deal(b: Battle) {
     });
   } else {
     const words = b.pool.words;
-    const finish = words.filter(w => w.length === g);
+    const finish = b.flat ? [] : words.filter(w => w.length === g);
+    // all right answers count the same in a duel, so its words are all about the player's usual length
+    const mid = [...words].sort((x, y) => x.length - y.length)[Math.floor(words.length / 2)]?.length ?? 4;
+    const usual = words.filter(w => Math.abs(w.length - mid) <= 1);
     const used = new Set<string>();
     els.forEach((e, i) => {
       const c = newCard(b, e);
       // a spread of lengths: short, middle, long
-      const want = i === 0 && finish.length && b.rng() < 0.75 ? finish : words.filter(w => i === 0 ? w.length <= 4 : i === 1 ? w.length >= 4 && w.length <= 6 : w.length >= 5);
+      const want = b.flat ? usual : i === 0 && finish.length && b.rng() < FINISHER_ODDS ? finish : words.filter(w => i === 0 ? w.length <= 4 : i === 1 ? w.length >= 4 && w.length <= 6 : w.length >= 5);
       let w = '';
       for (let t = 0; t < 8; t++) { w = pick(b.rng, want.length ? want : words); if (!used.has(w)) break; }
       used.add(w); c.word = w;
@@ -212,9 +222,11 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
   if (!ok && b.gear === 'retry' && !b.used.retry) { b.used.retry = true; return [{ k: 'retry' }]; }
   b.stats.answers++;
   if (fact) b.answered.push({ f: fact, ok, thinkMs: a.thinkMs });
-  const value = ok ? (b.subject === 'math' ? answerOf(fact!) : a.value) : 0;
-  const fast = ok && (b.subject === 'math' ? a.thinkMs <= b.fastMs : a.thinkMs <= 450 * Math.max(1, value) + 600);
-  const perfect = ok && value === b.foe.grump;
+  const real = ok ? (b.subject === 'math' ? answerOf(fact!) : a.value) : 0;
+  const value = ok ? b.flat || real : 0;
+  const fast = ok && (b.subject === 'math' ? a.thinkMs <= b.fastMs : a.thinkMs <= 450 * Math.max(1, real) + 600);
+  // landing it exactly is a battle thing: in a duel every answer counts the same
+  const perfect = ok && !b.flat && value === b.foe.grump;
   b.foe.grump = Math.max(0, b.foe.grump - value);
   b.stats.cheer += value;
   ev.push({ k: 'cast', card, value, ok, perfect, super: ok && card.super });
@@ -243,10 +255,10 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
     if (ok && b.gear === 'confetti') extra('gear', 'Confetti', 1);
     if (ok && kit(b, 'kite') && b.streak > 0 && b.streak % 3 === 0) extra('gear', 'Sky Kite', 3, undefined, 'sky_kite');
     if (fast && kit(b, 'rocketpack')) extra('gear', 'Rocket Pack', 2, undefined, 'rocket_pack');
-    if (ok && b.role === 'speed' && (b.subject === 'math' ? a.thinkMs < 3000 : fast)) extra('role', 'Dash', 3);
+    if (ok && b.role === 'speed' && (b.subject === 'math' && !b.flat ? a.thinkMs < 3000 : fast)) extra('role', 'Dash', 3);
     for (const m of b.team) {
       const k = GLIMMER[m.id].power.kind;
-      if (k === 'splash' && ok && a.thinkMs < 4000) extra('glimmer', 'Splash', powerNum(3, lv(m)), m.id);
+      if (k === 'splash' && ok && (b.flat ? fast : a.thinkMs < 4000)) extra('glimmer', 'Splash', powerNum(3, lv(m)), m.id);
       if (k === 'ember') extra('glimmer', 'Ember puff', powerNum(4, lv(m)), m.id);
       if (k === 'lanterns' && ok && b.rights % 3 === 0) extra('glimmer', 'Three lanterns', powerNum(10, lv(m), 3), m.id);
       // grown-up perks

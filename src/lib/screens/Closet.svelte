@@ -68,7 +68,7 @@
   function pick(id: FriendId) { if (id === who) return; who = id; sfx.pop(); show(id); }
   function locked(r: Reward) { return r.level > lvl.level; }
   function nope(r: Reward) {
-    shake = r.id; setTimeout(() => (shake = null), 400); sfx.miss();
+    shake = r.id; setTimeout(() => (shake = null), 400); sfx.nope();
     game.say(`Reach friendship ${r.level} to unlock ${r.name}!`);
   }
   function wear(r: Reward | null) {
@@ -76,7 +76,7 @@
     const id = r?.id ?? 'none';
     game.update(pp => setLook(pp, who, { outfit: id }));
     scene?.wear(who, id);
-    if (id !== 'none') { burst++; sfx.badge(); } else sfx.pop();
+    if (id !== 'none') { burst++; sfx.equip(); } else sfx.pop();
   }
   function dance(r: Reward) {
     if (locked(r)) return nope(r);
@@ -90,21 +90,21 @@
     const on = bg.on[it.slot] === it.id;
     game.update(pp => { putOn(advOf(pp), who, it.slot, on ? null : it.id); });
     scene?.wearGear(who, it.slot, on ? null : it.id);
-    if (on) sfx.pop(); else { burst++; sfx.badge(); }
+    if (on) sfx.pop(); else { burst++; sfx.equip(); }
   }
   function buyPiece(it: GearItem) {
     let r: { ok: boolean; why?: string } = { ok: false };
     game.update(pp => { r = buyGear(advOf(pp), who, it.id); });
-    if (!r.ok) { sfx.miss(); if (r.why) game.say(r.why); return; }
+    if (!r.ok) { sfx.nope(); if (r.why) game.say(r.why); return; }
     scene?.wearGear(who, it.slot, it.id);
-    peek = null; burst++; sfx.complete();
+    peek = null; burst++; sfx.buy();
     game.say(`${FRIEND[who].name} got the ${it.name}!`);
   }
   function setTab(t: 'outfits' | 'dances' | 'gear') { tab = t; game.closetTab = t; sfx.pop(); }
   const island = (id: string) => ISLAND[id as keyof typeof ISLAND]?.name ?? id;
   const joined = $derived(onTeam(p, who));
   const join = $derived(joinProgress(p, who));
-  function makeBuddy() { if (!joined) return; game.update(pp => { pp.buddy = who; }); burst++; sfx.complete(); scene?.dance(who, pal.dance); }
+  function makeBuddy() { if (!joined) return; game.update(pp => { pp.buddy = who; }); burst++; sfx.equip(); scene?.dance(who, pal.dance); }
 
   onMount(() => { show(who); addEventListener('resize', onResize); });
   onDestroy(() => { disposed = true; removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });

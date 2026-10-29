@@ -3,8 +3,9 @@
 // practice), shells and the shop, the grown-ups' play-time rule, and what a battle earns.
 import { mulberry32, type Rng } from '../engine/rng';
 import { buddyPal, dayKey, knownFor, nextLesson, type Profile, type XpInfo } from '../engine/profile';
-import { levelFromXp } from '../engine/stickers';
-import { forBuddy, newBetween, type Reward } from '../engine/rewards';
+import type { StickerDef } from '../engine/stickers';
+import type { Reward } from '../engine/rewards';
+import { befriend, checkStickers } from '../engine/settle';
 import { LAYOUTS } from '../engine/layouts';
 import { fits } from '../engine/textgen';
 import { WORDS_KIDS } from '../content/words';
@@ -256,16 +257,17 @@ export function warmEggs(p: Profile, n: number): Rarity[] {
   return ready;
 }
 /** A practice session finished (typing lesson, math trip, playground game): it counts for the practice
- *  stops, and its right answers warm the eggs. */
-export function notePractice(p: Profile, rightAnswers: number): Rarity[] {
+ *  stops, and its right answers warm the eggs. (A Learn lesson only warms the eggs: a minute's lesson
+ *  isn't a practice session, so it doesn't finish a practice stop on the map.) */
+export function notePractice(p: Profile, rightAnswers: number, session = true): Rarity[] {
   const a = advOf(p);
-  a.practiceSessions++;
+  if (session) a.practiceSessions++;
   return warmEggs(p, Math.round(rightAnswers));
 }
-/** Shells a practice session earns, for the Adventure shop: something for finishing, more for stars,
- *  medals, new stickers and the treasure found. */
-export function practiceShells(o: { stars: number; medals: number; stickers: number; treasure: number }) {
-  return 4 + o.stars * 3 + o.medals * 2 + o.stickers * 5 + Math.max(0, o.treasure + 1);
+/** Shells a practice session earns, for the Adventure shop: something for finishing and more for each
+ *  star, medal and new sticker. Stars pay the most: they're how well you did. */
+export function practiceShells(o: { stars: number; medals: number; stickers: number }) {
+  return 4 + o.stars * 5 + o.medals * 2 + o.stickers * 3;
 }
 export function earnShells(p: Profile, n: number) { if (n > 0) advOf(p).shells += n; return n; }
 export type Hatch = { id: GlimmerId; rarity: Rarity; isNew: boolean; level: number; ups: number };
@@ -301,7 +303,7 @@ export const SHOP: ShopItem[] = [
   { id: 'egg-common', name: 'Common egg', price: 60, egg: 'common', text: `Hatches after ${RARITY.common.hatch} right answers in practice.` },
   { id: 'egg-uncommon', name: 'Uncommon egg', price: 130, egg: 'uncommon', text: `Hatches after ${RARITY.uncommon.hatch} right answers in practice.` },
   { id: 'egg-rare', name: 'Rare egg', price: 280, egg: 'rare', text: `Hatches after ${RARITY.rare.hatch} right answers in practice.` },
-  { id: 'treat', name: 'Glimmer treat', price: 40, text: 'A tasty snack: one level for a Glimmer of your choice.' },
+  { id: 'treat', name: 'Glimmer treat', price: 40, text: 'A tasty snack: one level for the first Glimmer on your team.' },
 ];
 export function buy(p: Profile, id: string, target?: GlimmerId): { ok: boolean; why?: string; where?: string } {
   const a = advOf(p), item = SHOP.find(s => s.id === id);
@@ -322,6 +324,10 @@ export function buy(p: Profile, id: string, target?: GlimmerId): { ok: boolean; 
 }
 
 // ---------- what a battle earns ----------
+/** Friendship from a battle: about what the same minutes of practice earn (a win is ~3 minutes; a lesson
+ *  of ~3.5 minutes earns about 140), so a kid who mostly battles still sees outfits come. Practice still
+ *  earns the stars, medals, shells and eggs. */
+export const BATTLE_FRIENDSHIP = { win: 80, perfect: 20, champion: 120, tried: 25 };
 export type BattleRun = {
   node: string; subject: Subject; won: boolean; perfect: boolean; foe: Foe; ms: number;
   answers: number; right: number; answered: { f: Fact; ok: boolean; thinkMs: number }[];
@@ -333,6 +339,8 @@ export type BattleOutcome = {
   met: { id: GlimmerId; rarity: Rarity; isNew: boolean; level: number; ups: number; shimmered: Rarity | null } | null;
   shells: number; egg: Egg | null; eggWhere: 'incubator' | 'nest' | 'full' | null;
   xp: XpInfo; rewards: Reward[];
+  /** stickers this game earned (friendship ones, mostly) */
+  stickers: StickerDef[];
   teamUps: { id: GlimmerId; level: number }[];
   firstClear: boolean; islandDone: IslandId | null;
   /** a Champion's gear prize, for the buddy who beat it */
@@ -352,21 +360,16 @@ export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
     const m = (p.math = mathOf(p)), dk = dayKey(r.at);
     for (const x of r.answered) { const id = factId(x.f); m.facts[id] = updateFact(m.facts[id], { ok: x.ok, thinkMs: x.thinkMs, day: dk, at: r.at, fastMs: m.fastMs }); seedPartner(m.facts, x.f); }
   }
-  // your buddy's friendship
-  const pal = buddyPal(p), before = levelFromXp(pal.xp);
-  const gained = r.won ? 45 + (r.perfect ? 15 : 0) + (node.kind === 'champion' ? 120 : 0) : 12;
-  pal.xp += gained;
-  const after = levelFromXp(pal.xp);
-  pal.level = after.level;
-  const rewards = forBuddy(newBetween(before.level, after.level), p.buddy);
-  for (const rw of rewards) if (!pal.seen.includes('reward:' + rw.id)) pal.seen.push('reward:' + rw.id);
-  const xp: XpInfo = { gained, before, after };
-  const out: BattleOutcome = { profile: p, met: null, shells: 0, egg: null, eggWhere: null, xp, rewards, teamUps: [], firstClear: false, islandDone: null };
+  // your buddy's friendship, paced like practice minute for minute (BATTLE_FRIENDSHIP), and any
+  // stickers it brings (the same as after practice: engine/settle.ts)
+  const F = BATTLE_FRIENDSHIP;
+  const { xp, rewards } = befriend(p, r.won ? F.win + (r.perfect ? F.perfect : 0) + (node.kind === 'champion' ? F.champion : 0) : F.tried);
+  const stickers = checkStickers(p, r.at);
+  const out: BattleOutcome = { profile: p, met: null, shells: 0, egg: null, eggWhere: null, xp, rewards, stickers, teamUps: [], firstClear: false, islandDone: null };
   // the team learns from every battle
   for (const id of r.team) { const o = a.glimmers[id]; if (o) { const ups = giveXp(o, r.won ? 12 + (r.perfect ? 6 : 0) : 4); if (ups) out.teamUps.push({ id, level: o.level }); } }
   if (!r.won) { a.shells += 3; out.shells = 3; return out; }
   a.wins++; if (r.perfect) a.perfects++;
-  a.xp += node.kind === 'champion' ? 5 : 1;
   out.firstClear = !cleared(a, r.node);
   a.nodes[r.node] = (a.nodes[r.node] ?? 0) + 1;
   if (out.firstClear && node.kind === 'champion') out.islandDone = isl.id;

@@ -189,7 +189,7 @@
     } else {
       typed = '';
       shake++;
-      sfx.miss();
+      sfx.slip();
     }
   }
 

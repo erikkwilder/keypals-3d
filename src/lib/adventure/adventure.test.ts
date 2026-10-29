@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { newProfile, dayKey } from '../engine/profile';
+import { newProfile, dayKey, buddyPal } from '../engine/profile';
 import { answerOf } from '../math/facts';
 import { newBattle, play, block, finale, deal, openFact, sparkFor, FINALE_AT, type Pool, type Foe } from './battle';
-import { advOf, applyBattle, buy, currentNode, foeFor, hatch, mathPool, NODE, NODES, nodeOpen, notePractice, playLeft, reachStop, typingPool, collectStop, practiceDone } from './state';
+import { advOf, applyBattle, buy, currentNode, foeFor, hatch, mathPool, NODE, NODES, nodeOpen, notePractice, playLeft, reachStop, typingPool, collectStop, practiceDone, BATTLE_FRIENDSHIP } from './state';
 import { GLIMMERS, GLIMMER } from './glimmers';
 
 const pool: Pool = { subject: 'math', facts: [{ f: { a: 3, b: 4, op: '+' }, stage: 3 }, { f: { a: 5, b: 5, op: '+' }, stage: 2 }, { f: { a: 6, b: 2, op: '+' }, stage: 1 }, { f: { a: 2, b: 2, op: '+' }, stage: 2 }], open: false };
@@ -103,7 +103,8 @@ describe('Adventure', () => {
     expect(out.shells).toBeGreaterThanOrEqual(62);
     expect(advOf(p).team[0]).toBe('lanternfox');
     expect(p.math!.facts['3+4'].seen).toBe(1);
-    expect(p.pals.dino!.xp).toBe(165);
+    // a Champion win: the battle's friendship plus the Champion's (paced like practice)
+    expect(p.pals.dino!.xp).toBe(BATTLE_FRIENDSHIP.win + BATTLE_FRIENDSHIP.champion);
   });
   it('eggs warm with practice and hatch; a second one of a kind becomes stardust', () => {
     const p = newProfile('Ava', 'dino');
@@ -143,5 +144,16 @@ describe('Adventure', () => {
     expect(playLeft(p, now).open).toBe(true);
     a.settings.rule = 'open'; a.settings.capMin = 5;
     expect(playLeft(p, now).open).toBe(false);
+  });
+});
+
+describe('one reward system', () => {
+  it('a battle checks stickers too: friendship won in a battle earns its sticker straight away', async () => {
+    const { STICKER } = await import('../engine/stickers');
+    const p = newProfile('Ava', 'dino');
+    const pal = buddyPal(p); pal.xp = 1000; pal.level = 4;
+    const out = applyBattle(p, { node: 'meadow-1', subject: 'math', won: true, perfect: false, foe: foeFor(p, NODE['meadow-1'], mathPool(p), 3), ms: 60000, answers: 6, right: 6, answered: [], team: [], crystal: false, treasureNose: false, at: Date.now(), seed: 3 });
+    expect(out.stickers.map(s => s.id)).toContain('level-5');
+    expect(STICKER['level-5']).toBeTruthy();
   });
 });

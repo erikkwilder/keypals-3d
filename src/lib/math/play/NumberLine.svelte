@@ -9,7 +9,7 @@
   import type { PlayBuddy } from './buddy';
   import { lineNumbers, linePoints, lineSpec, lineStars } from '../playground';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
   const spec = lineSpec(level);
   const nums = lineNumbers(level, mulberry32(Date.now() % 1e9));

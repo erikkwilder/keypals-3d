@@ -33,23 +33,26 @@ export function teamStats(p: Profile) {
 }
 type Stats = ReturnType<typeof teamStats>;
 
-/** How each of the fifteen joins: the words on its card, and how far along you are. */
-export const UNLOCKS: Partial<Record<FriendId, { how: string; at: (s: Stats) => [number, number] }>> = {
-  fish: { how: 'Earn 10 stars', at: s => [s.stars, 10] },
+/** Two ways to join: how far along the closer one is, in its own words ("12 of 20 lessons"). */
+const either = (a: number, ofA: number, wa: string, b: number, ofB: number, wb: string): [number, number, string] => (a / ofA >= b / ofB ? [a, ofA, wa] : [b, ofB, wb]);
+/** How each of the fifteen joins: the words on its card, and how far along you are. Stars count from
+ *  every game: typing, math trips and the playground. */
+export const UNLOCKS: Partial<Record<FriendId, { how: string; at: (s: Stats) => [number, number] | [number, number, string] }>> = {
+  fish: { how: 'Earn 10 stars in any game', at: s => [s.stars, 10] },
   fluff: { how: 'Play on 2 different days', at: s => [s.days, 2] },
   rabbit: { how: 'Finish a whole island (typing or math)', at: s => [s.regions, 1] },
-  dog: { how: 'Reach the bike (or the third speed in math)', at: s => [s.ride, 3] },
-  sloth: { how: 'Earn 30 stars', at: s => [s.stars, 30] },
-  cat: { how: 'Grow 10 flowers in bloom, or pass 20 typing lessons', at: s => [Math.max(s.blooms / 10, s.typingPassed / 20) * 10, 10] },
+  dog: { how: 'Reach speed 4 of 6 in a lesson or trip (the bike on the trail)', at: s => [s.ride, 3] },
+  sloth: { how: 'Earn 30 stars in any game', at: s => [s.stars, 30] },
+  cat: { how: 'Grow 10 flowers in bloom, or pass 20 typing lessons', at: s => either(s.blooms, 10, 'flowers', s.typingPassed, 20, 'lessons') },
   goggles: { how: 'Finish 2 islands', at: s => [s.regions, 2] },
   antenna: { how: 'Try 4 kinds of math (the playground counts)', at: s => [s.kinds, 4] },
   sweater: { how: 'Reach your daily goal on 3 days', at: s => [s.goalDays, 3] },
-  axolotl: { how: 'Earn 60 stars', at: s => [s.stars, 60] },
+  axolotl: { how: 'Earn 60 stars in any game', at: s => [s.stars, 60] },
   diver: { how: 'Get three stars 10 times', at: s => [s.three, 10] },
-  terrier: { how: 'Reach the rocket (or top speed in math)', at: s => [s.ride, 5] },
+  terrier: { how: 'Reach top speed in a lesson or trip (the rocket on the trail)', at: s => [s.ride, 5] },
   pinkbunny: { how: 'Finish 4 islands', at: s => [s.regions, 4] },
-  elf: { how: 'Earn 100 stars', at: s => [s.stars, 100] },
-  straw: { how: 'Grow 30 flowers in bloom, or pass 40 typing lessons', at: s => [Math.max(s.blooms / 30, s.typingPassed / 40) * 30, 30] },
+  elf: { how: 'Earn 100 stars in any game', at: s => [s.stars, 100] },
+  straw: { how: 'Grow 30 flowers in bloom, or pass 40 typing lessons', at: s => either(s.blooms, 30, 'flowers', s.typingPassed, 40, 'lessons') },
 };
 
 /** Who's on the team now. */
@@ -63,8 +66,8 @@ export const onTeam = (p: Profile, id: FriendId) => teamBuddies(p).includes(id);
 export function joinProgress(p: Profile, id: FriendId): { share: number; text: string } {
   const u = UNLOCKS[id];
   if (!u) return { share: 1, text: '' };
-  const [n, of] = u.at(teamStats(p));
-  return { share: Math.min(1, n / of), text: `${Math.min(of, Math.floor(n))} of ${of}` };
+  const [n, of, what] = u.at(teamStats(p));
+  return { share: Math.min(1, n / of), text: `${Math.min(of, Math.floor(n))} of ${of}${what ? ' ' + what : ''}` };
 }
 /** Buddies who joined since they were last announced (and mark them announced). */
 export function welcomeNew(p: Profile): FriendId[] {

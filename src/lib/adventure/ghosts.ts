@@ -65,7 +65,6 @@ export function playsLike(s: GhostStats): string[] {
   const st = styleOf(s), out: string[] = [];
   out.push(st.acc >= 0.9 ? 'Very careful' : st.acc >= 0.75 ? 'Careful' : 'Takes chances');
   out.push(st.thinkMs <= 3000 ? 'Super quick' : st.thinkMs <= 5500 ? 'Quick' : 'Takes their time');
-  if (st.big >= 0.55) out.push('Picks big cards');
   return out;
 }
 

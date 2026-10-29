@@ -299,7 +299,7 @@ describe('math progress and rewards', () => {
     const ids = out.medals.map(m => m.id);
     expect(ids).toEqual(expect.arrayContaining(['clean', 'firsttry', 'three']));
     expect(out.xp.gained).toBeGreaterThan(40);
-    expect(out.treasure).toBeGreaterThanOrEqual(0);
+    expect(out.shells).toBeGreaterThanOrEqual(4 + 3 * 5);
     expect(out.profile.pals.dino!.runs).toBe(1);
     expect(out.profile.pals.dino!.dances).toBe(1);
     expect(out.stickers.map(s => s.id)).toContain('runs-1');

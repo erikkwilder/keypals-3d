@@ -356,7 +356,7 @@
           down = {};
           await wait(260);
         }
-        if (alive()) { lift.target = 1; sfx.badge(); }
+        if (alive()) { lift.target = 1; sfx.cheer(); }
         return;
       }
       case 'reach': {

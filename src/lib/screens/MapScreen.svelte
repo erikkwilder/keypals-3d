@@ -2,9 +2,9 @@
   import { onMount, tick } from 'svelte';
   import { game } from '../state/game.svelte';
   import { outfitOf, palOf } from '../engine/profile';
-  import { REGIONS, lessonTitle, type Lesson } from '../engine/course';
+  import { MOVE_ICON, MOVE_WORD, REGIONS, lessonMove, lessonTitle, type Lesson } from '../engine/course';
   import { isUnlocked, nextLesson, passed, regionUnlocked, todayMs, totalStars } from '../engine/profile';
-  import { RIDES } from '../engine/rides';
+  import { rideName } from '../engine/rides';
   import { DANCES, forBuddy } from '../engine/rewards';
   import { levelFromXp } from '../engine/stickers';
   import { rideIcon } from '../art/vehicles';
@@ -26,6 +26,9 @@
   const today = $derived(todayMs(p));
   const dancesOpen = $derived(forBuddy(DANCES, p.buddy).filter(d => d.level <= levelFromXp(palOf(p).xp).level).length);
   let scroller: HTMLDivElement | undefined = $state();
+  // phones get the small picture tiles in one row, as on the math map
+  let sw = $state(1280);
+  const tile = $derived(sw < 760 ? 'sm' : 'md');
   // each region banner is a still view a little way into its journey
 
   const PRACTICE_ICON: Record<string, 'book' | 'bulb' | 'target' | 'clock' | 'pencil'> = { story: 'book', facts: 'bulb', weak: 'target', sprint: 'clock', custom: 'pencil' };
@@ -50,7 +53,7 @@
   }
   function start(l: Lesson) {
     if (!isUnlocked(p, l)) {
-      sfx.miss();
+      sfx.nope();
       game.say(l.requires ? 'Keep going on the trail to open this one!' : 'Finish the lesson before this one first!');
       return;
     }
@@ -75,9 +78,9 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="screen map">
+<div class="screen map" bind:clientWidth={sw}>
   <header class="bar">
-    <NavTile size="md" tone="sky" kind="home" label="Home" title="Home: pick Typing or Math" onclick={() => game.go('hub')} />
+    <NavTile size={tile} tone="sky" kind="home" label="Home" title="Home: pick Typing or Math" onclick={() => game.go('hub')} />
     <h1 class="subj">Typing</h1>
     <div class="pill stars"><Stars n={1} of={1} size={22} /> <b>{stars}</b></div>
     <div class="pill goal" title="Today's practice goal">
@@ -85,14 +88,14 @@
       <span><b>{Math.floor(today / 60000)}</b>/{p.settings.dailyGoalMin} min today</span>
     </div>
     <div class="spacer"></div>
-    <NavTile size="md" tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
-      {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={62} round />{/snippet}
+    <NavTile size={tile} tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
+      {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={tile === 'sm' ? 40 : 62} round />{/snippet}
     </NavTile>
-    <NavTile size="md" tone="lilac" kind="dances" label="Dances" title="Dances: pick your finish-line dance" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
-    <NavTile size="md" tone="butter" kind="stickers" label="Stickers" badge={Object.keys(palOf(p).stickers).length || ''} onclick={() => game.openStickers('stickers')} />
-    <NavTile size="md" tone="sky" kind="medals" label="Medals" badge={palOf(p).medalsTotal || ''} onclick={() => game.openStickers('medals')} />
+    <NavTile size={tile} tone="lilac" kind="dances" label="Dances" title="Dances: pick your finish-line dance" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
+    <NavTile size={tile} tone="butter" kind="stickers" label="Stickers" badge={Object.keys(palOf(p).stickers).length || ''} onclick={() => game.openStickers('stickers')} />
+    <NavTile size={tile} tone="sky" kind="medals" label="Medals" badge={palOf(p).medalsTotal || ''} onclick={() => game.openStickers('medals')} />
     <FancyAntButton variant="round" />
-    <GearButton size={46} />
+    <GearButton size={tile === 'sm' ? 40 : 46} />
   </header>
 
   <div class="scroller scroll" bind:this={scroller}>
@@ -117,6 +120,7 @@
           {@const unlocked = isUnlocked(p, l)}
           {@const rec = p.lessons[l.id]}
           {@const isNext = l.id === next.id}
+          {@const mv = lessonMove(l)}
           <button class="node" class:locked={!unlocked} class:next={isNext} class:done={passed(p, l.id)} class:practice={l.practice} class:check={l.kind === 'checkpoint'}
             style:left="{pos.x}%" style:top="{pos.y}%" onclick={() => start(l)} title={lessonTitle(l, game.layout)}>
             <span class="disc">
@@ -125,8 +129,9 @@
               {:else if l.kind === 'checkpoint'}<Icon name="flag" />
               {:else}{l.n}{/if}
             </span>
-            {#if rec && rec.bestRide > 0}<span class="ride"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff')}</svg></span>{/if}
+            {#if rec && rec.bestRide > 0}<span class="ride" title="Best: {rideName(rec.bestRide, mv)}"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff', mv)}</svg></span>{/if}
             <span class="lbl">{lessonTitle(l, game.layout)}</span>
+            {#if !l.practice}<span class="mv mv-{mv}" title="{MOVE_WORD[mv]}">{MOVE_ICON[mv]} {MOVE_WORD[mv]}</span>{/if}
             {#if !l.practice}<Stars n={rec?.stars ?? 0} size={15} />{#if rec?.platinum}<span class="plat" title="Platinum">✦</span>{/if}{/if}
             {#if isNext}<span class="buddy"><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={70} mood="dance" /></span>{/if}
           </button>
@@ -175,6 +180,9 @@
   .node.locked .disc { background: #ece8f3; color: #b4abc7; box-shadow: 0 4px 0 #d8d2e3; }
   .node.locked .lbl { opacity: .6; }
   .lbl { font: 700 13px/1.15 var(--font-body); color: var(--ink); background: rgba(255, 255, 255, .88); padding: 3px 8px; border-radius: 10px; margin-top: 4px; max-width: 120px; text-align: center; }
+  /* how the lesson moves (the trail, or a climb, a swim or a sled run), as on the math map */
+  .mv { font: 700 11px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 1px 7px; margin-top: 2px; }
+  .mv-climb { color: #b4561a; } .mv-swim { color: #13786c; } .mv-slide { color: #2f63bd; }
   .ride { position: absolute; top: -6px; right: 18px; width: 28px; height: 28px; border-radius: 50%; background: var(--primary); display: grid; place-items: center; box-shadow: 0 0 0 3px #fff; }
   .ride svg { width: 18px; height: 18px; }
   .buddy { position: absolute; left: -46px; top: -30px; pointer-events: none; }
@@ -186,11 +194,27 @@
 
   /* phones: one header row; the nav tiles show their pictures only, the pills and FancyAnt button go */
   @media (max-width: 760px) {
-    .bar { flex-wrap: nowrap; gap: 5px; padding: 6px 8px; }
+    /* small picture tiles in one row that fits a 390-wide phone (the word Typing pushes them right) */
+    .bar { flex-wrap: nowrap; gap: 3px; padding: 6px 8px; }
     .bar .pill, .bar > :global(button.round) { display: none; }
     .bar :global(.tile) { flex: none; padding: 2px; }
     .bar :global(.tile .lbl) { display: none; }
-    .subj { font-size: 20px; margin: 0; }
-    .spacer { flex: 1; }
+    .bar :global(.gear) { padding: 3px; }
+    .subj { font-size: 18px; margin: 0 auto 0 2px; }
+    .spacer { display: none; }
+    /* the lesson stops: smaller, and the regions taller so the two rows of stops don't run into each other;
+       only the climb, swim and sled stops keep their chip (the trail is the usual way) */
+    .scroller { padding: 12px 12px 110px; gap: 16px; }
+    .region { height: 480px; }
+    .rhead h2 { font-size: 21px; }
+    .node { width: 70px; }
+    .disc { width: 48px; height: 48px; font-size: 21px; border-width: 3px; }
+    .node.check .disc { width: 56px; height: 56px; }
+    .lbl { font-size: 11px; max-width: 68px; padding: 2px 4px; }
+    .mv { font-size: 10px; padding: 1px 5px; }
+    .mv-run { display: none; }
+    .ride { width: 22px; height: 22px; top: -6px; right: 4px; }
+    .ride svg { width: 14px; height: 14px; }
+    .buddy { display: none; }
   }
 </style>

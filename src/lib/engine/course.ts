@@ -166,6 +166,24 @@ export const REGION: Record<RegionId, Region> = Object.fromEntries(REGIONS.map(r
 
 export function lessonIndex(id: string): number { return ALL_LESSONS.findIndex(l => l.id === id); }
 
+/** How the buddy travels in a typing lesson: the trail with its speed rides (walk ... rocket), or a
+ *  climb up a cliff, a swim across a bay or a sled run. Every other lesson in a region is on the trail,
+ *  starting with the first; the ones between go round the three courses, starting with the one that
+ *  suits the region (the Cliffs climb first, the snowy Ridge sleds, the Shores swim). The region's big
+ *  race, the Graduation Test and the Open Road stay on the trail. */
+export type TypingMove = 'run' | 'climb' | 'slide' | 'swim';
+const COURSES: TypingMove[] = ['climb', 'swim', 'slide'];
+const FIRST_COURSE: Record<RegionId, TypingMove> = { village: 'climb', treetops: 'swim', burrows: 'slide', cliffs: 'climb', ridge: 'slide', shores: 'swim', road: 'climb' };
+const onTrail = (l: Lesson) => l.practice || l.kind === 'checkpoint' || l.kind === 'final';
+export function lessonMove(l: Lesson): TypingMove {
+  if (onTrail(l)) return 'run';
+  const k = (REGION[l.region]?.lessons ?? []).filter(x => !onTrail(x)).findIndex(x => x.id === l.id);
+  if (k < 0 || k % 2 === 0) return 'run';
+  return COURSES[(COURSES.indexOf(FIRST_COURSE[l.region]) + (k - 1) / 2) % 3];
+}
+export const MOVE_WORD: Record<TypingMove, string> = { run: 'Run', climb: 'Climb', swim: 'Swim', slide: 'Sled' };
+export const MOVE_ICON: Record<TypingMove, string> = { run: '🏃', climb: '🧗', swim: '🏊', slide: '🛷' };
+
 const LETTER = /\p{L}/u;
 
 /** Characters a lesson introduces, on this layout. */

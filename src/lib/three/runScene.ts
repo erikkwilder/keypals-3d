@@ -27,6 +27,15 @@ export type View = { top: number; bottom: number; left: number; right: number };
 type Pace = { window: number; full: number; stop: number; lead: number };
 const TYPING_PACE: Pace = { window: 2.5, full: 0.8, stop: 1.8, lead: 1.5 };
 
+/** Metres of course per key in a typing lesson. A typing lesson has many more keys than a math trip has
+ *  answers, so the course is sized to about a math trip's (a 25 m cliff, a 45 m swim, a 130 m sled run),
+ *  a little longer for long lessons, and each key moves that share of it. */
+const COURSE_M: Record<CourseMove, number> = { climb: 25, swim: 45, slide: 130 };
+export function courseKeyLen(move: CourseMove, keys: number) {
+  const k = Math.max(0.8, Math.min(1.5, keys / 110));
+  return (COURSE_M[move] * k) / Math.max(1, keys);
+}
+
 /** `keyLen`: metres of trail per key (the math game moves a longer way for each answer). */
 /** `move`: how the buddy travels: the island trail (run), or a course of its own: up a cliff, down a
  *  snowy slope on a sled, or across a bay (the math strands). */
@@ -62,6 +71,7 @@ export class RunScene implements Controller {
   onCrossed: (() => void) | null = null;
   private crossed = false;
   private ghostMat: THREE.MeshBasicMaterial | null = null;
+  private ghostSled: THREE.Group | null = null;
   private ghostFade = 1;
   private ghostStopT = 0;
   private gateK = 1;
@@ -101,7 +111,15 @@ export class RunScene implements Controller {
     me.loadMoves();
     if (opts.ghostCps) {
       const g = await Character.create(opts.buddy);
-      if (g) { sc.ghostMat = ghostify(g); sc.ghost = g; stage.scene.add(g.root); g.play('idle', 0); }
+      if (g) {
+        sc.ghostMat = ghostify(g); sc.ghost = g; stage.scene.add(g.root); g.play('idle', 0);
+        // on a course the ghost climbs, swims or sleds too (on a see-through sled of its own)
+        if (course) {
+          await g.loadMoves();
+          const sled = island.root.userData.sled as THREE.Group | undefined;
+          if (course === 'slide' && sled) { const gs = sled.clone(true); gs.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.material = sc.ghostMat!; m.castShadow = false; } }); sc.ghostSled = gs; stage.scene.add(gs); }
+        }
+      }
     }
     if (!course) sc.preloadRides();
     return sc;
@@ -268,8 +286,9 @@ export class RunScene implements Controller {
     // the ghost racer: from your first key it runs at its own steady pace, through the gate and a little
     // past where you stop; once you've both finished it fades away (if you won, you see it come in)
     if (this.ghost && this.ghostMat) {
-      const g = this.ghost, end = this.finishS + 2.5;
-      const gs = this.startT ? Math.min(end, RUNUP + (now - this.startT) * (this.opts.ghostCps ?? 0) * STEP) : RUNUP;
+      // (at the top of the cliff there is nowhere further to go)
+      const g = this.ghost, end = this.finishS + (this.course === 'climb' ? 0 : 2.5);
+      const gs = this.startT ? Math.min(end, RUNUP + (now - this.startT) * (this.opts.ghostCps ?? 0) * this.keyLen) : RUNUP;
       const done = gs >= end - 0.01;
       if (done && !this.ghostStopT) this.ghostStopT = now;
       // it stands a moment past the line where you can see it, then fades
@@ -277,11 +296,15 @@ export class RunScene implements Controller {
       this.ghostMat.opacity = 0.32 * this.ghostFade;
       g.root.visible = !!this.startT && this.ghostFade > 0;
       const gf = this.island.trail.at(gs);
-      // a lane of its own, beyond the buddy (and clear of the rides)
-      g.root.position.copy(gf.p).addScaledVector(gf.n, -1.2);
-      g.root.rotation.set(0, Math.atan2(gf.t.x, gf.t.z), 0);
-      g.play(this.startT && !done ? 'run' : 'idle', 0.3, 1.1);
-      if (g.root.visible) g.update(dt);
+      if (this.ghostSled) this.ghostSled.visible = g.root.visible;
+      if (this.course) this.ghostOnCourse(g, gf, gs, done, t, dt);
+      else {
+        // a lane of its own, beyond the buddy (and clear of the rides)
+        g.root.position.copy(gf.p).addScaledVector(gf.n, -1.2);
+        g.root.rotation.set(0, Math.atan2(gf.t.x, gf.t.z), 0);
+        g.play(this.startT && !done ? 'run' : 'idle', 0.3, 1.1);
+        if (g.root.visible) g.update(dt);
+      }
     }
     // following from behind, the camera looks through the gate as the buddy goes under it, and its near
     // pillar hid the very moment of finishing: let it go see-through for those few steps
@@ -332,6 +355,42 @@ export class RunScene implements Controller {
     }
     me.update(dt);
     me.root.updateMatrixWorld(true);
+  }
+
+  /** The ghost racer on a course, beside the buddy and moving the same way: up the cliff a little to the
+   *  right, in the next stretch of water, or on its own sled further across the run. */
+  private ghostOnCourse(g: Character, f: TrailPoint, s: number, done: boolean, t: number, dt: number) {
+    const going = !!this.startT && !done, kind = this.course!, gv = (this.opts.ghostCps ?? 0) * this.keyLen;
+    g.groundFeet = false;
+    if (kind === 'climb') {
+      const overAt = (this.island.root.userData.overAt as (() => number) | undefined)?.() ?? this.finishS;
+      const over = s > overAt + 0.02;
+      g.root.position.copy(f.p).add(new THREE.Vector3(1.2, 0, 0));
+      g.root.rotation.set(0, over ? 0 : Math.PI, 0);
+      const a = g.play(over ? (going ? 'walk' : 'idle') : g.has('climb') ? 'climb' : 'idle', 0.25);
+      if (a && !over) a.timeScale = going ? Math.max(0.35, Math.min(2.4, gv / 0.55)) : 0;
+    } else if (kind === 'slide') {
+      const yaw = Math.atan2(f.t.x, f.t.z), pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
+      const p = f.p.clone().addScaledVector(f.n, -1.3);
+      this.ghostSled?.position.copy(p);
+      this.ghostSled?.rotation.set(0, yaw - Math.PI / 2, -pitch);
+      g.play(g.has('sit') ? 'sit' : 'idle', 0.25);
+      g.root.position.copy(p); g.root.rotation.set(pitch, yaw, 0, 'YXZ');
+      g.update(0); g.root.updateMatrixWorld(true);
+      const hips = g.bones.Hips?.getWorldPosition(new THREE.Vector3());
+      if (hips) g.root.position.y += p.y + 0.3 - hips.y;
+    } else {
+      const onDock = s >= this.finishS - 0.2;
+      g.root.position.copy(f.p).addScaledVector(f.n, -1.2);
+      g.root.rotation.set(0, onDock && !going ? this.towardCamera() : Math.atan2(f.t.x, f.t.z), 0);
+      if (onDock) g.play('idle', 0.3);
+      else {
+        g.root.position.y += Math.sin(t * 3 + 1) * 0.04 + this.swimLift;
+        const a = g.play(g.has('swim') ? 'swim' : 'run', 0.3);
+        if (a) a.timeScale = Math.max(0.45, Math.min(2.2, 0.45 + gv / 2.5));
+      }
+    }
+    if (g.root.visible) g.update(dt);
   }
 
   private arrive() {
@@ -468,7 +527,7 @@ export class RunScene implements Controller {
 
   /** Where the buddy's head is on screen (fractions of the window), for the speech bubble. */
   screen() {
-    const p = this.me.root.position.clone().add(new THREE.Vector3(0, this.tier >= 2 ? 1.9 : 1.4, 0)).project(stage.camera);
+    const p = this.me.root.position.clone().add(new THREE.Vector3(0, this.veh && this.tier >= 2 ? 1.9 : 1.4, 0)).project(stage.camera);
     return { x: (p.x + 1) / 2, y: (1 - p.y) / 2 };
   }
 
@@ -479,6 +538,7 @@ export class RunScene implements Controller {
     if (this.course) this.island.dispose();
     this.me.dispose();
     this.ghost?.dispose();
+    this.ghostSled?.removeFromParent();
     this.veh?.group.removeFromParent();
     this.puff.dispose();
   }

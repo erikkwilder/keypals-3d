@@ -65,7 +65,7 @@ function tone(freq: number, o: ToneOpts = {}) {
   osc.stop(t0 + dur + 0.05);
 }
 
-function noise(dur: number, o: { gain?: number; freq?: number; q?: number; delay?: number; sweepTo?: number } = {}) {
+function noise(dur: number, o: { gain?: number; freq?: number; q?: number; delay?: number; sweepTo?: number; kind?: BiquadFilterType } = {}) {
   const c = ac();
   if (!c || !enabled) return;
   const t0 = c.currentTime + (o.delay ?? 0);
@@ -76,7 +76,7 @@ function noise(dur: number, o: { gain?: number; freq?: number; q?: number; delay
   const src = c.createBufferSource();
   src.buffer = buf;
   const f = c.createBiquadFilter();
-  f.type = 'bandpass';
+  f.type = o.kind ?? 'bandpass';
   f.frequency.setValueAtTime(o.freq ?? 2000, t0);
   if (o.sweepTo) f.frequency.exponentialRampToValueAtTime(o.sweepTo, t0 + dur);
   f.Q.value = o.q ?? 1.2;
@@ -87,20 +87,71 @@ function noise(dur: number, o: { gain?: number; freq?: number; q?: number; delay
   src.start(t0);
 }
 
+/** A tone with a wobble in it (vibrato): the grumpy Glimmer's little "hmph", the evolution hum. */
+function wobble(freq: number, o: { dur: number; gain: number; rate: number; depth: number; type?: OscillatorType; delay?: number; slideTo?: number; tone?: number; attack?: number }) {
+  const c = ac();
+  if (!c || !enabled) return;
+  const t0 = c.currentTime + (o.delay ?? 0);
+  const osc = c.createOscillator(), lfo = c.createOscillator(), lg = c.createGain(), g = c.createGain();
+  osc.type = o.type ?? 'triangle';
+  osc.frequency.setValueAtTime(freq, t0);
+  if (o.slideTo) osc.frequency.exponentialRampToValueAtTime(o.slideTo, t0 + o.dur);
+  lfo.frequency.value = o.rate; lg.gain.value = freq * o.depth;
+  lfo.connect(lg); lg.connect(osc.frequency);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(o.gain, t0 + (o.attack ?? 0.02));
+  g.gain.setValueAtTime(o.gain, t0 + o.dur * 0.6);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + o.dur);
+  let src: AudioNode = osc;
+  if (o.tone) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.tone; osc.connect(f); src = f; }
+  src.connect(g); g.connect(sfxBus!);
+  osc.start(t0); lfo.start(t0); osc.stop(t0 + o.dur + 0.05); lfo.stop(t0 + o.dur + 0.05);
+}
+
 // pentatonic scale, C major
 const PENTA = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25, 783.99, 880.0, 1046.5];
 const FINGER_NOTE: Record<Finger, number> = { LP: 0, LR: 1, LM: 2, LI: 3, TH: 4, RI: 5, RM: 6, RR: 7, RP: 8 };
 
+// One sound language for the whole game (the full table is in docs/sound-map.md, and #sounds plays them
+// all). Falling notes mean "that wasn't right" and play only for your own wrong answer (softly: kids hear
+// it a lot). Locked buttons knock, the grumpy Glimmer grumbles like a cartoon, never like a buzzer, the
+// other player's turn rings a neutral bell, good things rise and big moments get a short fanfare. The
+// same moment makes the same sound in a battle, a duel, a rival game, a trip or a lesson.
 export const sfx = {
+  // ---------- answers and typing ----------
+  /** A right key: a little note for the finger that pressed it. */
   key(finger: Finger | null) {
     const n = PENTA[FINGER_NOTE[finger ?? 'TH']] ?? 440;
     tone(n * 2, { type: 'triangle', dur: 0.07, gain: 0.05 });
     noise(0.03, { gain: 0.05, freq: 3200, q: 2 });
   },
+  /** Your answer wasn't right: a soft "boo-op", two notes down. Only ever for your own wrong answer. */
   miss() {
-    tone(220, { type: 'sine', dur: 0.22, gain: 0.12, slideTo: 150 });
-    tone(110, { type: 'triangle', dur: 0.18, gain: 0.05 });
+    tone(329.63, { type: 'triangle', dur: 0.12, gain: 0.075 });
+    tone(261.63, { type: 'triangle', dur: 0.2, gain: 0.07, delay: 0.1 });
   },
+  /** A wrong key while typing: a tiny muted tap (it happens a lot, so it stays quiet). */
+  slip() {
+    tone(196, { type: 'sine', dur: 0.07, gain: 0.06, slideTo: 165 });
+    noise(0.03, { gain: 0.025, freq: 900, q: 1.5 });
+  },
+  /** A hint lights up (the Glow, a trick): "bing!" */
+  hint() {
+    tone(1318.5, { type: 'sine', dur: 0.12, gain: 0.06 });
+    tone(1760, { type: 'sine', dur: 0.35, gain: 0.06, delay: 0.08 });
+  },
+  // ---------- menus ----------
+  click() { tone(660, { type: 'sine', dur: 0.06, gain: 0.06 }); },
+  /** Something opens or is picked (a card, a tab, an info box). */
+  pop() { tone(880, { type: 'sine', dur: 0.08, gain: 0.08, slideTo: 1320 }); },
+  /** Off we go: a lesson, a trip, a battle or a duel is starting. */
+  whoosh() { noise(0.35, { gain: 0.08, freq: 500, sweepTo: 3000, q: 0.8 }); },
+  /** Not yet: a locked stop, a buddy you haven't met, not enough shells. Two soft knocks, nothing falls. */
+  nope() {
+    [0, 0.11].forEach(d => { tone(420, { type: 'sine', dur: 0.06, gain: 0.07, delay: d }); noise(0.03, { gain: 0.035, freq: 1400, q: 4, delay: d }); });
+  },
+  // ---------- rewards ----------
+  /** Friendship (or a ride) goes up a level. */
   levelUp(tier: number) {
     const base = 4 + tier;
     [0, 1, 2, 3].forEach((i) => tone(PENTA[Math.min(PENTA.length - 1, base - 3 + i)] * 1, { type: 'triangle', dur: 0.22, gain: 0.12, delay: i * 0.07 }));
@@ -111,54 +162,158 @@ export const sfx = {
     tone(392, { type: 'sine', dur: 0.16, gain: 0.07 });
     tone(330, { type: 'sine', dur: 0.22, gain: 0.07, delay: 0.12 });
   },
+  /** A star on the results: one, two, three, each a step higher. */
   star(i: number) {
     const n = [523.25, 659.25, 783.99][i] ?? 880;
     tone(n, { type: 'triangle', dur: 0.35, gain: 0.14 });
     tone(n * 2, { type: 'sine', dur: 0.5, gain: 0.06, delay: 0.05 });
   },
-  badge() {
+  /** A medal is won. */
+  medal() {
     tone(783.99, { type: 'sine', dur: 0.12, gain: 0.1 });
     tone(1046.5, { type: 'sine', dur: 0.3, gain: 0.1, delay: 0.08 });
     noise(0.25, { gain: 0.04, freq: 7000, q: 0.7, delay: 0.05 });
   },
-  click() { tone(660, { type: 'sine', dur: 0.06, gain: 0.06 }); },
-  whoosh() { noise(0.35, { gain: 0.08, freq: 500, sweepTo: 3000, q: 0.8 }); },
+  /** (the medal sound, by its old name) */
+  badge() { sfx.medal(); },
+  /** Finished! A lesson, a trip, a practice stop, a lesson in Learn. */
   complete() {
     [523.25, 659.25, 783.99, 1046.5].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.3, gain: 0.12, delay: i * 0.1 }));
     tone(1318.5, { type: 'sine', dur: 0.8, gain: 0.08, delay: 0.42 });
   },
-  pop() { tone(880, { type: 'sine', dur: 0.08, gain: 0.08, slideTo: 1320 }); },
-  // ---------- Adventure battles ----------
+  /** Something new is yours: an outfit, a dance, a buddy, an egg. A quick twinkle and a bell. */
+  unlock() {
+    [783.99, 1046.5, 1318.5, 1567.98, 2093].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.18, gain: 0.07, delay: i * 0.045 }));
+    tone(1046.5, { type: 'sine', dur: 0.7, gain: 0.06, delay: 0.24 });
+    tone(1567.98, { type: 'sine', dur: 0.7, gain: 0.04, delay: 0.26 });
+    noise(0.6, { gain: 0.035, freq: 8000, q: 0.6, delay: 0.2, sweepTo: 11000 });
+  },
+  /** Shells spent in the shop: shells clink, then a bell. */
+  buy() {
+    [2637, 3136, 2349.3].forEach((n, i) => { tone(n, { type: 'sine', dur: 0.08, gain: 0.05, delay: i * 0.06 }); noise(0.03, { gain: 0.03, freq: 6000, q: 3, delay: i * 0.06 }); });
+    tone(1046.5, { type: 'triangle', dur: 0.35, gain: 0.08, delay: 0.22 });
+    tone(1567.98, { type: 'sine', dur: 0.4, gain: 0.05, delay: 0.26 });
+  },
+  /** Put something on, or someone on your team: a quick "fwip" and a ding. */
+  equip() {
+    noise(0.15, { gain: 0.06, freq: 1500, sweepTo: 5000, q: 0.9 });
+    tone(1318.5, { type: 'triangle', dur: 0.25, gain: 0.07, delay: 0.1 });
+    tone(1975.5, { type: 'sine', dur: 0.3, gain: 0.03, delay: 0.14 });
+  },
+  /** A little "yay" (the hands cheering in a finger lesson). */
+  cheer() { [659.25, 783.99, 1046.5].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.16, gain: 0.07, delay: i * 0.06 })); },
+  // ---------- battles, duels and rival games ----------
+  /** A battle or duel begins: a drum, a rising "here we go", then the grumpy Glimmer's "hmph". */
+  battleStart() {
+    tone(130, { type: 'sine', dur: 0.32, gain: 0.13, slideTo: 70 });
+    noise(0.12, { gain: 0.05, freq: 1500, q: 0.8 });
+    [392, 523.25, 659.25].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.2, gain: 0.09, delay: 0.08 + i * 0.09 }));
+    tone(783.99, { type: 'triangle', dur: 0.45, gain: 0.09, delay: 0.35 });
+    tone(1567.98, { type: 'sine', dur: 0.5, gain: 0.03, delay: 0.37 });
+    sfx.grumble(0.95);
+  },
+  /** The grumpy Glimmer's voice: a cartoon "hmph-hmph", grumpy but cute (never a buzzer). */
+  grumble(delay = 0) {
+    noise(0.1, { gain: 0.03, freq: 700, q: 0.8, delay });
+    wobble(196, { type: 'triangle', dur: 0.16, gain: 0.08, rate: 17, depth: 0.04, slideTo: 233, tone: 1400, delay });
+    wobble(185, { type: 'triangle', dur: 0.26, gain: 0.08, rate: 17, depth: 0.05, slideTo: 165, tone: 1400, delay: delay + 0.2 });
+  },
   /** A power flies: each element has its own sound. */
   cast(el: 'sun' | 'frost' | 'tide' | 'stone' | 'leaf') {
     if (el === 'sun') { tone(523.25, { type: 'triangle', dur: 0.35, gain: 0.1, slideTo: 1046.5 }); noise(0.4, { gain: 0.05, freq: 3000, sweepTo: 9000, q: 0.7 }); }
     if (el === 'tide') { noise(0.45, { gain: 0.09, freq: 700, sweepTo: 2400, q: 1.5 }); tone(330, { type: 'sine', dur: 0.3, gain: 0.07, slideTo: 660 }); }
     if (el === 'frost') { [1318.5, 1567.98, 2093].forEach((n, i) => tone(n, { type: 'sine', dur: 0.25, gain: 0.05, delay: i * 0.05 })); noise(0.3, { gain: 0.04, freq: 8000, q: 2 }); }
     if (el === 'leaf') { noise(0.5, { gain: 0.07, freq: 1200, sweepTo: 4000, q: 0.6 }); tone(587.33, { type: 'triangle', dur: 0.2, gain: 0.06, delay: 0.1, slideTo: 880 }); }
-    if (el === 'stone') { tone(110, { type: 'square', dur: 0.18, gain: 0.08, slideTo: 70 }); noise(0.25, { gain: 0.08, freq: 400, q: 1 }); }
+    if (el === 'stone') { tone(196, { type: 'triangle', dur: 0.16, gain: 0.08, slideTo: 262 }); noise(0.25, { gain: 0.08, freq: 400, q: 1 }); }
   },
-  /** The power lands: bigger numbers, bigger thump. */
+  /** The cheer lands: a soft thump and bright notes going up; bigger numbers, more notes. */
   hit(k: number) {
-    tone(196 + k * 120, { type: 'triangle', dur: 0.25, gain: 0.12, slideTo: 98 });
-    noise(0.22, { gain: 0.06 + k * 0.05, freq: 1800, q: 0.8 });
-    [659.25, 783.99, 1046.5].slice(0, 1 + Math.round(k * 2)).forEach((n, i) => tone(n, { type: 'sine', dur: 0.18, gain: 0.06, delay: 0.06 + i * 0.05 }));
+    tone(160, { type: 'sine', dur: 0.14, gain: 0.08 + k * 0.04, slideTo: 110 });
+    noise(0.2, { gain: 0.05 + k * 0.04, freq: 1800, q: 0.8 });
+    [659.25, 783.99, 1046.5].slice(0, 1 + Math.round(k * 2)).forEach((n, i) => tone(n, { type: 'triangle', dur: 0.2, gain: 0.07, delay: 0.05 + i * 0.05 }));
+  },
+  /** Someone else's power didn't land (the other player's or a ghost's miss): a soft puff, nothing sad. */
+  fizzle() {
+    noise(0.25, { gain: 0.06, freq: 1800, sweepTo: 500, q: 0.7 });
+    tone(660, { type: 'sine', dur: 0.12, gain: 0.03 });
   },
   /** A Perfect Cheer: a bright fanfare. */
   perfect() { [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.4, gain: 0.11, delay: i * 0.07 })); tone(2093, { type: 'sine', dur: 1.1, gain: 0.05, delay: 0.38 }); },
-  /** The Grumble grumbles. */
-  /** A Glimmer on your team helps: a bright little chime. */
+  /** A Glimmer on your team (or a piece of gear) helps: a bright little chime. */
   helper() { [783.99, 1046.5, 1318.5].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.22, gain: 0.07, delay: i * 0.06 })); tone(2093, { type: 'sine', dur: 0.4, gain: 0.03, delay: 0.18 }); },
-  /** Uh-oh: the grumpy one is about to send something. */
-  uhoh() { tone(523.25, { type: 'triangle', dur: 0.16, gain: 0.08 }); tone(392, { type: 'triangle', dur: 0.26, gain: 0.08, delay: 0.16 }); },
-  grumble() { tone(98, { type: 'sawtooth', dur: 0.5, gain: 0.05, slideTo: 82 }); noise(0.5, { gain: 0.04, freq: 300, q: 2 }); },
-  zap() { noise(0.35, { gain: 0.12, freq: 4000, sweepTo: 600, q: 0.5 }); tone(1200, { type: 'square', dur: 0.12, gain: 0.04, slideTo: 300 }); },
-  /** A shield: a glassy chime that holds, or cracks. */
+  /** Rain (or a zap, snow, pebbles) is coming: far-off thunder and a rising "dee-DEE!" (watch out, not wrong). */
+  rainComing() {
+    noise(0.9, { gain: 0.16, freq: 140, q: 0.5, sweepTo: 80, kind: 'lowpass' });
+    tone(659.25, { type: 'triangle', dur: 0.1, gain: 0.08, delay: 0.05 });
+    tone(880, { type: 'triangle', dur: 0.18, gain: 0.09, delay: 0.17 });
+  },
+  /** (rain coming, by its old name) */
+  uhoh() { sfx.rainComing(); },
+  /** A duel: your rain cloud flies over to the other side. */
+  rainSend() {
+    noise(0.4, { gain: 0.08, freq: 600, sweepTo: 3500, q: 0.8 });
+    tone(392, { type: 'triangle', dur: 0.3, gain: 0.06, slideTo: 784 });
+    noise(0.6, { gain: 0.1, freq: 140, q: 0.5, delay: 0.25, kind: 'lowpass' });
+  },
+  /** The grumpy cloud's zap flies: a cartoon crackle. */
+  zap() {
+    for (let i = 0; i < 5; i++) noise(0.04, { gain: 0.11, freq: 2600 + ((i * 1777) % 3000), q: 3, delay: i * 0.05 });
+    tone(880, { type: 'triangle', dur: 0.25, gain: 0.06, slideTo: 1320 });
+  },
+  /** You blocked it: a glassy chime that holds (or cracks when only half of it was stopped). */
   shield(full: boolean) { [880, 1318.5].forEach((n, i) => tone(n, { type: 'sine', dur: 0.35, gain: 0.07, delay: i * 0.04 })); if (!full) noise(0.2, { gain: 0.08, freq: 5000, q: 1, delay: 0.08 }); },
-  ouch() { tone(330, { type: 'triangle', dur: 0.3, gain: 0.08, slideTo: 196 }); },
+  /** It landed on you: a splash and pitter-patter drops (a cartoon bump, not a "wrong"). */
+  rainHit() {
+    noise(0.3, { gain: 0.14, freq: 1200, sweepTo: 500, q: 0.6 });
+    [1567.98, 1318.5, 1760, 1174.66].forEach((n, i) => tone(n, { type: 'sine', dur: 0.06, gain: 0.06, delay: 0.05 + i * 0.07, slideTo: n * 1.25 }));
+  },
+  /** (it landed, by its old name) */
+  ouch() { sfx.rainHit(); },
+  /** Energy back (a Glimmer heals you). */
   heal() { [783.99, 987.77, 1174.66].forEach((n, i) => tone(n, { type: 'sine', dur: 0.3, gain: 0.05, delay: i * 0.06 })); },
   freeze() { [2093, 2637, 3136].forEach((n, i) => tone(n, { type: 'sine', dur: 0.4, gain: 0.04, delay: i * 0.05 })); noise(0.5, { gain: 0.04, freq: 9000, q: 3 }); },
+  /** The Finale stars are full: "ding, ding, DING!" */
+  finaleReady() {
+    [1046.5, 1318.5, 1567.98].forEach((n, i) => tone(n, { type: 'triangle', dur: i === 2 ? 0.5 : 0.14, gain: 0.08, delay: i * 0.11 }));
+    tone(3136, { type: 'sine', dur: 0.6, gain: 0.02, delay: 0.22 });
+  },
   /** The Finale starts: a little drum roll and a chord. */
   finale() { for (let i = 0; i < 8; i++) noise(0.06, { gain: 0.06 + i * 0.006, freq: 1200, q: 0.8, delay: i * 0.06 }); [392, 493.88, 587.33, 783.99].forEach((n, i) => tone(n, { type: 'triangle', dur: 1.2, gain: 0.07, delay: 0.5 + i * 0.03 })); },
+  /** Aurora (the Finale is ready all at once): a shimmering wash. */
+  aurora() {
+    noise(1.2, { gain: 0.04, freq: 6000, q: 0.5, sweepTo: 11000 });
+    [523.25, 659.25, 783.99, 987.77].forEach((n, i) => tone(n * 2, { type: 'sine', dur: 1.4, gain: 0.03, attack: 0.4, delay: i * 0.08 }));
+  },
+  /** A duel: the next player's turn. A friendly doorbell, a little higher for player 1. */
+  turn(side: 0 | 1) {
+    const [a, b] = side === 0 ? [783.99, 1046.5] : [659.25, 880];
+    tone(a, { type: 'sine', dur: 0.18, gain: 0.05 });
+    tone(b, { type: 'sine', dur: 0.3, gain: 0.05, delay: 0.12 });
+  },
+  /** A duel: one player has filled their bar and the other gets a last turn. A drum and two notes that
+   *  climb: "your move!" */
+  lastTurn() {
+    tone(130, { type: 'sine', dur: 0.28, gain: 0.08, slideTo: 75 });
+    tone(392, { type: 'triangle', dur: 0.18, gain: 0.08, delay: 0.1 });
+    tone(587.33, { type: 'triangle', dur: 0.4, gain: 0.09, delay: 0.28 });
+    tone(130, { type: 'sine', dur: 0.28, gain: 0.07, slideTo: 75, delay: 0.28 });
+  },
+  /** The grumpy Glimmer cheers up (you won): a rising swish, a POP as the cloud bursts, a happy run up. */
+  cheeredUp(at = 0.45) {
+    noise(at, { gain: 0.05, freq: 500, sweepTo: 4000, q: 0.8 });
+    noise(0.08, { gain: 0.16, freq: 1500, q: 0.7, delay: at });
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.22, gain: 0.09, delay: at + 0.04 + i * 0.05 }));
+    tone(700, { type: 'sine', dur: 0.35, gain: 0.04, slideTo: 1600, delay: at + 0.05 });
+    noise(0.8, { gain: 0.04, freq: 8000, q: 0.6, delay: at + 0.1, sweepTo: 12000 });
+  },
+  /** Out of energy: a soft "aww", then a little lift (next time!). */
+  tryAgain() {
+    tone(392, { type: 'triangle', dur: 0.25, gain: 0.06 });
+    tone(329.63, { type: 'triangle', dur: 0.38, gain: 0.06, delay: 0.22 });
+    tone(392, { type: 'sine', dur: 0.25, gain: 0.045, delay: 0.7 });
+    tone(523.25, { type: 'sine', dur: 0.45, gain: 0.045, delay: 0.84 });
+  },
+  // ---------- Glimmers, eggs and treasure ----------
   /** An egg wobbles, cracks. */
   crack() { noise(0.12, { gain: 0.12, freq: 2500, q: 2 }); tone(1600, { type: 'square', dur: 0.05, gain: 0.03 }); },
   /** A Glimmer appears: the rarer, the grander (0 common .. 5 mythic). */
@@ -169,6 +324,18 @@ export const sfx = {
     tone(notes[Math.min(notes.length - 1, n)] * (rank >= 4 ? 1 : 0.5), { type: 'sine', dur: 1.6, gain: 0.07, delay: n * 0.085 });
     if (rank >= 3) [0, 4, 7, 12].forEach((k, i) => tone(523.25 * Math.pow(2, k / 12), { type: 'sine', dur: 1.8, gain: 0.04, delay: n * 0.085 + i * 0.03 }));
     if (rank >= 4) noise(1.4, { gain: 0.05, freq: 8000, q: 0.5, delay: n * 0.085, sweepTo: 12000 });
+  },
+  /** An evolution builds up: a humming note that climbs a step each time (call it again and again). */
+  evolveCharge(step: number) {
+    const f = 330 * Math.pow(2, Math.min(12, step * 2) / 12);
+    wobble(f, { type: 'sine', dur: 0.75, gain: 0.05, rate: 6, depth: 0.01, attack: 0.3 });
+    noise(0.7, { gain: 0.02, freq: 5000 + step * 600, q: 0.8 });
+  },
+  /** The evolution: a big rising sweep into the Glimmer's reveal. */
+  evolve(rank: number) {
+    noise(0.5, { gain: 0.09, freq: 400, sweepTo: 6000, q: 0.8 });
+    tone(262, { type: 'triangle', dur: 0.45, gain: 0.07, slideTo: 1046.5 });
+    setTimeout(() => sfx.reveal(rank), 380);
   },
   /** A treasure appears: a rising run and a shimmer, longer and brighter for better treasures (step 0 to 9). */
   treasure(step: number) {

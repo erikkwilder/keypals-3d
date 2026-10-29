@@ -2,13 +2,12 @@
   // The end of a typing lesson, in the results layout every game shares (ui/RunResults.svelte).
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { ALL_LESSONS, LESSON, REGION, REGIONS, lessonIndex, lessonTitle } from '../engine/course';
-  import { RIDES, RIDE_SCORE } from '../engine/rides';
+  import { ALL_LESSONS, LESSON, REGION, REGIONS, lessonIndex, lessonMove, lessonTitle } from '../engine/course';
+  import { RIDE_SCORE, rideName } from '../engine/rides';
   import { danceOf, isUnlocked, nextGoal, nextLesson, palOf } from '../engine/profile';
   import { endMessage, finalTarget, ghostWords, lessonGoal, platinumScore, runTitle, starScores } from '../engine/scoring';
   import Certificate from '../ui/Certificate.svelte';
-  import { TREASURE_SCORE } from '../engine/rewards';
-  import { RunScene } from '../three/runScene';
+  import { RunScene, courseKeyLen } from '../three/runScene';
   import RunResults from '../ui/RunResults.svelte';
 
   const last = game.last;
@@ -16,12 +15,14 @@
   const grown = p.settings.grown;
   const lesson = last ? LESSON[last.lessonId] : ALL_LESSONS[0];
   const region = REGION[lesson.region];
+  // the trail with its rides, or a climb, a swim or a sled run
+  const move = lessonMove(lesson);
   const passedRun = (last?.stars ?? 0) > 0;
   const following = ALL_LESSONS[lessonIndex(lesson.id) + 1];
   const nextUp = following && isUnlocked(p, following) && following.region !== 'road' ? following : nextLesson(p);
   // Animal Typing's results: speed + accuracy bonus = score, measured against the lesson's goal
   const goalScore = lessonGoal(lesson, grown, p.settings.easy);
-  const goal = last ? nextGoal(p, last, goalScore, grown ? RIDE_SCORE.grown : RIDE_SCORE.kids) : '';
+  const goal = last ? nextGoal(p, last, goalScore, grown ? RIDE_SCORE.grown : RIDE_SCORE.kids, move) : '';
   const score = last?.score ?? 0;
   const speedPart = Math.round(last?.wpm ?? 0);
   const bonusPart = Math.max(0, score - speedPart);
@@ -43,17 +44,17 @@
     { icon: 'clock' as const, value: speedPart, label: 'speed (wpm)', badge: last.newBestWpm && 'Best!' },
     { icon: 'target' as const, value: `+${bonusPart}`, label: 'clean-typing bonus' },
     { icon: 'trophy' as const, value: goalScore, label: `goal · best ${last.record.bestScore ?? score} · avg ${avgScore}`, badge: last.newBestScore && 'Record!' },
-    { icon: 'ride' as const, value: RIDES[last.bestRide].name, label: 'top ride', badge: last.newBestRide && 'Best!' },
+    { icon: 'ride' as const, value: rideName(last.bestRide, move), label: move === 'run' ? 'top ride' : 'top speed', badge: last.newBestRide && 'Best!' },
   ] : [];
 
   onMount(() => { if (!last) game.go('map'); });
 </script>
 
 {#if last}
-  <RunResults run={last} {title} {sub} {word} {score} {goalScore} passed={passedRun} {chips}
-    treasureAt={grown ? TREASURE_SCORE.grown : TREASURE_SCORE.kids} treasureWhere="in a lesson" rideHint="Type faster to reach"
+  <RunResults {move} run={last} {title} {sub} {word} {score} {goalScore} passed={passedRun} {chips}
+    rideHint="Type faster to reach"
     goalText={goal} openedText={nextRegion ? `${nextRegion.name} is open!` : null} nextTitle={lessonTitle(nextUp, game.layout)}
-    makeScene={() => RunScene.create({ buddy: p.buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: last.text.length, region: lesson.region })}
+    makeScene={() => RunScene.create({ buddy: p.buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: last.text.length, region: lesson.region, move, keyLen: move === 'run' ? undefined : courseKeyLen(move, last.text.length) })}
     onretry={() => game.startLesson(lesson.id, true)} onnext={() => game.startLesson(nextUp.id)} onhome={() => game.go('hub')}
     progress={{ label: 'Progress', kind: 'chart', onclick: () => game.openChart(lesson.id) }}>
     {#snippet badges()}

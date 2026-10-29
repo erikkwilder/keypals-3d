@@ -4,7 +4,7 @@
   import type { Reward } from '../engine/rewards';
   /** What the end of any run (a typing lesson, a math trip) shows: the same layout for every game. */
   export type ResultsRun = {
-    stars: number; treasure: number; newBestTreasure: boolean; bestRide: number;
+    stars: number; bestRide: number;
     medals: MedalWin[]; rewards: Reward[]; stickers: StickerDef[]; xp: XpInfo;
     /** buddies who joined the team with this run */
     buddies?: import('../art/cast').FriendId[];
@@ -18,8 +18,8 @@
 </script>
 
 <script lang="ts">
-  // The end of a run, for every game: the buddy on the best ride with the treasure the score found (sun
-  // rays, sparkles, the row of all ten), the medals and keepsakes in the corner card, and the card with
+  // The end of a run, for every game: the buddy on the best ride with the shells the run earned (sun
+  // rays and sparkles: the same shells the Island Shop takes), the medals and keepsakes in the corner card, and the card with
   // the score ring, stars, four chips, friendship and the buttons. Each game brings its words and numbers
   // and can add a block of its own (math shows every fact of the trip).
   import { onDestroy, onMount, type Snippet } from 'svelte';
@@ -30,7 +30,6 @@
   import { danceOf, outfitOf, palOf, setLook } from '../engine/profile';
   import { MEDAL_TIERS } from '../engine/stickers';
   import { FRIEND } from '../art/cast';
-  import { TREASURES } from '../engine/rewards';
   import { rideIcon } from '../art/vehicles';
   import { renderMedal, TIER_LOOK } from '../art/stickerArt';
   import { sfx } from '../audio/sound';
@@ -49,8 +48,6 @@
     title: string; sub: string; word: string;
     score: number; goalScore: number; passed: boolean;
     chips: ResultsChip[];
-    /** treasure thresholds, and where the score comes from ("in a lesson") */
-    treasureAt: number[]; treasureWhere: string;
     /** under the ride banner when no ride was reached ("Type faster to reach") */
     rideHint: string;
     goalText?: string; openedText?: string | null; nextTitle: string;
@@ -62,7 +59,7 @@
     /** how the buddy travelled (the math courses name and draw their speed steps their own way) */
     move?: Move;
   };
-  let { run, title, sub, word, score, goalScore, passed, chips, treasureAt, treasureWhere, rideHint, goalText = '', openedText = null, nextTitle,
+  let { run, title, sub, word, score, goalScore, passed, chips, rideHint, goalText = '', openedText = null, nextTitle,
     makeScene, onretry, onnext, onhome, progress, badges, ringExtra, extra, move = 'run' }: Props = $props();
 
   const p = game.profile!;
@@ -116,10 +113,6 @@
   // a medal or sticker tapped on this screen, shown big with its description
   let detail = $state<Earned | null>(null);
   function show(e: Earned) { detail = e; sfx.pop(); }
-  // a treasure tapped in the row under the prize: any of the ten, found or not
-  let tdetail = $state<number | null>(null);
-  function showTreasure(i: number) { tdetail = i; sfx.pop(); }
-  const treasureBest = $derived(game.profile ? palOf(game.profile).treasureBest : -1);
   function nextTier(count: number) {
     const n = MEDAL_TIERS.find(t => t.at > count);
     return n ? { text: `${count}/${n.at}`, title: `${count} of ${n.at} to ${n.name}` } : { text: `×${count}`, title: `Won ${count} times` };
@@ -147,15 +140,15 @@
     requestAnimationFrame(() => { if (!narrow && earnedEl && earnedEl.scrollHeight > earnedEl.clientHeight + 1 && cell > 40) shrink += 4; });
   });
   const best = run.bestRide;
-  const treasure = run.treasure;
-  const tsrc = (i: number) => `${import.meta.env.BASE_URL}treasures/${TREASURES[i].id}.webp`;
-  // the prize: a big treasure that pops up beside your buddy, with a celebration
+  // the prize: the shells this run earned pop up beside your buddy, with a celebration (more stars, more
+  // shells: they buy eggs, treats and gear in the Island Shop)
+  const shells = run.shells ?? 0;
+  const shellArt = `${import.meta.env.BASE_URL}game/icon-shell.webp`;
   let prizeOn = $state(false);
   let prizeSettled = $state(false);
   let prizeBurst = $state(0);
   let prizeBox = $state({ x: 30, y: 30, size: 200 });
   let prizeRaf = 0;
-  const nextT = treasure + 1 < TREASURES.length ? { name: TREASURES[treasure + 1].name, at: treasureAt[treasure + 1] } : null;
   function trackPrize() {
     if (scene && heroEl && rootEl) {
       const b = scene.screenBox(), r = heroEl.getBoundingClientRect(), box = rootEl.getBoundingClientRect();
@@ -191,8 +184,8 @@
     at(t, () => (scoreT.target = score));
     for (let i = 0; i < 3; i++) { at(t + 300 + i * 330, () => { starsShown = i + 1; if (i < run.stars) sfx.star(i); }); }
     t += 1300;
-    if (treasure >= 0) {
-      at(t, () => { prizeOn = true; prizeBurst++; sfx.treasure(treasure); scene?.cheer(); });
+    if (shells > 0) {
+      at(t, () => { prizeOn = true; prizeBurst++; sfx.treasure(Math.min(9, Math.floor(shells / 4))); scene?.cheer(); });
       at(t + 1400, () => (prizeSettled = true));
       t += 900;
     }
@@ -214,8 +207,8 @@
     earned.forEach((e, i) => {
       at(t, () => {
         earnedShown = i + 1;
-        if (e.kind === 'outfit' || e.kind === 'dance' || e.kind === 'buddy' || e.kind === 'egg') { sfx.complete(); burst++; }
-        else if (e.kind === 'medal') sfx.badge();
+        if (e.kind === 'outfit' || e.kind === 'dance' || e.kind === 'buddy' || e.kind === 'egg') { sfx.unlock(); burst++; }
+        else if (e.kind === 'medal') sfx.medal();
         else sfx.pop();
       });
       t += e.kind === 'outfit' || e.kind === 'dance' || e.kind === 'buddy' || e.kind === 'egg' ? 650 : 180;
@@ -256,7 +249,7 @@
   const myDance = $derived(game.profile ? danceOf(game.profile, buddy) : danceOf(p));
   const opened = performance.now();
   function onKey(e: KeyboardEvent) {
-    if (detail || tdetail !== null || peek) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); detail = null; tdetail = null; peek = null; } return; }
+    if (detail || peek) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); detail = null; peek = null; } return; }
     if (performance.now() - opened < 1200 || game.modalOpen) return;
     if (e.key === 'Enter') { e.preventDefault(); passed ? onnext() : onretry(); }
     if (e.key === ' ') { e.preventDefault(); onretry(); }
@@ -277,15 +270,14 @@
     <div class="prize" class:settled={prizeSettled} style:left="{prizeBox.x}px" style:top="{prizeBox.y}px" style:--sz="{prizeBox.size}px">
       <div class="prays"></div>
       <div class="pglow"></div>
-      <img src={tsrc(treasure)} alt={TREASURES[treasure].name} />
+      <img src={shellArt} alt="Shells" />
       {#each Array(10) as _, i}<i class="spark" style:--a="{i * 36}deg" style:--d="{(i % 3) * 0.12}s"></i>{/each}
-      <div class="pribbon"><small>{run.newBestTreasure ? 'New best!' : 'You found'}</small><b>{run.newBestTreasure ? TREASURES[treasure].name + '!' : 'a ' + TREASURES[treasure].name + '!'}</b></div>
+      <div class="pribbon"><small>You earned</small><b>{shells} shells!</b></div>
       <div class="pladder">
-        <div class="pdots">{#each TREASURES as tr, i}<button class:got={i <= treasure} class:now={i === treasure} title={tr.name} aria-label={tr.name} onclick={() => showTreasure(i)}><img src={tsrc(i)} alt="" /></button>{/each}</div>
-        {#if nextT}<div class="pnext">Score {nextT.at} for a {nextT.name}</div>{:else}<div class="pnext">The best treasure there is!</div>{/if}
+        <div class="pnext">{run.stars ? `More for your ${run.stars === 1 ? 'star' : `${run.stars} stars`}. ` : ''}Spend them in the Island Shop</div>
       </div>
     </div>
-    <Confetti burst={prizeBurst} count={70 + treasure * 8} x={(prizeBox.x / Math.max(1, heroW)) * 100} y={(prizeBox.y / Math.max(1, heroH)) * 100} spread={1.3} />
+    <Confetti burst={prizeBurst} count={60 + run.stars * 20} x={(prizeBox.x / Math.max(1, heroW)) * 100} y={(prizeBox.y / Math.max(1, heroH)) * 100} spread={1.3} />
   {/if}
 
   <div class="hero" class:full={!earned.length}>
@@ -328,7 +320,7 @@
           {:else if e.kind === 'buddy'}
             <button class="ipic outfit newbud tap" onclick={() => peekAt(e)} title="Meet {FRIEND[e.id].name}"><Critter friend={e.id} size={cell} round /></button>
             <span class="iname">{FRIEND[e.id].name} joined!</span>
-            <button class="wear" onclick={() => { game.update(pp => { pp.buddy = e.id; }); sfx.complete(); }} disabled={game.profile?.buddy === e.id}>{game.profile?.buddy === e.id ? 'Your buddy' : 'Play as'}</button>
+            <button class="wear" onclick={() => { game.update(pp => { pp.buddy = e.id; }); sfx.equip(); }} disabled={game.profile?.buddy === e.id}>{game.profile?.buddy === e.id ? 'Your buddy' : 'Play as'}</button>
           {:else if e.kind === "sticker"}
             <div class="ipic"><StickerCard def={e.def} friend={buddy} {look} outfit={heroOutfit} size={cell} onpick={() => show(e)} /></div>
             <span class="iname">{e.def.name}</span>
@@ -456,28 +448,9 @@
           <p class="dmore">{FRIEND[d.id].name} starts their own friendship, outfits, stickers and medals when you play together.</p>
           <div class="tnav">
             <button class="btn" onclick={() => (peek = null)}>Not now</button>
-            <button class="btn btn-primary" onclick={() => { game.update(pp => { pp.buddy = d.id; }); sfx.complete(); peek = null; }} disabled={game.profile?.buddy === d.id}>{game.profile?.buddy === d.id ? 'Your buddy' : `Play as ${FRIEND[d.id].name}`}</button>
+            <button class="btn btn-primary" onclick={() => { game.update(pp => { pp.buddy = d.id; }); sfx.equip(); peek = null; }} disabled={game.profile?.buddy === d.id}>{game.profile?.buddy === d.id ? 'Your buddy' : `Play as ${FRIEND[d.id].name}`}</button>
           </div>
         {/if}
-      </div>
-    </div>
-  {/if}
-  {#if tdetail !== null}
-    {@const i = tdetail}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="dmodal" onclick={() => (tdetail = null)}>
-      <div class="dcard card" onclick={(ev) => ev.stopPropagation()}>
-        <div class="dart tart"><img src={tsrc(i)} alt="" /></div>
-        <span class="dkind">Treasure · {i + 1} of {TREASURES.length}</span>
-        <h3>{TREASURES[i].name}</h3>
-        <p class="ddesc">{TREASURES[i].desc}</p>
-        <p class="dmore">Score {treasureAt[i]} or more {treasureWhere} to find one.{' '}{#if i === treasure}You found one this time!{:else if i <= treasureBest}{FRIEND[buddy].name} has found one before.{:else}Not found yet. You can do it!{/if}</p>
-        <div class="tnav">
-          <button class="btn" disabled={i === 0} onclick={() => showTreasure(i - 1)} aria-label="Previous treasure">‹</button>
-          <button class="btn btn-primary" onclick={() => (tdetail = null)}>OK</button>
-          <button class="btn" disabled={i === TREASURES.length - 1} onclick={() => showTreasure(i + 1)} aria-label="Next treasure">›</button>
-        </div>
       </div>
     </div>
   {/if}

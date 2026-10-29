@@ -5,12 +5,10 @@
 //   Build It         build a number from hundreds, tens and ones: place value
 // Rounds feed the same friendship, outfits, dances, stickers and daily minutes as every other game.
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
-import { earnShells, notePractice, practiceShells } from '../adventure/state';
-import { dayKey, buddyPal } from '../engine/profile';
-import { welcomeNew } from '../engine/team';
-import { AWARD } from '../engine/achievements';
-import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from '../engine/stickers';
-import { newBetween, type Reward } from '../engine/rewards';
+import { buddyPal } from '../engine/profile';
+import type { PalProgress, StickerDef } from '../engine/stickers';
+import type { Reward } from '../engine/rewards';
+import { settlePractice } from '../engine/settle';
 import { mathOf } from './progress';
 import type { Rng } from '../engine/rng';
 
@@ -92,8 +90,9 @@ export function buildNumbers(level: number, rng: Rng, count = 6): number[] {
 }
 
 /** Stars for a round: a share of the best possible (line), or by slips (bubbles, build). Finishing earns one. */
-export function lineStars(points: number, of: number): 1 | 2 | 3 { const r = points / Math.max(1, of); return r >= 0.8 ? 3 : r >= 0.55 ? 2 : 1; }
-export function slipStars(slips: number): 1 | 2 | 3 { return slips <= 1 ? 3 : slips <= 4 ? 2 : 1; }
+// Stars are earned, like everywhere else: a round with lots of misses gets none (and opens nothing).
+export function lineStars(points: number, of: number): 0 | 1 | 2 | 3 { const r = points / Math.max(1, of); return r >= 0.8 ? 3 : r >= 0.55 ? 2 : r >= 0.3 ? 1 : 0; }
+export function slipStars(slips: number): 0 | 1 | 2 | 3 { return slips <= 1 ? 3 : slips <= 4 ? 2 : slips <= 8 ? 1 : 0; }
 
 // ---------- progress ----------
 
@@ -116,41 +115,11 @@ export function applyPlay(p0: Profile, run: { game: PlayGame; level: number; sta
   rec.stars[run.level - 1] = Math.max(before, run.stars);
   rec.plays++;
   const opened = !wasOpen && run.level < 5 && run.stars > 0 ? run.level + 1 : null;
-  // the day: playground minutes count toward the goal too
-  const day = dayKey(run.at);
-  const d = (p.days[day] ??= { ms: 0, runs: 0 });
-  const wasGoal = !!d.goal;
-  d.ms += run.ms; d.runs++;
-  if (!d.goal && d.ms >= p.settings.dailyGoalMin * 60000) d.goal = true;
-  const goalJustHit = !wasGoal && !!d.goal;
-  // the buddy
+  // the buddy's counters, then the same ending as every practice game (playground minutes count toward
+  // the goal too)
   const pal: PalProgress = buddyPal(p);
-  const lvlBefore = levelFromXp(pal.xp);
   pal.runs++;
   if (run.stars === 3) pal.stars3++;
-  if (goalJustHit && !pal.goalDays.includes(day)) pal.goalDays.push(day);
-  const medals = [...(run.stars === 3 ? ['three'] : []), ...(goalJustHit ? ['goal'] : [])];
-  const medalWins: MedalWin[] = [];
-  for (const id of medals) {
-    const was = pal.medals[id] ?? 0;
-    pal.medals[id] = was + 1;
-    const tier = medalTier(was + 1);
-    if (AWARD[id]) medalWins.push({ ...AWARD[id], count: was + 1, tier, tierUp: tier > medalTier(was) });
-  }
-  pal.medalsTotal += medals.length;
-  const gained = Math.round((25 + run.stars * 12 + run.level * 4) * (p.settings.grown ? 0.8 : 1));
-  pal.xp += gained;
-  const lvlAfter = levelFromXp(pal.xp);
-  pal.level = lvlAfter.level;
-  const rewards = newBetween(lvlBefore.level, lvlAfter.level);
-  for (const r of rewards) if (!pal.seen.includes('reward:' + r.id)) pal.seen.push('reward:' + r.id);
-  const stickers: StickerDef[] = [];
-  for (const s of STICKERS) {
-    if (pal.stickers[s.id]) continue;
-    if (s.check(pal, { grown: p.settings.grown, friend: p.buddy })) { pal.stickers[s.id] = run.at; stickers.push(s); pal.seen.push('sticker:' + s.id); }
-  }
-  const buddies = welcomeNew(p);
-  const eggsReady = notePractice(p, run.right ?? 8);
-  const shells = earnShells(p, practiceShells({ stars: run.stars, medals: medals.length, stickers: stickers.length, treasure: -1 }));
-  return { eggsReady, shells, profile: p, xp: { gained, before: lvlBefore, after: lvlAfter }, rewards, stickers, medals: medalWins, newBest: run.stars > before, opened, goalJustHit, buddies };
+  const done = settlePractice(p, { at: run.at, ms: run.ms, finished: true, stars: run.stars, medals: run.stars === 3 ? ['three'] : [], right: run.right ?? 8, xp: () => Math.round((25 + run.stars * 12 + run.level * 4) * (p.settings.grown ? 0.8 : 1)) });
+  return { ...done, profile: p, newBest: run.stars > before, opened };
 }

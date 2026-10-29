@@ -1,7 +1,7 @@
 import { BUDDIES } from '../art/cast';
 import { describe, expect, it } from 'vitest';
 import { LAYOUTS, detectLayout, fingerFor, shiftFor } from './layouts';
-import { ALL_LESSONS, LESSON, knownChars, newCharsFor } from './course';
+import { ALL_LESSONS, LESSON, REGIONS, knownChars, lessonMove, newCharsFor } from './course';
 import { generate, targetLength, fits } from './textgen';
 import { Session } from './session';
 import { computeStats, lessonGoal, runTitle, starsFor } from './scoring';
@@ -69,6 +69,22 @@ describe('course', () => {
   });
   it('gives every layout a full home row', () => {
     for (const L of Object.values(LAYOUTS)) expect(knownChars('village-8', L).size).toBeGreaterThanOrEqual(10);
+  });
+  it('spreads the climb, swim and sled through every region, with the trail in between', () => {
+    expect(lessonMove(LESSON['village-1'])).toBe('run');
+    for (const r of REGIONS.filter(r => r.id !== 'road')) {
+      const moves = r.lessons.map(lessonMove);
+      // every region has all three courses, and about half its lessons on the trail with the rides
+      for (const m of ['climb', 'swim', 'slide'] as const) expect(moves).toContain(m);
+      const trail = moves.filter(m => m === 'run').length;
+      expect(trail).toBeGreaterThanOrEqual(r.lessons.length / 2);
+      expect(trail).toBeLessThanOrEqual(r.lessons.length / 2 + 2);
+      // never two courses in a row
+      moves.forEach((m, i) => { if (i && m !== 'run') expect(moves[i - 1]).toBe('run'); });
+    }
+    // the big races, the graduation test and the Open Road stay on the trail
+    for (const l of ALL_LESSONS.filter(l => l.kind === 'checkpoint' || l.kind === 'final' || l.practice)) expect(lessonMove(l)).toBe('run');
+    expect(lessonMove(LESSON['cliffs-1b'])).toBe('climb');
   });
 });
 
@@ -203,7 +219,7 @@ describe('profiles and progress', () => {
     expect(out.xp.gained).toBeGreaterThanOrEqual(80);
     expect(out.xp.after.level).toBe(2);
     expect(out.rewards.map(o => o.id)).toContain('party_hat');
-    expect(out.treasure).toBeGreaterThanOrEqual(0);
+    expect(out.shells).toBeGreaterThan(0);
     expect(nextLesson(p).id).toBe('village-2');
   });
   it('keeps stickers, medals and friendship per buddy; a buddy you switch to starts fresh', () => {

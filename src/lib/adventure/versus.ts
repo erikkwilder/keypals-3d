@@ -1,9 +1,10 @@
 // Family Duel and Rival Ghosts, on the players' side: setting up each side from a player (their own
 // questions, buddy, outfit, team), a guest's side, a ghost's side, what a game earns, and the week's
 // Rival Ghosts season.
-import { buddyPal, danceOf, dayKey, outfitOf, type Profile, type XpInfo } from '../engine/profile';
-import { levelFromXp } from '../engine/stickers';
-import { forBuddy, newBetween, type Reward } from '../engine/rewards';
+import { danceOf, dayKey, outfitOf, type Profile, type XpInfo } from '../engine/profile';
+import type { StickerDef } from '../engine/stickers';
+import type { Reward } from '../engine/rewards';
+import { befriend, checkStickers } from '../engine/settle';
 import { WORDS_KIDS } from '../content/words';
 import { mathOf } from '../math/progress';
 import { factId, seedPartner, updateFact, type Fact } from '../math/facts';
@@ -67,12 +68,14 @@ export type VersusRun = {
   rival?: Rival; subject: Subject;
 };
 export type VersusOutcome = {
-  shells: number; xp: XpInfo; rewards: Reward[];
+  shells: number; xp: XpInfo; rewards: Reward[]; stickers: StickerDef[];
   met: { id: GlimmerId; rarity: Rarity; isNew: boolean; level: number; ups: number } | null;
   teamUps: { id: GlimmerId; level: number }[];
   points: number; league: number; promoted: boolean;
 };
 
+/** Friendship from a duel or a rival game: like a battle (a duel takes about as long for each player). */
+export const VERSUS_FRIENDSHIP = { win: 70, perfect: 15, tried: 30 };
 /** What a Family Duel or a Rival Ghosts game earns a player. The winner's prize is the Glimmer; everyone
  *  who played gets shells and friendship, and the answers count for the fact memory as in practice. */
 export function applyVersus(p: Profile, r: VersusRun): VersusOutcome {
@@ -84,14 +87,10 @@ export function applyVersus(p: Profile, r: VersusRun): VersusOutcome {
     for (const x of r.answered) { const id = factId(x.f); m.facts[id] = updateFact(m.facts[id], { ok: x.ok, thinkMs: x.thinkMs, day: dk, at: r.at, fastMs: m.fastMs }); seedPartner(m.facts, x.f); }
   }
   noteStats((a.ghost ??= newStats()), { answers: r.answers, right: r.right, thinkMs: r.thinkMs, big: r.big, picks: r.picks });
-  const pal = buddyPal(p), before = levelFromXp(pal.xp);
-  const gained = r.won ? 40 + (r.perfect ? 10 : 0) : 15;
-  pal.xp += gained;
-  const after = levelFromXp(pal.xp);
-  pal.level = after.level;
-  const rewards = forBuddy(newBetween(before.level, after.level), p.buddy);
-  for (const rw of rewards) if (!pal.seen.includes('reward:' + rw.id)) pal.seen.push('reward:' + rw.id);
-  const out: VersusOutcome = { shells: 0, xp: { gained, before, after }, rewards, met: null, teamUps: [], points: 0, league: 0, promoted: false };
+  // friendship, paced like a battle (the same for duels and rivals), and any stickers it brings
+  const { xp, rewards } = befriend(p, r.won ? VERSUS_FRIENDSHIP.win + (r.perfect ? VERSUS_FRIENDSHIP.perfect : 0) : VERSUS_FRIENDSHIP.tried);
+  const stickers = checkStickers(p, r.at);
+  const out: VersusOutcome = { shells: 0, xp, rewards, stickers, met: null, teamUps: [], points: 0, league: 0, promoted: false };
   for (const t of teamOf(a)) { const o = a.glimmers[t.id]; if (o) { const ups = giveXp(o, r.won ? 10 : 4); if (ups) out.teamUps.push({ id: t.id, level: o.level }); } }
   if (r.won) out.met = { id: r.glimmer, rarity: r.rarity, ...meet(a, r.glimmer) };
   if (r.mode === 'duel') {

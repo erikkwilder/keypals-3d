@@ -30,5 +30,7 @@ export function evolve(p: Profile, id: GlimmerId): boolean {
 
 /** Its painting: the grown-up one once evolved. Relative to the site's base. */
 export const glimmerArt = (id: GlimmerId, evolved?: boolean) => `game/glimmers/${id}${evolved ? '-evo' : ''}.webp`;
+/** The round picture of a Glimmer (team rows, badges): its face, centred, cut from its painting. */
+export const glimmerFace = (id: GlimmerId, evolved?: boolean) => `game/glimmers/face/${id}${evolved ? '-evo' : ''}.webp`;
 /** Before and after, for the evolve card. */
 export const evolution = (id: GlimmerId) => ({ from: GLIMMER[id].name, to: EVOLVED[id].name, perk: EVOLVED[id].perk });

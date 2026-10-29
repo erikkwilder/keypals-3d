@@ -84,4 +84,6 @@ export function devBoot() {
     game.openCloset('gear');
   }
   if (key === 'tester') { addTester(); game.go('map'); history.replaceState(null, '', location.pathname + location.search); }
+  // every sound in the game, with Play buttons (works on the live site too)
+  if (key === 'sounds') void Promise.all([import('svelte'), import('../ui/SoundBoard.svelte')]).then(([s, m]) => s.mount(m.default, { target: document.body }));
 }

@@ -1,11 +1,14 @@
 <script lang="ts">
   // A Family Duel or a Rival Ghosts game, on the arena. Two players (or a player and a ghost) take turns
-  // to cheer up one grumpy Glimmer. Each has their own cheer bar along the top, sized to their own
-  // questions, their own Finale stars and their own Glimmers. Three right in a row sends a little rain
-  // cloud across; the other side blocks it with a quick one at the start of their turn. The first to fill
-  // their bar wins the Glimmer. Everything at the top can be tapped to see what it is.
+  // to cheer up one grumpy Glimmer. Each has their own cheer bar along the top (the same size for both:
+  // every right answer fills +10 whatever the question), their own Finale stars and their own Glimmers.
+  // The cards lie face down until you pick one, so nobody hunts for the easy one. Three right in a row
+  // sends a little rain cloud across; the other side blocks it with a quick one at the start of their
+  // turn. The first to fill their bar wins the Glimmer (the other gets a last turn to tie). Everything at
+  // the top can be tapped to see what it is.
   import { onDestroy, onMount } from 'svelte';
   import { Tween } from 'svelte/motion';
+  import { fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { game } from '../state/game.svelte';
   import { stage } from '../three/stage';
@@ -15,7 +18,7 @@
   import { answerOf, opSign, type Fact } from '../math/facts';
   import { ELEMENT, GLIMMER, ROLE, glimmerName, rarityRank, type GlimmerId } from '../adventure/glimmers';
   import { FINALE_AT, type Card } from '../adventure/battle';
-  import { newDuel, duelPlay, duelFinale, duelRain, ghostMove, ghostRain, cur, progress, type DEvent, type Duel, type SideSetup } from '../adventure/duel';
+  import { newDuel, duelPlay, duelFinale, duelRain, ghostMove, ghostRain, cur, progress, DUEL_CARD, type DEvent, type Duel, type SideSetup } from '../adventure/duel';
   import { applyVersus, tellGhostOwner, type VersusOutcome } from '../adventure/versus';
   import { LEAGUES, type Rival } from '../adventure/ghosts';
   import { startPerks } from '../adventure/gear';
@@ -25,13 +28,15 @@
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
 
-  type Props = { sides: [SideSetup, SideSetup]; glimmer: GlimmerId; mode: 'duel' | 'rival'; rival?: Rival | null; onagain: () => void; onexit: () => void };
-  let { sides, glimmer, mode, rival = null, onagain, onexit }: Props = $props();
+  type Props = { sides: [SideSetup, SideSetup]; glimmer: GlimmerId; mode: 'duel' | 'rival'; rival?: Rival | null; first?: 0 | 1; onagain: () => void; onexit: () => void };
+  let { sides, glimmer, mode, rival = null, first = 0, onagain, onexit }: Props = $props();
 
   const base = import.meta.env.BASE_URL;
+  // (an absolute address: a relative url() in an inline style breaks on the built site)
+  const coverArt = new URL(`${base}game/intro-${mode === 'rival' ? 'rivals' : 'duel'}.webp`, document.baseURI).href;
   const seed = (Date.now() % 1e9) | 0;
   // svelte-ignore state_referenced_locally
-  const d: Duel = newDuel(sides[0], sides[1], glimmer, seed);
+  const d: Duel = newDuel(sides[0], sides[1], glimmer, seed, first);
   const g = GLIMMER[glimmer];
   const gName = g.name;
   const t0 = performance.now();
@@ -74,6 +79,7 @@
   // the end
   let outcomes = $state<(VersusOutcome | null)[]>([null, null]);
   let winner = $state<0 | 1 | null>(null);
+  let tie = $state(false);
   let step = $state(0);
 
   const nameOf = (i: number) => d.sides[i].name;
@@ -110,18 +116,22 @@
       if (disposed) { sc.dispose(); return; }
       scene = sc; stage.use(sc);
       requestAnimationFrame(onResize);
+      // let the arena draw a couple of frames under the cover, so it never flashes up half-built
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     } catch (e) { console.error(e); }
+    if (disposed) return;
     ui = 'intro';
-    sfx.grumble();
+    sfx.battleStart();
     bigBanner = { text: `${gName} is grumpy!`, sub: mode === 'duel' ? 'Take turns. Fill your bar first to win it!' : `Race ${d.sides[1].name}${d.sides[1].kind === 'ghost' ? "'s ghost" : ''}: fill your bar first!`, kind: 'intro', key: Date.now() };
     setTimeout(() => {
       bigBanner = null; sync(); scene?.setTurn(0);
       // gear that does something from the start (energy doesn't count in a duel, so Spring Shoes stay quiet)
       d.sides.forEach((s, i) => startPerks(s.kit ?? []).filter(g => g.item !== 'spring_shoes').forEach((g, k) => setTimeout(() => { if (!disposed) { sfx.helper(); helped(i as 0 | 1, undefined, g.what, g.did, `${base}gear/${g.item}.webp`); } }, 300 + i * 900 + k * 700)));
       if (mode === 'rival') tip('r-ghost', `This is ${d.sides[1].name}'s ghost. It plays the way they really play: just as careful and just as quick!`, '.pl.p1');
-      else tip('d-turns', 'Take turns! Each of you gets questions at your own level, so it\'s fair for everyone.', '.hud');
+      else tip('d-turns', `Take turns! Pick a card and it flips over. Every right answer fills +${DUEL_CARD}, little sums or big times tables, so it's fair for everyone.`, '.hud');
       beginTurn(true);
     }, 2300);
+    if (first === 1) setTimeout(() => { if (!disposed) say(`${d.sides[1].name} goes first this time`, 'good'); }, 2500);
   });
   onDestroy(() => { disposed = true; clearInterval(rainTimer); removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
 
@@ -135,7 +145,7 @@
   }
   /** a team Glimmer's picture and name: its grown-up look once it has evolved */
   const evo = (side: number, id: string) => !!d.sides[side].team.find(m => m.id === id)?.evolved;
-  const artOf = (side: number, id: GlimmerId) => `${base}game/glimmers/${id}${evo(side, id) ? '-evo' : ''}.webp`;
+  const artOf = (side: number, id: GlimmerId) => `${base}game/glimmers/face/${id}${evo(side, id) ? '-evo' : ''}.webp`;
   function helped(side: 0 | 1, id: string | undefined, what: string, did: string, pic?: string) {
     const slot = id ? d.sides[side].team.findIndex(m => m.id === id) : -1;
     const at = (slot === 0 ? `p${side}t0` : slot === 1 ? `p${side}t1` : `p${side}`) as Spot;
@@ -167,7 +177,7 @@
     ui = 'answer'; sfx.click();
     shownAt = performance.now();
   }
-  function back() { if (ui === 'answer' && !ghosting) { sel = null; ui = 'pick'; } }
+  // (no going back once a card is turned over: that would be peeking)
   function digit(dg: string) {
     if (ghosting) return;
     if (ui === 'rain') { rainTyped += dg; if (rain?.fact && rainTyped.length >= String(answerOf(rain.fact)).length) submitRain(); return; }
@@ -186,7 +196,7 @@
     const ev = subject === 'math'
       ? duelPlay(d, c.id, { ok: !!f && Number(typed) === answerOf(f), value: Number(typed), thinkMs: think, fact: f ?? undefined })
       : duelPlay(d, c.id, { ok: true, value: Math.max(1, (c.word?.length ?? 1) - wordErr), thinkMs: think });
-    if (ev.length === 1 && ev[0].k === 'retry') { say('Second Chance: have another go!', 'good'); typed = ''; wordPos = 0; wordErr = 0; ui = 'answer'; shakeKey++; return; }
+    if (ev.length === 1 && ev[0].k === 'retry') { sfx.miss(); say('Second Chance: have another go!', 'good'); typed = ''; wordPos = 0; wordErr = 0; ui = 'answer'; shakeKey++; return; }
     sel = null; typed = '';
     await run(ev, side);
   }
@@ -213,21 +223,25 @@
     if (ui === 'won') { if (e.key === 'Enter') { e.preventDefault(); onexit(); } return; }
     if (ghosting || help || info) return;
     if (ui === 'finale' && (e.key === 'f' || e.key === 'F' || e.key === 'Enter')) { e.preventDefault(); doFinale(); return; }
+    if (ui === 'pick') { pickKey(e); return; }
     if (subject === 'math') {
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
       else if (e.key === 'Backspace') { e.preventDefault(); backspace(); }
-      else if (e.key === 'Escape') back();
       return;
     }
-    if (e.key.length !== 1) { if (e.key === 'Escape') back(); return; }
-    if (ui === 'pick') { const c = cards.find(x => x.word?.startsWith(e.key)); if (c) { pick(c); typeChar(e.key); } return; }
+    if (e.key.length !== 1) return;
     if (ui === 'answer' || ui === 'rain') { e.preventDefault(); typeChar(e.key); }
+  }
+  /** 1, 2, 3 (or 4) turns over that card */
+  function pickKey(e: KeyboardEvent) {
+    const n = Number(e.key);
+    if (n >= 1 && n <= cards.length) { e.preventDefault(); pick(cards[n - 1]); }
   }
   function typeChar(ch: string) {
     const word = ui === 'rain' ? rain?.word : sel?.word;
     if (!word) return;
     if (ch === word[wordPos]) { wordPos++; sfx.click(); if (wordPos >= word.length) { if (ui === 'rain') submitRain(); else submit(); } }
-    else { wordErr++; shakeKey++; sfx.miss(); }
+    else { wordErr++; shakeKey++; sfx.slip(); }
   }
 
   // ---------- the Finale ----------
@@ -255,7 +269,7 @@
     rain = { fact: r.fact, word: r.word, limitMs: r.limitMs, from };
     rainTyped = ''; wordPos = 0; wordErr = 0;
     ui = 'rain'; rainAt = performance.now(); rainLeft = 1;
-    sfx.uhoh();
+    sfx.rainComing();
     clearInterval(rainTimer);
     if (cur(d).kind === 'ghost') {
       const gr = ghostRain(d);
@@ -290,14 +304,14 @@
     for (const e of ev) {
       if (disposed) return;
       if (e.k === 'cast') {
-        sfx.cast(e.card.element);
+        if (e.ok) sfx.cast(e.card.element); else if (d.sides[side].kind === 'ghost') sfx.fizzle(); else sfx.miss();
         await scene?.cast(side, e.card.element, { perfect: e.perfect, super: e.super, ok: e.ok, big: e.value / Math.max(1, d.sides[side].b.foe.max) * 2.2 });
         if (e.ok) {
           sfx.hit(Math.min(1, e.value / Math.max(1, d.sides[side].b.foe.max) * 3));
           float('glimmer', `+${e.value}`, 'cheer', undefined, SIDE[side]);
           if (e.perfect) { sfx.perfect(); bigBanner = { text: 'Perfect Cheer!', sub: `${nameOf(side)} landed it exactly!`, kind: 'perfect', key: Date.now() }; }
           else if (e.super) say(`⚡ Strong! ${ELEMENT[e.card.element].name} beats ${ELEMENT[g.element].name}.`, 'super');
-        } else { sfx.miss(); say(e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
+        } else { say(e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
         sync();
       } else if (e.k === 'extra') {
         const slot = e.id ? d.sides[side].team.findIndex(m => m.id === e.id) : -1;
@@ -312,18 +326,18 @@
       } else if (e.k === 'gear') { sfx.helper(); helped(side, undefined, e.what, e.did, `${base}gear/${e.item}.webp`); if (e.item === 'bubble_wand') sfx.shield(true); await sleep(350); }
       else if (e.k === 'dazzle') scene?.dazzle();
       else if (e.k === 'streakKept') say(`${glimmerName(e.id, evo(side, e.id))} kept ${nameOf(side)}'s row going!`, 'good');
-      else if (e.k === 'aurora') { scene?.aurora(); sfx.reveal(3); say('Aurora! The Finale is ready.', 'super'); await sleep(600); }
-      else if (e.k === 'finaleReady') sfx.badge();
+      else if (e.k === 'aurora') { scene?.aurora(); sfx.aurora(); say('Aurora! The Finale is ready.', 'super'); await sleep(600); }
+      else if (e.k === 'finaleReady') sfx.finaleReady();
       else if (e.k === 'finale') { sfx.hit(1); float('glimmer', `+${e.value}`, 'finale', undefined, SIDE[side]); sync(); }
       else if (e.k === 'sendRain') {
-        sfx.whoosh();
+        sfx.rainSend();
         say(`${nameOf(side)} sent a rain cloud to ${nameOf(e.to)}!`, 'super');
         await scene?.sendRain(side, e.to);
         tip('d-rain', 'Three right in a row sends a rain cloud over to the other side!', null);
       } else if (e.k === 'turn') {
-        side = e.side; sync(); scene?.setTurn(e.side);
+        side = e.side; sync(); scene?.setTurn(e.side); sfx.turn(e.side);
         turn = e.side; cards = d.sides[e.side].b.cards.slice();
-        bigBanner = { text: `${nameOf(e.side)}'s turn!`, kind: `turn`, color: SIDE[e.side], key: Date.now() };
+        bigBanner = { text: d.filled !== null ? `${nameOf(e.side)}: last turn!` : `${nameOf(e.side)}'s turn!`, kind: `turn`, color: SIDE[e.side], key: Date.now() };
         setTimeout(() => { if (bigBanner?.kind === 'turn') bigBanner = null; }, 1100);
         await sleep(mode === 'duel' ? 900 : 650);
       } else if (e.k === 'rainBlocked') {
@@ -332,10 +346,14 @@
         await scene?.rainResult(side, true, e.by === 'Frost Owl' ? 0xbff0ff : e.by === 'Pebble Shell' ? 0xd6b48a : 0x7fe0ff);
         float(`p${side}` as Spot, 'Blocked!', 'block');
       } else if (e.k === 'rainHit') {
-        sfx.ouch();
+        sfx.rainHit();
         await scene?.rainResult(side, false);
         float(`p${side}` as Spot, `−${e.value} cheer`, 'hurt');
         sync();
+      } else if (e.k === 'lastTurn') {
+        sfx.lastTurn();
+        bigBanner = { text: 'Last turn!', sub: `${nameOf(1 - e.side)} filled their bar. ${nameOf(e.side)} can still tie it!`, kind: 'turn', color: SIDE[e.side], key: Date.now() };
+        await sleep(1700);
       } else if (e.k === 'won') { await finish(e.perfect); return; }
     }
     sync();
@@ -346,11 +364,13 @@
   async function finish(perfect: boolean) {
     ui = 'busy'; sync();
     const w = d.winner!;
-    winner = w;
+    winner = w; tie = d.tie;
     const at = Date.now(), ms = performance.now() - t0;
+    // a tie: both cheered it up, so it's a win for both
+    const won = (i: number) => w === i || d.tie;
     const runOf = (i: number) => {
       const s = d.sides[i];
-      return { mode, won: w === i, perfect: w === i && perfect, glimmer, rarity: g.rarity, answers: s.b.stats.answers, right: s.b.stats.right, thinkMs: s.thinkMs, big: s.big, picks: s.picks, answered: s.b.answered, ms, at, rival: rival ?? undefined, subject: s.subject };
+      return { mode, won: won(i), perfect: won(i) && s.b.stats.right === s.b.stats.answers, glimmer, rarity: g.rarity, answers: s.b.stats.answers, right: s.b.stats.right, thinkMs: s.thinkMs, big: 0, picks: 0, answered: s.b.answered, ms, at, rival: rival ?? undefined, subject: s.subject };
     };
     const outs: (VersusOutcome | null)[] = [null, null];
     d.sides.forEach((s, i) => {
@@ -359,10 +379,10 @@
       else { const p = game.save.profiles.find(x => x.id === s.profileId); if (p) { outs[i] = applyVersus(p, runOf(i)); game.persist(); } }
     });
     // a family ghost's player hears how their ghost did
-    if (rival?.kind === 'family' && rival.profileId) { const owner = game.save.profiles.find(x => x.id === rival.profileId); if (owner) { tellGhostOwner(owner, me.name, me.buddy, w === 1); game.persist(); } }
+    if (rival?.kind === 'family' && rival.profileId) { const owner = game.save.profiles.find(x => x.id === rival.profileId); if (owner) { tellGhostOwner(owner, me.name, me.buddy, won(1)); game.persist(); } }
     outcomes = outs;
     bigBanner = null; toast = null; coach = null;
-    await scene?.win(w);
+    sfx.cheeredUp(0.4); await scene?.win(w, d.tie);
     sfx.reveal(rarityRank(g.rarity));
     ui = 'won'; step = 0;
     setTimeout(() => (step = 1), 1200);
@@ -412,18 +432,22 @@
     {#if ui === 'finale'}
       <button class="finalebig" onclick={doFinale}><img src="{base}game/icon-finale.webp" alt="" /><span><b>Finale!</b><small>Tap for {FRIEND[curSide.buddy].name}'s big move</small></span></button>
     {:else if ui === 'pick' || ui === 'ghost' || ui === 'intro' || ui === 'loading' || ui === 'busy'}
+      <!-- face down until picked: the question shows once you've chosen, so nobody hunts for the easy one -->
       <div class="cards" class:dim={ui !== 'pick'}>
         {#each cards as c, i (c.id)}
-          <button class="card el-{c.element}" class:super={c.super} class:bloom={c.bloom} style:--d="{i * 0.08}s" onclick={() => pick(c)} disabled={ui !== 'pick'}>
-            <img class="ci" src="{base}game/icon-{c.element}.webp" alt={ELEMENT[c.element].name} />
-            <span class="ct"><b>{#if c.fact}{factText(c.fact)}{:else}{c.word}{/if}</b>{#if c.super}<em>⚡ Strong</em>{:else if c.bloom}<em class="bl">You know this one</em>{/if}</span>
+          <button class="card down el-{c.element}" class:super={c.super} style:--d="{i * 0.08}s" onclick={() => pick(c)} disabled={ui !== 'pick'} aria-label="{ELEMENT[c.element].name} card{c.super ? ', strong' : ''}">
+            {#if !narrow}<span class="key">{i + 1}</span>{/if}
+            <img class="ci" src="{base}game/icon-{c.element}.webp" alt="" />
+            <span class="ct"><b>?</b><small>{ELEMENT[c.element].name}</small>{#if c.super}<em>⚡ Strong</em>{/if}</span>
           </button>
         {/each}
       </div>
-      <p class="hint">{#if ui === 'ghost'}<span class="think">{curSide.name}'s ghost is thinking<i>.</i><i>.</i><i>.</i></span>{:else if ui === 'pick'}<b style:color={SIDE[turn]}>{curSide.name}</b>: {subject === 'math' ? 'tap a card and answer it!' : 'type a word!'}{/if}</p>
+      {#if ui === 'ghost' || ui === 'pick'}
+        <p class="hint" style:--sc={SIDE[turn]}><span class="nmchip">{curSide.name}{ui === 'ghost' ? "'s ghost" : ''}</span>{#if ui === 'ghost'}<span class="think">is thinking<i>.</i><i>.</i><i>.</i></span>{:else}<span>Pick a card and it flips over!</span>{/if}</p>
+      {/if}
     {:else if ui === 'answer' && sel}
       <div class="answer el-{sel.element}" class:ghostly={ghosting}>
-        <p class="who"><b style:color={SIDE[turn]}>{curSide.name}</b>{ghosting ? "'s ghost is answering" : ', your answer:'}</p>
+        <p class="who"><span class="nmchip">{curSide.name}{ghosting ? "'s ghost" : ''}</span>{ghosting ? 'is answering' : 'your question:'}</p>
         {#if sel.fact}
           {#key shakeKey}<div class="eq" class:shake={shakeKey > 0}><span>{factText(sel.fact)} =</span><span class="box">{typed || ' '}</span></div>{/key}
           {#if !ghosting}<NumPad ondigit={digit} onback={backspace} compact={narrow} />{/if}
@@ -431,7 +455,6 @@
           {#key shakeKey}<div class="word" class:shake={shakeKey > 0}>{#each sel.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/key}
           {#if !ghosting}<p class="ask">Type it! {wordErr ? `${wordErr} slip${wordErr === 1 ? '' : 's'}` : 'No slips so far'}</p>{/if}
         {/if}
-        {#if !ghosting}<button class="backbtn" onclick={back}>Pick a different card</button>{/if}
       </div>
     {:else if ui === 'rain' && rain}
       <div class="blockbox">
@@ -448,11 +471,19 @@
 
   {#if ui === 'won' && winSide}
     <div class="reveal r-{g.rarity}">
-      <div class="rays"></div>
-      <div class="rtitle"><small>{winSide.name}{winSide.kind === 'ghost' ? "'s ghost" : ''} cheered up {gName}!</small><b style:color={SIDE[winner ?? 0]}>{winSide.kind === 'ghost' ? 'Ghost wins!' : `${winSide.name} wins!`}</b><em>Good game, everyone!</em></div>
+      <div class="rayclip"><div class="rays"></div></div>
+      {#if tie}
+        <div class="rtitle"><small>You both cheered up {gName} in the same number of turns!</small><b class="tiet">It's a tie!</b><em>Good game, everyone!</em></div>
+      {:else}
+        <div class="rtitle"><small>{winSide.name}{winSide.kind === 'ghost' ? "'s ghost" : ''} cheered up {gName}!</small><b style:color={SIDE[winner ?? 0]}>{winSide.kind === 'ghost' ? 'Ghost wins!' : `${winSide.name} wins!`}</b><em>Good game, everyone!</em></div>
+      {/if}
       <div class="rcard"><GlimmerCard id={glimmer} width={revealW} shine /></div>
       <div class="rinfo" class:in={step >= 1}>
-        {#if winOut?.met?.isNew}
+        {#if tie}
+          {@const got = players.filter(x => x.o?.met).map(x => x.s.name)}
+          <h2>{gName} likes you both!</h2>
+          <p class="pw">{got.length ? `It joins ${got.join(' and ')}'s team${got.length > 1 ? 's' : ''}.` : `${gName} goes home happy.`} One slip is all it takes to win next time!</p>
+        {:else if winOut?.met?.isNew}
           <h2>{gName} joined {winSide.name}'s team!</h2>
           <p class="pw"><b>In battles it helps:</b> {g.power.text(1)}</p>
           {#if winSide.profileId === game.profile?.id && !advView(game.profile!).team.includes(glimmer)}<button class="btn teambtn" onclick={() => { game.glimmerSel = glimmer; game.go('glimmers'); }}>Put {gName} on your team</button>{/if}
@@ -476,6 +507,7 @@
               <button class="prize" onclick={() => show({ kind: 'friendship' })}><span class="heart">♥</span><b>+{x.o!.xp.gained}</b><small>friendship</small></button>
               {#if mode === 'rival'}<button class="prize" onclick={() => show({ kind: 'points' })}><img src="{base}game/league-{x.o!.league}.webp" alt="" /><b>+{x.o!.points}</b><small>points</small></button>{/if}
               {#each x.o!.rewards as r (r.id)}<div class="prize">{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart">♪</span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></div>{/each}
+              {#each x.o!.stickers ?? [] as st (st.id)}<div class="prize" title={st.desc}><img src="{base}game/icon-stickers.webp" alt="" /><b>Sticker</b><small>{st.name}</small></div>{/each}
             </div>
           </div>
         {/each}
@@ -483,6 +515,19 @@
       <div class="rbtns" class:in={step >= 2}>
         <button class="btn" onclick={onagain}>{mode === 'duel' ? 'Play again' : 'Try again'}</button>
         <button class="btn btn-primary" onclick={onexit}>{mode === 'duel' ? 'Back to the map' : 'Back to rivals'} <span class="kbd">enter</span></button>
+      </div>
+    </div>
+  {/if}
+
+  {#if ui === 'loading'}
+    <div class="loadcover" out:fade={{ duration: 450 }} style:background-image="url({coverArt})">
+      <div class="lc card">
+        <div class="vs">
+          <span class="lp" style:--sc={SIDE[0]}><Critter friend={d.sides[0].buddy} size={narrow ? 72 : 96} /><b>{d.sides[0].name}</b></span>
+          <i>vs</i>
+          <span class="lp" class:ghost={d.sides[1].kind === 'ghost'} style:--sc={SIDE[1]}><Critter friend={d.sides[1].buddy} size={narrow ? 72 : 96} /><b>{d.sides[1].name}{d.sides[1].kind === 'ghost' ? "'s ghost" : ''}</b></span>
+        </div>
+        <p>Getting the arena ready<span class="think"><i>.</i><i>.</i><i>.</i></span></p>
       </div>
     </div>
   {/if}
@@ -496,12 +541,14 @@
       <div class="helpcard card" onclick={(e) => e.stopPropagation()}>
         <h2>How to play</h2>
         <div class="hrows">
-          <div class="hr"><div class="mini"><span class="mturn"><Critter friend={d.sides[0].buddy} size={34} round /><i>⇄</i><Critter friend={d.sides[1].buddy} size={34} round /></span></div><p><b>Take turns</b> Pick a card and answer it.</p></div>
+          <div class="hr"><div class="mini"><span class="mturn"><Critter friend={d.sides[0].buddy} size={34} round /><i>⇄</i><Critter friend={d.sides[1].buddy} size={34} round /></span></div><p><b>Take turns</b> Pick a card. It flips over: answer it!</p></div>
           <div class="hr"><div class="mini"><span class="mbar"><i><em style:width="65%"></em></i></span></div><p><b>Fill your bar first</b> and {gName} joins you.</p></div>
-          <div class="hr"><div class="mini"><span class="mcards"><span class="mcard el-sun">3 + 2</span><span class="mcard el-tide">12 × 8</span></span></div><p><b>Fair for everyone</b> Each player gets their own questions.</p></div>
+          <div class="hr"><div class="mini"><span class="mcards"><span class="mcard el-sun">3 + 2</span><span class="mcard el-tide">12 × 8</span></span></div><p><b>Fair for everyone</b> Your own questions, and every right answer is +{DUEL_CARD}.</p></div>
           <div class="hr"><div class="mini"><img class="mstorm" src="{base}game/storm1.webp" alt="" /></div><p><b>3 right in a row</b> sends a rain cloud to the other side.</p></div>
           <div class="hr"><div class="mini"><span class="mblock"><span class="mring">4</span>2 + 2 =</span></div><p><b>Rain coming?</b> Answer fast to block it.</p></div>
           <div class="hr"><div class="mini"><span class="mstars">{#each Array(5) as _}<img src="{base}game/icon-star.webp" alt="" />{/each}</span></div><p><b>5 right in a row</b> = your buddy's Finale.</p></div>
+          <div class="hr"><div class="mini"><span class="mteam">{#each d.sides[0].team.length ? d.sides[0].team : [{ id: 'puddlepup' as GlimmerId, level: 1 }] as m (m.id)}<img src={artOf(0, m.id)} alt="" />{/each}</span></div><p><b>Your team helps</b> Glimmers and gear add extra cheer.</p></div>
+          <div class="hr"><div class="mini"><span class="mturn"><b class="mlast">Last turn!</b></span></div><p><b>Same turns each</b> Fill it first and the other player still gets their turn. Both full? A tie!</p></div>
         </div>
         <button class="btn btn-primary" onclick={() => (help = false)}>Got it</button>
       </div>
@@ -520,7 +567,7 @@
           <div>
             <h3>{s.name}{s.kind === 'ghost' ? "'s ghost" : ''}</h3>
             <p>{s.kind === 'ghost' ? `A ghost plays the way ${s.name} really plays.` : `${s.name}'s buddy is ${FRIEND[s.buddy].name}: ${ROLE[s.role].text}`}</p>
-            <p><b>Questions:</b> {levelText(s)}. The bar fills about the same for everyone, so it's a fair race.</p>
+            <p><b>Questions:</b> {levelText(s)}. Every right answer fills +{DUEL_CARD}, the same for everyone, so it's a fair race.</p>
             <p><b>Cheer so far:</b> {Math.round(progress(s) * 100)}% of the way.</p>
           </div>
         {:else if i.kind === 'mate'}
@@ -550,7 +597,7 @@
 </div>
 
 <style>
-  .duel { position: fixed; inset: 0; display: flex; flex-direction: column; pointer-events: none; font-family: var(--font-body); }
+  .duel { position: fixed; inset: 0; display: flex; flex-direction: column; pointer-events: none; font-family: var(--font-body); overflow: hidden; }
   .duel > * { pointer-events: auto; }
   .stage { flex: 1; min-height: 0; pointer-events: none; }
   .top { display: flex; align-items: center; gap: 10px; padding: 12px 16px 0; }
@@ -620,7 +667,6 @@
   .cards .card .ci { width: 70px; height: 70px; flex: none; object-fit: contain; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .18)); }
   .ct { display: flex; flex-direction: column; min-width: 0; }
   .ct em { align-self: flex-start; margin-top: 4px; font: 800 12px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 3px 9px; border-radius: 999px; }
-  .ct em.bl { color: #c2348a; }
   .ct b { font: 600 clamp(28px, 3.4vw, 42px)/1.05 var(--font-ui); color: #2a1f45; white-space: nowrap; }
   .cards .el-sun.card { background: linear-gradient(160deg, #fff6c4, #ffd36b); }
   .cards .el-tide.card { background: linear-gradient(160deg, #e2f4ff, #8fd0ff); }
@@ -628,16 +674,24 @@
   .cards .el-leaf.card { background: linear-gradient(160deg, #eaffe6, #9ee8a6); }
   .cards .el-stone.card { background: linear-gradient(160deg, #fbf3e8, #e2c7a2); }
   .cards .card.super { box-shadow: 0 0 0 3px #ffd36b, 0 0 22px #ffd36b, 0 12px 24px -12px rgba(30, 20, 70, .6); }
+  /* a face-down card: its element and a big question mark */
+  .cards .card.down { justify-content: center; }
+  .cards .card.down .ct { align-items: flex-start; }
+  .cards .card.down .ct b { font-size: clamp(36px, 4vw, 50px); color: color-mix(in srgb, #2a1f45 75%, transparent); }
+  .cards .card.down .ct small { font: 800 13px var(--font-body); color: color-mix(in srgb, #2a1f45 70%, transparent); text-transform: uppercase; letter-spacing: .06em; }
+  .key { position: absolute; top: 8px; left: 10px; width: 22px; height: 22px; border-radius: 7px; background: rgba(255, 255, 255, .85); font: 700 13px/22px var(--font-body); color: var(--muted); text-align: center; box-shadow: 0 2px 0 rgba(0, 0, 0, .12); }
   @keyframes cardin { from { opacity: 0; transform: translateY(60px) scale(.8); } }
-  .hint { margin: 0; min-height: 24px; font: 600 19px var(--font-ui); color: #fff; text-shadow: 0 2px 6px rgba(20, 10, 50, .8); text-align: center; }
-  .hint b { text-shadow: 0 0 0 #fff, 0 2px 6px rgba(20, 10, 50, .8); background: #fff; padding: 0 10px; border-radius: 999px; }
+  /* whose go it is: their name on a chip in their colour, on a white pill that reads over any scene */
+  .hint { margin: 0; display: flex; align-items: center; gap: 8px; font: 600 18px var(--font-ui); color: var(--ink); background: rgba(255, 255, 255, .95); padding: 4px 16px 4px 4px; border-radius: 999px; box-shadow: 0 8px 20px -10px rgba(30, 20, 70, .6); }
+  .nmchip { display: inline-block; font: 600 17px/1.2 var(--font-ui); color: #fff; background: var(--sc); padding: 3px 12px; border-radius: 999px; white-space: nowrap; }
   .think i { animation: blink 1.2s infinite; font-style: normal; } .think i:nth-child(2) { animation-delay: .2s; } .think i:nth-child(3) { animation-delay: .4s; }
   @keyframes blink { 50% { opacity: .2; } }
 
   .answer, .blockbox { width: min(1000px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; background: rgba(255, 255, 255, .92); border-radius: 28px; padding: 14px 16px; box-shadow: 0 0 0 3px var(--sc), 0 16px 40px -18px rgba(30, 20, 70, .6); animation: cardin .35s cubic-bezier(.2, 1.3, .4, 1) both; }
   .answer.ghostly { background: rgba(232, 244, 255, .94); }
-  .who { margin: 0; font: 600 18px var(--font-ui); color: var(--ink2); }
-  .who b { font-size: 20px; }
+  .who { margin: 0; display: flex; align-items: center; gap: 8px; font: 600 18px var(--font-ui); color: var(--ink2); }
+  .answer { animation: flip .45s cubic-bezier(.2, 1.2, .4, 1) both; }
+  @keyframes flip { 0% { opacity: 0; transform: perspective(900px) rotateX(70deg) scale(.85); } 100% { opacity: 1; transform: none; } }
   .eq { display: flex; align-items: center; gap: 14px; font: 600 clamp(40px, 6vw, 64px)/1 var(--font-ui); color: var(--ink); }
   .eq.blockeq, .word.blockeq { font-size: clamp(54px, 8vw, 92px); }
   .box { min-width: 1.6em; padding: 4px 14px; border-radius: 18px; background: #fff; box-shadow: inset 0 0 0 4px #a98cff, 0 0 0 6px #efe9ff; text-align: center; }
@@ -656,7 +710,10 @@
   .bq p { margin: 0; font: 600 20px var(--font-ui); color: #1f4f80; text-align: center; }
   .blockbox :global(.pad) { flex-basis: 100%; }
 
-  .reveal { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .25), rgba(30, 20, 60, .55) 70%); overflow: auto; }
+  .reveal { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .25), rgba(30, 20, 60, .55) 70%); overflow: hidden auto; }
+  .tiet { color: #ffb02e; }
+  /* the spinning rays sit in a box of their own that clips them, so they never make the page scroll */
+  .rayclip { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
   .rays { position: absolute; left: 50%; top: 40%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px; background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, .22) 0 8deg, transparent 8deg 22deg); animation: spin 18s linear infinite; mask: radial-gradient(circle, #000 20%, transparent 60%); -webkit-mask: radial-gradient(circle, #000 20%, transparent 60%); pointer-events: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .rtitle { position: relative; text-align: center; animation: titlein .7s cubic-bezier(.2, 1.4, .4, 1) both; }
@@ -681,7 +738,7 @@
   .prize img { width: 44px; height: 44px; object-fit: contain; }
   .prize .heart { font: 600 36px/44px var(--font-ui); color: #ef5f9a; height: 44px; }
   .prize b { font: 600 21px/1 var(--font-ui); color: var(--ink); }
-  .prize small { font: 700 12px var(--font-body); color: var(--muted); }
+  .prize small { font: 700 12px var(--font-body); color: var(--muted); max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rbtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
   .helpbg { position: absolute; inset: 0; z-index: 30; background: rgba(40, 28, 70, .4); display: grid; place-items: center; }
@@ -706,6 +763,17 @@
   .mcard { font: 600 20px var(--font-ui); color: #2a1f45; padding: 6px 10px; border-radius: 14px; border: 3px solid #fff; box-shadow: var(--shadow-sm); white-space: nowrap; }
   .mcard.el-sun { background: linear-gradient(160deg, #fff6c4, #ffd36b); } .mcard.el-tide { background: linear-gradient(160deg, #e2f4ff, #8fd0ff); }
   .mstorm { width: 96px; height: 56px; object-fit: contain; }
+  .mteam { display: flex; gap: 4px; } .mteam img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; object-position: center 35%; box-shadow: 0 0 0 2px #fff, var(--shadow-sm); }
+  .mlast { font: 600 20px var(--font-ui); color: #fff; background: #f0675a; padding: 4px 12px; border-radius: 999px; }
+  .loadcover { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; background-size: cover; background-position: center; }
+  .loadcover::before { content: ''; position: absolute; inset: 0; backdrop-filter: blur(10px); background: rgba(255, 250, 255, .3); }
+  .lc { position: relative; padding: 22px 30px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .lc p { margin: 0; font: 600 18px var(--font-ui); color: var(--ink2); }
+  .vs { display: flex; align-items: center; gap: 18px; }
+  .vs > i { font: 600 30px var(--font-ui); font-style: normal; color: var(--primary); }
+  .lp { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .lp b { font: 600 17px var(--font-ui); color: #fff; background: var(--sc); padding: 2px 12px; border-radius: 999px; }
+  .lp.ghost :global(img) { filter: grayscale(1) brightness(1.2) sepia(1) hue-rotate(165deg) saturate(2.4); opacity: .9; }
   .mblock { display: flex; align-items: center; gap: 6px; font: 600 22px var(--font-ui); background: #f2f8ff; border-radius: 14px; padding: 4px 10px 4px 4px; box-shadow: 0 0 0 2px #8fc8ff; }
   .mring { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; color: #1f6fb8; background: #fff; box-shadow: 0 0 0 3px #3d9cf0; }
   .mstars { display: flex; gap: 1px; background: rgba(30, 22, 60, .78); padding: 4px 6px; border-radius: 999px; }
@@ -727,7 +795,9 @@
   .narrow .cards .card .ci { width: 44px; height: 44px; }
   .narrow .ct em { align-self: center; font-size: 10px; padding: 2px 6px; }
   .narrow .ct b { font-size: 24px; }
-  .narrow .hint { font-size: 14px; }
+  .narrow .hint { font-size: 14px; } .narrow .nmchip { font-size: 14px; }
+  .narrow .cards .card.down .ct { align-items: center; }
+  .narrow .cards .card.down .ct b { font-size: 30px; } .narrow .cards .card.down .ct small { font-size: 10px; }
   .narrow .finalebig b { font-size: 22px; } .narrow .finalebig img { width: 40px; height: 40px; }
   .narrow .answer, .narrow .blockbox { padding: 10px; border-radius: 22px; }
   .narrow .hrows { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }

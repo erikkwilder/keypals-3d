@@ -12,7 +12,7 @@
   async function bring() {
     msg = null; busy = true;
     try { await openCode(code); sfx.complete(); game.go('hub'); }
-    catch (e) { msg = (e as Error).message; sfx.miss(); }
+    catch (e) { msg = (e as Error).message; sfx.nope(); }
     finally { busy = false; }
   }
 </script>

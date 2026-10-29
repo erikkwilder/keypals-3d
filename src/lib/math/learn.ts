@@ -425,14 +425,14 @@ export function nextToLearn(m: MathProgress, next: MathLesson | null): Lesson | 
 
 /** Shells for learning a trick the first time. */
 export const LEARN_SHELLS = 8;
-/** Finish a lesson (call inside game.update): the trick is saved, and it counts as practice (three
- *  right answers grow the eggs; the first time also earns shells). */
+/** Finish a lesson (call inside game.update): the trick is saved, its three right answers warm the eggs,
+ *  and the first time earns shells. (It isn't a practice session: it doesn't finish a map practice stop.) */
 export function finishLesson(p: Profile, id: string): { first: boolean; shells: number; eggsReady: Rarity[] } {
   const m = (p.math = mathOf(p));
   const first = !(m.learned ?? []).includes(id);
   if (first) m.learned = [...(m.learned ?? []), id];
   const shells = first ? earnShells(p, LEARN_SHELLS) : 0;
-  const eggsReady = notePractice(p, 3);
+  const eggsReady = notePractice(p, 3, false);
   return { first, shells, eggsReady };
 }
 

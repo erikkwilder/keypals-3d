@@ -8,7 +8,7 @@
   import type { PlayBuddy } from './buddy';
   import { buildNumbers, slipStars } from '../playground';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
   let corner: HTMLDivElement | undefined = $state();
   // the buddy about 100 pixels tall, whatever the corner's size

@@ -90,13 +90,13 @@
     if (!advView(game.profile!).battles) mapTip = true;
   }
   function tap(n: MapNode) {
-    if (!nodeOpen(a, n)) { sfx.miss(); game.say('Finish the stops before this one first.'); return; }
+    if (!nodeOpen(a, n)) { sfx.nope(); game.say('Finish the stops before this one first.'); return; }
     if (mapTip) { mapTip = false; game.update(pp => markSeen(pp, 'map1')); }
     open = n; chances = false; sfx.pop();
   }
   function setSubject(s: 'math' | 'typing') { game.update(pp => { advOf(pp).subject = s; }); sfx.click(); }
   function fight(n: MapNode) {
-    if (!play.open) { sfx.miss(); return; }
+    if (!play.open) { sfx.nope(); return; }
     game.battleNode = n.id; game.battleKey++; game.go('battle');
   }
   function collect(n: MapNode) {
@@ -115,15 +115,15 @@
     const who = game.profile!.buddy;
     game.update(pp => { r = buyGear(advOf(pp), who, it.id); });
     const res = r as { ok: boolean; why?: string };
-    if (res.ok) { sfx.complete(); burst++; game.say(`${FRIEND[who].name} has the ${it.name} on! Change gear on the Keypals screen.`); }
-    else { sfx.miss(); game.say(res.why ?? 'Not now.'); }
+    if (res.ok) { sfx.buy(); burst++; game.say(`${FRIEND[who].name} has the ${it.name} on! Change gear on the Keypals screen.`); }
+    else { sfx.nope(); game.say(res.why ?? 'Not now.'); }
   }
   function buyIt(id: string) {
     let r: ReturnType<typeof buy> = { ok: false };
     game.update(pp => { r = buy(pp, id, id === 'treat' ? (team[0] ?? undefined) : undefined); });
     const res = r as ReturnType<typeof buy>;
-    if (res.ok) { sfx.badge(); burst++; game.say(id === 'treat' ? `${GLIMMER[team[0]].name} grew a level!` : `Your new egg is ${res.where === 'nest' ? 'waiting in the nest' : 'in the incubator: practice to hatch it'}.`); }
-    else { sfx.miss(); game.say(res.why ?? 'Not now.'); }
+    if (res.ok) { sfx.buy(); burst++; game.say(id === 'treat' ? `${GLIMMER[team[0]].name} grew a level!` : `Your new egg is ${res.where === 'nest' ? 'waiting in the nest' : 'in the incubator: practice to hatch it'}.`); }
+    else { sfx.nope(); game.say(res.why ?? 'Not now.'); }
   }
   const kindName = { battle: 'Battle', practice: 'Practice stop', champion: 'Champion' };
   const pathD = $derived(NODES.map((n, i) => `${i ? 'L' : 'M'}${spots[n.id][0]} ${spots[n.id][1]}`).join(' '));
@@ -167,7 +167,7 @@
 
   <div class="dock">
     <NavTile label="Team" tone="lilac" badge={a.fresh.length ? 'New' : undefined} title="Your Glimmers and your team" onclick={() => game.go('glimmers')}>
-      {#snippet art()}<span class="faces">{#each faces as t}<img class:ghost={!team.length} src="{base}game/glimmers/{t}.webp" alt="" />{/each}</span>{/snippet}
+      {#snippet art()}<span class="faces">{#each faces as t}<img class:ghost={!team.length} src="{base}game/glimmers/face/{t}{a.glimmers[t]?.evolved ? '-evo' : ''}.webp" alt="" />{/each}</span>{/snippet}
     </NavTile>
     <NavTile label="Eggs" tone="butter" badge={ready ? `${ready} ready!` : eggs ? eggs : undefined} title="Your eggs hatch when you practice" onclick={() => game.go('eggs')}>
       {#snippet art()}<img class="tileimg" src="{base}game/egg-{a.incubator.find(e => e)?.rarity ?? 'rare'}.webp" alt="" />{/snippet}
@@ -229,7 +229,7 @@
             <button class="linky" onclick={() => (chances = !chances)}>{chances ? 'Hide' : 'Show'} the exact chances (for grown-ups)</button>
             {#if chances}<p class="muted small">{HOW_OFTEN.filter(([, r]) => isl.odds[r]).map(([, r]) => `${RARITY[r].name} ${isl.odds[r]}%`).join(' · ')}. An egg after 3 in 10 wins, and always after a Perfect Cheer.</p>{/if}
           {/if}
-          <div class="teamline"><span>Your team</span>{#each team as t}<span class="tm"><img src="{base}game/glimmers/{t}.webp" alt="" />{GLIMMER[t].name}</span>{:else}<em>No Glimmers yet: win this battle for your first!</em>{/each}{#if met > 0}<button class="linky" onclick={() => game.go('glimmers')}>Change team</button>{/if}</div>
+          <div class="teamline"><span>Your team</span>{#each team as t}<span class="tm"><img src="{base}game/glimmers/face/{t}{a.glimmers[t]?.evolved ? '-evo' : ''}.webp" alt="" />{GLIMMER[t].name}</span>{:else}<em>No Glimmers yet: win this battle for your first!</em>{/each}{#if met > 0}<button class="linky" onclick={() => game.go('glimmers')}>Change team</button>{/if}</div>
           <div class="subj"><span>Answer with</span>
             <button class:on={a.subject === 'math'} onclick={() => setSubject('math')}>Math</button>
             <button class:on={a.subject === 'typing'} onclick={() => setSubject('typing')}>Typing</button></div>
@@ -328,7 +328,8 @@
   .faces img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; object-position: center 35%; box-shadow: 0 0 0 3px #fff, 0 4px 8px rgba(40, 20, 80, .3); }
   .faces img + img { margin-left: -14px; }
   .faces img.ghost { filter: grayscale(1) brightness(.6); opacity: .7; }
-  .tileimg { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(40, 20, 80, .3)); }
+  /* the picture fills the tile's picture box exactly (a tall egg sized itself taller and covered the word) */
+  .tileimg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(40, 20, 80, .3)); }
 
   .closed { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 6; padding: 22px 26px; text-align: center; width: min(460px, 92vw); }
   .closed h2 { margin: 0 0 6px; } .closed p { font-weight: 600; color: var(--ink2); }
@@ -401,7 +402,11 @@
   .tall .chip { font-size: 15px; padding: 2px 8px 2px 2px; } .tall .chip img { width: 24px; height: 24px; } .tall .chip.time { padding: 4px 8px; font-size: 13px; } .tall .chip.help { width: 32px; height: 32px; font-size: 18px; padding: 0; }
   .tall .dock { position: static; flex: none; justify-content: center; gap: 8px; padding: 8px 8px 10px; background: rgba(255, 255, 255, .92); border-top: var(--panel-border); }
   .tall .dock { gap: 6px; padding: 8px 6px 10px; }
-  .tall .dock :global(.tile) { width: calc((100vw - 36px) / 5); max-width: 96px; min-width: 0; height: 84px; padding: 6px 2px; }
+  .tall .dock :global(.tile) { width: calc((100vw - 36px) / 5); max-width: 96px; min-width: 0; height: 84px; padding: 6px 2px; gap: 2px; }
+  /* on a phone the picture box shrinks so the picture and its word both fit the shorter tile */
+  .tall .dock :global(.tile .pic) { width: 46px !important; height: 46px !important; }
+  .tall .faces img { width: 34px; height: 34px; }
+  .tall .faces img + img { margin-left: -12px; }
   .tall .ww { width: 92px; font-size: 13px; }
   .tall .introcard { grid-template-columns: 1fr; }
   .tall .pic { min-height: 210px; }

@@ -102,7 +102,7 @@
   // your own Glimmers: grown-up name and painting once evolved
   const evolvedIds = new Set(team.filter(m => m.evolved).map(m => m.id));
   const myName = (id: GlimmerId) => glimmerName(id, evolvedIds.has(id));
-  const myArt = (id: GlimmerId) => `${base}game/glimmers/${id}${evolvedIds.has(id) ? '-evo' : ''}.webp`;
+  const myArt = (id: GlimmerId) => `${base}game/glimmers/face/${id}${evolvedIds.has(id) ? '-evo' : ''}.webp`;
   const canPerfect = $derived(subject === 'math' ? cards.some(c => c.fact && answerOf(c.fact) === grumpNow) : cards.some(c => c.word?.length === grumpNow));
 
   // the end
@@ -130,7 +130,7 @@
       tick();
     } catch (e) { console.error(e); }
     ui = 'intro';
-    sfx.grumble();
+    sfx.battleStart();
     bigBanner = { text: `${foeName} is grumpy!`, sub: champion ? `The Champion of ${island.name}. Cheer it up and it joins your team!` : 'Answer cards to cheer it up. Then it joins your team!', kind: champion ? 'champ' : 'intro', key: Date.now() };
     setTimeout(() => {
       bigBanner = null; sync(); ui = 'pick';
@@ -198,7 +198,7 @@
     const ev = subject === 'math'
       ? play(b, c.id, { ok: !!f && Number(typed) === answerOf(f), value: Number(typed), thinkMs: think, fact: f ?? undefined })
       : play(b, c.id, { ok: true, value: Math.max(1, (c.word?.length ?? 1) - wordErr), thinkMs: think });
-    if (ev.length === 1 && ev[0].k === 'retry') { say(`${GEAR[outfit]?.name ?? 'Second Chance'}: have another go!`, 'good'); typed = ''; wordPos = 0; wordErr = 0; ui = 'answer'; shakeKey++; return; }
+    if (ev.length === 1 && ev[0].k === 'retry') { sfx.miss(); say(`${GEAR[outfit]?.name ?? 'Second Chance'}: have another go!`, 'good'); typed = ''; wordPos = 0; wordErr = 0; ui = 'answer'; shakeKey++; return; }
     sel = null; typed = '';
     await run(ev);
   }
@@ -227,7 +227,7 @@
     const word = ui === 'block' ? blk?.word : sel?.word;
     if (!word) return;
     if (ch === word[wordPos]) { wordPos++; sfx.click(); if (wordPos >= word.length) { if (ui === 'block') submitBlock(); else submit(); } }
-    else { wordErr++; shakeKey++; sfx.miss(); }
+    else { wordErr++; shakeKey++; sfx.slip(); }
   }
 
   async function doTheFinale() {
@@ -246,7 +246,7 @@
     if (!useGlow(b) || !f) return;
     glowOk = glowLeft(b);
     glowText = subject === 'math' ? trickOf(f).say : '';
-    sfx.heal();
+    sfx.hint();
   }
 
   // ---------- playing the events ----------
@@ -254,14 +254,14 @@
     for (const e of ev) {
       if (disposed) return;
       if (e.k === 'cast') {
-        sfx.cast(e.card.element);
+        if (e.ok) sfx.cast(e.card.element); else sfx.miss();
         await scene?.cast(e.card.element, e.value, { perfect: e.perfect, super: e.super, ok: e.ok, big: e.value / Math.max(1, b.foe.max) * 2.2 });
         if (e.ok) {
           sfx.hit(Math.min(1, e.value / Math.max(1, b.foe.max) * 3));
           float('foe', `−${e.value}`, e.card.element);
           if (e.perfect) { sfx.perfect(); bigBanner = { text: 'Perfect Cheer!', sub: `Exactly ${e.value}!`, kind: 'perfect', key: Date.now() }; burst++; }
           else if (e.super) say(`⚡ Strong! ${ELEMENT[e.card.element].name} beats ${ELEMENT[b.foe.element].name}.`, 'super');
-        } else { sfx.miss(); say(subject === 'math' && e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
+        } else { say(subject === 'math' && e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
         sync();
       } else if (e.k === 'extra') {
         const slot = e.id ? team.findIndex(m => m.id === e.id) : -1;
@@ -284,8 +284,8 @@
       }
       else if (e.k === 'dazzle') { scene?.dazzle(); }
       else if (e.k === 'streakKept') { say(`${myName(e.id)} kept your row going!`, 'good'); }
-      else if (e.k === 'aurora') { scene?.aurora(); sfx.reveal(3); say('Aurora! Your Finale is ready.', 'super'); await sleep(600); }
-      else if (e.k === 'finaleReady') { sfx.badge(); }
+      else if (e.k === 'aurora') { scene?.aurora(); sfx.aurora(); say('Aurora! Your Finale is ready.', 'super'); await sleep(600); }
+      else if (e.k === 'finaleReady') { sfx.finaleReady(); }
       else if (e.k === 'finale') { sfx.hit(1); float('foe', `−${e.value}`, 'finale'); sync(); }
       else if (e.k === 'mischief') {
         if (e.result === 'skip') {
@@ -295,7 +295,7 @@
           if (e.kind === 'zap') sfx.zap(); else sfx.whoosh();
           await scene?.mischief(e.kind, e.result);
           if (e.damage === 0) { sfx.shield(true); float('buddy', 'Blocked!', 'block'); }
-          else { if (e.result === 'half') sfx.shield(false); sfx.ouch(); float('buddy', `−${e.damage}`, 'hurt'); }
+          else { if (e.result === 'half') sfx.shield(false); sfx.rainHit(); float('buddy', `−${e.damage}`, 'hurt'); }
           sync();
         }
       } else if (e.k === 'secondwind') { scene?.heal(team.findIndex(m => GLIMMER[m.id].power.kind === 'secondwind')); sfx.heal(); say('Sky Whale gives you energy back!', 'super'); float('buddy', `+${e.value} energy`, 'heal'); sync(); }
@@ -321,7 +321,7 @@
     if (firstBattle) tip('t-block', `Uh oh, ${bl.name.toLowerCase()}! Answer this one before the timer runs out to block it.`, '.blockbox');
     blockTyped = ''; wordPos = 0; wordErr = 0;
     ui = 'block'; blockAt = performance.now(); blockLeft = 1;
-    scene?.windup(); sfx.uhoh();
+    scene?.windup(); sfx.rainComing();
     clearInterval(blockTimer);
     blockTimer = window.setInterval(() => {
       const k = (performance.now() - blockAt) / bl.limitMs;
@@ -344,7 +344,7 @@
   // ---------- the end ----------
   async function won(perfect: boolean) {
     ui = 'busy';
-    sync();
+    sync(); if (!perfect) sfx.cheeredUp(0.5); // (a Perfect Cheer already played its fanfare)
     let o: BattleOutcome | null = null;
     game.update(pp => {
       o = applyBattle(pp, { node: node.id, subject, won: true, perfect, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, team: team.map(t => t.id), crystal: team.some(m => GLIMMER[m.id].power.kind === 'crystal'), treasureNose: gear?.kind === 'treasure', at: Date.now(), seed });
@@ -363,7 +363,7 @@
   function lost() {
     ui = 'lost'; coach = null;
     game.update(pp => markSeen(pp, 'battle1', ...seen));
-    scene?.lose();
+    scene?.lose(); sfx.tryAgain();
     game.update(pp => { out = applyBattle(pp, { node: node.id, subject, won: false, perfect: false, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, team: team.map(t => t.id), crystal: false, treasureNose: false, at: Date.now(), seed }); });
   }
   function toMap() { game.go('adventure'); }
@@ -478,7 +478,7 @@
           <h2>You already have {ownName(m.id)}</h2>
           <p class="pw">So yours got stronger{m.ups ? `: now level ${m.level}` : ''}! Find a new kind by playing other battles, or hatch an egg.</p>
         {/if}
-        {#each readyNow as id (id)}<div class="evoready"><img src="{base}game/glimmers/{id}.webp" alt="" /><b>{ownName(id)} is ready to evolve!</b><button class="btn evobtn" onclick={() => { game.glimmerSel = id; game.go('glimmers'); }}>Evolve it</button></div>{/each}
+        {#each readyNow as id (id)}<div class="evoready"><img src="{base}game/glimmers/face/{id}.webp" alt="" /><b>{ownName(id)} is ready to evolve!</b><button class="btn evobtn" onclick={() => { game.glimmerSel = id; game.go('glimmers'); }}>Evolve it</button></div>{/each}
       </div>
       <div class="rewards" class:in={step >= 2}>
         <button class="prize" onclick={() => show({ kind: 'shells' })}><img src="{base}game/icon-shell.webp" alt="" /><b>+{out.shells}</b><small>shells</small></button>
@@ -486,6 +486,7 @@
         {#if out.gear}<button class="prize gearprize" onclick={() => show({ kind: 'gear', id: out!.gear!.id })}><img src="{base}gear/{out.gear.id}.webp" alt="" /><b>Gear!</b><small>{out.gear.name}</small></button>{/if}
         {#if out.egg}<button class="prize egg" onclick={() => show({ kind: 'egg', id: out!.egg!.rarity })}><img src="{base}game/egg-{out.egg.rarity}.webp" alt="" /><b>Egg!</b><small>new</small></button>{/if}
         {#each out.rewards as r}<button class="prize" onclick={() => show({ kind: 'reward', id: r.id })}>{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart">♪</span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></button>{/each}
+        {#each out.stickers ?? [] as st (st.id)}<div class="prize" title={st.desc}><img src="{base}game/icon-stickers.webp" alt="" /><b>Sticker</b><small>{st.name}</small></div>{/each}
       </div>
       <p class="tapnote" class:in={step >= 2}>Tap a prize to see what it's for</p>
       {#if out.islandDone}<div class="island-done">🌈 {island.name} is free of storms! The next island is open.</div>{/if}
@@ -732,7 +733,7 @@
   .prize img { width: 46px; height: 46px; object-fit: contain; }
   .prize .heart { font: 600 38px/46px var(--font-ui); color: #ef5f9a; height: 46px; }
   .prize b { font: 600 22px/1 var(--font-ui); color: var(--ink); }
-  .prize small { font: 700 12px var(--font-body); color: var(--muted); }
+  .prize small { font: 700 12px var(--font-body); color: var(--muted); max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .prize.egg img { animation: eggbounce 1s ease-in-out infinite; }
   .tapnote { position: relative; margin: 0; font: 700 14px var(--font-body); color: #fff; text-shadow: 0 1px 4px rgba(0, 0, 0, .6); opacity: 0; transition: opacity .4s; }
   .tapnote.in { opacity: 1; }

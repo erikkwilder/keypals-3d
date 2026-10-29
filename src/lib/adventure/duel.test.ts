@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { answerOf } from '../math/facts';
-import { newDuel, duelPlay, duelFinale, duelRain, ghostMove, guestPool, progress, cur, type SideSetup, type Duel } from './duel';
+import { newDuel, duelPlay, duelFinale, duelRain, ghostMove, guestPool, progress, cur, DUEL_BAR, DUEL_CARD, type SideSetup, type Duel } from './duel';
 import { newRivals, rollWeek, rivalsFor, styleOf, noteStats, newStats, UP_AT, weekKey, type GhostCopy } from './ghosts';
 import { FINALE_AT } from './battle';
 import { newProfile } from '../engine/profile';
@@ -17,14 +17,44 @@ function playRight(d: Duel, small = false) {
 }
 
 describe('Family Duel', () => {
-  it('sizes each cheer bar to its own questions, so little sums and big times tables are a fair race', () => {
+  it('every right answer fills the same amount on bars of the same size, whatever the level', () => {
     const d = newDuel(side('Mia', 'little'), side('Dad', 'grown'), 'embernewt', 7);
     const [a, b] = d.sides;
-    expect(b.b.foe.max).toBeGreaterThan(a.b.foe.max * 5);
-    // about seven good cards each
-    const avg = (s: typeof a) => s.pool.subject === 'math' ? s.pool.facts.reduce((t, x) => t + answerOf(x.f), 0) / s.pool.facts.length : 1;
-    expect(a.b.foe.max / avg(a)).toBeGreaterThan(5);
-    expect(b.b.foe.max / avg(b)).toBeGreaterThan(5);
+    expect(a.b.foe.max).toBe(DUEL_BAR);
+    expect(b.b.foe.max).toBe(DUEL_BAR);
+    playRight(d, true);
+    expect(a.b.foe.grump).toBe(DUEL_BAR - DUEL_CARD);
+    playRight(d);
+    expect(b.b.foe.grump).toBe(DUEL_BAR - DUEL_CARD);
+  });
+  it('two players who get everything right tie, whatever their level (the second gets a last turn)', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const d = newDuel(side('Mia', 'little'), side('Dad', 'grown'), 'puddlepup', seed);
+      let lastTurn = false, guard = 0;
+      while (d.phase !== 'won' && guard++ < 200) {
+        const ev = d.phase === 'rain' ? duelRain(d, true, 100) : d.phase === 'finale' ? duelFinale(d) : playRight(d);
+        if (ev.some(e => e.k === 'lastTurn')) lastTurn = true;
+      }
+      expect(lastTurn).toBe(true);
+      expect(d.tie).toBe(true);
+    }
+  });
+  it('one slip is enough for the other to win; going second and filling first wins outright', () => {
+    const play = (slipBy: 0 | 1, slips: number) => {
+      const d = newDuel(side('Mia', 'plus'), side('Dad', 'times'), 'puddlepup', 21);
+      let left = slips, guard = 0;
+      while (d.phase !== 'won' && guard++ < 200) {
+        if (d.phase === 'rain') duelRain(d, true, 100);
+        else if (d.phase === 'finale') duelFinale(d);
+        else if (d.turn === slipBy && left > 0 && d.turns > 2) { left--; const c = cur(d).b.cards[0]; duelPlay(d, c.id, { ok: false, value: 0, thinkMs: 1000, fact: c.fact }); }
+        else playRight(d);
+      }
+      return d;
+    };
+    const a = play(1, 1);
+    expect(a.winner).toBe(0); expect(a.tie).toBe(false);
+    const b = play(0, 2);
+    expect(b.winner).toBe(1); expect(b.tie).toBe(false); expect(b.filled).toBe(null);
   });
   it('takes turns, and a wrong answer passes the turn too', () => {
     const d = newDuel(side('Mia', 'little'), side('Dad', 'grown'), 'puddlepup', 3);

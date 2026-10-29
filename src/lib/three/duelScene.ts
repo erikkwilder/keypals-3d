@@ -81,7 +81,7 @@ export class DuelScene implements Controller {
   private ring: THREE.Mesh;
   private rainClouds: (THREE.Group | null)[] = [null, null];
   private stormTex: (THREE.Texture | null)[] = [];
-  private winner: 0 | 1 | null = null; private walkT = 0; private walkFrom = new THREE.Vector3(); private walkTo = new THREE.Vector3();
+  private winner: 0 | 1 | null = null; private tie = false; private walkT = 0; private walkFrom = new THREE.Vector3(); private walkTo = new THREE.Vector3();
   private compact = false;
 
   private constructor(island: Island, sides: [SideRig, SideRig], grumble: GrumpyGlimmer, opts: Opts) {
@@ -117,8 +117,18 @@ export class DuelScene implements Controller {
     this.fx.setScale(innerHeight * Math.min(2, devicePixelRatio || 1), stage.camera.fov);
   }
 
+  /** Start loading the arena early (the setup screen calls this), so the duel opens without a wait:
+   *  the island is the slow part the first time, then it's kept. */
+  static warm(region: RegionId) {
+    void stage.getIsland(region).catch(() => null);
+    for (const t of ['game/storm1.webp', 'game/storm2.webp', 'game/arena-floor.webp']) void loadTexture(t);
+  }
+
   static async create(opts: Opts): Promise<DuelScene> {
-    const island = await stage.getIsland(opts.region);
+    // everything loads side by side: the island, both players and their teams, the Glimmer, the clouds
+    const islandP = stage.getIsland(opts.region);
+    const stormP = Promise.all([loadTexture('game/storm1.webp'), loadTexture('game/storm2.webp')]);
+    const grumbleP = GrumpyGlimmer.create(opts.glimmer, true);
     const rigs = await Promise.all(opts.sides.map(async s => {
       const [me, ...team] = await Promise.all([Character.create(s.buddy), ...s.team.slice(0, 2).map(t => GlimmerModel.create(t.id, GLIMMER[t.id].rarity === 'legendary' || GLIMMER[t.id].rarity === 'mythic' ? 0.8 : 0.62, { evolved: t.evolved }).catch(() => null))]);
       if (!me) throw new Error('character missing');
@@ -129,9 +139,9 @@ export class DuelScene implements Controller {
       return { me, team: team as (GlimmerModel | null)[], at: new THREE.Vector3(), ghost: s.ghost, busyUntil: 0, dance: s.dance } as SideRig;
     }));
     // champion-sized, so the one in the middle reads clearly from both sides
-    const grumble = await GrumpyGlimmer.create(opts.glimmer, true);
+    const [island, grumble, storm] = await Promise.all([islandP, grumbleP, stormP]);
     const sc = new DuelScene(island, rigs as [SideRig, SideRig], grumble, opts);
-    sc.stormTex = await Promise.all([loadTexture('game/storm1.webp'), loadTexture('game/storm2.webp')]);
+    sc.stormTex = storm;
     sc.arena = await buildArena(island, sc.C, sc.n, sc.right);
     stage.scene.add(sc.arena.group);
     return sc;
@@ -276,8 +286,9 @@ export class DuelScene implements Controller {
   }
 
   /** Someone cheered it right up: the cloud bursts, its colours come back, and it hops over to the
-   *  winner, who cheers, while the other side waves. */
-  async win(i: 0 | 1): Promise<void> {
+   *  winner, who cheers, while the other side waves. A tie: both cheer and it stays in the middle,
+   *  happy with both of them. */
+  async win(i: 0 | 1, tie = false): Promise<void> {
     this.grumble.mood = 0;
     await sleep(400);
     const at = this.grumble.centre;
@@ -286,9 +297,10 @@ export class DuelScene implements Controller {
     const rc = RARITY[GLIMMER[this.opts.glimmer].rarity].color;
     this.fx.beam(this.glimmerAt.clone(), rc, { radius: 1.0, height: 16, life: 3.4, peak: 1 });
     this.play(i, 'cheer', 2.6, 'jump');
-    this.play((1 - i) as 0 | 1, 'wave', 2.6, 'cheer');
-    this.winner = i;
+    this.play((1 - i) as 0 | 1, tie ? 'cheer' : 'wave', 2.6, tie ? 'jump' : 'cheer');
+    this.winner = i; this.tie = tie;
     await sleep(1100);
+    if (tie) { this.grumble.glimmer.play('happy'); await sleep(1500); return; }
     // hop over to the winner
     this.walkFrom.copy(this.grumble.root.position);
     this.walkTo.copy(this.sides[i].at).addScaledVector(this.right, i === 0 ? 0.85 : -0.85).addScaledVector(this.n, -0.35);
@@ -305,7 +317,7 @@ export class DuelScene implements Controller {
     this.sides.forEach((s, i) => {
       s.me.root.position.copy(s.at);
       // face the Glimmer, turned toward you; on a win, the loser turns to the winner
-      const target = this.winner !== null && this.winner !== i ? this.sides[this.winner].at : this.grumble.root.position;
+      const target = this.winner !== null && !this.tie && this.winner !== i ? this.sides[this.winner].at : this.grumble.root.position;
       const toG = target.clone().sub(s.at); toG.y = 0;
       const toCam = camPos.clone().sub(s.at); toCam.y = 0;
       const look = toG.normalize().multiplyScalar(0.6).add(toCam.normalize().multiplyScalar(0.45));

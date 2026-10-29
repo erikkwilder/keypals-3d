@@ -3,10 +3,10 @@
   import { onDestroy, onMount } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { game, type LastRun } from '../state/game.svelte';
-  import { LESSON, REGION, newCharsFor } from '../engine/course';
+  import { LESSON, MOVE_ICON, MOVE_WORD, REGION, lessonMove, newCharsFor } from '../engine/course';
   import { generate } from '../engine/textgen';
   import { Session } from '../engine/session';
-  import { RIDES, RideMeter, type RideEvent } from '../engine/rides';
+  import { RIDES, RideMeter, rideName, type RideEvent } from '../engine/rides';
   import { computeStats, ghostWords, lessonGoal, starScores, starsFor } from '../engine/scoring';
   import { applyRun, danceOf, knownFor, outfitOf } from '../engine/profile';
   import { mastery, weakMap } from '../engine/mastery';
@@ -17,7 +17,7 @@
   import { POOLS } from '../content/sentences';
   import { melodyNote, musicEnergy, resetMelody, sfx, startMusic, unlockAudio } from '../audio/sound';
   import { stage } from '../three/stage';
-  import { RunScene } from '../three/runScene';
+  import { RunScene, courseKeyLen } from '../three/runScene';
   import { say, hush } from '../audio/voice.svelte';
   import Caption from '../ui/Caption.svelte';
   import FingerCoach from '../ui/FingerCoach.svelte';
@@ -39,6 +39,9 @@
   const grown = S.grown;
   const lesson = LESSON[game.lessonId];
   const region = REGION[lesson.region];
+  // the trail with its speed rides, or a climb, a swim or a sled run (engine/course.ts lessonMove)
+  const move = lessonMove(lesson);
+  const MOVE_LINE = { run: 'Run the trail: type fast and clean to ride a skateboard, a bike, a car, even a rocket!', climb: 'Climb the cliff: every right key pulls you higher. Type fast and clean to climb quicker!', swim: 'Swim across the bay: every right key is a stroke. Type fast and clean to swim like a dolphin!', slide: 'Sled down the mountain: every right key is a push. Type fast and clean to go full avalanche!' }[move];
   const layout = game.layout;
   const known = knownFor(profile, lesson, layout);
   const fresh = newCharsFor(lesson, layout);
@@ -213,7 +216,7 @@
       missed.add(session.pos);
       errorsInRow++;
       scene?.key(false, session.pos);
-      sfx.miss();
+      sfx.slip();
       shake++;
       if (errorsInRow >= 2) {
         const want = cur === ' ' ? 'space' : cur;
@@ -334,7 +337,7 @@
   $effect(() => { void keyboardOn; void handsOn; void stageH; void stageW; requestAnimationFrame(updateView); });
 
   onMount(() => {
-    RunScene.create({ buddy: profile.buddy, outfit, dance: danceOf(profile), length: text.length, ghostCps: S.ghost !== false ? ghostCps : undefined, region: lesson.region })
+    RunScene.create({ buddy: profile.buddy, outfit, dance: danceOf(profile), length: text.length, ghostCps: S.ghost !== false ? ghostCps : undefined, region: lesson.region, move, keyLen: move === 'run' ? undefined : courseKeyLen(move, text.length) })
       .then(sc => { scene = sc; stage.use(sc); updateView(); loading = false; })
       .catch(err => { console.error(err); loading = false; });
     // the very first lesson asks how things should sound before anyone starts talking
@@ -359,14 +362,14 @@
 
 </script>
 
-<div class="run" class:no-kb={!keyboardOn && !handsOn}>
+<div class="run" class:no-kb={!keyboardOn && !handsOn} class:compact={stageW < 700}>
   <div class="stage" bind:clientHeight={stageH} bind:clientWidth={stageW}>
     {#if bubble}
       <!-- the point is a share of the window; the stage is shorter (the keyboard sits below), so place it in pixels -->
       <div class="bubble" style:left="{bubbleXY.x * innerWidth}px" style:top="{bubbleXY.y * innerHeight}px">{bubble}</div>
     {/if}
     {#if bonusPop}{#key bonusPop.n}<div class="tpop" style:left="{bubbleXY.x * innerWidth + bonusPop.x}px" style:top="{bubbleXY.y * innerHeight + 40}px">⏱ −0.5s</div>{/key}{/if}
-    {#if loading}<div class="loading">Getting the island ready…</div>{/if}
+    {#if loading}<div class="loading">{move === 'climb' ? 'Getting the cliff ready…' : move === 'swim' ? 'Getting the bay ready…' : move === 'slide' ? 'Getting the slope ready…' : 'Getting the island ready…'}</div>{/if}
 
     <div class="hud">
       <button class="btn btn-icon pause" aria-label="Pause" onclick={() => (phase = phase === 'typing' ? 'paused' : phase)}>
@@ -388,7 +391,7 @@
         {#if bonusLevel > 0}<div class="tb" title="Clean typing earns back time">⏱ ×{bonusLevel}</div>{/if}
       </div>
       <EggBadge warm={Math.floor(pos / 5)} />
-      <RideLadder {tier} {progress} {best} blocked={false} record={record?.bestRide ?? 0} />
+      <RideLadder {tier} {progress} {best} blocked={false} record={record?.bestRide ?? 0} {move} />
     </div>
 
     <div class="ribbon-wrap" bind:this={ribbonEl}>
@@ -405,8 +408,8 @@
       {#key banner.n}
         <div class="banner" class:down={banner.down}>
           {#if !banner.down}<div class="rays"></div>{/if}
-          <svg class="bicon" viewBox="0 0 48 48">{@html rideIcon(banner.tier, '#fff')}</svg>
-          <div class="bword">{banner.down ? 'Whoa, slow down' : RIDES[banner.tier].name + '!'}</div>
+          <svg class="bicon" viewBox="0 0 48 48">{@html rideIcon(banner.tier, '#fff', move)}</svg>
+          <div class="bword">{banner.down ? (move === 'run' ? 'Whoa, slow down' : 'Easy does it') : rideName(banner.tier, move) + '!'}</div>
           {#if !banner.down}<div class="bsub">{banner.tier === RIDES.length - 1 ? 'Top speed!' : 'Keep it clean to go higher'}</div>{/if}
         </div>
       {/key}
@@ -439,7 +442,7 @@
   {#if phase === 'intro' && !replaying}
     <div class="overlay">
       <div class="card intro">
-        <div class="where">{region.name} · Lesson {lesson.n}</div>
+        <div class="where">{region.name} · Lesson {lesson.n}<span class="mv mv-{move}">{MOVE_ICON[move]} {MOVE_WORD[move]}</span></div>
         <h1>{lessonTitle(lesson, layout)}</h1>
         {#if freshShown.length}
           <div class="newkeys">
@@ -460,6 +463,7 @@
           </div>
           {#if lesson.blurb}<p class="blurb">{lesson.blurb}</p>{/if}
         {/if}
+        <p class="moveline mv-{move}">{MOVE_LINE}</p>
         <div class="goals">
           <div class="goal"><Stars n={1} of={1} size={22} /><span>score {star1}</span></div>
           <div class="goal"><Stars n={2} of={2} size={22} /><span>score {star2}</span></div>
@@ -467,7 +471,7 @@
         </div>
         <p class="howscore">Your score is your speed plus a bonus for clean typing. Keep a streak going to earn time back!</p>
         {#if record}
-          <div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore ?? Math.round(record.bestWpm)} · ride: {RIDES[record.bestRide].name}{#if record.platinum} · platinum!{/if}</div>
+          <div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore ?? Math.round(record.bestWpm)} · {move === 'run' ? 'ride' : 'top speed'}: {rideName(record.bestRide, move)}{#if record.platinum} · platinum!{/if}</div>
         {/if}
         <div class="tiles">
           <NavTile size="md" tone="sky" kind="home" label="Home" onclick={leave} />
@@ -555,6 +559,26 @@
   .rays { position: absolute; top: -214px; left: calc(50% - 260px); width: 520px; height: 520px; background: repeating-conic-gradient(rgba(255, 255, 255, .55) 0 10deg, rgba(255, 255, 255, 0) 10deg 20deg); border-radius: 50%; mask: radial-gradient(circle, #000 20%, transparent 68%); animation: spin 6s linear infinite; }
   @keyframes banner { 0% { transform: scale(.3); opacity: 0; } 15% { transform: scale(1.1); opacity: 1; } 25% { transform: scale(1); } 80% { opacity: 1; } 100% { transform: scale(1.05) translateY(-20px); opacity: 0; } }
 
+  /* phones (as the math trips): the bar wraps with the trail on a row of its own, the speed ladder shows in
+     the banners, and the keyboard gets the whole width (no hands) */
+  .compact .hud { top: 8px; left: 8px; right: 8px; gap: 6px 8px; flex-wrap: wrap; }
+  .compact .title { padding: 5px 10px; }
+  .compact .region { display: none; }
+  .compact .lesson { font-size: 15px; }
+  .compact .trail { order: 5; flex: 1 1 100%; height: 28px; min-width: 0; }
+  .compact .me { top: -10px; }
+  .compact .live { padding: 6px 8px; gap: 8px; font-size: 12px; margin-left: auto; }
+  .compact .live b { font-size: 16px; }
+  .compact .hud :global(.ladder) { display: none; }
+  .compact .ribbon-wrap { top: 100px; width: calc(100% - 16px); }
+  .compact .announce { top: calc(100px + clamp(140px, 26%, 220px) + 12px); }
+  /* the banners sit at the top of the picture, small, so they never cover the buddy */
+  .compact .banner, .compact .banner.finish { left: 0; right: 0; top: 4px; bottom: auto; justify-content: flex-start; }
+  .compact .bicon, .compact .rays { display: none; }
+  .compact .bword { font-size: 32px; margin-top: 0; }
+  .compact .bsub { font-size: 13px; padding: 4px 10px; margin-top: 4px; }
+  .compact .panel { grid-template-columns: minmax(0, 1fr); padding: 8px 8px 10px; }
+  .compact .side { display: none; }
   .panel { flex: none; height: clamp(190px, 30vh, 300px); display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 4.2fr) minmax(90px, 1fr); align-items: center; gap: 10px; padding: 12px 18px 16px; background: linear-gradient(#fff, var(--bg2)); border-top: var(--panel-border); box-shadow: 0 -10px 30px -20px rgba(60, 40, 110, .3); }
   .side { height: 100%; display: grid; place-items: center; padding-top: 10px; }
   .side :global(.hand) { width: min(100%, 170px); }
@@ -564,6 +588,13 @@
   .overlay { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(40, 28, 70, .32); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); animation: fade-up .25s ease; padding: 20px; }
   .card.intro, .card.pausecard { width: min(820px, 100%); max-height: 100%; overflow: auto; padding: 26px 30px 22px; text-align: center; animation: pop-in .35s cubic-bezier(.3, .8, .4, 1.3); }
   .where { font: 800 12px/1 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  /* the way this lesson moves: the trail, or a climb, a swim or a sled run, in that course's colour */
+  .mv { display: inline-block; margin-left: 8px; padding: 3px 9px 3px 7px; border-radius: 999px; letter-spacing: .04em; color: #fff; background: var(--mvc, var(--primary)); vertical-align: middle; }
+  .mv-run { --mvc: #7c5cf5; --mvbg: #f1ecff; }
+  .mv-climb { --mvc: #e0752a; --mvbg: #fff1e4; }
+  .mv-swim { --mvc: #1f9a8c; --mvbg: #e2f7f3; }
+  .mv-slide { --mvc: #4a7fd8; --mvbg: #e7f0ff; }
+  .moveline { margin: 4px auto 10px; max-width: 600px; padding: 7px 14px; border-radius: 14px; background: var(--mvbg); color: var(--ink2); font: 700 14.5px/1.35 var(--font-body); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--mvc) 22%, transparent); }
   .intro h1 { font-size: clamp(32px, 5vh, 46px); margin: 6px 0 12px; }
   .meet { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; margin: 6px 0 4px; }
   .meet.small { align-items: flex-end; gap: 6px; }

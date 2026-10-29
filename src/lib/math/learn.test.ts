@@ -51,7 +51,8 @@ describe('Learn lessons', () => {
     const first = finishLesson(p, 'bridge-ten');
     expect(first).toMatchObject({ first: true, shells: LEARN_SHELLS });
     expect(advView(p).shells).toBe(LEARN_SHELLS);
-    expect(advView(p).practiceSessions).toBe(1);
+    // a minute's lesson warms the eggs but isn't a practice session (it doesn't finish a map practice stop)
+    expect(advView(p).practiceSessions).toBe(0);
     const again = finishLesson(p, 'bridge-ten');
     expect(again).toMatchObject({ first: false, shells: 0 });
     const t = learnedTrick(mathOf(p), { a: 8, b: 5, op: '+' })!;

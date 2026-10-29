@@ -3,9 +3,9 @@
   // three stars, and the ride ladder up the side at the scores each ride needs.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { LESSON, REGION } from '../engine/course';
+  import { LESSON, REGION, lessonMove } from '../engine/course';
   import { lessonGoal, platinumScore, starScores } from '../engine/scoring';
-  import { RIDES, RIDE_SCORE } from '../engine/rides';
+  import { RIDE_SCORE, rideName } from '../engine/rides';
   import { rideIcon } from '../art/vehicles';
   import TileArt from './TileArt.svelte';
   import Stars from './Stars.svelte';
@@ -77,7 +77,7 @@
         {/each}
         <!-- the ride ladder up the right side, at the live score each ride needs -->
         {#each rides as r (r.i)}
-          <g transform="translate({W - R + 16 + (r.i % 2) * 26} {y(r.v) - 12})"><title>{RIDES[r.i].name}: {r.v}</title><svg width="24" height="24" viewBox="0 0 48 48">{@html rideIcon(r.i, '#8a7cb8')}</svg></g>
+          <g transform="translate({W - R + 16 + (r.i % 2) * 26} {y(r.v) - 12})"><title>{rideName(r.i, lessonMove(lesson))}: {r.v}</title><svg width="24" height="24" viewBox="0 0 48 48">{@html rideIcon(r.i, '#8a7cb8', lessonMove(lesson))}</svg></g>
         {/each}
       </svg>
     {:else}

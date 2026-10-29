@@ -3,16 +3,16 @@
 // functions over plain data.
 
 import { BUDDIES, type FriendId, type Look } from '../art/cast';
-import { ALL_LESSONS, LESSON, REGIONS, knownChars, lessonIndex, type Lesson, type RegionId } from './course';
+import { ALL_LESSONS, LESSON, REGIONS, knownChars, lessonIndex, lessonMove, type Lesson, type RegionId } from './course';
 import type { Layout, LayoutId } from './layouts';
-import { AWARD, type AwardDef } from './achievements';
-import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from './stickers';
-import { teamBuddies, welcomeNew } from './team';
-import { earnShells, notePractice, practiceShells } from '../adventure/state';
-import { REWARDS, forBuddy, newBetween, treasureFor, type Reward } from './rewards';
+import type { AwardDef } from './achievements';
+import { STICKERS, newPalProgress, type PalProgress, type StickerDef } from './stickers';
+import { teamBuddies } from './team';
+import { REWARDS, forBuddy, type Reward } from './rewards';
+import { settlePractice } from './settle';
 import { updateKeyStats, type KeyStat } from './mastery';
 import { lessonGoal, platinumScore, starScores, type RunStats } from './scoring';
-import { RIDES } from './rides';
+import { RIDES, rideName, type Move } from './rides';
 
 export type FontChoice = 'fredoka' | 'atkinson' | 'lexend' | 'opendyslexic';
 
@@ -268,9 +268,6 @@ export type RunOutcome = {
   stickers: StickerDef[];
   /** outfits and dances unlocked by this run's friendship level-up */
   rewards: Reward[];
-  /** the treasure step this run's score earned (-1: none) */
-  treasure: number;
-  newBestTreasure: boolean;
   xp: XpInfo;
   before: LessonRecord | null;
   record: LessonRecord;
@@ -310,7 +307,6 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
     scoreSum: (prev.scoreSum ?? 0) + s.score,
     finishes: (prev.finishes ?? 0) + (run.finished ? 1 : 0),
     platinum: !!prev.platinum || (run.finished && s.score >= platinumScore(lessonGoal(lesson, grown, p0.settings.easy))),
-    treasure: Math.max(prev.treasure ?? -1, run.finished ? treasureFor(s.score, grown) : -1),
   };
   p.lessons[run.lessonId] = record;
   p.keys = updateKeyStats(p.keys, s.perKey);
@@ -328,30 +324,18 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
   p.history.push({ at: run.at, lessonId: run.lessonId, wpm: s.wpm, acc: s.acc, stars: run.stars, ride: run.bestRide, ms: s.durationMs, score: s.score });
   if (p.history.length > 300) p.history.splice(0, p.history.length - 300);
 
-  const dk = dayKey(run.at);
-  const day = (p.days[dk] ??= { ms: 0, runs: 0 });
-  const wasGoal = !!day.goal;
-  day.ms += s.durationMs;
-  day.runs++;
-  if (!day.goal && day.ms >= p.settings.dailyGoalMin * 60000) day.goal = true;
-  const goalJustHit = !wasGoal && !!day.goal;
-
-  // medals for this run
+  // medals for this run (reaching today's goal adds the goal medal)
   const medals: string[] = [];
-  if (run.finished && s.chars >= 15) {
-    if (s.errors === 0) medals.push('clean');
-  }
+  if (run.finished && s.chars >= 15 && s.errors === 0) medals.push('clean');
   if (passedNow && before && before.bestWpm > 0 && s.wpm > before.bestWpm) medals.push('pb');
   if (s.maxStreak >= 25) medals.push('streak-25');
   const comeback = run.finished && s.errors >= 3 && s.finalStreak >= 15;
   if (run.finished && run.keyboardHidden && run.handsHidden && s.acc >= 0.95) medals.push('touch-typist');
   if (passedNow && prev.attempts === 0) medals.push('firsttry');
   if (run.stars === 3) medals.push('three');
-  if (goalJustHit) medals.push('goal');
 
-  // this Keypal's own progress
+  // this Keypal's own counters (the stickers read them)
   const pal: PalProgress = buddyPal(p);
-  const lvlBefore = levelFromXp(pal.xp);
   pal.runs++;
   pal.chars += s.chars;
   pal.bestStreak = Math.max(pal.bestStreak, s.maxStreak);
@@ -363,38 +347,16 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
   pal.rideBest = Math.max(pal.rideBest, run.bestRide);
   if (comeback) pal.comebacks++;
   if (run.napped && run.finished) pal.naps++;
-  if (goalJustHit && !pal.goalDays.includes(dk)) pal.goalDays.push(dk);
-  const treasure = run.finished ? treasureFor(s.score, grown) : -1;
-  const newBestTreasure = treasure > pal.treasureBest;
-  pal.treasureBest = Math.max(pal.treasureBest, treasure);
-  if (run.finished) pal.dances++;
   if (passedNow) {
     const region = REGIONS.find(r => r.id === lesson.region)!;
     const last = region.lessons[region.lessons.length - 1];
     if ((lesson.id === last.id || region.id === 'road') && !pal.regions.includes(region.id)) pal.regions.push(region.id);
   }
-  const medalWins: MedalWin[] = [];
-  for (const m of medals) {
-    const before = pal.medals[m] ?? 0;
-    pal.medals[m] = before + 1;
-    const tier = medalTier(before + 1);
-    if (AWARD[m]) medalWins.push({ ...AWARD[m], count: before + 1, tier, tierUp: tier > medalTier(before) });
-  }
-  pal.medalsTotal += medals.length;
-  const gained = runXp(s, run.stars, medals.length, run.finished, grown);
-  pal.xp += gained;
-  const lvlAfter = levelFromXp(pal.xp);
-  pal.level = lvlAfter.level;
-  const rewards = forBuddy(newBetween(lvlBefore.level, lvlAfter.level), p.buddy);
-  for (const r of rewards) if (!pal.seen.includes('reward:' + r.id)) pal.seen.push('reward:' + r.id);
-
-  // stickers: check everything this buddy hasn't won yet
   void layout;
-  const stickers: StickerDef[] = [];
-  for (const st of STICKERS) {
-    if (pal.stickers[st.id]) continue;
-    if (st.check(pal, { grown, friend: p.buddy })) { pal.stickers[st.id] = run.at; stickers.push(st); pal.seen.push('sticker:' + st.id); }
-  }
+
+  // the same ending as every practice game: goal, medals, friendship, stickers, buddies, eggs, shells
+  // (practice warms the Adventure eggs every five right letters)
+  const done = settlePractice(p, { at: run.at, ms: s.durationMs, finished: run.finished, stars: run.stars, medals, right: Math.floor(s.chars / 5), xp: n => runXp(s, run.stars, n, run.finished, grown), move: lessonMove(lesson) });
 
   let regionJustDone: RegionId | null = null;
   for (const r of REGIONS) {
@@ -404,40 +366,34 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
     if (doneNow && !doneBefore) regionJustDone = r.id;
   }
 
-  const buddies = welcomeNew(p);
-  // practice warms the Adventure eggs: every five right letters
-  const eggsReady = run.finished ? notePractice(p, Math.floor(s.chars / 5)) : [];
-  const shells = run.finished ? earnShells(p, practiceShells({ stars: run.stars, medals: medals.length, stickers: stickers.length, treasure })) : 0;
   return {
-    eggsReady, shells,
-    buddies,
+    eggsReady: done.eggsReady, shells: done.shells,
+    buddies: done.buddies,
     profile: p,
-    medals: medalWins,
-    stickers,
-    rewards,
-    treasure,
-    newBestTreasure,
-    xp: { gained, before: lvlBefore, after: lvlAfter },
+    medals: done.medals,
+    stickers: done.stickers,
+    rewards: done.rewards,
+    xp: done.xp,
     before,
     record,
     newBestWpm: !!before && record.bestWpm > before.bestWpm,
     newBestScore: !!before && s.score > (before.bestScore ?? 0),
     platinumJust: !!record.platinum && !before?.platinum,
     newBestRide: !!before && record.bestRide > before.bestRide,
-    goalJustHit,
+    goalJustHit: done.goalJustHit,
     regionJustDone,
   };
 }
 
 /** A friendly next goal for the results screen. */
-export function nextGoal(p: Profile, out: Pick<RunOutcome, 'record'>, goal: number, rideTh: number[]): string {
+export function nextGoal(p: Profile, out: Pick<RunOutcome, 'record'>, goal: number, rideTh: number[], move: Move = 'run'): string {
   const r = out.record;
   const [one, two] = starScores(goal);
   if (r.stars === 0) return `Next goal: a score of ${one} for your first star. Keep your eyes on the letters!`;
   if (r.stars === 1) return `Next goal: a score of ${two} for two stars. Clean streaks add a time bonus!`;
   if (r.stars === 2) return `Next goal: a score of ${goal} for three stars.`;
   const nextRide = RIDES[r.bestRide + 1];
-  if (nextRide) return `Next goal: reach ${nextRide.name} on this lesson (a live score of about ${rideTh[r.bestRide + 1]}).`;
+  if (nextRide) return `Next goal: reach ${rideName(r.bestRide + 1, move)} on this lesson (a live score of about ${rideTh[r.bestRide + 1]}).`;
   if (!r.platinum) return `Three stars! Can you reach platinum? It takes a score of ${platinumScore(goal)}.`;
   const pal = palOf(p);
   const left = STICKERS.filter(s => !pal.stickers[s.id]).length;
