@@ -503,6 +503,162 @@
     "voice": "coach",
     "ms": 2963
   },
+  "ep.pv-make-ten.intro": {
+    "voice": "coach",
+    "ms": 7473
+  },
+  "ep.pv-make-ten.s0": {
+    "voice": "coach",
+    "ms": 4385
+  },
+  "ep.pv-make-ten.s1": {
+    "voice": "coach",
+    "ms": 1442
+  },
+  "ep.pv-make-ten.s2": {
+    "voice": "coach",
+    "ms": 2170
+  },
+  "ep.pv-make-ten.s3": {
+    "voice": "coach",
+    "ms": 4635
+  },
+  "ep.pv-make-ten.card": {
+    "voice": "coach",
+    "ms": 3732
+  },
+  "ep.pv-tens-ones.intro": {
+    "voice": "coach",
+    "ms": 4889
+  },
+  "ep.pv-tens-ones.s0": {
+    "voice": "coach",
+    "ms": 3447
+  },
+  "ep.pv-tens-ones.s1": {
+    "voice": "coach",
+    "ms": 2435
+  },
+  "ep.pv-tens-ones.s2": {
+    "voice": "coach",
+    "ms": 968
+  },
+  "ep.pv-tens-ones.s3": {
+    "voice": "coach",
+    "ms": 4675
+  },
+  "ep.pv-tens-ones.card": {
+    "voice": "coach",
+    "ms": 3826
+  },
+  "ep.pv-big-numbers.intro": {
+    "voice": "coach",
+    "ms": 5568
+  },
+  "ep.pv-big-numbers.s0": {
+    "voice": "coach",
+    "ms": 3467
+  },
+  "ep.pv-big-numbers.s1": {
+    "voice": "coach",
+    "ms": 3896
+  },
+  "ep.pv-big-numbers.s2": {
+    "voice": "coach",
+    "ms": 6600
+  },
+  "ep.pv-big-numbers.s3": {
+    "voice": "coach",
+    "ms": 5074
+  },
+  "ep.pv-big-numbers.s4": {
+    "voice": "coach",
+    "ms": 7179
+  },
+  "ep.pv-big-numbers.card": {
+    "voice": "coach",
+    "ms": 5019
+  },
+  "ep.pv-add-regroup.intro": {
+    "voice": "coach",
+    "ms": 6041
+  },
+  "ep.pv-add-regroup.s0": {
+    "voice": "coach",
+    "ms": 2105
+  },
+  "ep.pv-add-regroup.s1": {
+    "voice": "coach",
+    "ms": 3078
+  },
+  "ep.pv-add-regroup.s2": {
+    "voice": "coach",
+    "ms": 4071
+  },
+  "ep.pv-add-regroup.s3": {
+    "voice": "coach",
+    "ms": 2075
+  },
+  "ep.pv-add-regroup.s4": {
+    "voice": "coach",
+    "ms": 4295
+  },
+  "ep.pv-add-regroup.card": {
+    "voice": "coach",
+    "ms": 5104
+  },
+  "ep.pv-sub-regroup.intro": {
+    "voice": "coach",
+    "ms": 5044
+  },
+  "ep.pv-sub-regroup.s0": {
+    "voice": "coach",
+    "ms": 6171
+  },
+  "ep.pv-sub-regroup.s1": {
+    "voice": "coach",
+    "ms": 4655
+  },
+  "ep.pv-sub-regroup.s2": {
+    "voice": "coach",
+    "ms": 3871
+  },
+  "ep.pv-sub-regroup.s3": {
+    "voice": "coach",
+    "ms": 4166
+  },
+  "ep.pv-sub-regroup.s4": {
+    "voice": "coach",
+    "ms": 5288
+  },
+  "ep.pv-sub-regroup.card": {
+    "voice": "coach",
+    "ms": 4555
+  },
+  "ep.pv-rounding.intro": {
+    "voice": "coach",
+    "ms": 4405
+  },
+  "ep.pv-rounding.s0": {
+    "voice": "coach",
+    "ms": 3871
+  },
+  "ep.pv-rounding.s1": {
+    "voice": "coach",
+    "ms": 2875
+  },
+  "ep.pv-rounding.s2": {
+    "voice": "coach",
+    "ms": 4904
+  },
+  "ep.pv-rounding.s3": {
+    "voice": "coach",
+    "ms": 5867
+  },
+  "ep.pv-rounding.card": {
+    "voice": "coach",
+    "ms": 4490
+  },
   "ep.teach": {
     "voice": "coach",
     "ms": 3437

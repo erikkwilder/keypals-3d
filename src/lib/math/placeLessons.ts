@@ -15,7 +15,7 @@ const Q = (a: number, b: number, op: '+' | '-', text?: string, ans?: number): Fa
 // ---------- where the blocks go ----------
 const C = 24;
 /** the tens: rows of ten blocks, one under the other (`left` is where the first block of a row sits) */
-const ROW0 = 64, ROWG = 32;
+const ROW0 = 64, ROWG = 38;
 const tenAt = (row: number, k: number, left: number, rowG = ROWG) => ({ x: left + k * C, y: ROW0 + row * rowG });
 /** the ones: columns of five, beside the tens */
 const oneAt = (i: number, left: number) => ({ x: left + Math.floor(i / 5) * 30, y: ROW0 + 20 + (i % 5) * 32 });
