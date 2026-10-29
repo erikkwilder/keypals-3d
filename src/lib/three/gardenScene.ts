@@ -150,7 +150,9 @@ export class GardenScene implements Controller {
   private butterflies: { g: THREE.Group; l: THREE.Object3D; r: THREE.Object3D; ph: number; sp: number }[] = [];
   private camPos = new THREE.Vector3(); private camAim = new THREE.Vector3(); private camReady = false;
   private now = 0; private started = -1;
-  private walk = { to: new THREE.Vector3(), wait: 2, mode: 'idle' as 'idle' | 'walk' | 'water', until: 0 };
+  private walk = { to: new THREE.Vector3(), wait: 2, mode: 'idle' as 'idle' | 'walk' | 'water' | 'travel', until: 0, route: [] as THREE.Vector3[], face: Math.PI, waterAt: null as THREE.Vector3 | null, speed: 3.2 };
+  /** the player's own camera (drag, pinch, the arrows), or null: the garden frames itself */
+  private free: { target: THREE.Vector3; yaw: number; pitch: number; dist: number } | null = null;
   /** the stage clock time the scene showed (growth pops in after) */
   private sun: THREE.DirectionalLight;
   private clouds: THREE.Object3D[] = [];
@@ -336,7 +338,8 @@ export class GardenScene implements Controller {
     const mounds = mk(seedGeo, cardMat(seedTex, 0.05), count(x => x.pt.stage === 0));
     const glows = mk(glowGeo, glowMat, count(x => !!x.pt.latest));
     const hitMat = keep(new THREE.MeshBasicMaterial({ visible: false }));
-    const hit = mk(keep(new THREE.BoxGeometry(0.52, 0.62, 0.7).translate(0, 0.25, 0)), hitMat, all.length);
+    // tall enough to catch a tap on a flower's head as well as its leaves
+    const hit = mk(keep(new THREE.BoxGeometry(0.56, 0.9, 0.7).translate(0, 0.4, 0)), hitMat, all.length);
     const dropMat = keep(new THREE.MeshBasicMaterial({ map: dropTex, transparent: true, alphaTest: 0.1, depthWrite: false }));
     const drops = mk(keep(new THREE.PlaneGeometry(0.17, 0.17)), dropMat, count(x => x.pt.due));
 
@@ -387,7 +390,7 @@ export class GardenScene implements Controller {
     place(puffy, 10, 18, 44, 0.8, 1.2); place(puffy2, 8, 18, 44, 0.8, 1.15); place(round, 8, 16, 42, 0.8, 1.2);
     place(bush, 28, 8, 44, 0.7, 1.4); place(boulder, 10, 10, 44, 0.6, 1.5); place(mush, 20, 6, 40, 0.6, 1.3);
     // a few bushes and mushrooms right by the beds (never on the paths)
-    if (bush) for (let pi = 0; pi < o.plots.length; pi++) for (const [dx, dz] of [[BED_L / 2 + 1.2, -2], [BED_L / 2 + 1.4, -7.5], [-BED_L / 2 - 1.5, -10]]) { const c = bush.clone(true); c.position.set(plotX(pi) + dx, 0, dz); c.scale.setScalar(0.7 + rnd() * 0.4); root.add(c); }
+    if (bush) for (let pi = 0; pi < o.plots.length; pi++) for (const [dx, dz] of [[BED_L / 2 + 2.1, -2], [BED_L / 2 + 2.2, -7.5], [-BED_L / 2 - 1.5, -10]]) { const c = bush.clone(true); c.position.set(plotX(pi) + dx, 0, dz); c.scale.setScalar(0.7 + rnd() * 0.4); root.add(c); }
     if (mush) for (let pi = 0; pi < o.plots.length; pi++) for (const [dx, dz] of [[BED_L / 2 + 0.7, 0.4], [-BED_L / 2 - 1.1, -4.6]]) { const c = mush.clone(true); c.position.set(plotX(pi) + dx, 0, dz); c.scale.setScalar(0.6 + rnd() * 0.5); root.add(c); }
     if (hill) { hill.position.set(0, 0, -27); root.add(hill); }
     if (isl) for (let i = 0; i < 6; i++) { const c = isl.clone(true); const a = rnd() * Math.PI * 2; c.position.set(Math.cos(a) * (90 + rnd() * 80), -6 + rnd() * 26, Math.sin(a) * (90 + rnd() * 80) - 40); c.scale.setScalar(0.7 + rnd() * 1.6); c.rotation.y = rnd() * 6; root.add(c); }
@@ -452,15 +455,80 @@ export class GardenScene implements Controller {
   // ---------- what the screen asks ----------
   /** Look at a plot (and one bed of it, or the whole plot). */
   show(plot: number, bed: number | null) {
-    const moved = plot !== this.plot;
-    this.plot = plot; this.bed = bed;
-    if (moved && this.me) {
-      // the buddy pops over to the new plot in a little puff
-      this.fx.emit({ at: this.me.root.position.clone().add(new THREE.Vector3(0, 0.6, 0)), count: 26, shape: ['dot', 'star'], color: [0xffffff, 0xd8f5ff, 0xfff2a8], speed: [0.6, 2], life: [0.4, 0.9], size: [0.08, 0.18], drag: 2 });
-      const p = new THREE.Vector3(plotX(plot) - 2 + Math.random() * 2, 0, PATH_Z);
-      this.me.root.position.copy(p); this.walk.to.copy(p); this.walk.mode = 'idle'; this.walk.wait = 1.5;
-      this.fx.emit({ at: p.clone().add(new THREE.Vector3(0, 0.6, 0)), count: 26, shape: ['dot', 'star'], color: [0xffffff, 0xd8f5ff, 0xfff2a8], speed: [0.6, 2], life: [0.4, 0.9], size: [0.08, 0.18], drag: 2 });
+    if (plot === this.plot && bed === this.bed && !this.free) return;
+    this.plot = plot; this.bed = bed; this.free = null;
+    // the buddy walks there along the paths (runs if it's far), the camera following, and waters once it
+    // arrives: along the path in front of the plots, then up the grass aisle beside the beds to the bed
+    const me = this.me;
+    if (!me) return;
+    const X = plotX(plot), at = me.root.position.clone().setY(0), route: THREE.Vector3[] = [];
+    const aisle = X + BED_L / 2 + 0.75;
+    if (Math.abs(at.z - PATH_Z) > 0.35) route.push(new THREE.Vector3(at.x, 0, PATH_Z));
+    if (bed === null) {
+      route.push(new THREE.Vector3(X - 1.5 + Math.random() * 2, 0, PATH_Z));
+      this.walk.face = Math.PI; this.walk.waterAt = null;
+    } else {
+      route.push(new THREE.Vector3(aisle, 0, PATH_Z), new THREE.Vector3(aisle, 0, bedZ(bed)));
+      this.walk.face = -Math.PI / 2; this.walk.waterAt = new THREE.Vector3(aisle - 1.1, 0, bedZ(bed));
     }
+    // a step that's already where the buddy is (or where the last step ends) is left out
+    this.walk.route = route.filter((q, i) => q.distanceTo(i ? route[i - 1] : at) > 0.05);
+    // a running speed for the whole trip: about three seconds there, however far (a walk if it's close)
+    const total = this.walk.route.reduce((a, q, i) => a + q.distanceTo(i ? this.walk.route[i - 1] : at), 0);
+    this.walk.speed = Math.min(8, Math.max(3.2, total / 3));
+    this.walk.mode = this.walk.route.length ? 'travel' : 'water';
+    this.walk.until = this.now + 2.6;
+  }
+  /** The garden frames itself again (the "back to the bed" button). */
+  resetView() { this.free = null; }
+  /** Is the player steering the camera? */
+  get looking() { return this.free !== null; }
+  /** Start steering from wherever the camera is, so nothing jumps. */
+  private steer() {
+    if (this.free) return this.free;
+    const v = this.camPos.clone().sub(this.camAim), dist = Math.max(1, v.length());
+    this.free = { target: this.camAim.clone(), dist, pitch: Math.asin(Math.min(1, Math.max(-1, v.y / dist))), yaw: Math.atan2(v.x, v.z) };
+    return this.free;
+  }
+  /** Drag: turn round the spot you're looking at (pixels). */
+  orbit(dx: number, dy: number) {
+    const f = this.steer();
+    f.yaw -= dx * 0.006;
+    f.pitch = Math.max(0.2, Math.min(1.35, f.pitch + dy * 0.005));
+  }
+  /** Pinch or scroll: closer or further (factor < 1 is closer), toward the point under the finger. */
+  zoom(factor: number, clientX?: number, clientY?: number) {
+    const f = this.steer(), was = f.dist;
+    f.dist = Math.max(0.9, Math.min(42, f.dist * factor));
+    if (clientX !== undefined && clientY !== undefined && f.dist < was) {
+      const ray = new THREE.Raycaster();
+      ray.setFromCamera(new THREE.Vector2((clientX / innerWidth) * 2 - 1, -(clientY / innerHeight) * 2 + 1), stage.camera);
+      const hitP = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -SOIL_Y), new THREE.Vector3());
+      if (hitP) f.target.lerp(hitP.setY(f.target.y), 1 - f.dist / was);
+    }
+    this.clampFree();
+  }
+  /** Two fingers or a right-drag: slide over the garden (pixels). */
+  pan(dx: number, dy: number) {
+    const f = this.steer(), k = (2 * f.dist * Math.tan(THREE.MathUtils.degToRad(stage.camera.fov / 2))) / innerHeight;
+    const right = new THREE.Vector3(Math.cos(f.yaw), 0, -Math.sin(f.yaw)), fwd = new THREE.Vector3(-Math.sin(f.yaw), 0, -Math.cos(f.yaw));
+    f.target.addScaledVector(right, -dx * k).addScaledVector(fwd, dy * k / Math.max(0.35, Math.sin(f.pitch)));
+    this.clampFree();
+  }
+  /** The arrows on screen: walk the view along (while held, every frame). */
+  nudge(dir: 'up' | 'down' | 'left' | 'right', dt: number) {
+    const f = this.steer(), sp = Math.max(1.6, f.dist * 0.55) * dt;
+    const right = new THREE.Vector3(Math.cos(f.yaw), 0, -Math.sin(f.yaw)), fwd = new THREE.Vector3(-Math.sin(f.yaw), 0, -Math.cos(f.yaw));
+    if (dir === 'up') f.target.addScaledVector(fwd, sp); else if (dir === 'down') f.target.addScaledVector(fwd, -sp);
+    else if (dir === 'left') f.target.addScaledVector(right, -sp); else f.target.addScaledVector(right, sp);
+    this.clampFree();
+  }
+  /** Never off the edge of the island, under it or lost in the sky. */
+  private clampFree() {
+    const f = this.free!;
+    f.target.x = Math.max(-38, Math.min(38, f.target.x));
+    f.target.z = Math.max(-26, Math.min(7, f.target.z));
+    f.target.y = SOIL_Y + 0.1;
   }
   /** Mark a plant (or nothing). */
   select(id: string | null) {
@@ -492,10 +560,10 @@ export class GardenScene implements Controller {
     this.fx.emit({ at: me.root.position.clone().add(new THREE.Vector3(0, 1.2, 0)), count: 20, shape: ['heart', 'star'], color: [0xff8fc0, 0xffd34d, 0xffffff], speed: [0.8, 2.2], life: [0.6, 1.1], size: [0.1, 0.2], up: 1, drag: 1.5 });
   }
   /** Where a plant is on the screen (0..1), for its label. */
-  screenOf(id: string): { x: number; y: number } | null {
+  screenOf(id: string, lift = 0.25): { x: number; y: number } | null {
     const h = this.hitIds.find(x => x.id === id);
     if (!h) return null;
-    const v = h.pos.clone().setY(h.top + 0.25).project(stage.camera);
+    const v = h.pos.clone().setY(h.top + lift).project(stage.camera);
     return { x: (v.x + 1) / 2, y: (1 - v.y) / 2 };
   }
 
@@ -556,11 +624,34 @@ export class GardenScene implements Controller {
     if (!me) return;
     if (!me.root.visible) me.root.visible = true;
     const w = this.walk, X = plotX(this.plot);
-    if (w.mode === 'idle') {
+    const turnTo = (a: number, k: number) => { const d = Math.atan2(Math.sin(a - me.root.rotation.y), Math.cos(a - me.root.rotation.y)); me.root.rotation.y += d * Math.min(1, dt * k); };
+    if (w.mode === 'travel') {
+      // along the route: running while there's a long way to go, walking the last few metres
+      const next = w.route[0];
+      if (!next) { w.mode = 'water'; w.until = t + 2.6; }
+      else {
+        const d = next.clone().sub(me.root.position); d.y = 0;
+        const left = d.length() + w.route.slice(1).reduce((a, q, i) => a + q.distanceTo(w.route[i]), 0);
+        // run (faster for a longer trip), slowing to a walk for the last couple of metres
+        const run = left > 2.5 && me.has('run'), speed = run ? w.speed : 1.1 + Math.max(0, w.speed - 1.1) * Math.min(1, left / 2.5) * 0.4;
+        if (d.length() < 0.05) w.route.shift();
+        else {
+          me.root.position.addScaledVector(d.normalize(), Math.min(d.length(), dt * speed));
+          turnTo(Math.atan2(d.x, d.z), 10);
+          const gait = run ? (speed > 4.8 && me.has('sprint') ? 'sprint' : 'run') : 'walk';
+          me.play(gait, 0.25);
+          const a = me.actions[gait]; if (a) a.timeScale = Math.max(0.6, Math.min(2, speed / (me.speedOf[gait] || speed)));
+        }
+      }
+    } else if (w.mode === 'idle') {
       w.wait -= dt;
-      if (w.wait <= 0) { w.to.set(X - BED_L / 2 + 0.6 + Math.random() * (BED_L - 1.2), 0, PATH_Z + (Math.random() - 0.5) * 0.4); w.mode = 'walk'; }
+      // with a bed chosen the buddy stays by it; otherwise it potters along the path in front of the plot
+      if (w.wait <= 0) {
+        if (this.bed === null) { w.to.set(X - BED_L / 2 + 0.6 + Math.random() * (BED_L - 1.2), 0, PATH_Z + (Math.random() - 0.5) * 0.4); w.mode = 'walk'; }
+        else { w.mode = 'water'; w.until = t + 2.4; }
+      }
       me.play('idle', 0.4);
-      me.root.rotation.y += ((Math.PI * 1.02) - me.root.rotation.y) * Math.min(1, dt * 3);
+      turnTo(w.face, 3);
     } else if (w.mode === 'walk') {
       const d = w.to.clone().sub(me.root.position); d.y = 0;
       const dist = d.length();
@@ -570,14 +661,17 @@ export class GardenScene implements Controller {
       } else {
         const step = Math.min(dist, dt * 1.05);
         me.root.position.addScaledVector(d.normalize(), step);
-        me.root.rotation.y = Math.atan2(d.x, d.z);
+        turnTo(Math.atan2(d.x, d.z), 10);
+        w.face = Math.PI;
         me.play('walk', 0.3);
         const a = me.actions.walk; if (a) a.timeScale = Math.max(0.6, 1.05 / (me.speedOf.walk || 1));
       }
     } else {
-      // watering: turn to the beds, a shower of drops over the front bed by the buddy
-      me.root.rotation.y += ((Math.PI) - me.root.rotation.y) * Math.min(1, dt * 4);
-      if (Math.random() < dt * 12) this.fx.emit({ at: new THREE.Vector3(me.root.position.x + (Math.random() - 0.5) * 0.8, 1.1, bedZ(0) + (Math.random() - 0.5) * 0.4), count: 2, shape: 'dot', color: [0x9fdcff, 0xd8f2ff], speed: [0.2, 0.6], dir: new THREE.Vector3(0, -1, 0), spread: 0.4, life: [0.5, 0.8], size: [0.04, 0.07], gravity: 2.5 });
+      // watering: turn to the bed, a shower of drops over it (the chosen bed's end, or the front bed by the buddy)
+      turnTo(w.face, 4);
+      me.play('idle', 0.4);
+      const wa = w.waterAt ?? new THREE.Vector3(me.root.position.x, 0, bedZ(0));
+      if (Math.random() < dt * 12) this.fx.emit({ at: new THREE.Vector3(wa.x + (Math.random() - 0.5) * 0.9, 1.1, wa.z + (Math.random() - 0.5) * 0.4), count: 2, shape: 'dot', color: [0x9fdcff, 0xd8f2ff], speed: [0.2, 0.6], dir: new THREE.Vector3(0, -1, 0), spread: 0.4, life: [0.5, 0.8], size: [0.04, 0.07], gravity: 2.5 });
       if (t > w.until) { w.mode = 'idle'; w.wait = 2 + Math.random() * 4; }
     }
     me.update(dt);
@@ -588,7 +682,23 @@ export class GardenScene implements Controller {
     const bandH = Math.max(0.2, v.bottom - v.top), bandW = Math.max(0.2, v.right - v.left);
     const X = plotX(this.plot), nb = this.plots[this.plot]?.beds.length ?? 11;
     let center: THREE.Vector3, halfW: number, halfH: number, dir: THREE.Vector3;
-    if (this.bed === null) {
+    if (this.free) {
+      // the player's camera: round the spot they're looking at, quick to answer a finger
+      const f = this.free;
+      const pos = f.target.clone().add(new THREE.Vector3(Math.sin(f.yaw) * Math.cos(f.pitch), Math.sin(f.pitch), Math.cos(f.yaw) * Math.cos(f.pitch)).multiplyScalar(f.dist));
+      pos.y = Math.max(0.45, pos.y);
+      const k = 1 - Math.exp(-dt * 9);
+      this.camPos.lerp(pos, k); this.camAim.lerp(f.target, k);
+      cam.position.copy(this.camPos); cam.lookAt(this.camAim);
+      return;
+    }
+    if (this.walk.mode === 'travel' && this.me) {
+      // on the way: keep the buddy in view, looking a little ahead to where it's going
+      const ahead = this.walk.route[this.walk.route.length - 1] ?? this.me.root.position;
+      center = this.me.root.position.clone().lerp(ahead, 0.25).setY(0.6);
+      halfW = 4.2; halfH = 2.4;
+      dir = new THREE.Vector3(0, 0.6, 0.8).normalize();
+    } else if (this.bed === null) {
       // the whole plot from above the path, every bed and its sign in view
       center = new THREE.Vector3(X - 0.3, 0.3, -((nb - 1) * ROW) / 2 + 0.9);
       halfW = BED_L / 2 + 1.0; halfH = (nb * ROW / 2 + 1.0) * 0.72 + 0.6;
@@ -620,7 +730,12 @@ export class GardenScene implements Controller {
     cam.position.copy(this.camPos); cam.lookAt(this.camAim);
   }
 
-  focus() { return new THREE.Vector3(plotX(this.plot), 0, -4); }
+  /** where the sun's shadows go: where you're looking, or the buddy on its way, or the plot */
+  focus() {
+    if (this.free) return this.free.target.clone().setY(0);
+    if (this.walk.mode === 'travel' && this.me) return this.me.root.position.clone().setY(0);
+    return new THREE.Vector3(plotX(this.plot), 0, -4);
+  }
   dispose() {
     this.me?.dispose();
     this.fx.root.removeFromParent(); this.fx.dispose();

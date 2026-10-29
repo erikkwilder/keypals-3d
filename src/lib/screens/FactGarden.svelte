@@ -90,13 +90,15 @@
       if (disposed) { sc.dispose(); return; }
       scene = sc; stage.use(sc);
       requestAnimationFrame(onResize);
+      // scrolling zooms the garden, not the page
+      viewEl?.addEventListener('wheel', onWheel, { passive: false });
     } catch (e) { console.error(e); }
     loading = false;
     game.update(pp => { pp.math = { ...mathOf(pp), gardenSeen: snap }; });
     if (grewIds.length && !firstVisit) setTimeout(() => sfx.star(2), 900);
     raf = requestAnimationFrame(follow);
   });
-  onDestroy(() => { disposed = true; cancelAnimationFrame(raf); removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
+  onDestroy(() => { disposed = true; cancelAnimationFrame(raf); cancelAnimationFrame(holdRaf); removeEventListener('resize', onResize); viewEl?.removeEventListener('wheel', onWheel); if (scene && stage.current() === scene) stage.use(null); });
 
   // the picked plant's little name tag follows it on screen
   let raf = 0;
@@ -107,16 +109,72 @@
     raf = requestAnimationFrame(follow);
   }
 
-  function setOp(o: Op) { if (o === op) return; op = o; bed = null; picked = null; scene?.select(null); scene?.show(plotOf(o), null); sfx.click(); }
-  function goBed(b: number | null) { bed = b; scene?.show(plotOf(op), b); sfx.click(); }
+  function setOp(o: Op) { if (o === op) return; op = o; bed = null; picked = null; looking = false; scene?.select(null); scene?.show(plotOf(o), null); sfx.click(); }
+  function goBed(b: number | null) { bed = b; looking = false; scene?.show(plotOf(op), b); sfx.click(); }
   function step(d: number) {
     const n = grid.rows.length;
     goBed(bed === null ? (d > 0 ? 0 : n - 1) : bed + d < 0 || bed + d >= n ? null : bed + d);
   }
+  // ---------- steering the camera yourself ----------
+  // one finger or the mouse: look round; two fingers, a right-drag or shift-drag: slide over the garden;
+  // pinch or scroll: closer or further; the arrows: walk the view along. A short tap still picks a plant.
+  let looking = $state(false);
+  let hinted = $state(false);
+  const ptrs = new Map<number, { x: number; y: number }>();
+  let down = { x: 0, y: 0, t: 0, button: 0 }, moved = 0, pinch = 0, mid = { x: 0, y: 0 };
+  const two = () => { const [a, b] = [...ptrs.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+  function pdown(e: PointerEvent) {
+    if (e.target !== viewEl) return;
+    viewEl!.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size === 1) { down = { x: e.clientX, y: e.clientY, t: performance.now(), button: e.button }; moved = 0; }
+    if (ptrs.size === 2) { const g = two(); pinch = g.d; mid = { x: g.x, y: g.y }; moved = 99; }
+  }
+  function pmove(e: PointerEvent) {
+    const q = ptrs.get(e.pointerId);
+    if (!q || !scene) return;
+    const dx = e.clientX - q.x, dy = e.clientY - q.y;
+    q.x = e.clientX; q.y = e.clientY;
+    moved += Math.abs(dx) + Math.abs(dy);
+    if (ptrs.size === 1) {
+      if (moved < 7) return;
+      if (down.button === 2 || e.shiftKey) scene.pan(dx, dy); else scene.orbit(dx, dy);
+    } else if (ptrs.size === 2) {
+      const g = two();
+      if (pinch > 0 && g.d > 0) scene.zoom(pinch / g.d);
+      scene.pan(g.x - mid.x, g.y - mid.y);
+      pinch = g.d; mid = { x: g.x, y: g.y };
+    } else return;
+    steered();
+  }
+  function pup(e: PointerEvent) {
+    const tapped = ptrs.size === 1 && moved < 7 && performance.now() - down.t < 600 && down.button !== 2;
+    ptrs.delete(e.pointerId);
+    if (ptrs.size === 1) moved = 99;
+    if (tapped) tapAt(e.clientX, e.clientY);
+  }
+  function onWheel(e: WheelEvent) {
+    e.preventDefault();
+    scene?.zoom(Math.exp(Math.max(-60, Math.min(60, e.deltaY)) * 0.004), e.clientX, e.clientY);
+    steered();
+  }
+  function steered() { looking = true; hinted = true; }
+  /** held arrows walk the view along, every frame until let go */
+  let hold: 'up' | 'down' | 'left' | 'right' | null = null, holdRaf = 0, holdT = 0;
+  function holdOn(d: 'up' | 'down' | 'left' | 'right', e: PointerEvent) {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    hold = d; holdT = performance.now(); steered(); sfx.click();
+    cancelAnimationFrame(holdRaf);
+    const tick = () => { if (!hold || !scene) return; const n = performance.now(); scene.nudge(hold, Math.min(0.05, (n - holdT) / 1000)); holdT = n; holdRaf = requestAnimationFrame(tick); };
+    holdRaf = requestAnimationFrame(tick);
+  }
+  function holdOff() { hold = null; cancelAnimationFrame(holdRaf); }
+  function backToGarden() { scene?.resetView(); looking = false; sfx.click(); }
+
   /** a tap on the garden: a plant opens its card, the buddy cheers */
-  function tap(e: MouseEvent) {
-    if (e.target !== viewEl || !scene) return;
-    const h = scene.pickAt(e.clientX, e.clientY);
+  function tapAt(x: number, y: number) {
+    if (!scene) return;
+    const h = scene.pickAt(x, y);
     if (h === 'buddy') { say = `${['Hi!', 'Water break!', 'Look how they grow!', 'Wheee!'][Math.floor(Math.random() * 4)]}`; sfx.pop(); return; }
     if (!h) return;
     const w = WHERE.get(h.id);
@@ -130,7 +188,8 @@
   function pick(f: Fact) {
     const w = WHERE.get(factId(f));
     picked = f; sfx.pop();
-    if (w) { if (w.op !== op) op = w.op; if (bed !== w.bed) { bed = w.bed; scene?.show(plotOf(w.op), w.bed); } }
+    // (when you're steering the camera yourself, it stays where you put it)
+    if (w) { if (w.op !== op) op = w.op; if (bed !== w.bed && !looking) { bed = w.bed; scene?.show(plotOf(w.op), w.bed); } }
     scene?.select(factId(f));
   }
   function unpick() { picked = null; scene?.select(null); }
@@ -194,7 +253,7 @@
   <div class="main">
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="view" bind:this={viewEl} onclick={tap}>
+    <div class="view" bind:this={viewEl} onpointerdown={pdown} onpointermove={pmove} onpointerup={pup} onpointercancel={(e) => ptrs.delete(e.pointerId)} oncontextmenu={(e) => e.preventDefault()}>
       <div class="tabs" role="tablist" aria-label="Which garden">
         {#each STRANDS as st (st.op)}
           {@const n = stageCounts(m, GARDEN_BY_OP[st.op])[3]}
@@ -208,6 +267,18 @@
 
       {#if loading}<div class="loadpill"><img src={STAGE_PIC[1]} alt="" />Planting your garden…</div>{/if}
       {#if picked && tag}<div class="tag" style:left="{tag.x}px" style:top="{tag.y}px">{show(picked)}</div>{/if}
+
+      <!-- walk the view along, and back to where the garden was looking -->
+      <div class="pad" aria-label="Move around">
+        {#each [['up', 90], ['left', 0], ['right', 180], ['down', -90]] as [d, rot] (d)}
+          <button class="mv {d}" onpointerdown={(e) => holdOn(d as 'up' | 'down' | 'left' | 'right', e)} onpointerup={holdOff} onpointercancel={holdOff} aria-label="Move {d}"><img src={iconUrl('back')} alt="" style:transform="rotate({rot}deg)" /></button>
+        {/each}
+      </div>
+      {#if looking}
+        <button class="backview" onclick={backToGarden}><img src={iconUrl(bed === null ? 'garden' : 'redo')} alt="" />{bed === null ? 'Back to the whole garden' : 'Back to the bed'}</button>
+      {:else if !hinted && !loading}
+        <p class="hint">Drag to look around · {narrow ? 'pinch' : 'scroll'} to zoom in</p>
+      {/if}
 
       <div class="key" aria-label="What the glows mean">
         <span><img src={pic('quick')} alt="" />quick</span><span><img src={pic('slow')} alt="" />slow</span><span><img src={pic('missed')} alt="" />missed</span><span><img src={pic('due')} alt="" />check-up</span>
@@ -312,7 +383,16 @@
   .main { flex: 1; min-height: 0; display: flex; pointer-events: none; }
   .main > * { pointer-events: auto; }
   /* the 3D garden shows through this box; things float over it */
-  .view { position: relative; flex: 1; min-width: 0; cursor: pointer; }
+  .view { position: relative; flex: 1; min-width: 0; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .view:active { cursor: grabbing; }
+  .pad { position: absolute; right: 12px; bottom: 70px; width: 120px; height: 120px; display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); }
+  .mv { width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .9); display: grid; place-items: center; cursor: pointer; padding: 0; box-shadow: var(--shadow-sm); touch-action: none; }
+  .mv img { width: 28px; height: 28px; object-fit: contain; pointer-events: none; }
+  .mv:active { transform: scale(.92); background: #fff3c4; }
+  .mv.up { grid-area: 1 / 2; } .mv.left { grid-area: 2 / 1; } .mv.right { grid-area: 2 / 3; } .mv.down { grid-area: 3 / 2; }
+  .backview { position: absolute; left: 50%; bottom: 72px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; border: 0; cursor: pointer; padding: 4px 16px 4px 5px; border-radius: 999px; background: #fff; font: 600 16px var(--font-ui); color: var(--ink); box-shadow: 0 0 0 3px #ffd34d, 0 8px 20px -10px rgba(30, 20, 60, .6); animation: pop-in .3s cubic-bezier(.3, .8, .4, 1.4); white-space: nowrap; }
+  .backview img { width: 32px; height: 32px; object-fit: contain; }
+  .hint { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); margin: 0; pointer-events: none; font: 700 13px var(--font-body); color: #fff; background: rgba(30, 40, 20, .55); padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
   .view > :global(*) { cursor: default; }
   .tabs { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: rgba(255, 255, 255, .9); box-shadow: 0 8px 22px -12px rgba(30, 40, 20, .5); white-space: nowrap; }
   .tabs button { display: flex; align-items: center; gap: 6px; border: 0; cursor: pointer; padding: 3px 12px 3px 3px; border-radius: 999px; background: transparent; font: 600 15px var(--font-ui); color: var(--ink2); }
@@ -415,6 +495,10 @@
   .narrow .tabs button:not(.on) span { display: none; }
   .narrow .say { top: 58px; left: 8px; max-width: 72%; }
   .narrow .say p { font-size: 13px; padding: 6px 10px; }
+  .narrow .pad { right: 6px; bottom: auto; top: 108px; width: 108px; height: 108px; grid-template-columns: repeat(3, 36px); grid-template-rows: repeat(3, 36px); }
+  .narrow .mv { width: 36px; height: 36px; } .narrow .mv img { width: 24px; height: 24px; }
+  .narrow .backview, .narrow .hint { bottom: 112px; }
+  .narrow .backview { font-size: 14px; }
   .narrow .key { top: auto; bottom: 66px; right: 8px; flex-direction: row; gap: 6px; padding: 4px 8px 4px 4px; font-size: 11px; }
   .narrow .key img { width: 22px; height: 22px; }
   .narrow .key span { gap: 2px; }
