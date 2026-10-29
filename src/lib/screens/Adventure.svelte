@@ -199,6 +199,9 @@
     <NavTile label="Shop" tone="mint" title="The Island Shop: things to wear, eggs and treats" onclick={() => game.openShop()}>
       {#snippet art()}<img class="tileimg" src="{base}game/icon-shell.webp" alt="" />{/snippet}
     </NavTile>
+    <NavTile label="Drop" tone="butter" badge={a.seen?.includes('drop1') ? undefined : 'New'} title="Glimmer Drop: a just-for-fun game, played with your play time" onclick={() => { if (!a.seen?.includes('drop1')) game.update(pp => markSeen(pp, 'drop1')); game.go('drop'); }}>
+      {#snippet art()}<img class="tileimg" src="{base}drop/tile.webp" alt="" />{/snippet}
+    </NavTile>
     {#if a.settings.versus !== false}
     <NavTile label="Duel" tone="sky" badge={a.seen?.includes('duel1') ? undefined : 'New'} title="Family Duel: take turns with someone on this screen" onclick={() => { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); }}>
       {#snippet art()}<img class="tileimg" src="{base}game/tile-duel.webp" alt="" />{/snippet}

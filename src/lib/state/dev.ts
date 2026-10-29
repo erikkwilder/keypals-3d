@@ -63,6 +63,8 @@ export function devBoot() {
   if (key === 'rivals') { ensure(); game.go('rivals'); }
   // Pizza Rush, the fractions arcade game: #pizza
   if (key === 'pizza') { ensure(); game.go('pizza'); }
+  // Glimmer Drop: #drop
+  if (key === 'drop') { ensure(); game.go('drop'); }
   // Learn: #learn (the list of tricks) or #learn=make-ten (that lesson)
   if (key === 'learn') { ensure(); game.openLearn(val || null, 'map'); }
   // evolutions: #evolve=puddlepup (level 5, ready to evolve), #evolved=puddlepup,sparkmoth (grown up, on the team)

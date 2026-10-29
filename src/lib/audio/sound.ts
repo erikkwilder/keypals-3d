@@ -367,6 +367,31 @@ export const sfx = {
   sneeze() { tone(420, { type: 'sine', dur: 0.35, gain: 0.04, slideTo: 620 }); tone(520, { type: 'sine', dur: 0.35, gain: 0.04, slideTo: 760, delay: 0.42 }); noise(0.3, { gain: 0.16, freq: 1800, q: 0.6, sweepTo: 700, delay: 0.95 }); tone(700, { type: 'triangle', dur: 0.12, gain: 0.05, slideTo: 380, delay: 0.95 }); },
   /** A golden letter typed: a bright bell with a shimmer. */
   golden() { [1046.5, 1318.5, 1568, 2093].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.5, gain: 0.07, delay: i * 0.05 })); noise(0.9, { gain: 0.04, freq: 8000, q: 0.6, sweepTo: 12000, delay: 0.1 }); },
+  // ---------- Glimmer Drop ----------
+  /** An egg let go from the cloud: a soft little "fwip". */
+  dropEgg() { noise(0.12, { gain: 0.05, freq: 1800, q: 1.2, sweepTo: 900 }); tone(520, { type: 'sine', dur: 0.09, gain: 0.04, slideTo: 380 }); },
+  /** Something bumps down in the jar: a soft plush thud, deeper for bigger Glimmers (0..10). */
+  plop(tier: number, k = 1) { tone(220 - tier * 12, { type: 'sine', dur: 0.12, gain: Math.min(0.08, 0.025 + 0.012 * k), slideTo: 140 - tier * 6 }); },
+  /** Two pop and merge: a bubbly pop and a chime that climbs with the Glimmer's size and the chain. */
+  merge(tier: number, chain = 1) {
+    noise(0.07, { gain: 0.09, freq: 2600, q: 2.5 });
+    const step = Math.min(14, tier + (chain - 1) * 2);
+    const f = PENTA[step % PENTA.length] * (step >= PENTA.length ? 2 : 1);
+    tone(f, { type: 'triangle', dur: 0.22, gain: 0.09, slideTo: f * 1.5 });
+    tone(f * 1.5, { type: 'sine', dur: 0.3, gain: 0.05, delay: 0.06 });
+    if (chain >= 2) for (let i = 0; i < Math.min(5, chain); i++) tone(f * (1 + i * 0.25), { type: 'sine', dur: 0.14, gain: 0.04, delay: 0.1 + i * 0.05 });
+    if (tier >= 7) noise(0.6, { gain: 0.04, freq: 8000, q: 0.6, sweepTo: 12000, delay: 0.08 });
+  },
+  /** Two of the biggest make a Glimmer party: a fanfare with sparkles. */
+  party() { [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.5, 1567.98].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.24, gain: 0.08, delay: i * 0.08 })); noise(1.2, { gain: 0.05, freq: 9000, q: 0.6, sweepTo: 13000, delay: 0.3 }); },
+  /** Wind on its way: a breathy rising whistle. */
+  gustWarn() { noise(1.2, { gain: 0.05, freq: 600, q: 1.4, sweepTo: 1800 }); wobble(700, { dur: 1.1, gain: 0.025, rate: 5, depth: 0.04, type: 'sine', slideTo: 980 }); },
+  /** The gust itself: a whoosh. */
+  gust() { noise(1.1, { gain: 0.1, freq: 400, q: 0.7, sweepTo: 2600 }); },
+  /** The jar is near the top: a gentle two-note "careful". */
+  brink() { tone(660, { type: 'sine', dur: 0.14, gain: 0.05 }); tone(880, { type: 'sine', dur: 0.18, gain: 0.05, delay: 0.16 }); },
+  /** The jar is full: a soft, kind "that's it" (not a fail buzzer). */
+  jarFull() { [783.99, 659.25, 523.25].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.3, gain: 0.06, delay: i * 0.14 })); tone(392, { type: 'sine', dur: 0.8, gain: 0.05, delay: 0.42 }); },
   /** A secret found: a little magic run up and back. */
   secret() { [523.25, 659.25, 783.99, 1046.5, 1318.5, 1046.5, 1318.5, 1568].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.18, gain: 0.06, delay: i * 0.065 })); },
 };

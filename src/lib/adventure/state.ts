@@ -112,6 +112,8 @@ export type Adventure = {
   wardrobe?: Wardrobe;
   /** how this player plays (for their Rival Ghost), their Rival Ghosts season, and Family Duels played */
   ghost?: GhostStats; rivals?: RivalState; duels?: { played: number; won: number };
+  /** Glimmer Drop: best scores and the chain Glimmers made (drop/save.ts) */
+  drop?: import('../drop/save').DropSave;
 };
 export const newAdventure = (): Adventure => ({
   shells: 0, xp: 0, glimmers: {}, team: [null, null], incubator: [null, null, null], nest: [], eggsMade: 0, nodes: {},
