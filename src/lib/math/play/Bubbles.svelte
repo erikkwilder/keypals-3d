@@ -57,6 +57,9 @@
       timers.push(setTimeout(() => { for (const x of bubbles) if (x.state === 'wrong') x.state = 'idle'; }, 450));
     }
   }
+  // full addresses: a relative url() inside a custom property resolves against the stylesheet's folder
+  // (assets/) in the built site, so the pictures went missing there
+  const art = (p: string) => new URL(import.meta.env.BASE_URL + p, document.baseURI).href;
   const pos = (slot: number) => ({ x: 8 + (slot % 4) * 24 + ((slot * 37) % 9) - 4, y: 10 + Math.floor(slot / 4) * 30 + ((slot * 53) % 9) - 4 });
 </script>
 
@@ -66,7 +69,7 @@
     <span class="dots">{#each Array(ROUND) as _, k}<i class:done={k < found}></i>{/each}</span>
   </div>
   <div class="row">
-  <div class="pond" role="group" aria-label="Bubbles" style:--pondart="url({import.meta.env.BASE_URL}math/pond.webp)" style:--bubart="url({import.meta.env.BASE_URL}math/bubble.webp)">
+  <div class="pond" role="group" aria-label="Bubbles" style:--pondart="url({art('math/pond.webp')})" style:--bubart="url({art('math/bubble.webp')})">
     {#each bubbles as b (b.id)}
       {@const p = pos(b.slot)}
       <button class="bub {b.state}" style:left="min({p.x}%, calc(100% - clamp(70px, 11vw, 104px) - 6px))" style:top="min({p.y}%, calc(100% - clamp(70px, 11vw, 104px) - 6px))" style:--c={b.color} style:--h="{(b.id * 67) % 360}deg" style:--d="{b.delay}s" onpointerdown={(e) => { e.preventDefault(); tap(b); }} aria-label={String(b.n)}>
