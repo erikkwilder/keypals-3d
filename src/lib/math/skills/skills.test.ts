@@ -17,7 +17,7 @@ describe('skills registry', () => {
   it('lists every K-8 area, the four fact strands and fractions live', () => {
     expect(AREAS.length).toBe(13);
     expect(AREAS.filter(a => a.live).map(a => a.id)).toEqual(['plus', 'minus', 'times', 'share', 'fractions']);
-    expect(skillsOf('fractions').map(s => s.id)).toEqual(['fr-name', 'fr-compare', 'fr-equal', 'fr-add']);
+    expect(skillsOf('fractions').map(s => s.id)).toEqual(['fr-name', 'fr-unit', 'fr-set', 'fr-line', 'fr-compare', 'fr-equal', 'fr-add', 'fr-sub', 'fr-mixed', 'fr-times', 'fr-unlike']);
     for (const s of SKILLS) { expect(s.standard).toMatch(/^\d\.[A-Z]+\./); expect(s.subs.length).toBeGreaterThan(0); }
   });
   it('wraps the facts as skills without changing them', () => {
@@ -102,17 +102,17 @@ describe('skill trips', () => {
     expect(first.item.skill).toBe('fr-name');
   });
   it('a miss comes back as the same question two or three later', () => {
-    const pk = new SkillTripPicker({ lesson: SKILL_LESSON['frac-a-6'], mem: {}, now: T0, seed: 4 });
+    const pk = new SkillTripPicker({ lesson: SKILL_LESSON['frac-a-7'], mem: {}, now: T0, seed: 4 });
     pk.next(); const missed = pk.next()!; pk.answer(false);
     const after: string[] = [];
     for (let i = 0; i < 4; i++) after.push(pk.next()!.item.id);
     expect(after.slice(1, 3)).toContain(missed.item.id);
   });
   it('a checkpoint covers every sub of every skill in the region', () => {
-    const pk = new SkillTripPicker({ lesson: SKILL_LESSON['frac-a-6'], mem: {}, now: T0, seed: 8 });
+    const pk = new SkillTripPicker({ lesson: SKILL_LESSON['frac-a-7'], mem: {}, now: T0, seed: 8 });
     const keys = new Set<string>();
     let x; while ((x = pk.next())) { keys.add(x.item.key); pk.answer(true); }
-    const all = ['fr-name', 'fr-compare', 'fr-equal', 'fr-add'].flatMap(s => SKILL[s].subs.map(sb => `${s}:${sb.id}`));
+    const all = ['fr-name', 'fr-unit', 'fr-set', 'fr-line', 'fr-compare'].flatMap(s => SKILL[s].subs.map(sb => `${s}:${sb.id}`));
     expect(all.every(k => keys.has(k))).toBe(true);
   });
   it('end to end: a trip pays like any practice, and subs grow to bloom on three quick days', () => {
@@ -139,7 +139,7 @@ describe('skill trips', () => {
   it('lessons open in order; the checkpoint and the first are open from the start', () => {
     const m = mathOf(newProfile('Mia', 'dino'));
     expect(skillUnlocked(m, SKILL_LESSON['frac-a-1'])).toBe(true);
-    expect(skillUnlocked(m, SKILL_LESSON['frac-a-6'])).toBe(true);
+    expect(skillUnlocked(m, SKILL_LESSON['frac-a-7'])).toBe(true);
     expect(skillUnlocked(m, SKILL_LESSON['frac-a-2'])).toBe(false);
     expect(nextSkillLesson(m, 'fractions').id).toBe('frac-a-1');
     expect(SKILL_LESSONS.every(l => l.goal > 0 && l.skills.every(s => SKILL[s]))).toBe(true);
@@ -158,5 +158,57 @@ describe('skill trips', () => {
     expect(mathOf(back).skills).toBeUndefined();
     const a: Answer = { kind: 'number', value: 1 };
     expect(a.kind).toBe('number');
+  });
+});
+
+describe('the whole fractions area', () => {
+  it('no generator loops, whatever the random numbers (constant sources included)', () => {
+    for (const v of [0, 0.37, 0.5, 0.999999]) {
+      const rng = () => v;
+      for (const s of FRACTION_SKILLS) for (const sub of s.subs) for (const lv of [1, 2] as const) {
+        const it = s.make(rng, sub.id, lv);
+        expect(s.check(it, it.answer), `${s.id}:${sub.id}:${lv}@${v}`).toBe(true);
+        if (it.answer.kind === 'fraction') { expect(it.answer.n).toBeGreaterThan(0); expect(Number.isInteger(it.answer.n) && Number.isInteger(it.answer.d)).toBe(true); }
+        if (it.answer.kind === 'number') expect(Number.isFinite(it.answer.value) && it.answer.value > 0).toBe(true);
+      }
+    }
+  });
+  it('every lesson draws on real skills, each region ends in a checkpoint, and the placement asks two of each skill', () => {
+    expect(SKILL_LESSONS.filter(l => l.area === 'fractions').length).toBe(18);
+    for (const r of ['frac-a', 'frac-b', 'frac-c']) expect(SKILL_LESSONS.filter(l => l.region === r).at(-1)!.kind).toBe('check');
+    const pl = new SkillTripPicker({ lesson: SKILL_LESSON['start-fractions'], mem: {}, now: T0, seed: 3 });
+    const per = new Map<string, number>();
+    let x; while ((x = pl.next())) { per.set(x.item.skill, (per.get(x.item.skill) ?? 0) + 1); pl.answer(true); }
+    expect(per.size).toBe(FRACTION_SKILLS.length);
+    expect([...per.values()].every(n => n === 2)).toBe(true);
+  });
+  it('a Meet lesson only asks the subs it has introduced', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const pk = new SkillTripPicker({ lesson: SKILL_LESSON['frac-a-1'], mem: {}, now: T0, seed });
+      const shown = new Set<string>();
+      let x; while ((x = pk.next())) {
+        if (x.reason === 'new') shown.add(x.item.key);
+        expect(shown.has(x.item.key), `${x.item.key} (${x.reason}) before its intro`).toBe(true);
+        pk.answer(true);
+      }
+    }
+  });
+  it('checks the new kinds: a pin on the line, mixed numbers, different bottoms and sets', () => {
+    const line = SKILL['fr-line'].make(mulberry32(3), 'to-one', 2);
+    const want = (line.answer as { x: number }).x, step = line.line!.step;
+    expect(SKILL['fr-line'].check(line, { kind: 'point', x: Math.round(want / step) * step })).toBe(true);
+    expect(SKILL['fr-line'].check(line, { kind: 'point', x: want + step })).toBe(false);
+    const mixed = SKILL['fr-mixed'].make(mulberry32(4), 'to-frac', 2);
+    const [w, f] = mixed.prompt as [{ t: 'num'; n: number }, { t: 'frac'; n: number; d: number }];
+    expect((mixed.answer as { value: number }).value).toBe(w.n * f.d + f.n);
+    const un = SKILL['fr-unlike'].make(mulberry32(5), 'both', 2);
+    const { n, d } = un.answer as { n: number; d: number };
+    expect(SKILL['fr-unlike'].check(un, { kind: 'fraction', n: n * 3, d: d * 3 })).toBe(true);
+    const set = SKILL['fr-set'].make(mulberry32(6), 'name', 2);
+    const p = set.prompt[0];
+    expect(p.t === 'pic' && p.pic.kind === 'set').toBe(true);
+    const of = SKILL['fr-set'].make(mulberry32(7), 'of', 2);
+    const [top, , whole] = of.prompt as [{ t: 'frac'; n: number; d: number }, unknown, { t: 'num'; n: number }];
+    expect((of.answer as { value: number }).value).toBe((whole.n / top.d) * top.n);
   });
 });

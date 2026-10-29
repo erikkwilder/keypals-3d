@@ -46,10 +46,16 @@ export class SkillTripPicker {
     if (l.kind === 'check' || l.kind === 'placement') {
       this.newKeys = [];
       const all = l.skills.flatMap(keysOf);
-      const n = l.kind === 'placement' ? 12 : Math.min(SKILL_TRIP, Math.max(10, all.length * 2));
-      const set: string[] = [];
-      while (set.length < n) set.push(...shuffle(this.rng, all));
-      this.plan = shuffle(this.rng, set.slice(0, n)).map(key => ({ key, reason: 'test' as const }));
+      let set: string[] = [];
+      if (l.kind === 'placement') {
+        // two of each skill (on different subs where it has them), so a known skill can be tested out
+        for (const sk of l.skills) set.push(...shuffle(this.rng, keysOf(sk)).concat(shuffle(this.rng, keysOf(sk))).slice(0, 2));
+      } else {
+        const n = Math.min(SKILL_TRIP, Math.max(10, all.length * 2));
+        while (set.length < n) set.push(...shuffle(this.rng, all));
+        set = set.slice(0, n);
+      }
+      this.plan = shuffle(this.rng, set).map(key => ({ key, reason: 'test' as const }));
       this.length = this.plan.length;
       return;
     }
@@ -88,9 +94,11 @@ export class SkillTripPicker {
       for (const key of keysOf(sk)) {
         if (seen.has(key) || this.newKeys.includes(key)) continue;
         const st = this.mem[key];
-        // a sub of a skill not met yet only comes up once its skill's lesson has been (its Meet lesson)
+        // in a Meet or practice lesson only subs already met come up between the new ones (a new sub is
+        // always introduced first, with its trick: quarters never turn up straight after the halves intro);
+        // a mix brings in everything on its island
         const met = (st?.stage ?? 0) > 0 || st?.seen;
-        if (!met && !this.lesson.learn.includes(sk) && this.lesson.kind !== 'mix') continue;
+        if (!met && this.lesson.kind !== 'mix') continue;
         seen.add(key);
         const due = isDue(st, this.now);
         out.push({ key, w: (i === 0 ? 0.65 : 0.4) + 2 * weakness(st, SKILL[sk].fastMs) * (met ? 1 : 0.3) + (due ? 1.6 : 0), due });
@@ -127,9 +135,10 @@ export class SkillTripPicker {
     let pool = this.pool.filter(x => !recent.includes(x.key));
     if (!pool.length) pool = this.pool;
     if (!pool.length) {
-      // nothing met yet: the lesson's own skills, gently
-      const key = this.newKeys[0] ?? keysOf(this.lesson.learn[0] ?? this.lesson.skills[0])[0];
-      return { item: this.make(key, 1), reason: 'repeat' };
+      // nothing met before this trip: the new subs introduced so far (never one still to come), gently
+      const shown = [...new Set(this.served.filter(x => x.reason === 'new').map(x => x.item.key))];
+      const from = shown.length ? shown : this.newKeys.length ? [this.newKeys[0]] : [keysOf(this.lesson.learn[0] ?? this.lesson.skills[0])[0]];
+      return { item: this.make(from[Math.floor(this.rng() * from.length)], 1), reason: 'repeat' };
     }
     let w = this.rng() * pool.reduce((a, x) => a + x.w, 0);
     for (const x of pool) {

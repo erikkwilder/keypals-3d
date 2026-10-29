@@ -12,8 +12,9 @@ export type AreaId = 'plus' | 'minus' | 'times' | 'share' | 'place' | 'fractions
 /** How an item is answered. `custom` is a hook for inputs an area brings (clock hands, shapes). */
 export type InputKind = 'number' | 'fraction' | 'choice' | 'numberline' | 'grid' | 'custom';
 
-/** A fraction picture: a pie cut into `parts` slices, or a bar cut into `parts` pieces, `filled` of them shaded. */
-export type Pic = { kind: 'pie' | 'bar'; parts: number; filled: number };
+/** A fraction picture: a pie cut into `parts` slices, a bar cut into `parts` pieces, or a set of `parts`
+ *  cupcakes, `filled` of them shaded (or iced). */
+export type Pic = { kind: 'pie' | 'bar' | 'set'; parts: number; filled: number };
 
 /** One piece of a question line. */
 export type Part =

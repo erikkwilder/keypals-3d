@@ -33,6 +33,6 @@ export function partsText(ps: Part[]): string {
 /** The question in a few words for lists (results, cards): the question line, or the ask when the line is
  *  only a picture. */
 export function shortText(it: Item): string {
-  if (it.prompt.length === 1 && it.prompt[0].t === 'pic') { const p = it.prompt[0].pic; return `${p.filled} of ${p.parts} shaded`; }
+  if (it.prompt.length === 1 && it.prompt[0].t === 'pic') { const p = it.prompt[0].pic; return p.kind === 'set' ? `${p.filled} of ${p.parts} cupcakes` : `${p.filled} of ${p.parts} shaded`; }
   return partsText(it.prompt);
 }

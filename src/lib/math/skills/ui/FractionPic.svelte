@@ -28,6 +28,12 @@
     <image href={art('pie')} x="1" y="1" width="98" height="98" preserveAspectRatio="xMidYMid slice" clip-path="url(#{uid}f)" />
     {#each Array(pic.parts) as _, i}<path d={slice(i, pic.parts)} fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" opacity=".95" />{/each}
   </svg>
+{:else if pic.kind === 'set'}
+  <!-- a set: painted cupcakes in rows, the counted ones pink and glowing, the rest grey -->
+  {@const cols = pic.parts <= 4 ? pic.parts : Math.ceil(pic.parts / 2)}
+  <span class="set" role="img" aria-label="{pic.filled} of {pic.parts} cupcakes are pink" style:--cols={cols} style:--cs="{Math.round(size * (pic.parts <= 4 ? 0.62 : 0.5))}px">
+    {#each Array(pic.parts) as _, i}<img class:on={i < pic.filled} src={art('cupcake')} alt="" draggable="false" />{/each}
+  </span>
 {:else}
   <svg class="fp" viewBox="0 0 {W} {H}" width={size * 1.6} height={size * 1.6 * H / W} role="img" aria-label="{pic.filled} of {pic.parts} pieces">
     <defs>
@@ -41,4 +47,7 @@
 
 <style>
   .fp { display: block; filter: drop-shadow(0 6px 10px rgba(60, 40, 110, .18)); }
+  .set { display: grid; grid-template-columns: repeat(var(--cols), var(--cs)); gap: 4px 8px; padding: 8px 12px; border-radius: 22px; background: radial-gradient(circle at 50% 40%, #fff8ee, #f6ead8); box-shadow: inset 0 0 0 3px #f0dcc0, 0 6px 14px rgba(60, 40, 110, .12); }
+  .set img { width: var(--cs); height: var(--cs); object-fit: contain; filter: grayscale(1) brightness(1.08) opacity(.5); transition: filter .3s, transform .3s; }
+  .set img.on { filter: drop-shadow(0 0 8px rgba(255, 140, 190, .75)) drop-shadow(0 4px 4px rgba(80, 30, 60, .2)); transform: translateY(-3px) scale(1.04); }
 </style>

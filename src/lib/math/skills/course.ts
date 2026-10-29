@@ -24,20 +24,44 @@ function region(r: Omit<SkillRegion, 'lessons'>, lessons: [string, SkillKind, st
   return { ...r, lessons: lessons.map(([t, k, s, l, g, mv, b], i) => L(r, i + 1, t, k, s, l, g, mv, b)) };
 }
 
-const PIE: Omit<SkillRegion, 'lessons'> = { id: 'frac-a', area: 'fractions', name: 'Pie Pantry', blurb: 'First fractions: name them, compare them, find equal ones and add them.', world: 'village', chip: '½ ¾', skills: ['fr-name', 'fr-compare', 'fr-equal', 'fr-add'] };
+// Fractions, grades 3 to 5, on three islands: the Pie Pantry (what a fraction is: parts, one piece, sets,
+// the number line, comparing), Baker's Bridge (equal fractions, adding and taking away, mixed numbers) and
+// the Waterfall Mill (times a fraction, different bottoms).
+const PIE_SKILLS = ['fr-name', 'fr-unit', 'fr-set', 'fr-line', 'fr-compare'];
+const BAKER_SKILLS = ['fr-equal', 'fr-add', 'fr-sub', 'fr-mixed'];
+const MILL_SKILLS = ['fr-times', 'fr-unlike'];
+const PIE: Omit<SkillRegion, 'lessons'> = { id: 'frac-a', area: 'fractions', name: 'Pie Pantry', blurb: 'What a fraction is: equal parts, one piece, part of a set, the number line, and which is bigger.', world: 'village', chip: '½ ¾', skills: PIE_SKILLS };
+const BAKER: Omit<SkillRegion, 'lessons'> = { id: 'frac-b', area: 'fractions', name: "Baker's Bridge", blurb: 'Equal fractions, adding and taking away slices, and mixed numbers.', world: 'treetops', chip: '2/4 = ½', skills: BAKER_SKILLS };
+const MILL: Omit<SkillRegion, 'lessons'> = { id: 'frac-c', area: 'fractions', name: 'Waterfall Mill', blurb: 'A whole number times a fraction, and adding fractions with different bottoms.', world: 'shores', chip: '½ + ¼', skills: MILL_SKILLS };
 export const SKILL_REGIONS: SkillRegion[] = [
   region(PIE, [
     ['Meet Fractions', 'meet', ['fr-name'], ['fr-name'], 6, 'run', 'The bottom number is how many equal parts; the top is how many you have.'],
+    ['One Piece', 'meet', ['fr-unit', 'fr-name'], ['fr-unit'], 6, 'swim', 'One of 4 equal parts is 1/4. And 3/4 is three of those pieces.'],
+    ['Part of a Set', 'meet', ['fr-set', 'fr-name'], ['fr-set'], 6, 'climb', '2 of 6 cupcakes is 2/6. And 1/3 of 12? Share 12 into 3 groups.'],
+    ['On the Line', 'meet', ['fr-line', 'fr-unit'], ['fr-line'], 5, 'slide', 'Cut the space from 0 to 1 into equal jumps, then count the jumps.'],
     ['Bigger or Smaller', 'meet', ['fr-compare', 'fr-name'], ['fr-compare'], 6, 'climb', 'Same size pieces? More is more. One piece each? Fewer cuts, bigger piece.'],
-    ['Equal Shares', 'meet', ['fr-equal', 'fr-name'], ['fr-equal'], 6, 'swim', '1/2 is the same as 2/4: do the same to the top and the bottom.'],
-    ['Adding Slices', 'meet', ['fr-add', 'fr-name'], ['fr-add'], 5, 'slide', 'Same bottom number? Add the tops and keep the bottom.'],
-    ['Pie Pantry Mix', 'mix', ['fr-name', 'fr-compare', 'fr-equal', 'fr-add'], [], 6, 'run', 'Everything so far, all mixed up.'],
-    ['Pie Pantry Run', 'check', ['fr-name', 'fr-compare', 'fr-equal', 'fr-add'], [], 7, 'climb', 'Every kind of fraction question. Already know them? Start here.'],
+    ['Pie Pantry Mix', 'mix', PIE_SKILLS, [], 6, 'run', 'Everything so far, all mixed up.'],
+    ['Pie Pantry Run', 'check', PIE_SKILLS, [], 7, 'swim', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(BAKER, [
+    ['Equal Shares', 'meet', ['fr-equal', 'fr-name'], ['fr-equal'], 6, 'run', '1/2 is the same as 2/4: do the same to the top and the bottom.'],
+    ['Adding Slices', 'meet', ['fr-add', 'fr-equal'], ['fr-add'], 5, 'slide', 'Same bottom number? Add the tops and keep the bottom.'],
+    ['Taking Slices', 'meet', ['fr-sub', 'fr-add'], ['fr-sub'], 5, 'climb', 'Same bottom number? Take away the tops and keep the bottom.'],
+    ['Mixed Numbers', 'meet', ['fr-mixed', 'fr-add'], ['fr-mixed'], 5, 'swim', 'Every 4 quarters make a whole: 9/4 is 2 wholes and 1/4.'],
+    ["Baker's Mix", 'mix', BAKER_SKILLS, [], 5, 'run', 'Everything on this island, all mixed up.'],
+    ["Baker's Bridge Run", 'check', BAKER_SKILLS, [], 6, 'slide', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(MILL, [
+    ['Times a Fraction', 'meet', ['fr-times', 'fr-add'], ['fr-times'], 5, 'climb', '3 × 2/5 is three lots of two fifths: times the top, keep the bottom.'],
+    ['Different Bottoms', 'meet', ['fr-unlike', 'fr-equal'], ['fr-unlike'], 4, 'swim', "Different size pieces can't be added: make the bottoms match first."],
+    ['Mill Practice', 'practice', ['fr-unlike', 'fr-times', 'fr-equal'], [], 4, 'slide', 'The new ones, again, with equal fractions to help.'],
+    ['Waterfall Mix', 'mix', [...MILL_SKILLS, 'fr-add', 'fr-sub', 'fr-mixed'], [], 5, 'run', 'This island and the last, all mixed up.'],
+    ['Waterfall Mill Run', 'check', MILL_SKILLS, [], 5, 'climb', 'Every kind of question on this island. Already know them? Start here.'],
   ]),
 ];
 
 export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
-  fractions: { id: 'start-fractions', region: 'start', area: 'fractions', n: 1, title: 'Show What You Know', kind: 'placement', skills: ['fr-name', 'fr-compare', 'fr-equal', 'fr-add'], learn: [], goal: 6, move: 'run', world: 'village', blurb: 'A quick mix of fractions. Answer what you know and skip ahead!' },
+  fractions: { id: 'start-fractions', region: 'start', area: 'fractions', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...PIE_SKILLS, ...BAKER_SKILLS, ...MILL_SKILLS], learn: [], goal: 6, move: 'run', world: 'village', blurb: 'A quick mix of fractions. Answer what you know and skip ahead!' },
 };
 export const SKILL_LESSONS: SkillLesson[] = SKILL_REGIONS.flatMap(r => r.lessons);
 export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS].map(l => [l!.id, l!]));
