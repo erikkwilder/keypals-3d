@@ -27,6 +27,7 @@
   import Learn from './lib/screens/Learn.svelte';
   import Duel from './lib/screens/Duel.svelte';
   import Rivals from './lib/screens/Rivals.svelte';
+  import GlimmerDrop from './lib/screens/GlimmerDrop.svelte';
   import MathRun from './lib/screens/MathRun.svelte';
   import MathResults from './lib/screens/MathResults.svelte';
   import SkillRun from './lib/screens/SkillRun.svelte';
@@ -60,13 +61,13 @@
   // sound, once per player; a typing lesson asks for itself, before its coach starts talking
   $effect(() => {
     const scr = game.screen;
-    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
+    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel', 'drop'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
     setTimeout(() => { if (game.screen === scr && game.profile && !game.profile.soundSetup && !game.sheet) game.openSheet('setup'); }, 300);
   });
 
   // menu music on the screens around the lessons; Adventure's own on its screens (Auto plays an
   // adventure there; a picked station just keeps playing)
-  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs']);
+  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs', 'drop']);
   $effect(() => {
     const scr = game.screen;
     if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
@@ -112,6 +113,7 @@
   {:else if game.screen === 'learn'}<Learn />
   {:else if game.screen === 'duel'}{#key game.duelKey}<Duel />{/key}
   {:else if game.screen === 'rivals'}<Rivals />
+  {:else if game.screen === 'drop'}<GlimmerDrop />
   {/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}

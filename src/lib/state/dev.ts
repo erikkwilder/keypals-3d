@@ -60,6 +60,8 @@ export function devBoot() {
   // Family Duel and Rival Ghosts: #duel, #rivals
   if (key === 'duel') { ensure(); game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); }
   if (key === 'rivals') { ensure(); game.go('rivals'); }
+  // Glimmer Drop: #drop
+  if (key === 'drop') { ensure(); game.go('drop'); }
   // Learn: #learn (the list of tricks) or #learn=make-ten (that lesson)
   if (key === 'learn') { ensure(); game.openLearn(val || null, 'map'); }
   // evolutions: #evolve=puddlepup (level 5, ready to evolve), #evolved=puddlepup,sparkmoth (grown up, on the team)

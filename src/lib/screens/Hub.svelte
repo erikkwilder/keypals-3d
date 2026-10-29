@@ -179,7 +179,10 @@
             <span><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><b>{adv.shells}</b> shells</span>
             {#if advReady}<span class="ready"><img src="{import.meta.env.BASE_URL}game/egg-rare.webp" alt="" /><b>{advReady}</b> ready to hatch!</span>{/if}
           </div>
-          <button class="btn btn-primary play" onclick={() => { sfx.click(); game.go('adventure'); }}>Adventure <span class="kbd">A</span></button>
+          <div class="abtns">
+            <button class="btn btn-primary play" onclick={() => { sfx.click(); game.go('adventure'); }}>Adventure <span class="kbd">A</span></button>
+            <button class="btn dropbtn" onclick={() => { sfx.click(); game.go('drop'); }} title="Glimmer Drop: a just-for-fun game, played with your play time"><img src="{import.meta.env.BASE_URL}drop/tile.webp" alt="" />Glimmer Drop</button>
+          </div>
         </div>
       </section>
     </div>
@@ -269,12 +272,16 @@
   .astats img { width: 30px; height: 30px; object-fit: contain; }
   .astats b { font: 600 20px var(--font-ui); color: var(--ink); }
   .astats .ready { color: #c2348a; animation: bob 1.4s ease-in-out infinite; }
+  .abtns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .dropbtn { display: inline-flex; align-items: center; gap: 6px; padding-left: 8px; }
+  .dropbtn img { width: 36px; height: 36px; object-fit: contain; margin: -8px 0; }
   .door { border-radius: 30px; overflow: hidden; background: #fff; box-shadow: 0 18px 40px -22px rgba(60, 40, 110, .55), 0 0 0 4px #fff; display: flex; flex-direction: column; transition: transform .18s; }
   .door:hover { transform: translateY(-4px); }
   .banner { position: relative; height: clamp(150px, 24vh, 230px); border: 0; padding: 0; cursor: pointer; background-position: center; background-size: cover; background-repeat: no-repeat; background-color: #cfe2f5; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; padding: 16px 20px; text-align: left; color: #fff; }
   .banner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 20%, var(--shade) 92%); }
   .typing { --shade: rgba(84, 52, 190, .88); --tone: #7c5cf5; }
   .math { --shade: rgba(214, 96, 24, .88); --tone: #ef7d2b; }
+  .adventure { --tone: #2e9e6e; }
   .banner > * { position: relative; }
   .sign { position: absolute; top: 12px; left: 14px; width: 74px; height: 74px; border-radius: 22px; display: grid; place-items: center; background: linear-gradient(#fff, #f6f2ff); box-shadow: 0 0 0 4px var(--tone), 0 8px 18px -6px rgba(30, 10, 60, .45); transition: transform .2s cubic-bezier(.3, .8, .4, 1.5); }
   .sign img { width: 62px; height: 62px; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(60, 30, 110, .25)); }
