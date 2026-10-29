@@ -336,7 +336,7 @@
   });
 </script>
 
-<div class="mrun" class:compact bind:clientWidth={w} bind:clientHeight={h}>
+<div class="mrun" class:compact class:learning={!!game.learnOverlay} bind:clientWidth={w} bind:clientHeight={h}>
   <div class="stage">
     {#if bubble && phase === 'play' && !showHelp}
       <div class="bubble" style:left="{bubbleXY.x * innerWidth}px" style:top="{bubbleXY.y * innerHeight}px">{bubble}</div>
@@ -476,7 +476,8 @@
 
   {#if game.learnOverlay}
     <!-- a Learn lesson over the trip: the trip waits underneath -->
-    <div class="learnlay" style:background-image="url({import.meta.env.BASE_URL}learn/{compact ? 'room-tall' : 'room'}.webp)">
+    <!-- the lesson borrows the 3D stage for its buddy, so the trip's view behind is see-through -->
+    <div class="learnlay">
       {#key game.learnOverlay}<LearnLesson id={game.learnOverlay} embedded onclose={() => (game.learnOverlay = null)} />{/key}
     </div>
   {/if}
@@ -484,6 +485,8 @@
 
 <style>
   .mrun { position: absolute; inset: 0; display: flex; flex-direction: column; background: transparent; }
+  /* a lesson over the trip: the trip's own screen hides (the lesson's buddy stands on the 3D stage behind) */
+  .mrun.learning > :global(:not(.learnlay)) { visibility: hidden; }
   .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
   .loading { position: absolute; left: 0; right: 0; top: 55%; text-align: center; font: 600 20px var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(40, 30, 80, .4); }
   .bubble { position: absolute; z-index: 4; white-space: nowrap; transform: translate(10%, -120%); background: #fff; padding: 9px 14px; border-radius: 16px; font: 600 17px/1.1 var(--font-ui); color: var(--ink); box-shadow: var(--shadow); animation: pop-in .25s cubic-bezier(.3, .8, .4, 1.5); border: var(--panel-border); }
@@ -534,8 +537,8 @@
   .watchl.small { padding: 3px 12px 3px 3px; border-radius: 14px; }
   .watchl.small img { width: 26px; height: 32px; }
   .watchl.small b { font-size: 15px; }
-  .learnlay { position: absolute; inset: 0; z-index: 30; display: flex; background-size: cover; background-position: center; }
-  .learnlay::before { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(255, 250, 240, .2), rgba(255, 248, 235, .55)); pointer-events: none; }
+  .learnlay { position: absolute; inset: 0; z-index: 30; display: flex; }
+  .learnlay::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255, 250, 240, 0) 22%, rgba(255, 248, 235, .35) 60%); pointer-events: none; }
 
   .announce { position: absolute; left: 0; right: 0; bottom: 0; top: 40%; overflow: hidden; pointer-events: none; z-index: 8; }
   .banner { position: absolute; left: 55%; right: 0; top: 0; bottom: 10%; justify-content: center; display: flex; flex-direction: column; align-items: center; pointer-events: none; animation: banner 1.5s cubic-bezier(.3, .8, .3, 1) forwards; }

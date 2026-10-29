@@ -203,6 +203,9 @@ class Stage {
   }
 
   current() { return this.ctrl; }
+  /** Run another controller for a while without ending the one running now (a Learn lesson over a math
+   *  trip): returns the one that was running, to swap back to afterwards. */
+  swap(ctrl: Controller | null): Controller | null { const was = this.ctrl; this.ctrl = null; this.use(ctrl); return was; }
 
   private maxRatio = 1.5;
   private ratio = 1.5;

@@ -33,7 +33,11 @@
   const cell = $derived(Math.max(6, Math.min(26, Math.floor((size - 8) / Math.max(layout.cols, layout.rows, 1)))));
   const w = $derived(Math.max(1, layout.cols) * cell + 8);
   const h = $derived(Math.max(1, layout.rows) * cell + (layout.split ? gap * 2 : 0) + 8);
-  const COLORS = ['#7c5cf5', '#ef6fa6', '#3fa7e0', '#2fa898'];
+  // the same painted glass marbles as the Learn lessons: blue for the first number, pink for the second,
+  // gold for the row that answers it; an empty wooden cup where one is faded out or taken away
+  const base = import.meta.env.BASE_URL;
+  const art = (n: string) => `${base}learn/${n}.webp`;
+  const MARBLES = ['marble-a', 'marble-b'];
 </script>
 
 {#if op === '+' || op === '-'}
@@ -42,8 +46,9 @@
     {#each tens as k, i}
       {@const cx = 4 + (i % 10) * tcell + tcell / 2 + ((i % 10) >= 5 ? 2 : 0)}
       {@const cy = 4 + Math.floor(i / 10) * (tcell + 4) + tcell / 2}
-      <circle {cx} {cy} r={tcell * 0.36} fill={k === 'a' ? '#7c5cf5' : k === 'b' ? '#ef6fa6' : '#e6e0f2'} />
-      {#if k === 'gone'}<path d="M{cx - tcell * 0.3} {cy - tcell * 0.3}L{cx + tcell * 0.3} {cy + tcell * 0.3}M{cx + tcell * 0.3} {cy - tcell * 0.3}L{cx - tcell * 0.3} {cy + tcell * 0.3}" stroke="#ef6fa6" stroke-width="2.4" stroke-linecap="round" />{/if}
+      {@const rr = tcell * 0.42}
+      <image href={art(k === 'a' ? 'marble-a' : k === 'b' ? 'marble-b' : 'marble-b')} x={cx - rr} y={cy - rr} width={rr * 2} height={rr * 2} opacity={k === 'gone' ? 0.45 : 1} />
+      {#if k === 'gone'}<image href={art('cross')} x={cx - rr * 0.9} y={cy - rr * 0.9} width={rr * 1.8} height={rr * 1.8} />{/if}
     {/each}
   </svg>
 {:else if op === '/'}
@@ -51,14 +56,13 @@
   {@const c = Math.max(8, Math.min(24, Math.floor((size - 8) / Math.max(q, fact.b, 1))))}
   <svg viewBox="0 0 {Math.max(1, q) * c + 8} {fact.b * c + 8}" width={Math.max(1, q) * c + 8} height={fact.b * c + 8} aria-hidden="true">
     {#each Array(fact.b) as _, r}
-      {#if r === 0}<rect x="1" y={3 + r * c} width={Math.max(1, q) * c + 6} height={c + 2} rx="6" fill="#fff3c4" />{/if}
-      {#each Array(q) as _, k}<circle cx={4 + k * c + c / 2} cy={4 + r * c + c / 2} r={c * 0.36} fill={r === 0 ? '#ef7d2b' : '#2fa898'} />{/each}
+      {#if r === 0}<image href={art('tray')} x="0" y={2 + r * c} width={Math.max(1, q) * c + 8} height={c + 4} preserveAspectRatio="none" />{/if}
+      {#each Array(q) as _, k}<image href={art(r === 0 ? 'marble-c' : 'marble-a')} x={4 + k * c + c * 0.08} y={4 + r * c + c * 0.08} width={c * 0.84} height={c * 0.84} />{/each}
     {/each}
   </svg>
 {:else if tr.table === 0}
   <svg viewBox="0 0 120 70" width={size * 0.55} height={size * 0.32} aria-hidden="true">
-    <ellipse cx="60" cy="38" rx="52" ry="24" fill="#fff" stroke="#d9cff0" stroke-width="3" />
-    <ellipse cx="60" cy="38" rx="34" ry="14" fill="none" stroke="#ece6f6" stroke-width="2" />
+    <image href={art('plate')} x="6" y="8" width="108" height="58" preserveAspectRatio="none" />
   </svg>
 {:else}
   <svg viewBox="0 0 {w} {h}" width={Math.min(size, w)} height={Math.min(size, w) * (h / w)} aria-hidden="true">
@@ -66,12 +70,8 @@
       {@const y = 4 + r * cell + cell / 2 + (layout.split && r >= layout.split ? gap * 2 : 0)}
       {#each Array(layout.cols) as _, c}
         {@const faded = layout.fade > 0 && r >= layout.fade}
-        <circle cx={4 + c * cell + cell / 2} cy={y} r={cell * 0.36}
-          fill={faded ? '#e6e0f2' : layout.bars ? COLORS[c % 2] : COLORS[layout.split && r >= layout.split ? 1 : 0]} />
+        <image href={art(faded ? 'cup' : layout.bars ? MARBLES[c % 2] : MARBLES[layout.split && r >= layout.split ? 1 : 0])} x={4 + c * cell + cell * 0.08} y={y - cell * 0.42} width={cell * 0.84} height={cell * 0.84} />
       {/each}
     {/each}
-    {#if layout.split}
-      <line x1="2" x2={w - 2} y1={4 + layout.split * cell + gap} y2={4 + layout.split * cell + gap} stroke="#cbbfe6" stroke-width="2" stroke-dasharray="4 4" />
-    {/if}
   </svg>
 {/if}
