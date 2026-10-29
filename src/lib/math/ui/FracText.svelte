@@ -6,7 +6,7 @@
   type Props = { text: string; size?: number; inline?: boolean };
   let { text, size = 30, inline = false }: Props = $props();
   type Part = { frac: true; n: string; d: string } | { frac: false; t: string };
-  const parts = $derived(text.split(/(\d+\/\d+)/).filter(Boolean).map((t): Part => { const m = t.match(/^(\d+)\/(\d+)$/); return m ? { frac: true, n: m[1], d: m[2] } : { frac: false, t }; }));
+  const parts = $derived(text.split(/([\d?]+\/\d+)/).filter(Boolean).map((t): Part => { const m = t.match(/^([\d?]+)\/(\d+)$/); return m ? { frac: true, n: m[1], d: m[2] } : { frac: false, t }; }));
 </script>
 
 <span class="ft" class:inline>{#each parts as p}{#if p.frac}<Frac n={p.n} d={p.d} {size} />{:else}<span>{p.t}</span>{/if}{/each}</span>

@@ -1163,7 +1163,8 @@ export class EpisodeScene implements Controller {
       hm.opacity = tk.lit * (tk.glow >= 1 ? 0.95 : 0.4) * pulse;
       tk.halo.visible = hm.opacity > 0.02;
       const rm = tk.rim.material as THREE.MeshBasicMaterial;
-      rm.opacity = tk.glow >= 1 ? tk.lit * (0.85 + Math.sin(t * 6 + g.position.x * 9) * 0.15) : 0;
+      // (a fraction's gold pieces, the ones you count, keep a soft gold edge)
+      rm.opacity = tk.glow >= 1 ? tk.lit * (0.85 + Math.sin(t * 6 + g.position.x * 9) * 0.15) : tk.shape && tk.hue === 'c' ? 0.5 : 0;
       tk.rim.visible = rm.opacity > 0.02;
       // the shadow stays on the table, fainter and wider as the counter lifts
       const surface = Math.min(g.position.y, tk.to.y), up = Math.max(0, g.position.y - surface);

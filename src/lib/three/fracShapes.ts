@@ -86,7 +86,7 @@ function cupcake() {
 
 // ---------- looks ----------
 /** the colours a hue tints each thing: a = as it comes, b = the second lot, c = the gold ones you count */
-const TINT: Record<'a' | 'b' | 'c', number> = { a: 0xffffff, b: 0xffc2d6, c: 0xfff1c4 };
+const TINT: Record<'a' | 'b' | 'c', number> = { a: 0xffffff, b: 0xffc2d6, c: 0xffdc8a };
 const ICING: Record<'a' | 'b' | 'c', number> = { a: 0x62b0ff, b: 0xff9cc8, c: 0xffd75a };
 
 export type FracTex = { pie: THREE.Texture | null; pizza: THREE.Texture | null; choc: THREE.Texture | null };
@@ -95,7 +95,8 @@ export type FracTex = { pie: THREE.Texture | null; pizza: THREE.Texture | null; 
 export function shapeMats(s: Shape, hue: Hue, out: boolean, tex: FracTex, cache: (key: string, make: () => THREE.Material) => THREE.Material): THREE.Material | THREE.Material[] {
   const h = hue === 'ghost' ? 'a' : hue;
   if (out) return cache('f-out', () => new THREE.MeshStandardMaterial({ color: 0xc9c1b4, roughness: 0.85, transparent: true, opacity: 0.5 }));
-  const glow = h === 'c' ? 0.22 : 0.04;
+  // (the gold ones glow clearly: they're the ones you count)
+  const glow = h === 'c' ? 0.4 : 0.04;
   if (s.k === 'wedge') {
     const top = cache(`f-${s.food}-${h}`, () => new THREE.MeshPhysicalMaterial({ map: tex[s.food], color: TINT[h], roughness: s.food === 'pie' ? 0.55 : 0.6, clearcoat: s.food === 'pie' ? 0.35 : 0.15, clearcoatRoughness: 0.4, emissive: h === 'c' ? 0xffa21a : 0x000000, emissiveIntensity: glow }));
     const side = cache(`f-${s.food}-side`, () => new THREE.MeshStandardMaterial({ map: sideTex(s.food), roughness: 0.75 }));

@@ -213,7 +213,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('1/4 = ?/8', '2/8', 'frac', 'Cut each quarter in two: one quarter is 2 eighths. 2/8.', 'Cut each quarter in two. How many eighths?', twoPizzas(4, 1, 8, 2)),
       Q('2/3 = ?/6', '4/6', 'frac', 'Cut each third in two: 2 thirds is 4 sixths. 4/6.', 'Cut each third in two. How many sixths?', twoPizzas(3, 2, 6, 4)),
     ],
-    teach: { q: Q('1/3 = ?/6', '2/6', 'frac', 'Twice as many cuts: twice as many slices. 1/3 = 2/6.', '', twoPizzas(3, 1, 6, 2)), wrong: '1/6', says: 'Make the bottom 6, keep the top the same... 1/6!', decoy: '3/6', fixed: 'If the bottom doubles, the top doubles too: twice as many cuts makes twice as many slices. 1/3 = 2/6.' },
+    teach: { q: Q('1/3 = how many sixths?', '2/6', 'frac', 'Twice as many cuts: twice as many slices. 1/3 = 2/6.', '', twoPizzas(3, 1, 6, 2)), wrong: '1/6', says: 'Make the bottom 6, keep the top the same... 1/6!', decoy: '3/6', fixed: 'If the bottom doubles, the top doubles too: twice as many cuts makes twice as many slices. 1/3 = 2/6.' },
   },
   {
     id: 'frac-add', title: 'Adding Slices', blurb: 'Add the tops, keep the bottom.', set: 'kitchen', skill: 'fr-add', art: 'learn/frac/card-pie.webp',
