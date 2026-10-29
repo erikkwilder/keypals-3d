@@ -104,8 +104,8 @@ export const SKILL_EPISODES: Record<string, string> = {
   'fr-name': 'frac-parts', 'fr-unit': 'frac-one-piece', 'fr-set': 'frac-of-a-set', 'fr-line': 'frac-number-line', 'fr-compare': 'frac-bigger',
   'fr-equal': 'frac-equal', 'fr-add': 'frac-add', 'fr-sub': 'frac-take-away', 'fr-mixed': 'frac-mixed', 'fr-times': 'frac-times', 'fr-unlike': 'frac-unlike',
   // place value: the six Learn episodes in the Crystal Cave Workshop (math/learn.ts)
-  'pv-tens': 'pv-tens-ones', 'pv-count': 'pv-tens-ones', 'pv-skip': 'pv-tens-ones', 'pv-hundreds': 'pv-big-numbers', 'pv-add': 'pv-add-regroup',
-  'pv-sub': 'pv-sub-regroup', 'pv-round': 'pv-rounding', 'pv-big': 'pv-big-numbers', 'pv-compare': 'pv-make-ten',
+  'pv-count': 'pv-make-ten', 'pv-skip': 'pv-make-ten', 'pv-tens': 'pv-tens-ones', 'pv-hundreds': 'pv-big-numbers', 'pv-compare': 'pv-big-numbers',
+  'pv-add': 'pv-add-regroup', 'pv-sub': 'pv-sub-regroup', 'pv-round': 'pv-rounding', 'pv-big': 'pv-big-numbers',
 };
 export const SKILL_LESSONS: SkillLesson[] = SKILL_REGIONS.flatMap(r => r.lessons);
 export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS].map(l => [l!.id, l!]));

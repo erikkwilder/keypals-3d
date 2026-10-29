@@ -154,9 +154,53 @@ export const FRIEND_LINES: Line[] = [
   ...F('elf', { hello: "I'm Ember! Let's light up the trail.", yay: 'Sparkling!', oops: 'Flicker! Again!', ride: 'Blazing!', done: 'Lit it up! We did it!', pick: 'Spark it!' }),
 ];
 
+// The place value episodes in the Crystal Cave Workshop (src/lib/math/placeLessons.ts): one line per step.
+const PLACE_EPISODE_LINES: Line[] = [
+  coach("ep.pv-make-ten.intro", "Welcome to the Crystal Cave Workshop! Geode Mole builds with blocks, and ten blocks always snap together. Let's see!"),
+  coach("ep.pv-make-ten.s0", "Here are 7 ones. Count them: 1, 2, 3, 4, 5, 6, 7."),
+  coach("ep.pv-make-ten.s1", "3 more make 10 ones!"),
+  coach("ep.pv-make-ten.s2", "Ten ones snap together into one ten!"),
+  coach("ep.pv-make-ten.s3", "1 ten and 4 more ones is 14. The 1 in 14 means one ten!"),
+  coach("ep.pv-make-ten.card", "You won the Ten Ones card! Ten ones snap together into one ten."),
+  coach("ep.pv-tens-ones.intro", "Geode Mole stacks blocks in rows of ten. Let's read numbers with tens and ones!"),
+  coach("ep.pv-tens-ones.s0", "Here are 3 tens. Each one is a row of ten blocks."),
+  coach("ep.pv-tens-ones.s1", "Count them by tens: 10, 20, 30!"),
+  coach("ep.pv-tens-ones.s2", "Now 4 ones."),
+  coach("ep.pv-tens-ones.s3", "3 tens and 4 ones make 34. The tens go first, then the ones!"),
+  coach("ep.pv-tens-ones.card", "You won the Tens and Ones card! The tens go first, then the ones."),
+  coach("ep.pv-big-numbers.intro", "Deep in the mine, Geode Mole packs blocks into crates. Let's build really big numbers!"),
+  coach("ep.pv-big-numbers.s0", "Ten tens make one hundred! We pack each hundred in a crate."),
+  coach("ep.pv-big-numbers.s1", "Here are 3 crates of a hundred: 100, 200, 300."),
+  coach("ep.pv-big-numbers.s2", "Ten hundreds make a thousand! Big numbers keep growing like that: thousands, then ten thousands."),
+  coach("ep.pv-big-numbers.s3", "Back to 3 hundreds, and 5 ones: 300 and 5 make 305."),
+  coach("ep.pv-big-numbers.s4", "No tens? A zero keeps the tens place: 3, 0, 5. Three hundred and five!"),
+  coach("ep.pv-big-numbers.card", "You won the Big Numbers card! Ten tens make a hundred, and a zero keeps an empty place."),
+  coach("ep.pv-add-regroup.intro", "Geode Mole wants to add two piles of blocks. When there are too many ones, something special happens!"),
+  coach("ep.pv-add-regroup.s0", "38 is 3 tens and 8 ones."),
+  coach("ep.pv-add-regroup.s1", "Add 25: 2 more tens and 5 more ones."),
+  coach("ep.pv-add-regroup.s2", "Ones first: 8 and 5 make 13. That is more than 9!"),
+  coach("ep.pv-add-regroup.s3", "Ten of the ones snap into a new ten!"),
+  coach("ep.pv-add-regroup.s4", "6 tens and 3 ones: 38 plus 25 is 63!"),
+  coach("ep.pv-add-regroup.card", "You won the New Ten card! When the ones go past 9, ten of them make a new ten."),
+  coach("ep.pv-sub-regroup.intro", "Geode Mole needs to take some blocks away, but there aren't enough ones. Let's fix it!"),
+  coach("ep.pv-sub-regroup.s0", "52 take away 27. Here is 52: 5 tens and 2 ones."),
+  coach("ep.pv-sub-regroup.s1", "We need to take 7 ones, but there are only 2. Break a ten into 10 ones!"),
+  coach("ep.pv-sub-regroup.s2", "Now take away 7 ones. 12 take away 7 leaves 5."),
+  coach("ep.pv-sub-regroup.s3", "And take away 2 tens. 4 tens take away 2 tens leaves 2 tens."),
+  coach("ep.pv-sub-regroup.s4", "2 tens and 5 ones are left: 52 take away 27 is 25!"),
+  coach("ep.pv-sub-regroup.card", "You won the Break a Ten card! Not enough ones? Break a ten into ten ones."),
+  coach("ep.pv-rounding.intro", "Geode Mole hops along the number plank to the nearest ten. Let's round!"),
+  coach("ep.pv-rounding.s0", "47 is between 40 and 50. Which ten is nearer?"),
+  coach("ep.pv-rounding.s1", "Hop to 50: 1, 2, 3. Only 3 hops!"),
+  coach("ep.pv-rounding.s2", "Back to 40 would be 7 hops. 50 is nearer, so 47 rounds to 50!"),
+  coach("ep.pv-rounding.s3", "Right in the middle, like 45? We round up: 50! Hundreds work the same way."),
+  coach("ep.pv-rounding.card", "You won the Rounding card! Find the nearer ten, and halfway rounds up."),
+];
+
 // The Learn episodes (src/lib/math/episodes.ts): the coach tells each little story, says each step, and hands
 // over the trick card. Step lines follow the lessons in src/lib/math/learn.ts (in the same order).
 export const EPISODE_LINES: Line[] = [
+  ...PLACE_EPISODE_LINES,
   coach("ep.teach", "Now your buddy will try one. Watch carefully. Is it right?"),
   coach("ep.fix", "Hmm, that's not right! Tap the right answer to help."),
   coach("ep.fixed", "You spotted the mistake and fixed it! Explaining is the best way to learn."),

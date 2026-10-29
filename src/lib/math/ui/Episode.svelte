@@ -365,7 +365,7 @@
       {#key i}<div class="pin" use:pin={() => sc!.over()}><div class="eq">{#each eqParts as p}{#if p.lit}<span class="lit">{p.t}</span>{:else}<span>{p.t}</span>{/if}{/each}</div></div>{/key}
     {/if}
     {#if phase === 'teach' && wrongOn}
-      {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{askText(ep.teach.f)} = {#if tsub === 'fixed'}<span class="lit">{right}</span>{:else}<s>{ep.teach.wrong}</s>?{/if}</div></div>{/key}
+      {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:long={askText(ep.teach.f).length > 10} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{askText(ep.teach.f)} = {#if tsub === 'fixed'}<span class="lit">{right}</span>{:else}<s>{ep.teach.wrong}</s>?{/if}</div></div>{/key}
     {/if}
     <!-- one speech bubble, by the buddy: its own words when it has some, else the story's -->
     {#if bubble || (line && phase !== 'load')}
@@ -419,7 +419,7 @@
       {/if}
     {:else if phase === 'turn' || phase === 'check'}
       <div class="turn">
-        {#key shake}<div class="ask" class:shake={shake > 0}>{#if phase === 'turn'}<small>Your turn {k + 1} of 2</small>{:else}<small>Quick check</small>{/if}<span>{askText(fact)} =</span><span class="box" class:good={locked}>{typed || ' '}</span></div>{/key}
+        {#key shake}<div class="ask" class:shake={shake > 0}>{#if phase === 'turn'}<small>Your turn {k + 1} of 2</small>{:else}<small>Quick check</small>{/if}<span class:long={askText(fact).length > 10}>{askText(fact)} =</span><span class="box" class:good={locked}>{typed || ' '}</span></div>{/key}
         <NumPad ondigit={digit} onback={backspace} compact={narrow} lit={null} />
       </div>
     {/if}
@@ -494,6 +494,8 @@
   @keyframes press { 0%, 100% { opacity: 0; scale: 1.3; } 10%, 80% { opacity: 1; scale: .85; } 90% { opacity: 0; } }
   .eq { font: 600 clamp(30px, 4.4vh, 46px)/1.15 var(--font-ui); color: #3a2400; background: linear-gradient(#fffaf0, #fff0c8); padding: 6px 22px; border-radius: 22px; box-shadow: 0 0 0 4px #ffd75e, 0 0 34px rgba(255, 200, 60, .85), 0 12px 24px rgba(90, 50, 0, .35); animation: eqin .5s cubic-bezier(.3, 1.5, .5, 1) both; white-space: pre; }
   .eq .lit { display: inline-block; background: #ffc93a; color: #4a2f00; padding: 0 12px; border-radius: 12px; box-shadow: 0 4px 0 #e0a51c; margin: 0 2px; }
+  /* a question in words (place value: "3 tens 4 ones") */
+  .long { font-size: .68em; }
   .eq.wrong { box-shadow: 0 0 0 4px #ffb3c8, 0 12px 24px rgba(90, 20, 40, .3); }
   .eq.wrong s { color: #d63c5c; text-decoration-thickness: 4px; }
   .eq.fixed { box-shadow: 0 0 0 4px #7fe0b0, 0 0 34px rgba(80, 220, 150, .7), 0 12px 24px rgba(0, 60, 30, .3); }

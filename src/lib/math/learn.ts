@@ -12,6 +12,7 @@ import type { Rarity } from '../adventure/glimmers';
 import { minusGroup, plusGroup, STRAND, TRICK, trickFor, trickOf, type MathLesson, type MathRegionId } from './course';
 import { answerOf, type Fact, type Op } from './facts';
 import { mathOf, type MathProgress } from './progress';
+import { PLACE_LESSONS } from './placeLessons';
 
 // ---------- the pictures ----------
 
@@ -110,6 +111,10 @@ export type Lesson = {
   pic: (f: Fact) => Board;
   /** which watch step makes the best picture for its card (default: the last) */
   cover?: number;
+  /** a skill area's lesson (place value), not a fact trick: its own help words, and the skill lesson to practise it in */
+  area?: 'place';
+  hint?: (f: Fact) => string;
+  practice?: string;
 };
 
 const F = (a: number, b: number, op: Op = 'x'): Fact => ({ a, b, op });
@@ -354,6 +359,8 @@ export const LESSONS: Lesson[] = [
     tries: [F(8, 2, '/'), F(15, 3, '/'), F(20, 5, '/')],
     pic: f => board({ cell: 30, ...plateRow(f.b, f.a / f.b) }),
   },
+  // ---- Place value (the Crystal Cave Workshop) ----
+  ...PLACE_LESSONS,
 ];
 export const LESSON: Record<string, Lesson> = Object.fromEntries(LESSONS.map(l => [l.id, l]));
 export const lessonColor = (l: Lesson) => STRAND[l.op].color;
@@ -361,6 +368,7 @@ export const lessonColor = (l: Lesson) => STRAND[l.op].color;
 /** The buddy's words for a fact in this lesson's own trick (a times lesson uses its table's trick even
  *  when the help card would pick an easier one). */
 export function hintFor(l: Lesson, f: Fact): string {
+  if (l.hint) return l.hint(f);
   if (l.id.startsWith('times-')) {
     const t = +l.id.slice(6), n = f.b === t ? f.a : f.b;
     return TRICK[t]?.say(n) ?? trickOf(f).say;
@@ -419,8 +427,8 @@ export const isLearned = (m: MathProgress, id: string) => (m.learned ?? []).incl
 export function nextToLearn(m: MathProgress, next: MathLesson | null): Lesson | null {
   const forNext = next ? lessonForStop(next) : null;
   if (forNext && !isLearned(m, forNext.id)) return forNext;
-  const strandFirst = LESSONS.filter(l => l.op === (next?.op ?? m.strand ?? 'x'));
-  return strandFirst.find(l => !isLearned(m, l.id)) ?? LESSONS.find(l => !isLearned(m, l.id)) ?? null;
+  const facts = LESSONS.filter(l => !l.area), strandFirst = facts.filter(l => l.op === (next?.op ?? m.strand ?? 'x'));
+  return strandFirst.find(l => !isLearned(m, l.id)) ?? facts.find(l => !isLearned(m, l.id)) ?? null;
 }
 
 /** Shells for learning a trick the first time. */
@@ -468,4 +476,4 @@ export function hideAnswer(text: string, f: Fact): string {
 }
 
 /** The "your turn" question for a fact, as text: 6 + 2 */
-export const askText = sum;
+export const askText = (f: Fact) => f.text ?? sum(f);

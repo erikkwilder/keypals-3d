@@ -26,6 +26,7 @@
   const m = $derived(mathOf(p));
   const buddy = $derived(p.buddy);
   const learned = $derived(LESSONS.filter(l => isLearned(m, l.id)));
+  const pv = LESSONS.filter(l => l.area === 'place');
   const nextStop = $derived(nextMathLesson(m, m.strand ?? 'x'));
   const hero = $derived(nextToLearn(m, nextStop));
   const due = $derived(checkDue(m));
@@ -45,6 +46,7 @@
   function close() { game.learnId = null; checking = false; }
   /** the first stop that uses this trick, to practise it right after */
   function practiceStop(l: Lesson) {
+    if (l.practice) return l.practice;
     if (l.id === 'zero-one') return 'twins-1';
     const r = l.regions[0];
     return MATH_LESSONS.find(x => x.region === r && x.kind === 'meet')?.id ?? null;
@@ -52,7 +54,7 @@
   function practise(l: Lesson) {
     const stop = practiceStop(l);
     game.learnId = null;
-    if (stop) { game.setHome('math'); game.startMath(stop); }
+    if (stop) { game.setHome('math'); if (l.practice) game.startSkill(stop); else game.startMath(stop); }
   }
   function back() { if (open) close(); else game.go(game.learnBack === 'learn' ? 'map' : game.learnBack); }
   onMount(() => {
@@ -126,7 +128,7 @@
       {/if}
 
       {#each STRANDS as st (st.op)}
-        {@const ls = LESSONS.filter(l => l.op === st.op)}
+        {@const ls = LESSONS.filter(l => l.op === st.op && !l.area)}
         <section class="strand" style:--sc={st.color}>
           <h3><img src="{base}{st.art}" alt="" />{st.name}<small>{ls.filter(l => isLearned(m, l.id)).length} of {ls.length} learned</small></h3>
           <div class="grid">
@@ -152,6 +154,31 @@
           </div>
         </section>
       {/each}
+      <!-- place value: the Crystal Cave Workshop's lessons (math/placeLessons.ts) -->
+      <section class="strand" style:--sc="#2d6fb8">
+        <h3><img src="{base}math/area-place.webp" alt="" />Place value<small>{pv.filter(l => isLearned(m, l.id)).length} of {pv.length} learned</small></h3>
+        <div class="grid">
+          {#each pv as l (l.id)}
+            {@const done = isLearned(m, l.id)}
+            {@const ls2 = setOf(l.id)}
+            <article class="lcard" class:done>
+              <button class="lpic" style:--set="url({base}{ls2.backdrop})" onclick={() => watch(l)} aria-label="Watch {l.title}">
+                <img class="gface" src="{base}{glimmerArt(ls2.star)}" alt="" />
+                <span class="play small"><Icon name="play" size={24} /></span>
+                <span class="where">{ls2.name}</span>
+              </button>
+              <div class="ltext">
+                <b>{l.title}</b>
+                <span>{l.blurb}</span>
+                <div class="lrow">
+                  {#if done}<span class="pill ok"><Icon name="check" size={14} /> Learned</span>{:else}<span class="pill new">New</span>{/if}
+                  <button class="btn small" class:btn-primary={!done} onclick={() => watch(l)}>{done ? 'Watch again' : 'Watch'}</button>
+                </div>
+              </div>
+            </article>
+          {/each}
+        </div>
+      </section>
       <div class="endpad"></div>
     </div>
     </div>

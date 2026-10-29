@@ -7,7 +7,7 @@ import type { GlimmerId } from '../adventure/glimmers';
 import { answerOf, type Fact } from './facts';
 import { LESSONS, type Board, type Dot, type Lesson } from './learn';
 
-export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden';
+export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave';
 /** what the counters are in each place */
 export type TokenKind = 'cookie' | 'pearl' | 'berry' | 'block' | 'flower';
 
@@ -34,6 +34,9 @@ export const SETS: Record<SetId, {
     tray: { word: 'block box', color: 0xc48a52, rim: 0x86572b }, plate: { word: 'bin', color: 0xe9c27a, rim: 0x9b6b2b }, key: 0xffd49a, sky: 0xffe6c4, ground: 0x6e4a2c, haze: 0xf0c48c },
   garden: { name: 'The Garden Shed', backdrop: 'learn/ep/set-garden.webp', table: 'learn/ep/tex-garden.webp', star: 'fernfox', token: 'flower',
     tray: { word: 'seed tray', color: 0xc8714a, rim: 0x8e4528 }, plate: { word: 'pot', color: 0xcf7650, rim: 0x8e4528 }, key: 0xfff0cc, sky: 0xeaffe6, ground: 0x5c7a3a, haze: 0xe4f3d2 },
+  // place value: the Geode Mole's workshop in the Counting Caves (a hundred is a crate of blocks)
+  cave: { name: 'The Crystal Cave Workshop', backdrop: 'learn/ep/set-cave.webp', table: 'learn/ep/tex-cave.webp', star: 'geodemole', token: 'block',
+    tray: { word: 'block tray', color: 0x8fa6c9, rim: 0x4f6a96 }, plate: { word: 'crate', color: 0xb98a5a, rim: 0x7a5232 }, key: 0xffe2b8, sky: 0xcfe0ff, ground: 0x5a4a6a, haze: 0xc9d6f2 },
 };
 
 export type Episode = {
@@ -67,6 +70,13 @@ export const EPISODES: Episode[] = [
   { id: 'times-8', set: 'workshop', teach: { f: F(4, 8), wrong: 16, says: '4 × 8? Double is 8, double again is 16. Done: 16!' }, decoy: 36 },
   { id: 'times-7', set: 'workshop', teach: { f: F(3, 7), wrong: 17, says: '3 × 7? 3 × 5 is 15, and 2 more: 17!' }, decoy: 24 },
   { id: 'think-times', set: 'picnic', teach: { f: F(15, 5, '/'), wrong: 5, says: '15 shared into 5 plates? 5 each!' }, decoy: 4 },
+  // place value (math/placeLessons.ts)
+  { id: 'pv-make-ten', set: 'cave', teach: { f: { a: 10, b: 5, op: '+', text: '1 ten 5 ones' }, wrong: 6, says: '1 ten and 5 ones? 1 and 5 make 6!' }, decoy: 51 },
+  { id: 'pv-tens-ones', set: 'cave', teach: { f: { a: 30, b: 4, op: '+', text: '3 tens 4 ones' }, wrong: 7, says: '3 tens and 4 ones? 3 and 4 make 7!' }, decoy: 43 },
+  { id: 'pv-big-numbers', set: 'cave', teach: { f: { a: 300, b: 5, op: '+', text: '3 hundreds 5 ones' }, wrong: 35, says: '3 hundreds and 5 ones? A 3 and a 5... 35!' }, decoy: 350 },
+  { id: 'pv-add-regroup', set: 'cave', teach: { f: F(38, 25, '+'), wrong: 513, says: '38 + 25? 8 + 5 is 13, and 3 + 2 is 5... 513!' }, decoy: 53 },
+  { id: 'pv-sub-regroup', set: 'cave', teach: { f: F(52, 27, '-'), wrong: 35, says: '52 − 27? 7 take away 2 is 5, and 5 take away 2 is 3... 35!' }, decoy: 15 },
+  { id: 'pv-rounding', set: 'cave', teach: { f: { a: 47, b: 10, op: '+', text: '47 → nearest 10', ans: 50 }, wrong: 40, says: '47 to the nearest ten? It starts with a 4... 40!' }, decoy: 45 },
 ];
 export const EPISODE: Record<string, Episode> = Object.fromEntries(EPISODES.map(e => [e.id, e]));
 export const episodeOf = (id: string): Episode => EPISODE[id] ?? { id, set: 'kitchen', teach: { f: LESSONS.find(l => l.id === id)!.tries[1], wrong: 0, says: '' } };
