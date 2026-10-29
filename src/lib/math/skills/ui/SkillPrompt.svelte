@@ -5,6 +5,7 @@
   import type { Part } from '../types';
   import Frac from './Frac.svelte';
   import FractionPic from './FractionPic.svelte';
+  import BlocksPic from './BlocksPic.svelte';
   type Fill = { kind: 'number'; text: string } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null };
   type Props = { parts: Part[]; fill?: Fill | null; size?: number; picSize?: number; done?: boolean };
   let { parts, fill = null, size = 56, picSize = 150, done = false }: Props = $props();
@@ -14,9 +15,10 @@
 <span class="sp" class:done style:--fs="{size}px">
   {#each parts as p, i (i)}
     {#if p.t === 'text'}<span class="tx">{p.s}</span>
-    {:else if p.t === 'num'}<span class="n">{p.n}</span>
+    {:else if p.t === 'num'}<span class="n">{p.n >= 1000 ? p.n.toLocaleString('en-US') : p.n}</span>
     {:else if p.t === 'op'}<span class="op" class:word={p.s.length > 1}>{p.s}</span>
     {:else if p.t === 'pic'}<FractionPic pic={p.pic} size={picSize} />
+    {:else if p.t === 'blocks'}<BlocksPic b={p.b} size={picSize} />
     {:else if p.t === 'frac'}
       <Frac n={p.n ?? (fill?.kind === 'number' ? fill.text : null)} d={p.d ?? (fill?.kind === 'number' ? fill.text : null)} size={size * 0.82} focus={(p.n === null || p.d === null) && !done ? (p.n === null ? 'n' : 'd') : null} />
     {:else if p.t === 'blank'}

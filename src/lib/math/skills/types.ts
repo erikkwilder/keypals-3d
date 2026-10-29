@@ -16,6 +16,9 @@ export type InputKind = 'number' | 'fraction' | 'choice' | 'numberline' | 'grid'
  *  cupcakes, `filled` of them shaded (or iced). */
 export type Pic = { kind: 'pie' | 'bar' | 'set'; parts: number; filled: number };
 
+/** A number as base-ten blocks: thousands cubes, hundreds flats, tens rods and ones cubes. */
+export type Blocks = { th?: number; h: number; t: number; o: number };
+
 /** One piece of a question line. */
 export type Part =
   | { t: 'text'; s: string }
@@ -23,6 +26,8 @@ export type Part =
   | { t: 'frac'; n: number | null; d: number | null }
   | { t: 'op'; s: string }
   | { t: 'pic'; pic: Pic }
+  /** base-ten blocks (place value) */
+  | { t: 'blocks'; b: Blocks }
   /** where the answer goes (a number blank) */
   | { t: 'blank' };
 
