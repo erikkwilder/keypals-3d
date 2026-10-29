@@ -3,6 +3,7 @@
 //   Number Line Hop  where does a number go on a line from 0 to 10, 20, 100 or 1000? (estimating, place)
 //   Make Ten Bubbles pop two bubbles that make 10 (then 5, 20 and 100): number bonds
 //   Build It         build a number from hundreds, tens and ones: place value
+//   Market Stall     price your goods, then give shoppers their change: money (math/market/stall.ts)
 // Rounds feed the same friendship, outfits, dances, stickers and daily minutes as every other game.
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
 import { buddyPal } from '../engine/profile';
@@ -12,7 +13,7 @@ import { settlePractice } from '../engine/settle';
 import { mathOf } from './progress';
 import type { Rng } from '../engine/rng';
 
-export type PlayGame = 'line' | 'bonds' | 'build';
+export type PlayGame = 'line' | 'bonds' | 'build' | 'stall';
 export type PlayLevel = { n: number; title: string; hint: string };
 
 export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: string; levels: PlayLevel[] }[] = [
@@ -36,6 +37,13 @@ export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: str
     { n: 3, title: 'Hundreds to 500', hint: '253 is 2 hundreds, 5 tens and 3 ones.' },
     { n: 4, title: 'Hundreds to 999', hint: 'Start with the hundreds.' },
     { n: 5, title: 'Watch the zeros', hint: '405 has no tens at all.' },
+  ] },
+  { id: 'stall', name: 'Market Stall', blurb: 'Price your goods, then give each shopper the right change. No clock, no rush.', color: '#e6a817', levels: [
+    { n: 1, title: 'Change from 25¢', hint: 'Count up from the price to 25¢.' },
+    { n: 2, title: 'Change from 50¢', hint: 'An apple at 35¢: 40¢, 50¢. That\'s 15¢ change.' },
+    { n: 3, title: 'Change from $1', hint: 'Count up to the next quarter, then by quarters.' },
+    { n: 4, title: 'Any price, from $1', hint: 'Pennies first, up to the next 5¢.' },
+    { n: 5, title: 'Two things', hint: 'Add the two prices, then count up to $1.' },
   ] },
 ];
 export const PLAY_GAME = Object.fromEntries(PLAY_GAMES.map(g => [g.id, g])) as Record<PlayGame, (typeof PLAY_GAMES)[number]>;

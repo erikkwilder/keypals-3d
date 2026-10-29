@@ -15,6 +15,7 @@
   import NumberLine from '../math/play/NumberLine.svelte';
   import Bubbles from '../math/play/Bubbles.svelte';
   import BuildIt from '../math/play/BuildIt.svelte';
+  import Stall from '../math/play/Stall.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import Critter from '../ui/Critter.svelte';
   import Stars from '../ui/Stars.svelte';
@@ -27,7 +28,7 @@
   let burst = $state(0);
   let k = 0;
   // the 3D island and buddy behind each game
-  const WORLD: Record<PlayGame, RegionId> = { line: 'village', bonds: 'shores', build: 'burrows' };
+  const WORLD: Record<PlayGame, RegionId> = { line: 'village', bonds: 'shores', build: 'burrows', stall: 'treetops' };
   let scene: PlayScene | null = null;
   let areaEl: HTMLElement | null = null;
   let areaOpts: { span?: number; feetAt?: number } = {};
@@ -74,10 +75,11 @@
     line: 'Learns: where numbers sit, estimating, tens and hundreds.',
     bonds: 'Learns: number bonds, pairs that make 5, 10, 20 and 100.',
     build: 'Learns: place value, hundreds, tens and ones, trading ten for one.',
+    stall: 'Learns: coins and money, counting up to make change.',
   };
   function backToGames() { playing = null; done = null; if (scene && stage.current() === scene) stage.use(null); scene?.dispose(); scene = null; }
   // each game's painted picture (number line with a hopping frog, bubbles, place-value blocks)
-  const ART: Record<PlayGame, 'line' | 'bubbles' | 'blocks'> = { line: 'line', bonds: 'bubbles', build: 'blocks' };
+  const ART: Record<PlayGame, 'line' | 'bubbles' | 'blocks' | null> = { line: 'line', bonds: 'bubbles', build: 'blocks', stall: null };
 </script>
 
 <svelte:window onkeydown={onKey} onresize={onResize} />
@@ -98,6 +100,7 @@
           <p class="lvl">Level {playing.level} · {PLAY_GAME[playing.g].levels[playing.level - 1].title} <span>{PLAY_GAME[playing.g].levels[playing.level - 1].hint}</span></p>
           {#if playing.g === 'line'}<NumberLine level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
           {:else if playing.g === 'bonds'}<Bubbles level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
+          {:else if playing.g === 'stall'}<Stall level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
           {:else}<BuildIt level={playing.level} buddy={p.buddy} ondone={finished} {pal} />{/if}
         </div>
       {/key}
@@ -113,7 +116,7 @@
           <section class="game" style:--gc={g.color}>
             <button class="gpic" onclick={() => start(g.id, nxt)} aria-label="Play {g.name}">
               <img src="{import.meta.env.BASE_URL}math/play-{g.id === 'bonds' ? 'bubbles' : g.id}.webp" alt="" />
-              <span class="gname"><span class="gart"><Icon name={ART[g.id]} size={40} /></span>{g.name}</span>
+              <span class="gname"><span class="gart">{#if ART[g.id]}<Icon name={ART[g.id]!} size={40} />{:else}<img class="gcoin" src="{import.meta.env.BASE_URL}math/money/quarter.webp" alt="" />{/if}</span>{g.name}</span>
             </button>
             <p class="gblurb">{g.blurb} <span class="what">{WHAT[g.id]}</span></p>
             <div class="levels">
@@ -176,7 +179,7 @@
   .body { flex: 1; min-height: 0; padding: 18px 22px 28px; }
   .hello { display: flex; align-items: center; gap: 14px; justify-content: center; margin-bottom: 12px; }
   .hello p { margin: 0; font: 600 19px/1.35 var(--font-body); background: #fff; padding: 10px 16px; border-radius: 18px; box-shadow: var(--shadow-sm); max-width: 560px; }
-  .games { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; max-width: 1240px; margin: 0 auto; }
+  .games { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 18px; max-width: 1240px; margin: 0 auto; }
   .game { background: #fff; border-radius: 26px; box-shadow: 0 14px 34px -22px rgba(60, 40, 110, .5); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
   .game { padding: 0 0 16px; overflow: hidden; }
   .game > :not(.gpic) { margin-left: 16px; margin-right: 16px; }
@@ -184,6 +187,7 @@
   .gpic img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s; }
   .game:hover .gpic img { transform: scale(1.05); }
   .gname { position: absolute; left: 12px; bottom: 10px; display: flex; align-items: center; gap: 8px; font: 600 25px var(--font-ui); color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, .5); }
+  .gpic .gcoin { width: 36px; height: 36px; object-fit: contain; }
   .gart { flex: none; display: grid; place-items: center; width: 50px; height: 46px; border-radius: 12px; background: color-mix(in srgb, var(--gc) 22%, #fff); box-shadow: 0 0 0 3px #fff; }
   .gblurb { margin: 0; font: 600 14.5px/1.4 var(--font-body); color: var(--ink2); }
   .what { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
