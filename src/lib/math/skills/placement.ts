@@ -6,7 +6,7 @@
 //   - and once it has seen both a right and a wrong answer, asks where the child is expected to get about
 //     half right (the edge, where an answer says the most), from its best guess so far,
 //   - across the area's skills, a different one each time where it can.
-// After 14 questions (16 for a fact strand) the best guess (the most likely level given every answer, with
+// After 16 questions the best guess (the most likely level given every answer, with
 // a gentle pull toward the start) sets every skill: the ones it asked from their own answers too, the rest
 // from the ladder (skills well below the level start high, skills above it start at the edge). Nothing is
 // locked or marked done by this: the trip's own test-out rule still opens stops as before.
@@ -21,12 +21,12 @@ export type Rung = { skill: string; base: number };
 export type Probe = { skill: string; rung: number; d: number };
 export type PlacedAnswer = Probe & { ok: boolean };
 /** questions in a placement */
-export const PLACE_SKILL_N = 14, PLACE_FACT_N = 16;
+export const PLACE_SKILL_N = 16, PLACE_FACT_N = 16;
 /** the steps before the first change of direction */
 const STEPS = [3, 2.5, 2, 2, 1.5, 1.5];
 
-/** The most likely level on a ladder for these answers (a grid search; the start pulls gently, SD 3). */
-export function levelOf(answers: { d: number; ok: boolean }[], start: number, lo: number, hi: number, sd = 3): number {
+/** The most likely level on a ladder for these answers (a grid search; the start pulls only a little, SD 6, so a child far from it is not dragged back). */
+export function levelOf(answers: { d: number; ok: boolean }[], start: number, lo: number, hi: number, sd = 6): number {
   let best = start, bestLp = -Infinity;
   for (let L = lo; L <= hi + 1e-9; L += 0.05) {
     let lp = -((L - start) ** 2) / (2 * sd * sd);

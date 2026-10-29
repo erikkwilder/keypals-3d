@@ -143,10 +143,17 @@ export function rungFor(theta: number, target: number): number {
   return best;
 }
 /** That rung, moved by a trip's streak (`bump`: one up after four right, one down after two misses) and,
- *  about one time in five, one step either way for variety. */
+ *  about one time in five, one step either way for variety and evidence. Neither steps up into a question
+ *  the child is expected to miss more often than not (the streak's step up needs at least 50%, the
+ *  jitter's 60%; otherwise the jitter steps down), and the jitter stays off the ends of the ladder (at rung
+ *  1 it could only go up, at rung 6 only down). Simulated learners (adaptive.sim.test.ts) then get about
+ *  80% right at every level. */
 export function pitchRung(theta: number, target: number, rng?: Rng, bump = 0): number {
-  let r = rungFor(theta, target) + bump;
-  if (rng && rng() < JITTER) r += rng() < 0.5 ? -1 : 1;
+  const base = rungFor(theta, target);
+  let r = base;
+  if (bump > 0 && expected(theta, base + 1) >= 0.5) r++;
+  else if (bump < 0) r--;
+  if (rng && rng() < JITTER && r > 1 && r < RUNGS) r += rng() < 0.5 && expected(theta, r + 1) >= 0.6 ? 1 : -1;
   return rungOf(r);
 }
 export type PitchOpts = { rng?: Rng; now?: number; bump?: number; grown?: boolean };
