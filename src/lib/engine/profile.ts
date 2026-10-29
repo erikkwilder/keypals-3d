@@ -75,11 +75,9 @@ export type Profile = {
   badges: Record<string, number>; // legacy (v0.1)
   medals: Record<string, number>; // legacy (v0.1)
   unlocked: string[]; // legacy (v0.1)
-  /** legacy (before 2026-10-28): progress kept per buddy; now merged into `team` */
+  /** each buddy's own progress: friendship (which opens outfits and dances), stickers, medals, treasure and
+   *  best ride. A buddy who joins starts fresh; lessons, trips and stars belong to the player. */
   pals: Partial<Record<FriendId, PalProgress>>;
-  /** everything earned (friendship, stickers, medals, treasure, best ride) belongs to the player's team,
-   *  shared by every buddy: switching buddies never starts anything over */
-  team?: PalProgress;
   /** each buddy's own look: the outfit it wears and its finish dance */
   looks?: Partial<Record<FriendId, { outfit: string; dance: string }>>;
   /** buddies already welcomed to the team (new ones are announced once) */
@@ -125,7 +123,7 @@ export function newProfile(name: string, buddy: FriendId, grown = false): Profil
     name: name.trim().slice(0, 16) || 'Typist',
     buddy, accessory: 'none', createdAt: Date.now(), settings: s,
     lessons: {}, keys: {}, totals: emptyTotals(), days: {}, badges: {}, medals: {}, unlocked: [], rideBest: 0, customText: '', history: [],
-    pals: {}, team: newPalProgress(), looks: {}, buddiesMet: [],
+    pals: {}, looks: {}, buddiesMet: [],
   };
 }
 
@@ -144,9 +142,11 @@ export function migrate(raw: unknown): SaveFile {
       const buddy = (p.buddy && BUDDIES.some(b => b.id === p.buddy) ? p.buddy : 'dino') as FriendId;
       const pals: Partial<Record<FriendId, PalProgress>> = {};
       for (const [id, v] of Object.entries(p.pals ?? {})) pals[id as FriendId] = { ...newPalProgress(), ...v };
+      // a shared team (test builds of 2026-10-28 only) is dropped: progress is per buddy
+      const { team: _team, ...rest } = p as Profile & { team?: unknown };
       return {
         ...newProfile(p.name ?? 'Typist', buddy),
-        ...p,
+        ...rest,
         buddy,
         settings: { ...defaultSettings(), ...(p.settings ?? {}) },
         totals: { ...emptyTotals(), ...(p.totals ?? {}) },
@@ -154,7 +154,6 @@ export function migrate(raw: unknown): SaveFile {
         unlocked: Array.isArray(p.unlocked) ? p.unlocked : [],
         history: Array.isArray(p.history) ? p.history : [],
         pals,
-        team: p.team ? { ...newPalProgress(), ...p.team } : mergePals(pals),
         buddiesMet: p.buddiesMet,
         looks: p.looks ?? Object.fromEntries(Object.entries(pals).map(([id, v]) => [id, { outfit: v!.outfit ?? 'none', dance: v!.dance ?? 'dance_hiphop' }])),
       };
@@ -162,26 +161,8 @@ export function migrate(raw: unknown): SaveFile {
   };
 }
 
-/** Old saves kept progress per buddy: add it all up into one team (friendship points add together,
- *  stickers and medals combine, bests take the best). */
-export function mergePals(pals: Partial<Record<FriendId, PalProgress>>): PalProgress {
-  const all = Object.values(pals).filter(Boolean).map(v => ({ ...newPalProgress(), ...v }));
-  const t = newPalProgress();
-  for (const v of all) {
-    for (const k of ['xp', 'runs', 'chars', 'stars3', 'perfect', 'sharp', 'medalsTotal', 'comebacks', 'naps', 'dances'] as const) t[k] += v[k] ?? 0;
-    for (const k of ['perfectRow', 'bestStreak', 'bestWpm', 'rideBest', 'treasureBest', 'ownKeys'] as const) t[k] = Math.max(t[k], v[k] ?? 0);
-    for (const [id, at] of Object.entries(v.stickers ?? {})) t.stickers[id] = Math.min(t.stickers[id] ?? Infinity, at);
-    for (const [id, n] of Object.entries(v.medals ?? {})) t.medals[id] = (t.medals[id] ?? 0) + n;
-    t.goalDays = [...new Set([...t.goalDays, ...(v.goalDays ?? [])])];
-    t.regions = [...new Set([...t.regions, ...(v.regions ?? [])])];
-    t.seen = [...new Set([...t.seen, ...(v.seen ?? [])])];
-  }
-  t.level = levelFromXp(t.xp).level;
-  return t;
-}
-
-/** The team's progress, to change (runs and trips write here). */
-export function teamOf(p: Profile): PalProgress { return (p.team ??= mergePals(p.pals ?? {})); }
+/** A buddy's own progress, to change (runs and trips write to the buddy playing). */
+export function buddyPal(p: Profile, friend: FriendId = p.buddy): PalProgress { return (p.pals[friend] ??= newPalProgress()); }
 /** A buddy's own look: its outfit and finish dance. */
 export function lookOf(p: Profile, friend: FriendId = p.buddy): { outfit: string; dance: string } {
   const l = p.looks?.[friend], old = p.pals?.[friend];
@@ -191,9 +172,9 @@ export function setLook(p: Profile, friend: FriendId, patch: Partial<{ outfit: s
   p.looks ??= {};
   p.looks[friend] = { ...lookOf(p, friend), ...patch };
 }
-/** The team's progress seen with one buddy's look (to read; write with teamOf and setLook). */
+/** A buddy's progress with its look (to read; write with buddyPal and setLook). */
 export function palOf(p: Profile, friend: FriendId = p.buddy): PalProgress {
-  return { ...(p.team ?? mergePals(p.pals ?? {})), ...lookOf(p, friend) };
+  return { ...newPalProgress(), ...(p.pals?.[friend] ?? {}), ...lookOf(p, friend) };
 }
 export const outfitOf = (p: Profile, friend: FriendId = p.buddy) => lookOf(p, friend).outfit ?? 'none';
 /** The buddy's finish dance (dances dropped in later versions fall back to the first one). */
@@ -374,7 +355,7 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
   if (goalJustHit) medals.push('goal');
 
   // this Keypal's own progress
-  const pal: PalProgress = teamOf(p);
+  const pal: PalProgress = buddyPal(p);
   const lvlBefore = levelFromXp(pal.xp);
   pal.runs++;
   pal.chars += s.chars;

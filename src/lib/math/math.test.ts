@@ -300,8 +300,8 @@ describe('math progress and rewards', () => {
     expect(ids).toEqual(expect.arrayContaining(['clean', 'ride-car', 'firsttry', 'three']));
     expect(out.xp.gained).toBeGreaterThan(40);
     expect(out.treasure).toBeGreaterThanOrEqual(0);
-    expect(out.profile.team!.runs).toBe(1);
-    expect(out.profile.team!.dances).toBe(1);
+    expect(out.profile.pals.dino!.runs).toBe(1);
+    expect(out.profile.pals.dino!.dances).toBe(1);
     expect(out.stickers.map(s => s.id)).toContain('runs-1');
     expect(out.profile.days[Object.keys(out.profile.days)[0]].ms).toBe(st.ms);
     for (const m of ['quickdraw', 'bloom']) expect(AWARD[m]).toBeTruthy();

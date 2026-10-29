@@ -1,7 +1,7 @@
 <script lang="ts">
   // Keypals: pick your buddy, dress them up, and choose the dance they do at the finish line.
-  // Outfits and dances unlock as your team's friendship grows; every buddy shares it. Buddies not on the
-  // team yet show as silhouettes with what brings them in.
+  // Outfits and dances unlock as each buddy's own friendship grows. Buddies not on the team yet show in
+  // shadowy grey with what brings them in.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { BUDDIES, FRIEND, type FriendId } from '../art/cast';
@@ -100,10 +100,10 @@
       <div class="who card">
         <h2>{FRIEND[who].name}</h2>
         {#if joined}
-          <div class="xp"><span class="lvl">♥ Team friendship {lvl.level}</span><div class="bar"><i style:width="{(lvl.into / lvl.need) * 100}%"></i></div><span class="muted">{lvl.into}/{lvl.need} XP</span></div>
+          <div class="xp"><span class="lvl">♥ Friendship {lvl.level}</span><div class="bar"><i style:width="{(lvl.into / lvl.need) * 100}%"></i></div><span class="muted">{lvl.into}/{lvl.need} XP</span></div>
           <p class="quirk">{FRIEND[who].quirk}</p>
           {#if p.buddy !== who}<button class="btn btn-primary" onclick={makeBuddy}>Play with {FRIEND[who].name}</button>{/if}
-          <p class="keep">Your stars, stickers, medals and friendship stay with you whichever buddy you play with.</p>
+          <p class="keep">Each buddy earns their own friendship, outfits, dances, stickers and medals. Your lessons and stars stay with you.</p>
         {:else}
           <p class="joins"><Icon name="lock" /> Joins your team when you: <b>{UNLOCKS[who]?.how}</b></p>
           <div class="xp"><div class="bar"><i style:width="{join.share * 100}%"></i></div><span class="muted">{join.text}</span></div>
@@ -143,7 +143,7 @@
         {/if}
       </div>
       {:else}
-        <div class="card soon"><p>When {FRIEND[who].name} joins your team, they share all your outfits and dances too.</p></div>
+        <div class="card soon"><p>When {FRIEND[who].name} joins your team, they start their own friendship, and outfits and dances open up as you play together.</p></div>
       {/if}
     </div>
   </div>

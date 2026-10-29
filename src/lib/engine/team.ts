@@ -1,7 +1,6 @@
 // Your team of Keypals. Six buddies are there from the start; the other fifteen join as you play,
-// typing or math, each for a milestone you can see coming. Everything you earn belongs to the team, so
-// switching to a new buddy never starts anything over: the new one just joins in with all your stars,
-// stickers, medals and friendship.
+// typing or math, each for a milestone you can see coming. A buddy who joins is yours for good; their
+// friendship, stickers and medals start fresh and grow as you play with them.
 import type { FriendId } from '../art/cast';
 import { BUDDIES } from '../art/cast';
 import { ALL_LESSONS, REGIONS } from './course';
@@ -20,14 +19,13 @@ export function teamStats(p: Profile) {
   const typingPassed = ALL_LESSONS.filter(l => !l.practice && passed(p, l.id)).length;
   const three = Object.values(p.lessons).filter(r => r.stars >= 3).length + Object.values(m.lessons).filter(r => r.stars >= 3).length;
   const kinds = new Set(Object.keys(m.lessons).map(id => id.split('-')[0]).map(r => MATH_REGIONS.find(x => x.id === r || x.id.startsWith(r))?.op).filter(Boolean));
-  const team = p.team;
   return {
     stars: totalStars(p) + mathStarsTotal(m) + playStars,
     regions: typingRegions + mathRegions,
     blooms: ALL_GARDEN_IDS.filter(id => m.facts[id]?.stage === 3).length,
     days: Object.values(p.days).filter(d => d.ms > 0).length,
     goalDays: Object.values(p.days).filter(d => d.goal).length,
-    ride: Math.max(p.rideBest ?? 0, team?.rideBest ?? 0),
+    ride: Math.max(p.rideBest ?? 0, ...Object.values(p.pals ?? {}).map(v => v?.rideBest ?? 0)),
     three,
     typingPassed,
     kinds: kinds.size + (Object.values(m.play ?? {}).some(r => (r?.plays ?? 0) > 0) ? 1 : 0),

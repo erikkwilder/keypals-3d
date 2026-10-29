@@ -3,7 +3,7 @@
 // medals, stickers, treasure, the daily goal). Pure functions over plain data, like engine/profile.ts.
 
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
-import { dayKey, teamOf } from '../engine/profile';
+import { dayKey, buddyPal } from '../engine/profile';
 import { welcomeNew } from '../engine/team';
 import { AWARD } from '../engine/achievements';
 import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from '../engine/stickers';
@@ -239,7 +239,7 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
   if (goalJustHit) medals.push('goal');
 
   // ---- the buddy's own progress: the same friendship, outfits, dances and stickers as typing ----
-  const pal: PalProgress = teamOf(p);
+  const pal: PalProgress = buddyPal(p);
   const lvlBefore = levelFromXp(pal.xp);
   pal.runs++;
   if (run.stars === 3) pal.stars3++;

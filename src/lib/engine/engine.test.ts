@@ -10,7 +10,7 @@ import { STICKERS, newPalProgress } from './stickers';
 import { MEDALS } from './achievements';
 import { RIDES, RIDE_SCORE } from './rides';
 import type { Profile } from './profile';
-import { applyRun, isUnlocked, lookOf, newProfile, nextLesson, migrate, knownFor } from './profile';
+import { applyRun, isUnlocked, lookOf, newProfile, nextLesson, migrate, knownFor, palOf } from './profile';
 import { mastery, updateKeyStats } from './mastery';
 import { WORDS_KIDS, WORDS_GROWN } from '../content/words';
 import { POOLS } from '../content/sentences';
@@ -206,26 +206,26 @@ describe('profiles and progress', () => {
     expect(out.treasure).toBeGreaterThanOrEqual(0);
     expect(nextLesson(p).id).toBe('village-2');
   });
-  it('shares stickers and medals across the whole team, whichever buddy you play with', () => {
+  it('keeps stickers, medals and friendship per buddy; a buddy you switch to starts fresh', () => {
     let p = newProfile('Mia', 'dino');
     const s = typeOut('fff jjj fj jf fff jjj fj jf', 500);
     p = applyRun(p, { lessonId: 'village-1', stats: computeStats(s), stars: 3, bestRide: 1, keyboardHidden: false, finished: true, at: Date.now() }, Q).profile;
-    const stickers = Object.keys(p.team!.stickers).length;
-    expect(stickers).toBeGreaterThan(2);
+    expect(Object.keys(p.pals.dino!.stickers).length).toBeGreaterThan(2);
+    const dinoXp = p.pals.dino!.xp;
     p.buddy = 'monkey';
     const out = applyRun(p, { lessonId: 'village-1', stats: computeStats(s), stars: 3, bestRide: 1, keyboardHidden: false, finished: true, at: Date.now() }, Q);
-    expect(out.stickers.map(st => st.id)).not.toContain('runs-1'); // already the team's: switching buddies starts nothing over
-    expect(out.profile.team!.medals.three).toBe(2);
-    expect(out.profile.team!.xp).toBeGreaterThan(p.team!.xp);
+    expect(out.stickers.map(st => st.id)).toContain('runs-1'); // Momo's own first run
+    expect(out.profile.pals.monkey!.medals.three).toBe(1);
+    expect(out.profile.pals.dino!.xp).toBe(dinoXp);
+    expect(out.profile.lessons['village-1'].passes).toBe(2); // the lessons are the player's
   });
-  it('merges an old save\'s per-buddy progress into one team', () => {
-    const old = { ...newProfile('Mia', 'dino'), team: undefined, looks: undefined } as unknown as Record<string, unknown>;
+  it('drops a shared team from a test save and keeps each buddy\'s own progress', () => {
+    const old = { ...newProfile('Mia', 'dino'), team: { xp: 900 }, looks: undefined } as unknown as Record<string, unknown>;
     old.pals = { dino: { xp: 300, stickers: { a: 5 }, medals: { three: 2 }, outfit: 'party_hat', dance: 'jump', rideBest: 2 }, monkey: { xp: 200, stickers: { b: 7 }, medals: { three: 1 }, rideBest: 4 } };
     const p = migrate({ version: 1, profiles: [old], activeId: (old as { id: string }).id }).profiles[0];
-    expect(p.team!.xp).toBe(500);
-    expect(Object.keys(p.team!.stickers).sort()).toEqual(['a', 'b']);
-    expect(p.team!.medals.three).toBe(3);
-    expect(p.team!.rideBest).toBe(4);
+    expect((p as unknown as { team?: unknown }).team).toBeUndefined();
+    expect(p.pals.dino!.xp).toBe(300);
+    expect(Object.keys(p.pals.monkey!.stickers)).toEqual(['b']);
     expect(p.looks!.dino).toEqual({ outfit: 'party_hat', dance: 'jump' });
   });
   it('awards several medals at once on a great run', () => {
@@ -385,8 +385,7 @@ describe('earning buddies', () => {
     expect(teamBuddies(p)).toContain('fish');
     expect(welcomeNew(p)).toEqual(['fish']);
     expect(welcomeNew(p)).toEqual([]);
-    const xp = p.team!.xp;
     p.buddy = 'fish';
-    expect(p.team!.xp).toBe(xp);
+    expect(palOf(p).xp).toBe(0); // a new buddy starts their own friendship
   });
 });

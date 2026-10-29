@@ -5,7 +5,7 @@
 import { game } from './game.svelte';
 import { ALL_LESSONS } from '../engine/course';
 import { BUDDIES } from '../art/cast';
-import { teamOf } from '../engine/profile';
+import { buddyPal } from '../engine/profile';
 import { MATH_LESSONS, PLACEMENTS } from '../math/course';
 import { mathOf } from '../math/progress';
 
@@ -18,7 +18,7 @@ export function addTester() {
     const now = Date.now();
     for (const l of ALL_LESSONS) pp.lessons[l.id] = { stars: 2, bestWpm: 30, bestAcc: 0.97, bestRide: 3, attempts: 1, passes: 1, lastAt: now, bestScore: 30, scoreSum: 30, finishes: 1 };
     // friendship 26 with everyone: every outfit and dance unlocked
-    teamOf(pp).xp = Math.max(teamOf(pp).xp, 11000);
+    for (const b of BUDDIES) buddyPal(pp, b.id).xp = Math.max(buddyPal(pp, b.id).xp, 11000);
     const m = (pp.math = mathOf(pp));
     for (const l of [...MATH_LESSONS, ...Object.values(PLACEMENTS)]) m.lessons[l.id] = { stars: 2, bestScore: 20, bestFpm: 20, bestAcc: 0.95, bestRide: 3, attempts: 1, finishes: 1, passes: 1, lastAt: now, treasure: 3 };
     m.play = { line: { stars: [2, 2, 2, 2, 2], plays: 5 }, bonds: { stars: [2, 2, 2, 2, 2], plays: 5 }, build: { stars: [2, 2, 2, 2, 2], plays: 5 } };

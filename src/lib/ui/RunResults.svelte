@@ -307,7 +307,7 @@
         <div class="egrid" style:--s="{cell}px">{#each thisRun as e, i (i)}{@render tile(e, i)}{/each}</div>
       {/if}
       {#if fresh.length}
-        <div class="ehead"><b>New for your team</b><span class="muted">buddies, outfits, dances and stickers to keep</span></div>
+        <div class="ehead"><b>New for {FRIEND[buddy].name}</b><span class="muted">outfits, dances, stickers and buddies to keep</span></div>
         <div class="egrid" style:--s="{cell}px">{#each fresh as e, i (i)}{@render tile(e, thisRun.length + i)}{/each}</div>
       {/if}
     </div>
@@ -387,7 +387,7 @@
           <span class="dkind">Medal{#if d.m.tier >= 0} · <b style:color={TIER_LOOK[d.m.tier].ink === '#fff' ? 'var(--primary)' : TIER_LOOK[d.m.tier].ink}>{TIER_LOOK[d.m.tier].name}</b>{/if}</span>
           <h3>{d.m.name}</h3>
           <p class="ddesc">{d.m.desc}</p>
-          <p class="dmore">You've won it {d.m.count === 1 ? 'once' : `${d.m.count} times`} with your team.{' '}{#if nt}Win it {nt.at - d.m.count} more {nt.at - d.m.count === 1 ? 'time' : 'times'} for {nt.name}.{:else}That's the top tier!{/if}</p>
+          <p class="dmore">You've won it {d.m.count === 1 ? 'once' : `${d.m.count} times`} with {FRIEND[buddy].name}.{' '}{#if nt}Win it {nt.at - d.m.count} more {nt.at - d.m.count === 1 ? 'time' : 'times'} for {nt.name}.{:else}That's the top tier!{/if}</p>
         {:else}
           <div class="dart"><StickerCard def={d.def} friend={buddy} {look} outfit={heroOutfit} size={220} /></div>
           <span class="dkind">Sticker · <b class="rar-{d.def.rarity}">{d.def.rarity}</b></span>

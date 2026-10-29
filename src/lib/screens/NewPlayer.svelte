@@ -78,7 +78,7 @@
   {:else if step === 2}
     <div class="step">
       <h1>Pick your buddy, {name.trim()}!</h1>
-      <p class="muted">Your buddy rides along with you on every trail. Fifteen more Keypals join your team as you play, and you can switch any time without losing a thing.</p>
+      <p class="muted">Your buddy rides along with you on every trail. Fifteen more Keypals join your team as you play. Each buddy earns their own friendship, outfits, stickers and medals.</p>
       <div class="buddies">
         {#each BUDDIES.filter(b => STARTERS.includes(b.id)) as f (f.id)}
           <button class="buddy" class:on={buddy === f.id} onclick={() => chooseBuddy(f.id)} aria-pressed={buddy === f.id}>

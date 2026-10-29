@@ -56,7 +56,7 @@ const SPEEDS = [10, 15, 20, 28, 36];
 
 export const STICKERS: StickerDef[] = [
   // journey
-  ...REGION_STICKERS.map(([r, name, desc, hue], i) => S({ id: `trip-${r}`, name, desc: `${desc}`, rarity: i < 2 ? 'common' : i < 5 ? 'rare' : 'epic', shape: 'shield', bg: 'rays', hue, hue2: (hue + 40) % 360, pose: 'proud', prop: 'mountain', region: r, check: p => p.regions.includes(r) })),
+  ...REGION_STICKERS.map(([r, name, desc, hue], i) => S({ id: `trip-${r}`, name, desc: `${desc} (with this Keypal)`, rarity: i < 2 ? 'common' : i < 5 ? 'rare' : 'epic', shape: 'shield', bg: 'rays', hue, hue2: (hue + 40) % 360, pose: 'proud', prop: 'mountain', region: r, check: p => p.regions.includes(r) })),
   // rides
   ...RIDES.slice(1).map((r, i) => S({ id: `ridestar-${r.id}`, name: `${r.name} Star`, desc: i === 0 ? 'Break into a run during a lesson.' : `Reach the ${r.name} during a lesson.`, rarity: i < 2 ? 'common' : i < 3 ? 'rare' : i < 4 ? 'epic' : 'legendary', shape: i === 4 ? 'burst' : 'circle', bg: i >= 3 ? 'stars' : 'stripes', hue: [338, 160, 200, 300, 52][i], hue2: [200, 200, 160, 338, 330][i], pose: 'ride', prop: 'ride', ride: i + 1, check: p => p.rideBest >= i + 1 })),
   // three-star runs

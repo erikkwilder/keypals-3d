@@ -5,7 +5,7 @@
 //   Build It         build a number from hundreds, tens and ones: place value
 // Rounds feed the same friendship, outfits, dances, stickers and daily minutes as every other game.
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
-import { dayKey, teamOf } from '../engine/profile';
+import { dayKey, buddyPal } from '../engine/profile';
 import { welcomeNew } from '../engine/team';
 import { AWARD } from '../engine/achievements';
 import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from '../engine/stickers';
@@ -123,7 +123,7 @@ export function applyPlay(p0: Profile, run: { game: PlayGame; level: number; sta
   if (!d.goal && d.ms >= p.settings.dailyGoalMin * 60000) d.goal = true;
   const goalJustHit = !wasGoal && !!d.goal;
   // the buddy
-  const pal: PalProgress = teamOf(p);
+  const pal: PalProgress = buddyPal(p);
   const lvlBefore = levelFromXp(pal.xp);
   pal.runs++;
   if (run.stars === 3) pal.stars3++;

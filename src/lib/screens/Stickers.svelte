@@ -5,7 +5,7 @@
   import { MEDALS } from '../engine/achievements';
   import { RIDES, RIDE_SCORE } from '../engine/rides';
   import { STICKERS, MEDAL_TIERS, levelFromXp, medalTier, type StickerDef } from '../engine/stickers';
-  import { palOf, teamOf } from '../engine/profile';
+  import { palOf, buddyPal } from '../engine/profile';
   import { onTeam } from '../engine/team';
   import { renderSticker, renderMedal, TIER_LOOK } from '../art/stickerArt';
   import { sfx } from '../audio/sound';
@@ -39,7 +39,7 @@
   function markSeen() {
     const pp = palOf(p, who);
     seenNow = new Set(pp.seen.filter(s => s.startsWith('sticker:')).map(s => s.slice(8)));
-    if (seenNow.size) game.update(x => { const q = teamOf(x); q.seen = q.seen.filter(s => !s.startsWith('sticker:')); });
+    if (seenNow.size) game.update(x => { const q = buddyPal(x, who); q.seen = q.seen.filter(s => !s.startsWith('sticker:')); });
   }
   function pickFriend(id: FriendId) { who = id; sfx.click(); markSeen(); }
   function view(s: StickerDef) { open = s; sfx.pop(); }
@@ -51,7 +51,7 @@
 </script>
 
 <div class="screen book">
-  <Header title="Sticker Book" sub="Your team: {Object.keys(pal.stickers).length} of {STICKERS.length}">
+  <Header title="Sticker Book" sub="{FRIEND[who].name}: {Object.keys(pal.stickers).length} of {STICKERS.length}">
     {#snippet right()}
       <div class="tabs">
         <button class:on={tab === 'stickers'} onclick={() => (tab = 'stickers')}>Stickers</button>
@@ -62,12 +62,14 @@
   </Header>
 
   <div class="crew">
-    <!-- the stickers belong to the whole team; pick who appears in the pictures -->
+    <!-- each buddy on the team has a sticker book of their own -->
     {#each BUDDIES.filter(b => onTeam(p, b.id)) as f (f.id)}
       {@const pp = palOf(p, f.id)}
-      <button class="mate" class:on={who === f.id} onclick={() => pickFriend(f.id)} title="Show the stickers with {f.name}">
+      <button class="mate" class:on={who === f.id} onclick={() => pickFriend(f.id)} title="{f.name}'s stickers">
         <Critter friend={f.id} {look} accessory={pp.outfit} size={64} round />
         <span class="nm">{f.name}</span>
+        <span class="ct">{count(f.id)}/{STICKERS.length}</span>
+        <span class="lv" title="Friendship level">♥ {levelFromXp(pp.xp).level}</span>
       </button>
     {/each}
   </div>
@@ -89,7 +91,7 @@
         </section>
       {/each}
     {:else if tab === 'medals'}
-      <p class="intro">Medals level up as you win them again: Rose, Silver at 5, Gold at 15, Rainbow at 40. Your whole team shares them.</p>
+      <p class="intro">Medals level up as you win them again: Rose, Silver at 5, Gold at 15, Rainbow at 40. Each Keypal keeps their own.</p>
       {#each [{ id: 'any', name: 'Every game', sub: 'won in typing or math' }, { id: 'typing', name: 'Typing', sub: 'from typing lessons' }, { id: 'math', name: 'Math', sub: 'from math trips' }] as grp (grp.id)}
         <h3 class="mgroup">{grp.name} <span>{grp.sub}</span></h3>
         <div class="medals">
