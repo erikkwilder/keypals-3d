@@ -38,6 +38,10 @@ export type MathProgress = {
   tricksSeen?: number[];
   /** the Learn lessons finished (lesson ids from math/learn.ts): their tricks show in battles */
   learned?: string[];
+  /** the day each trick was learned (dayKey), for the quick check the next day */
+  learnedOn?: Record<string, string>;
+  /** the tricks whose next-day quick check is done */
+  checked?: string[];
   /** each fact's stage the last time the Fact Garden was opened, so new growth can pop in */
   gardenSeen?: Record<string, number>;
   /** the strand played last: +, −, × or ÷ (home's Play carries on there) */

@@ -25,7 +25,7 @@ export const SETS: Record<SetId, {
   key: number; sky: number; ground: number; haze: number;
 }> = {
   kitchen: { name: 'The Bakery Kitchen', backdrop: 'learn/ep/set-kitchen.webp', table: 'learn/ep/tex-kitchen.webp', star: 'sproutbun', token: 'cookie',
-    tray: { word: 'muffin tin', color: 0xb8bcc8, rim: 0x8c93a3 }, plate: { word: 'plate', color: 0xfdf7ee, rim: 0x6f9fd8 }, key: 0xffd9a0, sky: 0xffe9c8, ground: 0x7a5236, haze: 0xf3c891 },
+    tray: { word: 'muffin tin', color: 0xdfe3ec, rim: 0x8a91a3 }, plate: { word: 'plate', color: 0xfdf7ee, rim: 0x6f9fd8 }, key: 0xffd9a0, sky: 0xffe9c8, ground: 0x7a5236, haze: 0xf3c891 },
   dock: { name: 'The Sunny Dock', backdrop: 'learn/ep/set-dock.webp', table: 'learn/ep/tex-dock.webp', star: 'puddlepup', token: 'pearl',
     tray: { word: 'shell crate', color: 0xc99a62, rim: 0x8a6239 }, plate: { word: 'bucket', color: 0x5fb3d9, rim: 0x2f7aa3 }, key: 0xfff0d0, sky: 0xcfeaff, ground: 0x5b7a8c, haze: 0xbfe3f6 },
   picnic: { name: 'The Picnic Meadow', backdrop: 'learn/ep/set-picnic.webp', table: 'learn/ep/tex-picnic.webp', star: 'snowseal', token: 'berry',
@@ -91,6 +91,7 @@ export function fixChoices(e: Episode): number[] {
  *  - take: tap these counters to take them away
  *  - hop: tap the glowing number to hop there (one hop at a time)
  *  - tap: tap the glowing group to make it happen (a colour change, like covering half)
+ *  - label: tap each glowing spot to see its words (counting the tens: 10, 20, 30...)
  *  - watch: just look and listen
  *  Big jobs (more than `HANDS` counters): the kid does the first few and the rest follow by themselves. */
 export type Task =
@@ -99,8 +100,9 @@ export type Task =
   | { kind: 'take'; ids: string[]; by: number }
   | { kind: 'hop'; hops: { a: number; b: number; label: string }[] }
   | { kind: 'tap'; ids: string[] }
+  | { kind: 'label'; ids: string[] }
   | { kind: 'watch' };
-export const HANDS = 6;
+export const HANDS = 4;
 const same = (a: Dot, b: Dot) => Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5;
 
 export function taskFor(prev: Board | null, next: Board): Task {
@@ -132,6 +134,10 @@ export function taskFor(prev: Board | null, next: Board): Task {
   }
   if (taken.length) return { kind: 'take', ids: taken, by: by(taken.length) };
   if (recolored.length) return { kind: 'tap', ids: recolored };
+  // nothing moves, only words appear: tap each one's spot to see it
+  const had = new Set(prev.tags.map(t => t.id + t.text));
+  const words = next.tags.filter(t => !had.has(t.id + t.text)).map(t => t.id);
+  if (words.length && words.length <= 6) return { kind: 'label', ids: words };
   return { kind: 'watch' };
 }
 
@@ -144,6 +150,7 @@ export function taskWords(t: Task, setId: SetId): string {
     case 'take': return t.ids.length > t.by ? `Tap ${t.by} to take them away, and the rest go too` : `Tap the glowing ${thing} to take them away`;
     case 'hop': return 'Tap the glowing number to hop';
     case 'tap': return 'Tap the glowing ones';
+    case 'label': return t.ids.length > 1 ? 'Tap each glowing spot' : 'Tap the glowing spot';
     default: return '';
   }
 }
