@@ -387,20 +387,32 @@ export class EpisodeScene implements Controller {
   /** On a tall screen two tins side by side stack instead (the second under the first), so every
    *  counter is big enough to touch. Everything in the right half moves with its tin. */
   private stack = false;
+  /** The same for a fraction picture with its things either side (a pie and a plate, two pizzas): the
+   *  right-hand one goes under the left, so both are big enough to share onto. */
+  private stackFrac = false;
+  private mv<T extends { x: number; y: number }>(o: T, b: Board): T {
+    if (this.stackFrac) return o.x >= 300 ? { ...o, x: o.x - 250, y: o.y + 250 } : o;
+    if (this.stack && b.frames.length === 2) return o.x >= 300 ? { ...o, x: o.x - 256, y: o.y + FC * 2 + 26 } : o;
+    return o;
+  }
   private tf(b: Board): Board {
+    if (this.stackFrac) return { ...b, dots: b.dots.map(o => this.mv(o, b)), plates: b.plates.map(o => this.mv(o, b)), dishes: b.dishes?.map(o => this.mv(o, b)), tags: b.tags.map(o => this.mv(o, b)) };
     if (!this.stack || b.frames.length !== 2) return b;
-    const mv = <T extends { x: number; y: number }>(o: T): T => (o.x >= 300 ? { ...o, x: o.x - 256, y: o.y + FC * 2 + 26 } : o);
-    return { ...b, frames: b.frames.map(mv), dots: b.dots.map(mv), tags: b.tags.map(mv) };
+    return { ...b, frames: b.frames.map(o => this.mv(o, b)), dots: b.dots.map(o => this.mv(o, b)), tags: b.tags.map(o => this.mv(o, b)) };
   }
   /** Fit these pictures onto the table (call when the picture's zoom changes). */
   fitBoards(boards: Board[]) {
     const W = innerWidth || 1, Hh = innerHeight || 1;
     this.stack = ((this.view.right - this.view.left) * W) / Math.max(1, (this.view.bottom - this.view.top) * Hh) < 0.9;
+    // (only when no dish or plate sits across the middle, and something is on the right)
+    const things = (b: Board) => [...b.plates.map(p => ({ x: p.x, h: p.r })), ...(b.dishes ?? []).map(p => ({ x: p.x, h: p.kind === 'foil' ? (p.w ?? 0) / 2 : p.r }))];
+    this.stackFrac = this.stack && this.close && boards.every(b => !b.line && !b.frames.length && things(b).every(p => p.x + p.h * 0.5 < 300 || p.x - p.h * 0.5 > 300))
+      && boards.some(b => things(b).some(p => p.x >= 300));
     this.fit(boundsOf(boards.map(b => this.tf(b))));
   }
   /** where a word of the picture on the table now sits */
   tagPoint(t: Tag): THREE.Vector3 {
-    const b = this.board, m = b && this.stack && b.frames.length === 2 && t.x >= 300 ? { x: t.x - 256, y: t.y + FC * 2 + 26 } : t;
+    const m = this.board ? this.mv(t, this.board) : t;
     return this.boardPoint(m.x, m.y, 0.03);
   }
   /** Fit these board bounds onto the table (call when the picture's zoom changes). */
@@ -1101,7 +1113,7 @@ export class EpisodeScene implements Controller {
       el.style.visibility = '';
       // (kept below the top bar, so a bubble by a tall friend never hides under it)
       el.style.transform = `translate(${s.x.toFixed(1)}px, ${Math.min(innerHeight - 30, Math.max(110, s.y)).toFixed(1)}px)`;
-      el.style.setProperty('--u', this.unit.toFixed(3));
+      el.style.setProperty('--u', this.unit.toFixed(3)); el.style.setProperty('--px', s.x.toFixed(0));
     }
   }
 

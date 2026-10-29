@@ -345,7 +345,7 @@
 </script>
 
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
-<div class="ep" class:narrow style:--sc={lesson.color} style:--bg="url({base}{place.backdrop})">
+<div class="ep" class:narrow class:frac={!lesson.cover} style:--sc={lesson.color} style:--bg="url({base}{place.backdrop})">
   <!-- the 3D place is the stage behind the page; this layer passes the kid's touches to it -->
   <div class="hit" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="presentation"></div>
   <div class="vignette"></div>
@@ -374,10 +374,10 @@
       <div class="pin" use:pin={() => sc!.handPoint()}><span class="hand"><i></i></span></div>
     {/if}
     {#if eqOn && phase === 'step'}
-      {#key i}<div class="pin" use:pin={() => sc!.over()}><div class="eq">{#each eqParts as p}{#if p.lit}<span class="lit"><FracText text={p.t} size={34} /></span>{:else}<span><FracText text={p.t} size={30} /></span>{/if}{/each}</div></div>{/key}
+      {#key i}<div class="pin" use:pin={() => sc!.over()}><div class="eq">{#each eqParts as p}{#if p.lit}<span class="lit"><FracText text={p.t} size={narrow ? 26 : 34} /></span>{:else}<span><FracText text={p.t} size={narrow ? 22 : 30} /></span>{/if}{/each}</div></div>{/key}
     {/if}
     {#if phase === 'teach' && wrongOn}
-      {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:isq={asks(lesson.teach.q)} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{#if asks(lesson.teach.q)}<small class="qt"><FracText text={lesson.teach.q.text} size={18} /></small>{:else}<FracText text={lesson.teach.q.text} size={30} /> = {/if}<span class="ans">{#if tsub === 'fixed'}<span class="lit"><FracText text={right} size={34} /></span>{:else}<s><FracText text={lesson.teach.wrong} size={30} /></s>?{/if}</span></div></div>{/key}
+      {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:isq={asks(lesson.teach.q)} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{#if asks(lesson.teach.q)}<small class="qt"><FracText text={lesson.teach.q.text} size={narrow ? 14 : 18} /></small>{:else}<FracText text={lesson.teach.q.text} size={narrow ? 22 : 30} /> = {/if}<span class="ans">{#if tsub === 'fixed'}<span class="lit"><FracText text={right} size={narrow ? 26 : 34} /></span>{:else}<s><FracText text={lesson.teach.wrong} size={narrow ? 22 : 30} /></s>?{/if}</span></div></div>{/key}
     {/if}
     <!-- one speech bubble, by the buddy: its own words when it has some, else the story's -->
     {#if bubble || (line && phase !== 'load')}
@@ -603,10 +603,13 @@
   .narrow .choice { min-width: 92px; height: 70px; font-size: 32px; }
   .narrow .choices { gap: 10px; }
   .narrow .ask { font-size: 32px; padding: 6px 16px; }
-  .narrow .say { font-size: 15px; max-width: 58vw; padding: 8px 12px 10px; transform: translate(10px, -40%); }
+  .narrow .say { font-size: 15px; max-width: min(58vw, calc(100vw - var(--px, 0) * 1px - 22px)); padding: 8px 12px 10px; transform: translate(10px, -40%); }
   .narrow .num { font-size: 13px; }
   .narrow .num.here { font-size: 18px; }
   .narrow .eq { font-size: 26px; padding: 4px 14px; }
+  .narrow .eq .qt { font-size: 14px; }
+  /* (fractions on a phone: the pie is right under the friends, so the bubble sits a little higher) */
+  .narrow.frac .say { transform: translate(10px, -66%); }
   .narrow .cardside { left: 0; right: 0; top: auto; bottom: 10px; translate: none; width: 100%; padding: 0 12px; gap: 8px; }
   .narrow .card { width: min(190px, 48vw); }
   .narrow .cin { gap: 2px; }
