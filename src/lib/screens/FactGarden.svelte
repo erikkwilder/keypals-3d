@@ -77,7 +77,8 @@
   let narrow = $state(innerWidth < 861);
   function viewOf() {
     const r = viewEl?.getBoundingClientRect();
-    return r ? { top: r.top / innerHeight, bottom: r.bottom / innerHeight, left: r.left / innerWidth, right: r.right / innerWidth } : { top: 0.12, bottom: 0.9, left: 0, right: 0.75 };
+    // frame the garden between the tabs along the top and the bed chips (and, on a phone, the key) along the bottom
+    return r ? { top: (r.top + 54) / innerHeight, bottom: (r.bottom - (narrow ? 104 : 64)) / innerHeight, left: r.left / innerWidth, right: r.right / innerWidth } : { top: 0.12, bottom: 0.9, left: 0, right: 0.75 };
   }
   function onResize() { narrow = innerWidth < 861; if (scene) scene.view = viewOf(); }
   onMount(async () => {
@@ -403,7 +404,8 @@
   .narrow .tally small { display: none; }
   .narrow .tally img { width: 26px; height: 26px; }
   .narrow .tally b { font-size: 16px; }
-  .narrow .helpbtn { display: block; width: 36px; height: 36px; font-size: 20px; }
+  .narrow .helpbtn { display: block; flex: none; width: 36px; height: 36px; font-size: 20px; }
+  @media (max-width: 480px) { .narrow .bar h1 { display: none; } .narrow .tally { margin-left: auto; } }
   .narrow .side { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 8px 8px; overflow: visible; pointer-events: none; z-index: 20; }
   .narrow .side > :global(*) { pointer-events: auto; }
   .narrow .detail, .narrow .sheet { max-height: 62vh; overflow-y: auto; box-shadow: 0 -6px 30px rgba(40, 28, 70, .25), 0 0 0 3px #ffd34d; }

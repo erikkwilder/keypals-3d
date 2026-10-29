@@ -46,7 +46,7 @@ const plotX = (i: number) => (i - 1.5) * PLOT_GAP;
 const bedZ = (j: number) => -j * ROW;
 const plantX = (c: number) => -BED_L / 2 + 0.25 + (c + 0.5) * CELL;
 const HEIGHT: Record<Stage, number> = { 0: 0, 1: 0.16, 2: 0.44, 3: 0.58 };
-const GLOW = { fast: 0x57f0a2, slow: 0xffcf3d, miss: 0xff6f9f } as const;
+const GLOW = { fast: 0x1fd06e, slow: 0xffb300, miss: 0xff3f86 } as const;
 /** bud tints, one for each flower colour (pink, purple, orange, blue, yellow, red), soft so the green sepals stay green */
 const BUD_TINT = [0xffc2dc, 0xd9c2ff, 0xffd2a8, 0xc2e2ff, 0xfff0a8, 0xffb8b8];
 
@@ -145,6 +145,8 @@ export class GardenScene implements Controller {
   private selected: number | null = null;
   private drops: { mesh: THREE.InstancedMesh; at: THREE.Vector3[] } | null = null;
   private growing: { slots: Slot[]; at: number; pos: THREE.Vector3; done: boolean }[] = [];
+  /** seconds between one plant popping up and the next (shorter when lots grew) */
+  private popGap = 0.16;
   private butterflies: { g: THREE.Group; l: THREE.Object3D; r: THREE.Object3D; ph: number; sp: number }[] = [];
   private camPos = new THREE.Vector3(); private camAim = new THREE.Vector3(); private camReady = false;
   private now = 0; private started = -1;
@@ -317,8 +319,9 @@ export class GardenScene implements Controller {
     const glowTexC = document.createElement('canvas'); glowTexC.width = glowTexC.height = 64;
     { const g = glowTexC.getContext('2d')!, gr = g.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.45, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); }
     const glowTex = keep(new THREE.CanvasTexture(glowTexC));
-    const glowGeo = keep(new THREE.PlaneGeometry(0.5, 0.5).rotateX(-Math.PI / 2));
-    const glowMat = keep(new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.85 }));
+    const glowGeo = keep(new THREE.PlaneGeometry(0.56, 0.56).rotateX(-Math.PI / 2));
+    // a soft pool of colour on the soil (not added light: that washed every colour out to yellow)
+    const glowMat = keep(new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, opacity: 0.8, polygonOffset: true, polygonOffsetFactor: -3 }));
 
     const all = o.plots.flatMap((pl, pi) => pl.beds.flatMap((bd, j) => bd.plants.map((pt, c) => ({ pt, pi, j, c, color: bd.color }))));
     const count = (f: (x: typeof all[number]) => boolean) => Math.max(1, all.filter(f).length);
@@ -411,6 +414,7 @@ export class GardenScene implements Controller {
     const sc = new GardenScene(garden, o.plots, o.view, sun, own);
     sc.u = u; sc.hit = hit; sc.hitIds = hitIds; sc.growing = growing; sc.clouds = clouds;
     sc.drops = { mesh: drops, at: dropAt };
+    sc.popGap = Math.min(0.16, 3.6 / Math.max(1, growing.length));
     sc.plot = o.plot ?? 0;
 
     // ---------- butterflies ----------
@@ -503,7 +507,7 @@ export class GardenScene implements Controller {
     // growth since the last visit pops in, one plant after another, each with a little burst
     for (const g of this.growing) {
       if (g.done) continue;
-      const k = (t - this.started - 0.9 - g.at * 0.16) / 0.55;
+      const k = (t - this.started - 0.9 - g.at * this.popGap) / 0.55;
       if (k < 0) continue;
       const s = k >= 1 ? 1 : 1 + Math.sin(k * Math.PI) * 0.35 - (1 - k) * 1 * (1 - k);
       const sc = Math.max(0, Math.min(1.3, k >= 1 ? 1 : s * Math.min(1, k * 1.6)));
@@ -593,6 +597,11 @@ export class GardenScene implements Controller {
       // one bed up close: its sign, its plants and the numbers along its front
       center = new THREE.Vector3(X - 0.35, SOIL_Y + 0.22, bedZ(this.bed) + 0.05);
       halfW = BED_L / 2 + 0.95; halfH = 0.7;
+      if (cam.aspect * bandW / bandH < 1) {
+        const sel = this.selected !== null ? this.hitIds[this.selected] : null;
+        halfW = 2.1; halfH = 1.0;
+        center.x = sel && sel.bed === this.bed && sel.plot === this.plot ? sel.pos.x : X - BED_L / 2 + 1.6;
+      }
       dir = new THREE.Vector3(0, 0.62, 1).normalize();
     }
     dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(t * 0.12) * 0.06);
