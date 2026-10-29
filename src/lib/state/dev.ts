@@ -52,9 +52,11 @@ export function devBoot() {
   // the math game: #math (math home), #mathrun=twins-2, #garden
   if (key === 'math') { ensure(); game.setHome('math'); game.go('map'); }
   if (key === 'mathrun') { ensure(); game.setHome('math'); game.startMath(val || 'twins-1'); }
+  // a skill trip straight away: #skill=place-a-3 (any skill lesson id)
+  if (key === 'skill') { ensure(); game.setHome('math'); game.startSkill(val || 'place-a-1'); }
   if (key === 'garden') { ensure(); game.go('garden'); }
   // Adventure: #adventure (or #adventure=falls for that world), #battle=meadow-0 (or falls-0), #glimmers, #eggs
-  if (key === 'adventure') { ensure(); if (val === 'sky' || val === 'falls') lastWorld.id = val; game.go('adventure'); }
+  if (key === 'adventure') { ensure(); if (val === 'sky' || val === 'falls' || val === 'caves') lastWorld.id = val; game.go('adventure'); }
   if (key === 'battle') { ensure(); game.battleNode = val || 'meadow-0'; game.battleKey++; game.go('battle'); }
   if (key === 'glimmers') { ensure(); game.go('glimmers'); }
   if (key === 'eggs') { ensure(); game.go('eggs'); }

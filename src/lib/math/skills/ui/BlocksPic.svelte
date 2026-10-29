@@ -12,7 +12,8 @@
   // (ten.webp is 84 x 660, hundred.webp and thousand.webp square, one.webp a cube with its side)
   const flatW = $derived(H);
   const cubeW = $derived(H * 0.112);
-  const fan = (n: number) => (n > 2 ? 0.26 : 0.9);
+  // flats fan out to the right, the left one on top, so each one's painted edge shows and they can be counted
+  const fan = (n: number) => (n > 2 ? 0.3 : 0.9);
   const label = $derived([b.th ? `${b.th} thousands` : '', b.h ? `${b.h} hundreds` : '', b.t ? `${b.t} tens` : '', b.o ? `${b.o} ones` : ''].filter(Boolean).join(', '));
   const cols = $derived(Array.from({ length: Math.ceil(b.o / 5) }, (_, c) => Math.min(5, b.o - c * 5)));
 </script>
@@ -20,12 +21,12 @@
 <span class="bp" style:--h="{H}px" role="img" aria-label={label}>
   {#if b.th}
     <span class="grp fan" style:width="{flatW * (1 + fan(b.th) * (b.th - 1))}px">
-      {#each Array(b.th) as _, i (i)}<img src={src('thousand')} alt="" style:left="{i * flatW * fan(b.th)}px" style:width="{flatW}px" />{/each}
+      {#each Array(b.th) as _, i (i)}<img src={src('thousand')} alt="" style:left="{i * flatW * fan(b.th)}px" style:width="{flatW}px" style:z-index={20 - i} />{/each}
     </span>
   {/if}
   {#if b.h}
     <span class="grp fan" style:width="{flatW * (1 + fan(b.h) * (b.h - 1))}px">
-      {#each Array(b.h) as _, i (i)}<img src={src('hundred')} alt="" style:left="{i * flatW * fan(b.h)}px" style:width="{flatW}px" />{/each}
+      {#each Array(b.h) as _, i (i)}<img src={src('hundred')} alt="" style:left="{i * flatW * fan(b.h)}px" style:width="{flatW}px" style:z-index={20 - i} />{/each}
     </span>
   {/if}
   {#if b.t}
@@ -43,7 +44,7 @@
   .grp { display: inline-flex; align-items: flex-end; height: 100%; }
   .grp img { display: block; user-select: none; -webkit-user-drag: none; }
   .fan { position: relative; }
-  .fan img { position: absolute; bottom: 0; }
+  .fan img { position: absolute; bottom: 0; filter: drop-shadow(3px 0 3px rgba(30, 20, 60, .35)); }
   .rods { gap: calc(var(--h) * .025); }
   .rods img { height: 100%; width: auto; object-fit: contain; }
   .ones { gap: calc(var(--h) * .02); }

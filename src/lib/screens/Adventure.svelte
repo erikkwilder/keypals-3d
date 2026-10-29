@@ -274,6 +274,7 @@
       <div class="wscroll" bind:this={wscroll}>
         <div class="wpic">
           <img class="wimg" src="{base}game/worlds-wide.webp" alt="" draggable="false" />
+          {#each WORLD_PINS as w (w.id)}{#if w.art}<img class="wart" src="{base}{w.art.src}" alt="" draggable="false" style:left="{w.art.at[0]}%" style:top="{w.art.at[1]}%" style:width="{w.art.w}%" />{/if}{/each}
           {#each WORLD_PINS as w (w.id)}
             {@const live = !!w.map}
             {@const ok = live && worldOpen(p, w.id as WorldId)}
@@ -357,6 +358,8 @@
   .wscroll { flex: 1; min-height: 0; overflow: auto; container-type: size; display: grid; place-items: center; padding: 0 0 12px; }
   .wpic { position: relative; width: min(calc(100cqw - 32px), calc((100cqh - 12px) * 16 / 9)); aspect-ratio: 16 / 9; border-radius: 22px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, .4); }
   .wimg { width: 100%; height: 100%; display: block; }
+  /* an island painted onto the world picture (a world added after the picture was made) */
+  .wart { position: absolute; transform: translate(-50%, -50%); pointer-events: none; filter: drop-shadow(0 12px 18px rgba(60, 40, 110, .25)); }
   .pin { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; border: 0; cursor: pointer; background: rgba(255, 255, 255, .78); border-radius: 16px; padding: 4px 12px 5px; box-shadow: 0 4px 12px rgba(40, 20, 80, .3); transition: transform .15s; }
   .pin b { display: flex; align-items: center; gap: 4px; font: 600 clamp(13px, 1.4vw, 19px) var(--font-ui); color: var(--ink2); white-space: nowrap; }
   .pin small { font: 800 clamp(10px, .9vw, 12px) var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
