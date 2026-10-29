@@ -20,7 +20,8 @@ import { propsFor, heroProps } from './episodeProps';
 import { loadTexture } from './assets';
 import { FRIEND, type FriendId } from '../art/cast';
 import { sfx } from '../audio/sound';
-import { BW, FC, boundsOf, type Board, type Hue, type Tag } from '../math/learn';
+import { BW, FC, boundsOf, type Board, type Hue, type Shape, type Tag } from '../math/learn';
+import { extraMat, makeDish, shapeGeo, shapeKey, shapeMats, type FracTex } from './fracShapes';
 import { SETS, type SetId, type Task, type TokenKind } from '../math/episodes';
 import type { GlimmerId } from '../adventure/glimmers';
 
@@ -72,6 +73,8 @@ type Token = {
   /** how much it glows (0 none, 1 "touch me") */
   glow: number; lit: number;
   drag: boolean; squashAt: number;
+  /** a counter with a shape of its own (a slice, a square, a cupcake), and its undyed part */
+  shape?: Shape; extra?: THREE.Mesh;
 };
 type Spot = { id: string; mesh: THREE.Mesh; at: THREE.Vector3; born: number; leaving: number; strong: boolean };
 type Piece = { id: string; g: THREE.Group; born: number; leaving: number };
@@ -126,6 +129,11 @@ export class EpisodeScene implements Controller {
   private spots = new Map<string, Spot>();
   private trays = new Map<string, Piece>();
   private plates = new Map<string, Piece>();
+  /** pie dishes, pizza boards and foil (fractions), and how high each one's floor is */
+  private dishes = new Map<string, Piece>();
+  private dishLift = new Map<string, number>();
+  private fracTex: FracTex = { pie: null, pizza: null, choc: null };
+  private shapeGeos = new Map<string, ReturnType<typeof shapeGeo>>();
   private plank: THREE.Group | null = null;
   private lineKey = '';
   private stars: THREE.Sprite[] = [];
@@ -174,12 +182,18 @@ export class EpisodeScene implements Controller {
     this.ringTex = ringTexture();
   }
 
-  static async create(opts: { setId: SetId; buddy: FriendId; star?: GlimmerId; evolved?: boolean }): Promise<EpisodeScene> {
+  static async create(opts: { setId: SetId; buddy: FriendId; star?: GlimmerId; evolved?: boolean; frac?: boolean }): Promise<EpisodeScene> {
     const s = SETS[opts.setId];
     const [me, pal] = await Promise.all([Character.create(opts.buddy), GlimmerModel.create(opts.star ?? s.star, 1.0, { evolved: opts.evolved })]);
     if (!me) throw new Error('character missing');
     await Promise.all([dressUp(me), me.loadMoves()]);
     const sc = new EpisodeScene(opts.setId, me, pal, opts.buddy);
+    // the painted pie, pizza and chocolate the fraction episodes cut up
+    if (opts.frac) {
+      const [pie, pizza, choc] = await Promise.all(['pie-top', 'pizza-top', 'choc-top'].map(f => loadTexture(`learn/frac/${f}.webp`)));
+      for (const t of [pie, pizza, choc]) if (t) { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; }
+      sc.fracTex = { pie, pizza, choc };
+    }
     await sc.build();
     return sc;
   }
@@ -405,6 +419,10 @@ export class EpisodeScene implements Controller {
     // (in a tin's cup the cookie stands up out of it: only its bottom is in the cup)
     for (const f of b.frames) if (x > f.x && x < f.x + FC * 5 && y > f.y && y < f.y + FC * 2) return TRAY_TOP - this.r * 0.18;
     for (const p of b.plates) if (Math.hypot(x - p.x, y - p.y) < p.r) return p.r * this.map.s * (this.deepPlates ? 0.08 : 0.06);
+    for (const p of b.dishes ?? []) {
+      const inside = p.kind === 'foil' ? Math.abs(x - p.x) < (p.w ?? 0) / 2 && Math.abs(y - p.y) < (p.h ?? 0) / 2 : Math.hypot(x - p.x, y - p.y) < p.r;
+      if (inside) return this.dishLift.get(p.id) ?? (p.kind === 'pie' ? p.r * this.map.s * 0.04 : 0.02);
+    }
     if (b.line && Math.abs(y - LY) < 20) return 0.04;
     return 0;
   }
@@ -418,7 +436,7 @@ export class EpisodeScene implements Controller {
     const t = this.now;
     if (this.refit) {
       this.refit = false;
-      for (const map of [this.trays, this.plates]) { for (const p of map.values()) { p.g.removeFromParent(); dispose(p.g); } map.clear(); }
+      for (const map of [this.trays, this.plates, this.dishes]) { for (const p of map.values()) { p.g.removeFromParent(); dispose(p.g); } map.clear(); }
       this.trayRects.clear();
       if (this.plank) { this.plank.removeFromParent(); dispose(this.plank); this.plank = null; }
       this.lineKey = '';
@@ -433,7 +451,7 @@ export class EpisodeScene implements Controller {
       const at = this.boardPoint(d.x, d.y, this.liftAt(b, d.x, d.y));
       let tk = this.tokens.get(d.id);
       if (!tk) {
-        tk = this.token(d.id, d.c, at);
+        tk = this.token(d.id, d.c, at, d.shape);
         tk.born = instant ? -9 : t + (d.d ?? 0) * 1.4;
         if (!instant) { tk.from = at.clone().add(new THREE.Vector3(0, 0.22, 0)); tk.t0 = tk.born; tk.dur = 0.38; tk.arc = 0; tk.squashAt = tk.born + 0.38; }
       } else if (!tk.drag) {
@@ -452,6 +470,13 @@ export class EpisodeScene implements Controller {
     // ten frames and plates
     this.pieces(this.trays, b.frames.map(f => ({ id: f.id, make: () => this.tray(f.x, f.y) })), instant);
     this.pieces(this.plates, b.plates.map(p => ({ id: p.id, make: () => this.plate(p.x, p.y, p.r, !!p.empty) })), instant);
+    this.pieces(this.dishes, (b.dishes ?? []).map(p => ({ id: p.id, make: () => {
+      const { g, lift } = makeDish(p.kind, p.r, p.w ?? 0, p.h ?? 0, this.map.s, DEPTH, this.plankTex);
+      this.dishLift.set(p.id, lift);
+      g.add(this.blob(p.kind === 'foil' ? (p.w ?? 100) * this.map.s * 1.1 : p.r * this.map.s * 2.4));
+      g.position.copy(this.boardPoint(p.x, p.y));
+      return g;
+    } })), instant);
     // the number line
     const lk = b.line ? `${b.line.from}-${b.line.to}` : '';
     if (lk !== this.lineKey) {
@@ -494,12 +519,22 @@ export class EpisodeScene implements Controller {
     return this.mat('h' + hue, () => new THREE.MeshPhysicalMaterial({ color: c, roughness: rough, metalness: kind === 'pearl' ? 0.1 : 0, clearcoat: kind === 'flower' ? 0.2 : 1, clearcoatRoughness: 0.12,
       iridescence: kind === 'pearl' ? 0.8 : 0, sheen: kind === 'flower' ? 1 : 0, sheenColor: new THREE.Color(0xffffff), emissive: c, emissiveIntensity: hue === 'c' ? 0.3 : 0.07 }));
   }
-  private token(id: string, hue: Hue, at: THREE.Vector3): Token {
-    const geos = this.geos!, r = this.r;
+  private token(id: string, hue: Hue, at: THREE.Vector3, shape?: Shape): Token {
+    const r = this.r;
+    let geos = this.geos!;
+    let extra: THREE.Mesh | undefined;
+    if (shape) {
+      const key = shapeKey(shape);
+      let sg = this.shapeGeos.get(key);
+      if (!sg) { sg = shapeGeo(shape, FC * 0.45, DEPTH); this.shapeGeos.set(key, sg); }
+      geos = { hue: sg.main, base: null, rim: sg.main };
+      if (sg.extra) { extra = new THREE.Mesh(sg.extra, extraMat((k, m) => this.mat(k, m))); extra.castShadow = true; extra.receiveShadow = true; }
+    }
     const g = new THREE.Group();
-    const hueMesh = new THREE.Mesh(geos.hue, this.hueMat(hue, false));
-    hueMesh.castShadow = true;
+    const hueMesh = new THREE.Mesh(geos.hue, shape ? shapeMats(shape, hue, false, this.fracTex, (k, m) => this.mat(k, m)) : this.hueMat(hue, false));
+    hueMesh.castShadow = true; hueMesh.receiveShadow = !!shape;
     g.add(hueMesh);
+    if (extra) g.add(extra);
     if (geos.base) {
       const cookie = this.set.token === 'cookie';
       const base = new THREE.Mesh(geos.base, this.mat('base', () => new THREE.MeshStandardMaterial({ color: cookie ? 0xffffff : BASE[this.set.token] ?? 0xffffff, map: cookie ? this.doughTex : null, roughness: 0.8 })));
@@ -523,11 +558,13 @@ export class EpisodeScene implements Controller {
     g.scale.setScalar(r);
     g.position.copy(at);
     this.root.add(g);
-    const tk: Token = { id, g, hueMesh, halo, rim, blob, hue, out: false, from: at.clone(), to: at.clone(), t0: -9, dur: 0.5, arc: 0, born: -9, scale: r, leaving: 0, eaten: false, glow: 0, lit: 0, drag: false, squashAt: -9 };
+    const tk: Token = { id, g, hueMesh, halo, rim, blob, hue, out: false, from: at.clone(), to: at.clone(), t0: -9, dur: 0.5, arc: 0, born: -9, scale: r, leaving: 0, eaten: false, glow: 0, lit: 0, drag: false, squashAt: -9, shape, extra };
+    // a flat thing (a slice, a square): its glow is a thin border round it, not a big shell
+    if (shape && shape.k !== 'cupcake') rim.scale.set(1.08, 1.6, 1.08);
     this.tokens.set(id, tk);
     return tk;
   }
-  private recolor(tk: Token, hue: Hue) { tk.hue = hue; tk.hueMesh.material = this.hueMat(hue, tk.out); }
+  private recolor(tk: Token, hue: Hue) { tk.hue = hue; tk.hueMesh.material = tk.shape ? shapeMats(tk.shape, hue, tk.out, this.fracTex, (k, m) => this.mat(k, m)) : this.hueMat(hue, tk.out); }
   private spot(key: string, at: THREE.Vector3, strong: boolean, instant = false) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: this.ringTex, color: strong ? 0xffe27a : 0xfff4dc, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, fog: false }));
     m.rotation.x = -Math.PI / 2;
@@ -694,7 +731,7 @@ export class EpisodeScene implements Controller {
           const row = Math.floor(i / per), col = i % per, inRow = Math.min(per, n - row * per);
           const at = new THREE.Vector3((col - (inRow - 1) / 2) * gap, TY, this.pileZ + row * gap * 0.95);
           let tk = this.tokens.get(id);
-          if (!tk) { tk = this.token(id, d.c, at); tk.born = this.now + i * 0.04; tk.from = at.clone().add(new THREE.Vector3(0, 0.35, 0)); tk.t0 = tk.born; tk.dur = 0.45; }
+          if (!tk) { tk = this.token(id, d.c, at, d.shape); tk.born = this.now + i * 0.04; tk.from = at.clone().add(new THREE.Vector3(0, 0.35, 0)); tk.t0 = tk.born; tk.dur = 0.45; }
           tk.leaving = 0; tk.glow = 1;
           a.live.add(id);
           const to = this.boardPoint(d.x, d.y, this.liftAt(next, d.x, d.y));
@@ -1020,7 +1057,7 @@ export class EpisodeScene implements Controller {
     if (innerHeight !== this.lastH) { this.lastH = innerHeight; this.fx.setScale(innerHeight * Math.min(2, devicePixelRatio || 1), stage.camera.fov); }
     this.layout();
     this.tokensUpdate(dt);
-    this.piecesUpdate(this.trays); this.piecesUpdate(this.plates);
+    this.piecesUpdate(this.trays); this.piecesUpdate(this.plates); this.piecesUpdate(this.dishes);
     // rings: fade in, pulse, fade out
     for (const [k, s] of this.spots) {
       const m = s.mesh.material as THREE.MeshBasicMaterial;

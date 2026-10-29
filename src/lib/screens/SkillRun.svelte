@@ -21,7 +21,10 @@
   import { mathOf } from '../math/progress';
   import { SKILL } from '../math/skills/registry';
   import { AREA } from '../math/skills/registry';
-  import { SKILL_LESSON, SKILL_REGION, tempoOf } from '../math/skills/course';
+  import { SKILL_EPISODES, SKILL_LESSON, SKILL_REGION, tempoOf } from '../math/skills/course';
+  import { FRAC_LESSON } from '../math/fracEpisodes';
+  import { isLearned } from '../math/learn';
+  import Episode from '../math/ui/Episode.svelte';
   import { SkillTripPicker, type SkillPick } from '../math/skills/picker';
   import { applySkillRun, type SkillResult } from '../math/skills/progress';
   import { answerParts, shortText } from '../math/skills/text';
@@ -40,6 +43,8 @@
   const grown = S.grown;
   const m = mathOf(profile);
   const lesson = SKILL_LESSON[game.skillLessonId] ?? SKILL_LESSON['frac-a-1'];
+  /** a stop that meets a new idea: its Learn episode, to watch first */
+  const introEp = lesson.kind === 'meet' ? (lesson.learn.map(k => SKILL_EPISODES[k]).find(e => e && FRAC_LESSON[e]) ?? null) : null;
   const area = AREA[lesson.area];
   const regionName = lesson.region === 'start' ? area.name : SKILL_REGION[lesson.region].name;
   const tempo = tempoOf(lesson.area);
@@ -235,7 +240,7 @@
   });
 </script>
 
-<div class="mrun" class:compact bind:clientWidth={w} bind:clientHeight={h}>
+<div class="mrun" class:compact class:learning={!!game.learnOverlay} bind:clientWidth={w} bind:clientHeight={h}>
   <div class="stage">
     {#if bubble && phase === 'play' && !showHelp}<div class="bubble" style:left="{bubbleXY.x * innerWidth}px" style:top="{bubbleXY.y * innerHeight}px">{bubble}</div>{/if}
     {#if loading}<div class="loading">Getting the island ready…</div>{/if}
@@ -316,6 +321,7 @@
           <div class="meetbuddy"><Critter friend={profile.buddy} size={110} mood="dance" /></div>
           <p class="blurb">{lesson.blurb}</p>
         {/if}
+        {#if introEp}<button class="watchl" onclick={() => { sfx.click(); game.learnOverlay = introEp; }}><img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" /><span><b>{isLearned(mathOf(profile), introEp) ? 'Watch the lesson again' : 'Watch the lesson first'}</b><small>{FRAC_LESSON[introEp].title}: {buddy.name} shows you how</small></span></button>{/if}
         {#if !calm}
           <div class="goals">{#each starAt as s, i}<div class="goal"><Stars n={i + 1} of={i + 1} size={20} /><span>score {s}</span></div>{/each}</div>
           <p class="howscore">Your score is right answers a minute. Quick, right answers move you up the speed steps. No clock, so take the time you need.</p>
@@ -345,9 +351,22 @@
       </div>
     </div>
   {/if}
+  {#if game.learnOverlay}
+    <!-- a Learn episode over the trip: the trip waits underneath, and gets its 3D view back after -->
+    <div class="learnlay">
+      {#key game.learnOverlay}<Episode id={game.learnOverlay} embedded onclose={() => (game.learnOverlay = null)} />{/key}
+    </div>
+  {/if}
 </div>
 
 <style>
+  .mrun.learning > :global(:not(.learnlay)) { visibility: hidden; }
+  .learnlay { position: fixed; inset: 0; z-index: 60; }
+  .watchl { display: flex; align-items: center; gap: 10px; border: 0; cursor: pointer; text-align: left; margin: 8px auto 0; background: linear-gradient(#fffaf0, #ffefc6); border-radius: 18px; padding: 6px 16px 6px 6px; box-shadow: 0 0 0 3px #ffd36b, 0 4px 0 #e6bd63; transition: transform .15s; }
+  .watchl:hover { transform: translateY(-2px); }
+  .watchl img { width: 40px; height: 48px; object-fit: contain; }
+  .watchl b { display: block; font: 600 18px var(--font-ui); color: #6b4300; }
+  .watchl small { display: block; font: 600 13px var(--font-body); color: #8a6a2a; }
   .mrun { position: absolute; inset: 0; display: flex; flex-direction: column; background: transparent; }
   .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
   .loading { position: absolute; left: 0; right: 0; top: 55%; text-align: center; font: 600 20px var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(40, 30, 80, .4); }

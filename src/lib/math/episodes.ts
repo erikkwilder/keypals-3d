@@ -5,7 +5,9 @@
 // from one board to the next is what the kid's hands do (see taskFor).
 import type { GlimmerId } from '../adventure/glimmers';
 import { answerOf, type Fact } from './facts';
-import { LESSONS, type Board, type Dot, type Lesson } from './learn';
+import { LESSON, LESSONS, askText, coverOf, hideAnswer, hintFor, type Board, type Dot, type Lesson, type Step } from './learn';
+import { STRAND } from './course';
+import { FRAC_LESSON, type EpQ } from './fracEpisodes';
 
 export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden';
 /** what the counters are in each place */
@@ -142,8 +144,8 @@ export function taskFor(prev: Board | null, next: Board): Task {
 }
 
 /** The words for a task's prompt chip (the voice line says what to do; this is the short reminder). */
-export function taskWords(t: Task, setId: SetId): string {
-  const s = SETS[setId], thing = { cookie: 'cookies', pearl: 'pearls', berry: 'berries', block: 'blocks', flower: 'flowers' }[s.token];
+export function taskWords(t: Task, setId: SetId, noun?: string): string {
+  const s = SETS[setId], thing = noun ?? { cookie: 'cookies', pearl: 'pearls', berry: 'berries', block: 'blocks', flower: 'flowers' }[s.token];
   switch (t.kind) {
     case 'place': return t.ids.length > t.by ? `Drag ${t.by} ${thing} into place, and the rest follow!` : `Drag the ${thing} into the glowing spots`;
     case 'move': return t.ids.length > t.by ? `Drag ${t.by} over, and the rest follow!` : `Drag the glowing ${t.ids.length === 1 ? thing.replace(/s$|ies$/, m => (m === 'ies' ? 'y' : '')) : thing} over`;
@@ -154,6 +156,41 @@ export function taskWords(t: Task, setId: SetId): string {
     default: return '';
   }
 }
+
+// ---------- one shape for every episode: the fact tricks and the fractions ----------
+export type { EpQ } from './fracEpisodes';
+/** What the episode plays: its steps, the buddy's mistake, three questions (two turns and the next day's
+ *  check), and its card. */
+export type EpLesson = {
+  id: string; title: string; blurb: string; color: string; set: SetId; star?: GlimmerId;
+  steps: Step[];
+  tries: [EpQ, EpQ, EpQ];
+  teach: { q: EpQ; wrong: string; says: string; choices: string[]; fixed: string };
+  /** the card's picture: the lesson's own board, or a painted picture */
+  cover: Board | null; art: string | null;
+  /** what the counters are called in the prompts ("slices") */
+  noun?: string;
+};
+const FRAC_COLOR = '#ef8a4b';
+const NOUN: Record<string, string> = { 'frac-one-piece': 'squares', 'frac-take-away': 'squares', 'frac-times': 'squares', 'frac-of-a-set': 'cupcakes' };
+/** The episode for a lesson id: a fact trick (learn.ts) or a fraction idea (fracEpisodes.ts). */
+export function epLesson(id: string): EpLesson | null {
+  const f = FRAC_LESSON[id];
+  if (f) {
+    const all = [f.teach.q.ans, f.teach.wrong, f.teach.decoy], k = f.id.length % 3;
+    return { id, title: f.title, blurb: f.blurb, color: FRAC_COLOR, set: f.set, star: f.star, steps: f.steps, tries: f.tries,
+      teach: { q: f.teach.q, wrong: f.teach.wrong, says: f.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: f.teach.fixed },
+      cover: null, art: f.art, noun: NOUN[id] ?? 'slices' };
+  }
+  const l = LESSON[id];
+  if (!l) return null;
+  const e = episodeOf(id);
+  const q = (fact: Fact): EpQ => { const hint = hintFor(l, fact); return { text: askText(fact), ans: String(answerOf(fact)), input: 'num', hint, hidden: hideAnswer(hint, fact), pic: l.pic(fact) }; };
+  return { id, title: l.title, blurb: l.blurb, color: STRAND[l.op].color, set: e.set, steps: l.steps, tries: [q(l.tries[0]), q(l.tries[1]), q(l.tries[2])],
+    teach: { q: q(e.teach.f), wrong: String(e.teach.wrong), says: e.teach.says, choices: fixChoices(e).map(String), fixed: `Oops! ${hintFor(l, e.teach.f)} Thank you!` },
+    cover: coverOf(l), art: null };
+}
+export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!LESSON[id];
 
 /** The lessons in order, with their episode. */
 export const lessonWithEpisode = (l: Lesson) => ({ lesson: l, ep: episodeOf(l.id), set: setOf(l.id) });

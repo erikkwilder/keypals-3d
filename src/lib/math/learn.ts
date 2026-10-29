@@ -18,7 +18,11 @@ import { mathOf, type MathProgress } from './progress';
 /** a: the first number (blue), b: the second (pink), c: the one that makes the trick work (gold),
  *  ghost: an empty place to count into */
 export type Hue = 'a' | 'b' | 'c' | 'ghost';
-export type Dot = { id: string; x: number; y: number; c: Hue; /** crossed out: taken away, still shown */ out?: boolean; /** seconds to wait before moving */ d?: number };
+/** A counter with a shape of its own (the fraction episodes): a slice of a pie or pizza (piece `i` of
+ *  `n`, from a whole of radius `r`, its x and y the slice's middle), a square of a chocolate bar
+ *  (`w` wide), or a cupcake. */
+export type Shape = { k: 'wedge'; food: 'pie' | 'pizza'; n: number; i: number; r: number } | { k: 'chunk'; w: number } | { k: 'cupcake' };
+export type Dot = { id: string; x: number; y: number; c: Hue; /** crossed out: taken away, still shown */ out?: boolean; /** seconds to wait before moving */ d?: number; shape?: Shape };
 export type Tag = { id: string; x: number; y: number; text: string; c?: Hue | 'ink'; size?: number };
 export type Board = {
   /** the dot size: every dot is drawn in a square this big */
@@ -28,8 +32,11 @@ export type Board = {
   frames: { id: string; x: number; y: number }[];
   /** plates for groups, by their middle */
   plates: { id: string; x: number; y: number; r: number; empty?: boolean }[];
-  /** a number line with the buddy standing at `at`, and the hops made so far */
-  line: { from: number; to: number; at: number; hops: { a: number; b: number; label: string }[] } | null;
+  /** a number line with the buddy standing at `at`, and the hops made so far (`den`: the numbers are
+   *  that many parts of a whole: 3 with den 4 is 3/4) */
+  line: { from: number; to: number; at: number; hops: { a: number; b: number; label: string }[]; den?: number } | null;
+  /** dishes under whole things (fractions): a pie dish, a pizza board, a chocolate bar's foil, by their middle */
+  dishes?: { id: string; x: number; y: number; r: number; kind: 'pie' | 'pizza' | 'foil'; w?: number; h?: number }[];
   tags: Tag[];
 };
 /** the picture's size; it scales to fit */
@@ -95,7 +102,7 @@ const line = (from: number, to: number, at: number, hops: { a: number; b: number
 
 // ---------- the lessons ----------
 
-export type Step = { say: string; board: Board; /** the sum under the picture; [x] is lit up */ eq: string };
+export type Step = { say: string; board: Board; /** the sum under the picture; [x] is lit up */ eq: string; /** just watch this one (a pie cut again: the old slices go, new ones come) */ do?: 'watch' };
 export type Lesson = {
   id: string;
   title: string;
@@ -379,6 +386,7 @@ export function boundsOf(boards: Board[]): { x: number; y: number; w: number; h:
     for (const d of b.dots) add(d.x - h, d.y - h, d.x + h, d.y + h);
     for (const f of b.frames) add(f.x - 8, f.y - 8, f.x + FC * 5 + 8, f.y + FC * 2 + 8);
     for (const p of b.plates) add(p.x - p.r - 4, p.y - p.r, p.x + p.r + 4, p.y + p.r);
+    for (const p of b.dishes ?? []) { const hw = p.kind === 'foil' ? (p.w ?? p.r * 2) / 2 + 8 : p.r + 8, hh = p.kind === 'foil' ? (p.h ?? p.r) / 2 + 8 : p.r + 8; add(p.x - hw, p.y - hh, p.x + hw, p.y + hh); }
     if (b.line) add(10, 236 - 120, BW - 10, 236 + 48);
     for (const t of b.tags) { const sz = t.size ?? 30, w = t.text.length * sz * 0.32 + 8; add(t.x - w, t.y - sz, t.x + w, t.y + 10); }
   }
@@ -442,6 +450,12 @@ export function checkDue(m: MathProgress, now = Date.now()): Lesson | null {
   const today = dayKey(now), on = m.learnedOn ?? {}, done = new Set(m.checked ?? []);
   const id = (m.learned ?? []).find(x => on[x] && on[x] < today && !done.has(x) && LESSON[x]);
   return id ? LESSON[id] : null;
+}
+/** The id of any episode that's due its quick check (a fact trick or a fraction idea: `known` says
+ *  which ids are episodes). */
+export function checkDueId(m: MathProgress, known: (id: string) => boolean, now = Date.now()): string | null {
+  const today = dayKey(now), on = m.learnedOn ?? {}, done = new Set(m.checked ?? []);
+  return (m.learned ?? []).find(x => on[x] && on[x] < today && !done.has(x) && known(x)) ?? null;
 }
 /** The quick check is done (call inside game.update). */
 export function markChecked(p: Profile, id: string) {
