@@ -1,0 +1,34 @@
+// The world map: every world of Adventure on one painted picture (worlds-wide.webp). The Sky Islands and
+// Fraction Falls are open; the rest are the math areas still to come, shown so a child can see where the
+// adventure goes next. Each open world has its own painted map, wide (desktop) and tall (phones).
+import type { AreaId } from '../math/skills/types';
+import type { WorldId } from './state';
+
+export type WorldMap = { wide: string; tall: string; size: { wide: readonly [number, number]; tall: readonly [number, number] } };
+export type WorldPin = {
+  id: WorldId | string; name: string; blurb: string;
+  /** where its island is on the world picture, in percent */
+  at: [number, number];
+  /** an open world's map; none: coming soon */
+  map?: WorldMap;
+  /** a math world's area (it opens once the area is started) */
+  area?: AreaId;
+};
+
+export const WORLD_PINS: WorldPin[] = [
+  { id: 'sky', name: 'Sky Islands', blurb: 'Sunny Meadow, Treetop Hollow and Cloudwhale Bay: any math or typing.', at: [27, 34],
+    map: { wide: 'game/map-wide.webp', tall: 'game/map-tall.webp', size: { wide: [1672, 941], tall: [1024, 1536] } } },
+  { id: 'falls', name: 'Fraction Falls', blurb: 'A pie shop at the top of the falls. Every battle card is a fraction.', at: [70, 27], area: 'fractions',
+    map: { wide: 'game/map-falls-wide.webp', tall: 'game/map-falls-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
+  { id: 'peaks', name: 'Shape Peaks', blurb: 'Shapes, angles and crystals.', at: [89, 31], area: 'shapes' },
+  { id: 'market', name: 'Coin Market', blurb: 'Money, change and decimals.', at: [33, 60], area: 'decimals' },
+  { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Clocks, lengths and weights.', at: [60, 55], area: 'measure' },
+  { id: 'stars', name: 'Star Lab', blurb: 'Expressions and equations.', at: [88, 57], area: 'algebra' },
+  { id: 'frost', name: 'Below Zero Caves', blurb: 'Negative numbers, under the ice.', at: [37, 87], area: 'integers' },
+  { id: 'fair', name: 'Chance Fair', blurb: 'Graphs, chance and data.', at: [73, 86], area: 'data' },
+];
+export const WORLD_PIN = Object.fromEntries(WORLD_PINS.map(w => [w.id, w])) as Record<string, WorldPin>;
+export const mapOf = (w: WorldId) => WORLD_PIN[w].map!;
+
+/** The world the Adventure map last showed, so coming back from a battle lands on the same world. */
+export const lastWorld: { id: WorldId } = { id: 'sky' };

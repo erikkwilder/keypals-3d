@@ -1,6 +1,7 @@
 <script lang="ts">
-  // Adventure: the painted map of the sky islands. Each island has battles, a practice stop and a
-  // Champion at the end. Your buddy stands on the next stop; your team, eggs and the shop are in the corner.
+  // Adventure: the painted map of a world (the sky islands, or Fraction Falls). Each island has battles, a
+  // practice stop and a Champion at the end. Your buddy stands on the next stop; your team, eggs and the
+  // shop are in the corner; the World map button opens every world on one picture.
   // The first visit starts with a short story (four pictures), then a tip pointing at the first battle.
   import CloseButton from '../ui/CloseButton.svelte';
   import { onMount } from 'svelte';
@@ -11,8 +12,10 @@
   import { nextToLearn } from '../math/learn';
   import { FRIEND } from '../art/cast';
   import { GLIMMER, GLIMMERS, RARITY, glimmersOf, type GlimmerId, type Rarity } from '../adventure/glimmers';
-  import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, ISLANDS, markSeen, NODES, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, type MapNode, owns } from '../adventure/state';
+  import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, islandsOf, markSeen, nodesOf, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, worldOpen, type MapNode, type WorldId, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
+  import { WORLD_PIN, WORLD_PINS, lastWorld, mapOf, type WorldPin } from '../adventure/worlds';
+  import { nextSkillLesson } from '../math/skills/course';
     import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
@@ -27,10 +30,17 @@
   const p = $derived(game.profile!);
   const a = $derived(advView(p));
   let tall = $state(innerWidth < 760 || innerHeight > innerWidth * 1.1);
-  const IMG = { wide: [1672, 941], tall: [1024, 1536] } as const;
   const kind = $derived(tall ? 'tall' : 'wide');
   const spots = $derived(SPOTS[kind]);
-  const cur = $derived(currentNode(a));
+  // the world on show: the last one looked at (back from a battle lands on the same world)
+  let world = $state<WorldId>(lastWorld.id !== 'sky' && !worldOpen(game.profile!, lastWorld.id) ? 'sky' : lastWorld.id);
+  let picker = $state(false);
+  let locked = $state<WorldPin | null>(null);
+  let wscroll: HTMLDivElement | undefined = $state();
+  const wmap = $derived(mapOf(world));
+  const nodes = $derived(nodesOf(world));
+  const islands = $derived(islandsOf(world));
+  const cur = $derived(currentNode(a, world));
   let open = $state<MapNode | null>(null);
   let burst = $state(0);
   let chances = $state(false);
@@ -46,8 +56,9 @@
   let box = $state({ w: 0, h: 0, x: 0, y: 0 });
   function fit() {
     if (!wrap) return;
-    const W = wrap.clientWidth, H = wrap.clientHeight, [iw, ih] = IMG[kind];
-    const xs = Object.values(spots).map(s => s[0] / 100), ys = Object.values(spots).map(s => s[1] / 100);
+    const W = wrap.clientWidth, H = wrap.clientHeight, [iw, ih] = wmap.size[kind];
+    const here = nodes.map(n => spots[n.id]);
+    const xs = here.map(s => s[0] / 100), ys = here.map(s => s[1] / 100);
     const m = 0.05, minX = Math.min(...xs) - m, maxX = Math.max(...xs) + m, minY = Math.min(...ys) - m * 1.6, maxY = Math.max(...ys) + m;
     const cover = Math.max(W / iw, H / ih), contain = Math.min(W / iw, H / ih);
     // the largest size that still shows every stop, centred
@@ -74,13 +85,39 @@
     const ro = new ResizeObserver(fit); if (wrap) ro.observe(wrap);
     fit();
     // a practice stop reached: the next practice session finishes it
-    game.update(pp => { const ad = advOf(pp), c = currentNode(ad); if (c?.kind === 'practice') reachStop(ad, c.id); });
+    reach(world);
     const seen = new Set(advView(game.profile!).seen ?? []);
     if (!seen.has('intro')) intro = 0;
     else if (!seen.has('map1') && !advView(game.profile!).battles) mapTip = true;
     return () => { removeEventListener('resize', onR); ro.disconnect(); };
   });
-  $effect(() => { void kind; requestAnimationFrame(fit); });
+  $effect(() => { void kind; void world; requestAnimationFrame(fit); });
+
+  /** A practice stop reached: the next practice session finishes it. */
+  function reach(w: WorldId) {
+    const c = currentNode(advView(game.profile!), w);
+    if (c?.kind === 'practice' && advView(game.profile!).stopAt[c.id] === undefined) game.update(pp => reachStop(advOf(pp), c.id));
+  }
+  function openWorlds() {
+    picker = true; locked = null; sfx.pop();
+    // on a phone the world picture is wider than the screen: start with this world in the middle
+    requestAnimationFrame(() => { if (wscroll) wscroll.scrollLeft = wscroll.scrollWidth * WORLD_PIN[world].at[0] / 100 - wscroll.clientWidth / 2; });
+  }
+  function pickWorld(w: WorldPin) {
+    if (!w.map) { sfx.click(); game.say(`${w.name} is coming soon: ${w.blurb.toLowerCase()}`); return; }
+    const id = w.id as WorldId;
+    if (!worldOpen(p, id)) { sfx.pop(); locked = w; return; }
+    sfx.pop(); picker = false; open = null;
+    if (id === world) return;
+    world = id; lastWorld.id = id;
+    reach(id);
+    if (id !== 'sky' && !a.seen?.includes(`world-${id}`)) { game.say(`Welcome to ${w.name}! ${w.blurb}`); game.update(pp => markSeen(pp, `world-${id}`)); }
+  }
+  function startArea(w: WorldPin) {
+    game.setHome('math'); game.mathOp = null; game.mathArea = w.area ?? null;
+    const l = w.area ? nextSkillLesson(mathOf(p), w.area) : null;
+    if (l) game.startSkill(l.id); else game.go('map');
+  }
 
   function nextSlide() {
     sfx.pop();
@@ -105,11 +142,14 @@
     if (r) { burst++; sfx.complete(); game.say(`+${(r as { shells: number }).shells} shells! Your eggs grew a little too.`); open = null; }
   }
   function goPractice(k: 'math' | 'typing') {
+    // a math world's practice stop: a trip of its own area
+    const area = ISLAND[open?.island ?? 'meadow'].area;
+    if (k === 'math' && area) { game.setHome('math'); game.mathOp = null; game.mathArea = area; game.startSkill(nextSkillLesson(mathOf(p), area).id); return; }
     if (k === 'typing') { game.setHome('typing'); game.startLesson(nextLesson(p).id); }
     else { game.setHome('math'); game.startMath(nextMathLesson(mathOf(p)).id); }
   }
   const kindName = { battle: 'Battle', practice: 'Practice stop', champion: 'Champion' };
-  const pathD = $derived(NODES.map((n, i) => `${i ? 'L' : 'M'}${spots[n.id][0]} ${spots[n.id][1]}`).join(' '));
+  const pathD = $derived(nodes.map((n, i) => `${i ? 'L' : 'M'}${spots[n.id][0]} ${spots[n.id][1]}`).join(' '));
   const HOW_OFTEN: [string, Rarity][] = [['Often', 'common'], ['Sometimes', 'uncommon'], ['Not often', 'rare'], ['Hardly ever', 'epic'], ['Once in a blue moon', 'mythic']];
 </script>
 
@@ -122,11 +162,11 @@
     {/snippet}
   </Header>
 
-  <div class="mapwrap" bind:this={wrap} style:--bg="url({new URL(`${base}game/map-${kind}.webp`, document.baseURI).href})">
+  <div class="mapwrap" bind:this={wrap} style:--bg="url({new URL(`${base}${wmap[kind]}`, document.baseURI).href})">
     <div class="backdrop"></div>
-    <div class="map" style:width="{box.w}px" style:height="{box.h}px" style:left="{box.x}px" style:top="{box.y}px" style:background-image="url({base}game/map-{kind}.webp)">
+    <div class="map" style:width="{box.w}px" style:height="{box.h}px" style:left="{box.x}px" style:top="{box.y}px" style:background-image="url({base}{wmap[kind]})">
       <svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d={pathD} /></svg>
-      {#each NODES as n (n.id)}
+      {#each nodes as n (n.id)}
         {@const done = cleared(a, n.id)}
         {@const ok = nodeOpen(a, n)}
         {@const here = cur?.id === n.id}
@@ -141,11 +181,12 @@
         <span class="me" style:left="{spots[cur.id][0]}%" style:top="{spots[cur.id][1]}%"><Critter friend={p.buddy} size={tall ? 54 : 84} mood="idle" /></span>
         <span class="next" style:left="{spots[cur.id][0]}%" style:top="{spots[cur.id][1]}%">Next!</span>
       {/if}
-      {#each ISLANDS as isl}
+      {#each islands as isl}
         {@const first = spots[`${isl.id}-0`]}
         <span class="iname" style:left="{first[0]}%" style:top="{first[1] + (tall ? 5.5 : 9)}%">{isl.name}</span>
       {/each}
     </div>
+    <button class="worldbtn" onclick={openWorlds} title="Every world of Adventure"><img src="{base}game/worlds-wide.webp" alt="" /><span><small>{WORLD_PIN[world].name}</small><b>World map</b></span></button>
   </div>
 
   <div class="dock">
@@ -195,12 +236,12 @@
           {:else}
             <p>Do one practice: a math trip, a typing lesson or a playground game. Then come back here for a reward.</p>
             <p class="muted">Practice also makes your eggs grow{a.settings.rule === 'balanced' ? ' and earns more Adventure time' : ''}.{a.settings.rule === 'open' ? ' You can skip ahead for now: the reward waits here.' : ''}</p>
-            <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>Math trip</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing lesson</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
+            <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>{isl.area ? 'Fractions trip' : 'Math trip'}</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing lesson</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
             {#if learnTip}<button class="learnlink" onclick={() => game.openLearn(learnTip!.id, 'adventure')}><img src="{base}learn/tile.webp" alt="" /><span><small>A new trick to learn</small><b>{learnTip.title}</b></span><em>Learn it <Icon name="play" size={16} /></em></button>{/if}
           {/if}
         {:else}
           {#if n.kind === 'champion'}
-            <div class="champ"><GlimmerCard id={isl.champion} width={112} locked={!owns(a, isl.champion)} /><p><b>{owns(a, isl.champion) ? GLIMMER[isl.champion].name : 'A Legendary Glimmer'}</b> is the grumpiest one on {isl.name}, under the biggest storm cloud. Cheer it up and it joins your team. You also get a special egg, and the next island opens.</p></div>
+            <div class="champ"><GlimmerCard id={isl.champion} width={112} locked={!owns(a, isl.champion)} /><p><b>{owns(a, isl.champion) ? GLIMMER[isl.champion].name : `A ${RARITY[GLIMMER[isl.champion].rarity].name} Glimmer`}</b> is the grumpiest one on {isl.name}, under the biggest storm cloud. Cheer it up and it joins your team. You also get a special egg{isl.world === 'sky' && isl.id !== 'bay' ? ', and the next island opens' : ''}.</p></div>
           {:else}
             <p>{cleared(a, n.id) ? 'You won here! Play again to meet more Glimmers.' : 'A grumpy Glimmer is waiting here. Cheer it up with your answers and it joins your team!'}</p>
             <h3>Who might it be?</h3>
@@ -213,13 +254,42 @@
             {#if chances}<p class="muted small">{HOW_OFTEN.filter(([, r]) => isl.odds[r]).map(([, r]) => `${RARITY[r].name} ${isl.odds[r]}%`).join(' · ')}. An egg after 3 in 10 wins, and always after a Perfect Cheer.</p>{/if}
           {/if}
           <div class="teamline"><span>Your team</span>{#each team as t}<span class="tm"><img src="{base}game/glimmers/face/{t}{a.glimmers[t]?.evolved ? '-evo' : ''}.webp" alt="" />{GLIMMER[t].name}</span>{:else}<em>No Glimmers yet: win this battle for your first!</em>{/each}{#if met > 0}<button class="linky" onclick={() => game.go('glimmers')}>Change team</button>{/if}</div>
-          <div class="subj"><span>Answer with</span>
+          {#if isl.area}<p class="areanote">Every card here is a fraction. Watch out for the waterfall spray!</p>
+          {:else}<div class="subj"><span>Answer with</span>
             <button class:on={a.subject === 'math'} onclick={() => setSubject('math')}>Math</button>
-            <button class:on={a.subject === 'typing'} onclick={() => setSubject('typing')}>Typing</button></div>
+            <button class:on={a.subject === 'typing'} onclick={() => setSubject('typing')}>Typing</button></div>{/if}
           {#if !canPass(a, n) || !play.open}<p class="muted">{play.why}</p>{/if}
           <button class="btn btn-primary big" disabled={!play.open} onclick={() => fight(n)}>{cleared(a, n.id) ? 'Play again' : 'Start the battle!'}</button>
         {/if}
       </div>
+    </div>
+  {/if}
+
+  {#if picker}
+    <div class="worlds" class:narrow={tall} role="dialog" aria-label="World map">
+      <div class="wtop"><h2>World map</h2><p>Each world is a kind of math. More are on the way!</p><span class="x"><CloseButton onclick={() => (picker = false)} size={40} /></span></div>
+      <div class="wscroll" bind:this={wscroll}>
+        <div class="wpic">
+          <img class="wimg" src="{base}game/worlds-wide.webp" alt="" draggable="false" />
+          {#each WORLD_PINS as w (w.id)}
+            {@const live = !!w.map}
+            {@const ok = live && worldOpen(p, w.id as WorldId)}
+            <button class="pin" class:live class:shut={live && !ok} class:here={w.id === world} style:left="{w.at[0]}%" style:top="{w.at[1]}%" onclick={() => pickWorld(w)} aria-label="{w.name}: {live ? (ok ? 'open' : 'locked') : 'coming soon'}">
+              {#if w.id === world}<span class="pme"><Critter friend={p.buddy} size={tall ? 44 : 56} mood="idle" /></span>{/if}
+              <b>{#if live && !ok}<Icon name="lock" size={16} />{/if}{w.name}</b>
+              <small>{!live ? 'Coming soon' : !ok ? 'Locked' : w.id === world ? 'You are here' : 'Go!'}</small>
+            </button>
+          {/each}
+        </div>
+      </div>
+      {#if locked}
+        {@const w = locked}
+        <div class="wlock card">
+          <img src="{base}math/pizza/tile.webp" alt="" />
+          <div><h3>{w.name} opens with Fractions</h3><p>Do your first Fractions trip in Math, then come back: every battle card here is a fraction.</p></div>
+          <div class="row"><button class="btn" onclick={() => (locked = null)}>Not now</button><button class="btn btn-primary" onclick={() => startArea(w)}>Start Fractions</button></div>
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -269,6 +339,44 @@
   @keyframes hop { 50% { translate: 0 -6px; } }
   .crown { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); font: 800 11px var(--font-body); color: #7a5200; background: #fff3c4; padding: 2px 8px; border-radius: 999px; box-shadow: 0 0 0 2px #ffd36b; white-space: nowrap; }
   .iname { position: absolute; transform: translateX(-50%); font: 600 clamp(14px, 1.5vw, 20px) var(--font-ui); color: #fff; text-shadow: 0 2px 6px rgba(60, 30, 10, .85); white-space: nowrap; pointer-events: none; }
+
+  .worldbtn { position: absolute; left: 14px; top: 12px; z-index: 3; display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; background: rgba(255, 255, 255, .94); border-radius: 18px; padding: 5px 14px 5px 5px; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); text-align: left; transition: transform .15s; }
+  .worldbtn:hover { transform: scale(1.04); }
+  .worldbtn img { width: 64px; height: 40px; object-fit: cover; border-radius: 12px; }
+  .worldbtn small { display: block; font: 800 11px var(--font-body); letter-spacing: .05em; text-transform: uppercase; color: #a86a00; }
+  .worldbtn b { font: 600 18px var(--font-ui); color: var(--ink); }
+  .areanote { background: #e8f6ff; border-radius: 14px; padding: 8px 12px; color: #1c5fd1 !important; }
+
+  .worlds { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; background: linear-gradient(#2a2160ee, #3b2f7aee); animation: fade .25s; }
+  .wtop { display: flex; align-items: center; gap: 14px; padding: 10px 16px; color: #fff; }
+  .wtop h2 { margin: 0; font-size: 28px; color: #fff; }
+  .wtop p { margin: 0; font: 600 15px var(--font-body); color: #d9d2ff; }
+  .wscroll { flex: 1; min-height: 0; overflow: auto; container-type: size; display: grid; place-items: center; padding: 0 0 12px; }
+  .wpic { position: relative; width: min(calc(100cqw - 32px), calc((100cqh - 12px) * 16 / 9)); aspect-ratio: 16 / 9; border-radius: 22px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, .4); }
+  .wimg { width: 100%; height: 100%; display: block; }
+  .pin { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; border: 0; cursor: pointer; background: rgba(255, 255, 255, .78); border-radius: 16px; padding: 4px 12px 5px; box-shadow: 0 4px 12px rgba(40, 20, 80, .3); transition: transform .15s; }
+  .pin b { display: flex; align-items: center; gap: 4px; font: 600 clamp(13px, 1.4vw, 19px) var(--font-ui); color: var(--ink2); white-space: nowrap; }
+  .pin small { font: 800 clamp(10px, .9vw, 12px) var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .pin.live { background: #fff; box-shadow: 0 0 0 3px #ffd36b, 0 6px 16px rgba(40, 20, 80, .35); }
+  .pin.live b { color: var(--ink); font-size: clamp(15px, 1.7vw, 23px); }
+  .pin.live small { color: #a86a00; }
+  .pin.here { box-shadow: 0 0 0 4px var(--primary), 0 0 24px #fff; }
+  .pin.here small { color: var(--primary); }
+  .pin.shut { box-shadow: 0 0 0 3px #c9c2e0, 0 6px 16px rgba(40, 20, 80, .35); }
+  .pin:hover { transform: translate(-50%, -50%) scale(1.06); }
+  .pme { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); pointer-events: none; animation: hop 1.1s ease-in-out infinite; filter: drop-shadow(0 6px 5px rgba(40, 20, 10, .45)); }
+  .wlock { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); width: min(560px, 92vw); display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; align-items: center; padding: 14px 18px; animation: pop .3s cubic-bezier(.3, .8, .4, 1.4); }
+  .wlock img { width: 72px; height: 72px; object-fit: contain; }
+  .wlock h3 { margin: 0 0 4px; font-size: 20px; }
+  .wlock p { margin: 0; font: 600 15px/1.4 var(--font-body); color: var(--ink2); }
+  .wlock .row { grid-column: 1 / -1; justify-content: flex-end; }
+  /* a phone: the world picture is as tall as the screen and slides sideways */
+  .worlds.narrow .wscroll { display: block; padding: 0 0 8px; }
+  .worlds.narrow .wpic { width: auto; height: calc(100cqh - 8px); border-radius: 0; }
+  .worlds.narrow .wtop p { display: none; }
+  .tall .worldbtn { left: 8px; top: 8px; padding: 4px 10px 4px 4px; border-radius: 14px; }
+  .tall .worldbtn img { width: 46px; height: 30px; border-radius: 9px; }
+  .tall .worldbtn b { font-size: 15px; } .tall .worldbtn small { font-size: 9px; }
 
   .dock { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 12px; z-index: 4; }
   .dock :global(.tile) { width: 112px; height: 112px; }

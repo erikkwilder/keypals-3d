@@ -46,7 +46,8 @@ export const MISCHIEF: Record<Element, { kind: MischiefKind; name: string }> = {
   stone: { kind: 'pebbles', name: 'Pebbles are coming' }, leaf: { kind: 'gust', name: 'Wind is coming' },
 };
 
-export type Foe = { glimmer: GlimmerId; rarity: Rarity; champion: boolean; element: Element; grump: number; max: number; hit: number; evolved?: boolean };
+/** `mischief`: the island's own weather, sent instead of the element's (Fraction Falls' spray) */
+export type Foe = { glimmer: GlimmerId; rarity: Rarity; champion: boolean; element: Element; grump: number; max: number; hit: number; evolved?: boolean; mischief?: { kind: MischiefKind; name: string } };
 /** `evolved`: grown up, so its power works as if it were EVOLVE_BOOST levels higher, plus its own perk */
 export type Member = { id: GlimmerId; level: number; evolved?: boolean };
 /** `kit`: the hand, back and shoe gear's powers and any set bonus (gear.ts). `flat`: every right answer
@@ -393,7 +394,7 @@ export function finale(b: Battle): BEvent[] {
 
 // ---------- the Grumble's turn ----------
 function grumbleTurn(b: Battle): BEvent[] {
-  const m = MISCHIEF[b.foe.element];
+  const m = b.foe.mischief ?? MISCHIEF[b.foe.element];
   b.mischiefs++;
   let hit = b.foe.hit;
   if (b.dazzled) { hit = Math.ceil(hit / 2); b.dazzled = false; }

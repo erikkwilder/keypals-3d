@@ -17,25 +17,53 @@ import { nextSkillLesson } from '../math/skills/course';
 import { noteSkillAnswers } from '../math/skills/progress';
 import type { AreaId } from '../math/skills/types';
 import { EVOLVE_BOOST, GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, powerBase, powerNum, rarityRank, type Element, type GlimmerId, type Rarity } from './glimmers';
-import { grumpFor, type Foe, type Pool, type Subject } from './battle';
+import { grumpFor, type Foe, type MischiefKind, type Pool, type Subject } from './battle';
 import { championPrize, type BuddyGear, type GearItem, type Wardrobe } from './gear';
 import type { RegionId } from '../engine/course';
 import { newStats, noteStats, type GhostStats, type RivalState } from './ghosts';
 
 // ---------- the map ----------
-export type IslandId = 'meadow' | 'treetops' | 'bay';
+export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls';
 export type NodeKind = 'battle' | 'practice' | 'champion';
 export type MapNode = { id: string; island: IslandId; kind: NodeKind; n: number };
-export type Island = { id: IslandId; name: string; element: Element; region: RegionId; champion: GlimmerId; blurb: string; odds: Partial<Record<Rarity, number>> };
+/** The worlds on the world map: the Sky Islands (the first three islands, any math or typing), and worlds
+ *  of one kind of math (Fraction Falls: every battle card is a fraction). Each world's stops are in order
+ *  on their own; finishing one world doesn't open another. */
+export type WorldId = 'sky' | 'falls';
+export type Island = {
+  id: IslandId; world: WorldId; name: string; element: Element; region: RegionId; champion: GlimmerId; blurb: string; odds: Partial<Record<Rarity, number>>;
+  /** how tough its Grumbles are (and how many shells they give): 0 for the first island */
+  tier: number;
+  /** a math world's area: its battles are always math, every card from this area */
+  area?: AreaId;
+  /** Glimmers that live here besides the ones whose home it is (a world borrows a few from the islands) */
+  natives?: GlimmerId[];
+  /** its own weather: every Grumble here sends this instead of its element's mischief */
+  mischief?: { kind: MischiefKind; name: string };
+};
 export const ISLANDS: Island[] = [
-  { id: 'meadow', name: 'Sunny Meadow', element: 'sun', region: 'village', champion: 'lanternfox', blurb: 'Wildflowers, warm stones and a storm that won\'t go home.', odds: { common: 62, uncommon: 25, rare: 9, epic: 3.8, mythic: 0.2 } },
-  { id: 'treetops', name: 'Treetop Hollow', element: 'leaf', region: 'treetops', champion: 'bloomdrake', blurb: 'Rope bridges, giant leaves and grumbling up in the branches.', odds: { common: 50, uncommon: 28, rare: 14, epic: 7.7, mythic: 0.3 } },
-  { id: 'bay', name: 'Cloudwhale Bay', element: 'tide', region: 'shores', champion: 'skywhale', blurb: 'Turquoise water, a lighthouse, and something huge in the clouds.', odds: { common: 40, uncommon: 30, rare: 18, epic: 11.5, mythic: 0.5 } },
+  { id: 'meadow', world: 'sky', tier: 0, name: 'Sunny Meadow', element: 'sun', region: 'village', champion: 'lanternfox', blurb: 'Wildflowers, warm stones and a storm that won\'t go home.', odds: { common: 62, uncommon: 25, rare: 9, epic: 3.8, mythic: 0.2 } },
+  { id: 'treetops', world: 'sky', tier: 1, name: 'Treetop Hollow', element: 'leaf', region: 'treetops', champion: 'bloomdrake', blurb: 'Rope bridges, giant leaves and grumbling up in the branches.', odds: { common: 50, uncommon: 28, rare: 14, epic: 7.7, mythic: 0.3 } },
+  { id: 'bay', world: 'sky', tier: 2, name: 'Cloudwhale Bay', element: 'tide', region: 'shores', champion: 'skywhale', blurb: 'Turquoise water, a lighthouse, and something huge in the clouds.', odds: { common: 40, uncommon: 30, rare: 18, epic: 11.5, mythic: 0.5 } },
+  // Fraction Falls: a pie shop at the top of the falls, little bridges from pool to pool, and a thundercloud
+  // at the top that sprays everyone
+  { id: 'falls', world: 'falls', tier: 1, name: 'Fraction Falls', element: 'tide', region: 'cliffs', champion: 'stormlamb', area: 'fractions',
+    natives: ['bubbleocto', 'rainbootfrog', 'frostjelly'], mischief: { kind: 'rain', name: 'Waterfall spray is coming' },
+    blurb: 'A pie shop, bridges from pool to pool, and a waterfall for every fraction.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
 ];
+export const islandsOf = (w: WorldId) => ISLANDS.filter(i => i.world === w);
 export const ISLAND: Record<IslandId, Island> = Object.fromEntries(ISLANDS.map(i => [i.id, i])) as Record<IslandId, Island>;
 const PATH: NodeKind[] = ['battle', 'battle', 'practice', 'battle', 'battle', 'champion'];
 export const NODES: MapNode[] = ISLANDS.flatMap(isl => PATH.map((kind, n) => ({ id: `${isl.id}-${n}`, island: isl.id, kind, n })));
 export const NODE: Record<string, MapNode> = Object.fromEntries(NODES.map(n => [n.id, n]));
+export const nodesOf = (w: WorldId) => NODES.filter(n => ISLAND[n.island].world === w);
+/** A world is open once there's something to battle with: the Sky Islands always; a math world once its
+ *  area is started (a question of it answered in a trip, placement or battle). */
+export function worldOpen(p: Profile, w: WorldId): boolean {
+  const area = islandsOf(w).find(i => i.area)?.area;
+  if (!area) return true;
+  return Object.entries(mathOf(p).skills ?? {}).some(([k, s]) => (s.seen > 0 || s.stage > 0) && SKILL[splitKey(k).skill]?.area === area);
+}
 
 // ---------- the player's adventure ----------
 export type Egg = { id: string; rarity: Rarity; need: number; have: number; got: number };
@@ -123,18 +151,19 @@ export function practiceDone(a: Adventure, id: string): boolean {
   if (cleared(a, id)) return true;
   return a.stopAt[id] !== undefined && a.practiceSessions > a.stopAt[id];
 }
-/** The next stop: the first one not done. */
-export function currentNode(a: Adventure): MapNode | null {
-  for (const n of NODES) {
+/** The next stop in a world: the first one not done. */
+export function currentNode(a: Adventure, w: WorldId = 'sky'): MapNode | null {
+  for (const n of nodesOf(w)) {
     if (n.kind === 'practice' ? !practiceDone(a, n.id) : !cleared(a, n.id)) return n;
   }
   return null;
 }
 /** Practice stops: with the Open rule they can be stepped past (they still give their reward). */
 export function canPass(a: Adventure, n: MapNode) { return n.kind !== 'practice' || practiceDone(a, n.id) || a.settings.rule === 'open'; }
+/** Open once every stop before it in its own world is done. */
 export function nodeOpen(a: Adventure, n: MapNode): boolean {
-  const i = NODES.indexOf(n);
-  for (let k = 0; k < i; k++) { const m = NODES[k]; if (m.kind === 'practice' ? !canPass(a, m) : !cleared(a, m.id)) return false; }
+  const list = nodesOf(ISLAND[n.island].world), i = list.indexOf(n);
+  for (let k = 0; k < i; k++) { const m = list[k]; if (m.kind === 'practice' ? !canPass(a, m) : !cleared(a, m.id)) return false; }
   return true;
 }
 /** Mark a practice stop as reached, so the next practice session finishes it. */
@@ -169,9 +198,10 @@ export function playLeft(p: Profile, now = Date.now()): { open: boolean; left: n
 
 // ---------- what a battle draws on ----------
 /** Math: the facts the player has met (any kind, or the grown-ups' focus); a new player gets the first
- *  plus facts. Open cards come in once some times or plus facts are known well. */
-export function mathPool(p: Profile): Pool {
-  const m = mathOf(p), focus = advView(p).settings.focus;
+ *  plus facts. Open cards come in once some times or plus facts are known well. `only`: a math world's
+ *  area (Fraction Falls), which wins over the grown-ups' focus. */
+export function mathPool(p: Profile, only?: AreaId): Pool {
+  const m = mathOf(p), focus = only ?? advView(p).settings.focus;
   // a skill area the grown-ups chose (fractions...): every card is one of its questions, and the quick
   // blocks use the facts met so far
   const area = focus !== 'all' && focus.length > 1 && AREA[focus as AreaId] && !AREA[focus as AreaId].op ? (focus as AreaId) : null;
@@ -234,7 +264,7 @@ function roll(rng: Rng, odds: Partial<Record<Rarity, number>>): Rarity {
 function species(rng: Rng, a: Adventure, r: Rarity, notChampions = true, island?: IslandId): GlimmerId {
   const all = glimmersOf(r).filter(g => !notChampions || !g.champion || r !== 'legendary');
   const any = all.length ? all : glimmersOf(r);
-  const home = island ? any.filter(g => g.home === island) : [];
+  const home = island ? any.filter(g => g.home === island || ISLAND[island].natives?.includes(g.id)) : [];
   const list = home.length && rng() < 0.7 ? home : any;
   const newOnes = list.filter(g => !owns(a, g.id));
   const from = newOnes.length && rng() < 0.65 ? newOnes : list;
@@ -243,19 +273,19 @@ function species(rng: Rng, a: Adventure, r: Rarity, notChampions = true, island?
 /** The Grumble at a map stop: a Champion, or a Glimmer rolled by the island's odds. */
 export function foeFor(p: Profile, node: MapNode, pool: Pool, seed: number): Foe {
   const a = advOf(p), isl = ISLAND[node.island], rng = mulberry32(seed);
-  const islandN = ISLANDS.indexOf(isl);
+  const islandN = isl.tier, weather = isl.mischief ? { mischief: isl.mischief } : {};
   if (node.kind === 'champion') {
     const g = GLIMMER[isl.champion];
     const max = grumpFor(pool, true);
     // the third island's Champion has grown up: it comes evolved, glowing, for a bigger finale
-    return { glimmer: g.id, rarity: g.rarity, champion: true, element: g.element, grump: max, max, hit: 4 + islandN, evolved: islandN >= 2 };
+    return { glimmer: g.id, rarity: g.rarity, champion: true, element: g.element, grump: max, max, hit: 4 + islandN, evolved: islandN >= 2, ...weather };
   }
   const r = roll(rng, isl.odds);
   // the very first battle is always Puddle Pup (the one in the story)
   const id = !a.battles && node.id === 'meadow-0' && !owns(a, 'puddlepup') ? 'puddlepup' : r === 'legendary' ? 'lanternfox' : species(rng, a, r, true, isl.id);
   const g = GLIMMER[id];
   const max = grumpFor(pool, false);
-  return { glimmer: id, rarity: g.rarity, champion: false, element: g.element, grump: max, max, hit: 2 + islandN };
+  return { glimmer: id, rarity: g.rarity, champion: false, element: g.element, grump: max, max, hit: 2 + islandN, ...weather };
 }
 
 // ---------- eggs ----------
@@ -378,7 +408,7 @@ export type BattleOutcome = {
 
 export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
   const a = advOf(p), rng = mulberry32(r.seed ^ 0x5bd1e995);
-  const node = NODE[r.node], isl = ISLAND[node.island], islandN = ISLANDS.indexOf(isl);
+  const node = NODE[r.node], isl = ISLAND[node.island], islandN = isl.tier;
   const day = today(a, r.at);
   day.ms += r.ms; day.answers += r.answers; day.right += r.right;
   a.battles++;

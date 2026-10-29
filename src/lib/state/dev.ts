@@ -9,6 +9,7 @@ import { buddyPal } from '../engine/profile';
 import { MATH_LESSONS, PLACEMENTS } from '../math/course';
 import { mathOf } from '../math/progress';
 import { advOf } from '../adventure/state';
+import { lastWorld } from '../adventure/worlds';
 import type { GlimmerId } from '../adventure/glimmers';
 import { ITEM, ITEMS } from '../adventure/gear';
 
@@ -52,8 +53,8 @@ export function devBoot() {
   if (key === 'math') { ensure(); game.setHome('math'); game.go('map'); }
   if (key === 'mathrun') { ensure(); game.setHome('math'); game.startMath(val || 'twins-1'); }
   if (key === 'garden') { ensure(); game.go('garden'); }
-  // Adventure: #adventure, #battle=meadow-0, #glimmers, #eggs
-  if (key === 'adventure') { ensure(); game.go('adventure'); }
+  // Adventure: #adventure (or #adventure=falls for that world), #battle=meadow-0 (or falls-0), #glimmers, #eggs
+  if (key === 'adventure') { ensure(); if (val === 'sky' || val === 'falls') lastWorld.id = val; game.go('adventure'); }
   if (key === 'battle') { ensure(); game.battleNode = val || 'meadow-0'; game.battleKey++; game.go('battle'); }
   if (key === 'glimmers') { ensure(); game.go('glimmers'); }
   if (key === 'eggs') { ensure(); game.go('eggs'); }

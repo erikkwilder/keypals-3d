@@ -40,8 +40,9 @@
   const node = NODE[game.battleNode ?? 'meadow-0'];
   const island = ISLAND[node.island];
   const adv = advOf(p0);
-  const subject = adv.subject;
-  const pool = subject === 'math' ? mathPool(p0) : typingPool(p0);
+  // a math world (Fraction Falls) is always math, every card from its area
+  const subject = island.area ? 'math' : adv.subject;
+  const pool = subject === 'math' ? mathPool(p0, island.area) : typingPool(p0);
   const seed = (Date.now() % 1e9) | 0;
   const foe = foeFor(p0, node, pool, seed);
   const team = teamOf(adv);
@@ -520,7 +521,7 @@
         {#each out.stickers ?? [] as st (st.id)}<div class="prize" title={st.desc}><img src="{base}game/icon-stickers.webp" alt="" /><b>Sticker</b><small>{st.name}</small></div>{/each}
       </div>
       <p class="tapnote" class:in={step >= 2}>Tap a prize to see what it's for</p>
-      {#if out.islandDone}<div class="island-done"><Icon name="sparkle" size={26} /> {island.name} is free of storms! The next island is open.</div>{/if}
+      {#if out.islandDone}<div class="island-done"><Icon name="sparkle" size={26} /> {island.name} is free of storms!{island.world === 'sky' && island.id !== 'bay' ? ' The next island is open.' : ''}</div>{/if}
       <div class="rbtns" class:in={step >= 2}>
         <button class="btn" onclick={again}>Play again</button>
         <button class="btn btn-primary" onclick={toMap}>Back to the map <span class="kbd">enter</span></button>

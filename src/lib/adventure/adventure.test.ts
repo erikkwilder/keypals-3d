@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { newProfile, dayKey, buddyPal } from '../engine/profile';
 import { answerOf } from '../math/facts';
 import { newBattle, play, block, finale, deal, openFact, sparkFor, FINALE_AT, type Pool, type Foe } from './battle';
-import { advOf, applyBattle, buy, currentNode, foeFor, hatch, mathPool, NODE, NODES, nodeOpen, notePractice, playLeft, reachStop, typingPool, collectStop, practiceDone, BATTLE_FRIENDSHIP } from './state';
+import { advOf, applyBattle, buy, currentNode, foeFor, hatch, mathPool, NODE, nodesOf, nodeOpen, notePractice, playLeft, reachStop, typingPool, collectStop, practiceDone, worldOpen, BATTLE_FRIENDSHIP } from './state';
+import { mathOf } from '../math/progress';
+import { noteSkillAnswers } from '../math/skills/progress';
 import { GLIMMERS, GLIMMER } from './glimmers';
 
 const pool: Pool = { subject: 'math', facts: [{ f: { a: 3, b: 4, op: '+' }, stage: 3 }, { f: { a: 5, b: 5, op: '+' }, stage: 2 }, { f: { a: 6, b: 2, op: '+' }, stage: 1 }, { f: { a: 2, b: 2, op: '+' }, stage: 2 }], open: false };
@@ -89,7 +91,7 @@ describe('Adventure', () => {
     expect(nodeOpen(a, NODE['meadow-3'])).toBe(true);
     a.settings.rule = 'open';
     expect(nodeOpen(a, NODE['meadow-4'])).toBe(false);
-    expect(NODES.filter(n => n.kind === 'champion').map(n => GLIMMER[n.island === 'meadow' ? 'lanternfox' : n.island === 'treetops' ? 'bloomdrake' : 'skywhale'].rarity)).toEqual(['legendary', 'legendary', 'legendary']);
+    expect(nodesOf('sky').filter(n => n.kind === 'champion').map(n => GLIMMER[n.island === 'meadow' ? 'lanternfox' : n.island === 'treetops' ? 'bloomdrake' : 'skywhale'].rarity)).toEqual(['legendary', 'legendary', 'legendary']);
   });
   it('winning cheers the Glimmer onto your team, pays shells, and may drop an egg', () => {
     const p = newProfile('Ava', 'dino');
@@ -174,5 +176,46 @@ describe('practice what you missed', () => {
     play(b, back!.id, { ok: true, value: answerOf(back!.fact!), thinkMs: 2000, fact: back!.fact });
     b.phase = 'pick'; b.block = null; deal(b);
     expect(b.cards.some(c => c.again)).toBe(false);
+  });
+});
+
+describe('Fraction Falls', () => {
+  it('is a world of its own: its stops run in order by themselves, and the Sky Islands are unchanged', () => {
+    const p = newProfile('Ava', 'dino'), a = advOf(p);
+    expect(nodesOf('sky').map(n => n.id)).toEqual(['meadow', 'treetops', 'bay'].flatMap(i => [0, 1, 2, 3, 4, 5].map(k => `${i}-${k}`)));
+    expect(nodesOf('falls').map(n => n.kind)).toEqual(['battle', 'battle', 'practice', 'battle', 'battle', 'champion']);
+    expect(currentNode(a)!.id).toBe('meadow-0');
+    expect(currentNode(a, 'falls')!.id).toBe('falls-0');
+    expect(nodeOpen(a, NODE['falls-0'])).toBe(true);
+    expect(nodeOpen(a, NODE['falls-1'])).toBe(false);
+    a.nodes['falls-0'] = 1;
+    expect(nodeOpen(a, NODE['falls-1'])).toBe(true);
+    expect(currentNode(a)!.id).toBe('meadow-0');
+    // finishing the Sky Islands doesn't wander into another world
+    for (const n of nodesOf('sky')) a.nodes[n.id] = 1;
+    expect(currentNode(a)).toBe(null);
+  });
+  it('opens once fractions are started, and every battle card there is a fraction', () => {
+    const p = newProfile('Ava', 'dino');
+    expect(worldOpen(p, 'sky')).toBe(true);
+    expect(worldOpen(p, 'falls')).toBe(false);
+    const m = (p.math = mathOf(p));
+    noteSkillAnswers(m, [{ key: 'fr-name:2', ok: true, thinkMs: 3000 }, { key: 'fr-name:4', ok: true, thinkMs: 3000 }], Date.now());
+    expect(worldOpen(p, 'falls')).toBe(true);
+    const pl = mathPool(p, 'fractions');
+    expect(pl.subject === 'math' && pl.mix).toBe(1);
+    expect(pl.subject === 'math' && pl.skills!.every(s => s.key.startsWith('fr-'))).toBe(true);
+    const b = newBattle({ pool: pl, seed: 4, sparkMax: 20, role: 'heart', gear: null, team: [], foe: foeFor(p, NODE['falls-0'], pl, 4) });
+    expect(b.cards.every(c => c.item?.skill.startsWith('fr-'))).toBe(true);
+  });
+  it('its Grumbles send waterfall spray and live there; the Champion is the Thundercloud Lamb', () => {
+    const p = newProfile('Ava', 'dino'), pl = mathPool(p, 'fractions');
+    const champ = foeFor(p, NODE['falls-5'], pl, 1);
+    expect(champ).toMatchObject({ glimmer: 'stormlamb', champion: true, mischief: { kind: 'rain' } });
+    const seen = new Set<string>();
+    for (let s = 1; s <= 200; s++) { const f = foeFor(p, NODE['falls-1'], pl, s); expect(f.mischief?.name).toMatch(/spray/); seen.add(f.glimmer); }
+    expect(['bubbleocto', 'rainbootfrog', 'frostjelly'].every(id => seen.has(id))).toBe(true);
+    // the sky islands keep their own mischief
+    expect(foeFor(p, NODE['meadow-1'], pl, 3).mischief).toBeUndefined();
   });
 });
