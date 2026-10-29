@@ -146,6 +146,10 @@ export const sfx = {
   /** A Perfect Cheer: a bright fanfare. */
   perfect() { [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.4, gain: 0.11, delay: i * 0.07 })); tone(2093, { type: 'sine', dur: 1.1, gain: 0.05, delay: 0.38 }); },
   /** The Grumble grumbles. */
+  /** A Glimmer on your team helps: a bright little chime. */
+  helper() { [783.99, 1046.5, 1318.5].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.22, gain: 0.07, delay: i * 0.06 })); tone(2093, { type: 'sine', dur: 0.4, gain: 0.03, delay: 0.18 }); },
+  /** Uh-oh: the grumpy one is about to send something. */
+  uhoh() { tone(523.25, { type: 'triangle', dur: 0.16, gain: 0.08 }); tone(392, { type: 'triangle', dur: 0.26, gain: 0.08, delay: 0.16 }); },
   grumble() { tone(98, { type: 'sawtooth', dur: 0.5, gain: 0.05, slideTo: 82 }); noise(0.5, { gain: 0.04, freq: 300, q: 2 }); },
   zap() { noise(0.35, { gain: 0.12, freq: 4000, sweepTo: 600, q: 0.5 }); tone(1200, { type: 'square', dur: 0.12, gain: 0.04, slideTo: 300 }); },
   /** A shield: a glassy chime that holds, or cracks. */

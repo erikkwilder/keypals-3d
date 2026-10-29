@@ -183,7 +183,7 @@ export class BattleScene implements Controller {
   /** A point on screen (fractions of the window) for a thing: for floating numbers. */
   screenOf(which: 'buddy' | 'foe' | 'team0' | 'team1' | 'reveal', dy = 0): { x: number; y: number } {
     const p = which === 'buddy' ? this.buddyAt.clone().add(new THREE.Vector3(0, 1.3 + dy, 0))
-      : which === 'foe' ? this.grumble.root.position.clone().add(new THREE.Vector3(0, this.grumble.height * 1.75 + 0.35 + dy, 0))
+      : which === 'foe' ? this.grumble.root.position.clone().add(new THREE.Vector3(0, this.grumble.topY + 0.15 + dy * 0.3, 0))
       : which === 'reveal' ? this.foeAt.clone().add(new THREE.Vector3(0, 1 + dy, 0))
       : (this.team[which === 'team0' ? 0 : 1]?.root.position.clone() ?? this.buddyAt.clone()).add(new THREE.Vector3(0, 0.9 + dy, 0));
     const v = p.project(stage.camera);

@@ -57,6 +57,8 @@ class Game {
   /** Adventure: the map stop being battled, and a fresh key so "battle again" starts a new one */
   battleNode = $state<string | null>(null);
   battleKey = $state(0);
+  /** the Glimmer to show first on the Glimmers screen (a new one to put on the team) */
+  glimmerSel = $state<string | null>(null);
 
   get profile(): Profile | null {
     return this.save.profiles.find(p => p.id === this.save.activeId) ?? null;

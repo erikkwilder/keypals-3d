@@ -33,7 +33,8 @@
     ['Words and keys', s => s.id.startsWith('chars-') || s.id.startsWith('own-') || s.id === 'fanclub'],
     ['Extras', s => s.id.startsWith('goal-') || s.id.startsWith('medals-') || s.id.startsWith('comeback') || s.id === 'sleepy'],
   ];
-  const count = (id: FriendId) => Object.keys(palOf(p, id).stickers).length;
+  // only the stickers still in the book (a few retired ones may sit in older saves)
+  const count = (id: FriendId) => STICKERS.filter(s => palOf(p, id).stickers[s.id]).length;
   let seenNow = $state<Set<string>>(new Set());
   onMount(() => markSeen());
   function markSeen() {
@@ -51,7 +52,7 @@
 </script>
 
 <div class="screen book">
-  <Header title="Sticker Book" sub="{FRIEND[who].name}: {Object.keys(pal.stickers).length} of {STICKERS.length}">
+  <Header title="Sticker Book" sub="{FRIEND[who].name}: {count(who)} of {STICKERS.length}">
     {#snippet right()}
       <div class="tabs">
         <button class:on={tab === 'stickers'} onclick={() => (tab = 'stickers')}>Stickers</button>

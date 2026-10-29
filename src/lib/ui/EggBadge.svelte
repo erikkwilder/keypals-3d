@@ -15,7 +15,7 @@
 </script>
 
 {#if egg}
-  <div class="eb" title="Your {RARITY[egg.rarity].name} egg warms with every right answer">
+  <div class="eb" title="Every right answer makes your egg grow. When it's full, it hatches in Adventure!">
     {#key bump}<img class:wob={bump > 0} class:ready={have >= egg.need} src="{base}game/egg-{egg.rarity}.webp" alt="" />{/key}
     <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" /><circle class="fg" cx="20" cy="20" r="17" style:stroke-dasharray="{(have / egg.need) * 106.8} 200" /></svg>
     <span>{have >= egg.need ? 'Ready!' : `${have}/${egg.need}`}</span>

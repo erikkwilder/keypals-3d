@@ -6,10 +6,17 @@
   type Props = { id: GlimmerId; width?: number; level?: number; locked?: boolean; shine?: boolean; fresh?: boolean };
   let { id, width = 180, level, locked = false, shine = false, fresh = false }: Props = $props();
   const g = $derived(GLIMMER[id]);
+  // each frame's picture window (measured from the frame art): left/right inset, top, bottom of the window, in %
+  const BOX: Record<string, [number, number, number, number]> = {
+    common: [7.9, 6.8, 83.0, 394], uncommon: [8.8, 9.8, 84.7, 400], rare: [7.7, 7.7, 84.0, 388],
+    epic: [10.4, 9.5, 82.7, 396], legendary: [10.1, 13.7, 81.5, 396], mythic: [12.7, 13.2, 83.7, 409],
+  };
+  const box = $derived(BOX[g.rarity]);
   const base = import.meta.env.BASE_URL;
 </script>
 
-<div class="gc r-{g.rarity}" class:locked class:shine style:width="{width}px" style:--glow={RARITY[g.rarity].color}>
+<div class="gc r-{g.rarity}" class:locked class:shine style:width="{width}px" style:--glow={RARITY[g.rarity].color} style:aspect-ratio="{box[3]} / 600"
+  style:--l="{box[0] - 1}%" style:--t="{box[1] - 1}%" style:--b="{100 - box[2] - 1}%">
   <div class="art" style:background-image="url({base}game/glimmers/{id}.webp)"></div>
   <img class="frame" src="{base}game/frame-{g.rarity}.webp" alt="" draggable="false" />
   <img class="el" src="{base}game/icon-{g.element}.webp" alt={ELEMENT[g.element].name} title={ELEMENT[g.element].name} draggable="false" />
@@ -20,18 +27,18 @@
 </div>
 
 <style>
-  .gc { position: relative; aspect-ratio: 392 / 600; flex: none; filter: drop-shadow(0 10px 18px rgba(40, 20, 80, .28)); transition: transform .2s; }
-  .art { position: absolute; left: 8%; right: 7%; top: 9%; bottom: 17%; border-radius: 6% / 4%; background-size: cover; background-position: center 40%; background-color: #e8eef8; }
+  .gc { position: relative; flex: none; filter: drop-shadow(0 10px 18px rgba(40, 20, 80, .28)); transition: transform .2s; }
+  .art { position: absolute; left: var(--l); right: var(--l); top: var(--t); bottom: var(--b); border-radius: 6% / 4%; background-size: cover; background-position: center 40%; background-color: #e8eef8; }
   .frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; user-select: none; }
-  .el { position: absolute; top: 9%; left: 9%; width: 20%; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); }
-  .lv { position: absolute; top: 10%; right: 9%; font: 700 clamp(10px, calc(var(--w, 180px) * 0.07), 15px) var(--font-ui); color: #fff; background: rgba(30, 20, 60, .7); padding: 2px 8px; border-radius: 999px; }
+  .el { position: absolute; top: calc(var(--t) + 2%); left: calc(var(--l) + 2%); width: 20%; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); }
+  .lv { position: absolute; top: calc(var(--t) + 2.5%); right: calc(var(--l) + 2%); font: 700 clamp(10px, calc(var(--w, 180px) * 0.07), 15px) var(--font-ui); color: #fff; background: rgba(30, 20, 60, .7); padding: 2px 8px; border-radius: 999px; }
   .new { position: absolute; top: -4%; right: -4%; font: 800 12px var(--font-body); background: var(--pink, #ef6fa6); color: #fff; padding: 3px 9px; border-radius: 999px; box-shadow: 0 0 0 3px #fff; transform: rotate(8deg); }
   .plate { position: absolute; left: 14%; right: 14%; bottom: 5.5%; height: 9.5%; display: grid; place-items: center; }
   .plate b { font: 600 clamp(10px, 1.6vw, 17px)/1 var(--font-ui); color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .locked .art { filter: brightness(0) saturate(0) opacity(.55); }
   .locked .el { filter: grayscale(1) opacity(.5); }
   .q { position: absolute; left: 0; right: 0; top: 30%; text-align: center; font: 600 clamp(28px, 5vw, 56px) var(--font-ui); color: rgba(255, 255, 255, .85); text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
-  .shine::after { content: ''; position: absolute; left: 8%; right: 7%; top: 9%; bottom: 17%; border-radius: 6% / 4%; background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .55) 45%, transparent 60%); background-size: 250% 100%; animation: sweep 2.2s ease-in-out infinite; mix-blend-mode: screen; pointer-events: none; }
+  .shine::after { content: ''; position: absolute; left: var(--l); right: var(--l); top: var(--t); bottom: var(--b); border-radius: 6% / 4%; background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .55) 45%, transparent 60%); background-size: 250% 100%; animation: sweep 2.2s ease-in-out infinite; mix-blend-mode: screen; pointer-events: none; }
   .r-mythic.shine .art { animation: hue 4s linear infinite; }
   @keyframes sweep { from { background-position: 120% 0; } to { background-position: -120% 0; } }
   @keyframes hue { 50% { filter: saturate(1.3) brightness(1.08); } }

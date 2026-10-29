@@ -29,6 +29,8 @@ export class GrumpyGlimmer {
   readonly glimmer: GlimmerModel;
   readonly height: number;
   /** a point at its middle, for powers to fly at */
+  /** the top of its storm cloud, above its feet */
+  get topY() { return this.cloudY + this.cloudLift + this.cloudW * 0.22; }
   get centre() { return this.root.position.clone().add(new THREE.Vector3(0, this.height * (this.glimmer.floats ? 0.85 : 0.55), 0)); }
   /** 1 = as grumpy as can be, 0 = cheered right up */
   mood = 1; private shown = 1;

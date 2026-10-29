@@ -8,7 +8,6 @@ import { welcomeNew } from '../engine/team';
 import { AWARD } from '../engine/achievements';
 import { STICKERS, levelFromXp, medalTier, newPalProgress, type PalProgress, type StickerDef } from '../engine/stickers';
 import { newBetween, type Reward } from '../engine/rewards';
-import { RIDES } from '../engine/rides';
 import { groupFacts, MATH_LESSON, MATH_LESSONS, MATH_REGION, PLACEMENTS, regionsOf, type MathLesson, type MathRegionId } from './course';
 import { earnShells, notePractice, practiceShells } from '../adventure/state';
 import { factId, familyOf, newStat, parseFact, seedPartner, updateFact, FAST_MS, type FactStat, type Op, type Stage } from './facts';
@@ -140,7 +139,7 @@ export type MathOutcome = {
 
 /** Friendship XP for a trip, paced like a typing lesson's (a 20-fact trip earns about what 90 letters do). */
 export function tripXp(st: TripStats, stars: number, medals: number, finished: boolean, grown: boolean) {
-  return Math.round(st.asked * 2.2 * (0.5 + st.acc) * (grown ? 0.8 : 1) + stars * 10 + Math.min(medals, 5) * 4 + (finished ? 10 : 0));
+  return Math.round(st.asked * 2.2 * (0.5 + st.acc) * (grown ? 0.8 : 1) + stars * 10 + Math.min(medals, 5) * 4 + (finished ? 16 : 0)); // the finish bonus went up 6 when medals were pared down, to keep the pace
 }
 
 export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
@@ -233,10 +232,8 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
   const medals: string[] = [];
   if (run.finished && st.asked >= 10) {
     if (st.misses === 0) medals.push('clean');
-    else if (st.acc >= 0.95) medals.push('sharp');
   }
-  if (before && run.bestRide > before.bestRide) medals.push('ride-record');
-  if (run.bestRide > 0) medals.push(`ride-${RIDES[run.bestRide].id}`);
+  if (before && run.bestRide > before.bestRide) medals.push('pb');
   if (st.bestFastRow >= 10) medals.push('quickdraw');
   if (grew.bloomed.length) medals.push('bloom');
   if (passedNow && prev.attempts === 0) medals.push('firsttry');

@@ -86,10 +86,17 @@
     <div class="waiting"><span>Waiting in the nest:</span>{#each a.nest as e}<img src="{base}game/egg-{e.rarity}.webp" alt="{RARITY[e.rarity].name} egg" title="{RARITY[e.rarity].name} egg" />{/each}</div>
   {/if}
   <div class="how card">
-    <p><b>Eggs hatch into new Glimmers!</b> Warm them up by practicing: every right answer on a math trip, every word typed in a typing lesson, and every playground game counts. When an egg's bar is full, tap Hatch.</p>
-    <p class="muted">You get eggs from battles (always from a Perfect Cheer or a Champion) and from the shop.</p>
-    <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>Math practice</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing practice</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
-    <p class="muted small">Eggs from battles: {EGG_ODDS}</p>
+    <div class="howpic" style:background-image="url({base}game/intro-practice.webp)"></div>
+    <div class="howtext">
+      <h3>How eggs hatch</h3>
+      <ol>
+        <li><b>Practice:</b> do a math trip, a typing lesson or a playground game.</li>
+        <li><b>Every right answer</b> makes your eggs grow (all three at once).</li>
+        <li><b>Bar full?</b> Tap <b>Hatch</b> and meet a new Glimmer!</li>
+      </ol>
+      <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>Math practice</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing practice</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
+      <p class="muted small">You get eggs from battles (always from a Perfect Cheer or a Champion) and from the shop.</p>
+    </div>
   </div>
 
   {#if got}
@@ -110,8 +117,8 @@
   .nests { display: flex; gap: 18px; justify-content: center; padding: 0 16px; flex-wrap: wrap; }
   .slot { position: relative; width: 230px; display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, .9); border-radius: 26px; padding: 10px 10px 14px; box-shadow: 0 14px 30px -16px rgba(40, 20, 80, .55); }
   .nimg { width: 190px; margin-top: 70px; }
-  .eggw { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 108px; }
-  .egg { width: 108px; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .3)); }
+  .eggw { position: absolute; top: 4px; left: 0; right: 0; margin: 0 auto; width: 108px; display: grid; place-items: center; }
+  .egg { width: 100%; height: 118px; object-fit: contain; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .3)); }
   .ready .egg { animation: wobble .7s ease-in-out infinite; }
   .ready { box-shadow: 0 0 0 4px #ffd36b, 0 0 30px #ffd36b; }
   .cracking .egg { animation: shake .18s linear infinite; }
@@ -128,8 +135,13 @@
   @keyframes pulse { 50% { transform: scale(1.06); } }
   .waiting { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; font: 700 14px var(--font-body); color: var(--ink2); }
   .waiting img { width: 40px; }
-  .how { margin: 12px auto 16px; width: min(760px, 94vw); padding: 12px 18px; display: flex; flex-direction: column; gap: 8px; }
-  .how p { margin: 0; font: 600 15px/1.4 var(--font-body); color: var(--ink2); }
+  .how { margin: 12px auto 16px; width: min(820px, 94vw); padding: 0; display: grid; grid-template-columns: 220px 1fr; overflow: hidden; }
+  .howpic { background-size: cover; background-position: center; min-height: 170px; }
+  .howtext { padding: 12px 18px; display: flex; flex-direction: column; gap: 8px; }
+  .howtext h3 { margin: 0; font-size: 22px; }
+  .howtext ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; }
+  .howtext li { font: 600 16px/1.35 var(--font-body); color: var(--ink2); }
+  .how p { margin: 0; font: 600 14px/1.4 var(--font-body); color: var(--ink2); }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .small { font-size: 12px !important; }
   .showing .nests, .showing .how, .showing .waiting { opacity: 0; pointer-events: none; transition: opacity .3s; }
@@ -150,5 +162,6 @@
     .lab b { font-size: 13px; text-align: center; } .lab span { font-size: 11px; text-align: center; }
     .nests { gap: 6px; padding: 0 6px; }
     .hatch { font-size: 15px; padding: 6px 10px; }
+    .how { grid-template-columns: 1fr; } .howpic { min-height: 130px; }
   }
 </style>

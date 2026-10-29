@@ -67,7 +67,7 @@
   let blockAt = 0; let blockLeft = $state(1); let blockTimer = 0;
 
   // floating numbers and messages
-  type Float = { id: number; x: number; y: number; text: string; kind: string };
+  type Float = { id: number; x: number; y: number; text: string; kind: string; img?: string };
   let floats = $state<Float[]>([]); let fid = 0;
   let toast = $state<{ text: string; kind: string; key: number } | null>(null);
   let bigBanner = $state<{ text: string; sub?: string; kind: string; key: number } | null>(null);
@@ -130,12 +130,22 @@
     spark.target = b.spark; grump.target = b.foe.grump;
     scene?.setGrump(b.foe.grump / b.foe.max);
   }
-  function float(which: 'buddy' | 'foe' | 'team0' | 'team1', text: string, kind: string) {
+  function float(which: 'buddy' | 'foe' | 'team0' | 'team1', text: string, kind: string, img?: string) {
     const pos = scene?.screenOf(which, 0.2) ?? { x: which === 'buddy' ? 0.3 : 0.7, y: 0.3 };
-    const f = { id: fid++, x: pos.x + (Math.random() - 0.5) * 0.03, y: pos.y, text, kind };
+    const f = { id: fid++, x: pos.x + (kind === 'helper' ? 0 : (Math.random() - 0.5) * 0.03), y: pos.y, text, kind, img };
     floats = [...floats, f];
-    setTimeout(() => (floats = floats.filter(x => x.id !== f.id)), 1500);
+    setTimeout(() => (floats = floats.filter(x => x.id !== f.id)), kind === 'helper' ? 2200 : 1500);
   }
+  /** A helper's badge: who helped, with what, and what it did. */
+  function helped(id: string | undefined, what: string, did: string) {
+    const slot = id ? team.findIndex(m => m.id === id) : -1;
+    const who = slot === 0 ? 'team0' : slot === 1 ? 'team1' : 'buddy';
+    const img = id ? `${base}game/glimmers/${id}.webp` : `${base}portraits/${p0.buddy}-head.png`;
+    float(who, `${what}: ${did}`, 'helper', img);
+  }
+  // tap anything (a team member, a bar, the Finale stars) to see what it is
+  let info = $state<{ kind: 'glimmer'; id: string } | { kind: 'buddy' | 'grumpy' | 'energy' | 'finale' | 'shells' | 'friendship' | 'egg' | 'reward'; id?: string } | null>(null);
+  function show(i: NonNullable<typeof info>) { info = i; sfx.pop(); }
   function say(text: string, kind = 'info') { toast = { text, kind, key: Date.now() }; setTimeout(() => { if (toast?.text === text) toast = null; }, 2200); }
 
   // ---------- picking and answering ----------
@@ -233,16 +243,17 @@
         sync();
       } else if (e.k === 'extra') {
         const slot = e.id ? team.findIndex(m => m.id === e.id) : -1;
+        sfx.helper();
+        helped(e.id, e.id ? GLIMMER[e.id].power.name : e.what, `+${e.value} cheer`);
         await scene?.extra(slot, e.id ? GLIMMER[e.id].element : 'sun');
-        sfx.pop(); float(slot === 1 ? 'team1' : slot === 0 ? 'team0' : 'buddy', `${e.id ? GLIMMER[e.id].name : e.what} helps!`, 'extra');
         float('foe', `−${e.value}`, 'extra');
         sync();
       } else if (e.k === 'heal') {
         const slot = e.id ? team.findIndex(m => m.id === e.id) : -1;
         scene?.heal(slot); sfx.heal();
-        float('buddy', `+${e.value} energy`, 'heal'); sync();
+        helped(e.id, e.id ? GLIMMER[e.id].power.name : e.what, `+${e.value} energy`); sync();
         await sleep(300);
-      } else if (e.k === 'freeze') { scene?.freeze(team.findIndex(m => m.id === e.id)); sfx.freeze(); say(`${GLIMMER[e.id].name} froze the Grumble!`, 'super'); await sleep(400); }
+      } else if (e.k === 'freeze') { scene?.freeze(team.findIndex(m => m.id === e.id)); sfx.freeze(); helped(e.id, GLIMMER[e.id].power.name, `${foeName} is frozen!`); await sleep(400); }
       else if (e.k === 'dazzle') { scene?.dazzle(); }
       else if (e.k === 'streakKept') { say(`${GLIMMER[e.id].name} kept your row going!`, 'good'); }
       else if (e.k === 'aurora') { scene?.aurora(); sfx.reveal(3); say('Aurora! Your Finale is ready.', 'super'); await sleep(600); }
@@ -282,7 +293,7 @@
     if (firstBattle) tip('t-block', `Uh oh, ${bl.name.toLowerCase()}! Answer this one before the timer runs out to block it.`, '.blockbox');
     blockTyped = ''; wordPos = 0; wordErr = 0;
     ui = 'block'; blockAt = performance.now(); blockLeft = 1;
-    scene?.windup(); sfx.grumble();
+    scene?.windup(); sfx.uhoh();
     clearInterval(blockTimer);
     blockTimer = window.setInterval(() => {
       const k = (performance.now() - blockAt) / bl.limitMs;
@@ -346,23 +357,23 @@
   </div>
 
   <!-- your energy over your buddy, its grumpy bar over it (on phones both sit at the top) -->
-  <div class="bar spark" style:left={narrow ? '10px' : `${budPos.x * 100}%`} style:top={narrow ? '62px' : `${budPos.y * 100}%`}>
+  <button class="bar spark" style:left={narrow ? '10px' : `${budPos.x * 100}%`} style:top={narrow ? '62px' : `${budPos.y * 100}%`} onclick={() => show({ kind: 'energy' })}>
     <img class="bi" src="{base}game/icon-spark.webp" alt="" />
     <div class="bt"><span class="lab">Your energy</span><div class="track"><div class="fill" style:width="{sparkPct}%"></div></div><span class="num"><b>{sparkNow}</b> / {b.sparkMax}</span></div>
-  </div>
-  <div class="bar grump" class:champ={champion} style:left={narrow ? 'auto' : `${foePos.x * 100}%`} style:right={narrow ? '10px' : 'auto'} style:top={narrow ? '62px' : `${foePos.y * 100}%`}>
+  </button>
+  <button class="bar grump" class:champ={champion} style:left={narrow ? 'auto' : `${foePos.x * 100}%`} style:right={narrow ? '10px' : 'auto'} style:top={narrow ? '62px' : `${foePos.y * 100}%`} onclick={() => show({ kind: 'grumpy' })}>
     <img class="bi" src="{base}game/icon-grump.webp" alt="" />
     <div class="bt"><span class="lab">{foeName} is grumpy</span><div class="track"><div class="fill" style:width="{grumpPct}%"></div></div><span class="num"><b>{grumpNow}</b> grumps left</span></div>
-  </div>
+  </button>
 
   <div class="teamrow">
-    <span class="bud" title={ROLE[role].text}><Critter friend={p0.buddy} size={narrow ? 34 : 44} round /><em><b>{FRIEND[p0.buddy].name}</b>{ROLE[role].name}</em></span>
-    {#each team as m (m.id)}<span class="mate" title={GLIMMER[m.id].power.text(m.level)}><img src="{base}game/glimmers/{m.id}.webp" alt="" /><em><b>{GLIMMER[m.id].name}</b>{GLIMMER[m.id].power.name}</em></span>{/each}
+    <button class="bud" onclick={() => show({ kind: 'buddy' })}><Critter friend={p0.buddy} size={narrow ? 34 : 44} round /><em><b>{FRIEND[p0.buddy].name}</b>{ROLE[role].name}</em></button>
+    {#each team as m (m.id)}<button class="mate" onclick={() => show({ kind: 'glimmer', id: m.id })}><img src="{base}game/glimmers/{m.id}.webp" alt="" /><em><b>{GLIMMER[m.id].name}</b>{GLIMMER[m.id].power.name}</em></button>{/each}
   </div>
 
   <div class="stage" bind:this={stageEl}></div>
 
-  {#each floats as f (f.id)}<div class="float {f.kind}" style:left="{f.x * 100}%" style:top="{f.y * 100}%">{f.text}</div>{/each}
+  {#each floats as f (f.id)}<div class="float {f.kind}" style:left="{f.x * 100}%" style:top="{f.y * 100}%">{#if f.img}<img src={f.img} alt="" />{/if}{f.text}</div>{/each}
   {#if toast}{#key toast.key}<div class="toast {toast.kind}">{toast.text}</div>{/key}{/if}
   {#if bigBanner}{#key bigBanner.key}<div class="big {bigBanner.kind}"><b>{bigBanner.text}</b>{#if bigBanner.sub}<small>{bigBanner.sub}</small>{/if}</div>{/key}{/if}
 
@@ -370,10 +381,10 @@
     {#if finaleN >= FINALE_AT && ui === 'pick'}
       <button class="finalebig" onclick={doTheFinale}><img src="{base}game/icon-finale.webp" alt="" /><span><b>Finale!</b><small>Tap for {FRIEND[p0.buddy].name}'s big move</small></span></button>
     {:else}
-      <div class="meter" title="Five right in a row unlocks the Finale">
+      <button class="meter" onclick={() => show({ kind: 'finale' })}>
         <span class="ml">Finale</span>
         {#each Array(FINALE_AT) as _, i}<img class:on={i < finaleN} src="{base}game/icon-star.webp" alt="" />{/each}
-      </div>
+      </button>
     {/if}
 
     {#if ui === 'pick' || ui === 'intro' || ui === 'loading'}
@@ -409,8 +420,8 @@
         <div class="ring" style:--k={blockLeft}><span>{Math.max(0, Math.ceil(blockLeft * blk.limitMs / 1000))}</span></div>
         <div class="bq">
           <p><b>{blk.name}!</b> Answer fast to block it:</p>
-          {#if blk.fact}<div class="eq small"><span>{factText(blk.fact)} =</span><span class="box">{blockTyped || ' '}</span></div>
-          {:else}<div class="word small">{#each blk.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/if}
+          {#if blk.fact}<div class="eq blockeq"><span>{factText(blk.fact)} =</span><span class="box">{blockTyped || ' '}</span></div>
+          {:else}<div class="word blockeq">{#each blk.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/if}
         </div>
         {#if subject === 'math'}<NumPad ondigit={digit} onback={backspace} compact={narrow} />{/if}
       </div>
@@ -425,20 +436,21 @@
       <div class="rcard"><GlimmerCard id={m.id} width={narrow ? 160 : 210} level={m.level} shine /></div>
       <div class="rinfo" class:in={step >= 1}>
         {#if m.isNew}
-          <h2>{GLIMMER[m.id].name} joined your team!</h2>
+          <h2>{GLIMMER[m.id].name} joined you!</h2>
           <p class="pw"><b>In battles it helps you:</b> {GLIMMER[m.id].power.text(1)}</p>
+          {#if !advView(game.profile!).team.includes(m.id)}<button class="btn teambtn" onclick={() => { game.glimmerSel = m.id; game.go('glimmers'); }}>Put {GLIMMER[m.id].name} on your team</button>{/if}
         {:else}
           <h2>You already have {GLIMMER[m.id].name}</h2>
           <p class="pw">So yours got stronger{m.ups ? `: now level ${m.level}` : ''}! Find a new kind by playing other battles, or hatch an egg.</p>
         {/if}
       </div>
       <div class="rewards" class:in={step >= 2}>
-        <span class="rw" title="Spend shells in the shop"><img src="{base}game/icon-shell.webp" alt="" />+{out.shells} shells</span>
-        <span class="rw"><Critter friend={p0.buddy} size={30} round />+{out.xp.gained} friendship with {FRIEND[p0.buddy].name}</span>
-        {#if out.egg}<span class="rw egg"><img src="{base}game/egg-{out.egg.rarity}.webp" alt="" />An egg! Practice to hatch it</span>{/if}
-        {#each out.rewards as r}<span class="rw"><img src="{base}outfits/{r.id}.webp" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')} />New: {r.name}</span>{/each}
-        {#each out.teamUps as u}<span class="rw">{GLIMMER[u.id].name} is now level {u.level}</span>{/each}
+        <button class="prize" onclick={() => show({ kind: 'shells' })}><img src="{base}game/icon-shell.webp" alt="" /><b>+{out.shells}</b><small>shells</small></button>
+        <button class="prize" onclick={() => show({ kind: 'friendship' })}><span class="heart">♥</span><b>+{out.xp.gained}</b><small>friendship</small></button>
+        {#if out.egg}<button class="prize egg" onclick={() => show({ kind: 'egg', id: out!.egg!.rarity })}><img src="{base}game/egg-{out.egg.rarity}.webp" alt="" /><b>Egg!</b><small>new</small></button>{/if}
+        {#each out.rewards as r}<button class="prize" onclick={() => show({ kind: 'reward', id: r.id })}>{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart">♪</span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></button>{/each}
       </div>
+      <p class="tapnote" class:in={step >= 2}>Tap a prize to see what it's for</p>
       {#if out.islandDone}<div class="island-done">🌈 {island.name} is free of storms! The next island is open.</div>{/if}
       <div class="rbtns" class:in={step >= 2}>
         <button class="btn" onclick={again}>Play again</button>
@@ -464,18 +476,57 @@
     <div class="helpbg" onclick={() => (help = false)}>
       <div class="helpcard card" onclick={(e) => e.stopPropagation()}>
         <h2>How to play</h2>
-        <ul>
-          <li><b>🎯 The goal:</b> cheer up {foeName}. When its grumpy bar reaches 0, it's happy again and joins your team.</li>
-          <li><b>🃏 Cards:</b> tap one and answer it. Right answers cheer it up. Bigger answers cheer more.</li>
-          <li><b>🌧️ Blocking:</b> when it sends rain or a zap, answer the quick one before the timer runs out.</li>
-          <li><b>❤️ Energy:</b> you lose some when you don't block. If it runs out, you can try again.</li>
-          <li><b>⭐ Finale:</b> five right in a row unlocks your buddy's big move.</li>
-          <li><b>⚡ Strong cards</b> also calm its next rain and fill a Finale star.</li>
-          <li><b>✨ Perfect Cheer:</b> answer exactly its grumpy number to finish: extra shells and an egg.</li>
-        </ul>
-        {#if team.length}<h3>Your team helps</h3><ul>{#each team as m}<li><b>{GLIMMER[m.id].name}:</b> {GLIMMER[m.id].power.text(m.level)}</li>{/each}</ul>{/if}
-        <p class="muted small"><b>{FRIEND[p0.buddy].name} ({ROLE[role].name}):</b> {ROLE[role].text}{#if gear} <b>Outfit ({gear.name}):</b> {gear.text}{/if}</p>
+        <div class="hrows">
+          <div class="hr"><div class="mini"><span class="mbar"><img src="{base}game/icon-grump.webp" alt="" /><i><em style:width="35%"></em></i></span></div><p><b>Cheer it up!</b> Get its grumps to 0 and it joins you.</p></div>
+          <div class="hr"><div class="mini"><span class="mcard el-sun"><img src="{base}game/icon-sun.webp" alt="" />3 + 4</span></div><p><b>Tap a card</b> and type the answer. Bigger answers cheer more.</p></div>
+          <div class="hr"><div class="mini"><span class="mblock"><span class="mring">4</span>2 + 2 =</span></div><p><b>Rain coming?</b> Answer the quick one before the timer ends.</p></div>
+          <div class="hr"><div class="mini"><span class="mbar"><img src="{base}game/icon-spark.webp" alt="" /><i><em class="en" style:width="70%"></em></i></span></div><p><b>Your energy:</b> don't let it run out!</p></div>
+          <div class="hr"><div class="mini"><span class="mstars">{#each Array(5) as _}<img src="{base}game/icon-star.webp" alt="" />{/each}</span></div><p><b>5 right in a row</b> = your buddy's Finale.</p></div>
+          <div class="hr"><div class="mini"><span class="mcard el-tide"><img src="{base}game/icon-tide.webp" alt="" />6 + 2<em>⚡ Strong</em></span></div><p><b>Strong cards</b> also calm its next rain.</p></div>
+        </div>
+        {#if team.length}<div class="hteam">{#each team as m}<span><img src="{base}game/glimmers/{m.id}.webp" alt="" /><b>{GLIMMER[m.id].name}:</b> {GLIMMER[m.id].power.text(m.level)}</span>{/each}</div>{/if}
         <button class="btn btn-primary" onclick={() => (help = false)}>Got it</button>
+      </div>
+    </div>
+  {/if}
+
+  {#if info}
+    {@const i = info}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="helpbg" onclick={() => (info = null)}>
+      <div class="infobox card" onclick={(e) => e.stopPropagation()}>
+        {#if i.kind === 'glimmer'}
+          {@const g = GLIMMER[i.id as keyof typeof GLIMMER]}
+          <GlimmerCard id={g.id} width={150} level={team.find(m => m.id === g.id)?.level} />
+          <div><h3>{g.name}</h3><p><b>In battles it helps you:</b> {g.power.text(team.find(m => m.id === g.id)?.level ?? 1)}</p><p class="muted">{g.quirk}</p></div>
+        {:else if i.kind === 'buddy'}
+          <Critter friend={p0.buddy} size={130} />
+          <div><h3>{FRIEND[p0.buddy].name}: {ROLE[role].name}</h3><p>{ROLE[role].text}</p>{#if gear}<p><b>Outfit power ({gear.name}):</b> {gear.text}</p>{/if}</div>
+        {:else if i.kind === 'grumpy'}
+          <GlimmerCard id={foe.glimmer} width={130} />
+          <div><h3>{foeName} is grumpy</h3><p>Every right answer takes some grumps away. At 0 it's happy again and joins you!</p></div>
+        {:else if i.kind === 'energy'}
+          <img class="ibig" src="{base}game/icon-spark.webp" alt="" />
+          <div><h3>Your energy</h3><p>Rain and zaps take some away when you don't block them. If it runs out, you can try again.</p></div>
+        {:else if i.kind === 'finale'}
+          <img class="ibig" src="{base}game/icon-finale.webp" alt="" />
+          <div><h3>The Finale</h3><p>Get 5 right in a row to fill the stars. Then tap Finale for {FRIEND[p0.buddy].name}'s big dance. It takes away lots of grumps!</p></div>
+        {:else if i.kind === 'shells'}
+          <img class="ibig" src="{base}game/icon-shell.webp" alt="" />
+          <div><h3>Shells</h3><p>Adventure money! Spend them on eggs and treats in the Island Shop. You get them from battles and from practice.</p></div>
+        {:else if i.kind === 'friendship'}
+          <Critter friend={p0.buddy} size={120} />
+          <div><h3>Friendship with {FRIEND[p0.buddy].name}</h3><p>It grows every time you play. More friendship opens new outfits and dances for {FRIEND[p0.buddy].name}.</p></div>
+        {:else if i.kind === 'egg'}
+          <img class="ibig" src="{base}game/egg-{i.id}.webp" alt="" />
+          <div><h3>A new egg!</h3><p>Every right answer in practice (math, typing or the playground) makes it grow. When its bar is full, it hatches into a new Glimmer.</p></div>
+        {:else if i.kind === 'reward'}
+          {@const r = out?.rewards.find(x => x.id === i.id)}
+          {#if r?.kind === 'outfit'}<img class="ibig" src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="ibig note">♪</span>{/if}
+          <div><h3>New {r?.kind === 'outfit' ? 'outfit' : 'dance'}: {r?.name}</h3><p>{r?.kind === 'outfit' ? `Dress ${FRIEND[p0.buddy].name} up on the Keypals screen.${GEAR[r.id] ? ` In battles: ${GEAR[r.id].text}` : ''}` : `Pick it as ${FRIEND[p0.buddy].name}'s finish dance on the Keypals screen. It's the Finale move in battles too.`}</p></div>
+        {/if}
+        <button class="btn btn-primary" onclick={() => (info = null)}>OK</button>
       </div>
     </div>
   {/if}
@@ -493,6 +544,7 @@
   .where b { font: 600 18px var(--font-ui); color: var(--ink); }
   .helpbtn { margin-left: auto; width: 46px; height: 46px; border-radius: 50%; border: 0; background: #fff; font: 600 26px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); }
 
+  .bar { font: inherit; text-align: left; border: 0; cursor: pointer; }
   .bar { position: absolute; transform: translate(-50%, -100%); display: flex; align-items: center; gap: 6px; padding: 6px 14px 6px 6px; border-radius: 999px; background: linear-gradient(#ffffff, #eef2ff); box-shadow: 0 0 0 3px rgba(255, 255, 255, .9), 0 10px 24px -10px rgba(30, 20, 70, .55); min-width: 210px; z-index: 5; transition: left .1s linear, top .1s linear; }
   .narrow .bar { transform: none; min-width: 0; width: calc(50% - 18px); transition: none; }
   .bar .bi { width: 40px; height: 40px; flex: none; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .2)); }
@@ -508,7 +560,8 @@
 
   .teamrow { position: absolute; left: 16px; top: 70px; display: flex; flex-direction: column; gap: 8px; z-index: 4; }
   .narrow .teamrow { top: 128px; left: 10px; gap: 5px; }
-  .teamrow > span { display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 3px 14px 3px 3px; box-shadow: var(--shadow-sm); font: 700 12px var(--font-body); color: var(--muted); cursor: help; }
+  .teamrow > button { border: 0; font: inherit; text-align: left; }
+  .teamrow > button { display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 3px 14px 3px 3px; box-shadow: var(--shadow-sm); font: 700 12px var(--font-body); color: var(--muted); cursor: pointer; }
   .teamrow em { display: flex; flex-direction: column; line-height: 1.15; }
   .teamrow em b { font: 600 14px var(--font-ui); color: var(--ink); }
   .teamrow img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; object-position: center 35%; background: #eef; }
@@ -519,7 +572,10 @@
 
   .float { position: absolute; transform: translate(-50%, -50%); font: 600 34px var(--font-ui); color: #fff; z-index: 8; pointer-events: none; animation: rise 1.5s cubic-bezier(.2, .8, .3, 1) forwards; -webkit-text-stroke: 1px rgba(40, 20, 80, .25); text-shadow: 0 3px 0 rgba(40, 20, 80, .35), 0 0 18px currentColor; white-space: nowrap; }
   .float.sun { color: #ffbf2e; } .float.tide { color: #3fa2ff; } .float.frost { color: #7fd6ff; } .float.leaf { color: #4fd17a; } .float.stone { color: #d6a46a; }
-  .float.extra { font-size: 20px; color: #ffd166; } .float.heal { font-size: 22px; color: #5be38d; } .float.hurt { color: #ff5f6d; font-size: 32px; } .float.block { color: #7fe0ff; font-size: 26px; }
+  .float.extra { font-size: 20px; color: #ffd166; }
+  .float.helper { display: flex; align-items: center; gap: 8px; font: 600 18px var(--font-ui); color: var(--ink); -webkit-text-stroke: 0; text-shadow: none; background: #fff; padding: 4px 14px 4px 4px; border-radius: 999px; box-shadow: 0 0 0 3px #ffd36b, 0 10px 24px -10px rgba(40, 20, 80, .6); animation: badge 2.2s cubic-bezier(.2, .8, .3, 1) forwards; }
+  .float.helper img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: center 35%; }
+  @keyframes badge { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 12% { opacity: 1; transform: translate(-50%, -110%) scale(1.05); } 20% { transform: translate(-50%, -110%) scale(1); } 85% { opacity: 1; transform: translate(-50%, -125%); } 100% { opacity: 0; transform: translate(-50%, -140%); } } .float.heal { font-size: 22px; color: #5be38d; } .float.hurt { color: #ff5f6d; font-size: 32px; } .float.block { color: #7fe0ff; font-size: 26px; }
   .float.finale { font-size: 52px; color: #ff7ab8; }
   @keyframes rise { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 30% { transform: translate(-50%, -70%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -190%) scale(.95); } }
   .toast { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); z-index: 9; background: rgba(255, 255, 255, .95); color: var(--ink); font: 600 19px var(--font-ui); padding: 10px 20px; border-radius: 999px; box-shadow: 0 10px 30px -12px rgba(40, 20, 80, .6); animation: drop .35s cubic-bezier(.3, .8, .4, 1.4); white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; }
@@ -535,6 +591,8 @@
   @keyframes bigin { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4) rotate(-6deg); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0); } }
 
   .bottom { flex: none; padding: 6px 16px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .meter { border: 0; cursor: pointer; font: inherit; line-height: 0; }
+  .meter img { display: block; }
   .meter { display: flex; align-items: center; gap: 4px; background: rgba(30, 22, 60, .78); padding: 5px 10px; border-radius: 999px; box-shadow: 0 0 0 3px rgba(255, 255, 255, .5); }
   .meter img { width: 32px; height: 32px; object-fit: contain; filter: grayscale(1) brightness(.55); transition: filter .3s, transform .3s; }
   .meter .ml { font: 600 15px var(--font-ui); color: #fff; margin: 0 6px 0 4px; }
@@ -571,7 +629,7 @@
 
   .answer, .blockbox { width: min(1000px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; background: rgba(255, 255, 255, .9); border-radius: 28px; padding: 14px 16px; box-shadow: 0 16px 40px -18px rgba(30, 20, 70, .6); animation: cardin .35s cubic-bezier(.2, 1.3, .4, 1) both; }
   .eq { display: flex; align-items: center; gap: 14px; font: 600 clamp(40px, 6vw, 64px)/1 var(--font-ui); color: var(--ink); }
-  .eq.small { font-size: clamp(32px, 4.5vw, 48px); }
+  .eq.blockeq, .word.blockeq { font-size: clamp(54px, 8vw, 92px); }
   .box { min-width: 1.6em; padding: 4px 14px; border-radius: 18px; background: #fff; box-shadow: inset 0 0 0 4px #a98cff, 0 0 0 6px #efe9ff; text-align: center; }
   .shake { animation: shake .35s; }
   @keyframes shake { 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
@@ -613,6 +671,42 @@
   .pw { margin: 4px 0 0; font: 600 16px/1.35 var(--font-body); color: var(--ink2); }
   .qk { margin: 4px 0 0; font: 600 14px var(--font-body); color: var(--muted); font-style: italic; }
   .rewards { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 720px; }
+  .prize { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 96px; height: 104px; gap: 2px; border: 0; border-radius: 22px; background: #fff; cursor: pointer; box-shadow: 0 0 0 3px #ffe9a8, var(--shadow-sm); transition: transform .15s; }
+  .prize:hover { transform: translateY(-3px); }
+  .prize img { width: 46px; height: 46px; object-fit: contain; }
+  .prize .heart { font: 600 38px/46px var(--font-ui); color: #ef5f9a; height: 46px; }
+  .prize b { font: 600 22px/1 var(--font-ui); color: var(--ink); }
+  .prize small { font: 700 12px var(--font-body); color: var(--muted); }
+  .prize.egg img { animation: eggbounce 1s ease-in-out infinite; }
+  .tapnote { position: relative; margin: 0; font: 700 14px var(--font-body); color: #fff; text-shadow: 0 1px 4px rgba(0, 0, 0, .6); opacity: 0; transition: opacity .4s; }
+  .tapnote.in { opacity: 1; }
+  .teambtn { margin-top: 8px; }
+  .infobox { width: min(520px, 92vw); padding: 18px 20px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+  .infobox h3 { margin: 0 0 4px; font-size: 22px; }
+  .infobox p { margin: 0 0 6px; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }
+  .infobox > .btn { grid-column: 1 / -1; justify-self: end; }
+  .ibig { width: 96px; height: 96px; object-fit: contain; }
+  .ibig.note { display: grid; place-items: center; font: 600 60px var(--font-ui); color: #9b6bff; background: #f1eaff; border-radius: 50%; }
+  .hrows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .hr { display: flex; gap: 10px; align-items: center; background: #faf8fe; border-radius: 16px; padding: 8px; }
+  .hr p { margin: 0; font: 600 14px/1.35 var(--font-body); color: var(--ink2); }
+  .mini { flex: none; width: 150px; display: grid; place-items: center; }
+  .mbar { display: flex; align-items: center; gap: 4px; background: #fff; border-radius: 999px; padding: 3px 8px 3px 3px; box-shadow: var(--shadow-sm); }
+  .mbar img { width: 26px; height: 26px; object-fit: contain; }
+  .mbar i { display: block; width: 90px; height: 9px; border-radius: 999px; background: #e6e2f2; overflow: hidden; }
+  .mbar em { display: block; height: 100%; background: linear-gradient(90deg, #7a5cf5, #c9b8ff); }
+  .mbar em.en { background: linear-gradient(90deg, #ff5e3a, #ffe066); }
+  .mcard { position: relative; display: flex; align-items: center; gap: 6px; font: 600 24px var(--font-ui); color: #2a1f45; padding: 6px 12px 6px 6px; border-radius: 16px; border: 3px solid #fff; box-shadow: var(--shadow-sm); }
+  .mcard img { width: 34px; height: 34px; object-fit: contain; }
+  .mcard em { position: absolute; right: -6px; top: -10px; font: 800 9px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 2px 5px; border-radius: 999px; box-shadow: var(--shadow-sm); }
+  .mcard.el-sun { background: linear-gradient(160deg, #fff6c4, #ffd36b); } .mcard.el-tide { background: linear-gradient(160deg, #e2f4ff, #8fd0ff); }
+  .mblock { display: flex; align-items: center; gap: 6px; font: 600 22px var(--font-ui); background: #fff5f6; border-radius: 14px; padding: 4px 10px 4px 4px; box-shadow: 0 0 0 2px #ff9aa8; }
+  .mring { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; color: #c22b48; background: #fff; box-shadow: 0 0 0 3px #ff5f6d; }
+  .mstars { display: flex; gap: 1px; background: rgba(30, 22, 60, .78); padding: 4px 6px; border-radius: 999px; }
+  .mstars img { width: 22px; height: 22px; object-fit: contain; }
+  .hteam { display: flex; flex-direction: column; gap: 6px; }
+  .hteam span { display: flex; align-items: center; gap: 8px; font: 600 14px/1.35 var(--font-body); color: var(--ink2); }
+  .hteam img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; object-position: center 35%; flex: none; }
   .rw { display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 999px; padding: 4px 14px 4px 4px; font: 700 15px var(--font-body); color: var(--ink); box-shadow: var(--shadow-sm); }
   .rw img { width: 34px; height: 34px; object-fit: contain; }
   .helpbg { position: absolute; inset: 0; z-index: 30; background: rgba(40, 28, 70, .4); display: grid; place-items: center; }
@@ -644,6 +738,9 @@
   .narrow .bt .lab { font-size: 12px; } .narrow .bt .num { font-size: 10px; } .narrow .bt .num b { font-size: 14px; }
   .narrow .finalebig b { font-size: 22px; } .narrow .finalebig img { width: 40px; height: 40px; }
   .narrow .hint { font-size: 14px; }
+  .narrow .hrows { grid-template-columns: 1fr; }
+  .narrow .prize { width: 76px; height: 88px; } .narrow .prize img { width: 36px; height: 36px; }
+  .narrow .infobox { grid-template-columns: 1fr; justify-items: center; text-align: center; }
   .narrow .ct b { font-size: 24px; }
   .narrow .meter img { width: 26px; height: 26px; }
   .narrow .finale { font-size: 16px; }

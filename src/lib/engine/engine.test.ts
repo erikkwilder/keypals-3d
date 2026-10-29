@@ -228,12 +228,14 @@ describe('profiles and progress', () => {
     expect(Object.keys(p.pals.monkey!.stickers)).toEqual(['b']);
     expect(p.looks!.dino).toEqual({ outfit: 'party_hat', dance: 'jump' });
   });
-  it('awards several medals at once on a great run', () => {
+  it('awards the medals that matter on a great run, and only a handful', () => {
     let p = newProfile('Mia', 'dino');
     const s = typeOut('ask dad all salads ask dad all salads ask a lass', 250);
     const out = applyRun(p, { lessonId: 'village-1', stats: computeStats(s), stars: 3, bestRide: 4, keyboardHidden: true, finished: true, at: Date.now() }, Q);
     const ids = out.medals.map(m => m.id);
-    expect(ids).toEqual(expect.arrayContaining(['clean', 'steady', 'three', 'nopeek', 'firsttry', 'ride-car', 'streak-25']));
+    expect(ids).toEqual(expect.arrayContaining(['clean', 'three', 'firsttry', 'streak-25']));
+    for (const gone of ['steady', 'nopeek', 'ride-car', 'sharp', 'marathon']) expect(ids).not.toContain(gone);
+    expect(ids.length).toBeLessThanOrEqual(5);
     p = out.profile;
   });
   it('keeps old saves working', () => {
@@ -287,11 +289,13 @@ describe('friendship pacing', () => {
 });
 
 describe('six rides', () => {
-  it('has a sticker and a medal for every ride above walking', () => {
+  it('has a sticker for every ride above walking (rides no longer win a medal each)', () => {
     for (const r of RIDES.slice(1)) {
       expect(STICKERS.some(s => s.id === `ridestar-${r.id}`), r.id).toBe(true);
-      expect(MEDALS.some(m => m.id === `ride-${r.id}`), r.id).toBe(true);
+      expect(MEDALS.some(m => m.id === `ride-${r.id}`), r.id).toBe(false);
     }
+    expect(MEDALS).toHaveLength(9);
+    expect(STICKERS).toHaveLength(35);
     expect(RIDE_SCORE.kids).toHaveLength(RIDES.length);
     expect(RIDE_SCORE.grown).toHaveLength(RIDES.length);
   });

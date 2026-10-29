@@ -27,14 +27,14 @@ export type AwardDef = {
 const M = (id: string, name: string, desc: string, icon: Icon, hue: number, extra: Partial<AwardDef> = {}): AwardDef => ({ id, kind: 'medal', name, desc, icon, hue, ...extra });
 const B = (id: string, name: string, desc: string, icon: Icon, hue: number, extra: Partial<AwardDef> = {}): AwardDef => ({ id, kind: 'badge', name, desc, icon, hue, ...extra });
 
-export const MEDALS: AwardDef[] = [
+const ALL_MEDALS: AwardDef[] = [
   M('clean', 'Clean Sweep', 'Finish a lesson or trip with no mistakes at all.', 'sparkle', 160, { game: 'any' }),
   M('sharp', 'Sharp Eyes', 'Finish with 97% or better.', 'target', 200, { game: 'any' }),
   M('steady', 'Steady Paws', 'Keep a nice, even rhythm.', 'wave', 228),
-  M('pb', 'Personal Best', 'Beat your best speed on a lesson.', 'trophy', 48),
+  M('pb', 'Personal Best', 'Beat your best: type faster than ever, or ride faster than ever on a trip.', 'trophy', 48, { game: 'any' }),
   M('ride-record', 'Ride Record', 'Ride faster than ever on a lesson.', 'ride', 290, { game: 'any' }),
   ...RIDES.slice(1).map((r, i) => M(`ride-${r.id}`, ['Off and Running', 'Skate Starter', 'Pedal Pusher', 'Road Cruiser', 'Rocket Rider'][i], i === 0 ? 'Break into a run during a lesson or trip.' : `Reach the ${r.name} during a lesson or trip.`, 'ride', [338, 160, 200, 300, 52][i], { ride: i + 1, game: 'any' })),
-  M('streak-25', 'Hot Streak', '25 keys in a row without a slip.', 'bolt', 52),
+  M('streak-25', 'Hot Streak', '25 keys or more in a row without a slip.', 'bolt', 52),
   M('streak-50', 'Blazing Streak', '50 keys in a row without a slip.', 'bolt', 330),
   M('streak-100', 'Unstoppable', '100 keys in a row without a slip.', 'bolt', 268),
   M('comeback', 'Comeback Kid', 'Shake off a few slips and finish strong.', 'heart', 345),
@@ -49,6 +49,13 @@ export const MEDALS: AwardDef[] = [
   M('quickdraw', 'Quick Draw', 'Answer 10 math facts fast in a row.', 'bolt', 200, { game: 'math' }),
   M('bloom', 'In Bloom', 'A math fact blooms in your Fact Garden.', 'tree', 120, { game: 'math' }),
 ];
+
+// Pared down (2026-10-28): a good run used to win six or seven medals at once, many saying the same
+// thing. These are no longer won; old counts stay in saved games, and the book no longer shows them.
+const RETIRED_MEDALS = new Set(['sharp', 'steady', 'ride-record', ...RIDES.slice(1).map(r => `ride-${r.id}`), 'streak-50', 'streak-100',
+  'comeback', 'nopeek', 'hands-free', 'speedy', 'marathon']);
+/** the medals a run can win: nine of them */
+export const MEDALS: AwardDef[] = ALL_MEDALS.filter(m => !RETIRED_MEDALS.has(m.id));
 
 export const BADGES: AwardDef[] = [
   B('hello', 'Hello, Island!', 'Finish your very first lesson.', 'gift', 330),
@@ -79,4 +86,4 @@ export const BADGES: AwardDef[] = [
   B('triple-village', 'Island Star', 'Three stars on every Home Row Island lesson.', 'crown', 140, { secret: true }),
 ];
 
-export const AWARD: Record<string, AwardDef> = Object.fromEntries([...MEDALS, ...BADGES].map(a => [a.id, a]));
+export const AWARD: Record<string, AwardDef> = Object.fromEntries([...ALL_MEDALS, ...BADGES].map(a => [a.id, a]));

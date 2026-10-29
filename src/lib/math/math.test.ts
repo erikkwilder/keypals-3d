@@ -297,7 +297,7 @@ describe('math progress and rewards', () => {
     const st = tripStats(rs);
     const out = applyMathRun(p, { lessonId: 'twins-2', results: rs, stats: st, stars: 3, bestRide: 4, finished: true, at: T0 });
     const ids = out.medals.map(m => m.id);
-    expect(ids).toEqual(expect.arrayContaining(['clean', 'ride-car', 'firsttry', 'three']));
+    expect(ids).toEqual(expect.arrayContaining(['clean', 'firsttry', 'three']));
     expect(out.xp.gained).toBeGreaterThan(40);
     expect(out.treasure).toBeGreaterThanOrEqual(0);
     expect(out.profile.pals.dino!.runs).toBe(1);

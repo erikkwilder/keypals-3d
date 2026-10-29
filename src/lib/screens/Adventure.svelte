@@ -59,7 +59,7 @@
   const SLIDES = [
     { img: 'intro-story', title: 'Storms made the Glimmers grumpy!', text: 'Glimmers are little island creatures with special powers. A storm cloud is raining on each one. Cheer one up with your answers, and it joins your team!' },
     { img: 'intro-battle', title: 'How battles work', text: 'Tap a card and answer it: every right answer cheers it up. When it sends rain, answer the quick one to block it. Your buddy and your team help.' },
-    { img: 'intro-practice', title: 'Practice hatches eggs', text: 'Every right answer in math and typing practice warms your eggs, and eggs hatch into new Glimmers. Practice earns shells for the shop too.' },
+    { img: 'intro-practice', title: 'Practice hatches eggs', text: 'Every right answer in math and typing practice makes your eggs grow. When an egg is full, it hatches into a new Glimmer! Practice earns shells for the shop too.' },
     { img: 'intro-glimmers', title: 'Find them all', text: '14 Glimmers live on the islands. Some are easy to find, some are very rare. Cheer up each island\'s Champion to open the next island.' },
   ];
 
@@ -97,7 +97,7 @@
   function collect(n: MapNode) {
     let r: ReturnType<typeof collectStop> = null;
     game.update(pp => { r = collectStop(pp, n.id); });
-    if (r) { burst++; sfx.complete(); game.say(`+${(r as { shells: number }).shells} shells! Your eggs got warmer too.`); open = null; }
+    if (r) { burst++; sfx.complete(); game.say(`+${(r as { shells: number }).shells} shells! Your eggs grew a little too.`); open = null; }
   }
   function goPractice(k: 'math' | 'typing') {
     if (k === 'typing') { game.setHome('typing'); game.startLesson(nextLesson(p).id); }
@@ -182,13 +182,13 @@
         <div class="sh"><img src="{base}game/node-{n.kind}.webp" alt="" /><div><small>{isl.name}</small><h2>{n.kind === 'battle' ? `Battle ${n.n + 1}` : kindName[n.kind]}</h2></div><button class="x" onclick={() => (open = null)} aria-label="Close">×</button></div>
         {#if n.kind === 'practice'}
           {#if practiceDone(a, n.id) && !cleared(a, n.id)}
-            <p>You practised! Here's your reward: 20 shells, and your eggs get warmer.</p>
+            <p>You practised! Here's your reward: 20 shells, and your eggs grow a little.</p>
             <button class="btn btn-primary big" onclick={() => collect(n)}>Collect reward 🎁</button>
           {:else if cleared(a, n.id)}
-            <p>Done! Practice any time: it warms your eggs and earns shells{a.settings.rule === 'balanced' ? ' and Adventure time' : ''}.</p>
+            <p>Done! Practice any time: it makes your eggs grow and earns shells{a.settings.rule === 'balanced' ? ' and Adventure time' : ''}.</p>
           {:else}
             <p>Do one practice: a math trip, a typing lesson or a playground game. Then come back here for a reward.</p>
-            <p class="muted">Practice also warms your eggs{a.settings.rule === 'balanced' ? ' and earns more Adventure time' : ''}.{a.settings.rule === 'open' ? ' You can skip ahead for now: the reward waits here.' : ''}</p>
+            <p class="muted">Practice also makes your eggs grow{a.settings.rule === 'balanced' ? ' and earns more Adventure time' : ''}.{a.settings.rule === 'open' ? ' You can skip ahead for now: the reward waits here.' : ''}</p>
             <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>Math trip</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing lesson</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
           {/if}
         {:else}
@@ -205,6 +205,7 @@
             <button class="linky" onclick={() => (chances = !chances)}>{chances ? 'Hide' : 'Show'} the exact chances (for grown-ups)</button>
             {#if chances}<p class="muted small">{HOW_OFTEN.filter(([, r]) => isl.odds[r]).map(([, r]) => `${RARITY[r].name} ${isl.odds[r]}%`).join(' · ')}. An egg after 3 in 10 wins, and always after a Perfect Cheer.</p>{/if}
           {/if}
+          <div class="teamline"><span>Your team</span>{#each team as t}<span class="tm"><img src="{base}game/glimmers/{t}.webp" alt="" />{GLIMMER[t].name}</span>{:else}<em>No Glimmers yet: win this battle for your first!</em>{/each}{#if met > 0}<button class="linky" onclick={() => game.go('glimmers')}>Change team</button>{/if}</div>
           <div class="subj"><span>Answer with</span>
             <button class:on={a.subject === 'math'} onclick={() => setSubject('math')}>Math</button>
             <button class:on={a.subject === 'typing'} onclick={() => setSubject('typing')}>Typing</button></div>
@@ -314,6 +315,10 @@
   .ww { width: 120px; flex: none; font: 600 15px var(--font-ui); color: var(--ink); display: flex; align-items: center; gap: 6px; }
   .ww::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 6px var(--c); }
   .linky { align-self: flex-start; border: 0; background: none; padding: 0; font: 700 13px var(--font-body); color: var(--muted); text-decoration: underline; cursor: pointer; }
+  .teamline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 700 14px var(--font-body); color: var(--ink2); background: #f6f2ff; border-radius: 14px; padding: 6px 10px; }
+  .teamline .tm { display: flex; align-items: center; gap: 4px; font: 600 15px var(--font-ui); color: var(--ink); }
+  .teamline img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; object-position: center 35%; box-shadow: 0 0 0 2px #fff; }
+  .teamline em { font-style: normal; color: var(--muted); }
   .subj { display: flex; align-items: center; gap: 6px; font: 700 14px var(--font-body); color: var(--ink2); }
   .subj button { border: 0; border-radius: 999px; padding: 8px 16px; font: 600 16px var(--font-ui); background: #f1ecfb; color: var(--ink2); cursor: pointer; }
   .subj button.on { background: var(--primary); color: #fff; }

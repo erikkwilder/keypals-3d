@@ -16,8 +16,13 @@
   const p = $derived(game.profile!);
   const a = $derived(advView(p));
   const sorted = [...GLIMMERS].sort((x, y) => RARITIES.indexOf(x.rarity) - RARITIES.indexOf(y.rarity));
-  const firstOwned = (sorted.find(g => owns(advView(game.profile!), g.id)) ?? sorted[0]).id;
+  const firstOwned = (game.glimmerSel as GlimmerId | null) ?? (sorted.find(g => owns(advView(game.profile!), g.id)) ?? sorted[0]).id;
+  game.glimmerSel = null;
   let sel = $state<GlimmerId>(firstOwned);
+  /** adding to a full team: tap which one it replaces */
+  let swapping = $state(false);
+  const owned = $derived(sorted.filter(x => owns(a, x.id)));
+  const missing = $derived(sorted.filter(x => !owns(a, x.id)));
   let scene: GlimmerShow | null = null;
   let stageEl: HTMLDivElement | undefined = $state();
   let disposed = false;
@@ -43,12 +48,17 @@
   onDestroy(() => { disposed = true; removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
 
   function pick(id: GlimmerId) {
-    sel = id; sfx.pop();
+    sel = id; sfx.pop(); swapping = false;
     if (owns(a, id)) scene?.show(id); else game.say(`${RARITY[GLIMMER[id].rarity].name}. Find it in battles or eggs!`);
   }
   function setTeam(slot: number) {
     game.update(pp => { const ad = advOf(pp); const other = ad.team.indexOf(sel); if (other >= 0) ad.team[other] = null; ad.team[slot] = sel; });
-    sfx.badge(); scene?.poke();
+    sfx.badge(); scene?.poke(); swapping = false;
+    game.say(`${GLIMMER[sel].name} is on your team!`);
+  }
+  function add() {
+    const empty = a.team.findIndex(t => !t || !owns(a, t));
+    if (empty >= 0) setTeam(empty); else { swapping = true; sfx.pop(); }
   }
   function leaveTeam() { game.update(pp => { const ad = advOf(pp); const i = ad.team.indexOf(sel); if (i >= 0) ad.team[i] = null; }); sfx.pop(); }
   const fresh = $derived(new Set(a.fresh));
@@ -62,7 +72,18 @@
       {#if !owns(a, sel)}<div class="unknown"><GlimmerCard id={sel} width={200} locked /></div>{/if}
     </div>
     <div class="side">
-      <p class="intro"><b>Your team:</b> two Glimmers come into every battle with you, and each one helps in its own way. Tap a Glimmer to see how it helps, then put it on your team.</p>
+      <div class="teambox card" class:swapping>
+        <h3>Your team <small>{swapping ? `Tap who ${GLIMMER[sel].name} replaces` : 'These two come into every battle with you'}</small></h3>
+        <div class="slots">
+          {#each [0, 1] as slot}
+            {@const t = a.team[slot] && owns(a, a.team[slot]!) ? a.team[slot] : null}
+            <button class="slot" class:filled={!!t} onclick={() => (swapping ? setTeam(slot) : t ? pick(t) : null)}>
+              {#if t}<GlimmerCard id={t} width={96} level={a.glimmers[t]?.level} />{:else}<span class="empty">+<small>Empty</small></span>{/if}
+              {#if swapping}<span class="swapin">Swap</span>{/if}
+            </button>
+          {/each}
+        </div>
+      </div>
       <div class="info card r-{g.rarity}">
         <div class="ih">
           <img src="{base}game/icon-{g.element}.webp" alt={ELEMENT[g.element].name} />
@@ -71,27 +92,30 @@
         </div>
         {#if mine}
           <p class="pw"><b>In battles it helps you:</b> {g.power.text(mine.level)}</p>
-          <p class="qk">{g.quirk}</p>
-          {#if mine.level < MAX_LEVEL}<div class="xp"><div class="bar"><i style:width="{(mine.xp / xpNeed(mine.level)) * 100}%"></i></div><span>Grows with every battle it's in: {mine.xp}/{xpNeed(mine.level)} to level {mine.level + 1}</span></div>{/if}
-          <div class="teamrow">
-            {#each [0, 1] as slot}
-              <button class="slot" class:on={a.team[slot] === sel} onclick={() => setTeam(slot)}>
-                {#if a.team[slot] && owns(a, a.team[slot]!)}<img src="{base}game/glimmers/{a.team[slot]}.webp" alt="" />{:else}<span class="empty">+</span>{/if}
-                <small>{a.team[slot] === sel ? 'On the team' : `Team spot ${slot + 1}`}</small>
-              </button>
-            {/each}
-            {#if inTeam >= 0}<button class="btn" onclick={leaveTeam}>Take off the team</button>{/if}
-          </div>
+          {#if mine.level < MAX_LEVEL}<div class="xp"><div class="bar"><i style:width="{(mine.xp / xpNeed(mine.level)) * 100}%"></i></div><span>Level {mine.level + 1} after a few more battles</span></div>{/if}
+          {#if inTeam >= 0}
+            <div class="acts"><span class="onteam">✓ On your team</span><button class="btn" onclick={leaveTeam}>Take off</button></div>
+          {:else}
+            <div class="acts"><button class="btn btn-primary big" onclick={add}>Add {g.name} to your team</button>{#if swapping}<button class="btn" onclick={() => (swapping = false)}>Cancel</button>{/if}</div>
+          {/if}
         {:else}
           <p class="pw">Not found yet. {g.champion ? 'It\'s the Champion at the end of an island: cheer it up there.' : 'You might meet it grumpy in a battle, or it might hatch from an egg.'}</p>
         {/if}
       </div>
       <div class="grid scroll">
-        {#each sorted as x (x.id)}
-          <button class="cell" class:on={sel === x.id} onclick={() => pick(x.id)}>
-            <GlimmerCard id={x.id} width={118} level={a.glimmers[x.id]?.level} locked={!owns(a, x.id)} fresh={fresh.has(x.id)} />
-          </button>
-        {/each}
+        <h4>Your Glimmers ({owned.length})</h4>
+        <div class="cards">
+          {#each owned as x (x.id)}
+            <button class="cell" class:on={sel === x.id} class:team={a.team.includes(x.id)} onclick={() => pick(x.id)}>
+              <GlimmerCard id={x.id} width={104} level={a.glimmers[x.id]?.level} fresh={fresh.has(x.id)} />
+              {#if a.team.includes(x.id)}<span class="tag">Team</span>{/if}
+            </button>
+          {/each}
+        </div>
+        {#if missing.length}<h4>Still to find ({missing.length})</h4>
+        <div class="cards">
+          {#each missing as x (x.id)}<button class="cell" class:on={sel === x.id} onclick={() => pick(x.id)}><GlimmerCard id={x.id} width={84} locked /></button>{/each}
+        </div>{/if}
       </div>
     </div>
   </div>
@@ -115,18 +139,35 @@
   .xp { display: flex; align-items: center; gap: 10px; font: 700 12px var(--font-body); color: var(--muted); }
   .bar { flex: 1; height: 10px; border-radius: 999px; background: var(--bg2); overflow: hidden; }
   .bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffb52e, #ff7ab8); }
+  .teambox { padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; transition: box-shadow .2s; }
+  .teambox.swapping { box-shadow: 0 0 0 4px #ffd36b, var(--shadow-sm); }
+  .teambox h3 { margin: 0; font-size: 20px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .teambox h3 small { font: 700 13px var(--font-body); color: var(--muted); }
+  .slots { display: flex; gap: 14px; }
+  .slot { position: relative; border: 0; background: none; padding: 0; cursor: pointer; }
+  .slot .empty { width: 96px; aspect-ratio: 394 / 600; border-radius: 14px; border: 3px dashed #d9cff0; display: flex; flex-direction: column; align-items: center; justify-content: center; font: 600 34px/1 var(--font-ui); color: #b8acd6; background: #faf8fe; }
+  .slot .empty small { font: 700 12px var(--font-body); }
+  .swapin { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); font: 800 13px var(--font-body); background: #ffd36b; color: #6a4300; padding: 4px 12px; border-radius: 999px; animation: pulse .9s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: translateX(-50%) scale(1.1); } }
+  .acts { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+  .acts .big { font-size: 18px; padding: 10px 18px; }
+  .onteam { font: 600 17px var(--font-ui); color: #1f9a6a; }
+  .grid h4 { margin: 4px 0; font-size: 16px; color: var(--ink2); grid-column: 1 / -1; }
+  .cards { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cell { position: relative; }
+  .cell .tag { position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%); font: 800 11px var(--font-body); background: #2fbf73; color: #fff; padding: 2px 9px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
   .teamrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
   .slot { display: flex; align-items: center; gap: 8px; border: 3px dashed #d9cff0; background: #faf8fe; border-radius: 18px; padding: 4px 12px 4px 4px; cursor: pointer; }
   .slot.on { border-style: solid; border-color: var(--primary-hi); background: #f3eeff; }
   .slot img, .slot .empty { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; object-position: center 35%; display: grid; place-items: center; font: 600 26px var(--font-ui); color: #b8acd6; background: #fff; }
   .slot small { font: 700 13px var(--font-body); color: var(--ink2); }
-  .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 10px; align-content: start; padding: 4px; }
+  .grid { flex: 1; min-height: 0; overflow: auto; padding: 4px; }
   .cell { border: 0; background: none; padding: 3px; border-radius: 16px; cursor: pointer; display: grid; place-items: center; transition: transform .15s; }
   .cell:hover { transform: translateY(-3px); }
   .cell.on { background: rgba(255, 255, 255, .7); box-shadow: 0 0 0 3px var(--primary-hi); }
   @media (max-width: 760px) {
     .body { grid-template-columns: 1fr; grid-template-rows: 34vh 1fr; padding: 10px; gap: 10px; }
     .ih h2 { font-size: 24px; }
-    .grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+    .slot .empty { width: 80px; }
   }
 </style>

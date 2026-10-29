@@ -54,7 +54,7 @@ const REGION_STICKERS: [RegionId, string, string, number][] = [
 
 const SPEEDS = [10, 15, 20, 28, 36];
 
-export const STICKERS: StickerDef[] = [
+const ALL_STICKERS: StickerDef[] = [
   // journey
   ...REGION_STICKERS.map(([r, name, desc, hue], i) => S({ id: `trip-${r}`, name, desc: `${desc} (with this Keypal)`, rarity: i < 2 ? 'common' : i < 5 ? 'rare' : 'epic', shape: 'shield', bg: 'rays', hue, hue2: (hue + 40) % 360, pose: 'proud', prop: 'mountain', region: r, check: p => p.regions.includes(r) })),
   // rides
@@ -86,7 +86,13 @@ export const STICKERS: StickerDef[] = [
   S({ id: 'sleepy', name: 'Power Nap', desc: 'Take a break mid-lesson, then finish it.', rarity: 'common', shape: 'cloud', bg: 'stars', hue: 240, hue2: 268, pose: 'sleep', check: p => p.naps >= 1 }),
 ];
 
-export const STICKER: Record<string, StickerDef> = Object.fromEntries(STICKERS.map(s => [s.id, s]));
+// Pared down (2026-10-28) from 55 to 35 a buddy: the ones that repeated another sticker, a medal or a
+// count are no longer won. Saved games keep any already won; the book shows the 35.
+const RETIRED_STICKERS = new Set(['three-30', 'clean-row', 'sharp-10', 'streak-50', 'streak-200', 'speed-15', 'speed-36',
+  'runs-25', 'runs-50', 'chars-1000', 'chars-5000', 'chars-20000', 'dance-10', 'dance-50', 'goal-15', 'medals-10', 'medals-50',
+  'comeback', 'comeback-5', 'sleepy']);
+export const STICKERS: StickerDef[] = ALL_STICKERS.filter(s => !RETIRED_STICKERS.has(s.id));
+export const STICKER: Record<string, StickerDef> = Object.fromEntries(ALL_STICKERS.map(s => [s.id, s]));
 export const STICKERS_PER_PAL = STICKERS.length;
 
 // ---------- levels and XP ----------

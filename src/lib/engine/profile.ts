@@ -287,7 +287,7 @@ export type RunOutcome = {
  * outfits keep coming every lesson or two early on, and the last one takes a few weeks of practice.
  */
 export function runXp(stats: RunStats, stars: number, medals: number, finished: boolean, grown: boolean) {
-  return Math.round(stats.chars * 0.5 * (0.5 + stats.acc) * (grown ? 0.8 : 1) + stars * 10 + Math.min(medals, 5) * 4 + (finished ? 10 : 0));
+  return Math.round(stats.chars * 0.5 * (0.5 + stats.acc) * (grown ? 0.8 : 1) + stars * 10 + Math.min(medals, 5) * 4 + (finished ? 16 : 0)); // the finish bonus went up 6 when medals were pared down, to keep the pace
 }
 
 export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome {
@@ -314,7 +314,6 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
   };
   p.lessons[run.lessonId] = record;
   p.keys = updateKeyStats(p.keys, s.perKey);
-  const avgBefore = p.totals.runs ? p.totals.wpmSum / p.totals.runs : 0;
   p.totals.runs++;
   p.totals.chars += s.chars;
   p.totals.words += s.words;
@@ -341,24 +340,13 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
   const medals: string[] = [];
   if (run.finished && s.chars >= 15) {
     if (s.errors === 0) medals.push('clean');
-    else if (s.acc >= 0.97) medals.push('sharp');
-    if (s.steady) medals.push('steady');
   }
   if (passedNow && before && before.bestWpm > 0 && s.wpm > before.bestWpm) medals.push('pb');
-  if (before && run.bestRide > before.bestRide) medals.push('ride-record');
-  if (run.bestRide > 0) medals.push(`ride-${RIDES[run.bestRide].id}`);
-  if (s.maxStreak >= 100) medals.push('streak-100');
-  else if (s.maxStreak >= 50) medals.push('streak-50');
-  else if (s.maxStreak >= 25) medals.push('streak-25');
+  if (s.maxStreak >= 25) medals.push('streak-25');
   const comeback = run.finished && s.errors >= 3 && s.finalStreak >= 15;
-  if (comeback) medals.push('comeback');
-  if (run.finished && run.keyboardHidden && passedNow) medals.push('nopeek');
-  if (run.finished && run.handsHidden && passedNow) medals.push('hands-free');
   if (run.finished && run.keyboardHidden && run.handsHidden && s.acc >= 0.95) medals.push('touch-typist');
   if (passedNow && prev.attempts === 0) medals.push('firsttry');
   if (run.stars === 3) medals.push('three');
-  if (avgBefore > 0 && p.totals.runs > 3 && s.wpm >= avgBefore * 1.15 && passedNow) medals.push('speedy');
-  if (run.finished && s.chars >= 300) medals.push('marathon');
   if (goalJustHit) medals.push('goal');
 
   // this Keypal's own progress
