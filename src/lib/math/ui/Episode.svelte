@@ -609,7 +609,7 @@
   .narrow .eq { font-size: 26px; padding: 4px 14px; }
   .narrow .eq .qt { font-size: 14px; }
   /* (fractions on a phone: the pie is right under the friends, so the bubble sits a little higher) */
-  .narrow.frac .say { transform: translate(10px, -66%); }
+  .narrow.frac .say { transform: translate(10px, -74%); }
   .narrow .cardside { left: 0; right: 0; top: auto; bottom: 10px; translate: none; width: 100%; padding: 0 12px; gap: 8px; }
   .narrow .card { width: min(190px, 48vw); }
   .narrow .cin { gap: 2px; }

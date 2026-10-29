@@ -330,9 +330,10 @@ export class EpisodeScene implements Controller {
     const a = this.area;
     const back = a.z0 - 0.08;
     // (the fraction episodes: a big pie on the table, the friends just behind its edges, like the concept)
-    const inset = this.close && !compact ? (a.x1 - a.x0) * 0.12 : 0.06;
-    this.buddyAt.set(compact ? -0.34 : Math.min(-0.62, a.x0 + inset), 0, back - 0.15);
-    this.palHome.set(compact ? 0.4 : Math.max(0.66, a.x1 - inset), TY - 0.17, back - 0.2);
+    // (on a phone the camera looks down: by a wide picture they stand further back, so a big Glimmer never looms over it)
+    const inset = this.close && !compact ? (a.x1 - a.x0) * 0.12 : 0.06, far = this.close && compact && !this.stackFrac ? 0.3 : 0;
+    this.buddyAt.set(compact ? -0.34 : Math.min(-0.62, a.x0 + inset), 0, back - 0.15 - far);
+    this.palHome.set(compact ? 0.4 : Math.max(0.66, a.x1 - inset), TY - 0.17, back - 0.2 - far);
     if (this.together) this.palHome.set(this.buddyAt.x + (compact ? 0.66 : 1.0), TY - 0.17, back - 0.2);
     this.backZ += (back - this.backZ) * 0.08;
     this.table.position.z = this.backZ + 1.6; this.pool.position.z = this.backZ + 1.6;
@@ -1413,7 +1414,9 @@ export class EpisodeScene implements Controller {
     let ymax = -Infinity, ymin = Infinity;
     for (const q of corners) { const rel = q.clone().sub(wantPos), z = rel.dot(fwd), y = rel.dot(camUp) / (z * tanH); ymax = Math.max(ymax, y); ymin = Math.min(ymin, y); }
     const topSlack = rcy + rhy - ymax, botSlack = ymin - (rcy - rhy);
-    if (!lowerMiddle && topSlack > 0 && botSlack > 0) wantPos.addScaledVector(camUp, -(topSlack - (topSlack + botSlack) * (tall ? 0.35 : 0.6)) * d * tanH);
+    // (a fraction's wide picture on a phone: the spare room split more evenly, so the work sits nearer the thumbs)
+    const topShare = tall ? (this.close ? 0.55 : 0.35) : 0.6;
+    if (!lowerMiddle && topSlack > 0 && botSlack > 0) wantPos.addScaledVector(camUp, -(topSlack - (topSlack + botSlack) * topShare) * d * tanH);
     const wantAim = wantPos.clone().add(fwd);
     if (!this.ready) { this.camPos.copy(wantPos); this.camAim.copy(wantAim); this.ready = true; }
     const k = 1 - Math.exp(-dt * (s === 'intro' ? 6 : 3));
