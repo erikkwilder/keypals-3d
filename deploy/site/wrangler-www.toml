@@ -1,0 +1,13 @@
+# www.keypals.org sends everyone to keypals.org (a permanent redirect, keeping the path). A Worker of its
+# own because the game's Worker serves its files before any script runs, so it can't tell the two
+# addresses apart. Only www visitors reach it, once each. Deployed by deploy.sh.
+name = "keypals-www"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+routes = [
+  { pattern = "www.keypals.org", custom_domain = true },
+]
+
+[vars]
+REDIRECT_TO = "https://keypals.org"

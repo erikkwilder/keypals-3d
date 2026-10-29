@@ -1,7 +1,11 @@
-// fancyant.com/keypals: files are served straight from storage before this ever runs. This script only
-// sees what isn't a file:
-//   /keypals2/...          the 3D game's old test address, forwarded to /keypals
-//   /keypals/api/...       saves and sign-in (data in the D1 database bound as DB)
+// fancyant.com/keypals and keypals.org: files are served straight from storage before this ever runs. This
+// script only sees what isn't a file. The same script runs as three Workers:
+//   fancyant-keypals (wrangler.toml, BASE "/keypals"): fancyant.com/keypals/api/... and /keypals2 (the 3D
+//     game's old test address, forwarded to /keypals); it also runs the daily tidy-up and weekly backup
+//   keypals-org (wrangler-org.toml, BASE ""): keypals.org/api/..., the game at the root of the address
+//   keypals-www (wrangler-www.toml, REDIRECT_TO): www.keypals.org sends everyone to keypals.org
+// Both game addresses share one database (D1, bound as DB), so a save code or a grown-up's account works on
+// either. BASE sets where the API lives, the sign-in cookie's Path and the sign-in return addresses.
 //
 // Saves: any player can get a save code (three words and a number). The code holds the game's own
 // profile: a nickname, the chosen buddy, progress and settings. No emails or real names from
@@ -65,10 +69,12 @@ const PROVIDERS = {
   },
 };
 const ready = (env, p) => !!(PROVIDERS[p] && PROVIDERS[p].id(env) && PROVIDERS[p].secret(env));
-const callbackUrl = (url, p) => `${url.origin}/keypals/api/auth/${p}/callback`;
+/** where this Worker's game lives: "/keypals" on fancyant.com, "" (the root) on keypals.org */
+const baseOf = (env) => String(env.BASE ?? '/keypals').replace(/\/+$/, '');
+const callbackUrl = (url, p, base) => `${url.origin}${base}/api/auth/${p}/callback`;
 
-function cookie(name, value, maxAgeS) {
-  return `${name}=${value}; Path=/keypals; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeS}`;
+function cookie(name, value, maxAgeS, base) {
+  return `${name}=${value}; Path=${base || '/'}; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeS}`;
 }
 async function currentAccount(env, request) {
   const m = (request.headers.get('cookie') || '').match(/(?:^|;\s*)kp_session=([^;]+)/);
@@ -79,20 +85,20 @@ async function currentAccount(env, request) {
   return row;
 }
 
-async function startSignIn(env, url, p) {
+async function startSignIn(env, url, p, base) {
   if (!ready(env, p)) return fail(503, 'This sign-in is not set up yet.');
   const P = PROVIDERS[p], state = randomToken(18), verifier = randomToken(48);
   await env.DB.prepare('DELETE FROM sign_ins WHERE created < ?').bind(Date.now() - 15 * 60000).run();
   await env.DB.prepare('INSERT INTO sign_ins (state, verifier, provider, created) VALUES (?, ?, ?, ?)').bind(state, verifier, p, Date.now()).run();
   const q = new URLSearchParams({
-    client_id: P.id(env), redirect_uri: callbackUrl(url, p), response_type: 'code', scope: 'openid email profile',
+    client_id: P.id(env), redirect_uri: callbackUrl(url, p, base), response_type: 'code', scope: 'openid email profile',
     state, code_challenge: await sha256(verifier), code_challenge_method: 'S256', ...P.extra,
   });
   return Response.redirect(`${P.authorize}?${q}`, 302);
 }
 
-async function finishSignIn(env, url, p) {
-  const back = (msg) => Response.redirect(`${url.origin}/keypals/#signin=${msg}`, 302);
+async function finishSignIn(env, url, p, base) {
+  const back = (msg) => Response.redirect(`${url.origin}${base}/#signin=${msg}`, 302);
   if (!ready(env, p)) return back('unavailable');
   const code = url.searchParams.get('code'), state = url.searchParams.get('state');
   if (!code || !state) return back('cancelled');
@@ -102,7 +108,7 @@ async function finishSignIn(env, url, p) {
   const P = PROVIDERS[p];
   const tok = await fetch(P.token, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: P.id(env), client_secret: P.secret(env), code, code_verifier: si.verifier, grant_type: 'authorization_code', redirect_uri: callbackUrl(url, p) }),
+    body: new URLSearchParams({ client_id: P.id(env), client_secret: P.secret(env), code, code_verifier: si.verifier, grant_type: 'authorization_code', redirect_uri: callbackUrl(url, p, base) }),
   }).then(r => r.json()).catch(() => null);
   if (!tok || !tok.access_token) return back('failed');
   const me = await fetch(P.userinfo, { headers: { authorization: `Bearer ${tok.access_token}` } }).then(r => r.json()).catch(() => null);
@@ -116,7 +122,7 @@ async function finishSignIn(env, url, p) {
   }
   const token = randomToken(32);
   await env.DB.prepare('INSERT INTO sessions (hash, account, expires) VALUES (?, ?, ?)').bind(await sha256(token), acct.id, now + SESSION_DAYS * DAY).run();
-  return new Response(null, { status: 302, headers: { location: `${url.origin}/keypals/#signin=ok`, 'set-cookie': cookie('kp_session', token, SESSION_DAYS * 86400) } });
+  return new Response(null, { status: 302, headers: { location: `${url.origin}${base}/#signin=ok`, 'set-cookie': cookie('kp_session', token, SESSION_DAYS * 86400, base) } });
 }
 
 // ---------- players (save codes) ----------
@@ -132,19 +138,19 @@ async function readBody(request, maxBytes = 400000) {
   try { return JSON.parse(text); } catch { return null; }
 }
 
-async function api(request, env, url) {
-  const path = url.pathname.replace(/^\/keypals\/api/, '');
+async function api(request, env, url, base) {
+  const path = url.pathname.slice(`${base}/api`.length);
   const method = request.method;
   // which sign-ins are available
   if (path === '/config' && method === 'GET') return json({ google: ready(env, 'google'), microsoft: ready(env, 'microsoft') });
 
   // sign in and out
   let m = path.match(/^\/auth\/(google|microsoft)\/(start|callback)$/);
-  if (m && method === 'GET') return m[2] === 'start' ? startSignIn(env, url, m[1]) : finishSignIn(env, url, m[1]);
+  if (m && method === 'GET') return m[2] === 'start' ? startSignIn(env, url, m[1], base) : finishSignIn(env, url, m[1], base);
   if (path === '/auth/logout' && method === 'POST') {
     const c = (request.headers.get('cookie') || '').match(/(?:^|;\s*)kp_session=([^;]+)/);
     if (c) await env.DB.prepare('DELETE FROM sessions WHERE hash = ?').bind(await sha256(c[1])).run();
-    return json({ ok: true }, 200, { 'set-cookie': cookie('kp_session', '', 0) });
+    return json({ ok: true }, 200, { 'set-cookie': cookie('kp_session', '', 0, base) });
   }
 
   // a new save code for a player
@@ -234,7 +240,7 @@ async function api(request, env, url) {
     await env.DB.prepare('DELETE FROM sessions WHERE account = ?').bind(acct.id).run();
     await env.DB.prepare('UPDATE gone SET account = NULL WHERE account = ?').bind(acct.id).run();
     await env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(acct.id).run();
-    return json({ ok: true }, 200, { 'set-cookie': cookie('kp_session', '', 0) });
+    return json({ ok: true }, 200, { 'set-cookie': cookie('kp_session', '', 0, base) });
   }
   // a player in the account, in full (for bringing it to this computer: no code guessing to slow down here)
   m = path.match(/^\/me\/players\/([^/]+)$/);
@@ -323,10 +329,13 @@ async function backup(env, force = false) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const old = url.pathname.match(/^\/keypals2(\/.*)?$/);
+    // www.keypals.org (and anything else pointed at the redirecting Worker): the one true address
+    if (env.REDIRECT_TO) return Response.redirect(`${env.REDIRECT_TO}${url.pathname}${url.search}`, 301);
+    const base = baseOf(env);
+    const old = base === '/keypals' && url.pathname.match(/^\/keypals2(\/.*)?$/);
     if (old) return Response.redirect(`${url.origin}/keypals${old[1] || '/'}${url.search}`, 302);
-    if (url.pathname.startsWith('/keypals/api/')) {
-      try { return await api(request, env, url); } catch (e) { return fail(500, 'Something went wrong. Try again.'); }
+    if (url.pathname.startsWith(`${base}/api/`)) {
+      try { return await api(request, env, url, base); } catch (e) { return fail(500, 'Something went wrong. Try again.'); }
     }
     return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
   },

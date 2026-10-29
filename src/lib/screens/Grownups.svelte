@@ -15,6 +15,10 @@
   import Critter from '../ui/Critter.svelte';
   import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, addFromAccount, addAllFromAccount, grownupOpen, showCode } from '../state/cloud.svelte';
   import { notHereCodes } from '../state/sync';
+  import { onOldAddress } from '../state/move';
+  import { moveToOrg } from '../state/cloud.svelte';
+  /** on fancyant.com/keypals: offer moving the players to keypals.org */
+  const oldAddress = onOldAddress(location.pathname);
   import GrownupGate from '../ui/GrownupGate.svelte';
   import CodeCard from '../ui/CodeCard.svelte';
 
@@ -129,7 +133,7 @@
         <div class="card pane acct" bind:this={acctEl} class:flash={flashAcct}>
           <h3>Saving online</h3>
           {#if !cloud.online}
-            <p class="muted small">Progress is kept on this computer. Saving online works on fancyant.com/keypals.</p>
+            <p class="muted small">Progress is kept on this computer. Saving online works on keypals.org.</p>
           {:else if p}
             {#if p.cloud}
               <p class="small"><b>{p.name}'s save code:</b> <span class="code">{showCode(p.cloud.code)}</span></p>
@@ -169,6 +173,11 @@
                 {#if cloud.microsoft}<button class="btn" onclick={() => signIn('microsoft')}>Sign in with Microsoft</button>{/if}
               </div>
             {/if}
+          {/if}
+          {#if cloud.online && oldAddress && game.save.profiles.some(x => !x.allBuddies)}
+            <h4>Keypals has a new address: keypals.org</h4>
+            <p class="muted small">Progress is kept separately at each address, so bring your players over once: each gets a save code if it hasn't one, and keypals.org opens with them. Both copies keep saving to the same place, so nothing is lost.</p>
+            <div class="row"><button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(moveToOrg)}>Move my players to keypals.org</button></div>
           {/if}
           {#if saveMsg}<p class="small msg">{saveMsg}</p>{/if}
           <p class="muted small"><a href="privacy" target="_blank" rel="noopener">How we look after your information</a></p>

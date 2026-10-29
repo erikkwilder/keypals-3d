@@ -15,6 +15,7 @@ import { game } from './game.svelte';
 import { migrate, type Profile } from '../engine/profile';
 import { mergeProfile } from './merge';
 import { planSync, goneNote, notHereCodes, markNotHere, clearNotHere, localOnlyIds, markLocalOnly, clearLocalOnly, type Tombstone } from './sync';
+import { movedCodes, moveUrl } from './move';
 
 export type CloudPlayer = { code: string; name: string; buddy: string; updated: number };
 export const cloud = $state({
@@ -145,10 +146,10 @@ const fetchPlayer = (code: string) => call<Fetched>(viaAccount(code) ? `/me/play
 
 /** Bring a saved player onto this computer by their code. If they're here already, the two copies are
  *  combined (nothing played here is lost). A grown-up signed in here keeps them in the account too. */
-export async function openCode(raw: string) {
+export async function openCode(raw: string, activate = true) {
   const code = cleanCode(raw);
   clearNotHere(code);
-  const prof = await bring(code, true);
+  const prof = await bring(code, activate);
   if (cloud.account && prof.cloud && !viaAccount(prof.cloud.code)) {
     await call(`/me/players/${prof.cloud.code}`, { method: 'PUT' }).catch(() => null);
     await refreshAccount();
@@ -316,6 +317,19 @@ export async function addAllFromAccount(): Promise<number> {
   for (const cp of cloud.players) { if (here.has(cp.code)) continue; clearNotHere(cp.code); await bring(cp.code, false); n++; }
   return n;
 }
+/** fancyant.com/keypals → keypals.org: give every player a save code if needed, then open keypals.org with
+ *  the codes, which adds them there (move.ts). */
+export async function moveToOrg() {
+  const codes: string[] = [];
+  for (const p of [...game.save.profiles]) {
+    if (p.allBuddies) continue;
+    const code = p.cloud?.code ?? await makeCode(p.id, false);
+    if (code) codes.push(code);
+  }
+  if (!codes.length) throw new Error('There are no players to move yet.');
+  game.persist();
+  location.assign(moveUrl(codes));
+}
 /** Bring one account player back to this computer (after "just this computer"). */
 export async function addFromAccount(code: string) { clearNotHere(code); return bring(code, false); }
 /** Stop saving a player online: their saved copy is deleted (progress stays on this computer, and it isn't
@@ -363,6 +377,15 @@ export async function startCloud() {
   const recheck = () => { if (document.visibilityState === 'visible') void catchUp(); };
   document.addEventListener('visibilitychange', recheck);
   setInterval(recheck, 15 * 60000);
+  // players moved here from fancyant.com/keypals (move.ts): add them, then clear the address
+  const moving = movedCodes(location.hash);
+  if (moving.length) {
+    history.replaceState(null, '', location.pathname + location.search);
+    const came: string[] = [];
+    for (const code of moving) { try { came.push((await openCode(code, false)).name); } catch { /* deleted, or offline: skip it */ } }
+    game.say(came.length ? `Moved ${came.length === 1 ? came[0] : `${came.slice(0, -1).join(', ')} and ${came[came.length - 1]}`} here. Welcome to keypals.org!` : 'Those players could not be moved. Try again, or type their save codes.', 7000);
+    if (came.length && game.screen === 'title') game.go('players');
+  }
   if (m) {
     if (m[1] === 'ok' && cloud.account) {
       const came = game.save.profiles.filter(p => !before.has(p.id)).map(p => p.name);

@@ -22,7 +22,7 @@
     <h2>{name}’s save code</h2>
     <div class="code">{#each words as w, i (i)}<span class:num={/^\d+$/.test(w)}>{w}</span>{/each}</div>
     <ol>
-      <li>Go to <b>fancyant.com/keypals</b></li>
+      <li>Go to <b>keypals.org</b></li>
       <li>Tap <b>Already play on another computer?</b></li>
       <li>Type the words and the number</li>
     </ol>

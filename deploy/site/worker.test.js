@@ -92,3 +92,63 @@ describe('players follow the grown-up: the server side', () => {
     expect((await api(`/players/${made.json.code}`)).status).toBe(404);
   });
 });
+
+describe('one Worker script, two addresses (fancyant.com/keypals and keypals.org)', () => {
+  const google = { GOOGLE_CLIENT_ID: 'client-id', GOOGLE_CLIENT_SECRET: 'client-secret' };
+  async function signInThrough(s) {
+    const start = await s.api('/auth/google/start');
+    expect(start.status).toBe(302);
+    const to = new URL(start.headers.get('location'));
+    expect(to.origin).toBe('https://accounts.google.com');
+    const state = to.searchParams.get('state');
+    // Google answers the token and user questions
+    const real = globalThis.fetch;
+    globalThis.fetch = async (u) => new Response(JSON.stringify(String(u).includes('token') ? { access_token: 'at' } : { sub: 'g-1', email: 'parent@example.com', name: 'Pat' }));
+    try {
+      const back = await s.api(`/auth/google/callback?code=abc&state=${state}`);
+      return { redirectUri: to.searchParams.get('redirect_uri'), back };
+    } finally { globalThis.fetch = real; }
+  }
+
+  it('fancyant.com: the API, sign-in return addresses and cookie live under /keypals', async () => {
+    const s = site({ ...google, BASE: '/keypals' });
+    expect((await s.api('/config')).json.google).toBe(true);
+    const { redirectUri, back } = await signInThrough(s);
+    expect(redirectUri).toBe('https://fancyant.com/keypals/api/auth/google/callback');
+    expect(back.status).toBe(302);
+    expect(back.headers.get('location')).toBe('https://fancyant.com/keypals/#signin=ok');
+    expect(back.headers.get('set-cookie')).toMatch(/; Path=\/keypals;/);
+  });
+
+  it('keypals.org: the same at the root, exactly /api/auth/google/callback', async () => {
+    const s = site({ ...google, BASE: '', ORIGIN: 'https://keypals.org' });
+    const { redirectUri, back } = await signInThrough(s);
+    expect(redirectUri).toBe('https://keypals.org/api/auth/google/callback');
+    expect(back.headers.get('location')).toBe('https://keypals.org/#signin=ok');
+    expect(back.headers.get('set-cookie')).toMatch(/; Path=\/;/);
+    // signing out clears the cookie at the same path
+    expect((await s.api('/auth/logout', { method: 'POST' })).headers.get('set-cookie')).toMatch(/kp_session=; Path=\/;/);
+  });
+
+  it('with no BASE set it behaves as fancyant.com/keypals always did', async () => {
+    const { redirectUri } = await signInThrough(site(google));
+    expect(redirectUri).toBe('https://fancyant.com/keypals/api/auth/google/callback');
+  });
+
+  it('a save code made on one address opens on the other (one shared database)', async () => {
+    const fa = site({ BASE: '/keypals' });
+    const made = await fa.api('/players', { method: 'POST', body: { profile: profile('Mia') } });
+    const r = await worker.fetch(new Request(`https://keypals.org/api/players/${made.json.code}`, { headers: { 'cf-connecting-ip': '10.0.0.2' } }), { ...fa.env, BASE: '' });
+    expect(r.status).toBe(200);
+    expect((await r.json()).profile.name).toBe('Mia');
+  });
+
+  it('keypals.org does not answer the old /keypals paths, and www.keypals.org sends people to keypals.org', async () => {
+    const env = { DB: makeD1(), BASE: '' };
+    expect((await worker.fetch(new Request('https://keypals.org/keypals/api/config'), env)).status).toBe(404);
+    expect((await worker.fetch(new Request('https://keypals.org/keypals2/'), env)).status).toBe(404);
+    const www = await worker.fetch(new Request('https://www.keypals.org/privacy?x=1'), { REDIRECT_TO: 'https://keypals.org' });
+    expect(www.status).toBe(301);
+    expect(www.headers.get('location')).toBe('https://keypals.org/privacy?x=1');
+  });
+});
