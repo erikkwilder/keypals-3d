@@ -334,7 +334,7 @@
   });
 </script>
 
-<div class="mrun" class:compact bind:clientWidth={w} bind:clientHeight={h}>
+<div class="mrun" class:compact class:learning={!!game.learnOverlay} bind:clientWidth={w} bind:clientHeight={h}>
   <div class="stage">
     {#if bubble && phase === 'play' && !showHelp}
       <div class="bubble" style:left="{bubbleXY.x * innerWidth}px" style:top="{bubbleXY.y * innerHeight}px">{bubble}</div>
@@ -483,6 +483,8 @@
 
 <style>
   .mrun { position: absolute; inset: 0; display: flex; flex-direction: column; background: transparent; }
+  /* a lesson over the trip: the trip's own screen hides (the lesson's buddy stands on the 3D stage behind) */
+  .mrun.learning > :global(:not(.learnlay)) { visibility: hidden; }
   .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
   .loading { position: absolute; left: 0; right: 0; top: 55%; text-align: center; font: 600 20px var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(40, 30, 80, .4); }
   .bubble { position: absolute; z-index: 4; white-space: nowrap; transform: translate(10%, -120%); background: #fff; padding: 9px 14px; border-radius: 16px; font: 600 17px/1.1 var(--font-ui); color: var(--ink); box-shadow: var(--shadow); animation: pop-in .25s cubic-bezier(.3, .8, .4, 1.5); border: var(--panel-border); }

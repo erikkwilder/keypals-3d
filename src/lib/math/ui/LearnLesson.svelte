@@ -134,17 +134,26 @@
     if (e.key === 'Escape') return mine(leave);
   }
   // a lesson opened over a math trip owns the keyboard until it closes
+  /** the buddy's here: show it where to stand, say hello, and start explaining */
+  let greeted = false;
+  function greet(b: LearnBuddy) {
+    b.area(spotEl ?? null); b.board(paperEl ?? null);
+    if (greeted) return;
+    greeted = true; b.wave(); setTimeout(() => { if (!gone) explain(); }, 900);
+  }
   onMount(() => {
     addEventListener('keydown', onKey, true);
-    if (pal) { pal.area(spotEl ?? null); pal.board(paperEl ?? null); pal.wave(); setTimeout(() => { if (!gone) explain(); }, 900); return; }
+    if (!embedded) return;
     // over a trip: borrow the stage for the lesson's own buddy, and give it back after
     void LearnScene.create({ buddy, region: 'village', view: { top: 0.2, bottom: 0.8, left: 0.02, right: 0.28 } }).then(async sc => {
       if (gone) { sc.dispose(); return; }
       own = sc; before = stage.swap(sc); sc.hideOthers();
       await tick();
-      sc.area(spotEl ?? null); sc.board(paperEl ?? null); sc.wave(); setTimeout(() => { if (!gone) explain(); }, 900);
+      greet(sc);
     }).catch(e => console.error(e));
   });
+  // on the Learn screen the buddy may still be loading when the lesson opens: greet it when it comes
+  $effect(() => { const b = pal; if (b) tick().then(() => { if (!gone) greet(b); }); });
   onDestroy(() => {
     gone = true;
     removeEventListener('keydown', onKey, true);
