@@ -5,6 +5,7 @@
   // stretch along the trail; quick, right answers climb the rides. A new fact comes with its trick to
   // copy; a miss shows the answer and its trick to type back, and the fact returns a few facts later.
   // No countdown, no buzzer.
+  import MusicButton from '../ui/MusicButton.svelte';
   import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
@@ -15,7 +16,7 @@
   import { sfx, startMusic, unlockAudio, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { RunScene } from '../three/runScene';
-  import { MATH_LESSON, MATH_REGION, STRAND, TRICK, groupFacts, moveOf, STRIDE, trickOf, worldOf, type MathLesson } from '../math/course';
+  import { MATH_LESSON, MATH_REGION, MOVE_NAME, STRAND, TRICK, groupFacts, moveOf, STRIDE, trickOf, worldOf, type MathLesson } from '../math/course';
   /** A typical fact to show on a Meet card: the 6 of a times table, or the first not-so-easy fact of a group. */
   const exampleOf = (l: MathLesson) => (l.op === 'x' ? { a: 6, b: l.tables[0] } : (groupFacts(l.learn[0]).find(f => f.a > 2 && f.b > 1) ?? groupFacts(l.learn[0])[0]));
   import { answerOf, factId, opSign, speedOf, FAST_MS, type Fact } from '../math/facts';
@@ -51,6 +52,9 @@
   const buddy = FRIEND[profile.buddy];
   // the trail: one stretch per fact, with room for a couple of misses brought back at the end
   const STRETCH = STRIDE[moveOf(lesson)];
+  // how the buddy travels on this trip, in the same words as a typing lesson's card
+  const mv = moveOf(lesson);
+  const MOVE_LINE = { run: 'Run the trail: every right answer is a stride. Quick, right answers ride a skateboard, a bike, even a rocket!', climb: 'Climb the cliff: every right answer pulls you higher. Quick answers climb faster!', swim: 'Swim across the bay: every right answer is a stroke. Quick answers swim like a dolphin!', slide: 'Sled down the mountain: every right answer is a push. Quick answers go full avalanche!' };
   const stretches = picker.length + 2;
 
   let phase = $state<'intro' | 'play' | 'paused' | 'done'>('intro');
@@ -347,6 +351,7 @@
       <button class="btn btn-icon pause" aria-label="Pause" onclick={() => (phase = phase === 'play' ? 'paused' : phase)}>
         <Icon name="pause" size={32} />
       </button>
+      <MusicButton size={32} plain />
       <div class="title">
         <div class="region">{regionName}</div>
         <div class="lesson">{lesson.title}</div>
@@ -421,7 +426,7 @@
   {#if phase === 'intro' && !replaying}
     <div class="overlay">
       <div class="card intro">
-        <div class="where">{regionName}{lesson.region !== 'start' ? ` · Stop ${lesson.n}` : ''}</div>
+        <div class="where">{regionName}{lesson.region !== 'start' ? ` · Stop ${lesson.n}` : ''}{#if !calm}<span class="mv mv-{mv}"><Icon name={mv} size={16} /> {MOVE_NAME[mv]}</span>{/if}</div>
         <h1>{lesson.title}</h1>
         {#if lesson.kind === 'meet'}
           {@const ex = exampleOf(lesson)}
@@ -436,7 +441,8 @@
             <div class="rule"><b>× 0</b><span>{TRICK[0].say(7)}</span></div>
           </div>
         {:else}
-          <div class="meetbuddy"><Critter friend={profile.buddy} size={110} mood="dance" /></div>
+          <!-- the island this trip is on (the real 3D buddy is waiting just behind the card) -->
+          <div class="meetbuddy"><img class="placeart" src="{import.meta.env.BASE_URL}regions/{worldOf(lesson)}.webp" alt="" /></div>
         {/if}
         {#if lesson.kind !== 'meet'}<p class="blurb">{lesson.blurb}</p>{/if}
         {#if introLesson}<button class="watchl" onclick={() => { sfx.click(); game.learnOverlay = introLesson!.id; }}><img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" /><span><b>{isLearned(mathOf(profile), introLesson.id) ? 'Watch the lesson again' : 'Watch the lesson first'}</b><small>{introLesson.title}: {buddy.name} shows you the trick</small></span></button>{/if}
@@ -444,7 +450,8 @@
           <div class="goals">
             {#each starAt as s, i}<div class="goal"><Stars n={i + 1} of={i + 1} size={20} /><span>score {s}</span></div>{/each}
           </div>
-          <p class="howscore">Your score is right answers a minute. Quick, right answers move you up the speed steps. No clock, so take the time you need.</p>
+          <p class="moveline mv-{mv}">{MOVE_LINE[mv]}</p>
+          <p class="howscore">Your score is right answers a minute. No clock, so take the time you need.</p>
         {:else}
           <p class="howscore">Calm mode: no rides and no speed. Just you, {buddy.name} and the facts.</p>
         {/if}
@@ -572,6 +579,14 @@
   .rule b { font: 600 32px var(--font-ui); color: var(--primary); }
   .rule span { font: 600 16px/1.35 var(--font-body); color: var(--ink2); }
   .meetbuddy { display: flex; justify-content: center; }
+  .placeart { width: min(320px, 70vw); aspect-ratio: 16 / 7; object-fit: cover; border-radius: 18px; box-shadow: 0 0 0 4px #fff, var(--shadow-sm); }
+  /* how the buddy travels on this trip: the same chip and line as a typing lesson */
+  .mv { display: inline-block; margin-left: 8px; padding: 3px 9px 3px 7px; border-radius: 999px; letter-spacing: .04em; color: #fff; background: var(--mvc, var(--primary)); vertical-align: middle; }
+  .mv-run { --mvc: #7c5cf5; --mvbg: #f1ecff; }
+  .mv-climb { --mvc: #e0752a; --mvbg: #fff1e4; }
+  .mv-swim { --mvc: #1f9a8c; --mvbg: #e2f7f3; }
+  .mv-slide { --mvc: #4a7fd8; --mvbg: #e7f0ff; }
+  .moveline { margin: 6px auto 4px; max-width: 600px; padding: 7px 14px; border-radius: 14px; background: var(--mvbg); color: var(--ink2); font: 700 14.5px/1.35 var(--font-body); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--mvc) 22%, transparent); }
   .blurb { font-size: 17px; color: var(--ink2); margin: 10px auto 4px; max-width: 560px; }
   .goals { display: flex; justify-content: center; gap: 10px; margin: 14px 0 6px; flex-wrap: wrap; }
   .goal { display: flex; align-items: center; gap: 8px; background: var(--bg2); padding: 8px 12px; border-radius: 14px; font: 700 14px/1 var(--font-body); color: var(--ink2); }

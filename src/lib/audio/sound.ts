@@ -1,11 +1,14 @@
 // All sound is made live with Web Audio: no sound files to license or download.
 
 import type { Finger } from '../art/cast';
+import { AUTO, STATION, type MusicPlace, type StationChoice, type StationId } from './stations';
 import type { RegionId } from '../engine/course';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let musicBus: GainNode | null = null;
+/** the live-made music goes through this, so it can fade in and out against the recorded stations */
+let synthBus: GainNode | null = null;
 let sfxBus: GainNode | null = null;
 let enabled = true;
 let musicOn = true;
@@ -26,6 +29,9 @@ function ac(): AudioContext | null {
     musicBus = ctx.createGain();
     musicBus.gain.value = musicOn ? 0.32 : 0;
     musicBus.connect(master);
+    synthBus = ctx.createGain();
+    synthBus.gain.value = 1;
+    synthBus.connect(musicBus);
   }
   if (ctx.state === 'suspended') void ctx.resume();
   return ctx;
@@ -37,10 +43,12 @@ export function configureSound(o: { sound: boolean; music: boolean; volume: numb
   volume = o.volume;
   if (master) master.gain.value = enabled ? volume : 0;
   if (musicBus && ctx) musicBus.gain.setTargetAtTime(musicOn && enabled ? 0.32 : 0, ctx.currentTime, 0.2);
+  // a recording that can't be heard stops downloading; it carries on where it was when music is back
+  if (deck) { if (musicOn && enabled) playDeck(deck); else deck.el.pause(); }
 }
 
 /** Browsers only allow audio after a key press or click; call this from one. */
-export function unlockAudio() { ac(); }
+export function unlockAudio() { ac(); if (deck && deck.el.paused && musicOn && enabled) playDeck(deck); }
 
 type ToneOpts = { type?: OscillatorType; dur?: number; gain?: number; attack?: number; slideTo?: number; delay?: number; bus?: GainNode | null; detune?: number };
 
@@ -476,7 +484,7 @@ function echoBus(c: AudioContext, level: number) {
     echoIn = c.createGain();
     const d = c.createDelay(1), fb = c.createGain(), f = c.createBiquadFilter(), out = c.createGain();
     d.delayTime.value = 0.36; fb.gain.value = 0.38; f.type = 'lowpass'; f.frequency.value = 2400; out.gain.value = 0.7;
-    echoIn.connect(d); d.connect(f); f.connect(fb); fb.connect(d); f.connect(out); out.connect(musicBus!);
+    echoIn.connect(d); d.connect(f); f.connect(fb); fb.connect(d); f.connect(out); out.connect(synthBus!);
   }
   echoLevel = level;
   return echoIn;
@@ -491,7 +499,7 @@ function note(c: AudioContext, t: number, freq: number, dur: number, gain: numbe
   g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(a + 0.02, dur));
   let src: AudioNode = osc;
   if (o.tone) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.tone; osc.connect(f); src = f; }
-  src.connect(g); g.connect(musicBus!);
+  src.connect(g); g.connect(synthBus!);
   if (o.echo && echoIn) { const send = c.createGain(); send.gain.value = o.echo; g.connect(send); send.connect(echoIn); }
   osc.start(t); osc.stop(t + dur + 0.05);
 }
@@ -503,7 +511,7 @@ function hit(c: AudioContext, t: number, kind: 'kick' | 'snare' | 'hat' | 'shake
     const o = c.createOscillator(), g = c.createGain(), base = (kind === 'boom' ? 70 : 150) * pitch;
     o.frequency.setValueAtTime(base, t); o.frequency.exponentialRampToValueAtTime(base * 0.55, t + (kind === 'boom' ? 0.5 : 0.25));
     g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'boom' ? 0.9 : 0.35));
-    o.connect(g); g.connect(musicBus!); o.start(t); o.stop(t + 1);
+    o.connect(g); g.connect(synthBus!); o.start(t); o.stop(t + 1);
     if (kind === 'boom') hit(c, t, 'snare', gain * 0.25);
     return;
   }
@@ -511,7 +519,7 @@ function hit(c: AudioContext, t: number, kind: 'kick' | 'snare' | 'hat' | 'shake
     const o = c.createOscillator(), g = c.createGain();
     o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.16);
     g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-    o.connect(g); g.connect(musicBus!); o.start(t); o.stop(t + 0.32);
+    o.connect(g); g.connect(synthBus!); o.start(t); o.stop(t + 0.32);
     return;
   }
   if (!noiseBuf) {
@@ -525,7 +533,7 @@ function hit(c: AudioContext, t: number, kind: 'kick' | 'snare' | 'hat' | 'shake
   g.gain.setValueAtTime(gain, t);
   if (kind === 'gated') { g.gain.setValueAtTime(gain * 0.7, t + 0.22); g.gain.linearRampToValueAtTime(0.0001, t + (len as number)); }
   else g.gain.exponentialRampToValueAtTime(0.0001, t + (len as number));
-  src.connect(f); f.connect(g); g.connect(musicBus!); src.start(t); src.stop(t + (len as number) + 0.02);
+  src.connect(f); f.connect(g); g.connect(synthBus!); src.start(t); src.stop(t + (len as number) + 0.02);
 }
 
 
@@ -558,13 +566,13 @@ function amp(c: AudioContext, kind: 'dist' | 'clean') {
     const cab = c.createBiquadFilter(); cab.type = 'lowpass'; cab.frequency.value = 3400; cab.Q.value = 0.9;
     const mid = c.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 900; mid.gain.value = 3;
     const out = c.createGain(); out.gain.value = 0.065;
-    ampDist.connect(ws); ws.connect(hp); hp.connect(mid); mid.connect(cab); cab.connect(out); out.connect(musicBus!);
+    ampDist.connect(ws); ws.connect(hp); hp.connect(mid); mid.connect(cab); cab.connect(out); out.connect(synthBus!);
   }
   if (kind === 'clean' && !ampClean) {
     ampClean = c.createGain(); ampClean.gain.value = 1;
     const bright = c.createBiquadFilter(); bright.type = 'peaking'; bright.frequency.value = 2400; bright.gain.value = 5;
     const out = c.createGain(); out.gain.value = 0.33;
-    ampClean.connect(bright); bright.connect(out); out.connect(musicBus!);
+    ampClean.connect(bright); bright.connect(out); out.connect(synthBus!);
     if (echoIn) { const send = c.createGain(); send.gain.value = 0.5; out.connect(send); send.connect(echoIn); }
   }
   return kind === 'dist' ? ampDist! : ampClean!;
@@ -587,7 +595,7 @@ function crackle(c: AudioContext, on: boolean) {
   for (let i = 0; i < len; i++) d[i] = (Math.random() < 0.0009 ? (Math.random() * 2 - 1) * 0.9 : 0) + (Math.random() * 2 - 1) * 0.012;
   const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
   src.buffer = b; src.loop = true; f.type = 'bandpass'; f.frequency.value = 2500; f.Q.value = 0.5; g.gain.value = 0.25;
-  src.connect(f); f.connect(g); g.connect(musicBus!); src.start();
+  src.connect(f); f.connect(g); g.connect(synthBus!); src.start();
   crackleSrc = src;
 }
 
@@ -691,15 +699,15 @@ function scheduleStep(pl: Playing, t: number) {
   if (step % 32 === 0) newPattern();
 }
 
-/** Which music style to play ('mix': a different one for each lesson). */
+/** Which style the live-made music plays in ('mix': a different one for each lesson). */
 export function setMusicStyle(id: MusicStyleId | 'mix') {
   if (id === musicChoice) return;
   musicChoice = id;
   // restart what's playing in the new style
-  if (playing) { const r = playing.region; stopMusic(); startMusic(r); }
+  if (playing) { const r = playing.region; stopSynth(); startSynth(r); }
 }
 
-export function startMusic(region: RegionId | 'menu') {
+function startSynth(region: RegionId | 'menu') {
   const c = ac();
   if (!c) return;
   const ids = Object.keys(MUSIC_STYLES) as MusicStyleId[];
@@ -707,7 +715,7 @@ export function startMusic(region: RegionId | 'menu') {
   const id = musicChoice === 'mix' ? (region === 'menu' ? 'sunny' : ids[Math.floor(Math.random() * ids.length)]) : musicChoice;
   const f = MUSIC_STYLES[id], key = KEYS[region];
   if (playing && playing.region === region && playing.f === f && musicTimer) return;
-  stopMusic();
+  stopSynth();
   playing = { key, f, scale: f.scale ?? key.scale, region };
   echoBus(c, f.echo ?? 0);
   crackle(c, !!f.crackle);
@@ -721,11 +729,136 @@ export function startMusic(region: RegionId | 'menu') {
   }, 60);
 }
 
-export function stopMusic() {
+function stopSynth() {
   if (musicTimer) clearInterval(musicTimer);
   if (ctx) crackle(ctx, false);
   musicTimer = null;
   playing = null;
+}
+
+// ---------- the music you hear: a station of recordings, or the live-made island tunes ----------
+// A station plays its recordings one after another (shuffled, no repeats until all have played),
+// streamed from music/<file>.mp3 one at a time. Switching station or going from a lesson to a battle
+// crossfades; the same station carries on playing (the next lesson doesn't restart the song).
+const FADE = 1.4;
+/** recordings are normalised to about -16 LUFS; this sits them a little above the live music (measured
+ *  through the game's own output: about -38 LUFS against the island tunes' -41), under the sound effects */
+const TRACK_GAIN = 0.44;
+type Deck = { el: HTMLAudioElement; gain: GainNode; station: StationId; track: number };
+let deck: Deck | null = null;
+let stationChoice: StationChoice = 'auto';
+let place: MusicPlace = 'menu';
+let where: RegionId | 'menu' = 'menu';
+let started = false;
+let fails = 0;
+const orders: Partial<Record<StationId, { list: number[]; at: number }>> = {};
+export type NowPlaying = { station: StationId; choice: StationChoice; title?: string; artist?: string };
+const listeners = new Set<(n: NowPlaying) => void>();
+
+/** The station that should be playing now (Auto follows what you're doing). */
+function currentStation(): StationId {
+  const id = stationChoice === 'auto' ? AUTO[place] : stationChoice;
+  // a station with no recordings (or recordings that won't load) plays the island tunes instead
+  return id !== 'originals' && STATION[id]?.tracks.length && fails < 3 ? id : 'originals';
+}
+export function musicNow(): NowPlaying {
+  const st = currentStation(), t = deck && deck.station === st ? STATION[st].tracks[deck.track] : undefined;
+  return { station: st, choice: stationChoice, title: t?.title ?? (st === 'originals' ? `${MUSIC_STYLES[musicChoice === 'mix' ? 'sunny' : musicChoice].name} island tune` : undefined), artist: t?.artist };
+}
+/** Hear about what's playing (for the music picker's "now playing"). Returns a function to stop. */
+export function onMusic(fn: (n: NowPlaying) => void) { listeners.add(fn); fn(musicNow()); return () => { listeners.delete(fn); }; }
+const tell = () => { const n = musicNow(); listeners.forEach(f => f(n)); };
+
+function nextIndex(id: StationId): number {
+  const n = STATION[id].tracks.length;
+  let o = orders[id];
+  if (!o || o.at >= o.list.length) {
+    const prev = o?.list[o.list.length - 1];
+    const list = Array.from({ length: n }, (_, i) => i);
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+    // never the same song twice in a row across a reshuffle
+    if (n > 1 && list[0] === prev) [list[0], list[n - 1]] = [list[n - 1], list[0]];
+    o = orders[id] = { list, at: 0 };
+  }
+  return o.list[o.at++];
+}
+function playDeck(d: Deck) { d.el.play().then(() => { fails = 0; }).catch(() => { /* waits for a tap (unlockAudio) */ }); }
+function fadeOutDeck(d: Deck | null) {
+  if (!d || !ctx) return;
+  const g = d.gain.gain, now = ctx.currentTime;
+  g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0, now + FADE);
+  setTimeout(() => { d.el.pause(); d.el.removeAttribute('src'); d.el.load(); d.gain.disconnect(); }, FADE * 1000 + 150);
+}
+function playTrack(id: StationId, idx?: number) {
+  const c = ac();
+  if (!c || !musicBus) return;
+  const i = idx ?? nextIndex(id), t = STATION[id].tracks[i];
+  const el = new Audio();
+  el.preload = 'auto';
+  el.src = `${import.meta.env.BASE_URL}music/${t.file}.mp3`;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0, c.currentTime);
+  g.gain.linearRampToValueAtTime(TRACK_GAIN, c.currentTime + FADE);
+  c.createMediaElementSource(el).connect(g);
+  g.connect(musicBus);
+  const old = deck;
+  const d: Deck = { el, gain: g, station: id, track: i };
+  deck = d;
+  el.addEventListener('ended', () => { if (deck === d) playTrack(id); });
+  el.addEventListener('error', () => {
+    if (deck !== d) return;
+    // a missing or broken file: try the next one; after a few, fall back to the island tunes
+    fails++;
+    if (fails >= 3) { fadeOutDeck(d); deck = null; applyMusic(); } else playTrack(id);
+  });
+  if (musicOn && enabled) playDeck(d);
+  fadeOutDeck(old);
+  tell();
+}
+function fadeSynth(on: boolean) {
+  if (!ctx || !synthBus) return;
+  const g = synthBus.gain, now = ctx.currentTime;
+  g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(on ? 1 : 0, now + FADE);
+}
+let synthStop: ReturnType<typeof setTimeout> | null = null;
+/** Make what's playing match the station and the place. */
+function applyMusic() {
+  const c = ac();
+  if (!c) return;
+  const id = currentStation();
+  if (id === 'originals') {
+    if (synthStop) { clearTimeout(synthStop); synthStop = null; }
+    if (deck) { fadeOutDeck(deck); deck = null; }
+    startSynth(where);
+    fadeSynth(true);
+  } else {
+    if (playing && !synthStop) { fadeSynth(false); synthStop = setTimeout(() => { synthStop = null; stopSynth(); }, FADE * 1000 + 100); }
+    if (!deck || deck.station !== id) playTrack(id);
+  }
+  tell();
+}
+
+/** Music for where you are: an island while you practise, 'menu' around the game, 'adventure' in
+ *  Adventure. With a station picked it just keeps playing; on Auto it follows the place. */
+export function startMusic(region: RegionId | 'menu' | 'adventure') {
+  place = region === 'menu' ? 'menu' : region === 'adventure' ? 'adventure' : 'focus';
+  where = region === 'adventure' ? 'menu' : region;
+  started = true;
+  applyMusic();
+}
+/** Pick a station (or 'auto'); it crossfades straight away if music is playing. */
+export function setMusicStation(choice: StationChoice) {
+  if (choice === stationChoice) return;
+  stationChoice = choice;
+  if (started) applyMusic(); else tell();
+}
+/** The next song on this station. */
+export function skipTrack() { const id = currentStation(); if (id !== 'originals') playTrack(id); else if (playing) { const r = playing.region; stopSynth(); startSynth(r); tell(); } }
+
+export function stopMusic() {
+  stopSynth();
+  if (deck) { fadeOutDeck(deck); deck = null; }
+  started = false;
 }
 
 /** 0..1, how lively the music should be (follows the ride). */
@@ -735,6 +868,9 @@ export function musicEnergy(e: number) { energy = e; }
 if (import.meta.env.DEV && typeof window !== 'undefined') {
   (window as unknown as { __music: object }).__music = {
     tap() { const c = ac()!; const d = c.createMediaStreamDestination(); master!.connect(d); return d.stream; },
-    start: startMusic, style: setMusicStyle, energy: musicEnergy,
+    start: startMusic, style: setMusicStyle, energy: musicEnergy, station: setMusicStation, now: musicNow, skip: skipTrack,
+    deck: () => (deck ? { src: deck.el.src.split('/').pop(), paused: deck.el.paused, time: Math.round(deck.el.currentTime * 10) / 10, gain: deck.gain.gain.value, station: deck.station } : null),
+    synth: () => ({ on: !!musicTimer, gain: synthBus?.gain.value }),
+    endSoon: () => { if (deck && deck.el.duration) deck.el.currentTime = deck.el.duration - 1.5; },
   };
 }

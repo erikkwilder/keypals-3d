@@ -354,8 +354,10 @@ export class Character {
     const fit = this.headFit, h = this.outfit;
     if (!fit || !h) return;
     // the nudge is in the buddy's own directions (x to its left, y up, z forward); the hat's holder sits in
-    // the head bone's space, so turn the offset into it, in the model's own units
-    const u = FRIEND[this.id].height / Math.max(1e-6, this.scale), q = fit.basis;
+    // the head bone's space, so turn the offset into it, in that space's own units (metres over the head
+    // bone's world scale: the rigs' armatures are scaled, so the model's scale alone made moves ~100x too small)
+    const head = this.bones.Head, ws = head ? head.getWorldScale(new THREE.Vector3()).x / Math.max(1e-6, this.root.getWorldScale(new THREE.Vector3()).x) : this.scale;
+    const u = FRIEND[this.id].height / Math.max(1e-9, ws), q = fit.basis;
     const off = new THREE.Vector3(n?.x ?? 0, n?.y ?? 0, n?.z ?? 0).multiplyScalar(u).applyQuaternion(q);
     h.position.copy(fit.top).add(off);
     h.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), n?.r ?? 0));

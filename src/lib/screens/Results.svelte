@@ -28,7 +28,6 @@
   const score = last?.score ?? 0;
   const speedPart = Math.round(last?.wpm ?? 0);
   const bonusPart = Math.max(0, score - speedPart);
-  const avgScore = last && last.record.attempts ? Math.round((last.record.scoreSum ?? score) / last.record.attempts) : score;
   const word = last ? endMessage(last.stars, { record: last.newBestScore, improved: last.newBestScore, sloppy: last.acc < 0.9 && last.stars < 3, platinum: last.platinumJust }) : '';
   const final = lesson.kind === 'final';
   const ft = finalTarget(grown, p.settings.easy);
@@ -43,10 +42,10 @@
   let cert = $state(false);
   const nextRegion = last?.regionJustDone ? REGIONS[REGIONS.findIndex(r => r.id === last.regionJustDone) + 1] : null;
   const chips = last ? [
-    { icon: 'clock' as const, value: speedPart, label: 'speed (wpm)', badge: last.newBestWpm && 'Best!' },
-    { icon: 'target' as const, value: `+${bonusPart}`, label: 'clean-typing bonus' },
-    { icon: 'trophy' as const, value: goalScore, label: `goal · best ${last.record.bestScore ?? score} · avg ${avgScore}`, badge: last.newBestScore && 'Record!' },
-    { icon: 'ride' as const, value: rideName(last.bestRide, move), label: move === 'run' ? 'top ride' : 'top speed', badge: last.newBestRide && 'Best!' },
+    { icon: 'clock' as const, value: speedPart, label: 'words a minute', badge: last.newBestWpm && 'Best!' },
+    { icon: 'target' as const, value: `+${bonusPart}`, label: `bonus for no slips · ${Math.round(last.acc * 100)}% right` },
+    { icon: 'trophy' as const, value: goalScore, label: `goal · best ${last.record.bestScore ?? score}`, badge: last.newBestScore && 'Record!' },
+    { icon: 'ride' as const, value: rideName(last.bestRide, move), label: 'top speed', badge: last.newBestRide && 'Best!' },
   ] : [];
 
   onMount(() => { if (!last) game.go('map'); });

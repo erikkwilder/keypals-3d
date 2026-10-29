@@ -1,8 +1,8 @@
 <script lang="ts">
   import { game } from '../state/game.svelte';
   import { outfitOf } from '../engine/profile';
-  import { MAX_PROFILES, totalStars } from '../engine/profile';
-  import { RIDES } from '../engine/rides';
+  import { MAX_PROFILES } from '../engine/profile';
+  import { teamStats } from '../engine/team';
   import { rideIcon } from '../art/vehicles';
   import { sfx } from '../audio/sound';
   import Critter from '../ui/Critter.svelte';
@@ -10,6 +10,7 @@
   import GearButton from '../ui/GearButton.svelte';
   import Logo from '../ui/Logo.svelte';
   import SaveCodeForm from '../ui/SaveCodeForm.svelte';
+  import SafeReminder from '../ui/SafeReminder.svelte';
 
   function pick(id: string) {
     sfx.click();
@@ -21,15 +22,16 @@
 <div class="screen players">
   {#if game.profile}<GearButton floating />{/if}
   <div class="top"><Logo size={40} animate={false} /></div>
-  <h2>Who's typing today?</h2>
+  <h2>Who's playing today?</h2>
   <div class="grid">
     {#each game.save.profiles as p, i (p.id)}
       <button class="pcard card" style:animation-delay="{i * 60}ms" onclick={() => pick(p.id)}>
         <Critter friend={p.buddy} look={p.settings.look} accessory={outfitOf(p)} size={130} quirkOnHover />
         <div class="name">{p.name}</div>
         <div class="meta">
-          <span class="star"><Icon name="star" size={18} /> {totalStars(p)}</span>
-          <span class="ride" title="Best ride: {RIDES[p.rideBest].name}"><svg viewBox="0 0 48 48" width="20" height="20">{@html rideIcon(p.rideBest, 'var(--primary)')}</svg>{RIDES[p.rideBest].name}</span>
+          <!-- stars from every game, and the best speed step reached in any lesson or trip -->
+          <span class="star" title="Stars from typing, math and the playground"><Icon name="star" size={18} /> {teamStats(p).stars}</span>
+          <span class="ride" title="Best speed: step {p.rideBest + 1} of 6"><svg viewBox="0 0 48 48" width="20" height="20">{@html rideIcon(p.rideBest, 'var(--primary)')}</svg>Speed {p.rideBest + 1}</span>
           {#if p.settings.grown}<span class="tag">grown-up</span>{/if}
         </div>
       </button>
@@ -41,6 +43,7 @@
       </button>
     {/if}
   </div>
+  <SafeReminder />
   <SaveCodeForm />
   <div class="foot">
     <button class="btn btn-ghost" onclick={() => game.go('title')}>Back</button>

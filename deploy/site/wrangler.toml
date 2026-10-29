@@ -25,6 +25,14 @@ database_id = "ba6dd151-6b6e-4df7-8850-043c3920d749"
 # Sign-in needs these secrets (set with set-signin-secrets.sh): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
 # MS_CLIENT_ID, MS_CLIENT_SECRET. Without them the game simply doesn't offer that sign-in.
 
-# once a day: forget long-unopened saves and old sessions (worker.js tidy)
+# weekly copies of the players and accounts (worker.js backup), kept 90 days by the bucket's lifecycle
+# rule (made with: npx wrangler r2 bucket create keypals-backups; npx wrangler r2 bucket lifecycle add
+# keypals-backups expire-90 --expire-days 90). Restoring: RESTORE.md.
+[[r2_buckets]]
+binding = "BACKUPS"
+bucket_name = "keypals-backups"
+
+# once a day: forget long-unopened saves and old sessions (worker.js tidy); once a week, the backup
+
 [triggers]
 crons = ["17 4 * * *"]

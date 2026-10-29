@@ -7,6 +7,13 @@
 // profile: a nickname, the chosen buddy, progress and settings. No emails or real names from
 // children. Grown-ups (parents, teachers) can sign in with Google or Microsoft to keep several
 // players together; that stores their email and name from the provider, nothing else.
+//
+// Two computers playing the same player: a save says which copy it was made from (`base`, the copy's
+// `updated` time); if another computer saved since, the server answers "stale" and the game combines
+// the two copies and saves again (src/lib/state/merge.ts). Nothing is overwritten blindly.
+//
+// Once a week (from the daily tidy-up) the players and accounts are copied to the R2 bucket bound as
+// BACKUPS, kept 90 days by the bucket's own rule (restore: deploy/site/RESTORE.md).
 
 const WORDS = ('apple acorn anchor arrow badger bamboo banana basket beach beaver berry bird biscuit blossom boat bramble breeze brick bubble bucket bunny cactus camel candle canoe canyon carrot castle cedar cherry cloud clover coconut comet coral cotton crab crayon cricket crystal daisy desert dingo dolphin donut dragon drum duck eagle earth echo elm ember fable falcon feather fern fiddle finch flame flower forest fossil fox frog galaxy garden gecko ginger glacier globe goose grape gull hammock harbor harp hazel hedge heron hill honey hoop iceberg igloo island ivy jelly jungle kayak kettle kite kiwi koala ladder lagoon lake lantern lark leaf lemon lilac lily lime llama lotus lunar maple marble meadow melon meteor mint mitten moon moose moss mountain mouse muffin nectar nest noodle nutmeg oak oasis ocean olive orbit orchid otter owl paddle panda parrot peach peanut pear pebble pelican pepper petal piano pickle pine pixel planet plum pond poppy prairie pretzel puffin pumpkin quail quartz rabbit radish rain rainbow raven reef ribbon river robin rocket rose ruby saddle sail salmon sandal sapphire scarf seal seed shell sky sloth snail snow sparrow spruce squid star stone storm sugar summer sun swan taco tide tiger toad topaz tortoise trail tulip tuna turnip turtle tulip umbrella valley velvet violet volcano waffle walnut walrus water wave whale willow wind wombat yak yarn zebra zinnia').split(' ').filter((w, i, a) => a.indexOf(w) === i);
 const DAY = 86400000;
@@ -169,13 +176,32 @@ async function api(request, env, url) {
       if (!body || typeof body.profile !== 'object') return fail(400, 'No player to save.');
       const row = await env.DB.prepare('SELECT updated FROM players WHERE code = ?').bind(code).first();
       if (!row) return fail(404, 'That save code no longer exists.');
-      const at = Number(body.updated) || Date.now();
-      // newest wins: an older copy never overwrites a newer one
-      if (at < row.updated) return json({ code, updated: row.updated, stale: true });
-      await env.DB.prepare('UPDATE players SET data = ?, updated = ?, opened = ? WHERE code = ?').bind(JSON.stringify(body.profile), at, Date.now(), code).run();
+      // always later than the copy it replaces, so the next save's `base` is unique
+      const at = Math.max(Number(body.updated) || Date.now(), row.updated + 1);
+      const data = JSON.stringify(body.profile);
+      if (body.base !== undefined) {
+        // made from the copy that's saved now? Only then replace it (in one step, so two saves at once
+        // can't both win); otherwise the game combines the copies and tries again
+        if (Number(body.base) !== row.updated) return json({ code, updated: row.updated, stale: true });
+        const r = await env.DB.prepare('UPDATE players SET data = ?, updated = ?, opened = ? WHERE code = ? AND updated = ?').bind(data, at, Date.now(), code, row.updated).run();
+        if (!r.meta.changes) return json({ code, updated: row.updated, stale: true });
+        return json({ code, updated: at });
+      }
+      // (older games that don't send a base: an older copy never overwrites a newer one)
+      if (Number(body.updated) < row.updated) return json({ code, updated: row.updated, stale: true });
+      await env.DB.prepare('UPDATE players SET data = ?, updated = ?, opened = ? WHERE code = ?').bind(data, at, Date.now(), code).run();
       return json({ code, updated: at });
     }
     if (method === 'DELETE') {
+      // deleting is limited like opening (codes can't be guessed by deleting), and a player kept in a
+      // grown-up's account can only be deleted by that grown-up, signed in
+      if (await limited(env, request, 'delete', 20, 60)) return fail(429, 'Too many tries from here. Try again later.');
+      const row = await env.DB.prepare('SELECT account FROM players WHERE code = ?').bind(code).first();
+      if (!row) return fail(404, "That save code wasn't found.");
+      if (row.account) {
+        const acct = await currentAccount(env, request);
+        if (!acct || acct.id !== row.account) return fail(403, "This player is kept in a grown-up's account. Sign in as that grown-up to stop saving it online.");
+      }
       await env.DB.prepare('DELETE FROM players WHERE code = ?').bind(code).run();
       return json({ ok: true });
     }
@@ -220,6 +246,41 @@ async function tidy(env) {
   await env.DB.prepare('UPDATE players SET account = NULL WHERE account IS NOT NULL AND account NOT IN (SELECT id FROM accounts)').run();
 }
 
+// ---------- the weekly backup ----------
+const BACKUP_PAGE = 50; // rows a file (a saved player is at most 400 KB)
+/** Copy every player and account to R2 as gzipped JSON files, if the last copy is a week old (the tidy-up
+ *  runs daily; this makes it weekly). backups/<date>/players-0000.json.gz ..., then manifest.json and
+ *  backups/latest.json. The bucket deletes copies after 90 days by itself. */
+async function backup(env, force = false) {
+  if (!env.BACKUPS) return null;
+  const now = Date.now();
+  const last = await env.BACKUPS.get('backups/latest.json');
+  if (!force && last) { const j = await last.json().catch(() => null); if (j && now - j.at < 6.5 * DAY) return null; }
+  const prefix = `backups/${new Date(now).toISOString().slice(0, 10)}/`;
+  const gz = async (text) => new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+  const tables = { players: 'code', accounts: 'id' };
+  const counts = {}, files = [];
+  for (const [table, key] of Object.entries(tables)) {
+    let after = '', page = 0;
+    counts[table] = 0;
+    for (;;) {
+      const res = await env.DB.prepare(`SELECT * FROM ${table} WHERE ${key} > ? ORDER BY ${key} LIMIT ?`).bind(after, BACKUP_PAGE).all();
+      const rows = res.results ?? [];
+      if (!rows.length) break;
+      const name = `${prefix}${table}-${String(page++).padStart(4, '0')}.json.gz`;
+      await env.BACKUPS.put(name, await gz(JSON.stringify(rows)), { httpMetadata: { contentType: 'application/gzip' } });
+      files.push(name);
+      counts[table] += rows.length;
+      after = rows[rows.length - 1][key];
+      if (rows.length < BACKUP_PAGE) break;
+    }
+  }
+  const manifest = { at: now, prefix, counts, files };
+  await env.BACKUPS.put(`${prefix}manifest.json`, JSON.stringify(manifest, null, 1), { httpMetadata: { contentType: 'application/json' } });
+  await env.BACKUPS.put('backups/latest.json', JSON.stringify({ at: now, prefix }), { httpMetadata: { contentType: 'application/json' } });
+  return manifest;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -230,5 +291,5 @@ export default {
     }
     return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
   },
-  async scheduled(_event, env) { await tidy(env); },
+  async scheduled(_event, env) { await tidy(env); await backup(env); },
 };

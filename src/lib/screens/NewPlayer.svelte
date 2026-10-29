@@ -104,7 +104,7 @@
         </button>
       </div>
       <label class="layout">
-        Keyboard
+        Keyboard (for typing)
         <select bind:value={layout}>
           {#each LAYOUT_LIST as l}<option value={l.id}>{l.name}</option>{/each}
         </select>

@@ -10,6 +10,7 @@ import { GEAR, type Rarity } from './glimmers';
 import { advOf, advView, type IslandId } from './state';
 import { ITEMS, NO_NUDGE, SETS, buyGear, lookView, setNudge, wardrobeView, wearGear, type Dress, type Nudge, type SetId, type WearSlot } from './gear';
 import { WEARABLES, type Wearable } from './wearables';
+import { VIBES_LIST } from './vibes';
 
 export type Vibe = Wearable['vibe'];
 export const VIBES: { id: Vibe; name: string }[] = [
@@ -52,6 +53,9 @@ export const CATALOG: CatalogItem[] = [
   })),
   ...WEARABLES.map((w): CatalogItem => ({
     id: w.id, name: w.name, slot: w.slot, rarity: w.rarity, icon: w.icon, how: 'shop', price: w.price, text: w.text, power: null, vibe: w.vibe, lib: w,
+  })),
+  ...VIBES_LIST.map((v): CatalogItem => ({
+    id: v.id, name: v.name, slot: 'vibe', rarity: v.rarity, icon: v.icon, how: 'shop', price: v.price, text: v.text, power: null, vibe: v.vibe,
   })),
 ];
 export const CAT: Record<string, CatalogItem> = Object.fromEntries(CATALOG.map(c => [c.id, c]));

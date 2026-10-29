@@ -1,6 +1,6 @@
 // One place for the game's name and links, so a rename is a one-line change.
 export const GAME_NAME = 'Keypals';
-export const GAME_TAGLINE = 'A typing adventure across the sky islands';
+export const GAME_TAGLINE = 'Typing, math and adventures across the sky islands';
 export const STUDIO = 'FancyAnt Games';
 export const STUDIO_URL = 'https://fancyant.com';
 export const SOURCE_URL = 'https://github.com/erikkwilder/keypals-3d';

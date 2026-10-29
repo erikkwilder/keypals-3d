@@ -398,7 +398,7 @@
   .lock { display: flex; align-items: center; gap: 4px; font: 800 12px var(--font-body); color: var(--muted); }
   /* gear: the four spots on the buddy, the pieces for the chosen spot, the sets */
   .gearpane { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px 2px 8px; }
-  .gslots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+  .gslots { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
   .gslot { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px 4px; border-radius: 18px; border: 3px solid transparent; background: rgba(255, 255, 255, .92); cursor: pointer; box-shadow: var(--shadow-sm); font: inherit; }
   .gslot.on { border-color: var(--primary-hi); background: #fff; }
   .gslot.hat { opacity: .9; }
@@ -479,7 +479,7 @@
     .gearpane, .grid { flex: none; overflow: visible; }
     .tabs button { font-size: 16px; gap: 4px; padding: 6px 4px; min-width: 0; }
     .tabs button em { display: none; }
-    .gslots { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .gslots { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .mover { padding: 8px; gap: 6px; }
     .mv { min-height: 54px; font-size: 18px; } .mv :global(img) { width: 30px; height: 30px; }
     .tabs button :global(svg), .tabs .shopbtn img { width: 30px; height: 30px; }

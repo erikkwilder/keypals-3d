@@ -43,6 +43,8 @@ export class BattleScene implements Controller {
   private banners: THREE.Mesh[] = [];
   private fires: THREE.Vector3[] = [];
   private shake = 0;
+  /** the painted storm-cloud pictures (the same as the grumpy Glimmer's cloud) */
+  private stormTex: (THREE.Texture | null)[] = [];
   private revealed: GlimmerModel | null = null;
   private foeGone = false; private foeLeave = 0;
   private hover = 0;
@@ -86,9 +88,11 @@ export class BattleScene implements Controller {
     ]);
     if (!me) throw new Error('character missing');
     void dressUp(me);
+    const storm = await Promise.all([loadTexture('game/storm1.webp'), loadTexture('game/storm2.webp')]);
     await me.loadMoves();
     const grumble = await GrumpyGlimmer.create(opts.foe.glimmer, opts.foe.champion, opts.foe.evolved);
     const sc = new BattleScene(island, me, grumble, team as (GlimmerModel | null)[], opts);
+    sc.stormTex = storm;
     await sc.buildArena();
     return sc;
   }
@@ -301,18 +305,28 @@ export class BattleScene implements Controller {
       this.shake = 0.14;
     }
   }
-  /** A little dark raincloud over the buddy for a moment. */
+  /** A little raincloud over the buddy for a moment: the same painted storm cloud the grumpy Glimmer sits
+   *  under (and the duel's rain clouds), raining for a beat. */
   private cloudlet(at: THREE.Vector3) {
     const g = new THREE.Group();
-    const mat = new THREE.MeshStandardMaterial({ color: 0x6a7086, roughness: 1, transparent: true, opacity: 0.95 });
-    for (const [x, y, r] of [[0, 0, 0.32], [-0.3, -0.05, 0.24], [0.3, -0.04, 0.25], [0.1, 0.18, 0.22]]) { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat); m.position.set(x, y, 0); g.add(m); }
+    const mats: THREE.SpriteMaterial[] = [];
+    [[0, 0, 1], [-0.3, -0.05, 0.75], [0.32, -0.04, 0.8]].forEach(([x, y, w], k) => {
+      const t = this.stormTex[k % 2] ?? null;
+      const m = new THREE.SpriteMaterial({ map: t, color: 0x9aa2bc, transparent: true, depthWrite: false, opacity: t ? 1 : 0 });
+      mats.push(m);
+      const sp = new THREE.Sprite(m);
+      sp.scale.set(0.95 * w, 0.95 * w * 0.48, 1); sp.position.set(x * 0.95, y * 0.45, k * -0.02); sp.renderOrder = 2; g.add(sp);
+    });
     g.position.copy(at); g.scale.setScalar(0.01);
     stage.scene.add(g);
     const t0 = performance.now();
+    let rained = false;
     const tick = () => {
       const k = (performance.now() - t0) / 1400;
       g.scale.setScalar(k < 0.15 ? k / 0.15 : k > 0.8 ? Math.max(0.01, (1 - k) / 0.2) : 1);
-      if (k < 1) requestAnimationFrame(tick); else { g.removeFromParent(); g.traverse(o => (o as THREE.Mesh).geometry?.dispose()); mat.dispose(); }
+      g.position.x = at.x + Math.sin(k * 9) * 0.03;
+      if (!rained && k > 0.18) { rained = true; this.fx.emit({ at: g.position.clone().add(new THREE.Vector3(0, -0.15, 0)), count: 60, shape: 'drop', color: [0x9fd0ff, 0xd6ecff], dir: new THREE.Vector3(0, -1, 0), spread: 0.15, speed: [3, 5], radius: 0.4, life: [0.4, 0.7], size: [0.08, 0.13], gravity: 6 }); }
+      if (k < 1) requestAnimationFrame(tick); else { g.removeFromParent(); mats.forEach(m => m.dispose()); }
     };
     tick();
   }

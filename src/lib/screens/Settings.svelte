@@ -3,7 +3,8 @@
   import { outfitOf } from '../engine/profile';
   import type { Look } from '../art/cast';
   import { LAYOUT_LIST } from '../engine/layouts';
-  import { TUNES, MUSIC_STYLES, sfx, melodyNote, resetMelody, type MusicStyleId } from '../audio/sound';
+  import { TUNES, sfx, melodyNote, resetMelody } from '../audio/sound';
+  import { STATION } from '../audio/stations';
   import type { Settings } from '../engine/profile';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -112,13 +113,10 @@
         <label class="row">Coach voice <input type="checkbox" checked={s.voice !== false} onchange={(e) => set('voice', e.currentTarget.checked)} /></label>
         <label class="row">Music <input type="checkbox" checked={s.music} onchange={(e) => set('music', e.currentTarget.checked)} /></label>
         {#if s.music}
-          <div class="row">Music style
-            <div class="seg wrap">
-              {#each Object.entries(MUSIC_STYLES) as [id, st]}<button class:on={(s.musicStyle ?? 'sunny') === id} onclick={() => set('musicStyle', id as MusicStyleId)}>{st.name}</button>{/each}
-              <button class:on={s.musicStyle === 'mix'} onclick={() => set('musicStyle', 'mix')}>Mix</button>
-            </div>
+          <div class="row">Music
+            <button class="musicpick" onclick={() => { sfx.click(); game.openMusic(); }}><img src="{import.meta.env.BASE_URL}icons/music/{s.musicStation && s.musicStation !== 'auto' ? s.musicStation : 'happy'}.webp" alt="" /><span>{s.musicStation && s.musicStation !== 'auto' ? STATION[s.musicStation].name : 'Auto'}</span><b>Pick your music</b></button>
           </div>
-          <p class="hint">Tap a style to hear it now. Mix plays a different style in each lesson.</p>
+          <p class="hint">Calm, happy, adventure, rock, electronic, retro and more, or Keypals Originals. You can switch any time with the music button.</p>
         {/if}
         <label class="row">Volume <input type="range" min="0" max="1" step="0.05" value={s.volume} oninput={(e) => game.update(pp => { pp.settings.volume = +e.currentTarget.value; })} /></label>
         <label class="row">Melody keys <input type="checkbox" checked={s.melody} onchange={(e) => set('melody', e.currentTarget.checked)} /></label>
@@ -202,4 +200,7 @@
   .font span { font-size: 12px; color: var(--muted); font-family: var(--font-body); }
   .danger { color: #c0396f; }
   .warn { color: #c0396f; }
+  .musicpick { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; padding: 4px 14px 4px 4px; background: #f4efff; cursor: pointer; font: 700 15px var(--font-body); color: var(--ink2); box-shadow: inset 0 0 0 2px #e2d8ff; }
+  .musicpick img { width: 34px; height: 34px; object-fit: contain; }
+  .musicpick b { color: var(--primary); }
 </style>

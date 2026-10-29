@@ -15,6 +15,7 @@ import { FRIEND } from '../art/cast';
 import { loadGltf } from './assets';
 import { NO_NUDGE, type Nudge, type WearSlot } from '../adventure/gear';
 import { LIB } from '../adventure/wardrobe';
+import { VIBE } from '../adventure/vibes';
 type Slot = WearSlot;
 
 type Worn = { id: string; objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void; nz: { v: Nudge }; onNudge: (() => void)[] };
@@ -599,6 +600,134 @@ async function shoes(x: Ctx): Promise<Built | null> {
   return { objs, tick: (dt, t) => ticks.forEach(k => k(dt, t)) };
 }
 
+/** A little life for some things in hand: a wobble, a swish, rain from the umbrella's cloud, a butterfly
+ *  that won't be caught, a phone that rings. Cheap: a turn each frame, a few sprites at most. */
+async function handFun(x: Ctx, g: THREE.Group, piece: THREE.Group, s: number, len: number): Promise<((dt: number, t: number, p: THREE.Vector3) => void) | null> {
+  const id = x.id, rnd = Math.random;
+  const sprite = async (path: string, tint = 0xffffff) => { const m = await loadTexture(path); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: m, color: tint, transparent: true, depthWrite: false })); g.add(sp); return sp; };
+  if (id === 'rubber_chicken') {
+    // a squeeze every few seconds, and a little bounce
+    const base = piece.scale.x;
+    return (_dt, t) => { const k = Math.max(0, Math.sin(t * 2.2)) ** 8; piece.scale.set(base * (1 + k * 0.12), base * (1 - k * 0.18), base); piece.rotation.z += Math.sin(t * 9) * k * 0.2; };
+  }
+  if (id === 'foam_finger') return (_dt, t) => { piece.rotation.z += Math.sin(t * 3.4) * 0.22; };
+  if (id === 'baguette_sword') return (_dt, t) => { const k = Math.max(0, Math.sin(t * 0.9)) ** 12; piece.rotation.z += -k * 0.9; piece.rotation.x += k * 0.3; };
+  // (turning a flat lollipop round showed its thin edge: a happy waggle keeps the swirl facing out)
+  if (id === 'giant_lollipop') return (_dt, t) => { piece.rotation.z += Math.sin(t * 2.4) * 0.14; piece.rotation.y += Math.sin(t * 1.1) * 0.25; };
+  if (id === 'triple_cone') return (_dt, t) => { piece.rotation.z += Math.sin(t * 2.6) * 0.06; piece.rotation.x += Math.sin(t * 2.1) * 0.05; };
+  if (id === 'banana_phone') {
+    // it rings: a buzz now and then, with notes
+    const notes = await Promise.all([0, 1].map(i => sprite(`gear/tex-note${i}.webp`)));
+    notes.forEach(n => n.scale.setScalar(0.0001));
+    return (_dt, t, p) => {
+      const ring = (t % 4) < 0.9, k = (t % 4) / 0.9;
+      if (ring) piece.rotation.z += Math.sin(t * 60) * 0.06;
+      notes.forEach((n, i) => { n.position.set(p.x + (i ? -1 : 1) * s * 0.07, p.y + len * 0.6 + k * s * 0.12, p.z + s * 0.05); n.scale.setScalar(ring ? s * 0.06 * Math.sin(Math.min(1, k) * Math.PI) : 0.0001); });
+    };
+  }
+  if (id === 'cloud_umbrella') {
+    // drizzle from the cloud on top, landing on the brim
+    const drops = await Promise.all(Array.from({ length: stage.low ? 3 : 6 }, () => sprite('vibes/dot.webp', 0x8ccfff)));
+    const ph = drops.map(() => rnd());
+    return (dt, t, p) => drops.forEach((d, i) => {
+      ph[i] = (ph[i] + dt * 1.1) % 1;
+      const a = i * 2.4;
+      d.position.set(p.x + Math.sin(a) * s * 0.1, p.y + len * (0.95 - ph[i] * 0.35), p.z + s * 0.04 + Math.cos(a) * s * 0.08);
+      d.scale.setScalar(s * 0.025 * Math.sin(ph[i] * Math.PI));
+    });
+  }
+  // the top of the thing in hand (it stands up from the grip, a fifth of the way up)
+  const top = (p: THREE.Vector3, k = 0.8) => tmpTop.set(p.x - s * 0.02, p.y + len * k, p.z + s * 0.04);
+  const tmpTop = new THREE.Vector3();
+  if (id === 'balloon_sword') {
+    const base = piece.scale.x;
+    return (_dt, t) => { const k = Math.sin(t * 5.5); piece.scale.set(base * (1 + k * 0.05), base * (1 - k * 0.06), base * (1 + k * 0.05)); piece.rotation.z += Math.sin(t * 2.3) * 0.12; };
+  }
+  if (id === 'fish_rod') return (_dt, t) => { piece.rotation.z += Math.sin(t * 1.8) * 0.16 + Math.sin(t * 13) * 0.025; piece.rotation.x += Math.sin(t * 1.1) * 0.06; };
+  if (id === 'magic_8ball') {
+    // the answer window glows, and a shake now and then
+    const glow = await sprite('vibes/dot.webp', 0x7ab8ff);
+    (glow.material as THREE.SpriteMaterial).blending = THREE.AdditiveBlending;
+    return (_dt, t, p) => {
+      const shake = (t % 5) < 0.6;
+      if (shake) { piece.rotation.z += Math.sin(t * 40) * 0.12; piece.rotation.x += Math.cos(t * 37) * 0.08; }
+      top(p, 0.45); glow.position.set(tmpTop.x, tmpTop.y, tmpTop.z + len * 0.32);
+      glow.scale.setScalar(len * (0.35 + 0.12 * Math.sin(t * 2.5)) * (shake ? 0.6 : 1));
+    };
+  }
+  if (id === 'firefly_lantern') {
+    // a warm glow that pulses and flickers (painted light alone looked pale)
+    const glow = await sprite('vibes/dot.webp', 0xffc95a);
+    (glow.material as THREE.SpriteMaterial).blending = THREE.AdditiveBlending;
+    return (_dt, t, p) => {
+      top(p, 0.5); glow.position.copy(tmpTop);
+      const f = 0.85 + 0.15 * Math.sin(t * 3) + 0.06 * Math.sin(t * 17) * Math.sin(t * 7);
+      glow.scale.setScalar(len * 0.95 * f);
+      (glow.material as THREE.SpriteMaterial).opacity = 0.75 * f;
+      piece.rotation.z += Math.sin(t * 1.4) * 0.07;
+    };
+  }
+  if (id === 'walkie_talkie') {
+    const led = await sprite('vibes/dot.webp', 0x5dff7a);
+    (led.material as THREE.SpriteMaterial).blending = THREE.AdditiveBlending;
+    return (_dt, t, p) => { top(p, 0.86); led.position.set(tmpTop.x + len * 0.08, tmpTop.y, tmpTop.z + len * 0.12); led.scale.setScalar((t % 1.2) < 0.35 ? len * 0.12 : 0.0001); };
+  }
+  if (id === 'ufo_string') {
+    // it bobs on its string and spins slowly; its rim lights blink in turn
+    const cols = [0xff6b6b, 0xffe066, 0x6ec6ff, 0x7ee081];
+    const lights = await Promise.all(cols.map(c => sprite('vibes/dot.webp', c)));
+    lights.forEach(l => ((l.material as THREE.SpriteMaterial).blending = THREE.AdditiveBlending));
+    return (_dt, t, p) => {
+      piece.position.y += Math.sin(t * 1.7) * len * 0.05;
+      piece.rotation.y += t * 0.9;
+      // round the saucer's rim (about three quarters of the way up, nearly half the thing wide)
+      top(p, 0.66);
+      lights.forEach((l, i) => {
+        const a = t * 0.9 + (i / lights.length) * Math.PI * 2;
+        l.position.set(tmpTop.x + Math.sin(a) * len * 0.42, tmpTop.y + Math.sin(t * 1.7) * len * 0.05, tmpTop.z + Math.cos(a) * len * 0.42);
+        l.scale.setScalar(Math.floor(t * 3) % lights.length === i ? len * 0.09 : len * 0.04);
+      });
+    };
+  }
+  if (id === 'bubble_blaster' || id === 'toot_trumpet' || id === 'star_mic') {
+    // puffs of bubbles, notes or sparkles from the end, every few seconds
+    const paths = id === 'bubble_blaster' ? ['math/bubble.webp'] : id === 'toot_trumpet' ? ['gear/tex-note0.webp', 'gear/tex-note1.webp', 'gear/tex-note2.webp'] : ['vibes/sparkle.webp'];
+    const ps = await Promise.all(Array.from({ length: stage.low ? 3 : 5 }, (_, i) => sprite(paths[i % paths.length])));
+    const life = ps.map(() => -1), vel = ps.map(() => new THREE.Vector3()), every = id === 'star_mic' ? 1.4 : 3;
+    let next = 0.5, k = 0;
+    return (dt, t, p) => {
+      next -= dt;
+      if (next < 0) {
+        next = every;
+        for (let j = 0; j < (id === 'star_mic' ? 2 : 3); j++) {
+          const i = k++ % ps.length;
+          top(p, 0.9); ps[i].position.copy(tmpTop); life[i] = 0;
+          vel[i].set((rnd() - 0.5) * s * 0.15, s * (0.18 + rnd() * 0.12), s * (0.08 + rnd() * 0.08));
+        }
+      }
+      ps.forEach((sp, i) => {
+        if (life[i] < 0) { sp.scale.setScalar(0.0001); return; }
+        life[i] += dt;
+        const kk = life[i] / 1.6;
+        sp.position.addScaledVector(vel[i], dt);
+        if (id === 'star_mic') (sp.material as THREE.SpriteMaterial).rotation += dt * 2;
+        sp.scale.setScalar(kk >= 1 ? 0.0001 : s * (id === 'bubble_blaster' ? 0.07 : 0.06) * Math.min(1, life[i] * 5) * (1 - Math.max(0, kk - 0.7) / 0.3));
+        if (kk >= 1) life[i] = -1;
+      });
+    };
+  }
+  if (id === 'butterfly_net') {
+    // a firefly that always gets away
+    const fly = await sprite('vibes/firefly.webp');
+    return (_dt, t, p) => {
+      fly.position.set(p.x + Math.sin(t * 1.3) * s * 0.18 - s * 0.05, p.y + len * 0.95 + Math.sin(t * 2.7) * s * 0.06, p.z + s * 0.1 + Math.cos(t * 1.3) * s * 0.12);
+      fly.scale.setScalar(s * 0.08 * (0.9 + 0.1 * Math.sin(t * 20)));
+      piece.rotation.z += Math.sin(t * 1.3 + 0.6) * 0.18;
+    };
+  }
+  return null;
+}
+
 /** A line's value at a height (bind space). */
 function lineAt(l: { top: number; bottom: number; z: number[] } | null, y: number, dflt: number) {
   if (!l) return dflt;
@@ -624,20 +753,22 @@ async function libModel(x: Ctx): Promise<Built | null> {
     const hand = handTracker(c, f);
     if (!hand) return null;
     const hold = handHeld(x), s = hw(c);
-    const inside = box.min.y <= 0 && box.max.y >= 0 && Math.abs(mid.x) < size.x && Math.abs(mid.z) < size.z;
-    const grip = new THREE.Vector3(mid.x, inside ? 0 : box.min.y + size.y * 0.33, mid.z);
+    // held near the bottom: a handle, a stick, the tip of a cone (models' own origins aren't reliable)
+    const grip = new THREE.Vector3(mid.x, box.min.y + size.y * 0.2, mid.z);
     obj.position.copy(grip).negate();
     const piece = new THREE.Group(); piece.add(obj);
     piece.scale.setScalar((lib.size * s) / Math.max(1e-6, size.y));
     hold.g.add(piece);
+    const fun = await handFun(x, hold.g, piece, s, (size.y * piece.scale.y));
     return {
       objs: [hand.g, hold.g],
-      tick: (_dt, t) => {
+      tick: (dt, t) => {
         const p = hand.at();
         hold.at(p);
         // held a little in front of the hand, upright, swaying with the buddy
         piece.position.set(p.x - s * 0.02, p.y, p.z + s * 0.04);
         piece.rotation.set(0, -0.25 + Math.sin(t * 1.3) * 0.06, Math.sin(t * 1.7) * 0.05);
+        fun?.(dt, t, p);
       },
     };
   }
@@ -676,7 +807,126 @@ async function libModel(x: Ctx): Promise<Built | null> {
   piece.rotation.y = turn;
   piece.position.copy(at);
   hb.inner.add(piece);
+  if (id === 'robot_visor') {
+    // a light sweeps across the visor's strip
+    const map = await loadTexture('vibes/dot.webp');
+    const w = lib.size * width, sw = new THREE.Sprite(new THREE.SpriteMaterial({ map, color: 0xff4d6d, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    sw.scale.setScalar(w * 0.22); hb.inner.add(sw);
+    return { objs: [hb.g], tick: (_dt, t) => { sw.position.set(at!.x + Math.sin(t * 2.2) * w * 0.36, at!.y, at!.z + w * 0.1); } };
+  }
   return { objs: [hb.g] };
+}
+
+// ---------- vibes: an aura round the buddy ----------
+/** A vibe (vibes.ts): a few painted sprites round the buddy, moving their own way. Never more than a
+ *  dozen or so (half on a slow device), sized by the buddy, and a sprite that drifts in front of the
+ *  face shrinks away. Everything sits in the buddy's own space (so it follows it), but a trail is
+ *  left in the world, so a run leaves a stripe behind. */
+async function vibeFx(x: Ctx): Promise<Built | null> {
+  const { c } = x, v = VIBE[x.id];
+  if (!v) return null;
+  const h = hw(c);
+  const maps = (await Promise.all(v.sprites.map(p => loadTexture(p)))).filter((m): m is THREE.Texture => !!m);
+  if (!maps.length) return null;
+  const hold = new THREE.Group();
+  hold.matrixAutoUpdate = false;
+  c.root.add(hold);
+  const pivot = new THREE.Vector3(0, h * 0.55, 0);
+  const apply = () => { nudgeMatrix(hold.matrix, pivot, x.nz.v, h); hold.matrixWorldNeedsUpdate = true; };
+  apply(); x.onNudge.push(apply);
+  const mat = (map: THREE.Texture, tint?: number) => new THREE.SpriteMaterial({ map, color: tint ?? 0xffffff, transparent: true, depthWrite: false, blending: v.glow ? THREE.AdditiveBlending : THREE.NormalBlending, opacity: v.glow ? 0.95 : 1 });
+  const N = stage.low ? 7 : 14, rnd = Math.random;
+  type P = { s: THREE.Sprite; age: number; life: number; a: number; r: number; y: number; vy: number; ph: number; size: number; spin: number; world?: THREE.Vector3; seen: number };
+  const ps: P[] = [];
+  // sides and back, not the front (where the face is): an angle round the buddy, 0 straight ahead
+  const side = () => (0.32 + rnd() * 1.36) * Math.PI;
+  const objs: THREE.Object3D[] = [hold];
+  let trail: THREE.Group | null = null;
+  const make = (k: number): P => {
+    const map = maps[k % maps.length], tint = v.tints ? v.tints[k % v.tints.length] : undefined;
+    const sp = new THREE.Sprite(mat(map, tint));
+    sp.renderOrder = 3;
+    return { s: sp, age: rnd() * 3, life: 2.2 + rnd() * 1.4, a: side(), r: h * (0.3 + rnd() * 0.25), y: h * (0.15 + rnd() * 0.85), vy: 0, ph: rnd() * 6.28, size: h * v.size * (0.75 + rnd() * 0.5), spin: (rnd() - 0.5) * 2, seen: 1 };
+  };
+  const count = v.motion === 'overhead' ? 1 + Math.round(N * 0.4) : v.motion === 'orbit' ? 6 : v.motion === 'trail' ? Math.round(N * 1.4) : N;
+  for (let k = 0; k < count; k++) { const p = make(k); ps.push(p); if (v.motion !== 'trail') hold.add(p.s); }
+  // the glow: a soft pool of light on the ground under the buddy
+  let pool: THREE.Mesh | null = null;
+  if (v.motion === 'glow') {
+    const pm = new THREE.MeshBasicMaterial({ map: maps[0], color: 0xffd36b, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.55 });
+    pool = new THREE.Mesh(new THREE.PlaneGeometry(h * 1.0, h * 1.0), pm);
+    // a little above the ground: the islands slope, and a flat pool sank into the uphill side
+    pool.rotation.x = -Math.PI / 2; pool.position.y = h * 0.06; pool.renderOrder = 1;
+    hold.add(pool);
+  }
+  const cloud = v.motion === 'overhead' ? ps[0] : null;
+  if (cloud) { cloud.size = h * v.size; cloud.s.material.map = maps[0]; }
+  const face = (q: THREE.Vector3) => (q.z > -h * 0.02 && Math.abs(q.x) < h * 0.3 && q.y > h * 0.55 && q.y < h * 1.0 ? 0 : 1);
+  const tmp = new THREE.Vector3();
+  const respawn = (p: P) => {
+    p.age = 0; p.life = 2.2 + rnd() * 1.4; p.a = side(); p.ph = rnd() * 6.28;
+    if (v.motion === 'rise') { p.r = h * (0.3 + rnd() * 0.22); p.y = h * (0.15 + rnd() * 0.4); p.vy = h * (0.16 + rnd() * 0.12); }
+    if (v.motion === 'fall') { p.a = rnd() * Math.PI * 2; p.r = h * (0.18 + rnd() * 0.45); p.y = h * (1.3 + rnd() * 0.2); p.vy = -h * (0.14 + rnd() * 0.1); p.life = 6; }
+  };
+  ps.forEach(p => { if (v.motion === 'rise' || v.motion === 'fall') { respawn(p); p.age = rnd() * p.life; if (v.motion === 'fall') p.y -= rnd() * h * 1.1; } });
+  return {
+    objs,
+    tick: (dt, t) => {
+      if (v.motion === 'trail' && !trail && c.root.parent) { trail = new THREE.Group(); c.root.parent.add(trail); objs.push(trail); ps.forEach(p => trail!.add(p.s)); }
+      if (pool) (pool.material as THREE.MeshBasicMaterial).opacity = 0.42 + 0.14 * Math.sin(t * 1.6);
+      ps.forEach((p, k) => {
+        p.age += dt;
+        let grow = 1;
+        if (p === cloud) {
+          tmp.set(Math.sin(t * 0.7) * h * 0.04, h * 1.12 + Math.sin(t * 1.3) * h * 0.025, -h * 0.02);
+        } else if (cloud) {
+          // drizzle from the cloud's belly, stopping above the head
+          const k2 = (p.age % 1.1) / 1.1;
+          if (p.age % 1.1 < dt) { p.a = (rnd() - 0.5) * h * 0.3; p.ph = (rnd() - 0.5) * h * 0.12; }
+          tmp.set(p.a, h * (1.04 - k2 * 0.12), p.ph); grow = (1 - k2) * 0.3; p.s.material.color.setHex(0x9fd4ff);
+        } else if (v.motion === 'drift' || v.motion === 'glow') {
+          p.a += dt * 0.25 * (k % 2 ? 1 : -1);
+          const yy = v.motion === 'glow' ? h * (0.05 + ((p.ph + t * 0.12) % 1) * 1.0) : p.y + Math.sin(t * 0.8 + p.ph) * h * 0.06;
+          tmp.set(Math.sin(p.a) * p.r, yy, Math.cos(p.a) * p.r);
+          grow = 0.55 + 0.45 * Math.sin(t * 3 + p.ph) ** 2;
+          if (v.motion === 'glow') grow *= Math.sin(((p.ph + t * 0.12) % 1) * Math.PI);
+        } else if (v.motion === 'rise' || v.motion === 'fall') {
+          p.y += p.vy * dt;
+          const sway = Math.sin(t * 1.6 + p.ph) * h * (v.motion === 'fall' ? 0.08 : 0.04);
+          tmp.set(Math.sin(p.a) * p.r + sway, p.y, Math.cos(p.a) * p.r);
+          const k2 = p.age / p.life;
+          grow = Math.min(1, p.age * 3) * (v.motion === 'rise' ? Math.max(0, 1 - Math.max(0, k2 - 0.7) / 0.3) : 1);
+          if (v.motion === 'fall') { p.s.material.rotation += p.spin * dt * 1.5; if (p.y < h * 0.02) respawn(p); }
+          else if (k2 >= 1) respawn(p);
+        } else if (v.motion === 'orbit') {
+          const a = t * 1.6 + (k / ps.length) * Math.PI * 2;
+          tmp.set(Math.sin(a) * h * 0.26, h * 1.03 + Math.sin(a * 2) * h * 0.02, Math.cos(a) * h * 0.2);
+          grow = 0.8 + 0.2 * Math.sin(t * 5 + k);
+        } else if (v.motion === 'swirl') {
+          const u = (p.ph / 6.28 + t * 0.09) % 1, a = p.ph * 3 + t * 1.3;
+          tmp.set(Math.sin(a) * h * 0.42, h * (0.05 + u * 1.15), Math.cos(a) * h * 0.42);
+          grow = Math.sin(u * Math.PI);
+        } else if (v.motion === 'trail') {
+          // a stripe left behind: each sparkle starts at the feet and stays where it was let go
+          if (p.age >= p.life || !p.world) {
+            p.age = 0; p.life = 1.2 + rnd() * 0.8;
+            c.root.updateMatrixWorld();
+            p.world = c.root.localToWorld(new THREE.Vector3((rnd() - 0.5) * h * 0.4, h * (0.03 + rnd() * 0.25), (rnd() - 0.6) * h * 0.3));
+          }
+          p.world.y += dt * h * 0.12;
+          const k2 = p.age / p.life;
+          grow = Math.min(1, p.age * 4) * (1 - k2);
+          p.s.position.copy(p.world);
+          p.s.scale.setScalar(p.size * grow * x.nz.v.s);
+          return;
+        }
+        // a sprite in front of the face shrinks away; it comes back as it moves on
+        p.seen += (face(tmp) - p.seen) * Math.min(1, dt * 8);
+        p.s.position.copy(tmp);
+        p.s.scale.setScalar(Math.max(0.0001, p.size * grow * (p === cloud ? 1 : p.seen)));
+      });
+    },
+  };
 }
 
 const BUILD: Record<string, (x: Ctx) => Promise<Built | null>> = {
@@ -684,7 +934,7 @@ const BUILD: Record<string, (x: Ctx) => Promise<Built | null>> = {
   bubble_wand: bubbleWand, sky_kite: kite, boombox,
   spring_shoes: shoes, cloud_slippers: shoes, rocket_sneakers: shoes,
 };
-const builderOf = (id: string) => BUILD[id] ?? (LIB[id]?.slot === 'feet' ? shoes : LIB[id] ? libModel : null);
+const builderOf = (id: string) => BUILD[id] ?? (VIBE[id] ? vibeFx : LIB[id]?.slot === 'feet' ? shoes : LIB[id] ? libModel : null);
 
 function rigOf(c: Character): Rig {
   let r = rigs.get(c);
@@ -730,7 +980,7 @@ export async function wearGear(c: Character, slot: Slot, id: string | null, nudg
 }
 /** Wear everything for every slot but the head (missing slots are taken off), with the nudges. */
 export async function wearKit(c: Character, kit: Partial<Record<Slot, string>>, nudge: Record<string, Nudge> = {}) {
-  await Promise.all((['face', 'neck', 'back', 'hand', 'feet'] as Slot[]).map(s => { const id = kit[s] ?? null; return wearGear(c, s, id, id ? nudge[id] ?? null : null); }));
+  await Promise.all((['face', 'neck', 'back', 'hand', 'feet', 'vibe'] as Slot[]).map(s => { const id = kit[s] ?? null; return wearGear(c, s, id, id ? nudge[id] ?? null : null); }));
 }
 /** Live nudge while moving a piece in the Wardrobe (no rebuild). */
 export function nudgeGear(c: Character, slot: Slot, n: Nudge) {

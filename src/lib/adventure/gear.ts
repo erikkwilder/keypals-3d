@@ -8,13 +8,13 @@
 import type { Rarity } from './glimmers';
 import type { Adventure, IslandId } from './state';
 
-/** Where a thing is worn. */
-export type WearSlot = 'head' | 'face' | 'neck' | 'back' | 'hand' | 'feet';
-export const WEAR_SLOTS: WearSlot[] = ['head', 'face', 'neck', 'back', 'hand', 'feet'];
+/** Where a thing is worn (a vibe is an aura round the buddy: vibes.ts). */
+export type WearSlot = 'head' | 'face' | 'neck' | 'back' | 'hand' | 'feet' | 'vibe';
+export const WEAR_SLOTS: WearSlot[] = ['head', 'face', 'neck', 'back', 'hand', 'feet', 'vibe'];
 /** (the battle pieces' slots) */
 export type Slot = WearSlot;
 export const SLOTS: Slot[] = ['hand', 'back', 'feet'];
-export const SLOT_NAME: Record<WearSlot, string> = { head: 'Head', face: 'Face', neck: 'Neck', back: 'Back', hand: 'In hand', feet: 'Feet' };
+export const SLOT_NAME: Record<WearSlot, string> = { head: 'Head', face: 'Face', neck: 'Neck', back: 'Back', hand: 'In hand', feet: 'Feet', vibe: 'Vibes' };
 
 /** A nudge from the Move it tool: x, y, z as a share of the buddy's height (x to the buddy's left, y up,
  *  z forward), s a size multiplier, r a turn in radians. */

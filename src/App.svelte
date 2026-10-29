@@ -1,7 +1,8 @@
 <script lang="ts">
+  import MusicPicker from './lib/ui/MusicPicker.svelte';
   import { onMount } from 'svelte';
   import { game } from './lib/state/game.svelte';
-  import { configureSound, startMusic, unlockAudio, setMusicStyle } from './lib/audio/sound';
+  import { configureSound, startMusic, unlockAudio, setMusicStyle, setMusicStation } from './lib/audio/sound';
   import SvgDefs from './lib/ui/SvgDefs.svelte';
   import Title from './lib/screens/Title.svelte';
   import Players from './lib/screens/Players.svelte';
@@ -33,9 +34,9 @@
   import QuickSettings from './lib/ui/QuickSettings.svelte';
   import FunLayer from './lib/fun/FunLayer.svelte';
   import LessonChart from './lib/ui/LessonChart.svelte';
-  import FancyAntIntro from './lib/ui/FancyAntIntro.svelte';
-  // the FancyAnt hello plays once when the game opens (not on dev shortcuts like #run=)
-  let intro = $state(!location.hash);
+  import FancyAntIntro, { introDue } from './lib/ui/FancyAntIntro.svelte';
+  // the FancyAnt film plays once a visit when the game opens (not on dev shortcuts like #run=)
+  let intro = $state(!location.hash && introDue());
   import { devBoot } from './lib/state/dev';
   import { startCloud } from './lib/state/cloud.svelte';
   // every 3D buddy dresses from the player's save: its hat, everything else it has on, and its nudges
@@ -49,12 +50,23 @@
     root.dataset.motion = s.reducedMotion ? 'reduced' : 'full';
     configureSound({ sound: s.sound, music: s.music, volume: s.volume });
     setMusicStyle(s.musicStyle ?? 'sunny');
+    setMusicStation(s.musicStation ?? 'auto');
   });
 
-  // menu music on the screens around the lessons
+  // the first game a player starts (a math trip, the playground, a battle, a duel) asks how things should
+  // sound, once per player; a typing lesson asks for itself, before its coach starts talking
   $effect(() => {
     const scr = game.screen;
-    if (scr !== 'run' && scr !== 'mathRun' && scr !== 'title') startMusic('menu');
+    if (!['mathRun', 'playground', 'battle', 'duel'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
+    setTimeout(() => { if (game.screen === scr && game.profile && !game.profile.soundSetup && !game.sheet) game.openSheet('setup'); }, 300);
+  });
+
+  // menu music on the screens around the lessons; Adventure's own on its screens (Auto plays an
+  // adventure there; a picked station just keeps playing)
+  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs']);
+  $effect(() => {
+    const scr = game.screen;
+    if (scr !== 'run' && scr !== 'mathRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
   });
 
   let canvas: HTMLCanvasElement | undefined = $state();
@@ -99,6 +111,7 @@
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}
   {#if game.chartLesson && game.profile}{#key game.chartLesson}<LessonChart />{/key}{/if}
   {#if game.sheet}<QuickSettings />{/if}
+  {#if game.musicOpen}<MusicPicker />{/if}
   <FunLayer />
   {#if game.toast}<div class="toast">{game.toast}</div>{/if}
 </main>

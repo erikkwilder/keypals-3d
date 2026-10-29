@@ -12,7 +12,9 @@
   import { advOf, advView, PLAY_RULES, type AdvSettings, type PlayRule } from '../adventure/state';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
-  import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, openCode } from '../state/cloud.svelte';
+  import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, openCode, addAllFromAccount, grownupOpen, showCode } from '../state/cloud.svelte';
+  import GrownupGate from '../ui/GrownupGate.svelte';
+  import CodeCard from '../ui/CodeCard.svelte';
 
   let saveMsg = $state<string | null>(null);
   async function act(fn: () => Promise<unknown>, done?: string) {
@@ -22,18 +24,12 @@
   const here = $derived(new Set(game.save.profiles.map(x => x.cloud?.code).filter(Boolean)));
   let confirmDelete = $state(false);
 
-  let unlocked = $state(false);
-  let holding = $state(0);
-  let holdTimer: ReturnType<typeof setInterval> | undefined;
-  function startHold() {
-    clearInterval(holdTimer);
-    holding = 0;
-    holdTimer = setInterval(() => {
-      holding += 0.05;
-      if (holding >= 1) { clearInterval(holdTimer); unlocked = true; }
-    }, 100);
-  }
-  function stopHold() { clearInterval(holdTimer); if (!unlocked) holding = 0; }
+  // the grown-up check (press and hold, then a number in words); open for ten minutes once passed
+  let unlocked = $state(grownupOpen());
+  /** players in the signed-in grown-up's account that aren't on this computer yet */
+  const waiting = $derived(cloud.players.filter(cp => !here.has(cp.code)));
+  /** the player whose save code card is being printed */
+  let printing = $state<Profile | null>(null);
 
   let selected = $state(game.profile?.id ?? game.save.profiles[0]?.id ?? '');
   const p = $derived<Profile | undefined>(game.save.profiles.find(x => x.id === selected));
@@ -103,13 +99,7 @@
 <div class="screen gu">
   <Header title="Grown-ups" back={() => game.go(game.profile ? game.home : 'players')} />
   {#if !unlocked}
-    <div class="gate">
-      <h2>For parents and teachers</h2>
-      <p class="muted">Press and hold the button to open.</p>
-      <button class="btn btn-primary btn-big hold" onpointerdown={startHold} onpointerup={stopHold} onpointerleave={stopHold} onkeydown={(e) => e.key === 'Enter' && startHold()} onkeyup={stopHold}>
-        <span class="fill" style:width="{holding * 100}%"></span><span class="lbl">Hold to open</span>
-      </button>
-    </div>
+    <GrownupGate onpass={() => (unlocked = true)} />
   {:else}
     <div class="body scroll">
       <div class="who">
@@ -189,26 +179,32 @@
           <button class="btn btn-primary" onclick={saveWords}>Save word list</button>
         </div>
         <div class="card pane">
-          <h3>Saving</h3>
+          <h3>Saving online</h3>
           {#if !cloud.online}
             <p class="muted small">Progress is kept on this computer. Saving online works on fancyant.com/keypals.</p>
           {:else if p}
             {#if p.cloud}
-              <p class="small"><b>{p.name}'s save code:</b> <span class="code">{p.cloud.code.toLowerCase().replaceAll('-', ' ')}</span></p>
-              <p class="muted small">Type it on any computer (the "save code" button on the player screen) to bring {p.name}'s progress over. It keeps saving as {p.name} plays.</p>
-              <div class="row"><button class="btn" disabled={cloud.busy} onclick={() => act(() => forgetCode(p.id), 'Stopped saving online. Progress stays on this computer.')}>Stop saving {p.name} online</button></div>
+              <p class="small"><b>{p.name}'s save code:</b> <span class="code">{showCode(p.cloud.code)}</span></p>
+              <p class="muted small">Type it on any computer ("Already play on another computer?" on the player screen) to bring {p.name}'s progress over. It keeps saving as {p.name} plays. If two computers both play, their progress is combined, so nothing is lost.</p>
+              <div class="row">
+                <button class="btn btn-primary" onclick={() => (printing = p ?? null)}>Print a code card</button>
+                <button class="btn" disabled={cloud.busy} onclick={() => act(() => forgetCode(p.id), 'Stopped saving online. Progress stays on this computer.')}>Stop saving {p.name} online</button>
+              </div>
             {:else}
-              <p class="muted small">Get a save code to play as {p.name} on another computer too. It holds only the nickname and game progress.</p>
-              <div class="row"><button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(() => makeCode(p.id))}>Make a save code for {p.name}</button></div>
+              <p class="muted small">Turn on saving online so {p.name}'s progress is safe if this browser is cleared or the device is lost, and to play on another computer too. It saves only the nickname and game progress.</p>
+              <div class="row"><button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(() => makeCode(p.id), `${p.name} is saved online. Print the code card to keep it safe.`)}>Save {p.name} online</button></div>
             {/if}
           {/if}
           {#if cloud.online && (cloud.google || cloud.microsoft || cloud.account)}
             <h4>Parents and teachers</h4>
             {#if cloud.account}
-              <p class="small">Signed in as <b>{cloud.account.name ?? cloud.account.email}</b>{#if cloud.account.email && cloud.account.name}{' '}({cloud.account.email}){/if}. Players on this computer are kept in your account.</p>
-              {#if cloud.players.some(cp => !here.has(cp.code))}
-                <p class="muted small">In your account, not on this computer yet:</p>
-                <div class="row">{#each cloud.players.filter(cp => !here.has(cp.code)) as cp (cp.code)}<button class="btn" disabled={cloud.busy} onclick={() => act(() => openCode(cp.code), `${cp.name} is on this computer now.`)}>Add {cp.name}</button>{/each}</div>
+              <p class="small">Signed in as <b>{cloud.account.name ?? cloud.account.email}</b>{#if cloud.account.email && cloud.account.name}{' '}({cloud.account.email}){/if}. Players on this computer are kept in your account and saved online.</p>
+              {#if waiting.length}
+                <p class="muted small">In your account, not on this computer yet: {waiting.map(cp => cp.name).join(', ')}.</p>
+                <div class="row">
+                  <button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(async () => { const n = await addAllFromAccount(); return n; }, `Added ${waiting.length === 1 ? waiting[0].name : `all ${waiting.length} players`} to this computer.`)}>Add all my players</button>
+                  {#if waiting.length > 1}{#each waiting as cp (cp.code)}<button class="btn" disabled={cloud.busy} onclick={() => act(() => openCode(cp.code), `${cp.name} is on this computer now.`)}>Add {cp.name}</button>{/each}{/if}
+                </div>
               {/if}
               <div class="row">
                 <button class="btn" onclick={() => act(signOut)}>Sign out</button>
@@ -219,7 +215,7 @@
                 {/if}
               </div>
             {:else}
-              <p class="muted small">Sign in to keep all your players together and find them on any computer. Children don't sign in or give an email.</p>
+              <p class="muted small">Sign in to keep all your players together and bring them to any computer in one go, with no codes to remember. Children don't sign in or give an email.</p>
               <div class="row">
                 {#if cloud.google}<button class="btn" onclick={() => signIn('google')}>Sign in with Google</button>{/if}
                 {#if cloud.microsoft}<button class="btn" onclick={() => signIn('microsoft')}>Sign in with Microsoft</button>{/if}
@@ -234,6 +230,17 @@
             <button class="btn" onclick={exportSave}>Save progress to a file</button>
             <button class="btn" onclick={() => fileInput?.click()}>Load progress from a file</button>
             <input type="file" accept="application/json,.json" bind:this={fileInput} onchange={importSave} hidden />
+          </div>
+        </div>
+      {/if}
+      {#if printing?.cloud}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="pbg" onclick={() => (printing = null)}>
+          <div class="pmodal card" onclick={(e) => e.stopPropagation()}>
+            <h3>{printing.name}'s save code card</h3>
+            <div class="kp-print"><CodeCard name={printing.name} buddy={printing.buddy} code={printing.cloud.code} /></div>
+            <div class="row end"><button class="btn" onclick={() => (printing = null)}>Close</button><button class="btn btn-primary" onclick={() => window.print()}>Print</button></div>
           </div>
         </div>
       {/if}
@@ -258,11 +265,12 @@
   h4 { margin: 14px 0 4px; font-size: 16px; }
   .msg { color: var(--primary); font-weight: 700; }
   .gu { display: flex; flex-direction: column; background: var(--bg); }
-  .gate { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
-  .gate h2 { font-size: 32px; }
-  .hold { position: relative; overflow: hidden; width: 280px; }
-  .hold .fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255, 255, 255, .35); }
-  .hold .lbl { position: relative; }
+  .pbg { position: fixed; inset: 0; z-index: 50; background: rgba(40, 28, 70, .4); display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 16px; overflow: auto; }
+  .pmodal { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; align-items: center; width: min(700px, 100%); }
+  .pmodal .kp-print { width: 100%; display: flex; justify-content: center; }
+  .pmodal h3 { margin: 0; }
+  .row.end { justify-content: flex-end; align-self: stretch; }
+  .row + .row { margin-top: 10px; }
   .body { flex: 1; min-height: 0; padding: 20px 26px 50px; display: flex; flex-direction: column; gap: 18px; }
   .who { display: flex; gap: 10px; flex-wrap: wrap; }
   .pp { display: flex; align-items: center; gap: 6px; padding: 4px 14px 4px 4px; border-radius: 999px; background: #fff; border: 3px solid transparent; box-shadow: var(--shadow-sm); cursor: pointer; font: 600 17px var(--font-ui); color: var(--ink); }
@@ -298,4 +306,12 @@
   textarea { width: 100%; padding: 12px; border-radius: 14px; border: 2px solid var(--line); font: 600 16px var(--font-body); margin-bottom: 10px; resize: vertical; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; }
   .about p { color: var(--ink2); }
+  /* phones: the six numbers in two rows of three, charts one under the other, smaller keys */
+  @media (max-width: 760px) {
+    .body { padding: 14px 12px 40px; }
+    .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .stat { padding: 10px; } .stat b { font-size: 20px; }
+    .two { grid-template-columns: 1fr; }
+    .hrow { gap: 3px; } .hrow span { width: 25px; height: 30px; font-size: 13px; border-radius: 7px; }
+  }
 </style>

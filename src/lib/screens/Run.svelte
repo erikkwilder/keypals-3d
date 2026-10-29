@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MusicButton from '../ui/MusicButton.svelte';
   import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
@@ -381,6 +382,7 @@
       <button class="btn btn-icon pause" aria-label="Pause" onclick={() => (phase = phase === 'typing' ? 'paused' : phase)}>
         <Icon name="pause" size={32} />
       </button>
+      <MusicButton size={32} plain />
       <div class="title">
         <div class="region">{region.name}</div>
         <div class="lesson">{lessonTitle(lesson, layout)}</div>
@@ -464,9 +466,8 @@
           {#if lesson.kind === 'drill'}<p class="blurb">Just these {freshShown.length === 1 ? 'key' : 'keys'} this time, until your fingers know them by heart.</p>{/if}
           {#if lesson.blurb}<p class="blurb">{lesson.blurb}</p>{/if}
         {:else}
-          <div class="meet small">
-            <Critter friend={profile.buddy} size={120} mood="dance" />
-          </div>
+          <!-- the island this lesson is on (the real 3D buddy is waiting just behind the card) -->
+          <div class="meet small"><img class="placeart" src="{import.meta.env.BASE_URL}regions/{lesson.region}.webp" alt="" /></div>
           {#if lesson.blurb}<p class="blurb">{lesson.blurb}</p>{/if}
         {/if}
         <p class="moveline mv-{move}">{MOVE_LINE}</p>
@@ -604,6 +605,7 @@
   .intro h1 { font-size: clamp(32px, 5vh, 46px); margin: 6px 0 12px; }
   .meet { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; margin: 6px 0 4px; }
   .meet.small { align-items: flex-end; gap: 6px; }
+  .placeart { width: min(320px, 70vw); aspect-ratio: 16 / 7; object-fit: cover; border-radius: 18px; box-shadow: 0 0 0 4px #fff, var(--shadow-sm); }
   .friend { width: 200px; display: flex; flex-direction: column; align-items: center; animation: fade-up .4s ease both; }
   .say { margin-top: 4px; background: var(--bg2); border-radius: 16px; padding: 10px 12px; font: 600 14.5px/1.35 var(--font-body); color: var(--ink2); position: relative; }
   .say::before { content: ''; position: absolute; top: -8px; left: calc(50% - 8px); border: 8px solid transparent; border-top: 0; border-bottom-color: var(--bg2); }

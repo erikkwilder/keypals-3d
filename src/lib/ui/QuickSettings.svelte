@@ -11,6 +11,7 @@
   import Critter from './Critter.svelte';
   import NavTile from './NavTile.svelte';
   import { engineLabel } from '../polyfills';
+  import { STATION } from '../audio/stations';
 
   const mode = $derived(game.sheet ?? 'settings');
   const p = $derived(game.profile);
@@ -19,7 +20,7 @@
 
   type Row = { key: 'voice' | 'sound' | 'music'; label: string; sub: string; art?: ArtKind };
   const ROWS: Row[] = [
-    { key: 'voice', label: 'Coach voice', sub: 'Explains where your fingers go', art: 'coach' },
+    { key: 'voice', label: 'Coach voice', sub: 'Talks you through each lesson', art: 'coach' },
     { key: 'sound', label: 'Sound effects', sub: 'Taps, pops and sparkles', art: 'sfx' },
     { key: 'music', label: 'Music', sub: 'Songs while you play', art: 'music' },
   ];
@@ -75,6 +76,12 @@
       {/each}
     </div>
 
+    <button class="opt wide pickmusic" onclick={() => { sfx.click(); game.openMusic(); }}>
+      <span class="pic"><img src="{import.meta.env.BASE_URL}icons/music/{s.musicStation && s.musicStation !== 'auto' ? s.musicStation : 'happy'}.webp" alt="" width="62" height="62" /></span>
+      <span class="txt"><b>Pick your music</b><small>{s.musicStation && s.musicStation !== 'auto' ? STATION[s.musicStation].name : 'Auto'}: calm, happy, adventure, rock, electronic, retro and more</small></span>
+      <span class="go"><TileArt kind="play" size={34} /></span>
+    </button>
+
     <label class="vol">
       <TileArt kind="sfx" size={30} />
       <input type="range" min="0" max="1" step="0.05" value={s.volume} oninput={(e) => game.update(pp => { pp.settings.volume = +e.currentTarget.value; })} aria-label="Volume" />
@@ -110,6 +117,8 @@
   .opt:hover { transform: translateY(-2px); }
   .opt.on { border-color: #bfeedb; background: #f2fff9; }
   .opt.wide { width: 100%; margin-top: 12px; }
+  .pickmusic { border-color: #e2d8ff; background: #f6f2ff; }
+  .pickmusic .go { flex: none; }
   .pic { flex: none; display: grid; place-items: center; width: 74px; height: 74px; }
   .pal { position: relative; transition: filter .2s; }
   .pal.off { filter: grayscale(.9) opacity(.55); }

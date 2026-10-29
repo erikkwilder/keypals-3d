@@ -5,7 +5,7 @@
   import { game } from '../state/game.svelte';
   import { bookView, outfitOf, palOf, todayMs } from '../engine/profile';
   import { DANCES } from '../engine/rewards';
-  import { levelFromXp } from '../engine/stickers';
+  import { levelFromXp, STICKERS } from '../engine/stickers';
   import { MEDALS } from '../engine/achievements';
   import { rideName } from '../engine/rides';
   import { rideIcon } from '../art/vehicles';
@@ -100,7 +100,7 @@
     <div class="pill stars"><Stars n={1} of={1} size={20} /> <b>{stars}</b></div>
     <div class="pill goal" title="Today's practice goal (typing and math together)">
       <Ring value={Math.min(1, today / goalMs)} size={30} color="var(--mint)" />
-      <span><b>{Math.floor(today / 60000)}</b>/{p.settings.dailyGoalMin} min</span>
+      <span><b>{Math.floor(today / 60000)}</b>/{p.settings.dailyGoalMin} min today</span>
     </div>
     <div class="spacer"></div>
     <div class="navs">
@@ -114,6 +114,7 @@
         {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={tile === 'sm' ? 40 : 62} round />{/snippet}
       </NavTile>
       <NavTile size={tile} tone="lilac" kind="dances" label="Dances" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
+      <NavTile size={tile} tone="butter" kind="stickers" label="Stickers" badge={STICKERS.filter(s => bookView(p).stickers[s.id]).length || ''} onclick={() => game.openStickers('stickers')} />
       <NavTile size={tile} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (bookView(p).medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
     </div>
     <FancyAntButton variant="round" />

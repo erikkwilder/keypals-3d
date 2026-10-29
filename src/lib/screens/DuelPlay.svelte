@@ -6,6 +6,7 @@
   // sends a little rain cloud across; the other side blocks it with a quick one at the start of their
   // turn. The first to fill their bar wins the Glimmer (the other gets a last turn to tie). Everything at
   // the top can be tapped to see what it is.
+  import MusicButton from '../ui/MusicButton.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { Tween } from 'svelte/motion';
   import { fade } from 'svelte/transition';
@@ -403,6 +404,7 @@
     <button class="leave" onclick={onexit} aria-label="Leave"><Icon name="back" size={28} /></button>
     <div class="where"><small>{mode === 'duel' ? 'Family Duel' : 'Rival Ghosts'}</small><b>Who cheers up {gName}?</b></div>
     <button class="helpbtn" onclick={() => { help = true; sfx.pop(); }} aria-label="How to play"><Icon name="help" size={30} /></button>
+    <MusicButton size={32} plain />
   </div>
 
   <!-- each side's cheer bar, Finale stars and Glimmers -->

@@ -26,6 +26,8 @@ export type Settings = {
   tune: string;
   /** the background music's style ('mix': a different one each lesson) */
   musicStyle?: import('../audio/sound').MusicStyleId | 'mix';
+  /** the music station picked ('auto': calm while practising, happy on the menus, adventure in Adventure) */
+  musicStation?: import('../audio/stations').StationChoice;
   volume: number; // 0..1
   reducedMotion: boolean;
   font: FontChoice;
@@ -126,7 +128,7 @@ export function newProfile(name: string, buddy: FriendId, grown = false): Profil
   s.grown = grown;
   return {
     id: Math.random().toString(36).slice(2, 10),
-    name: name.trim().slice(0, 16) || 'Typist',
+    name: name.trim().slice(0, 16) || 'Player',
     buddy, accessory: 'none', createdAt: Date.now(), settings: s,
     lessons: {}, keys: {}, totals: emptyTotals(), days: {}, badges: {}, medals: {}, unlocked: [], rideBest: 0, customText: '', history: [],
     pals: {}, looks: {}, buddiesMet: [],

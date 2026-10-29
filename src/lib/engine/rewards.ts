@@ -68,7 +68,7 @@ export const TREASURES = [
   { id: 'ruby', name: 'Ruby', desc: 'A deep red jewel. Only fast, clean typing finds one.' },
   { id: 'diamond', name: 'Diamond', desc: 'The sparkliest jewel on the whole island.' },
   { id: 'egg', name: 'Dragon Egg', desc: "It's warm, and something inside is wiggling..." },
-  { id: 'star', name: 'Rainbow Star', desc: 'The best treasure there is. Only the speediest typists ever find one!' },
+  { id: 'star', name: 'Rainbow Star', desc: 'The best treasure there is. Only the quickest players ever find one!' },
 ];
 export const TREASURE_SCORE = {
   kids: [1, 8, 14, 20, 26, 32, 40, 50, 62, 78],

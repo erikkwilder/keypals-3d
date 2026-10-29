@@ -115,8 +115,12 @@ class Game {
   }
   openSettings() { this.settingsOpen = true; }
   closeSettings() { this.settingsOpen = false; }
+  /** the music picker, open over any screen (music keeps playing; switching crossfades) */
+  musicOpen = $state(false);
+  openMusic() { this.musicOpen = true; }
+  closeMusic() { this.musicOpen = false; }
   /** something is open on top of the screen and owns the keyboard */
-  get modalOpen() { return this.sheet !== null || this.settingsOpen || this.chartLesson !== null || this.learnOverlay !== null; }
+  get modalOpen() { return this.sheet !== null || this.settingsOpen || this.musicOpen || this.chartLesson !== null || this.learnOverlay !== null; }
   openChart(id: string) { this.chartLesson = id; }
   closeChart() { this.chartLesson = null; }
   openStickers(tab: 'stickers' | 'medals' | 'rides' = 'stickers') {

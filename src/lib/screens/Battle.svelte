@@ -3,6 +3,7 @@
   // card, answer it, and the number you make cheers the Grumble up (land exactly on zero for a Perfect
   // Cheer). Then block its mischief with a quick one. Five right in a row lights the Finale. When it's
   // cheered right up, the cloud bursts and the Glimmer inside is revealed, with its rarity.
+  import MusicButton from '../ui/MusicButton.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { Tween } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
@@ -389,6 +390,7 @@
     <button class="leave" onclick={toMap} aria-label="Leave the battle"><Icon name="back" size={28} /></button>
     <div class="where"><small>{island.name}</small><b>{champion ? 'Champion battle' : `Battle ${node.n + 1}`}</b></div>
     <button class="helpbtn" onclick={() => { help = true; sfx.pop(); }} aria-label="How to play"><Icon name="help" size={30} /></button>
+    <MusicButton size={32} plain />
   </div>
 
   <!-- your energy over your buddy, its grumpy bar over it (on phones both sit at the top) -->

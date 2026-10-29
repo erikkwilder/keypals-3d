@@ -15,6 +15,7 @@
   import { ALL_GARDEN_IDS, mathOf, mathStarsTotal, nextMathLesson, stageCounts } from '../math/progress';
   import { advOf, advView, markSeen } from '../adventure/state';
   import NavTile from '../ui/NavTile.svelte';
+  import MusicButton from '../ui/MusicButton.svelte';
   import GearButton from '../ui/GearButton.svelte';
   import FancyAntButton from '../ui/FancyAntButton.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -110,13 +111,15 @@
       <NavTile size={tsz} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (bookView(p).medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
     </div>
     {#if sw >= 860}<FancyAntButton variant="round" />{/if}
-    <GearButton size={sw < 860 ? 36 : 44} />
+    <GearButton size={sw < 860 ? 36 : 44} music={sw >= 600} />
   </header>
 
   <div class="body scroll">
     <div class="hello">
       <div class="bud"><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={120} mood="idle" /></div>
       <p>{hello}</p>
+      <!-- on a phone the header has no room beside the gear: the music button sits by the hello -->
+      {#if sw < 600}<span class="hmus"><MusicButton size={30} plain /></span>{/if}
     </div>
 
     <div class="doors">
@@ -132,7 +135,7 @@
           <div class="stats">
             <span><Stars n={1} of={1} size={18} /><b>{tStars}</b> stars</span>
             <span><b>{tDone}</b>/{course.length} lessons</span>
-            {#if tBest}<span><b>{tBest}</b> wpm best</span>{/if}
+            {#if tBest}<span><b>{tBest}</b> words a minute best</span>{/if}
           </div>
           <div class="bar2"><i style:width="{(tDone / course.length) * 100}%"></i></div>
           <div class="acts">
@@ -332,4 +335,5 @@
     .ghost { font-size: 15px; padding: 9px 12px; }
     .foot { display: none; }
   }
+  .hmus { margin-left: auto; flex: none; }
 </style>

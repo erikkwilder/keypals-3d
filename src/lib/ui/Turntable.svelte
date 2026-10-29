@@ -41,7 +41,8 @@
 
 <style>
   .turns { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 8px; pointer-events: none; }
-  .turns.top { bottom: auto; top: 8px; }
+  /* (the Shop: in the top corner, clear of a cloud or a hat over the buddy) */
+  .turns.top { bottom: auto; top: 8px; left: 10px; transform: none; }
   .tb { pointer-events: auto; width: 46px; height: 46px; border-radius: 50%; border: 0; display: grid; place-items: center; background: rgba(255, 255, 255, .94); box-shadow: 0 0 0 3px #e4ddf3, var(--shadow-sm); cursor: pointer; }
   .tb:active { transform: translateY(2px); }
   .mir { display: inline-flex; transform: scaleX(-1); }

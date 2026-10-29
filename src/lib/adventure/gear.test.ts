@@ -154,3 +154,21 @@ describe('gear powers in battle', () => {
     expect(b2.value).toBe(a.value * 2);
   });
 });
+
+describe('vibes', () => {
+  it('are a slot of their own: twelve to buy, one at a time, each with a painted icon and a line', async () => {
+    const { VIBES_LIST } = await import('./vibes');
+    expect(VIBES_LIST.length).toBe(12);
+    expect(VIBES_LIST.every(v => v.icon.startsWith('vibes/icon-') && v.text.length > 10 && v.price > 0)).toBe(true);
+    const p = newProfile('Ava', 'dino');
+    advOf(p).shells = 1000;
+    expect(buyItem(p, 'dino', 'vibe_hearts').ok).toBe(true);
+    expect(dressOf(p, 'dino').on.vibe).toBe('vibe_hearts');
+    expect(buyItem(p, 'dino', 'vibe_snow').ok).toBe(true);
+    // one vibe at a time: the new one takes the old one's place
+    expect(dressOf(p, 'dino').on.vibe).toBe('vibe_snow');
+    expect(wearItem(p, 'koala', 'vibe', 'vibe_hearts')).toBe(true);
+    expect(wearItem(p, 'koala', 'face', 'vibe_hearts')).toBe(false);
+    expect(CAT.vibe_glow.slot).toBe('vibe');
+  });
+});
