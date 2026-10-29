@@ -185,6 +185,37 @@ describe('ideas and help', () => {
   });
 });
 
+describe('counting visits on the server', () => {
+  const today = () => new Date().toISOString().slice(0, 10);
+  it('adds counts into daily totals, with the country for each opening and nothing else', async () => {
+    const { env, api, grownup } = site({ ADMIN_EMAILS: 'boss@example.com' });
+    const batch = { day: today(), counts: [{ e: 'open', k: 'phone', n: 1 }, { e: 'player_day', k: '', n: 1 }, { e: 'screen', k: 'hub', n: 2 }] };
+    expect((await api('/count', { method: 'POST', body: batch, headers: { 'cf-ipcountry': 'US' } })).status).toBe(204);
+    expect((await api('/count', { method: 'POST', body: batch, headers: { 'cf-ipcountry': 'CA' }, ip: '10.0.0.2' })).status).toBe(204);
+    const rows = (await env.DB.prepare('SELECT * FROM counts ORDER BY event, key').all()).results;
+    expect(rows.map(r => `${r.event}/${r.key}=${r.n}`)).toEqual(['country/CA=1', 'country/US=1', 'open/phone=2', 'player_day/=2', 'screen/hub=4']);
+    // the table holds only day, event, key and n
+    expect(Object.keys(rows[0]).sort()).toEqual(['day', 'event', 'key', 'n']);
+    // and the admin numbers read them back
+    const stats = await api('/admin/stats', { cookie: await grownup('boss@example.com') });
+    expect(stats.json.rows.length).toBe(5);
+    expect((await api('/admin/stats')).status).toBe(403);
+  });
+
+  it('drops anything that is not a plain count: unknown events, long or odd keys, silly numbers, a far-off day', async () => {
+    const { env, api } = site();
+    const counts = [
+      { e: 'name', k: 'mia', n: 1 }, { e: 'screen', k: 'Mia Smith', n: 1 }, { e: 'screen', k: 'x'.repeat(41), n: 1 },
+      { e: 'screen', k: 'hub', n: -3 }, { e: 'screen', k: 'hub', n: 1e9 }, { e: 'play_sec', k: '', n: 600 },
+    ];
+    await api('/count', { method: 'POST', body: { day: '1999-01-01', counts } });
+    const rows = (await env.DB.prepare('SELECT * FROM counts').all()).results;
+    expect(rows.map(r => [r.event, r.key, r.n])).toEqual([['play_sec', '', 600]]);
+    expect(rows[0].day).toBe(today());
+    expect((await api('/count', { method: 'POST', body: { day: today(), counts: Array(81).fill({ e: 'screen', k: 'hub', n: 1 }) } })).status).toBe(400);
+  });
+});
+
 describe('one Worker script, two addresses (fancyant.com/keypals and keypals.org)', () => {
   const google = { GOOGLE_CLIENT_ID: 'client-id', GOOGLE_CLIENT_SECRET: 'client-secret' };
   async function signInThrough(s) {

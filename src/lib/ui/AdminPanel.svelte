@@ -1,14 +1,16 @@
 <script lang="ts">
   // The Admin section of the Grown-ups screen, for the people who look after Keypals (ADMIN_EMAILS on the
   // server, Google sign-ins only; the server checks every request): approve, hide, merge and mark ideas,
-  // and read the problems people told us about or the game reported by itself.
+  // read the problems people told us about or the game reported by itself, and see the numbers (how many
+  // play and what they play, counted without identifiers).
   import { call } from '../state/cloud.svelte';
   import { IDEA_KINDS, type IdeaKind, type IdeaStatus } from '../state/feedback';
 
   type AdminIdea = { id: number; kind: IdeaKind; text: string; email: string | null; status: IdeaStatus; merged_into: number | null; votes: number; created: number };
   type Problem = { id: number; kind: 'told' | 'auto'; text: string; email: string | null; stack: string | null; screen: string; version: string; browser: string; size: string; times: number; status: 'new' | 'read' | 'done'; created: number; lastseen: number };
 
-  let tab = $state<'ideas' | 'problems'>('ideas');
+  import StatsDash from './StatsDash.svelte';
+  let tab = $state<'ideas' | 'problems' | 'numbers'>('ideas');
   let ideas = $state<AdminIdea[]>([]);
   let problems = $state<Problem[]>([]);
   let msg = $state<string | null>(null);
@@ -46,11 +48,14 @@
   <div class="tabs">
     <button class:on={tab === 'ideas'} onclick={() => (tab = 'ideas')}>Ideas{#if waiting}<span class="n">{waiting} waiting</span>{/if}</button>
     <button class:on={tab === 'problems'} onclick={() => (tab = 'problems')}>Problems{#if openProblems.length}<span class="n">{openProblems.length} open</span>{/if}</button>
-    <button class="ghost" onclick={load}>Refresh</button>
+    <button class:on={tab === 'numbers'} onclick={() => (tab = 'numbers')}>Numbers</button>
+    {#if tab !== 'numbers'}<button class="ghost" onclick={load}>Refresh</button>{/if}
   </div>
   {#if msg}<p class="msg">{msg}</p>{/if}
 
-  {#if tab === 'ideas'}
+  {#if tab === 'numbers'}
+    <StatsDash />
+  {:else if tab === 'ideas'}
     {#if !ideas.length}<p class="muted small">No ideas yet.</p>{/if}
     <ul class="rows">
       {#each ideas as i (i.id)}

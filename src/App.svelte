@@ -42,6 +42,14 @@
   import ArcadePlay from './lib/screens/ArcadePlay.svelte';
   import Ideas from './lib/screens/Ideas.svelte';
   import { installProblemReports } from './lib/state/reports';
+  import { countScreen, countPlayer } from './lib/state/counting';
+  import { untrack } from 'svelte';
+  // counting visits (no identifiers: counts.ts): every screen opened, and each player's first visit today
+  $effect(() => { const s = game.screen; untrack(() => countScreen(s)); });
+  $effect(() => {
+    const p = game.profile, s = game.screen;
+    if (p && s !== 'title' && s !== 'players' && s !== 'newPlayer') untrack(() => countPlayer(p));
+  });
   import { stage } from './lib/three/stage';
   import QuickSettings from './lib/ui/QuickSettings.svelte';
   import FunLayer from './lib/fun/FunLayer.svelte';

@@ -302,7 +302,40 @@ function isAdmin(env, acct) {
 /** the first line of a stack that points at code (file:line:col), for telling one error from another */
 const firstFrame = (stack) => stack.split('\n').find(l => /:\d+:\d+/.test(l)) ?? '';
 
+// ---------- counting visits, with no identifiers ----------
+// The game sends only counts it decided on the device ("one more player today", "a math trip of 3-5
+// minutes"), batched, at most every 30 seconds (src/lib/state/counts.ts). They're added into daily
+// totals: a row is (day, event, key, n). The only thing added here is the country (from Cloudflare's
+// CF-IPCountry, country only) for each game opening. No address, browser string, name, code or id is
+// stored. The device's own date is used for the day (that's the day its "first visit today" means), if
+// it's within a day of the server's.
+const COUNT_EVENTS = new Set(['open', 'player_day', 'player_week', 'player_month', 'player_new', 'back', 'screen', 'game', 'subject', 'area', 'game_min', 'stars', 'play_sec', 'signin']);
+const isoDay = (t) => new Date(t).toISOString().slice(0, 10);
+async function takeCounts(request, env) {
+  // generous (a school shares one address), and over the limit the counts are just dropped
+  if (await limited(env, request, 'count', 1500, 60)) return new Response(null, { status: 204 });
+  const body = await readBody(request, 20000);
+  if (!body || !Array.isArray(body.counts) || body.counts.length > 80) return fail(400, 'Not counts.');
+  const now = Date.now();
+  const day = [isoDay(now - DAY), isoDay(now), isoDay(now + DAY)].includes(body.day) ? body.day : isoDay(now);
+  const rows = new Map();
+  const add = (e, k, n) => { const id = `${e}\u0000${k}`; rows.set(id, [e, k, (rows.get(id)?.[2] ?? 0) + n]); };
+  for (const c of body.counts) {
+    if (!c || !COUNT_EVENTS.has(c.e)) continue;
+    const k = String(c.k ?? '');
+    const n = Math.floor(Number(c.n));
+    if (!/^[a-z0-9:+._<-]{0,40}$/.test(k) || !(n >= 1) || n > (c.e === 'play_sec' ? 4 * 3600 : 500)) continue;
+    add(c.e, k, n);
+    if (c.e === 'open') add('country', /^[A-Z]{2}$/.test(request.cf?.country ?? '') ? request.cf.country : (/^[A-Z]{2}$/.test(request.headers.get('cf-ipcountry') ?? '') ? request.headers.get('cf-ipcountry') : 'XX'), n);
+  }
+  if (rows.size) {
+    await env.DB.batch([...rows.values()].map(([e, k, n]) => env.DB.prepare('INSERT INTO counts (day, event, key, n) VALUES (?, ?, ?, ?) ON CONFLICT(day, event, key) DO UPDATE SET n = n + excluded.n').bind(day, e, k, n)));
+  }
+  return new Response(null, { status: 204 });
+}
+
 async function helpApi(request, env, url, path, method) {
+  if (path === '/count' && method === 'POST') return takeCounts(request, env);
   // the Ideas board: approved ideas only, top or newest first
   if (path === '/ideas' && method === 'GET') {
     const order = url.searchParams.get('sort') === 'new' ? 'created DESC' : 'votes DESC, created DESC';
@@ -395,6 +428,11 @@ async function helpApi(request, env, url, path, method) {
     return json({ ok: true });
   }
   if (m && method === 'DELETE') { await env.DB.prepare('DELETE FROM problems WHERE id = ?').bind(Number(m[1])).run(); return json({ ok: true }); }
+  // the daily totals for the Admin numbers: the last 60 days (30 shown, and 30 more for "back after 30 days")
+  if (path === '/admin/stats' && method === 'GET') {
+    const rows = await env.DB.prepare('SELECT day, event, key, n FROM counts WHERE day >= ? ORDER BY day').bind(isoDay(Date.now() - 61 * DAY)).all();
+    return json({ today: isoDay(Date.now()), rows: rows.results });
+  }
   return null;
 }
 
@@ -410,6 +448,8 @@ async function tidy(env) {
   await env.DB.prepare('UPDATE ideas SET email = NULL WHERE email IS NOT NULL AND created < ?').bind(now - 180 * DAY).run();
   await env.DB.prepare('UPDATE problems SET email = NULL WHERE email IS NOT NULL AND created < ?').bind(now - 180 * DAY).run();
   await env.DB.prepare('DELETE FROM problems WHERE lastseen < ?').bind(now - 180 * DAY).run();
+  // visit counts: daily totals kept two years
+  await env.DB.prepare('DELETE FROM counts WHERE day < ?').bind(isoDay(now - 730 * DAY)).run();
   await env.DB.prepare('UPDATE players SET account = NULL WHERE account IS NOT NULL AND account NOT IN (SELECT id FROM accounts)').run();
 }
 

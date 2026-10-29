@@ -17,6 +17,8 @@
   import { notHereCodes } from '../state/sync';
   import { onOldAddress } from '../state/move';
   import { moveToOrg } from '../state/cloud.svelte';
+  import { browserSaysNo, countingOff, setCountingOff } from '../state/privacy';
+  let noCount = $state(countingOff());
   /** on fancyant.com/keypals: offer moving the players to keypals.org */
   const oldAddress = onOldAddress(location.pathname);
   import GrownupGate from '../ui/GrownupGate.svelte';
@@ -182,6 +184,13 @@
           {/if}
           {#if saveMsg}<p class="small msg">{saveMsg}</p>{/if}
           <p class="muted small"><a href="privacy" target="_blank" rel="noopener">How we look after your information</a></p>
+          <h4>Counting visits</h4>
+          <p class="muted small">So we know how many people play and what they play, the game counts visits without knowing who anyone is: how many players came today, which screens and games were opened, how long games lasted, the kind of device and the country. No names, save codes, addresses or ids, and no outside trackers. <a href="privacy#counting" target="_blank" rel="noopener">What we count</a></p>
+          {#if browserSaysNo()}
+            <p class="muted small"><b>This browser asks sites not to track it, so visits from this computer are never counted.</b></p>
+          {:else}
+            <label class="sw"><input type="checkbox" checked={noCount} onchange={(e) => { noCount = e.currentTarget.checked; setCountingOff(noCount); }} /> Don't count my visits (this computer; it also stops automatic problem reports)</label>
+          {/if}
           <h4>Progress file</h4>
           <p class="muted small">Or keep a copy yourself: save a file, and load it on another computer.</p>
           <div class="row">
@@ -304,6 +313,8 @@
   .tryall .ti { width: 52px; height: 52px; object-fit: contain; flex: none; }
   @media (max-width: 600px) { .tryall .ti { display: none; } }
   .adminpane { border: 3px solid #ffcf8a; }
+  .sw { display: flex; align-items: center; gap: 8px; font: 700 14px var(--font-body); color: var(--ink2); margin: 4px 0 10px; }
+  .sw input { width: 20px; height: 20px; accent-color: var(--primary); flex: none; }
   .tryall p { margin: 0; font: 600 14px/1.4 var(--font-body); }
   @media (max-width: 600px) { .tryall { flex-direction: column; align-items: stretch; } }
   .code { font: 700 18px var(--font-ui); letter-spacing: .02em; background: #f3edff; padding: 2px 10px; border-radius: 10px; color: var(--primary); }

@@ -16,6 +16,7 @@ import { migrate, type Profile } from '../engine/profile';
 import { mergeProfile } from './merge';
 import { planSync, goneNote, notHereCodes, markNotHere, clearNotHere, localOnlyIds, markLocalOnly, clearLocalOnly, type Tombstone } from './sync';
 import { movedCodes, moveUrl } from './move';
+import { count, startCounting } from './counting';
 
 export type CloudPlayer = { code: string; name: string; buddy: string; updated: number };
 export const cloud = $state({
@@ -366,6 +367,7 @@ export async function startCloud() {
     const c = await call<{ google: boolean; microsoft: boolean }>('/config');
     cloud.online = true; cloud.google = c.google; cloud.microsoft = c.microsoft;
   } catch { cloud.online = false; return; }
+  startCounting();
   game.onProfileChange = schedulePush;
   game.onPlayerAdded = schedulePush;
   const m = location.hash.match(/signin=(\w+)/);
@@ -388,6 +390,7 @@ export async function startCloud() {
   }
   if (m) {
     if (m[1] === 'ok' && cloud.account) {
+      count('signin', cloud.account.provider);
       const came = game.save.profiles.filter(p => !before.has(p.id)).map(p => p.name);
       game.say(came.length ? `Signed in. Your players are saved to your account, and ${came.length === 1 ? came[0] : `${came.slice(0, -1).join(', ')} and ${came[came.length - 1]}`} came from it.` : 'Signed in. Your players are saved to your account.', 6000);
       grownupOpenUntil = Date.now() + 10 * 60000;

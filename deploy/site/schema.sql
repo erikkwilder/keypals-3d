@@ -84,3 +84,13 @@ CREATE TABLE IF NOT EXISTS problems (
   lastseen INTEGER NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS problems_sig ON problems(sig);
+-- visit counts (worker.js "counting visits"): daily totals only, no identifiers. A row is one day's count
+-- of one thing: event (open, player_day, screen, game, ...) and key (phone, hub, math-trip, US, ...).
+-- day is the playing computer's date. Kept two years.
+CREATE TABLE IF NOT EXISTS counts (
+  day TEXT NOT NULL,
+  event TEXT NOT NULL,
+  key TEXT NOT NULL,
+  n INTEGER NOT NULL,
+  PRIMARY KEY (day, event, key)
+);
