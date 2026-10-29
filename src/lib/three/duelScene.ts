@@ -7,14 +7,13 @@
 import * as THREE from 'three';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
-import { makeOutfit } from './outfits3d';
 import { loadTexture } from './assets';
 import { Fx } from './fx';
 import { GrumpyGlimmer } from './grumpyGlimmer';
 import { GlimmerModel } from './glimmerModel';
 import { CAST } from './battleScene';
-import { wearKit } from './gear3d';
-import type { Slot } from '../adventure/gear';
+import { dressUp } from './dress';
+import type { Dress, Slot } from '../adventure/gear';
 import { animateArena, buildArena, disposeArena, type Arena } from './arena';
 import type { Island } from './island';
 import type { View } from './runScene';
@@ -24,7 +23,7 @@ import { ELEMENT, GLIMMER, RARITY, type Element, type GlimmerId } from '../adven
 
 const UP = new THREE.Vector3(0, 1, 0);
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
-export type DuelSideLook = { buddy: FriendId; outfit: string; dance: string; team: { id: GlimmerId; evolved?: boolean }[]; ghost: boolean; worn?: Partial<Record<Slot, string>> };
+export type DuelSideLook = { buddy: FriendId; outfit: string; dance: string; team: { id: GlimmerId; evolved?: boolean }[]; ghost: boolean; worn?: Partial<Record<Slot, string>>; dress?: Dress };
 type Opts = { region: RegionId; sides: [DuelSideLook, DuelSideLook]; glimmer: GlimmerId; view: View };
 export type Spot = 'p0' | 'p1' | 'glimmer' | 'p0t0' | 'p0t1' | 'p1t0' | 'p1t1';
 /** the two sides' colours: sky blue on the left, coral on the right */
@@ -132,9 +131,9 @@ export class DuelScene implements Controller {
     const rigs = await Promise.all(opts.sides.map(async s => {
       const [me, ...team] = await Promise.all([Character.create(s.buddy), ...s.team.slice(0, 2).map(t => GlimmerModel.create(t.id, GLIMMER[t.id].rarity === 'legendary' || GLIMMER[t.id].rarity === 'mythic' ? 0.8 : 0.62, { evolved: t.evolved }).catch(() => null))]);
       if (!me) throw new Error('character missing');
-      if (s.outfit && s.outfit !== 'none') await me.wear(s.outfit, makeOutfit);
+      // each side's own look (another player's save, or a ghost's copy)
+      await dressUp(me, s.dress ?? { hat: s.outfit, on: s.worn ?? {}, nudge: {} });
       await me.loadMoves();
-      if (s.worn) await wearKit(me, s.worn);
       if (s.ghost) { ghostify(me.root); team.forEach(g => g && ghostify(g.root)); }
       return { me, team: team as (GlimmerModel | null)[], at: new THREE.Vector3(), ghost: s.ghost, busyUntil: 0, dance: s.dance } as SideRig;
     }));

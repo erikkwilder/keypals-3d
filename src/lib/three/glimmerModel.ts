@@ -25,7 +25,7 @@ type Move = 'idle' | 'hop' | 'happy' | 'act' | 'appear' | 'sad' | 'hit' | 'stomp
 
 const WIGGLE = `
   uniform float uT; uniform vec3 uHead; uniform float uHeadR; uniform vec3 uTail; uniform float uTailOn; uniform vec3 uWingL; uniform vec3 uWingR; uniform float uWingOn;
-  uniform vec3 uEarL; uniform vec3 uEarR; uniform float uEarOn; uniform float uWag; uniform float uFlap; uniform float uNod; uniform float uUnit; uniform float uBreath;
+  uniform vec3 uEarL; uniform vec3 uEarR; uniform float uEarOn; uniform float uWag; uniform float uFlap; uniform float uNod; uniform float uUnit; uniform float uBreath; uniform float uFinR;
   varying vec3 vSPos; varying vec3 vSNrm;
   vec3 rotAxis(vec3 p, vec3 c, vec3 ax, float a) { vec3 q = p - c; float s = sin(a), co = cos(a); return c + q * co + cross(ax, q) * s + ax * dot(ax, q) * (1.0 - co); }
 `;
@@ -36,7 +36,12 @@ const WIGGLE_BODY = `
   p = rotAxis(p, uHead - vec3(0.0, uHeadR * 0.7, uHeadR * 0.2), vec3(1.0, 0.0, 0.0), (sin(uT * 2.1) * 0.6 + sin(uT * 3.7) * 0.4) * uNod * hw);
   p = rotAxis(p, uHead - vec3(0.0, uHeadR * 0.7, uHeadR * 0.2), vec3(0.0, 1.0, 0.0), sin(uT * 1.3) * uNod * 0.8 * hw);
   if (uTailOn > 0.5) { float tw = smoothstep(0.0, 0.3 * uUnit, uTail.z - p.z); p = rotAxis(p, uTail, vec3(0.0, 1.0, 0.0), sin(uT * 6.5) * uWag * tw); }
-  if (uWingOn > 0.5) { float sd = p.x < 0.0 ? -1.0 : 1.0; vec3 rt = sd < 0.0 ? uWingL : uWingR; float ww = smoothstep(0.0, 0.2 * uUnit, abs(p.x) - abs(rt.x)); p = rotAxis(p, rt, vec3(0.0, 0.0, 1.0), sd * sin(uT * 9.0) * uFlap * ww); }
+  if (uWingOn > 0.5) { float sd = p.x < 0.0 ? -1.0 : 1.0; vec3 rt = sd < 0.0 ? uWingL : uWingR; float ww = smoothstep(0.0, 0.2 * uUnit, abs(p.x) - abs(rt.x));
+    // the head never flaps with the wings; fins (uFinR) move only near their root, so a wide face (the
+    // whale calf's eyes) doesn't get pulled along
+    ww *= 1.0 - hw;
+    if (uFinR > 0.0) ww *= 1.0 - smoothstep(uFinR * 0.6, uFinR, length(p.yz - rt.yz));
+    p = rotAxis(p, rt, vec3(0.0, 0.0, 1.0), sd * sin(uT * 9.0) * uFlap * ww); }
   if (uEarOn > 0.5) { float sd = p.x < 0.0 ? -1.0 : 1.0; vec3 eb = sd < 0.0 ? uEarL : uEarR; float ew = (1.0 - smoothstep(0.0, 0.25 * uUnit, distance(p.xz, eb.xz))) * smoothstep(0.0, 0.06 * uUnit, p.y - eb.y); p = rotAxis(p, eb, vec3(0.0, 0.0, 1.0), -sd * (0.12 + sin(uT * 3.0 + sd) * 0.1) * ew); }
   transformed = p;
   vSPos = p / uUnit; vSNrm = objectNormal;
@@ -130,6 +135,8 @@ export class GlimmerModel {
         uWingL: { value: local(wings?.[0] ?? null) }, uWingR: { value: local(wings?.[1] ?? null) }, uWingOn: { value: wings ? 1 : 0 },
         uEarL: { value: local(ears?.[0] ?? null) }, uEarR: { value: local(ears?.[1] ?? null) }, uEarOn: { value: ears ? 1 : 0 },
         uWag: { value: 0.25 }, uFlap: { value: el === 'tide' ? 0.25 : 0.6 }, uNod: { value: 0.07 }, uUnit: { value: unit }, uBreath: { value: 1 },
+        // water Glimmers have fins, not wings: keep the flap close to the fin
+        uFinR: { value: el === 'tide' ? 0.22 * unit : 0 },
       };
       this.uniforms.push(u);
       const fix = (mat: THREE.Material) => {

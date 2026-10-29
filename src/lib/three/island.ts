@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { loadGltf, loadTexture } from './assets';
 import { THEMES, type Theme } from './themes';
+import { trailEggs } from '../fun/worldEggs';
 
 const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const rng = (seed: number) => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -561,6 +562,7 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
   }
   /** Put the gate across the trail a few steps before s, so the runner goes through it and stops just past. */
   function placeFinish(s: number) {
+    eggs.visit(s);
     const f = trail.at(s - GATE_BEFORE);
     gate.position.copy(f.p);
     gate.rotation.y = Math.atan2(f.t.x, f.t.z); // the model's opening runs along its x, so this lines it up with the trail
@@ -577,7 +579,8 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
   }
 
   const snapped = new THREE.Vector3();
-  function update(_dt: number, t: number, focus: THREE.Vector3) {
+  function update(dt: number, t: number, focus: THREE.Vector3) {
+    eggs.update(dt, t, focus);
     windUniform.value = t;
     fallMat.uniforms.uT.value = t;
     seaMat.uniforms.uT.value = t;
@@ -604,6 +607,8 @@ export async function buildIsland(renderer: THREE.WebGLRenderer, { low = false, 
   // geometry made here (ground, trail, sea, waterfalls...), as opposed to borrowed from a model
   root.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh && !(o as THREE.InstancedMesh).isInstancedMesh && !m.userData.borrowed) own.add(m.geometry); });
 
+  // the little surprises along the trail (Pebble's big walk, the Sky Whale, a saucer now and then...)
+  const eggs = trailEggs({ root, trail, height });
   /** how many of each prop found room (for checking themes) */
   const stats = Object.fromEntries([...spotsOf].map(([k, v]) => [k, v.length]));
   return { trail, height, placeFinish, gateSolid, setSmooth, update, root, theme: T, dispose, stats };

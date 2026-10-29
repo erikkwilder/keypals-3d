@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { outfitOf, palOf } from '../engine/profile';
-  import { MOVE_ICON, MOVE_WORD, REGIONS, lessonMove, lessonTitle, type Lesson } from '../engine/course';
+  import { bookView, outfitOf, palOf } from '../engine/profile';
+  import { MEDALS } from '../engine/achievements';
+  import { MOVE_WORD, REGIONS, lessonMove, lessonTitle, type Lesson } from '../engine/course';
   import { isUnlocked, nextLesson, passed, regionUnlocked, todayMs, totalStars } from '../engine/profile';
   import { rideName } from '../engine/rides';
   import { DANCES, forBuddy } from '../engine/rewards';
-  import { levelFromXp } from '../engine/stickers';
+  import { levelFromXp, STICKERS } from '../engine/stickers';
   import { rideIcon } from '../art/vehicles';
   import { sfx } from '../audio/sound';
   import NavTile from '../ui/NavTile.svelte';
@@ -92,8 +93,8 @@
       {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={tile === 'sm' ? 40 : 62} round />{/snippet}
     </NavTile>
     <NavTile size={tile} tone="lilac" kind="dances" label="Dances" title="Dances: pick your finish-line dance" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
-    <NavTile size={tile} tone="butter" kind="stickers" label="Stickers" badge={Object.keys(palOf(p).stickers).length || ''} onclick={() => game.openStickers('stickers')} />
-    <NavTile size={tile} tone="sky" kind="medals" label="Medals" badge={palOf(p).medalsTotal || ''} onclick={() => game.openStickers('medals')} />
+    <NavTile size={tile} tone="butter" kind="stickers" label="Stickers" badge={STICKERS.filter(s => bookView(p).stickers[s.id]).length || ''} onclick={() => game.openStickers('stickers')} />
+    <NavTile size={tile} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (bookView(p).medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
     <FancyAntButton variant="round" />
     <GearButton size={tile === 'sm' ? 40 : 46} />
   </header>
@@ -131,8 +132,8 @@
             </span>
             {#if rec && rec.bestRide > 0}<span class="ride" title="Best: {rideName(rec.bestRide, mv)}"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff', mv)}</svg></span>{/if}
             <span class="lbl">{lessonTitle(l, game.layout)}</span>
-            {#if !l.practice}<span class="mv mv-{mv}" title="{MOVE_WORD[mv]}">{MOVE_ICON[mv]} {MOVE_WORD[mv]}</span>{/if}
-            {#if !l.practice}<Stars n={rec?.stars ?? 0} size={15} />{#if rec?.platinum}<span class="plat" title="Platinum">✦</span>{/if}{/if}
+            {#if !l.practice}<span class="mv mv-{mv}" title="{MOVE_WORD[mv]}"><Icon name={mv} size={15} /> {MOVE_WORD[mv]}</span>{/if}
+            {#if !l.practice}<Stars n={rec?.stars ?? 0} size={15} />{#if rec?.platinum}<span class="plat" title="Platinum"><Icon name="gem" size={16} /></span>{/if}{/if}
             {#if isNext}<span class="buddy"><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={70} mood="dance" /></span>{/if}
           </button>
         {/each}
@@ -181,7 +182,7 @@
   .node.locked .lbl { opacity: .6; }
   .lbl { font: 700 13px/1.15 var(--font-body); color: var(--ink); background: rgba(255, 255, 255, .88); padding: 3px 8px; border-radius: 10px; margin-top: 4px; max-width: 120px; text-align: center; }
   /* how the lesson moves (the trail, or a climb, a swim or a sled run), as on the math map */
-  .mv { font: 700 11px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 1px 7px; margin-top: 2px; }
+  .mv { display: inline-flex; align-items: center; gap: 3px; font: 700 11px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 1px 7px 1px 3px; margin-top: 2px; }
   .mv-climb { color: #b4561a; } .mv-swim { color: #13786c; } .mv-slide { color: #2f63bd; }
   .ride { position: absolute; top: -6px; right: 18px; width: 28px; height: 28px; border-radius: 50%; background: var(--primary); display: grid; place-items: center; box-shadow: 0 0 0 3px #fff; }
   .ride svg { width: 18px; height: 18px; }

@@ -3,7 +3,10 @@
 //   - Stars: how well a lesson, trip or round went (each game works out its own, 0 to 3).
 //   - Friendship: every game played with a buddy makes you better friends; it opens outfits and dances.
 //   - Medals and stickers: medals for things you can do again and again, stickers for one-off firsts.
-//   - Shells: Adventure money; practice earns them for finishing, stars, medals and new stickers.
+//   - Treasure: the picture prize at the end of practice: the better the score, the better the treasure
+//     (ten steps, Shiny Pebble to Rainbow Star), and each one is worth shells.
+//   - Shells: one money for the shop; practice earns them for finishing, stars, medals, new stickers and
+//     the treasure found.
 //   - Eggs: right answers in practice warm the eggs in the Adventure incubator.
 //   - Today's goal: practice minutes (typing, math, the playground) count toward it.
 //
@@ -14,7 +17,7 @@ import { AWARD } from './achievements';
 import { STICKERS, levelFromXp, medalTier, type StickerDef } from './stickers';
 import { forBuddy, newBetween, type Reward } from './rewards';
 import { welcomeNew } from './team';
-import { buddyPal, dayKey, type MedalWin, type Profile, type XpInfo } from './profile';
+import { allPals, bookOf, buddyPal, dayKey, type MedalWin, type Profile, type XpInfo } from './profile';
 import { earnShells, notePractice, practiceShells } from '../adventure/state';
 import type { FriendId } from '../art/cast';
 import type { Move } from './rides';
@@ -33,16 +36,18 @@ export function practiceDay(p: Profile, ms: number, at: number): boolean {
   return hit;
 }
 
-/** Medals won: each counts up its tier (Rose, Silver, Gold, Rainbow). */
+/** Medals won: each counts up its tier (Rose, Silver, Gold, Rainbow). They're the player's, whichever
+ *  buddy is along. */
 export function giveMedals(p: Profile, ids: string[]): MedalWin[] {
-  const pal = buddyPal(p), out: MedalWin[] = [];
+  const book = bookOf(p), out: MedalWin[] = [];
   for (const id of ids) {
-    const was = pal.medals[id] ?? 0;
-    pal.medals[id] = was + 1;
+    const was = book.medals[id] ?? 0;
+    book.medals[id] = was + 1;
     const tier = medalTier(was + 1);
     if (AWARD[id]) out.push({ ...AWARD[id], count: was + 1, tier, tierUp: tier > medalTier(was) });
   }
-  pal.medalsTotal += ids.length;
+  book.total += ids.length;
+  buddyPal(p).medalsTotal += ids.length;
   return out;
 }
 
@@ -59,12 +64,13 @@ export function befriend(p: Profile, gained: number): { xp: XpInfo; rewards: Rew
   return { xp: { gained, before, after }, rewards };
 }
 
-/** Any stickers this buddy has now earned (checked after every game, battles and duels too). */
+/** Any stickers the player has now earned, from everything done with every buddy (checked after every
+ *  game, battles and duels too). Each remembers the buddy it was won with. */
 export function checkStickers(p: Profile, at: number): StickerDef[] {
-  const pal = buddyPal(p), out: StickerDef[] = [];
+  const book = bookOf(p), all = allPals(p), out: StickerDef[] = [];
   for (const st of STICKERS) {
-    if (pal.stickers[st.id]) continue;
-    if (st.check(pal, { grown: p.settings.grown, friend: p.buddy })) { pal.stickers[st.id] = at; out.push(st); pal.seen.push('sticker:' + st.id); }
+    if (book.stickers[st.id]) continue;
+    if (st.check(all, { grown: p.settings.grown, friend: p.buddy })) { book.stickers[st.id] = { at, by: p.buddy }; out.push(st); book.fresh.push(st.id); }
   }
   return out;
 }
@@ -72,11 +78,13 @@ export function checkStickers(p: Profile, at: number): StickerDef[] {
 export type Settled = {
   goalJustHit: boolean; medals: MedalWin[]; xp: XpInfo; rewards: Reward[]; stickers: StickerDef[];
   buddies: FriendId[]; eggsReady: Rarity[]; shells: number;
+  /** the treasure step this practice found (-1: none), and whether it's the best the player has found */
+  treasure: number; newBestTreasure: boolean;
 };
 
 /** The end of any practice: today's minutes, medals (plus the goal medal), friendship, stickers, new
  *  buddies, warm eggs and shells, in that order. `xp` works out the friendship from the medal count. */
-export function settlePractice(p: Profile, o: { at: number; ms: number; finished: boolean; stars: number; medals: string[]; right: number; xp: (medals: number) => number; move?: Move }): Settled {
+export function settlePractice(p: Profile, o: { at: number; ms: number; finished: boolean; stars: number; medals: string[]; right: number; xp: (medals: number) => number; move?: Move; treasure?: number }): Settled {
   const goalJustHit = practiceDay(p, o.ms, o.at);
   const ids = goalJustHit ? [...o.medals, 'goal'] : o.medals;
   const medals = giveMedals(p, ids);
@@ -87,9 +95,13 @@ export function settlePractice(p: Profile, o: { at: number; ms: number; finished
     if (o.move && o.move !== 'run' && !(pal.moves ??= []).includes(o.move)) pal.moves.push(o.move);
   }
   const { xp, rewards } = befriend(p, o.xp(ids.length));
+  // the treasure the score found (before the sticker check: three stickers are for treasures)
+  const treasure = o.finished ? o.treasure ?? -1 : -1;
+  const newBestTreasure = treasure >= 0 && treasure > allPals(p).treasureBest;
+  pal.treasureBest = Math.max(pal.treasureBest, treasure);
   const stickers = checkStickers(p, o.at);
   const buddies = welcomeNew(p);
   const eggsReady = o.finished ? notePractice(p, o.right) : [];
-  const shells = o.finished ? earnShells(p, practiceShells({ stars: o.stars, medals: ids.length, stickers: stickers.length })) : 0;
-  return { goalJustHit, medals, xp, rewards, stickers, buddies, eggsReady, shells };
+  const shells = o.finished ? earnShells(p, practiceShells({ stars: o.stars, medals: ids.length, stickers: stickers.length, treasure })) : 0;
+  return { goalJustHit, medals, xp, rewards, stickers, buddies, eggsReady, shells, treasure, newBestTreasure };
 }

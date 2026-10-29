@@ -6,8 +6,7 @@
 import * as THREE from 'three';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
-import { makeOutfit } from './outfits3d';
-import { wearKit } from './gear3d';
+import { dressUp } from './dress';
 import type { Slot } from '../adventure/gear';
 import { loadGltf, loadTexture } from './assets';
 import { Fx, type Emit } from './fx';
@@ -86,8 +85,7 @@ export class BattleScene implements Controller {
       ...opts.team.slice(0, 2).map((id, i) => GlimmerModel.create(id, GLIMMER[id].rarity === 'legendary' || GLIMMER[id].rarity === 'mythic' ? 0.8 : 0.62, { evolved: opts.teamEvolved?.[i] }).catch(() => null)),
     ]);
     if (!me) throw new Error('character missing');
-    if (opts.outfit && opts.outfit !== 'none') me.wear(opts.outfit, makeOutfit);
-    if (opts.kit) wearKit(me, opts.kit);
+    void dressUp(me);
     await me.loadMoves();
     const grumble = await GrumpyGlimmer.create(opts.foe.glimmer, opts.foe.champion, opts.foe.evolved);
     const sc = new BattleScene(island, me, grumble, team as (GlimmerModel | null)[], opts);

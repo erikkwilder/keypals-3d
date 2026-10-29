@@ -157,3 +157,22 @@ describe('one reward system', () => {
     expect(STICKER['level-5']).toBeTruthy();
   });
 });
+
+describe('practice what you missed', () => {
+  it('a fact missed in a battle comes back in the next hands until it is answered right', () => {
+    const facts = [] as { f: { a: number; b: number }; stage: number }[];
+    for (let a = 2; a <= 9; a++) for (let b = 2; b <= 9; b++) facts.push({ f: { a, b }, stage: 2 });
+    const pool: Pool = { subject: 'math', facts, open: false };
+    const foe: Foe = { glimmer: 'puddlepup', rarity: 'common', champion: false, element: 'tide', grump: 500, max: 500, hit: 0 };
+    const b = newBattle({ pool, seed: 4, sparkMax: 99, role: 'heart', gear: null, team: [], foe });
+    b.frozen = true;
+    const missed = b.cards[0];
+    play(b, missed.id, { ok: false, value: 0, thinkMs: 2000, fact: missed.fact });
+    b.phase = 'pick'; b.block = null; deal(b);
+    const back = b.cards.find(c => c.again);
+    expect(back?.fact).toEqual(missed.fact);
+    play(b, back!.id, { ok: true, value: answerOf(back!.fact!), thinkMs: 2000, fact: back!.fact });
+    b.phase = 'pick'; b.block = null; deal(b);
+    expect(b.cards.some(c => c.again)).toBe(false);
+  });
+});

@@ -8,7 +8,7 @@ import type { Layout, LayoutId } from './layouts';
 import type { AwardDef } from './achievements';
 import { STICKERS, newPalProgress, type PalProgress, type StickerDef } from './stickers';
 import { teamBuddies } from './team';
-import { REWARDS, forBuddy, type Reward } from './rewards';
+import { REWARDS, forBuddy, treasureFor, type Reward } from './rewards';
 import { settlePractice } from './settle';
 import { updateKeyStats, type KeyStat } from './mastery';
 import { lessonGoal, platinumScore, starScores, type RunStats } from './scoring';
@@ -76,9 +76,12 @@ export type Profile = {
   badges: Record<string, number>; // legacy (v0.1)
   medals: Record<string, number>; // legacy (v0.1)
   unlocked: string[]; // legacy (v0.1)
-  /** each buddy's own progress: friendship (which opens outfits and dances), stickers, medals, treasure and
-   *  best ride. A buddy who joins starts fresh; lessons, trips and stars belong to the player. */
+  /** each buddy's own progress: friendship (which opens outfits and dances), the counters the stickers
+   *  read, and best ride. Lessons, trips, stars, stickers and medals belong to the player. */
   pals: Partial<Record<FriendId, PalProgress>>;
+  /** the player's sticker book and medals (2026-10-29: they used to be each buddy's; old saves are merged
+   *  into one book the first time it's read) */
+  book?: Book;
   /** each buddy's own look: the outfit it wears and its finish dance */
   looks?: Partial<Record<FriendId, { outfit: string; dance: string }>>;
   /** buddies already welcomed to the team (new ones are announced once) */
@@ -162,6 +165,44 @@ export function migrate(raw: unknown): SaveFile {
       };
     }).map(seedMet),
   };
+}
+
+// ---------- the player's sticker book and medals ----------
+/** One book for the player: each sticker remembers the buddy it was won with; medals count up across
+ *  every buddy; `fresh` are stickers not looked at yet. */
+export type Book = { stickers: Record<string, { at: number; by: FriendId }>; medals: Record<string, number>; total: number; fresh: string[] };
+function bookFromPals(p: Profile): Book {
+  const b: Book = { stickers: {}, medals: {}, total: 0, fresh: [] };
+  for (const [id, pal] of Object.entries(p.pals ?? {}) as [FriendId, PalProgress | undefined][]) {
+    if (!pal) continue;
+    for (const [s, at] of Object.entries(pal.stickers ?? {})) if (!b.stickers[s] || at < b.stickers[s].at) b.stickers[s] = { at, by: id };
+    for (const [m, n] of Object.entries(pal.medals ?? {})) b.medals[m] = (b.medals[m] ?? 0) + n;
+    b.total += pal.medalsTotal ?? 0;
+    for (const s of pal.seen ?? []) if (s.startsWith('sticker:') && !b.fresh.includes(s.slice(8))) b.fresh.push(s.slice(8));
+  }
+  return b;
+}
+/** The book, to read (nothing written). */
+export const bookView = (p: Profile): Book => p.book ?? bookFromPals(p);
+/** The book, to change (made from the buddies' old books the first time). */
+export function bookOf(p: Profile): Book { return (p.book ??= bookFromPals(p)); }
+/** Everything the player has done with every buddy, for the sticker checks: counts added up, bests and
+ *  friendship the highest, days and places together. */
+export function allPals(p: Profile): PalProgress {
+  const all = newPalProgress();
+  const pals = Object.values(p.pals ?? {}).filter(Boolean) as PalProgress[];
+  for (const x of pals) {
+    all.runs += x.runs; all.chars += x.chars; all.stars3 += x.stars3; all.perfect += x.perfect; all.sharp += x.sharp;
+    all.comebacks += x.comebacks; all.naps += x.naps; all.dances += x.dances ?? 0; all.medalsTotal += x.medalsTotal ?? 0;
+    all.perfectRow = Math.max(all.perfectRow, x.perfectRow); all.bestStreak = Math.max(all.bestStreak, x.bestStreak);
+    all.bestWpm = Math.max(all.bestWpm, x.bestWpm); all.rideBest = Math.max(all.rideBest, x.rideBest);
+    all.treasureBest = Math.max(all.treasureBest, x.treasureBest ?? -1);
+    all.level = Math.max(all.level, x.level); all.xp = Math.max(all.xp, x.xp);
+    all.goalDays = [...new Set([...all.goalDays, ...x.goalDays])];
+    all.regions = [...new Set([...all.regions, ...x.regions])];
+    all.moves = [...new Set([...(all.moves ?? []), ...(x.moves ?? [])])];
+  }
+  return all;
 }
 
 /** A buddy's own progress, to change (runs and trips write to the buddy playing). */
@@ -268,6 +309,9 @@ export type RunOutcome = {
   stickers: StickerDef[];
   /** outfits and dances unlocked by this run's friendship level-up */
   rewards: Reward[];
+  /** the treasure step this run's score found (-1: none), and whether it's the player's best yet */
+  treasure: number;
+  newBestTreasure: boolean;
   xp: XpInfo;
   before: LessonRecord | null;
   record: LessonRecord;
@@ -291,6 +335,8 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
   const lesson = LESSON[run.lessonId];
   const grown = p0.settings.grown;
   const s = run.stats;
+  // the treasure the score found: the big picture on the results screen
+  const treasure = run.finished ? treasureFor(s.score, grown) : -1;
   const p: Profile = structuredClone(p0);
   const before = p0.lessons[run.lessonId] ? { ...p0.lessons[run.lessonId] } : null;
   const prev = before ?? { stars: 0, bestWpm: 0, bestAcc: 0, bestRide: 0, attempts: 0, passes: 0, lastAt: 0 };
@@ -307,6 +353,7 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
     scoreSum: (prev.scoreSum ?? 0) + s.score,
     finishes: (prev.finishes ?? 0) + (run.finished ? 1 : 0),
     platinum: !!prev.platinum || (run.finished && s.score >= platinumScore(lessonGoal(lesson, grown, p0.settings.easy))),
+    treasure: Math.max(prev.treasure ?? -1, treasure),
   };
   p.lessons[run.lessonId] = record;
   p.keys = updateKeyStats(p.keys, s.perKey);
@@ -356,7 +403,7 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
 
   // the same ending as every practice game: goal, medals, friendship, stickers, buddies, eggs, shells
   // (practice warms the Adventure eggs every five right letters)
-  const done = settlePractice(p, { at: run.at, ms: s.durationMs, finished: run.finished, stars: run.stars, medals, right: Math.floor(s.chars / 5), xp: n => runXp(s, run.stars, n, run.finished, grown), move: lessonMove(lesson) });
+  const done = settlePractice(p, { at: run.at, ms: s.durationMs, finished: run.finished, stars: run.stars, medals, right: Math.floor(s.chars / 5), xp: n => runXp(s, run.stars, n, run.finished, grown), move: lessonMove(lesson), treasure });
 
   let regionJustDone: RegionId | null = null;
   for (const r of REGIONS) {
@@ -373,6 +420,8 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
     medals: done.medals,
     stickers: done.stickers,
     rewards: done.rewards,
+    treasure: done.treasure,
+    newBestTreasure: done.newBestTreasure,
     xp: done.xp,
     before,
     record,
@@ -395,7 +444,7 @@ export function nextGoal(p: Profile, out: Pick<RunOutcome, 'record'>, goal: numb
   const nextRide = RIDES[r.bestRide + 1];
   if (nextRide) return `Next goal: reach ${rideName(r.bestRide + 1, move)} on this lesson (a live score of about ${rideTh[r.bestRide + 1]}).`;
   if (!r.platinum) return `Three stars! Can you reach platinum? It takes a score of ${platinumScore(goal)}.`;
-  const pal = palOf(p);
-  const left = STICKERS.filter(s => !pal.stickers[s.id]).length;
+  const book = bookView(p);
+  const left = STICKERS.filter(s => !book.stickers[s.id]).length;
   return left ? `You've mastered this one! ${left} stickers still to find.` : 'Every sticker found. Legend!';
 }

@@ -31,6 +31,7 @@
   import Critter from '../ui/Critter.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Stars from '../ui/Stars.svelte';
+  import Icon from '../ui/Icon.svelte';
 
   const profile = $state.snapshot(game.profile!) as Profile;
   const S = profile.settings;
@@ -342,7 +343,7 @@
 
     <div class="hud">
       <button class="btn btn-icon pause" aria-label="Pause" onclick={() => (phase = phase === 'play' ? 'paused' : phase)}>
-        <svg viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="5" width="4" height="14" rx="2" fill="currentColor" /><rect x="14" y="5" width="4" height="14" rx="2" fill="currentColor" /></svg>
+        <Icon name="pause" size={32} />
       </button>
       <div class="title">
         <div class="region">{regionName}</div>
@@ -350,7 +351,7 @@
       </div>
       <div class="trail">
         <div class="bar"><div class="fill" style:width="{trip * 100}%"></div></div>
-        <div class="flag">🏁</div>
+        <div class="flag"><Icon name="finish" size={26} /></div>
         <div class="me" style:left="{trip * 100}%"><Critter friend={profile.buddy} size={34} round /></div>
       </div>
       <EggBadge warm={eggWarm} />

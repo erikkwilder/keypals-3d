@@ -10,12 +10,12 @@ import type { Reward } from '../engine/rewards';
 import { settlePractice } from '../engine/settle';
 import { groupFacts, moveOf, MATH_LESSON, MATH_LESSONS, MATH_REGION, PLACEMENTS, regionsOf, type MathLesson, type MathRegionId } from './course';
 import { factId, familyOf, newStat, parseFact, seedPartner, updateFact, FAST_MS, type FactStat, type Op, type Stage } from './facts';
-import type { FactResult, TripStats } from './meter';
+import { mathTreasureFor, type FactResult, type TripStats } from './meter';
 
 export type MathLessonRecord = {
   stars: number; bestScore: number; bestFpm: number; bestAcc: number; bestRide: number;
   attempts: number; finishes: number; passes: number; lastAt: number;
-  /** (old saves: the treasure step, no longer used) */
+  /** the best treasure step found on this trip */
   treasure?: number;
   /** passed by testing out (a checkpoint taken first, or the placement trip) */
   testedOut?: boolean;
@@ -124,6 +124,8 @@ export type MathOutcome = {
   medals: MedalWin[];
   stickers: StickerDef[];
   rewards: Reward[];
+  /** the treasure this trip's score found (-1: none), and whether it's the player's best yet */
+  treasure: number; newBestTreasure: boolean;
   xp: XpInfo;
   before: MathLessonRecord | null;
   record: MathLessonRecord;
@@ -183,6 +185,8 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
   const before = m.lessons[lesson.id] ? { ...m.lessons[lesson.id] } : null;
   const prev = before ?? { stars: 0, bestScore: 0, bestFpm: 0, bestAcc: 0, bestRide: 0, attempts: 0, finishes: 0, passes: 0, lastAt: 0 };
   const passedNow = run.stars > 0;
+  // the treasure the score found: the big picture on the results screen
+  const treasure = run.finished ? mathTreasureFor(st.score, grown) : -1;
   const record: MathLessonRecord = {
     ...prev,
     stars: Math.max(prev.stars, run.stars),
@@ -194,6 +198,7 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
     finishes: prev.finishes + (run.finished ? 1 : 0),
     passes: prev.passes + (passedNow ? 1 : 0),
     lastAt: run.at,
+    treasure: Math.max(prev.treasure ?? -1, treasure),
   };
   m.lessons[lesson.id] = record;
   m.strand = lesson.op;
@@ -241,7 +246,7 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
 
   // ---- the same ending as every practice game: math time counts toward the same daily goal, the same
   // friendship, outfits, dances and stickers as typing, and every right answer warms the eggs ----
-  const done = settlePractice(p, { at: run.at, ms: st.ms, finished: run.finished, stars: run.stars, medals, right: run.results.filter(x => x.ok).length, xp: n => tripXp(st, run.stars, n, run.finished, grown), move: moveOf(lesson) });
+  const done = settlePractice(p, { at: run.at, ms: st.ms, finished: run.finished, stars: run.stars, medals, right: run.results.filter(x => x.ok).length, xp: n => tripXp(st, run.stars, n, run.finished, grown), move: moveOf(lesson), treasure });
 
   let regionJustDone: MathRegionId | null = null;
   if (lesson.region !== 'start' && lesson.kind === 'check' && passedNow && !(before && before.stars > 0)) regionJustDone = lesson.region;
@@ -250,6 +255,7 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
     eggsReady: done.eggsReady, shells: done.shells,
     buddies: done.buddies,
     profile: p, medals: done.medals, stickers: done.stickers, rewards: done.rewards,
+    treasure: done.treasure, newBestTreasure: done.newBestTreasure,
     xp: done.xp,
     before, record,
     newBestScore: !!before && run.finished && st.score > before.bestScore,

@@ -20,13 +20,14 @@
   import { newBattle, play, block as doBlock, finale as doFinale, swap as doSwap, openFact, sparkFor, useGlow, glowLeft, FINALE_AT, type Battle, type BEvent, type Card } from '../adventure/battle';
   import { advOf, advView, applyBattle, foeFor, ISLAND, markSeen, mathPool, NODE, teamOf, typingPool, type BattleOutcome } from '../adventure/state';
   import { learnedTrick } from '../math/learn';
-  import { ITEM, SLOT_NAME, SLOTS, kitOf, startPerks, wornOf } from '../adventure/gear';
+  import { ITEM, SLOT_NAME, SLOTS, battleWornOf, kitOf, startPerks } from '../adventure/gear';
   import { mathOf as mathOfLearn } from '../math/progress';
   import Coach from '../ui/Coach.svelte';
   import NumPad from '../math/ui/NumPad.svelte';
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
   import Confetti from '../ui/Confetti.svelte';
+  import Icon from '../ui/Icon.svelte';
 
   const base = import.meta.env.BASE_URL;
   const p0 = game.profile!;
@@ -43,7 +44,7 @@
   const gear = GEAR[outfit] ?? null;
   const level = levelFromXp(buddyPal(p0).xp).level;
   // hand, back and shoe gear: its powers (and any set bonus) and the pieces for the 3D buddy
-  const kit = kitOf(adv, p0.buddy), worn = wornOf(adv, p0.buddy);
+  const kit = kitOf(adv, p0.buddy), worn = battleWornOf(adv, p0.buddy);
   const b: Battle = newBattle({ pool, seed, sparkMax: sparkFor(level, role), role, gear: gear?.kind ?? null, team, foe, fastMs: p0.math?.fastMs, kit });
   const t0 = performance.now();
   const champion = node.kind === 'champion';
@@ -309,7 +310,7 @@
       if (firstBattle && b.stats.right >= 1) tip('t-grumpy', 'See its Grumpy bar go down? Get it all the way to 0 and it will be happy again.', '.bar.grump', 'Got it');
       if (firstBattle && b.stats.blocks >= 1 && seen.has('t-grumpy') && coach === null) tip('t-energy', 'This is your energy. Rain and zaps take some when you don\'t block them. If it runs out, you can try again.', '.bar.spark', 'Got it');
       if (b.finale >= FINALE_AT) tip('t-finale', 'Five right in a row! Tap Finale for your buddy\'s big move. It cheers up a lot!', '.finalebig');
-      else if (coach === null && cards.some(c => c.super)) tip('strong', 'Cards with ⚡ are extra strong against this Glimmer: they also calm its next rain and fill a Finale star.', '.card.super', 'Got it');
+      else if (coach === null && cards.some(c => c.super)) tip('strong', 'Cards marked Strong are extra strong against this Glimmer: they also calm its next rain and fill a Finale star.', '.card.super', 'Got it');
       else if (coach === null && canPerfect && b.stats.right >= 2) tip('perfect', `Bonus: answer exactly ${grumpNow} for a Perfect Cheer! You get extra shells and an egg.`, '.bar.grump', 'Got it');
     }
     void fromFinale;
@@ -424,13 +425,13 @@
           <button class="card el-{c.element}" class:super={c.super} class:bloom={c.bloom} style:--d="{i * 0.08}s" onclick={() => pick(c)} disabled={ui !== 'pick'}>
             <img class="ci" src="{base}game/icon-{c.element}.webp" alt={ELEMENT[c.element].name} />
             <span class="ct"><b>{#if c.fact}{factText(c.fact)}{:else}{c.word}{/if}</b>
-              {#if c.super}<em>⚡ Strong</em>{:else if c.bloom}<em class="bl">You know this one</em>{/if}</span>
+              {#if c.again}<em class="ag">Have another go!</em>{:else if c.super}<em><Icon name="bolt" size={14} /> Strong</em>{:else if c.bloom}<em class="bl">You know this one</em>{/if}</span>
           </button>
         {/each}
       </div>
       <div class="actions">
         <p class="hint">{ui === 'pick' ? (subject === 'math' ? 'Tap a card and answer it to cheer up ' + foeName + '!' : 'Type a word to cheer up ' + foeName + '!') : ''}</p>
-        {#if swapOk && ui === 'pick'}<button class="swap" onclick={swapCards}>🔀 New cards</button>{/if}
+        {#if swapOk && ui === 'pick'}<button class="swap" onclick={swapCards}><Icon name="swap" size={20} /> New cards</button>{/if}
       </div>
     {:else if ui === 'answer' && sel}
       <div class="answer el-{sel.element}">
@@ -438,10 +439,10 @@
           {@const f = fact(sel)!}
           {@const tk = learnedTrick(mathOfLearn(game.profile!), f)}
           {#key shakeKey}<div class="eq" class:shake={shakeKey > 0}><span>{factText(f)} =</span><span class="box">{typed || ' '}</span></div>{/key}
-          {#if glowOk && !glowText}<button class="glowbtn" onclick={askGlow}>💡 Hint from {myName('sparkmoth')}</button>{/if}
-          {#if glowText}<p class="glow">💡 {glowText}</p>{/if}
+          {#if glowOk && !glowText}<button class="glowbtn" onclick={askGlow}><Icon name="bulb" size={20} /> Hint from {myName('sparkmoth')}</button>{/if}
+          {#if glowText}<p class="glow"><Icon name="bulb" size={20} /> {glowText}</p>{/if}
           <!-- a trick learned in a Learn lesson: a hint in its own words, the answer left for you -->
-          {#if tk && !glowText}{#if trickOpen === sel.id}<p class="glow">💡 {tk.say}</p>{:else}<button class="glowbtn" onclick={() => { trickOpen = sel!.id; sfx.pop(); }}>💡 Trick: {tk.name}</button>{/if}{/if}
+          {#if tk && !glowText}{#if trickOpen === sel.id}<p class="glow"><Icon name="bulb" size={20} /> {tk.say}</p>{:else}<button class="glowbtn" onclick={() => { trickOpen = sel!.id; sfx.pop(); }}><Icon name="bulb" size={20} /> Trick: {tk.name}</button>{/if}{/if}
           <NumPad ondigit={digit} onback={backspace} compact={narrow} />
         {:else}
           {#key shakeKey}<div class="word" class:shake={shakeKey > 0}>{#each sel.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/key}
@@ -482,14 +483,14 @@
       </div>
       <div class="rewards" class:in={step >= 2}>
         <button class="prize" onclick={() => show({ kind: 'shells' })}><img src="{base}game/icon-shell.webp" alt="" /><b>+{out.shells}</b><small>shells</small></button>
-        <button class="prize" onclick={() => show({ kind: 'friendship' })}><span class="heart">♥</span><b>+{out.xp.gained}</b><small>friendship</small></button>
+        <button class="prize" onclick={() => show({ kind: 'friendship' })}><span class="heart"><Icon name="heart" size={40} /></span><b>+{out.xp.gained}</b><small>friendship</small></button>
         {#if out.gear}<button class="prize gearprize" onclick={() => show({ kind: 'gear', id: out!.gear!.id })}><img src="{base}gear/{out.gear.id}.webp" alt="" /><b>Gear!</b><small>{out.gear.name}</small></button>{/if}
         {#if out.egg}<button class="prize egg" onclick={() => show({ kind: 'egg', id: out!.egg!.rarity })}><img src="{base}game/egg-{out.egg.rarity}.webp" alt="" /><b>Egg!</b><small>new</small></button>{/if}
-        {#each out.rewards as r}<button class="prize" onclick={() => show({ kind: 'reward', id: r.id })}>{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart">♪</span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></button>{/each}
+        {#each out.rewards as r}<button class="prize" onclick={() => show({ kind: 'reward', id: r.id })}>{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart"><Icon name="dance" size={42} /></span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></button>{/each}
         {#each out.stickers ?? [] as st (st.id)}<div class="prize" title={st.desc}><img src="{base}game/icon-stickers.webp" alt="" /><b>Sticker</b><small>{st.name}</small></div>{/each}
       </div>
       <p class="tapnote" class:in={step >= 2}>Tap a prize to see what it's for</p>
-      {#if out.islandDone}<div class="island-done">🌈 {island.name} is free of storms! The next island is open.</div>{/if}
+      {#if out.islandDone}<div class="island-done"><Icon name="sparkle" size={26} /> {island.name} is free of storms! The next island is open.</div>{/if}
       <div class="rbtns" class:in={step >= 2}>
         <button class="btn" onclick={again}>Play again</button>
         <button class="btn btn-primary" onclick={toMap}>Back to the map <span class="kbd">enter</span></button>
@@ -520,7 +521,7 @@
           <div class="hr"><div class="mini"><span class="mblock"><span class="mring">4</span>2 + 2 =</span></div><p><b>Rain coming?</b> Answer the quick one before the timer ends.</p></div>
           <div class="hr"><div class="mini"><span class="mbar"><img src="{base}game/icon-spark.webp" alt="" /><i><em class="en" style:width="70%"></em></i></span></div><p><b>Your energy:</b> don't let it run out!</p></div>
           <div class="hr"><div class="mini"><span class="mstars">{#each Array(5) as _}<img src="{base}game/icon-star.webp" alt="" />{/each}</span></div><p><b>5 right in a row</b> = your buddy's Finale.</p></div>
-          <div class="hr"><div class="mini"><span class="mcard el-tide"><img src="{base}game/icon-tide.webp" alt="" />6 + 2<em>⚡ Strong</em></span></div><p><b>Strong cards</b> also calm its next rain.</p></div>
+          <div class="hr"><div class="mini"><span class="mcard el-tide"><img src="{base}game/icon-tide.webp" alt="" />6 + 2<em><Icon name="bolt" size={11} /> Strong</em></span></div><p><b>Strong cards</b> also calm its next rain.</p></div>
         </div>
         {#if team.length}<div class="hteam">{#each team as m}<span><img src={myArt(m.id)} alt="" /><p><b>{myName(m.id)}:</b> {GLIMMER[m.id].power.text(m.level + (m.evolved ? EVOLVE_BOOST : 0))}{#if m.evolved} {EVOLVED[m.id].perk}{/if}</p></span>{/each}</div>{/if}
         <button class="btn btn-primary" onclick={() => (help = false)}>Got it</button>
@@ -542,7 +543,7 @@
         {:else if i.kind === 'gear' && i.id && ITEM[i.id]}
           {@const it = ITEM[i.id]}
           <img class="ibig" src="{base}gear/{it.id}.webp" alt="" />
-          <div><h3>New gear: {it.name}</h3><p>The Champion's prize, for {FRIEND[p0.buddy].name} to keep. It's on already ({SLOT_NAME[it.slot].toLowerCase()}).</p><p><b>In battles:</b> {it.text}</p><p class="muted">Change gear on the Keypals screen.</p></div>
+          <div><h3>New gear: {it.name}</h3><p>The Champion's prize: yours to keep, and any buddy can wear it. {FRIEND[p0.buddy].name} has it on already ({SLOT_NAME[it.slot].toLowerCase()}).</p><p><b>In battles:</b> {it.text}</p><p class="muted">Change what you wear in the Wardrobe (the Keypals screen).</p></div>
         {:else if i.kind === 'buddy'}
           <Critter friend={p0.buddy} size={130} />
           <div><h3>{FRIEND[p0.buddy].name}: {ROLE[role].name}</h3><p>{ROLE[role].text}</p>{#if gear}<p><b>Outfit power ({gear.name}):</b> {gear.text}</p>{/if}
@@ -567,7 +568,7 @@
           <div><h3>A new egg!</h3><p>Every right answer in practice (math, typing or the playground) makes it grow. When its bar is full, it hatches into a new Glimmer.</p></div>
         {:else if i.kind === 'reward'}
           {@const r = out?.rewards.find(x => x.id === i.id)}
-          {#if r?.kind === 'outfit'}<img class="ibig" src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="ibig note">♪</span>{/if}
+          {#if r?.kind === 'outfit'}<img class="ibig" src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="ibig note"><Icon name="dance" size={72} /></span>{/if}
           <div><h3>New {r?.kind === 'outfit' ? 'outfit' : 'dance'}: {r?.name}</h3><p>{r?.kind === 'outfit' ? `Dress ${FRIEND[p0.buddy].name} up on the Keypals screen.${GEAR[r.id] ? ` In battles: ${GEAR[r.id].text}` : ''}` : `Pick it as ${FRIEND[p0.buddy].name}'s finish dance on the Keypals screen. It's the Finale move in battles too.`}</p></div>
         {/if}
         <button class="btn btn-primary" onclick={() => (info = null)}>OK</button>
@@ -656,7 +657,7 @@
   .finalebig b { display: block; font: 600 30px/1 var(--font-ui); }
   .finalebig small { font: 700 13px var(--font-body); opacity: .95; }
   @keyframes wob { 50% { transform: scale(1.07) rotate(-2deg); } }
-  .swap { font: 700 14px var(--font-body); border: 0; border-radius: 999px; padding: 8px 14px; background: #fff; color: var(--ink2); cursor: pointer; box-shadow: var(--shadow-sm); }
+  .swap { display: inline-flex; align-items: center; gap: 5px; font: 700 14px var(--font-body); border: 0; border-radius: 999px; padding: 8px 14px; background: #fff; color: var(--ink2); cursor: pointer; box-shadow: var(--shadow-sm); }
   .actions { display: flex; align-items: center; gap: 12px; justify-content: center; }
 
   .cards { display: flex; gap: 16px; justify-content: center; width: min(1100px, 100%); }
@@ -665,8 +666,9 @@
   .cards .card:hover:not(:disabled) { transform: translateY(-6px) scale(1.03); }
   .cards .card .ci { width: 70px; height: 70px; flex: none; object-fit: contain; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .18)); }
   .ct { display: flex; flex-direction: column; min-width: 0; }
-  .ct em { align-self: flex-start; margin-top: 4px; font: 800 12px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 3px 9px; border-radius: 999px; }
+  .ct em { display: inline-flex; align-items: center; gap: 3px; align-self: flex-start; margin-top: 4px; font: 800 12px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 3px 9px; border-radius: 999px; }
   .ct em.bl { color: #c2348a; }
+  .ct em.ag { color: #1f6fb8; }
   .ct b { font: 600 clamp(28px, 3.4vw, 42px)/1.05 var(--font-ui); color: #2a1f45; white-space: nowrap; }
   .cards .el-sun.card { background: linear-gradient(160deg, #fff6c4, #ffd36b); }
   .cards .el-tide.card { background: linear-gradient(160deg, #e2f4ff, #8fd0ff); }
@@ -696,7 +698,7 @@
   .word span.done { color: var(--ink); }
   .word span.next { color: var(--primary); border-bottom-color: var(--primary); }
   .backbtn { border: 0; background: none; font: 700 14px var(--font-body); color: var(--muted); cursor: pointer; text-decoration: underline; }
-  .glowbtn { border: 0; border-radius: 999px; padding: 6px 14px; background: linear-gradient(90deg, #fff4c2, #ffe066); font: 700 14px var(--font-body); color: #7a5200; cursor: pointer; }
+  .glowbtn { display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 999px; padding: 6px 14px; background: linear-gradient(90deg, #fff4c2, #ffe066); font: 700 14px var(--font-body); color: #7a5200; cursor: pointer; }
   .glow { margin: 0; max-width: 640px; text-align: center; font: 700 16px/1.35 var(--font-body); color: #7a5200; background: #fff8dc; border-radius: 14px; padding: 8px 14px; }
   .blockbox { flex-direction: row; flex-wrap: wrap; justify-content: center; background: linear-gradient(#fff5f6, #ffffff); box-shadow: 0 0 0 4px #ff9aa8, 0 16px 40px -18px rgba(120, 20, 50, .6); }
   .ring { width: 74px; height: 74px; border-radius: 50%; background: conic-gradient(#ff5f6d calc(var(--k) * 360deg), #f1e6ea 0); display: grid; place-items: center; flex: none; }
@@ -731,7 +733,7 @@
   .prize { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 96px; height: 104px; gap: 2px; border: 0; border-radius: 22px; background: #fff; cursor: pointer; box-shadow: 0 0 0 3px #ffe9a8, var(--shadow-sm); transition: transform .15s; }
   .prize:hover { transform: translateY(-3px); }
   .prize img { width: 46px; height: 46px; object-fit: contain; }
-  .prize .heart { font: 600 38px/46px var(--font-ui); color: #ef5f9a; height: 46px; }
+  .prize .heart { display: grid; place-items: center; height: 46px; }
   .prize b { font: 600 22px/1 var(--font-ui); color: var(--ink); }
   .prize small { font: 700 12px var(--font-body); color: var(--muted); max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .prize.egg img { animation: eggbounce 1s ease-in-out infinite; }
@@ -743,7 +745,7 @@
   .infobox p { margin: 0 0 6px; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }
   .infobox > .btn { grid-column: 1 / -1; justify-self: end; }
   .ibig { width: 96px; height: 96px; object-fit: contain; }
-  .ibig.note { display: grid; place-items: center; font: 600 60px var(--font-ui); color: #9b6bff; background: #f1eaff; border-radius: 50%; }
+  .ibig.note { display: grid; place-items: center; background: #f1eaff; border-radius: 50%; }
   /* picture tiles: the little picture on top, a short caption under it */
   .hrows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
   .hr { display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center; background: #faf8fe; border-radius: 16px; padding: 12px 10px; }
@@ -757,7 +759,7 @@
   .mbar em.en { background: linear-gradient(90deg, #ff5e3a, #ffe066); }
   .mcard { position: relative; display: flex; align-items: center; gap: 6px; font: 600 24px var(--font-ui); color: #2a1f45; padding: 6px 12px 6px 6px; border-radius: 16px; border: 3px solid #fff; box-shadow: var(--shadow-sm); }
   .mcard img { width: 34px; height: 34px; object-fit: contain; }
-  .mcard em { position: absolute; right: -6px; top: -10px; font: 800 9px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 2px 5px; border-radius: 999px; box-shadow: var(--shadow-sm); }
+  .mcard em { display: inline-flex; align-items: center; gap: 2px; position: absolute; right: -6px; top: -10px; font: 800 9px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 2px 5px; border-radius: 999px; box-shadow: var(--shadow-sm); }
   .mcard.el-sun { background: linear-gradient(160deg, #fff6c4, #ffd36b); } .mcard.el-tide { background: linear-gradient(160deg, #e2f4ff, #8fd0ff); }
   .mblock { display: flex; align-items: center; gap: 6px; font: 600 22px var(--font-ui); background: #fff5f6; border-radius: 14px; padding: 4px 10px 4px 4px; box-shadow: 0 0 0 2px #ff9aa8; }
   .mring { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; color: #c22b48; background: #fff; box-shadow: 0 0 0 3px #ff5f6d; }
@@ -778,7 +780,7 @@
   .small { font-size: 13px !important; }
   .rw.egg img { animation: eggbounce 1s ease-in-out infinite; }
   @keyframes eggbounce { 50% { transform: translateY(-4px) rotate(6deg); } }
-  .island-done { position: relative; font: 600 22px var(--font-ui); color: #fff; background: linear-gradient(90deg, #ff7ab8, #ffb44d, #4fd17a, #3fa2ff); padding: 8px 20px; border-radius: 999px; box-shadow: 0 0 0 3px #fff; }
+  .island-done { display: flex; align-items: center; gap: 8px; position: relative; font: 600 22px var(--font-ui); color: #fff; background: linear-gradient(90deg, #ff7ab8, #ffb44d, #4fd17a, #3fa2ff); padding: 8px 20px; border-radius: 999px; box-shadow: 0 0 0 3px #fff; }
   .rbtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .lostbox { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; padding: 22px 26px; text-align: center; max-width: 92vw; width: 460px; }
   .lostbox h2 { margin: 0 0 6px; } .lostbox p { margin: 0 0 14px; font-weight: 600; color: var(--ink2); }

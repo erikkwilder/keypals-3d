@@ -345,6 +345,22 @@ export const sfx = {
     noise(0.9, { gain: 0.05, freq: 7000, q: 0.6, delay: notes * 0.06, sweepTo: 11000 });
     if (step >= 6) [0, 4, 7].forEach((k, i) => tone(523.25 * Math.pow(2, k / 12), { type: 'sine', dur: 1.1, gain: 0.05, delay: notes * 0.06 + 0.1 + i * 0.02 }));
   },
+
+  // ---------- the little surprises (src/lib/fun) ----------
+  /** A shooting star: a soft high sparkle that falls away, like a wish. */
+  twinkle() { [2637, 2093, 1760, 1568].forEach((n, i) => tone(n, { type: 'sine', dur: 0.5, gain: 0.035, delay: i * 0.09 })); noise(0.8, { gain: 0.025, freq: 9000, q: 0.7, sweepTo: 4000 }); },
+  /** A little flying saucer: a wobbly "wooo-OOO-ooo" (a cartoon theremin). */
+  ufo() { wobble(520, { dur: 1.6, gain: 0.05, rate: 7, depth: 0.06, type: 'sine', slideTo: 880 }); wobble(880, { dur: 1.2, gain: 0.04, rate: 6, depth: 0.08, type: 'sine', slideTo: 440, delay: 1.5 }); },
+  /** A small splash (a fish, a paddling pup). */
+  splashSmall(k = 1) { noise(0.32, { gain: 0.07 * k, freq: 1400, q: 0.7, sweepTo: 600 }); tone(900, { type: 'sine', dur: 0.08, gain: 0.03 * k, slideTo: 1500, delay: 0.05 }); },
+  /** Your buddy giggles (tickled on Home): quick little rising squeaks. */
+  giggle() { [0, 1, 2, 3].forEach(i => tone(700 + i * 90, { type: 'triangle', dur: 0.09, gain: 0.05, slideTo: 1000 + i * 90, delay: i * 0.1 })); },
+  /** "Ah... ah... ACHOO!" (a tickled buddy, a grumpy Glimmer): two breaths in, then a puff. */
+  sneeze() { tone(420, { type: 'sine', dur: 0.35, gain: 0.04, slideTo: 620 }); tone(520, { type: 'sine', dur: 0.35, gain: 0.04, slideTo: 760, delay: 0.42 }); noise(0.3, { gain: 0.16, freq: 1800, q: 0.6, sweepTo: 700, delay: 0.95 }); tone(700, { type: 'triangle', dur: 0.12, gain: 0.05, slideTo: 380, delay: 0.95 }); },
+  /** A golden letter typed: a bright bell with a shimmer. */
+  golden() { [1046.5, 1318.5, 1568, 2093].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.5, gain: 0.07, delay: i * 0.05 })); noise(0.9, { gain: 0.04, freq: 8000, q: 0.6, sweepTo: 12000, delay: 0.1 }); },
+  /** A secret found: a little magic run up and back. */
+  secret() { [523.25, 659.25, 783.99, 1046.5, 1318.5, 1046.5, 1318.5, 1568].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.18, gain: 0.06, delay: i * 0.065 })); },
 };
 
 // ---------- melody mode: each right key plays the next note of a tune ----------

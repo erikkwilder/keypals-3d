@@ -4,6 +4,7 @@
   // Growth since the last visit pops in, the flowers sway, and tapping one says exactly where it stands
   // and why (asked, or growing from its turnaround, or waiting for its table). It's also the
   // grown-ups' view of what a child knows.
+  import CloseButton from '../ui/CloseButton.svelte';
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { outfitOf } from '../engine/profile';
@@ -14,6 +15,8 @@
   import Flower from '../math/ui/Flower.svelte';
   import Critter from '../ui/Critter.svelte';
   import NavTile from '../ui/NavTile.svelte';
+  import Icon from '../ui/Icon.svelte';
+  import { gameIconUrl } from '../art/icons';
 
   const p = $derived(game.profile!);
   const m = $derived(mathOf(p));
@@ -106,7 +109,7 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="screen garden">
+<div class="screen garden" style:--drop="url({new URL(gameIconUrl('tide'), document.baseURI).href})">
   <header class="bar">
     <NavTile size="sm" tone="sky" kind="home" label="Home" onclick={() => game.go('hub')} />
     <h1>Fact Garden</h1>
@@ -122,7 +125,7 @@
       <div class="buddy card">
         <div class="bpic"><Critter friend={p.buddy} look={p.settings.look} accessory={outfitOf(p)} size={86} round /></div>
         <p class="say">{bubble}</p>
-        <svg class="can" viewBox="0 0 64 48" aria-hidden="true"><path d="M14 18h26v22a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4z" fill="#7fc4ef" stroke="#3f8fc4" stroke-width="2.5" /><path d="M40 24l16-10 3 4-17 12" fill="#7fc4ef" stroke="#3f8fc4" stroke-width="2.5" stroke-linejoin="round" /><path d="M18 18c0-8 18-8 18 0" fill="none" stroke="#3f8fc4" stroke-width="3" /><g class="drops" fill="#58b4f0"><circle cx="60" cy="24" r="2" /><circle cx="62" cy="31" r="2" /><circle cx="58" cy="36" r="2" /></g></svg>
+        <span class="can"><Icon name="can" size={48} /></span>
       </div>
       <ol class="how card" aria-label="How a fact grows">
         <li><span class="st"><Flower stage={0} size={44} /></span><b>Seed</b><small>not asked yet</small></li>
@@ -168,7 +171,7 @@
           {/each}
         </div>
         <div class="key">
-          <span><i class="fast"></i> last answer quick</span><span><i class="slow"></i> slow</span><span><i class="miss"></i> missed</span><span><i class="dueic">💧</i> due a check-up</span>
+          <span><i class="fast"></i> last answer quick</span><span><i class="slow"></i> slow</span><span><i class="miss"></i> missed</span><span><i class="dueic"><Icon name="water" size={16} /></i> due a check-up</span>
         </div>
         <p class="gnote">{grid.note}</p>
       </section>
@@ -177,7 +180,7 @@
         {#if picked}
           {@const st = (pickedStat?.stage ?? 0) as Stage}
           <div class="card detail" role="dialog" aria-label="{picked.a} times {picked.b}">
-            <button class="x" onclick={() => (picked = null)} aria-label="Close">×</button>
+            <span class="x"><CloseButton onclick={() => (picked = null)} size={34} /></span>
             <div class="dhead">
               <span class="dflower" class:sway={st > 0}><Flower stage={st} size={64} hue={HUE[picked.b] ?? 300} /></span>
               <div>
@@ -218,7 +221,7 @@
           <small class="bnote">Pink: in bloom. Green: growing.</small>
         </div>
 
-        {#if due.length}<div class="card due"><span class="dueic big">💧</span><span><b>{due.length}</b> {due.length === 1 ? 'flower needs' : 'flowers need'} a check-up. They come up on your next trips.</span></div>{/if}
+        {#if due.length}<div class="card due"><span class="dueic big"><Icon name="water" size={32} /></span><span><b>{due.length}</b> {due.length === 1 ? 'flower needs' : 'flowers need'} a check-up. They come up on your next trips.</span></div>{/if}
 
         <details class="card grown">
           <summary>For grown-ups</summary>
@@ -254,7 +257,7 @@
   .bpic { flex: none; }
   .say { margin: 0; font: 600 16px/1.35 var(--font-body); color: var(--ink); background: #f6f2ff; padding: 10px 12px; border-radius: 16px; position: relative; }
   .say::before { content: ''; position: absolute; left: -8px; top: 22px; border: 8px solid transparent; border-right-color: #f6f2ff; border-left: 0; }
-  .can { position: absolute; right: 8px; bottom: 6px; width: 46px; height: 34px; transform: rotate(-8deg); }
+  .can { position: absolute; right: 6px; bottom: 4px; line-height: 0; transform: rotate(-8deg); }
   .drops circle { animation: drip 1.4s ease-in infinite; }
   .drops circle:nth-child(2) { animation-delay: .45s; } .drops circle:nth-child(3) { animation-delay: .9s; }
   @keyframes drip { 0% { transform: translateY(-4px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(8px); opacity: 0; } }
@@ -282,7 +285,7 @@
   .cell.miss { background: radial-gradient(circle at 50% 70%, #ffe6ef, #f7b6cd); }
   .cell.soon { opacity: .55; }
   .cell.sel { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--primary); z-index: 3; }
-  .cell.due::after { content: '💧'; position: absolute; right: -3px; top: -6px; font-size: 13px; animation: bob 1.6s ease-in-out infinite; }
+  .cell.due::after { content: ''; position: absolute; right: -4px; top: -7px; width: 15px; height: 15px; background: var(--drop) center / contain no-repeat; animation: bob 1.6s ease-in-out infinite; }
   @keyframes bob { 50% { transform: translateY(-3px); } }
   .fl { display: grid; place-items: center; width: 84%; height: 84%; }
   .fl :global(svg) { width: 100%; height: 100%; }
@@ -301,7 +304,7 @@
   .side { flex: 0 0 330px; display: flex; flex-direction: column; gap: 12px; }
   .side .card { padding: 14px 16px; }
   .detail { position: relative; animation: pop-in .3s cubic-bezier(.3, .8, .4, 1.4); }
-  .x { position: absolute; right: 8px; top: 6px; border: 0; background: none; font: 600 26px/1 var(--font-ui); color: var(--muted); cursor: pointer; }
+  .x { position: absolute; right: 8px; top: 6px; display: grid; }
   .dhead { display: flex; align-items: center; gap: 10px; }
   .dflower { display: grid; place-items: center; width: 74px; height: 74px; border-radius: 20px; background: radial-gradient(circle at 50% 70%, #a2704f, #7c4f33); flex: none; }
   .dfact { font: 600 30px var(--font-ui); }

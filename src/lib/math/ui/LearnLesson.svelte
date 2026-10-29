@@ -2,6 +2,7 @@
   // One Learn lesson: the buddy talks you through the trick while the picture moves (Next / Back), then
   // three questions of your own with the picture still there to help, then the finish: the trick is
   // saved, shells for the first time, and your eggs grow a little (it counts as practice).
+  import CloseButton from '../../ui/CloseButton.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../../state/game.svelte';
   import { sfx } from '../../audio/sound';
@@ -15,6 +16,7 @@
   import Critter from '../../ui/Critter.svelte';
   import Confetti from '../../ui/Confetti.svelte';
   import Coach from '../../ui/Coach.svelte';
+  import Icon from '../../ui/Icon.svelte';
 
   type Props = { id: string; embedded?: boolean; onclose: () => void; onpractice?: () => void };
   let { id, embedded = false, onclose, onpractice }: Props = $props();
@@ -132,7 +134,7 @@
       <div class="dots" aria-label="Step {Math.min(at + 1, total)} of {total}">
         {#each Array(total) as _, n}<span class:on={n < at} class:now={n === at} class:you={n >= lesson.steps.length}></span>{/each}
       </div>
-      <button class="x" onclick={leave} aria-label={embedded ? 'Back to my trip' : 'Close the lesson'}>×</button>
+      <CloseButton onclick={leave} label={embedded ? 'Back to my trip' : 'Close the lesson'} size={42} />
     </div>
 
     {#if phase !== 'done'}
@@ -157,7 +159,7 @@
         <div class="paper small"><LearnBoard board={coverOf(lesson)} {buddy} view={boundsOf([coverOf(lesson)])} still /></div>
         <div class="prizes">
           {#if result?.shells}<button class="prize" onclick={() => (info = 'shells')}><img src="{base}game/icon-shell.webp" alt="" /><b>+{result.shells}</b><small>shells</small></button>{/if}
-          <button class="prize" onclick={() => (info = 'trick')}><span class="bulb">💡</span><b>Saved</b><small>trick</small></button>
+          <button class="prize" onclick={() => (info = 'trick')}><span class="bulb"><Icon name="bulb" size={42} /></span><b>Saved</b><small>trick</small></button>
           <button class="prize" onclick={() => (info = 'eggs')}><img src="{base}game/egg-common.webp" alt="" /><b>{result?.eggs ? 'Ready!' : 'Grew'}</b><small>eggs</small></button>
         </div>
         <p class="tapnote">Tap a prize to see what it's for</p>
@@ -181,7 +183,7 @@
       <div class="infobox" onclick={(e) => e.stopPropagation()}>
         {#if info === 'what'}
           <img class="ibig" src="{base}learn/tile.webp" alt="" />
-          <div><h3>A Learn lesson</h3><p>{FRIEND[buddy].name} shows you a trick with a moving picture. Then you try three. Learned tricks come with you: in battles, a 💡 Trick button helps on cards like these.</p></div>
+          <div><h3>A Learn lesson</h3><p>{FRIEND[buddy].name} shows you a trick with a moving picture. Then you try three. Learned tricks come with you: in battles, a Trick button helps on cards like these.</p></div>
         {:else if info === 'shells'}
           <img class="ibig" src="{base}game/icon-shell.webp" alt="" />
           <div><h3>Shells</h3><p>Adventure money! Spend them in the Island Shop. A new trick gives {LEARN_SHELLS} shells the first time you learn it.</p></div>
@@ -189,8 +191,8 @@
           <img class="ibig" src="{base}game/egg-common.webp" alt="" />
           <div><h3>Your eggs grew</h3><p>A lesson counts as practice: your three right answers made your Adventure eggs grow.</p></div>
         {:else}
-          <span class="ibig bulbbig">💡</span>
-          <div><h3>Trick saved</h3><p>It's in your tricks now. In a battle, tap 💡 Trick on a card like these and {FRIEND[buddy].name} gives you a hint.</p></div>
+          <span class="ibig bulbbig"><Icon name="bulb" size={72} /></span>
+          <div><h3>Trick saved</h3><p>It's in your tricks now. In a battle, tap Trick on a card like these and {FRIEND[buddy].name} gives you a hint.</p></div>
         {/if}
         <button class="btn btn-primary" onclick={() => (info = null)}>OK</button>
       </div>
@@ -223,7 +225,7 @@
   .dots span.you { border-radius: 4px; }
   .dots span.on { background: var(--sc); }
   .dots span.now { background: #ffc93a; transform: scale(1.35); }
-  .x { flex: none; width: 42px; height: 42px; border-radius: 50%; border: 0; cursor: pointer; background: var(--bg2); font: 600 28px/1 var(--font-ui); color: var(--ink2); }
+
   .paper { position: relative; aspect-ratio: 1.76; width: min(100%, calc((100dvh - 330px) * 1.76)); margin: 0 auto; background: linear-gradient(#fffdf7, #fbf6ea); border-radius: 22px; box-shadow: inset 0 0 0 3px #f1e6cf; padding: 6px 10px; }
   /* the picture fills the paper (absolute, so a tall picture can't stretch the box) */
   .paper { min-height: 0; overflow: hidden; }
@@ -251,7 +253,7 @@
   .prize { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100px; height: 108px; gap: 2px; border: 0; border-radius: 22px; background: #fff; cursor: pointer; box-shadow: 0 0 0 3px #ffe9a8, var(--shadow-sm); transition: transform .15s; }
   .prize:hover { transform: translateY(-3px); }
   .prize img { width: 46px; height: 46px; object-fit: contain; }
-  .prize .bulb { font-size: 36px; line-height: 46px; }
+  .prize .bulb { display: grid; place-items: center; height: 46px; }
   .prize b { font: 600 21px/1 var(--font-ui); color: var(--ink); }
   .prize small { font: 700 12px var(--font-body); color: var(--muted); }
   .tapnote { margin: 0; font: 700 14px var(--font-body); color: var(--muted); }
@@ -264,7 +266,7 @@
   .infobox p { margin: 0; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }
   .infobox > .btn { grid-column: 1 / -1; justify-self: end; }
   .ibig { width: 90px; height: 96px; object-fit: contain; }
-  .bulbbig { display: grid; place-items: center; font-size: 60px; }
+  .bulbbig { display: grid; place-items: center; }
 
   /* phones: the buddy and what it says on one row, the picture under it, the pad at the bottom */
   .narrow { grid-template-columns: 1fr; align-content: start; gap: 10px; padding: 10px 10px 12px; }

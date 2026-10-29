@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
-import { makeOutfit } from './outfits3d';
+import { dressUp } from './dress';
 import type { Island } from './island';
 import type { FriendId } from '../art/cast';
 import type { RegionId } from '../engine/course';
@@ -42,7 +42,7 @@ export class PlayScene implements Controller {
   static async create(opts: Opts): Promise<PlayScene> {
     const [island, me] = await Promise.all([stage.getIsland(opts.region), Character.create(opts.buddy)]);
     if (!me) throw new Error('character missing');
-    if (opts.outfit && opts.outfit !== 'none') me.wear(opts.outfit, makeOutfit);
+    void dressUp(me);
     await me.loadMoves();
     return new PlayScene(island, me, opts);
   }

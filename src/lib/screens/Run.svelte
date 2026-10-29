@@ -3,7 +3,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { game, type LastRun } from '../state/game.svelte';
-  import { LESSON, MOVE_ICON, MOVE_WORD, REGION, lessonMove, newCharsFor } from '../engine/course';
+  import { LESSON, MOVE_WORD, REGION, lessonMove, newCharsFor } from '../engine/course';
   import { generate } from '../engine/textgen';
   import { Session } from '../engine/session';
   import { RIDES, RideMeter, rideName, type RideEvent } from '../engine/rides';
@@ -32,6 +32,7 @@
   import Critter from '../ui/Critter.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Stars from '../ui/Stars.svelte';
+  import Icon from '../ui/Icon.svelte';
 
   const profile = $state.snapshot(game.profile!) as import('../engine/profile').Profile;
   const S = profile.settings;
@@ -368,12 +369,12 @@
       <!-- the point is a share of the window; the stage is shorter (the keyboard sits below), so place it in pixels -->
       <div class="bubble" style:left="{bubbleXY.x * innerWidth}px" style:top="{bubbleXY.y * innerHeight}px">{bubble}</div>
     {/if}
-    {#if bonusPop}{#key bonusPop.n}<div class="tpop" style:left="{bubbleXY.x * innerWidth + bonusPop.x}px" style:top="{bubbleXY.y * innerHeight + 40}px">⏱ −0.5s</div>{/key}{/if}
+    {#if bonusPop}{#key bonusPop.n}<div class="tpop" style:left="{bubbleXY.x * innerWidth + bonusPop.x}px" style:top="{bubbleXY.y * innerHeight + 40}px"><Icon name="clock" size={20} /> −0.5s</div>{/key}{/if}
     {#if loading}<div class="loading">{move === 'climb' ? 'Getting the cliff ready…' : move === 'swim' ? 'Getting the bay ready…' : move === 'slide' ? 'Getting the slope ready…' : 'Getting the island ready…'}</div>{/if}
 
     <div class="hud">
       <button class="btn btn-icon pause" aria-label="Pause" onclick={() => (phase = phase === 'typing' ? 'paused' : phase)}>
-        <svg viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="5" width="4" height="14" rx="2" fill="currentColor" /><rect x="14" y="5" width="4" height="14" rx="2" fill="currentColor" /></svg>
+        <Icon name="pause" size={32} />
       </button>
       <div class="title">
         <div class="region">{region.name}</div>
@@ -381,14 +382,14 @@
       </div>
       <div class="trail">
         <div class="bar"><div class="fill" style:width="{(pos / text.length) * 100}%"></div></div>
-        <div class="flag">🏁</div>
+        <div class="flag"><Icon name="finish" size={26} /></div>
         <div class="me" style:left="{(pos / text.length) * 100}%"><Critter friend={profile.buddy} size={38} round /></div>
       </div>
       <div class="live">
         {#if lesson.kind === 'sprint' || lesson.kind === 'final'}<div class="clock" class:low={timeLeft <= 10}>{timeLeft}s</div>{/if}
         <div class="sc"><b>{liveScore}</b> score</div>
         <div><b>{liveAcc}</b>%</div>
-        {#if bonusLevel > 0}<div class="tb" title="Clean typing earns back time">⏱ ×{bonusLevel}</div>{/if}
+        {#if bonusLevel > 0}<div class="tb" title="Clean typing earns back time"><Icon name="clock" size={18} /> ×{bonusLevel}</div>{/if}
       </div>
       <EggBadge warm={Math.floor(pos / 5)} />
       <RideLadder {tier} {progress} {best} blocked={false} record={record?.bestRide ?? 0} {move} />
@@ -418,7 +419,7 @@
       <div class="banner finish">
         <div class="rays"></div>
         <div class="bword">{session.pos >= text.length ? 'Finished!' : "Time's up!"}</div>
-        {#if ghostLine}<div class="bsub ghostline">👻 {ghostLine}</div>{/if}
+        {#if ghostLine}<div class="bsub ghostline"><Icon name="ghost" size={22} /> {ghostLine}</div>{/if}
       </div>
     {/if}
     </div>
@@ -442,7 +443,7 @@
   {#if phase === 'intro' && !replaying}
     <div class="overlay">
       <div class="card intro">
-        <div class="where">{region.name} · Lesson {lesson.n}<span class="mv mv-{move}">{MOVE_ICON[move]} {MOVE_WORD[move]}</span></div>
+        <div class="where">{region.name} · Lesson {lesson.n}<span class="mv mv-{move}"><Icon name={move} size={16} /> {MOVE_WORD[move]}</span></div>
         <h1>{lessonTitle(lesson, layout)}</h1>
         {#if freshShown.length}
           <div class="newkeys">
@@ -534,7 +535,7 @@
   .live { flex: none; display: flex; gap: 12px; font: 600 14px/1 var(--font-body); color: var(--muted); background: rgba(255, 255, 255, .9); padding: 9px 12px; border-radius: 14px; box-shadow: var(--shadow-sm); border: var(--panel-border); }
   .live b { font: 600 20px/1 var(--font-ui); color: var(--ink); }
   .howscore { margin: 8px 0 0; font: 600 13.5px var(--font-body); color: var(--muted); }
-  .live .tb { font: 800 13px/1 var(--font-body); color: #0f4a36; background: var(--mint); padding: 4px 8px; border-radius: 999px; align-self: center; animation: appear .2s ease; }
+  .live .tb { display: inline-flex; align-items: center; gap: 3px; font: 800 13px/1 var(--font-body); color: #0f4a36; background: var(--mint); padding: 4px 8px; border-radius: 999px; align-self: center; animation: appear .2s ease; }
   .tpop { position: absolute; z-index: 5; pointer-events: none; font: 700 22px var(--font-ui); color: #2f9e6e; text-shadow: 0 2px 0 #fff, 0 0 10px rgba(255, 255, 255, .9); animation: tpop 1.1s ease-out forwards; }
   @keyframes tpop { 0% { transform: translateY(10px) scale(.6); opacity: 0; } 20% { transform: translateY(0) scale(1.1); opacity: 1; } 100% { transform: translateY(-46px) scale(1); opacity: 0; } }
   .clock { font: 600 20px/1 var(--font-ui); color: var(--primary); }

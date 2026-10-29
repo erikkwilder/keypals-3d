@@ -6,6 +6,7 @@
   import { rideIcon } from '../art/vehicles';
   import { sfx } from '../audio/sound';
   import Critter from '../ui/Critter.svelte';
+  import Icon from '../ui/Icon.svelte';
   import GearButton from '../ui/GearButton.svelte';
   import Logo from '../ui/Logo.svelte';
   import SaveCodeForm from '../ui/SaveCodeForm.svelte';
@@ -27,7 +28,7 @@
         <Critter friend={p.buddy} look={p.settings.look} accessory={outfitOf(p)} size={130} quirkOnHover />
         <div class="name">{p.name}</div>
         <div class="meta">
-          <span class="star">★ {totalStars(p)}</span>
+          <span class="star"><Icon name="star" size={18} /> {totalStars(p)}</span>
           <span class="ride" title="Best ride: {RIDES[p.rideBest].name}"><svg viewBox="0 0 48 48" width="20" height="20">{@html rideIcon(p.rideBest, 'var(--primary)')}</svg>{RIDES[p.rideBest].name}</span>
           {#if p.settings.grown}<span class="tag">grown-up</span>{/if}
         </div>

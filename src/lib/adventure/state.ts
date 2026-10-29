@@ -11,10 +11,10 @@ import { fits } from '../engine/textgen';
 import { WORDS_KIDS } from '../content/words';
 import { mathOf, nextMathLesson } from '../math/progress';
 import { lessonFacts } from '../math/course';
-import { factId, parseFact, seedPartner, updateFact, type Fact, type Op } from '../math/facts';
+import { factId, parseFact, seedPartner, updateFact, weakness, type Fact, type Op } from '../math/facts';
 import { GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, rarityRank, type Element, type GlimmerId, type Rarity } from './glimmers';
 import { grumpFor, type Foe, type Pool, type Subject } from './battle';
-import { championPrize, type BuddyGear, type GearItem } from './gear';
+import { championPrize, type BuddyGear, type GearItem, type Wardrobe } from './gear';
 import type { RegionId } from '../engine/course';
 import { newStats, noteStats, type GhostStats, type RivalState } from './ghosts';
 
@@ -74,8 +74,10 @@ export type Adventure = {
   fresh: GlimmerId[];
   /** tips and intros already shown ('intro', 'battle1', 'map1', 'strong', 'perfect') */
   seen: string[];
-  /** each buddy's hand, back and shoe gear (gear.ts) */
+  /** (old saves) each buddy's hand, back and shoe gear; now the player's wardrobe below (gear.ts) */
   gear: Partial<Record<string, BuddyGear>>;
+  /** the player's wearable things, and each buddy's look (gear.ts) */
+  wardrobe?: Wardrobe;
   /** how this player plays (for their Rival Ghost), their Rival Ghosts season, and Family Duels played */
   ghost?: GhostStats; rivals?: RivalState; duels?: { played: number; won: number };
 };
@@ -182,9 +184,9 @@ export function mathPool(p: Profile): Pool {
     for (let a = 1; a <= 5; a++) for (let b = 1; b <= 5; b++) { const f: Fact = { a, b, op: '+' }; if (!have.has(factId(f))) facts.push({ f, stage: m.facts[factId(f)]?.stage ?? 0 }); }
     facts = facts.filter(x => (x.f.op ?? 'x') !== '+' || (x.f.a > 0 && x.f.b > 0));
   }
-  const known = facts.filter(x => ((x.f.op ?? 'x') === 'x' || x.f.op === '+') && x.stage >= 2).length;
+  // how shaky each one is, so battles deal the ones that need practice more often
+  for (const x of facts) (x as { w?: number }).w = weakness(m.facts[factId(x.f)], m.fastMs);
   // open cards (7 × ?) are kept for later: they confused first-time players
-  void known;
   return { subject: 'math', facts, open: false };
 }
 /** Typing: words made only of the keys learned so far. */
@@ -264,10 +266,12 @@ export function notePractice(p: Profile, rightAnswers: number, session = true): 
   if (session) a.practiceSessions++;
   return warmEggs(p, Math.round(rightAnswers));
 }
-/** Shells a practice session earns, for the Adventure shop: something for finishing and more for each
- *  star, medal and new sticker. Stars pay the most: they're how well you did. */
-export function practiceShells(o: { stars: number; medals: number; stickers: number }) {
-  return 4 + o.stars * 5 + o.medals * 2 + o.stickers * 3;
+/** What a treasure found at the end of practice is worth in shells (step 0 to 9; -1: none). */
+export const treasureWorth = (step: number) => (step >= 0 ? 2 * (step + 1) : 0);
+/** Shells a practice session earns, for the shop: something for finishing, more for each star, medal and
+ *  new sticker, and the treasure the score found (the better the treasure, the more it's worth). */
+export function practiceShells(o: { stars: number; medals: number; stickers: number; treasure?: number }) {
+  return 4 + o.stars * 3 + o.medals * 2 + o.stickers * 3 + treasureWorth(o.treasure ?? -1);
 }
 export function earnShells(p: Profile, n: number) { if (n > 0) advOf(p).shells += n; return n; }
 export type Hatch = { id: GlimmerId; rarity: Rarity; isNew: boolean; level: number; ups: number };

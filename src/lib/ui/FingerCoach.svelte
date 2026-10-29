@@ -9,6 +9,7 @@
   import { hush, lineText, say } from '../audio/voice.svelte';
   import { sfx } from '../audio/sound';
   import { game } from '../state/game.svelte';
+  import Icon from './Icon.svelte';
 
   type Props = { steps: DemoStep[]; layout: Layout; look: Look; title?: string; onDone: (skipped: boolean) => void };
   let { steps, layout, look, title = 'Finger coach', onDone }: Props = $props();
@@ -449,7 +450,7 @@
 <div class="coach-wrap" role="dialog" aria-label={title}>
   <div class="coach card">
     <div class="head">
-      <span class="badge">🎓</span>
+      <span class="badge"><Icon name="cap" size={34} /></span>
       <h2>{title}</h2>
       <div class="dots">{#each steps as _, i}<i class:on={i === stepI} class:past={i < stepI}></i>{/each}</div>
     </div>
@@ -529,7 +530,7 @@
   .coach { width: min(1040px, 100%, calc((100vh - 250px) * 1.816)); padding: 16px 20px 16px; animation: pop-in .35s cubic-bezier(.3, .8, .4, 1.3); }
   .head { display: flex; align-items: center; gap: 10px; }
   .head h2 { font-size: 24px; }
-  .badge { font-size: 26px; }
+  .badge { line-height: 0; }
   .dots { margin-left: auto; display: flex; gap: 6px; }
   .dots i { width: 10px; height: 10px; border-radius: 50%; background: #e4dcf2; transition: background .2s, transform .2s; }
   .dots i.past { background: #c4b3ea; }

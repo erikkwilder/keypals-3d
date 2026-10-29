@@ -11,6 +11,9 @@
   import Results from './lib/screens/Results.svelte';
   import Stickers from './lib/screens/Stickers.svelte';
   import Closet from './lib/screens/Closet.svelte';
+  import Shop from './lib/screens/Shop.svelte';
+  import { setDressSource } from './lib/three/dress';
+  import { dressOf } from './lib/adventure/wardrobe';
   import SettingsScreen from './lib/screens/Settings.svelte';
   import Grownups from './lib/screens/Grownups.svelte';
   import MathMap from './lib/screens/MathMap.svelte';
@@ -34,6 +37,8 @@
   let intro = $state(!location.hash);
   import { devBoot } from './lib/state/dev';
   import { startCloud } from './lib/state/cloud.svelte';
+  // every 3D buddy dresses from the player's save: its hat, everything else it has on, and its nudges
+  setDressSource(b => (game.profile ? dressOf(game.profile, b) : null));
 
   $effect(() => {
     const s = game.settings;
@@ -74,6 +79,7 @@
   {:else if game.screen === 'results'}<Results />
   {:else if game.screen === 'stickers'}<Stickers />
   {:else if game.screen === 'closet'}<Closet />
+  {:else if game.screen === 'shop'}<Shop />
   {:else if game.screen === 'settings'}<SettingsScreen />
   {:else if game.screen === 'grownups'}<Grownups />
   {:else if game.screen === 'mathRun'}{#key game.runKey}<MathRun />{/key}

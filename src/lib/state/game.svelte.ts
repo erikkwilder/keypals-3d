@@ -5,7 +5,7 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
-export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals';
+export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop';
 
 function load(): SaveFile {
   try {
@@ -52,8 +52,11 @@ class Game {
   chartLesson = $state<string | null>(null);
   /** which tab the sticker book opens on */
   stickerTab = $state<'stickers' | 'medals' | 'rides'>('stickers');
-  /** which tab Keypals opens on */
+  /** which tab Keypals opens on (outfits and gear are both the Wardrobe now) */
   closetTab = $state<'outfits' | 'dances' | 'gear'>('outfits');
+  /** the Shop: where its back button goes, and a slot to show first */
+  shopBack = $state<Screen>('hub');
+  shopSlot = $state<string | null>(null);
   /** Adventure: the map stop being battled, and a fresh key so "battle again" starts a new one */
   battleNode = $state<string | null>(null);
   battleKey = $state(0);
@@ -123,6 +126,12 @@ class Game {
   openCloset(tab: 'outfits' | 'dances' | 'gear' = 'outfits') {
     this.closetTab = tab;
     this.screen = 'closet';
+  }
+  /** The Shop (one for the whole game: Home, the Adventure map and the Wardrobe open it). */
+  openShop(slot: string | null = null) {
+    if (this.screen !== 'shop') this.shopBack = this.screen;
+    this.shopSlot = slot;
+    this.screen = 'shop';
   }
 
   say(msg: string, ms = 2600) {

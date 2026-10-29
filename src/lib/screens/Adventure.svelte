@@ -2,6 +2,7 @@
   // Adventure: the painted map of the sky islands. Each island has battles, a practice stop and a
   // Champion at the end. Your buddy stands on the next stop; your team, eggs and the shop are in the corner.
   // The first visit starts with a short story (four pictures), then a tip pointing at the first battle.
+  import CloseButton from '../ui/CloseButton.svelte';
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
@@ -12,13 +13,13 @@
   import { GLIMMER, GLIMMERS, RARITY, glimmersOf, type GlimmerId, type Rarity } from '../adventure/glimmers';
   import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, ISLANDS, markSeen, NODES, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, type MapNode, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
-  import { ITEMS, buyGear, gearView, type GearItem } from '../adventure/gear';
-  import Header from '../ui/Header.svelte';
+    import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import Coach from '../ui/Coach.svelte';
   import Confetti from '../ui/Confetti.svelte';
+  import Icon from '../ui/Icon.svelte';
 
   const base = import.meta.env.BASE_URL;
   // Learn: the next trick not learned yet, offered on a practice stop
@@ -31,7 +32,6 @@
   const spots = $derived(SPOTS[kind]);
   const cur = $derived(currentNode(a));
   let open = $state<MapNode | null>(null);
-  let shop = $state(false);
   let burst = $state(0);
   let chances = $state(false);
   const play = $derived(playLeft(p));
@@ -108,23 +108,6 @@
     if (k === 'typing') { game.setHome('typing'); game.startLesson(nextLesson(p).id); }
     else { game.setHome('math'); game.startMath(nextMathLesson(mathOf(p)).id); }
   }
-  // gear in the shop: for the buddy you're playing with (each buddy keeps its own)
-  const myGear = $derived(gearView(a, game.profile!.buddy));
-  function buyPiece(it: GearItem) {
-    let r: { ok: boolean; why?: string } = { ok: false };
-    const who = game.profile!.buddy;
-    game.update(pp => { r = buyGear(advOf(pp), who, it.id); });
-    const res = r as { ok: boolean; why?: string };
-    if (res.ok) { sfx.buy(); burst++; game.say(`${FRIEND[who].name} has the ${it.name} on! Change gear on the Keypals screen.`); }
-    else { sfx.nope(); game.say(res.why ?? 'Not now.'); }
-  }
-  function buyIt(id: string) {
-    let r: ReturnType<typeof buy> = { ok: false };
-    game.update(pp => { r = buy(pp, id, id === 'treat' ? (team[0] ?? undefined) : undefined); });
-    const res = r as ReturnType<typeof buy>;
-    if (res.ok) { sfx.buy(); burst++; game.say(id === 'treat' ? `${GLIMMER[team[0]].name} grew a level!` : `Your new egg is ${res.where === 'nest' ? 'waiting in the nest' : 'in the incubator: practice to hatch it'}.`); }
-    else { sfx.nope(); game.say(res.why ?? 'Not now.'); }
-  }
   const kindName = { battle: 'Battle', practice: 'Practice stop', champion: 'Champion' };
   const pathD = $derived(NODES.map((n, i) => `${i ? 'L' : 'M'}${spots[n.id][0]} ${spots[n.id][1]}`).join(' '));
   const HOW_OFTEN: [string, Rarity][] = [['Often', 'common'], ['Sometimes', 'uncommon'], ['Not often', 'rare'], ['Hardly ever', 'epic'], ['Once in a blue moon', 'mythic']];
@@ -135,7 +118,7 @@
     {#snippet right()}
       <button class="chip help" onclick={() => { intro = 0; sfx.pop(); }} title="How Adventure works">?</button>
       <span class="chip shells" title="Shells: spend them in the shop"><img src="{base}game/icon-shell.webp" alt="" />{a.shells}</span>
-      {#if play.left !== null}<span class="chip time" class:low={play.left < 3} title={PLAY_RULES[a.settings.rule].text}>⏱ {Math.max(0, Math.floor(play.left))} min</span>{/if}
+      {#if play.left !== null}<span class="chip time" class:low={play.left < 3} title={PLAY_RULES[a.settings.rule].text}><Icon name="clock" size={20} /> {Math.max(0, Math.floor(play.left))} min</span>{/if}
     {/snippet}
   </Header>
 
@@ -149,8 +132,8 @@
         {@const here = cur?.id === n.id}
         <button class="node {n.kind}" class:done class:here class:locked={!ok} style:left="{spots[n.id][0]}%" style:top="{spots[n.id][1]}%" onclick={() => tap(n)} aria-label="{ISLAND[n.island].name}: {kindName[n.kind]}">
           <img src="{base}game/node-{!ok ? 'lock' : n.kind}.webp" alt="" draggable="false" />
-          {#if done && n.kind !== 'practice'}<span class="tick">✓</span>{/if}
-          {#if n.kind === 'practice' && practiceDone(a, n.id) && !cleared(a, n.id)}<span class="gift">🎁</span>{/if}
+          {#if done && n.kind !== 'practice'}<span class="tick"><Icon name="check" size={26} /></span>{/if}
+          {#if n.kind === 'practice' && practiceDone(a, n.id) && !cleared(a, n.id)}<span class="gift"><Icon name="gift" size={30} /></span>{/if}
           {#if n.kind === 'champion' && ok && !done}<span class="crown">Champion</span>{/if}
         </button>
       {/each}
@@ -172,7 +155,7 @@
     <NavTile label="Eggs" tone="butter" badge={ready ? `${ready} ready!` : eggs ? eggs : undefined} title="Your eggs hatch when you practice" onclick={() => game.go('eggs')}>
       {#snippet art()}<img class="tileimg" src="{base}game/egg-{a.incubator.find(e => e)?.rarity ?? 'rare'}.webp" alt="" />{/snippet}
     </NavTile>
-    <NavTile label="Shop" tone="mint" title="Spend shells on eggs and treats" onclick={() => { shop = true; }}>
+    <NavTile label="Shop" tone="mint" title="The Island Shop: things to wear, eggs and treats" onclick={() => game.openShop()}>
       {#snippet art()}<img class="tileimg" src="{base}game/icon-shell.webp" alt="" />{/snippet}
     </NavTile>
     {#if a.settings.versus !== false}
@@ -202,18 +185,18 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="sheetbg" onclick={() => (open = null)}>
       <div class="sheet card" onclick={(e) => e.stopPropagation()}>
-        <div class="sh"><img src="{base}game/node-{n.kind}.webp" alt="" /><div><small>{isl.name}</small><h2>{n.kind === 'battle' ? `Battle ${n.n + 1}` : kindName[n.kind]}</h2></div><button class="x" onclick={() => (open = null)} aria-label="Close">×</button></div>
+        <div class="sh"><img src="{base}game/node-{n.kind}.webp" alt="" /><div><small>{isl.name}</small><h2>{n.kind === 'battle' ? `Battle ${n.n + 1}` : kindName[n.kind]}</h2></div><span class="x"><CloseButton onclick={() => (open = null)} size={38} /></span></div>
         {#if n.kind === 'practice'}
           {#if practiceDone(a, n.id) && !cleared(a, n.id)}
             <p>You practised! Here's your reward: 20 shells, and your eggs grow a little.</p>
-            <button class="btn btn-primary big" onclick={() => collect(n)}>Collect reward 🎁</button>
+            <button class="btn btn-primary big" onclick={() => collect(n)}>Collect reward <Icon name="gift" size={28} /></button>
           {:else if cleared(a, n.id)}
             <p>Done! Practice any time: it makes your eggs grow and earns shells{a.settings.rule === 'balanced' ? ' and Adventure time' : ''}.</p>
           {:else}
             <p>Do one practice: a math trip, a typing lesson or a playground game. Then come back here for a reward.</p>
             <p class="muted">Practice also makes your eggs grow{a.settings.rule === 'balanced' ? ' and earns more Adventure time' : ''}.{a.settings.rule === 'open' ? ' You can skip ahead for now: the reward waits here.' : ''}</p>
             <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>Math trip</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing lesson</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
-            {#if learnTip}<button class="learnlink" onclick={() => game.openLearn(learnTip!.id, 'adventure')}><img src="{base}learn/tile.webp" alt="" /><span><small>A new trick to learn</small><b>{learnTip.title}</b></span><em>Learn it ▶</em></button>{/if}
+            {#if learnTip}<button class="learnlink" onclick={() => game.openLearn(learnTip!.id, 'adventure')}><img src="{base}learn/tile.webp" alt="" /><span><small>A new trick to learn</small><b>{learnTip.title}</b></span><em>Learn it <Icon name="play" size={16} /></em></button>{/if}
           {/if}
         {:else}
           {#if n.kind === 'champion'}
@@ -236,41 +219,6 @@
           {#if !canPass(a, n) || !play.open}<p class="muted">{play.why}</p>{/if}
           <button class="btn btn-primary big" disabled={!play.open} onclick={() => fight(n)}>{cleared(a, n.id) ? 'Play again' : 'Start the battle!'}</button>
         {/if}
-      </div>
-    </div>
-  {/if}
-
-  {#if shop}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sheetbg" onclick={() => (shop = false)}>
-      <div class="sheet card shopbox" onclick={(e) => e.stopPropagation()}>
-        <div class="sh"><img src="{base}game/icon-shell.webp" alt="" /><div><small>You have {a.shells} shells</small><h2>Island Shop</h2></div><button class="x" onclick={() => (shop = false)} aria-label="Close">×</button></div>
-        <p class="muted">Shells come from battles and from practice. An egg you buy hatches into a new Glimmer when you practice.</p>
-        <div class="items">
-          {#each SHOP as it}
-            <div class="item">
-              <img src="{base}game/{it.egg ? `egg-${it.egg}` : 'icon-star'}.webp" alt="" />
-              <b>{it.name}</b><span>{it.text}{it.id === 'treat' && team[0] ? ` (for ${GLIMMER[team[0]].name})` : ''}</span>
-              <button class="btn btn-primary" disabled={a.shells < it.price || (it.id === 'treat' && !team[0])} onclick={() => buyIt(it.id)}><img src="{base}game/icon-shell.webp" alt="" />{it.price}</button>
-            </div>
-          {/each}
-        </div>
-        <div class="gearhead"><b>Gear for {FRIEND[game.profile!.buddy].name}</b><span class="muted">Each piece helps in battles. Wear a whole set for a bonus.</span></div>
-        <div class="gearshop">
-          {#each ITEMS as it (it.id)}
-            {@const mine = myGear.owned.includes(it.id)}
-            <div class="gpiece" class:mine style:--rc={RARITY[it.rarity].color}>
-              <img src="{base}gear/{it.id}.webp" alt="" />
-              <b>{it.name}</b>
-              <span>{it.text}</span>
-              {#if mine}<em class="have">✓ {FRIEND[game.profile!.buddy].name} has it</em>
-              {:else if it.price === null}<em class="champ">🏆 {ISLAND[it.champion!].name} Champion prize</em>
-              {:else}<button class="btn btn-primary" disabled={a.shells < it.price} onclick={() => buyPiece(it)}><img src="{base}game/icon-shell.webp" alt="" />{it.price}</button>{/if}
-            </div>
-          {/each}
-        </div>
-        <p class="muted small">Eggs from battles: {EGG_ODDS} Nothing here costs real money.</p>
       </div>
     </div>
   {/if}
@@ -300,7 +248,7 @@
   .chip { display: flex; align-items: center; gap: 6px; font: 600 18px var(--font-ui); background: #fff; border-radius: 999px; padding: 4px 12px 4px 4px; box-shadow: var(--shadow-sm); border: 0; color: var(--ink); }
   .chip img { width: 30px; height: 30px; object-fit: contain; }
   .chip.help { width: 40px; height: 40px; justify-content: center; padding: 0; font-size: 22px; color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b; }
-  .chip.time { padding: 6px 12px; font-size: 15px; }
+  .chip.time { padding: 4px 12px 4px 6px; font-size: 15px; }
   .chip.time.low { background: #fff0f2; color: #b02a48; }
   .mapwrap { position: relative; flex: 1; min-height: 0; overflow: hidden; }
   .backdrop { position: absolute; inset: -40px; background: var(--bg) center / cover; filter: blur(22px) saturate(1.1); }
@@ -314,8 +262,8 @@
   .node.done img { filter: drop-shadow(0 4px 4px rgba(60, 30, 10, .35)) saturate(.8); }
   .node.here img { animation: glow 1.4s ease-in-out infinite; }
   @keyframes glow { 50% { filter: drop-shadow(0 0 14px #fff) drop-shadow(0 0 22px #ffd36b); } }
-  .tick { position: absolute; right: -4px; top: -4px; width: 24px; height: 24px; border-radius: 50%; background: #2fbf73; color: #fff; font: 800 14px/24px var(--font-body); box-shadow: 0 0 0 3px #fff; text-align: center; }
-  .gift { position: absolute; right: -8px; top: -10px; font-size: 22px; animation: hop 1s ease-in-out infinite; }
+  .tick { position: absolute; right: -6px; top: -6px; line-height: 0; filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff); }
+  .gift { position: absolute; right: -10px; top: -14px; line-height: 0; animation: hop 1s ease-in-out infinite; }
   .me { position: absolute; transform: translate(-50%, -100%); margin-top: -18px; pointer-events: none; filter: drop-shadow(0 8px 6px rgba(40, 20, 10, .45)); animation: hop 1.1s ease-in-out infinite; }
   .next { position: absolute; transform: translate(-50%, 0); margin-top: 22px; font: 600 14px var(--font-ui); color: #fff; background: var(--primary); padding: 2px 10px; border-radius: 999px; box-shadow: 0 0 0 3px #fff; pointer-events: none; }
   @keyframes hop { 50% { translate: 0 -6px; } }
@@ -339,7 +287,7 @@
   .learnlink span { flex: 1; }
   .learnlink small { display: block; font: 800 11px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: #a86a00; }
   .learnlink b { font: 600 18px var(--font-ui); color: var(--ink); }
-  .learnlink em { font: 700 14px var(--font-body); font-style: normal; color: #6b4300; background: #ffd36b; padding: 5px 12px; border-radius: 999px; }
+  .learnlink em { display: inline-flex; align-items: center; gap: 4px; font: 700 14px var(--font-body); font-style: normal; color: #6b4300; background: #ffd36b; padding: 5px 12px; border-radius: 999px; }
   .row.end { justify-content: flex-end; }
   .sheetbg { position: absolute; inset: 0; z-index: 10; background: rgba(40, 28, 70, .35); display: grid; place-items: center; animation: fade .2s; }
   @keyframes fade { from { opacity: 0; } }
@@ -349,7 +297,7 @@
   .sh img { width: 60px; height: 60px; object-fit: contain; }
   .sh small { font: 800 12px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .sh h2 { margin: 0; font-size: 28px; }
-  .x { margin-left: auto; width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--bg2); font: 600 24px/1 var(--font-ui); color: var(--ink2); cursor: pointer; }
+  .x { margin-left: auto; display: grid; }
   .sheet p { margin: 0; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }
   .sheet h3 { margin: 4px 0 0; font-size: 18px; }
   .small { font-size: 13px !important; }
@@ -367,26 +315,6 @@
   .subj { display: flex; align-items: center; gap: 6px; font: 700 14px var(--font-body); color: var(--ink2); }
   .subj button { border: 0; border-radius: 999px; padding: 8px 16px; font: 600 16px var(--font-ui); background: #f1ecfb; color: var(--ink2); cursor: pointer; }
   .subj button.on { background: var(--primary); color: #fff; }
-  .items { display: flex; flex-direction: column; gap: 8px; }
-  .item { display: grid; grid-template-columns: 56px 1fr auto; grid-template-rows: auto auto; column-gap: 12px; align-items: center; background: #faf8fe; border-radius: 18px; padding: 8px 12px; }
-  .item > img { grid-row: span 2; width: 56px; height: 56px; object-fit: contain; }
-  .item b { font: 600 18px var(--font-ui); } .item span { font: 600 13px var(--font-body); color: var(--muted); grid-column: 2; }
-  .item .btn { grid-row: 1 / span 2; grid-column: 3; display: flex; align-items: center; gap: 4px; }
-  .item .btn img { width: 22px; height: 22px; object-fit: contain; }
-  .gearhead { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
-  .gearhead b { font: 600 20px var(--font-ui); }
-  .gearhead span { font: 600 13px var(--font-body); }
-  .gearshop { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .gpiece { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; background: #faf8fe; border-radius: 18px; padding: 8px 6px; box-shadow: inset 0 0 0 2px var(--rc); }
-  .gpiece > img { width: 56px; height: 56px; object-fit: contain; }
-  .gpiece b { font: 600 15px/1.1 var(--font-ui); }
-  .gpiece span { font: 600 11.5px/1.3 var(--font-body); color: var(--muted); }
-  .gpiece .btn { margin-top: auto; display: flex; align-items: center; gap: 4px; padding: 6px 12px; }
-  .gpiece .btn img { width: 20px; height: 20px; object-fit: contain; }
-  .gpiece em { margin-top: auto; font: 800 11px var(--font-body); font-style: normal; padding: 3px 8px; border-radius: 999px; }
-  .gpiece em.have { background: #2fbf73; color: #fff; }
-  .gpiece em.champ { background: #fff1c2; color: #8a6400; }
-  .gpiece.mine { background: #f2fcf6; }
 
   .introbg { position: absolute; inset: 0; z-index: 30; background: rgba(30, 20, 60, .55); display: grid; place-items: center; padding: 16px; animation: fade .3s; }
   .introcard { width: min(880px, 96vw); overflow: hidden; display: grid; grid-template-columns: 1.15fr 1fr; padding: 0; }

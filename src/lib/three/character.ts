@@ -346,6 +346,22 @@ export class Character {
     return this.headFit;
   }
 
+  /** the Wardrobe's Move it nudge for the hat (shares of the buddy's height, a size, a turn) */
+  private hatN: { x: number; y: number; z: number; s: number; r: number } | null = null;
+  /** Move, size and turn the hat about where it sits on the head (null: back to its own place). */
+  nudgeHat(n: { x: number; y: number; z: number; s: number; r: number } | null) {
+    this.hatN = n;
+    const fit = this.headFit, h = this.outfit;
+    if (!fit || !h) return;
+    // the nudge is in the buddy's own directions (x to its left, y up, z forward); the hat's holder sits in
+    // the head bone's space, so turn the offset into it, in the model's own units
+    const u = FRIEND[this.id].height / Math.max(1e-6, this.scale), q = fit.basis;
+    const off = new THREE.Vector3(n?.x ?? 0, n?.y ?? 0, n?.z ?? 0).multiplyScalar(u).applyQuaternion(q);
+    h.position.copy(fit.top).add(off);
+    h.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), n?.r ?? 0));
+    h.scale.setScalar(n?.s ?? 1);
+  }
+
   /** Put an outfit on the head; `make` builds a fresh copy of the outfit's model. */
   async wear(id: string, make: (id: string) => Promise<THREE.Object3D | null>) {
     if (id === this.outfitId) return;
@@ -366,6 +382,7 @@ export class Character {
     holder.traverse(o => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = false; } });
     head.add(holder);
     this.outfit = holder;
+    if (this.hatN) this.nudgeHat(this.hatN);
   }
 
   dispose() { this.mixer.stopAllAction(); this.root.removeFromParent(); }

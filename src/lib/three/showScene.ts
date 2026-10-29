@@ -6,13 +6,14 @@ import { stage, type Controller } from './stage';
 import { Character } from './character';
 import { makeOutfit } from './outfits3d';
 import { wearGear, wearKit } from './gear3d';
+import { dressUp } from './dress';
 import type { Slot } from '../adventure/gear';
 import type { FriendId } from '../art/cast';
 import type { Island } from './island';
 import type { View } from './runScene';
 
 /** `shadowed`: buddies shown in shadowy black and white (not on the team yet). */
-type Opts = { buddies: FriendId[]; view: View; spot?: number; outfits?: Partial<Record<FriendId, string>>; orbit?: boolean; shadowed?: FriendId[]; /** hand, back and shoe gear */ gear?: Partial<Record<FriendId, Partial<Record<Slot, string>>>> };
+type Opts = { buddies: FriendId[]; view: View; spot?: number; outfits?: Partial<Record<FriendId, string>>; orbit?: boolean; shadowed?: FriendId[]; /** what else each wears */ gear?: Partial<Record<FriendId, Partial<Record<Slot, string>>>>; /** dress each from the player's save (dress.ts) */ fromSave?: boolean };
 
 export class ShowScene implements Controller {
   /** menus don't need 60 frames a second */
@@ -62,6 +63,8 @@ export class ShowScene implements Controller {
       loads.push(c.loadMoves());
       const o = opts.outfits?.[c.id];
       if (opts.shadowed?.includes(c.id)) c.shadowed();
+      // the Wardrobe dresses from the save (hat, every slot, nudges); others say what each buddy wears
+      else if (opts.fromSave) void dressUp(c);
       else {
         if (o && o !== 'none') c.wear(o, makeOutfit);
         const g = opts.gear?.[c.id];
@@ -113,8 +116,12 @@ export class ShowScene implements Controller {
     this.movesReady.then(() => { if (this.selected === id && c.has('wave1')) this.start(this.chars.indexOf(c), 'wave1'); });
   }
   async wear(id: FriendId, outfit: string) { await this.chars.find(c => c.id === id)?.wear(outfit, makeOutfit); }
-  /** Put a piece of hand, back or shoe gear on (null takes it off). */
+  /** Put a piece on a slot (null takes it off). */
   async wearGear(id: FriendId, slot: Slot, item: string | null) { const c = this.chars.find(x => x.id === id); if (c) await wearGear(c, slot, item); }
+  /** Dress a buddy again from the save (after the Wardrobe changes something). */
+  async redress(id: FriendId) { const c = this.chars.find(x => x.id === id); if (c) await dressUp(c); }
+  /** The buddy on show (the Wardrobe moves its things live). */
+  char(id: FriendId) { return this.chars.find(x => x.id === id) ?? null; }
   dance(id: FriendId, dance: string) {
     const i = this.chars.findIndex(c => c.id === id);
     if (i < 0) return;

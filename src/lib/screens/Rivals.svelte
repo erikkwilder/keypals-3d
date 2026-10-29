@@ -12,6 +12,7 @@
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import Coach from '../ui/Coach.svelte';
+  import Icon from '../ui/Icon.svelte';
   import { DuelScene } from '../three/duelScene';
   // build the arena while you choose a rival, so the game opens straight away
   DuelScene.warm('treetops');
@@ -86,7 +87,7 @@
           <div class="team">{#each r.team as m (m.id)}<span title={GLIMMER[m.id].name}><img src="{base}game/glimmers/face/{m.id}{m.evolved ? '-evo' : ''}.webp" alt="" /><small>{GLIMMER[m.id].name}</small></span>{:else}<small class="none">No Glimmers yet</small>{/each}</div>
           <div class="likes">{#each playsLike(r.stats) as w}<span>{w}</span>{/each}</div>
           <button class="btn btn-primary" onclick={() => battle(r)}>{beat ? 'Battle again' : 'Battle!'}</button>
-          {#if beat}<span class="beat">✓ Beaten this week</span>{/if}
+          {#if beat}<span class="beat"><Icon name="check" size={16} /> Beaten this week</span>{/if}
         </div>
       {/each}
     </div>

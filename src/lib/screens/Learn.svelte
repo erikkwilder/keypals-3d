@@ -11,6 +11,7 @@
   import LearnLesson from '../math/ui/LearnLesson.svelte';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
+  import Icon from '../ui/Icon.svelte';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -64,17 +65,17 @@
               <Critter friend={buddy} size={58} round />
               <span class="hsay">{p.name}, I'll show you! It takes about two minutes.</span>
             </div>
-            <button class="btn btn-primary btn-big" onclick={() => watch(hero)}>▶ Watch: {hero.title}</button>
+            <button class="btn btn-primary btn-big" onclick={() => watch(hero)}><Icon name="play" size={26} /> Watch: {hero.title}</button>
           </div>
         </section>
       {/if}
 
       {#if learned.length}
         <section class="mine">
-          <h3><span class="bulb">💡</span> Your tricks <small>They help you in battles</small></h3>
+          <h3><Icon name="bulb" size={28} /> Your tricks <small>They help you in battles</small></h3>
           <div class="chips">
             {#each learned as l (l.id)}
-              <button class="tchip" style:--sc={STRANDS.find(s => s.op === l.op)?.color} onclick={() => watch(l)}><span class="tick">✓</span>{l.title}<span class="play">▶</span></button>
+              <button class="tchip" style:--sc={STRANDS.find(s => s.op === l.op)?.color} onclick={() => watch(l)}><Icon name="check" size={18} />{l.title}<Icon name="play" size={20} /></button>
             {/each}
           </div>
         </section>
@@ -93,7 +94,7 @@
                   <b>{l.title}</b>
                   <span>{l.blurb}</span>
                   <div class="lrow">
-                    {#if done}<span class="pill ok">✓ Learned</span>{:else}<span class="pill new">New</span>{/if}
+                    {#if done}<span class="pill ok"><Icon name="check" size={14} /> Learned</span>{:else}<span class="pill new">New</span>{/if}
                     <button class="btn small" class:btn-primary={!done} onclick={() => watch(l)}>{done ? 'Watch again' : 'Watch'}</button>
                   </div>
                 </div>
@@ -127,12 +128,9 @@
   h3 { margin: 0 0 10px; display: flex; align-items: center; gap: 10px; font-size: 22px; flex-wrap: wrap; }
   h3 small { font: 700 14px var(--font-body); color: var(--muted); }
   h3 img { width: 64px; height: 38px; object-fit: cover; border-radius: 10px; box-shadow: 0 0 0 3px var(--sc); }
-  .bulb { font-size: 24px; }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; }
   .tchip { display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; padding: 8px 12px; border-radius: 999px; background: color-mix(in srgb, var(--sc) 14%, #fff); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--sc) 40%, #fff); font: 600 16px var(--font-ui); color: var(--ink); }
   .tchip:hover { transform: translateY(-2px); }
-  .tick { color: #1f9a6a; }
-  .play { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: var(--sc); color: #fff; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
   .lcard { display: flex; flex-direction: column; gap: 8px; background: #fff; border-radius: 22px; padding: 8px; box-shadow: 0 0 0 2px #efe9f8; }
   .lcard.done { box-shadow: 0 0 0 3px #b8edd5; }
@@ -140,7 +138,7 @@
   .ltext b { font: 600 19px var(--font-ui); }
   .ltext > span { font: 600 14px/1.3 var(--font-body); color: var(--muted); }
   .lrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
-  .pill { font: 800 12px var(--font-body); padding: 3px 10px; border-radius: 999px; }
+  .pill { display: inline-flex; align-items: center; gap: 3px; font: 800 12px var(--font-body); padding: 3px 10px; border-radius: 999px; }
   .pill.ok { background: #d9f7e8; color: #1f7a54; }
   .pill.new { background: #fff1c2; color: #8a5a00; }
   .btn.small { padding: 7px 16px; font-size: 16px; }

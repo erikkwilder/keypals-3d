@@ -10,7 +10,8 @@ import { STICKERS, newPalProgress } from './stickers';
 import { MEDALS } from './achievements';
 import { RIDES, RIDE_SCORE } from './rides';
 import type { Profile } from './profile';
-import { applyRun, isUnlocked, lookOf, newProfile, nextLesson, migrate, knownFor, palOf } from './profile';
+import { applyRun, isUnlocked, lookOf, newProfile, nextLesson, migrate, knownFor, palOf, bookView, buddyPal, allPals } from './profile';
+import { checkStickers } from './settle';
 import { mastery, updateKeyStats } from './mastery';
 import { WORDS_KIDS, WORDS_GROWN } from '../content/words';
 import { POOLS } from '../content/sentences';
@@ -222,18 +223,22 @@ describe('profiles and progress', () => {
     expect(out.shells).toBeGreaterThan(0);
     expect(nextLesson(p).id).toBe('village-2');
   });
-  it('keeps stickers, medals and friendship per buddy; a buddy you switch to starts fresh', () => {
+  it('stickers and medals go in the player\'s one book; friendship stays with each buddy', () => {
     let p = newProfile('Mia', 'dino');
     const s = typeOut('fff jjj fj jf fff jjj fj jf', 500);
     p = applyRun(p, { lessonId: 'village-1', stats: computeStats(s), stars: 3, bestRide: 1, keyboardHidden: false, finished: true, at: Date.now() }, Q).profile;
-    expect(Object.keys(p.pals.dino!.stickers).length).toBeGreaterThan(2);
+    const won = Object.keys(bookView(p).stickers);
+    expect(won.length).toBeGreaterThan(2);
+    expect(bookView(p).stickers['runs-1'].by).toBe('dino');
     const dinoXp = p.pals.dino!.xp;
     p.buddy = 'monkey';
     const out = applyRun(p, { lessonId: 'village-1', stats: computeStats(s), stars: 3, bestRide: 1, keyboardHidden: false, finished: true, at: Date.now() }, Q);
-    expect(out.stickers.map(st => st.id)).toContain('runs-1'); // Momo's own first run
-    expect(out.profile.pals.monkey!.medals.three).toBe(1);
+    // nothing to win again: the first-lesson sticker is already in the book
+    expect(out.stickers.map(st => st.id)).not.toContain('runs-1');
+    expect(bookView(out.profile).medals.three).toBe(2);
     expect(out.profile.pals.dino!.xp).toBe(dinoXp);
-    expect(out.profile.lessons['village-1'].passes).toBe(2); // the lessons are the player's
+    expect(out.profile.pals.monkey!.xp).toBeGreaterThan(0);
+    expect(out.profile.lessons['village-1'].passes).toBe(2);
   });
   it('drops a shared team from a test save and keeps each buddy\'s own progress', () => {
     const old = { ...newProfile('Mia', 'dino'), team: { xp: 900 }, looks: undefined } as unknown as Record<string, unknown>;
@@ -242,6 +247,10 @@ describe('profiles and progress', () => {
     expect((p as unknown as { team?: unknown }).team).toBeUndefined();
     expect(p.pals.dino!.xp).toBe(300);
     expect(Object.keys(p.pals.monkey!.stickers)).toEqual(['b']);
+    // the old per-buddy books are merged into the player's one book
+    expect(Object.keys(bookView(p).stickers).sort()).toEqual(['a', 'b']);
+    expect(bookView(p).stickers.b.by).toBe('monkey');
+    expect(bookView(p).medals.three).toBe(3);
     expect(p.looks!.dino).toEqual({ outfit: 'party_hat', dance: 'jump' });
   });
   it('awards the medals that matter on a great run, and only a handful', () => {
@@ -311,7 +320,7 @@ describe('six rides', () => {
       expect(MEDALS.some(m => m.id === `ride-${r.id}`), r.id).toBe(false);
     }
     expect(MEDALS).toHaveLength(9);
-    expect(STICKERS).toHaveLength(35);
+    expect(STICKERS).toHaveLength(38);
     expect(RIDE_SCORE.kids).toHaveLength(RIDES.length);
     expect(RIDE_SCORE.grown).toHaveLength(RIDES.length);
   });
@@ -407,5 +416,17 @@ describe('earning buddies', () => {
     expect(welcomeNew(p)).toEqual([]);
     p.buddy = 'fish';
     expect(palOf(p).xp).toBe(0); // a new buddy starts their own friendship
+  });
+});
+
+describe('the treasure ladder', () => {
+  it('counts the best treasure across every buddy, for "best yet" and the treasure stickers', () => {
+    const p = newProfile('Mia', 'dino');
+    buddyPal(p).treasureBest = 6;
+    p.buddy = 'monkey';
+    expect(allPals(p).treasureBest).toBe(6);
+    const won = checkStickers(p, 1);
+    expect(won.map(s => s.id)).toEqual(expect.arrayContaining(['treasure-3', 'treasure-6']));
+    expect(won.map(s => s.id)).not.toContain('treasure-9');
   });
 });

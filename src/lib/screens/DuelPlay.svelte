@@ -27,6 +27,7 @@
   import NumPad from '../math/ui/NumPad.svelte';
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
+  import Icon from '../ui/Icon.svelte';
 
   type Props = { sides: [SideSetup, SideSetup]; glimmer: GlimmerId; mode: 'duel' | 'rival'; rival?: Rival | null; first?: 0 | 1; onagain: () => void; onexit: () => void };
   let { sides, glimmer, mode, rival = null, first = 0, onagain, onexit }: Props = $props();
@@ -112,7 +113,7 @@
   onMount(async () => {
     addEventListener('resize', onResize);
     try {
-      const sc = await DuelScene.create({ region: 'treetops', glimmer, view: viewOf(), sides: d.sides.map(s => ({ buddy: s.buddy, outfit: s.outfit, dance: s.dance, team: s.team.map(t => ({ id: t.id, evolved: t.evolved })), ghost: s.kind === 'ghost', worn: s.worn })) as never });
+      const sc = await DuelScene.create({ region: 'treetops', glimmer, view: viewOf(), sides: d.sides.map(s => ({ buddy: s.buddy, outfit: s.outfit, dance: s.dance, team: s.team.map(t => ({ id: t.id, evolved: t.evolved })), ghost: s.kind === 'ghost', worn: s.worn, dress: s.dress })) as never });
       if (disposed) { sc.dispose(); return; }
       scene = sc; stage.use(sc);
       requestAnimationFrame(onResize);
@@ -419,7 +420,7 @@
     {/each}
   </div>
   {#if ui !== 'won' && ui !== 'loading' && ui !== 'intro'}
-    <button class="turnpill" style:--sc={SIDE[turn]} onclick={() => show({ kind: 'glimmer' })}>{turn === 0 ? '◀ ' : ''}{curSide.name}'s turn{turn === 1 ? ' ▶' : ''}</button>
+    <button class="turnpill" style:--sc={SIDE[turn]} onclick={() => show({ kind: 'glimmer' })}>{#if turn === 0}<Icon name="back" size={20} />{/if}{curSide.name}'s turn{#if turn === 1}<Icon name="play" size={20} />{/if}</button>
   {/if}
 
   <div class="stage" bind:this={stageEl}></div>
@@ -438,7 +439,7 @@
           <button class="card down el-{c.element}" class:super={c.super} style:--d="{i * 0.08}s" onclick={() => pick(c)} disabled={ui !== 'pick'} aria-label="{ELEMENT[c.element].name} card{c.super ? ', strong' : ''}">
             {#if !narrow}<span class="key">{i + 1}</span>{/if}
             <img class="ci" src="{base}game/icon-{c.element}.webp" alt="" />
-            <span class="ct"><b>?</b><small>{ELEMENT[c.element].name}</small>{#if c.super}<em>⚡ Strong</em>{/if}</span>
+            <span class="ct"><b>?</b><small>{ELEMENT[c.element].name}</small>{#if c.super}<em><Icon name="bolt" size={14} /> Strong</em>{/if}</span>
           </button>
         {/each}
       </div>
@@ -504,9 +505,9 @@
             <span class="wn"><Critter friend={x.s.buddy} size={28} round />{x.s.name}</span>
             <div class="pz">
               <button class="prize" onclick={() => show({ kind: 'shells' })}><img src="{base}game/icon-shell.webp" alt="" /><b>+{x.o!.shells}</b><small>shells</small></button>
-              <button class="prize" onclick={() => show({ kind: 'friendship' })}><span class="heart">♥</span><b>+{x.o!.xp.gained}</b><small>friendship</small></button>
+              <button class="prize" onclick={() => show({ kind: 'friendship' })}><span class="heart"><Icon name="heart" size={38} /></span><b>+{x.o!.xp.gained}</b><small>friendship</small></button>
               {#if mode === 'rival'}<button class="prize" onclick={() => show({ kind: 'points' })}><img src="{base}game/league-{x.o!.league}.webp" alt="" /><b>+{x.o!.points}</b><small>points</small></button>{/if}
-              {#each x.o!.rewards as r (r.id)}<div class="prize">{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart">♪</span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></div>{/each}
+              {#each x.o!.rewards as r (r.id)}<div class="prize">{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart"><Icon name="dance" size={40} /></span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></div>{/each}
               {#each x.o!.stickers ?? [] as st (st.id)}<div class="prize" title={st.desc}><img src="{base}game/icon-stickers.webp" alt="" /><b>Sticker</b><small>{st.name}</small></div>{/each}
             </div>
           </div>
@@ -541,7 +542,7 @@
       <div class="helpcard card" onclick={(e) => e.stopPropagation()}>
         <h2>How to play</h2>
         <div class="hrows">
-          <div class="hr"><div class="mini"><span class="mturn"><Critter friend={d.sides[0].buddy} size={34} round /><i>⇄</i><Critter friend={d.sides[1].buddy} size={34} round /></span></div><p><b>Take turns</b> Pick a card. It flips over: answer it!</p></div>
+          <div class="hr"><div class="mini"><span class="mturn"><Critter friend={d.sides[0].buddy} size={34} round /><i><Icon name="swap" size={24} /></i><Critter friend={d.sides[1].buddy} size={34} round /></span></div><p><b>Take turns</b> Pick a card. It flips over: answer it!</p></div>
           <div class="hr"><div class="mini"><span class="mbar"><i><em style:width="65%"></em></i></span></div><p><b>Fill your bar first</b> and {gName} joins you.</p></div>
           <div class="hr"><div class="mini"><span class="mcards"><span class="mcard el-sun">3 + 2</span><span class="mcard el-tide">12 × 8</span></span></div><p><b>Fair for everyone</b> Your own questions, and every right answer is +{DUEL_CARD}.</p></div>
           <div class="hr"><div class="mini"><img class="mstorm" src="{base}game/storm1.webp" alt="" /></div><p><b>3 right in a row</b> sends a rain cloud to the other side.</p></div>
@@ -631,7 +632,7 @@
   .stars img.on { filter: none; }
   .tm img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; object-position: center 35%; box-shadow: 0 0 0 2px #fff; display: block; }
   .ghost .tm img { filter: saturate(.5) hue-rotate(160deg) brightness(1.1); opacity: .85; }
-  .turnpill { align-self: center; margin-top: 8px; border: 0; cursor: pointer; font: 600 20px var(--font-ui); color: #fff; background: var(--sc); padding: 6px 20px; border-radius: 999px; box-shadow: 0 0 0 3px #fff, 0 8px 20px -8px rgba(30, 20, 70, .6); }
+  .turnpill { display: inline-flex; align-items: center; gap: 6px; align-self: center; margin-top: 8px; border: 0; cursor: pointer; font: 600 20px var(--font-ui); color: #fff; background: var(--sc); padding: 6px 20px; border-radius: 999px; box-shadow: 0 0 0 3px #fff, 0 8px 20px -8px rgba(30, 20, 70, .6); }
 
   .float { position: absolute; transform: translate(-50%, -50%); font: 600 34px var(--font-ui); color: #fff; z-index: 8; pointer-events: none; animation: rise 1.5s cubic-bezier(.2, .8, .3, 1) forwards; -webkit-text-stroke: 1px rgba(40, 20, 80, .25); text-shadow: 0 3px 0 rgba(40, 20, 80, .35), 0 0 18px currentColor; white-space: nowrap; }
   .float.extra { font-size: 22px; }
@@ -666,7 +667,7 @@
   .cards .card:hover:not(:disabled) { transform: translateY(-6px) scale(1.03); }
   .cards .card .ci { width: 70px; height: 70px; flex: none; object-fit: contain; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .18)); }
   .ct { display: flex; flex-direction: column; min-width: 0; }
-  .ct em { align-self: flex-start; margin-top: 4px; font: 800 12px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 3px 9px; border-radius: 999px; }
+  .ct em { display: inline-flex; align-items: center; gap: 3px; align-self: flex-start; margin-top: 4px; font: 800 12px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 3px 9px; border-radius: 999px; }
   .ct b { font: 600 clamp(28px, 3.4vw, 42px)/1.05 var(--font-ui); color: #2a1f45; white-space: nowrap; }
   .cards .el-sun.card { background: linear-gradient(160deg, #fff6c4, #ffd36b); }
   .cards .el-tide.card { background: linear-gradient(160deg, #e2f4ff, #8fd0ff); }
@@ -736,7 +737,7 @@
   .prize { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 90px; height: 98px; gap: 2px; border: 0; border-radius: 22px; background: #fff; cursor: pointer; box-shadow: 0 0 0 3px #ffe9a8, var(--shadow-sm); transition: transform .15s; }
   .prize:hover { transform: translateY(-3px); }
   .prize img { width: 44px; height: 44px; object-fit: contain; }
-  .prize .heart { font: 600 36px/44px var(--font-ui); color: #ef5f9a; height: 44px; }
+  .prize .heart { display: grid; place-items: center; height: 44px; }
   .prize b { font: 600 21px/1 var(--font-ui); color: var(--ink); }
   .prize small { font: 700 12px var(--font-body); color: var(--muted); max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rbtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }

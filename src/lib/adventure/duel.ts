@@ -15,7 +15,7 @@ import { answerOf, type Fact } from '../math/facts';
 import { newBattle, play, finale, FINALE_AT, type Battle, type BEvent, type Member, type Pool, type Subject, type Answer } from './battle';
 import { GLIMMER, powerNum, type GearKind, type GlimmerId, type RoleId } from './glimmers';
 import type { FriendId } from '../art/cast';
-import type { KitKind, Slot } from './gear';
+import type { Dress, KitKind, Slot } from './gear';
 
 export type SideKind = 'player' | 'guest' | 'ghost';
 export type GhostStyle = { acc: number; thinkMs: number; big: number };
@@ -25,6 +25,8 @@ export type SideSetup = {
   ghost?: GhostStyle; fastMs?: number;
   /** the hand, back and shoe gear: its powers, and what it looks like */
   kit?: KitKind[]; worn?: Partial<Record<Slot, string>>;
+  /** the whole look for the 3D buddy (hat, every slot, nudges) */
+  dress?: Dress;
 };
 export type Side = SideSetup & { b: Battle; rainIn: boolean; sent: number; blocked: number; finales: number; thinkMs: number; big: number; picks: number };
 export type DuelPhase = 'pick' | 'rain' | 'finale' | 'won';

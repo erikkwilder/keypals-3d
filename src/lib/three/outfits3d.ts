@@ -3,6 +3,7 @@
 // slides down over the head, as a share of its own height.
 import * as THREE from 'three';
 import { loadGltf } from './assets';
+import { LIB } from '../adventure/wardrobe';
 
 const FIT: Record<string, { fit: number; sink: number }> = {
   party_hat: { fit: 0.55, sink: 0.08 },
@@ -16,12 +17,14 @@ const FIT: Record<string, { fit: number; sink: number }> = {
   gold_crown: { fit: 0.75, sink: 0.2 },
 };
 
-/** A fresh copy of an outfit's model, ready to wear (null if it isn't there yet). */
+/** A fresh copy of an outfit's model, ready to wear (null if it isn't there yet). Hats from the
+ *  wardrobe's library (public/wear) bring their own fit. */
 export async function makeOutfit(id: string): Promise<THREE.Object3D | null> {
-  const g = await loadGltf(`outfits/${id}.glb`);
+  const lib = LIB[id]?.slot === 'head' ? LIB[id] : null;
+  const g = await loadGltf(lib?.model ?? `outfits/${id}.glb`);
   if (!g) return null;
   const obj = g.scene.clone(true);
-  const f = FIT[id] ?? { fit: 0.9, sink: 0.25 };
+  const f = lib ? { fit: lib.size, sink: lib.sink ?? 0.2 } : FIT[id] ?? { fit: 0.9, sink: 0.25 };
   obj.userData.fit = f.fit;
   obj.userData.sink = f.sink;
   return obj;

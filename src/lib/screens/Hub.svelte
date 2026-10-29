@@ -4,7 +4,7 @@
   // friendship, today's minutes, stickers, medals and dances.
   import { game } from '../state/game.svelte';
   import { ALL_LESSONS, REGION, lessonTitle } from '../engine/course';
-  import { nextLesson, outfitOf, palOf, passed, todayMs, totalStars } from '../engine/profile';
+  import { bookView, nextLesson, outfitOf, palOf, passed, todayMs, totalStars } from '../engine/profile';
   import { DANCES, forBuddy } from '../engine/rewards';
   import { levelFromXp, STICKERS } from '../engine/stickers';
   import { MEDALS } from '../engine/achievements';
@@ -13,7 +13,6 @@
   import { MATH_LESSONS, MATH_REGION, STRAND, worldOf } from '../math/course';
   import { ALL_GARDEN_IDS, mathOf, mathStarsTotal, nextMathLesson, stageCounts } from '../math/progress';
   import { advOf, advView, markSeen } from '../adventure/state';
-  import Flower from '../math/ui/Flower.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import GearButton from '../ui/GearButton.svelte';
   import FancyAntButton from '../ui/FancyAntButton.svelte';
@@ -21,6 +20,7 @@
   import TileArt from '../ui/TileArt.svelte';
   import Stars from '../ui/Stars.svelte';
   import Ring from '../ui/Ring.svelte';
+  import Icon from '../ui/Icon.svelte';
 
   const p = $derived(game.profile!);
   const look = $derived(p.settings.look);
@@ -85,7 +85,7 @@
       <span class="nm">{p.name}</span>
     </button>
     <div class="pill friend" title="Everything you play, typing or math, makes you better friends">
-      <span class="heart">♥</span>
+      <Icon name="heart" size={24} />
       <span class="ft"><b>{FRIEND[p.buddy].name} · Friendship {lvl.level}</b><i><em style:width="{(lvl.into / lvl.need) * 100}%"></em></i></span>
     </div>
     <div class="pill goal" title="Today's practice goal: typing and math both count">
@@ -101,9 +101,12 @@
       <NavTile size={tsz} tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
         {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={tsz === 'sm' ? 36 : 58} round />{/snippet}
       </NavTile>
+      <NavTile size={tsz} tone="mint" label="Shop" title="The Island Shop: things to wear for every buddy, eggs and treats" onclick={() => game.openShop()}>
+        {#snippet art()}<img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" style:width="{tsz === 'sm' ? 34 : 54}px" style:height="{tsz === 'sm' ? 34 : 54}px" style:object-fit="contain" />{/snippet}
+      </NavTile>
       <NavTile size={tsz} tone="lilac" kind="dances" label="Dances" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
-      <NavTile size={tsz} tone="butter" kind="stickers" label="Stickers" badge={STICKERS.filter(s => pal.stickers[s.id]).length || ''} onclick={() => game.openStickers('stickers')} />
-      <NavTile size={tsz} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (pal.medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
+      <NavTile size={tsz} tone="butter" kind="stickers" label="Stickers" badge={STICKERS.filter(s => bookView(p).stickers[s.id]).length || ''} onclick={() => game.openStickers('stickers')} />
+      <NavTile size={tsz} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (bookView(p).medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
     </div>
     {#if sw >= 860}<FancyAntButton variant="round" />{/if}
     <GearButton size={sw < 860 ? 36 : 44} />
@@ -148,7 +151,7 @@
           <div class="where"><b>{mFresh ? 'Start here' : mPlace}</b><span>{mFresh ? 'Plus, minus, times or share: pick on the map' : `Next: ${mNext.title}`}</span></div>
           <div class="stats">
             <span><Stars n={1} of={1} size={18} /><b>{mStars}</b> stars</span>
-            <span><Flower stage={3} size={20} hue={320} /><b>{mBloom}</b> in bloom</span>
+            <span><Icon name="bloom" size={20} /><b>{mBloom}</b> in bloom</span>
             {#if mBest}<span><b>{mBest}</b> a minute best</span>{/if}
           </div>
           <div class="bar2"><i style:width="{(mDone / mTrips) * 100}%"></i><i class="g" style:width="{(mGrow / ALL_GARDEN_IDS.length) * 100}%"></i></div>
@@ -195,10 +198,11 @@
         <h3 class="gh">What you earn</h3>
         <div class="earn">
           <div class="ei"><img src="{import.meta.env.BASE_URL}game/icon-star.webp" alt="" /><p><b>Stars</b> How well a lesson, trip or round went. They open the next one, and new Keypals join as you collect them.</p></div>
-          <div class="ei"><span class="eh">♥</span><p><b>Friendship</b> Grows every time you play with your buddy, in practice or Adventure. It opens outfits and dances.</p></div>
-          <div class="ei"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><p><b>Shells</b> Earned by playing. Spend them in the Island Shop on eggs, treats and gear.</p></div>
+          <div class="ei"><span class="eh"><Icon name="heart" size={40} /></span><p><b>Friendship</b> Grows every time you play with your buddy, in practice or Adventure. It opens outfits and dances.</p></div>
+          <div class="ei"><img src="{import.meta.env.BASE_URL}treasures/ruby.webp" alt="" /><p><b>Treasure</b> The better your score, the better the treasure you find, from a Shiny Pebble up to a Rainbow Star. Each one is worth shells.</p></div>
+          <div class="ei"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><p><b>Shells</b> Earned by playing. Spend them in the Shop on things to wear, eggs and treats.</p></div>
           <div class="ei"><img src="{import.meta.env.BASE_URL}game/egg-common.webp" alt="" /><p><b>Eggs and Glimmers</b> Right answers in practice hatch eggs; battles bring Glimmers too. They level up and help in battles.</p></div>
-          <div class="ei"><img src="{import.meta.env.BASE_URL}game/icon-medals.webp" alt="" /><p><b>Medals and stickers</b> For the great things you do. Your buddy keeps their own book.</p></div>
+          <div class="ei"><img src="{import.meta.env.BASE_URL}game/icon-medals.webp" alt="" /><p><b>Medals and stickers</b> For the great things you do, with any buddy. They all go in your one book.</p></div>
           <div class="ei"><img src="{import.meta.env.BASE_URL}game/league-0.webp" alt="" /><p><b>Leagues</b> Only in Rival Ghosts: win points this week to move up a league.</p></div>
         </div>
         <button class="btn btn-primary" onclick={closeGuide}>Let's play!</button>
@@ -215,7 +219,6 @@
   .nm { font: 600 22px var(--font-ui); }
   .pill { display: flex; align-items: center; gap: 8px; background: var(--bg2); padding: 6px 12px; border-radius: 999px; font: 700 15px var(--font-body); color: var(--ink2); }
   .pill b { font: 600 18px var(--font-ui); color: var(--ink); }
-  .friend .heart { color: var(--pink); font-size: 22px; line-height: 1; }
   .ft { display: flex; flex-direction: column; gap: 3px; }
   .ft b { font: 600 15px var(--font-ui); }
   .ft i { display: block; width: 150px; height: 7px; border-radius: 999px; background: #fff; overflow: hidden; }
@@ -235,10 +238,10 @@
   .gpic.trophies { display: flex; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(135deg, #fff4c2, #e6f1ff); }
   .guide > .btn { align-self: flex-end; font-size: 20px; padding: 10px 22px; }
   .gh { margin: 4px 0 -4px; font-size: 22px; }
-  .earn { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .earn { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
   .ei { display: flex; gap: 10px; align-items: flex-start; background: #faf8fe; border-radius: 16px; padding: 10px 12px; }
   .ei img, .ei .eh { width: 44px; height: 44px; flex: none; object-fit: contain; }
-  .ei .eh { display: grid; place-items: center; font: 600 34px/1 var(--font-ui); color: #ef5f9a; }
+  .ei .eh { display: grid; place-items: center; }
   .ei p { margin: 0; font: 600 13.5px/1.4 var(--font-body); color: var(--ink2); }
   .ei p b { display: block; font: 600 16px var(--font-ui); color: var(--ink); }
   .gface { border-radius: 50%; }

@@ -13,6 +13,7 @@
   import Header from '../ui/Header.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
   import Coach from '../ui/Coach.svelte';
+  import Icon from '../ui/Icon.svelte';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -128,7 +129,7 @@
       <div class="info card r-{g.rarity}">
         <div class="ih">
           <img src="{base}game/icon-{g.element}.webp" alt={ELEMENT[g.element].name} />
-          <div><small style:color={RARITY[g.rarity].color}>{RARITY[g.rarity].name} · {RARE_WORDS[g.rarity]}</small><h2>{owns(a, sel) ? nameOf(sel) : '???'}{#if mine?.evolved}<span class="evochip">★ Evolved</span>{/if}</h2></div>
+          <div><small style:color={RARITY[g.rarity].color}>{RARITY[g.rarity].name} · {RARE_WORDS[g.rarity]}</small><h2>{owns(a, sel) ? nameOf(sel) : '???'}{#if mine?.evolved}<span class="evochip"><Icon name="star" size={16} /> Evolved</span>{/if}</h2></div>
           {#if mine}<span class="lv">Level {mine.level}</span>{/if}
         </div>
         {#if mine}
@@ -139,7 +140,7 @@
             <!-- before and after: now, an arrow, the grown-up form still a mystery -->
             <div class="evorow" class:go={ready(sel)}>
               <GlimmerCard id={sel} width={50} />
-              <span class="arr">➜</span>
+              <span class="arr"><Icon name="play" size={34} /></span>
               <div class="mystery"><GlimmerCard id={sel} width={50} evolved locked /></div>
               {#if ready(sel)}
                 <div class="evotext"><b>{g.name} is ready to grow up!</b><small>It gets a new look, a new name and a stronger power.</small></div>
@@ -150,7 +151,7 @@
             </div>
           {/if}
           {#if inTeam >= 0}
-            <div class="acts"><span class="onteam">✓ On your team</span><button class="btn" onclick={leaveTeam}>Take off</button></div>
+            <div class="acts"><span class="onteam"><Icon name="check" size={20} /> On your team</span><button class="btn" onclick={leaveTeam}>Take off</button></div>
           {:else}
             <div class="acts"><button class="btn btn-primary big" onclick={add}>Add {nameOf(sel)} to your team</button>{#if swapping}<button class="btn" onclick={() => (swapping = false)}>Cancel</button>{/if}</div>
           {/if}
@@ -225,7 +226,7 @@
   @keyframes pulse { 50% { transform: translateX(-50%) scale(1.1); } }
   .acts { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
   .acts .big { font-size: 18px; padding: 10px 18px; }
-  .onteam { font: 600 17px var(--font-ui); color: #1f9a6a; }
+  .onteam { display: inline-flex; align-items: center; gap: 5px; font: 600 17px var(--font-ui); color: #1f9a6a; }
   .grid h4 { margin: 4px 0; font-size: 16px; color: var(--ink2); grid-column: 1 / -1; }
   .cards { display: flex; flex-wrap: wrap; gap: 8px 8px; row-gap: 14px; padding-bottom: 6px; }
   .cell { position: relative; }

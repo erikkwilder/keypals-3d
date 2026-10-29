@@ -9,6 +9,7 @@
   import { rideIcon } from '../art/vehicles';
   import TileArt from './TileArt.svelte';
   import Stars from './Stars.svelte';
+  import Icon from './Icon.svelte';
 
   const p = game.profile!;
   const id = game.chartLesson!;
@@ -87,7 +88,7 @@
     <div class="stats">
       <div><span class="muted">Goal</span><b>{goal}</b><Stars n={3} of={3} size={14} /></div>
       <div><span class="muted">Average</span><b>{avg}</b></div>
-      <div><span class="muted">High score</span><b>{best}</b>{#if rec?.platinum}<em>✦ platinum</em>{/if}</div>
+      <div><span class="muted">High score</span><b>{best}</b>{#if rec?.platinum}<em><Icon name="gem" size={16} /> platinum</em>{/if}</div>
       <div><span class="muted">Stars at</span><b class="small">{one} · {two} · {goal}</b></div>
     </div>
   </div>

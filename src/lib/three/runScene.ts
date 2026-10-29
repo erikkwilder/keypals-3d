@@ -8,12 +8,13 @@ import { stage, type Controller } from './stage';
 import { Character } from './character';
 import { vehicle, type Vehicle } from './rides3d';
 import { reach } from './ik';
-import { makeOutfit } from './outfits3d';
+import { dressUp } from './dress';
 import { RIDES } from '../engine/rides';
 import type { FriendId } from '../art/cast';
 import type { RegionId } from '../engine/course';
 import { GATE_BEFORE, type Island, type TrailPoint } from './island';
 import { buildCourse, type CourseMove } from './courses';
+import { world } from '../fun/bus';
 
 export const STEP = 1.35; // metres of trail per letter
 const RUNUP = 4; // trail before the first letter
@@ -86,10 +87,14 @@ export class RunScene implements Controller {
   private get course(): CourseMove | null { return this.opts.move && this.opts.move !== 'run' ? this.opts.move : null; }
   private splashT = 0;
   private swimLift = 0;
+  private outOfWater = false;
+  /** where the swim course's steps start and end (only on the swim course) */
+  private swimExit(): [number, number] { return (this.island.root.userData.exitAt as (() => [number, number]) | undefined)?.() ?? [this.finishS - 0.2, this.finishS - 0.2]; }
   private lastTier = 0;
   private get pace() { return this.opts.pace ?? TYPING_PACE; }
 
   private constructor(island: Island, me: Character, opts: Opts) {
+    world.run = true; // the trail's little surprises show during lessons and trips (src/lib/fun)
     this.island = island;
     this.me = me;
     this.opts = opts;
@@ -107,7 +112,8 @@ export class RunScene implements Controller {
     const [island, me] = await Promise.all([course ? buildCourse(course) : stage.getIsland(opts.region), Character.create(opts.buddy)]);
     if (!me) throw new Error('character missing');
     const sc = new RunScene(island, me, opts);
-    me.wear(opts.outfit, makeOutfit);
+    // the whole look from the save: hat, everything else the buddy has on, and its nudges
+    void dressUp(me);
     me.loadMoves();
     if (opts.ghostCps) {
       const g = await Character.create(opts.buddy);
@@ -244,6 +250,8 @@ export class RunScene implements Controller {
       const accel = want > this.vel ? (this.phase === 'arrive' ? 6 : 3.5) : 5;
       this.vel += Math.max(-accel * dt, Math.min(accel * dt, want - this.vel));
       this.vel = Math.max(0, Math.min(this.vel, this.phase === 'arrive' ? 14 : 9));
+      // walking up the swim steps, not shooting up them
+      if (this.course === 'swim' && this.pos > this.swimExit()[0] - 0.4) this.vel = Math.min(this.vel, 1.5);
       this.pos = Math.min(this.goal, this.pos + this.vel * dt);
       if (this.phase === 'arrive' && !this.crossed && this.pos >= this.finishS - GATE_BEFORE + 0.4) { this.crossed = true; this.onCrossed?.(); }
       if (this.phase === 'arrive' && this.goal - this.pos < 0.06) { this.pos = this.goal; this.vel = 0; this.arrive(); }
@@ -341,7 +349,16 @@ export class RunScene implements Controller {
       const hips = me.bones.Hips?.getWorldPosition(new THREE.Vector3());
       if (hips) me.root.position.y += f.p.y + 0.3 - hips.y;
       if (v > 2.5 && now - this.splashT > 0.18) { this.splashT = now; this.puff.burst(f.p.clone().addScaledVector(f.t, -0.6), 3, 0xffffff); }
+    } else if (this.pos >= this.swimExit()[0]) {
+      // at the swim steps: stand up in the water and walk up them onto the dock, dripping
+      if (!this.outOfWater) { this.outOfWater = true; this.puff.burst(f.p.clone().add(new THREE.Vector3(0, 0.5, 0)), 10, 0xe8f8ff); }
+      this.swimLift *= Math.max(0, 1 - dt * 6);
+      me.root.position.copy(f.p);
+      me.root.rotation.set(0, Math.atan2(f.t.x, f.t.z), 0);
+      const a = me.play(v < 0.08 ? 'idle' : 'walk', 0.25);
+      if (a && v >= 0.08) a.timeScale = Math.max(0.6, Math.min(1.8, v / 0.9));
     } else {
+      this.outOfWater = false;
       me.root.position.copy(f.p);
       me.root.position.y += Math.sin(t * 3) * 0.04;
       me.root.rotation.set(0, Math.atan2(f.t.x, f.t.z), 0);
@@ -380,10 +397,12 @@ export class RunScene implements Controller {
       const hips = g.bones.Hips?.getWorldPosition(new THREE.Vector3());
       if (hips) g.root.position.y += p.y + 0.3 - hips.y;
     } else {
-      const onDock = s >= this.finishS - 0.2;
+      // the ghost walks up the same swim steps, in its own lane
+      const out = s >= this.swimExit()[0], onDock = s >= this.finishS - 0.2;
       g.root.position.copy(f.p).addScaledVector(f.n, -1.2);
       g.root.rotation.set(0, onDock && !going ? this.towardCamera() : Math.atan2(f.t.x, f.t.z), 0);
-      if (onDock) g.play('idle', 0.3);
+      if (onDock && !going) g.play('idle', 0.3);
+      else if (out) g.play('walk', 0.25);
       else {
         g.root.position.y += Math.sin(t * 3 + 1) * 0.04 + this.swimLift;
         const a = g.play(g.has('swim') ? 'swim' : 'run', 0.3);
@@ -535,6 +554,7 @@ export class RunScene implements Controller {
 
   dispose() {
     this.island.gateSolid(1);
+    world.run = false;
     if (this.course) this.island.dispose();
     this.me.dispose();
     this.ghost?.dispose();

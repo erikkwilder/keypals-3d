@@ -1,5 +1,6 @@
 <script lang="ts">
   // The end of a typing lesson, in the results layout every game shares (ui/RunResults.svelte).
+  import { TREASURE_SCORE } from '../engine/rewards';
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { ALL_LESSONS, LESSON, REGION, REGIONS, lessonIndex, lessonMove, lessonTitle } from '../engine/course';
@@ -7,6 +8,7 @@
   import { danceOf, isUnlocked, nextGoal, nextLesson, palOf } from '../engine/profile';
   import { endMessage, finalTarget, ghostWords, lessonGoal, platinumScore, runTitle, starScores } from '../engine/scoring';
   import Certificate from '../ui/Certificate.svelte';
+  import Icon from '../ui/Icon.svelte';
   import { RunScene, courseKeyLen } from '../three/runScene';
   import RunResults from '../ui/RunResults.svelte';
 
@@ -52,25 +54,25 @@
 
 {#if last}
   <RunResults {move} run={last} {title} {sub} {word} {score} {goalScore} passed={passedRun} {chips}
-    rideHint="Type faster to reach"
+    treasureAt={grown ? TREASURE_SCORE.grown : TREASURE_SCORE.kids} treasureWhere="in a lesson" rideHint="Type faster to reach"
     goalText={goal} openedText={nextRegion ? `${nextRegion.name} is open!` : null} nextTitle={lessonTitle(nextUp, game.layout)}
     makeScene={() => RunScene.create({ buddy: p.buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: last.text.length, region: lesson.region, move, keyLen: move === 'run' ? undefined : courseKeyLen(move, last.text.length) })}
     onretry={() => game.startLesson(lesson.id, true)} onnext={() => game.startLesson(nextUp.id)} onhome={() => game.go('hub')}
     progress={{ label: 'Progress', kind: 'chart', onclick: () => game.openChart(lesson.id) }}>
     {#snippet badges()}
-      {#if final && passedRun}<button class="certbtn" onclick={() => (cert = true)}>🎓 Your certificate</button>{/if}
-      {#if last.ghost}<p class="ghost" class:won={last.ghost.beat}>👻 {ghostWords(last.ghost)}</p>{/if}
+      {#if final && passedRun}<button class="certbtn" onclick={() => (cert = true)}><Icon name="scroll" size={24} /> Your certificate</button>{/if}
+      {#if last.ghost}<p class="ghost" class:won={last.ghost.beat}><Icon name="ghost" size={22} /> {ghostWords(last.ghost)}</p>{/if}
     {/snippet}
     {#snippet ringExtra()}
-      {#if last.record.platinum}<div class="plat" title="Platinum: a score of {platinumScore(goalScore)}">✦ Platinum</div>{/if}
+      {#if last.record.platinum}<div class="plat" title="Platinum: a score of {platinumScore(goalScore)}"><Icon name="gem" size={18} /> Platinum</div>{/if}
     {/snippet}
   </RunResults>
   {#if cert}<Certificate name={p.name} buddy={p.buddy} wpm={last.wpm} acc={last.acc} at={Date.now()} onclose={() => (cert = false)} />{/if}
 {/if}
 
 <style>
-  .certbtn { display: inline-block; margin: 0 6px 6px; padding: 6px 14px; border: 0; border-radius: 999px; cursor: pointer; font: 700 15px var(--font-body); color: #3b2d55; background: linear-gradient(135deg, #fff3c4, #f7d774); box-shadow: 0 3px 0 #c9a227; animation: pop-in .5s cubic-bezier(.3, .8, .4, 1.5); }
-  .ghost { display: inline-block; margin: 0 0 6px; padding: 4px 12px; border-radius: 999px; background: #efe9fb; color: var(--ink2); font: 700 14px var(--font-body); }
+  .certbtn { display: inline-flex; align-items: center; gap: 5px; margin: 0 6px 6px; padding: 6px 14px; border: 0; border-radius: 999px; cursor: pointer; font: 700 15px var(--font-body); color: #3b2d55; background: linear-gradient(135deg, #fff3c4, #f7d774); box-shadow: 0 3px 0 #c9a227; animation: pop-in .5s cubic-bezier(.3, .8, .4, 1.5); }
+  .ghost { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 6px; padding: 4px 12px; border-radius: 999px; background: #efe9fb; color: var(--ink2); font: 700 14px var(--font-body); }
   .ghost.won { background: #e2f7ee; color: #0f6a48; }
-  .plat { position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%); white-space: nowrap; font: 800 12px var(--font-body); color: #3b2d55; background: linear-gradient(135deg, #e9f2ff, #f4e8ff, #e8fff6); border: 2px solid #fff; box-shadow: 0 3px 10px rgba(90, 70, 160, .35); padding: 3px 10px; border-radius: 999px; }
+  .plat { display: inline-flex; align-items: center; gap: 3px; position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%); white-space: nowrap; font: 800 12px var(--font-body); color: #3b2d55; background: linear-gradient(135deg, #e9f2ff, #f4e8ff, #e8fff6); border: 2px solid #fff; box-shadow: 0 3px 10px rgba(90, 70, 160, .35); padding: 3px 10px; border-radius: 999px; }
 </style>

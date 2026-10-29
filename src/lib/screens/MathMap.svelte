@@ -3,19 +3,18 @@
   // meet the table, practise, mix, and the checkpoint run (open from the start, to test out).
   import { onMount, tick } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { outfitOf, palOf, todayMs } from '../engine/profile';
+  import { bookView, outfitOf, palOf, todayMs } from '../engine/profile';
   import { DANCES } from '../engine/rewards';
   import { levelFromXp } from '../engine/stickers';
+  import { MEDALS } from '../engine/achievements';
   import { rideName } from '../engine/rides';
   import { rideIcon } from '../art/vehicles';
   import { sfx } from '../audio/sound';
   import { MATH_LESSONS, MOVE_NAME, PLACEMENTS, STRANDS, STRAND, groupFacts, moveOf, regionsOf, type MathLesson, type MathRegion } from '../math/course';
   import { opSign } from '../math/facts';
-  const MOVE_ICON = { run: '🏃', climb: '🧗', swim: '🏊', slide: '🛷' } as const;
   import type { Op } from '../math/facts';
   import { ALL_GARDEN_IDS, mathMovedOn, mathOf, mathPassed, mathRegionOpen, mathStarsTotal, mathUnlocked, nextMathLesson, stageCounts } from '../math/progress';
   import { factId } from '../math/facts';
-  import Flower from '../math/ui/Flower.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import GearButton from '../ui/GearButton.svelte';
   import FancyAntButton from '../ui/FancyAntButton.svelte';
@@ -23,6 +22,7 @@
   import Stars from '../ui/Stars.svelte';
   import Ring from '../ui/Ring.svelte';
   import Icon from '../ui/Icon.svelte';
+  import TileArt from '../ui/TileArt.svelte';
   import { isLearnStop, isLearned, lessonForStop, LESSONS, type Lesson } from '../math/learn';
 
   const p = $derived(game.profile!);
@@ -108,13 +108,13 @@
         {#snippet art()}<img class="learnart" src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" style:height={tile === 'sm' ? '40px' : '64px'} />{/snippet}
       </NavTile>
       <NavTile size={tile} tone="mint" label="Garden" title="Fact Garden: every fact you know" badge={blooms || ''} onclick={() => game.go('garden')}>
-        {#snippet art()}<Flower stage={3} size={tile === 'sm' ? 38 : 58} hue={320} />{/snippet}
+        {#snippet art()}<TileArt kind="garden" size={tile === 'sm' ? 40 : 62} />{/snippet}
       </NavTile>
       <NavTile size={tile} tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
         {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={tile === 'sm' ? 40 : 62} round />{/snippet}
       </NavTile>
       <NavTile size={tile} tone="lilac" kind="dances" label="Dances" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
-      <NavTile size={tile} tone="sky" kind="medals" label="Medals" badge={palOf(p).medalsTotal || ''} onclick={() => game.openStickers('medals')} />
+      <NavTile size={tile} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (bookView(p).medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
     </div>
     <FancyAntButton variant="round" />
     <GearButton size={44} />
@@ -157,7 +157,7 @@
           <article class="scard" style:--sc="#f2a63a">
             <button class="sart" onclick={() => { sfx.click(); game.go('playground'); }} aria-label="Open the Number Playground">
               <img src="{import.meta.env.BASE_URL}math/strand-playground.webp" alt="" />
-              <span class="sname2"><span class="sg">★</span>Number Playground</span>
+              <span class="sname2"><span class="sg"><Icon name="star" size={28} /></span>Number Playground</span>
             </button>
             <div class="sinfo">
               <p>Calm games with no clock: number lines, bubbles that make ten, and building with blocks.</p>
@@ -197,12 +197,12 @@
                 {@const got = isLearned(m, ll.id)}
                 <button class="learnchip" class:got onclick={() => watch(ll)} title="Watch the lesson: {ll.title}">
                   <img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" />
-                  <span><small>{got ? '✓ Learned' : 'Learn it first'}</small><b>{ll.title}</b></span>
+                  <span><small>{#if got}<Icon name="check" size={13} /> Learned{:else}Learn it first{/if}</small><b>{ll.title}</b></span>
                 </button>
               {/if}
             {/each}
           </div>
-          <div class="count" title="Facts in bloom">{bloomed(r)}/{regionFacts(r).length} <span class="flower">✿</span></div>
+          <div class="count" title="Facts in bloom">{bloomed(r)}/{regionFacts(r).length} <Icon name="bloom" size={17} /></div>
         </div>
         <svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <path d={pathD(r.lessons.length)} fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity=".85" />
@@ -218,7 +218,7 @@
             <span class="disc">{#if !unlocked}<Icon name="lock" />{:else}<Icon name={KIND_ICON[l.kind] ?? 'book'} />{/if}</span>
             {#if rec && rec.bestRide > 0}<span class="ride" title="Best: {rideName(rec.bestRide, moveOf(l))}"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff', moveOf(l))}</svg></span>{/if}
             <span class="lbl">{l.title}</span>
-            <span class="mv" title="{MOVE_NAME[moveOf(l)]}">{MOVE_ICON[moveOf(l)]} {MOVE_NAME[moveOf(l)]}</span>
+            <span class="mv" title="{MOVE_NAME[moveOf(l)]}"><Icon name={moveOf(l)} size={15} /> {MOVE_NAME[moveOf(l)]}</span>
             <Stars n={rec?.stars ?? 0} size={14} />
             {#if isNext}<span class="buddy"><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={64} mood="dance" /></span>{/if}
           </button>
@@ -268,7 +268,7 @@
   .sact .btn-primary { flex: 1; background: linear-gradient(color-mix(in srgb, var(--sc) 70%, #fff), var(--sc)); box-shadow: 0 5px 0 color-mix(in srgb, var(--sc) 70%, #000); }
   .ghost { background: var(--bg2); color: var(--ink); box-shadow: none; }
   .movenote { text-align: center; font: 600 15px var(--font-body); color: var(--muted); margin: 16px 0 0; }
-  .mv { font: 700 11px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 1px 7px; margin-top: 2px; }
+  .mv { display: inline-flex; align-items: center; gap: 3px; font: 700 11px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 1px 7px 1px 3px; margin-top: 2px; }
   @media (max-width: 1000px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 640px) { .cards { grid-template-columns: 1fr; gap: 12px; } .choose h1 { font-size: 24px; margin-bottom: 8px; } .sname2 { font-size: 21px; } .sart { aspect-ratio: 16 / 7; } .stab img { width: 52px; height: 34px; } .stab { font-size: 14px; } .sbar { padding: 6px 8px; gap: 5px; } }
   .strands { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; margin-bottom: 4px; }

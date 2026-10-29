@@ -10,7 +10,7 @@
   import { RunScene } from '../three/runScene';
   import { MATH_LESSON, MATH_REGION, STRAND, STRIDE, moveOf, worldOf } from '../math/course';
   import { parseFact, answerOf, opSign } from '../math/facts';
-  import { mathGoal, MATH_RIDE } from '../math/meter';
+  import { MATH_TREASURE, mathGoal, MATH_RIDE } from '../math/meter';
   import { mathOf, nextMathLesson } from '../math/progress';
   import Flower from '../math/ui/Flower.svelte';
   import RunResults from '../ui/RunResults.svelte';
@@ -52,7 +52,7 @@
 
 {#if last && st}
   <RunResults move={moveOf(lesson)} run={last} {title} {sub} {word} score={st.score} goalScore={goal} {passed} {chips}
-    rideHint="Quicker answers reach"
+    treasureAt={grown ? MATH_TREASURE.grown : MATH_TREASURE.kids} treasureWhere="on a math trip" rideHint="Quicker answers reach"
     {goalText} openedText={last.regionJustDone ? `${MATH_REGION[last.regionJustDone].name} is done!` : null} nextTitle={next.title}
     makeScene={() => RunScene.create({ buddy: p.buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: 20, region: worldOf(lesson), move: moveOf(lesson), keyLen: STRIDE[moveOf(lesson)] })}
     onretry={() => game.startMath(lesson.id, true)} onnext={() => game.startMath(next.id)} onhome={() => game.go('hub')}

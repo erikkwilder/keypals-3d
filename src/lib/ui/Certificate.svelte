@@ -3,6 +3,7 @@
   // certificate prints; the game behind it doesn't).
   import { FRIEND, type FriendId } from '../art/cast';
   import Critter from './Critter.svelte';
+  import Icon from './Icon.svelte';
 
   type Props = { name: string; buddy: FriendId; wpm: number; acc: number; at: number; onclose: () => void };
   let { name, buddy, wpm, acc, at, onclose }: Props = $props();
@@ -27,7 +28,7 @@
         <div class="foot">
           <span class="date">{date}</span>
           <span class="bud"><Critter friend={buddy} size={96} /><small>with {FRIEND[buddy].name}</small></span>
-          <span class="seal">★</span>
+          <span class="seal"><Icon name="star" size={40} /></span>
         </div>
       </div>
     </div>

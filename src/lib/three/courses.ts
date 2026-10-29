@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { THEMES, type Theme } from './themes';
 import { loadGltf, loadTexture } from './assets';
 import type { Island, TrailPoint } from './island';
+import { courseEggs } from '../fun/worldEggs';
 
 export type CourseMove = 'climb' | 'slide' | 'swim';
 const UP = new THREE.Vector3(0, 1, 0);
@@ -242,6 +243,8 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
       return { p: new THREE.Vector3(0, y + Math.sin(over * Math.PI / 2) * 0.08, -over * 1.4), t: UP.clone(), n: new THREE.Vector3(0, 0, 1) };
     };
     root.userData.overAt = () => finishS - OVER;
+    // for the surprises: the rock's depth anywhere on the face, and where the top is
+    root.userData.wallZ = faceZ; root.userData.top = () => finishS - OVER - RUN;
     const o = new THREE.Object3D(), c = new THREE.Color();
     const place = () => {
       const top = finishS - OVER - RUN;
@@ -367,6 +370,7 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
     banner.position.y = 3.2; arch.add(banner);
     root.add(arch);
     const place = () => { const f = at(finishS - 2.6); arch.position.copy(f.p); fin.position.set(f.p.x + 3, -(f.p.x + 3) * SLOPE, -3.2); };
+    root.userData.slopeY = (x: number) => -x * SLOPE;
     place();
     root.userData.place = place;
     update = (dt, t) => {
@@ -451,6 +455,28 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
     };
     dock(-2.4);
     const endDock = dock(40);
+    // swim steps down from the end dock into the water: the swimmer stands up on the bottom one and
+    // walks up and out (never swimming into the dock itself). Wide enough for the ghost's lane too.
+    const STEPS = 4, RUN = 0.35, STEP_Z = -0.35, STEP_W = 2.7;
+    const steps = new THREE.Group();
+    const treadGeo = keep(new THREE.BoxGeometry(RUN + 0.06, 0.07, STEP_W)), sideGeo = keep(new THREE.BoxGeometry(STEPS * RUN + 0.5, 0.12, 0.09));
+    for (let k = 0; k < STEPS; k++) {
+      const tr = new THREE.Mesh(treadGeo, wood);
+      tr.position.set(-STEPS * RUN + RUN * (k + 0.5), -0.4 + k * 0.25 - 0.035, 0); tr.castShadow = true; tr.receiveShadow = true; steps.add(tr);
+    }
+    const rise = Math.atan2(0.9, STEPS * RUN);
+    for (const z of [-STEP_W / 2 - 0.02, STEP_W / 2 + 0.02]) {
+      const sd = new THREE.Mesh(sideGeo, wood); sd.position.set(-STEPS * RUN / 2 - 0.05, 0.02, z); sd.rotation.z = rise; sd.castShadow = true; steps.add(sd);
+      // a handrail on the far side (the near side stays open, so the camera sees the swimmer climb out)
+      if (z > 0) continue;
+      for (const x of [-STEPS * RUN + 0.1, -0.1]) { const pp = new THREE.Mesh(postGeo, postMat); pp.scale.y = 0.5; pp.position.set(x, x < -0.5 ? 0.03 : 0.83, z); pp.castShadow = true; steps.add(pp); }
+      const rail = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.045, 0.045, Math.hypot(STEPS * RUN - 0.2, 0.8), 10)), postMat);
+      rail.rotation.z = Math.atan2(0.8, STEPS * RUN - 0.2) - Math.PI / 2; rail.position.set(-STEPS * RUN / 2, 1.05, z); rail.castShadow = true; steps.add(rail);
+    }
+    root.add(steps);
+    // where the steps start (in the water) and end (the dock's edge), along the lane
+    let exitA = 0, exitB = 0;
+    root.userData.exitAt = () => [exitA, exitB];
     // lane lines: ridged racing floats strung tight on a cable, red at the ends and white and blue between,
     // with an orange marker buoy at each end of each line
     const FLOAT = 0.12, PER = 700;
@@ -492,11 +518,16 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
       buoys.forEach((b, i) => b.position.set(i % 2 ? finishS - 0.7 : 0.7, -0.06, LANES[i < 2 ? 0 : 1] * 1.17));
     };
     at = (s) => {
-      // swim from the start dock to the end dock; past the finish, climb out onto it
-      const onDock = s >= finishS - 0.2;
-      return { p: new THREE.Vector3(s, onDock ? 0.5 : -0.62, 0), t: new THREE.Vector3(1, 0, 0), n: new THREE.Vector3(0, 0, 1) };
+      // swim from the start dock to the swim steps, stand up on the bottom step, walk up onto the dock
+      const y = s < exitA ? -0.62 : s < exitB ? -0.4 + ((s - exitA) / (exitB - exitA)) * 0.9 : 0.5;
+      return { p: new THREE.Vector3(s, y, 0), t: new THREE.Vector3(1, 0, 0), n: new THREE.Vector3(0, 0, 1) };
     };
-    const place = () => { endDock.position.x = finishS + 2.2; fin.position.set(finishS + 1.4, 0.5, -1.2); lanes(); };
+    const place = () => {
+      endDock.position.x = finishS + 2.2; fin.position.set(finishS + 1.4, 0.5, -1.2);
+      exitB = finishS - 0.3; exitA = exitB - STEPS * RUN;
+      steps.position.set(exitB, 0, STEP_Z);
+      lanes();
+    };
     place();
     root.userData.place = place;
     update = (_dt, t) => {
@@ -513,6 +544,10 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
     };
   }
 
+  // the little surprises on each course (a tiny door, a snowman, leaping fish, visiting Glimmers...)
+  const eggs = courseEggs(move, { root, keep, at: s => at(s), finishS: () => finishS, wallZ: root.userData.wallZ, top: root.userData.top, slopeY: root.userData.slopeY });
+  const placeCourse = root.userData.place as (() => void) | undefined;
+  root.userData.place = () => { placeCourse?.(); eggs.place(); };
   const trail = { length: 1000, at: (s: number) => at(s) };
   return {
     trail,
@@ -525,10 +560,11 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
       clouds.position.x = focus.x * 0.6;
       (root.userData.follow as ((p: THREE.Vector3) => void) | undefined)?.(focus);
       update(dt, t);
+      eggs.update(dt, t, focus);
     },
     root,
     theme,
-    dispose() { for (const x of own) x.dispose(); root.removeFromParent(); },
+    dispose() { eggs.dispose(); for (const x of own) x.dispose(); root.removeFromParent(); },
     stats: {},
   };
 }

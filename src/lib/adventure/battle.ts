@@ -14,7 +14,7 @@ import type { KitKind } from './gear';
 export type Subject = 'math' | 'typing';
 /** What a battle draws on. Math: facts and how well each is known (stage 3 = in bloom), and whether open
  *  cards (7 × ?) are in play. Typing: words the player can type with the keys learned so far. */
-export type Pool = { subject: 'math'; facts: { f: Fact; stage: number }[]; open: boolean } | { subject: 'typing'; words: string[] };
+export type Pool = { subject: 'math'; facts: { f: Fact; stage: number; w?: number }[]; open: boolean } | { subject: 'typing'; words: string[] };
 
 export type Card = {
   id: number; element: Element; name: string;
@@ -28,6 +28,8 @@ export type Card = {
   word?: string;
   /** a fact already in bloom in the Fact Garden */
   bloom: boolean;
+  /** one you missed earlier in this battle, back for another go */
+  again?: boolean;
 };
 
 export type MischiefKind = 'zap' | 'snow' | 'rain' | 'pebbles' | 'gust';
@@ -84,6 +86,8 @@ export type Battle = {
   stats: { answers: number; right: number; fast: number; blocks: number; blocked: number; damage: number; cheer: number };
   /** facts answered (for the fact memory) */
   answered: { f: Fact; ok: boolean; thinkMs: number }[];
+  /** facts (or words) missed in this battle: one comes back in each new hand until it's answered right */
+  missed: (Fact | string)[];
 };
 
 export const FINALE_AT = 5;
@@ -112,6 +116,7 @@ export function newBattle(s: Setup): Battle {
     rights: 0, mischiefs: 0, perfect: false,
     stats: { answers: 0, right: 0, fast: 0, blocks: 0, blocked: 0, damage: 0, cheer: 0 },
     answered: [],
+    missed: [],
   };
   const shell = has(b, 'shell');
   if (shell) b.free.push({ by: 'Pebble Shell', id: shell.id });
@@ -170,9 +175,12 @@ export function deal(b: Battle) {
         const x = base.length ? pick(b.rng, base) : null;
         if (x) c.open = { a: x.f.a, op: x.f.op ?? 'x', max: 10 };
       }
+      // a fact missed earlier in this battle comes back (in the second card) until it's answered right
+      const back = i === 1 ? b.missed.find((m): m is Fact => typeof m !== 'string') : undefined;
+      if (!c.fact && back) { c.fact = back; c.again = true; c.open = undefined; used.add(`${back.a}${back.op ?? 'x'}${back.b}`); }
       if (!c.fact && !c.open) {
-        // mostly facts not shown yet this hand, a few in bloom
-        for (let t = 0; t < 8; t++) { const x = pick(b.rng, facts); const id = `${x.f.a}${x.f.op ?? 'x'}${x.f.b}`; if (!used.has(id) || t === 7) { used.add(id); c.fact = x.f; c.bloom = x.stage === 3; break; } }
+        // mostly facts not shown yet this hand; the shaky ones (missed lately, slow, not in bloom) more often
+        for (let t = 0; t < 8; t++) { const x = pickWeighted(b.rng, facts); const id = `${x.f.a}${x.f.op ?? 'x'}${x.f.b}`; if (!used.has(id) || t === 7) { used.add(id); c.fact = x.f; c.bloom = x.stage === 3; break; } }
       }
       cards.push(c);
     });
@@ -188,7 +196,10 @@ export function deal(b: Battle) {
       // a spread of lengths: short, middle, long
       const want = b.flat ? usual : i === 0 && finish.length && b.rng() < FINISHER_ODDS ? finish : words.filter(w => i === 0 ? w.length <= 4 : i === 1 ? w.length >= 4 && w.length <= 6 : w.length >= 5);
       let w = '';
-      for (let t = 0; t < 8; t++) { w = pick(b.rng, want.length ? want : words); if (!used.has(w)) break; }
+      // a word missed earlier in this battle comes back until it's typed right
+      const back = i === 1 ? b.missed.find((m): m is string => typeof m === 'string') : undefined;
+      if (back) { w = back; c.again = true; }
+      else for (let t = 0; t < 8; t++) { w = pick(b.rng, want.length ? want : words); if (!used.has(w)) break; }
       used.add(w); c.word = w;
       cards.push(c);
     });
@@ -196,6 +207,13 @@ export function deal(b: Battle) {
   b.cards = cards;
 }
 
+/** A fact from the pool, the weak ones (w: 0 known cold .. 1 shaky) up to three times as likely. */
+function pickWeighted<T extends { w?: number }>(rng: Rng, xs: readonly T[]): T {
+  const tot = xs.reduce((a, x) => a + 1 + 2 * (x.w ?? 0), 0);
+  let r = rng() * tot;
+  for (const x of xs) { r -= 1 + 2 * (x.w ?? 0); if (r <= 0) return x; }
+  return xs[xs.length - 1];
+}
 function shuffled<T>(rng: Rng, xs: readonly T[]): T[] { const a = xs.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
 /** Trickster: a new hand, once a turn. */
@@ -222,6 +240,14 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
   if (!ok && b.gear === 'retry' && !b.used.retry) { b.used.retry = true; return [{ k: 'retry' }]; }
   b.stats.answers++;
   if (fact) b.answered.push({ f: fact, ok, thinkMs: a.thinkMs });
+  // remember a miss so it comes back; a right answer clears it
+  const key: Fact | string | undefined = fact ?? card.word;
+  if (key !== undefined) {
+    const same = (m: Fact | string) => (typeof m === 'string' || typeof key === 'string' ? m === key : m.a === key.a && m.b === key.b && (m.op ?? 'x') === (key.op ?? 'x'));
+    const i = b.missed.findIndex(same);
+    if (ok && i >= 0) b.missed.splice(i, 1);
+    else if (!ok && i < 0) b.missed.push(key);
+  }
   const real = ok ? (b.subject === 'math' ? answerOf(fact!) : a.value) : 0;
   const value = ok ? b.flat || real : 0;
   const fast = ok && (b.subject === 'math' ? a.thinkMs <= b.fastMs : a.thinkMs <= 450 * Math.max(1, real) + 600);

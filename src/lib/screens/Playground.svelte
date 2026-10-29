@@ -76,11 +76,8 @@
     build: 'Learns: place value, hundreds, tens and ones, trading ten for one.',
   };
   function backToGames() { playing = null; done = null; if (scene && stage.current() === scene) stage.use(null); scene?.dispose(); scene = null; }
-  const ART: Record<PlayGame, string> = {
-    line: '<path d="M6 40h52" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M10 34v12M22 36v8M34 34v12M46 36v8M58 34v12" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="34" cy="20" r="8" fill="#fff"/>',
-    bonds: '<circle cx="22" cy="28" r="14" fill="#fff" opacity=".95"/><circle cx="44" cy="36" r="11" fill="#fff" opacity=".8"/><circle cx="40" cy="14" r="6" fill="#fff" opacity=".7"/>',
-    build: '<rect x="8" y="12" width="20" height="20" rx="2" fill="#fff"/><rect x="32" y="8" width="7" height="36" rx="2" fill="#fff"/><rect x="43" y="8" width="7" height="36" rx="2" fill="#fff"/><rect x="10" y="36" width="8" height="8" rx="2" fill="#fff"/><rect x="20" y="36" width="8" height="8" rx="2" fill="#fff"/>',
-  };
+  // each game's painted picture (number line with a hopping frog, bubbles, place-value blocks)
+  const ART: Record<PlayGame, 'line' | 'bubbles' | 'blocks'> = { line: 'line', bonds: 'bubbles', build: 'blocks' };
 </script>
 
 <svelte:window onkeydown={onKey} onresize={onResize} />
@@ -116,7 +113,7 @@
           <section class="game" style:--gc={g.color}>
             <button class="gpic" onclick={() => start(g.id, nxt)} aria-label="Play {g.name}">
               <img src="{import.meta.env.BASE_URL}math/play-{g.id === 'bonds' ? 'bubbles' : g.id}.webp" alt="" />
-              <span class="gname"><svg class="gart" viewBox="0 0 64 52" aria-hidden="true">{@html ART[g.id]}</svg>{g.name}</span>
+              <span class="gname"><span class="gart"><Icon name={ART[g.id]} size={40} /></span>{g.name}</span>
             </button>
             <p class="gblurb">{g.blurb} <span class="what">{WHAT[g.id]}</span></p>
             <div class="levels">
@@ -147,15 +144,15 @@
         <Stars n={done.stars} of={3} size={54} animate />
         {#if done.out.opened}<p class="open">Level {done.out.opened} is open!</p>{:else if done.stars === 0}<p class="open">A few more right for a star. Have another go!</p>{/if}
         <div class="xp">
-          <div class="xptop"><span>{FRIEND[p.buddy].name} · ♥ Friendship {done.out.xp.after.level}</span><b>+{done.out.xp.gained} XP</b></div>
+          <div class="xptop"><span>{FRIEND[p.buddy].name} · <Icon name="heart" size={16} /> Friendship {done.out.xp.after.level}</span><b>+{done.out.xp.gained} XP</b></div>
           <div class="xbar"><i style:width="{(done.out.xp.after.into / done.out.xp.after.need) * 100}%"></i></div>
         </div>
         {#if done.out.rewards.length || done.out.stickers.length || done.out.medals.length || done.out.buddies.length}
           <div class="news">
-            {#each done.out.medals as m}<span class="chip">🏅 {m.name}</span>{/each}
-            {#each done.out.rewards as r}<span class="chip">✨ New {r.kind}: {r.name}</span>{/each}
-            {#each done.out.stickers as s}<span class="chip">⭐ Sticker: {s.name}</span>{/each}
-            {#each done.out.buddies as b}<span class="chip new">🎉 {FRIEND[b].name} joined your team!</span>{/each}
+            {#each done.out.medals as m}<span class="chip"><Icon name="medal" size={18} /> {m.name}</span>{/each}
+            {#each done.out.rewards as r}<span class="chip"><Icon name={r.kind === 'dance' ? 'dance' : 'hanger'} size={18} /> New {r.kind}: {r.name}</span>{/each}
+            {#each done.out.stickers as s}<span class="chip"><Icon name="sticker" size={18} /> Sticker: {s.name}</span>{/each}
+            {#each done.out.buddies as b}<span class="chip new"><Icon name="popper" size={18} /> {FRIEND[b].name} joined your team!</span>{/each}
           </div>
         {/if}
         <div class="acts">
@@ -187,7 +184,7 @@
   .gpic img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s; }
   .game:hover .gpic img { transform: scale(1.05); }
   .gname { position: absolute; left: 12px; bottom: 10px; display: flex; align-items: center; gap: 8px; font: 600 25px var(--font-ui); color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, .5); }
-  .gart { flex: none; width: 46px; height: 38px; border-radius: 12px; background: var(--gc); padding: 4px; box-shadow: 0 0 0 3px #fff; }
+  .gart { flex: none; display: grid; place-items: center; width: 50px; height: 46px; border-radius: 12px; background: color-mix(in srgb, var(--gc) 22%, #fff); box-shadow: 0 0 0 3px #fff; }
   .gblurb { margin: 0; font: 600 14.5px/1.4 var(--font-body); color: var(--ink2); }
   .what { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
   .levels { display: flex; flex-direction: column; gap: 6px; }
@@ -214,7 +211,7 @@
   .xbar { height: 14px; border-radius: 999px; background: var(--bg2); overflow: hidden; }
   .xbar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--primary-hi), var(--pink), var(--lemon)); transition: width .8s ease; }
   .news { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-  .chip { font: 700 13px var(--font-body); background: #f6f1ff; border-radius: 999px; padding: 4px 10px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; font: 700 13px var(--font-body); background: #f6f1ff; border-radius: 999px; padding: 4px 10px; }
   .chip.new { background: #fff3c4; }
   .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
   @media (max-width: 900px) { .bar :global(.tile .lbl) { display: none; } .games { grid-template-columns: 1fr; } .body { padding: 10px 10px 20px; } .bar { padding: 8px 10px; } .bar h1 { font-size: 20px; } .hello p { font-size: 15px; } .hello :global(.critter-host) { width: 64px !important; height: 64px !important; } }

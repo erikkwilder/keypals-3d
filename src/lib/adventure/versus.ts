@@ -12,6 +12,7 @@ import { advOf, advView, giveXp, mathPool, meet, teamOf, today, typingPool } fro
 import { BUDDY_ROLE, GEAR, type GlimmerId, type Rarity } from './glimmers';
 import { guestPool, type GuestLevel, type SideSetup } from './duel';
 import { kitOf, wornOf } from './gear';
+import { dressOf } from './wardrobe';
 import { newRivals, newStats, noteStats, rollWeek, styleOf, TRY_POINTS, WIN_POINTS, type GhostCopy, type Rival, type RivalState } from './ghosts';
 import type { Subject } from './battle';
 import type { FriendId } from '../art/cast';
@@ -25,7 +26,7 @@ export function sideOf(p: Profile, subject?: Subject): SideSetup {
     name: p.name, buddy: p.buddy, kind: 'player', profileId: p.id, subject: sub,
     pool: sub === 'math' ? mathPool(p) : typingPool(p), role: BUDDY_ROLE[p.buddy] ?? 'heart',
     gear: GEAR[outfit]?.kind ?? null, team: teamOf(a), outfit, dance: danceOf(p), fastMs: p.math?.fastMs,
-    kit: kitOf(a, p.buddy), worn: wornOf(a, p.buddy),
+    kit: kitOf(a, p.buddy), worn: wornOf(a, p.buddy), dress: dressOf(p),
   };
 }
 /** A guest's side (a grown-up or a friend without a player here): questions at the level they pick. */
@@ -48,6 +49,8 @@ export function rivalSide(r: Rival, me: Profile, all: Profile[]): SideSetup {
     name: r.name, buddy: r.buddy, kind: 'ghost', profileId: r.profileId, subject: sub,
     pool: sub === 'math' ? mathPool(src) : typingPool(src), role: BUDDY_ROLE[r.buddy] ?? 'heart',
     gear: GEAR[r.outfit]?.kind ?? null, team: r.team, outfit: r.outfit, dance: r.dance, ghost: styleOf(r.stats), kit: r.kit, worn: r.worn,
+    // a family ghost looks just like its player's buddy does now
+    dress: from && from.buddy === r.buddy ? dressOf(from) : undefined,
   };
 }
 

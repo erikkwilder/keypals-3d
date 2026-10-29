@@ -38,6 +38,8 @@ export function devBoot() {
   const ensure = () => { if (!game.profile) game.addPlayer('Tester', 'dino', false); };
   if (key === 'map') { ensure(); game.go('map'); }
   if (key === 'hub') { ensure(); game.go('hub'); }
+  // every little surprise at once, for checking them (src/lib/fun): #eggs-all, #eggs-all=pumpkins|snow, #eggs-all=off
+  if (key === 'eggs-all') { try { if (val === 'off') localStorage.removeItem('keypals-eggs-all'); else localStorage.setItem('keypals-eggs-all', val || '1'); } catch { /* fine */ } }
   if (key === 'playground') { ensure(); game.go('playground'); }
   if (key === 'run') { ensure(); game.startLesson(val || 'village-1'); }
   if (key === 'stickers') { ensure(); game.go('stickers'); }

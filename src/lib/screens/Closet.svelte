@@ -1,17 +1,21 @@
 <script lang="ts">
-  // Keypals: pick your buddy, dress them up, and choose the dance they do at the finish line.
-  // Outfits and dances unlock as each buddy's own friendship grows. Buddies not on the team yet show in
-  // shadowy grey with what brings them in.
+  // Keypals: pick your buddy, dress them up, and choose the dance they do at the finish line. The
+  // Wardrobe has every slot (head, face, neck, back, hand, feet): everything you have is yours, so any
+  // buddy can wear it, and each buddy keeps its own look. Tap a thing you're wearing and "Move it" to
+  // nudge it into place on this buddy. Dances unlock as each buddy's own friendship grows. Buddies not on
+  // the team yet show in shadowy grey with what brings them in.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { BUDDIES, FRIEND, type FriendId } from '../art/cast';
-  import { OUTFITS, DANCES as ALL_DANCES, forBuddy, type Reward } from '../engine/rewards';
+  import { DANCES as ALL_DANCES, forBuddy, type Reward } from '../engine/rewards';
   import { palOf, setLook } from '../engine/profile';
   import { levelFromXp } from '../engine/stickers';
   import { joinProgress, onTeam, UNLOCKS } from '../engine/team';
-  import { BUDDY_ROLE, GEAR, RARITY, ROLE } from '../adventure/glimmers';
-  import { advOf, advView, ISLAND, markSeen } from '../adventure/state';
-  import { ITEMS, ITEM, SETS, SET_IDS, SLOTS, SLOT_NAME, buyGear, gearView, howToGet, setItems, setsOn, wearGear as putOn, wornOf, type GearItem, type SetId, type Slot } from '../adventure/gear';
+  import { BUDDY_ROLE, RARITY, ROLE } from '../adventure/glimmers';
+  import { advView, ISLAND, markSeen } from '../adventure/state';
+  import { ITEM, NO_NUDGE, SETS, SET_IDS, SLOT_NAME, WEAR_SLOTS, setItems, setsOn, lookView, type Nudge, type SetId, type WearSlot } from '../adventure/gear';
+  import { CATALOG, CAT, bestFriendship, buyItem, howText, nudgeItem, nudgeOf, ownsItem, wearItem, wornIn, type CatalogItem } from '../adventure/wardrobe';
+  import { nudgeGear } from '../three/gear3d';
   import Coach from '../ui/Coach.svelte';
   import { sfx } from '../audio/sound';
   import { stage } from '../three/stage';
@@ -26,20 +30,23 @@
   let who = $state<FriendId>(game.profile!.buddy);
   const pal = $derived(palOf(p, who));
   const lvl = $derived(levelFromXp(pal.xp));
-  let tab = $state<'outfits' | 'dances' | 'gear'>(game.closetTab);
-  // gear: the slot being picked for, and a piece (or set) shown big with what it does and how to get it
-  let slot = $state<Slot>('hand');
-  let peek = $state<GearItem | null>(null);
+  let tab = $state<'wear' | 'dances'>(game.closetTab === 'dances' ? 'dances' : 'wear');
+  // the wardrobe: the slot being dressed, and a thing (or set) shown big with what it does and how to get it
+  let slot = $state<WearSlot>('head');
+  let peek = $state<CatalogItem | null>(null);
   let setPeek = $state<SetId | null>(null);
   const base = import.meta.env.BASE_URL;
   const adv = $derived(advView(p));
-  const bg = $derived(gearView(adv, who));
-  const setsWorn = $derived(setsOn(bg));
-  const gearTip = $derived(tab === 'gear' && !adv.seen.includes('gear1'));
+  const look = $derived(lookView(adv, who));
+  const setsWorn = $derived(setsOn(look));
+  const wearTip = $derived(tab === 'wear' && !adv.seen.includes('wardrobe1'));
   // a few dances bump into some buddies' heads or hats: those buddies don't get them
   const DANCES = $derived(forBuddy(ALL_DANCES, who));
-  const outfitsOpen = $derived(OUTFITS.filter(o => !locked(o)).length);
   const dancesOpen = $derived(DANCES.filter(d => !locked(d)).length);
+  const ownedCount = $derived(CATALOG.filter(c => ownsItem(p, c.id)).length);
+  // what's on each slot, and the things for the chosen slot: yours first, then the rest by how to get them
+  const onSlot = (sl: WearSlot) => wornIn(p, who, sl);
+  const forSlot = $derived(CATALOG.filter(c => c.slot === slot).map(c => ({ c, mine: ownsItem(p, c.id) })).sort((a, b) => Number(b.mine) - Number(a.mine)));
   let burst = $state(0);
   let shake = $state<string | null>(null);
   let scene: ShowScene | null = null;
@@ -50,7 +57,7 @@
 
   async function show(id: FriendId) {
     const old = scene;
-    const sc = await ShowScene.create({ buddies: [id], view: viewOf(), spot: 10, outfits: { [id]: palOf(game.profile!, id).outfit }, shadowed: onTeam(game.profile!, id) ? [] : [id], gear: { [id]: wornOf(advView(game.profile!), id) } });
+    const sc = await ShowScene.create({ buddies: [id], view: viewOf(), spot: 10, fromSave: true, shadowed: onTeam(game.profile!, id) ? [] : [id] });
     if (disposed || who !== id) { sc.dispose(); return; }
     scene = sc;
     stage.use(sc);
@@ -65,18 +72,11 @@
   }
   function onResize() { if (scene) scene.view = viewOf(); }
 
-  function pick(id: FriendId) { if (id === who) return; who = id; sfx.pop(); show(id); }
+  function pick(id: FriendId) { if (id === who) return; who = id; moving = null; sfx.pop(); show(id); }
   function locked(r: Reward) { return r.level > lvl.level; }
   function nope(r: Reward) {
     shake = r.id; setTimeout(() => (shake = null), 400); sfx.nope();
-    game.say(`Reach friendship ${r.level} to unlock ${r.name}!`);
-  }
-  function wear(r: Reward | null) {
-    if (r && locked(r)) return nope(r);
-    const id = r?.id ?? 'none';
-    game.update(pp => setLook(pp, who, { outfit: id }));
-    scene?.wear(who, id);
-    if (id !== 'none') { burst++; sfx.equip(); } else sfx.pop();
+    game.say(`Reach friendship ${r.level} with ${FRIEND[who].name} to unlock ${r.name}!`);
   }
   function dance(r: Reward) {
     if (locked(r)) return nope(r);
@@ -84,30 +84,85 @@
     scene?.dance(who, r.id);
     sfx.pop();
   }
-  // ---------- gear ----------
-  function tapPiece(it: GearItem) {
-    if (!bg.owned.includes(it.id)) { peek = it; sfx.pop(); return; }
-    const on = bg.on[it.slot] === it.id;
-    game.update(pp => { putOn(advOf(pp), who, it.slot, on ? null : it.id); });
-    scene?.wearGear(who, it.slot, on ? null : it.id);
+  // ---------- the wardrobe ----------
+  function tapItem(c: CatalogItem) {
+    if (!ownsItem(p, c.id)) { peek = c; sfx.pop(); return; }
+    const on = onSlot(c.slot) === c.id;
+    game.update(pp => { wearItem(pp, who, c.slot, on ? null : c.id); });
+    moving = null;
+    void scene?.redress(who);
     if (on) sfx.pop(); else { burst++; sfx.equip(); }
   }
-  function buyPiece(it: GearItem) {
-    let r: { ok: boolean; why?: string } = { ok: false };
-    game.update(pp => { r = buyGear(advOf(pp), who, it.id); });
-    if (!r.ok) { sfx.nope(); if (r.why) game.say(r.why); return; }
-    scene?.wearGear(who, it.slot, it.id);
-    peek = null; burst++; sfx.buy();
-    game.say(`${FRIEND[who].name} got the ${it.name}!`);
+  function takeOff(sl: WearSlot) {
+    game.update(pp => { wearItem(pp, who, sl, null); });
+    moving = null;
+    void scene?.redress(who);
+    sfx.pop();
   }
-  function setTab(t: 'outfits' | 'dances' | 'gear') { tab = t; game.closetTab = t; sfx.pop(); }
+  function buy(c: CatalogItem) {
+    let r: { ok: boolean; why?: string } = { ok: false };
+    game.update(pp => { r = buyItem(pp, who, c.id); });
+    if (!r.ok) { sfx.nope(); if (r.why) game.say(r.why); return; }
+    void scene?.redress(who);
+    peek = null; burst++; sfx.buy();
+    game.say(`The ${c.name} is yours! ${FRIEND[who].name} has it on.`);
+  }
+  function setTab(t: 'wear' | 'dances') { tab = t; game.closetTab = t === 'wear' ? 'outfits' : 'dances'; moving = null; sfx.pop(); }
   const island = (id: string) => ISLAND[id as keyof typeof ISLAND]?.name ?? id;
   const joined = $derived(onTeam(p, who));
   const join = $derived(joinProgress(p, who));
   function makeBuddy() { if (!joined) return; game.update(pp => { pp.buddy = who; }); burst++; sfx.equip(); scene?.dance(who, pal.dance); }
 
-  onMount(() => { show(who); addEventListener('resize', onResize); });
-  onDestroy(() => { disposed = true; removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
+  // ---------- Move it: nudge a worn thing into place on this buddy ----------
+  let moving = $state<{ slot: WearSlot; id: string; n: Nudge } | null>(null);
+  function startMove() {
+    const id = onSlot(slot);
+    if (!id) return;
+    moving = { slot, id, n: nudgeOf(p, who, id) };
+    sfx.pop();
+  }
+  const STEP = 0.012;
+  function nudge(d: Partial<Nudge>, k = 1) {
+    if (!moving) return;
+    const n = moving.n, lim = (v: number) => Math.max(-0.35, Math.min(0.35, v));
+    const next: Nudge = {
+      x: lim(n.x + (d.x ?? 0) * STEP * k), y: lim(n.y + (d.y ?? 0) * STEP * k), z: lim(n.z + (d.z ?? 0) * STEP * k),
+      s: Math.max(0.4, Math.min(2.5, n.s * (d.s ? Math.pow(1.06, d.s) : 1))), r: n.r + (d.r ?? 0) * 0.15,
+    };
+    moving = { ...moving, n: next };
+    live(next);
+    sfx.click();
+  }
+  function live(n: Nudge | null) {
+    const c = scene?.char(who);
+    if (!c || !moving) return;
+    if (moving.slot === 'head') c.nudgeHat(n); else nudgeGear(c, moving.slot, n ?? NO_NUDGE);
+  }
+  function saveMove() {
+    if (!moving) return;
+    const m = moving;
+    game.update(pp => nudgeItem(pp, who, m.id, m.n));
+    moving = null; burst++; sfx.equip();
+  }
+  function resetMove() {
+    if (!moving) return;
+    moving = { ...moving, n: { ...NO_NUDGE } };
+    live(NO_NUDGE);
+    sfx.pop();
+  }
+  function cancelMove() {
+    if (!moving) return;
+    const saved = nudgeOf(p, who, moving.id);
+    live(saved);
+    moving = null;
+  }
+  // hold a button to keep nudging
+  let holdTimer = 0;
+  function hold(d: Partial<Nudge>) { nudge(d); clearInterval(holdTimer); holdTimer = window.setInterval(() => nudge(d), 90); }
+  function release() { clearInterval(holdTimer); }
+
+  onMount(() => { show(who); addEventListener('resize', onResize); addEventListener('pointerup', release); });
+  onDestroy(() => { disposed = true; clearInterval(holdTimer); removeEventListener('resize', onResize); removeEventListener('pointerup', release); if (scene && stage.current() === scene) stage.use(null); });
 </script>
 
 <div class="screen closet">
@@ -126,6 +181,32 @@
   <div class="body">
     <div class="stagebox" bind:this={stageEl}>
       <Confetti {burst} count={50} x={50} y={45} />
+      {#if moving}
+        {@const c = CAT[moving.id]}
+        <!-- Move it: big buttons to nudge the thing into place (hold to keep going) -->
+        <div class="mover card">
+          <div class="mvhead"><img src="{base}{c?.icon}" alt="" /><b>Move the {c?.name ?? 'thing'}</b></div>
+          <div class="mvgrid">
+            <span></span><button class="mv" onpointerdown={() => hold({ y: 1 })} aria-label="Up">▲<small>Up</small></button><span></span>
+            <button class="mv" onpointerdown={() => hold({ x: -1 })} aria-label="Left">◀<small>Left</small></button>
+            <button class="mv mid" onpointerdown={() => hold({ z: 1 })} aria-label="Closer">●<small>Closer</small></button>
+            <button class="mv" onpointerdown={() => hold({ x: 1 })} aria-label="Right">▶<small>Right</small></button>
+            <span></span><button class="mv" onpointerdown={() => hold({ y: -1 })} aria-label="Down">▼<small>Down</small></button><button class="mv" onpointerdown={() => hold({ z: -1 })} aria-label="Further">○<small>Further</small></button>
+          </div>
+          <div class="mvrow">
+            <button class="mv wide" onpointerdown={() => hold({ s: -1 })}>－<small>Smaller</small></button>
+            <button class="mv wide" onpointerdown={() => hold({ s: 1 })}>＋<small>Bigger</small></button>
+            <button class="mv wide" onpointerdown={() => hold({ r: -1 })}>↺<small>Turn</small></button>
+            <button class="mv wide" onpointerdown={() => hold({ r: 1 })}>↻<small>Turn</small></button>
+          </div>
+          <div class="mvbtns">
+            <button class="btn" onclick={resetMove}>Reset</button>
+            <button class="btn" onclick={cancelMove}>Cancel</button>
+            <button class="btn btn-primary" onclick={saveMove}>Done</button>
+          </div>
+          <p class="mvnote">Just for {FRIEND[who].name}: every other buddy keeps its own fit.</p>
+        </div>
+      {/if}
     </div>
     <div class="side">
       <div class="who card">
@@ -135,7 +216,7 @@
           <p class="quirk">{FRIEND[who].quirk}</p>
           <p class="advline"><img src="{import.meta.env.BASE_URL}game/icon-star.webp" alt="" /><span><b>In Adventure, {ROLE[BUDDY_ROLE[who]].name}:</b> {ROLE[BUDDY_ROLE[who]].text}</span></p>
           {#if p.buddy !== who}<button class="btn btn-primary" onclick={makeBuddy}>Play with {FRIEND[who].name}</button>{/if}
-          <p class="keep">Each buddy earns their own friendship, outfits, dances, stickers and medals. Your lessons and stars stay with you.</p>
+          <p class="keep">Everything you wear is yours: any buddy can put it on. Each buddy keeps its own look, friendship and dances.</p>
         {:else}
           <p class="joins"><Icon name="lock" /> Joins your team when you: <b>{UNLOCKS[who]?.how}</b></p>
           <div class="xp"><div class="bar"><i style:width="{join.share * 100}%"></i></div><span class="muted">{join.text}</span></div>
@@ -144,70 +225,60 @@
       </div>
       {#if joined}
       <div class="tabs">
-        <button class:on={tab === 'outfits'} onclick={() => setTab('outfits')}><TileArt kind="outfits" size={40} /><span>Outfits</span><em>{outfitsOpen}/{OUTFITS.length}</em></button>
-        <button class:on={tab === 'gear'} class="geartab" onclick={() => setTab('gear')}><img src="{base}gear/hero_cape.webp" alt="" /><span>Gear</span><em>{bg.owned.length}/{ITEMS.length}</em></button>
+        <button class:on={tab === 'wear'} onclick={() => setTab('wear')}><TileArt kind="outfits" size={40} /><span>Wardrobe</span><em>{ownedCount}/{CATALOG.length}</em></button>
         <button class:on={tab === 'dances'} onclick={() => setTab('dances')}><TileArt kind="dances" size={40} /><span>Dances</span><em>{dancesOpen}/{DANCES.length}</em></button>
+        <button class="shopbtn" onclick={() => { sfx.pop(); game.openShop(tab === 'wear' ? slot : null); }} title="The Island Shop"><img src="{base}game/icon-shell.webp" alt="" /><span>Shop</span></button>
       </div>
-      <p class="tabnote">{tab === 'outfits' ? 'Outfits open up as your friendship grows, and each one helps in Adventure battles.' : tab === 'gear' ? 'Gear helps in Adventure battles. Wear all three pieces of a set for a bonus!' : `Your finish dance plays when you finish a lesson or trip, and it's ${FRIEND[who].name}'s big Finale move in Adventure.`}</p>
-      {#if tab === 'gear'}
+      {#if tab === 'wear'}
         <div class="gearpane scroll">
           <div class="gslots">
-            <button class="gslot hat" onclick={() => setTab('outfits')} title="Hats are on the Outfits tab">
-              <span class="gpic">{#if pal.outfit !== 'none'}<img src="{base}outfits/{pal.outfit}.webp" alt="" />{:else}<span class="plus">+</span>{/if}</span>
-              <small>Hat</small>
-            </button>
-            {#each SLOTS as s (s)}
-              {@const it = bg.on[s] ? ITEM[bg.on[s]!] : null}
-              <button class="gslot" class:on={slot === s} style:--rc={it ? RARITY[it.rarity].color : null} onclick={() => { slot = s; sfx.pop(); }}>
-                <span class="gpic">{#if it}<img src="{base}gear/{it.id}.webp" alt="" />{:else}<span class="plus">+</span>{/if}</span>
+            {#each WEAR_SLOTS as s (s)}
+              {@const id = onSlot(s)}
+              {@const it = id ? CAT[id] : null}
+              <button class="gslot" class:on={slot === s} style:--rc={it ? RARITY[it.rarity].color : null} onclick={() => { slot = s; moving = null; sfx.pop(); }}>
+                <span class="gpic">{#if it}<img src="{base}{it.icon}" alt="" />{:else}<span class="plus">+</span>{/if}</span>
                 <small>{SLOT_NAME[s]}</small>
               </button>
             {/each}
           </div>
+          {#if onSlot(slot)}
+            {@const cur = CAT[onSlot(slot)!]}
+            <div class="wearing">
+              <span><b>{cur?.name}</b> is on.</span>
+              <button class="btn movebtn" onclick={startMove}>✥ Move it</button>
+              <button class="btn" onclick={() => takeOff(slot)}>Take off</button>
+            </div>
+          {/if}
           <div class="gitems">
-            {#each ITEMS.filter(i => i.slot === slot) as it (it.id)}
-              {@const mine = bg.owned.includes(it.id)}
-              {@const wearing = bg.on[it.slot] === it.id}
-              <button class="gtile" class:wearing class:notyet={!mine} style:--rc={RARITY[it.rarity].color} onclick={() => tapPiece(it)}>
-                <span class="grar">{RARITY[it.rarity].name}</span>
-                <img src="{base}gear/{it.id}.webp" alt="" />
-                <b>{it.name}</b>
-                <span class="gpow">{it.text}</span>
+            {#each forSlot as { c, mine } (c.id)}
+              {@const wearing = onSlot(c.slot) === c.id}
+              <button class="gtile" class:wearing class:notyet={!mine} style:--rc={RARITY[c.rarity].color} onclick={() => tapItem(c)}>
+                <span class="grar">{RARITY[c.rarity].name}</span>
+                <img src="{base}{c.icon}" alt="" />
+                <b>{c.name}</b>
+                <span class="gpow">{c.power ? `⚔️ ${c.text}` : c.text}</span>
                 {#if wearing}<em class="gst on">✓ Wearing</em>
                 {:else if mine}<em class="gst">Tap to wear</em>
-                {:else if it.price !== null}<em class="gst buy"><img src="{base}game/icon-shell.webp" alt="" />{it.price}</em>
+                {:else if c.how === 'shop'}<em class="gst buy"><img src="{base}game/icon-shell.webp" alt="" />{c.price}</em>
+                {:else if c.how === 'friendship'}<em class="gst gift">♥ Friendship {c.level}</em>
                 {:else}<em class="gst champ">🏆 Champion prize</em>{/if}
               </button>
             {/each}
           </div>
+          {#if slot === 'hand' || slot === 'back' || slot === 'feet'}
           <div class="gsets">
             {#each SET_IDS as sid (sid)}
               {@const done = setsWorn.includes(sid)}
               <button class="gset" class:done onclick={() => { setPeek = sid; sfx.pop(); }}>
-                <span class="gsicons">{#each setItems(sid) as it}<img class:off={bg.on[it.slot] !== it.id} src="{base}gear/{it.id}.webp" alt="" />{/each}</span>
-                <span class="gsname"><b>{SETS[sid].name}</b><small>{done ? '✓ Bonus on!' : `${setItems(sid).filter(i => bg.on[i.slot] === i.id).length} of 3 on`}</small></span>
+                <span class="gsicons">{#each setItems(sid) as it}<img class:off={look.on[it.slot] !== it.id} src="{base}gear/{it.id}.webp" alt="" />{/each}</span>
+                <span class="gsname"><b>{SETS[sid].name}</b><small>{done ? '✓ Bonus on!' : `${setItems(sid).filter(i => look.on[i.slot] === i.id).length} of 3 on`}</small></span>
               </button>
             {/each}
           </div>
+          {/if}
         </div>
       {:else}
       <div class="grid scroll">
-        {#if tab === 'outfits'}
-          <button class="of" class:on={pal.outfit === 'none'} onclick={() => wear(null)}>
-            <div class="thumb"><Critter friend={who} size={80} /></div>
-            <b>Just me</b><span class="rar common">Always</span>
-          </button>
-          {#each OUTFITS as o (o.id)}
-            {@const lk = locked(o)}
-            <button class="of rar-{o.rarity}" class:on={pal.outfit === o.id} class:locked={lk} class:shake={shake === o.id} onclick={() => wear(o)}>
-              <div class="thumb"><img src="{import.meta.env.BASE_URL}outfits/{o.id}.webp" alt="" /></div>
-              <b>{o.name}</b>
-              {#if GEAR[o.id]}<span class="power" title="In Adventure: {GEAR[o.id].text}">⚔️ {GEAR[o.id].name}</span>{/if}
-              {#if !lk}<span class="rar {o.rarity}">{RAR[o.rarity]}</span>
-              {:else}<span class="lock" title="Unlocks at friendship {o.level}"><Icon name="lock" size={13} /> ♥ {o.level}</span>{/if}
-            </button>
-          {/each}
-        {:else}
           {#each DANCES as d (d.id)}
             {@const lk = locked(d)}
             <button class="of dance rar-{d.rarity}" class:on={pal.dance === d.id} class:locked={lk} class:shake={shake === d.id} onclick={() => dance(d)}>
@@ -217,16 +288,15 @@
               {:else}<span class="lock" title="Unlocks at friendship {d.level}"><Icon name="lock" size={13} /> ♥ {d.level}</span>{/if}
             </button>
           {/each}
-        {/if}
       </div>
       {/if}
       {:else}
-        <div class="card soon"><p>When {FRIEND[who].name} joins your team, they start their own friendship, and outfits and dances open up as you play together.</p></div>
+        <div class="card soon"><p>When {FRIEND[who].name} joins your team, they start their own friendship and dances, and they can wear everything you have.</p></div>
       {/if}
     </div>
   </div>
 
-  {#if gearTip && joined}<Coach text="New! Pick a spot, then tap a piece to put it on. Gear helps in Adventure battles." at=".gslot.on" button="Got it" onok={() => game.update(pp => markSeen(pp, 'gear1'))} />{/if}
+  {#if wearTip && joined}<Coach text="New! Pick a spot on your buddy, then tap a thing to put it on. Everything you have works on every buddy, and Move it puts it just where you want it." at=".gslot.on" button="Got it" onok={() => game.update(pp => markSeen(pp, 'wardrobe1'))} />{/if}
 
   {#if peek}
     {@const it = peek}
@@ -235,17 +305,19 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="gbg" onclick={() => (peek = null)}>
       <div class="gcard card" style:--rc={RARITY[it.rarity].color} onclick={(e) => e.stopPropagation()}>
-        <img class="gbig" src="{base}gear/{it.id}.webp" alt="" />
+        <img class="gbig" src="{base}{it.icon}" alt="" />
         <div class="gtext">
           <small class="grarity">{RARITY[it.rarity].name} · {SLOT_NAME[it.slot]}</small>
           <h3>{it.name}</h3>
-          <p><b>In battles:</b> {it.text}</p>
-          <p class="gsetline">Part of the <b>{SETS[it.set].name}</b>. Wear all three for: {SETS[it.set].text}</p>
-          {#if it.price !== null}
-            <button class="btn btn-primary gbuy" disabled={short > 0} onclick={() => buyPiece(it)}><img src="{base}game/icon-shell.webp" alt="" />{short > 0 ? `You need ${short} more shells` : `Buy for ${it.price} shells`}</button>
-            <p class="muted gnote">For {FRIEND[who].name}. You have {adv.shells} shells: battles and practice earn more.</p>
+          {#if it.power}<p><b>In battles:</b> {it.text}</p>{#if it.set}<p class="gsetline">Part of the <b>{SETS[it.set].name}</b>. Wear all three for: {SETS[it.set].text}</p>{/if}
+          {:else}<p>{it.text}</p><p class="gsetline">Just for fun.</p>{/if}
+          {#if it.how === 'shop'}
+            <button class="btn btn-primary gbuy" disabled={short > 0} onclick={() => buy(it)}><img src="{base}game/icon-shell.webp" alt="" />{short > 0 ? `You need ${short} more shells` : `Buy for ${it.price} shells`}</button>
+            <p class="muted gnote">Yours to keep, for every buddy. You have {adv.shells} shells: practice and battles earn more.</p>
+          {:else if it.how === 'friendship'}
+            <p class="gchamp">♥ A friendship gift: reach friendship <b>{it.level}</b> with any buddy (your best is {bestFriendship(p)}).</p>
           {:else}
-            <p class="gchamp">🏆 Beat the <b>{island(it.champion!)}</b> Champion with {FRIEND[who].name} to win it.</p>
+            <p class="gchamp">🏆 {howText(it, island)} in Adventure to win it.</p>
           {/if}
         </div>
         <button class="btn gclose" onclick={() => (peek = null)}>OK</button>
@@ -259,11 +331,11 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="gbg" onclick={() => (setPeek = null)}>
       <div class="gcard card setcard" onclick={(e) => e.stopPropagation()}>
-        <div class="setpics">{#each setItems(sid) as it}<img class:off={bg.on[it.slot] !== it.id} src="{base}gear/{it.id}.webp" alt="" />{/each}</div>
+        <div class="setpics">{#each setItems(sid) as it}<img class:off={look.on[it.slot] !== it.id} src="{base}gear/{it.id}.webp" alt="" />{/each}</div>
         <div class="gtext">
           <h3>{SETS[sid].name}</h3>
           <p><b>Wear all three:</b> {SETS[sid].text}</p>
-          <ul>{#each setItems(sid) as it}<li class:on={bg.on[it.slot] === it.id}>{bg.on[it.slot] === it.id ? '✓' : '○'} {it.name} <span class="muted">({SLOT_NAME[it.slot].toLowerCase()}{bg.owned.includes(it.id) ? '' : `: ${howToGet(it, island)}`})</span></li>{/each}</ul>
+          <ul>{#each setItems(sid) as it}<li class:on={look.on[it.slot] === it.id}>{look.on[it.slot] === it.id ? '✓' : '○'} {it.name} <span class="muted">({SLOT_NAME[it.slot].toLowerCase()}{ownsItem(p, it.id) ? '' : `: ${howText(CAT[it.id], island)}`})</span></li>{/each}</ul>
         </div>
         <button class="btn gclose" onclick={() => (setPeek = null)}>OK</button>
       </div>
@@ -313,17 +385,15 @@
   .of.locked { opacity: .55; filter: grayscale(.6); }
   .of.shake { animation: wiggle .35s ease; }
   .thumb { width: 88px; height: 88px; display: grid; place-items: center; }
-  .thumb img { width: 100%; height: 100%; object-fit: contain; }
   .thumb.note { font-size: 54px; color: #9b6bff; background: linear-gradient(135deg, #efe4ff, #ffe4f1); border-radius: 50%; width: 76px; height: 76px; }
   .rar { font: 800 11px var(--font-body); padding: 2px 8px; border-radius: 999px; background: var(--bg2); color: var(--ink2); }
   .rar.rare { background: #dcecff; color: #2f6fb8; }
   .rar.epic { background: #efe2ff; color: #7a4fd0; }
   .rar.legendary { background: #fff1c2; color: #8a6400; }
   .lock { display: flex; align-items: center; gap: 4px; font: 800 12px var(--font-body); color: var(--muted); }
-  .tabs .geartab img { width: 40px; height: 40px; object-fit: contain; }
   /* gear: the four spots on the buddy, the pieces for the chosen spot, the sets */
   .gearpane { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px 2px 8px; }
-  .gslots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .gslots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
   .gslot { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px 4px; border-radius: 18px; border: 3px solid transparent; background: rgba(255, 255, 255, .92); cursor: pointer; box-shadow: var(--shadow-sm); font: inherit; }
   .gslot.on { border-color: var(--primary-hi); background: #fff; }
   .gslot.hat { opacity: .9; }
@@ -345,6 +415,26 @@
   .gst.buy { background: #fff3d6; color: #7a5300; }
   .gst.buy img { width: 18px; height: 18px; object-fit: contain; }
   .gst.champ { background: #fff1c2; color: #8a6400; }
+  .gst.gift { background: #ffe4f0; color: #b02a6a; }
+  .wearing { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(255, 255, 255, .92); border-radius: 16px; padding: 6px 8px 6px 14px; box-shadow: var(--shadow-sm); font: 600 15px var(--font-body); color: var(--ink2); }
+  .wearing span { flex: 1; min-width: 120px; }
+  .wearing .btn { padding: 6px 14px; font-size: 15px; }
+  .movebtn { background: linear-gradient(135deg, #ffe58a, #ffc94d) !important; color: #5a3d00 !important; }
+  .tabs .shopbtn { flex: 0 0 auto; }
+  .tabs .shopbtn img { width: 34px; height: 34px; object-fit: contain; }
+  /* Move it: a card over the stage with big buttons */
+  .mover { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 5; width: min(360px, 96%); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 0 0 3px #ffd36b, var(--shadow); }
+  .mvhead { display: flex; align-items: center; gap: 8px; font: 600 17px var(--font-ui); }
+  .mvhead img { width: 36px; height: 36px; object-fit: contain; }
+  .mvgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .mvrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .mv { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 52px; border: 0; border-radius: 14px; background: #f4f0ff; font: 600 22px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: inset 0 -3px 0 #ddd3f7; touch-action: none; user-select: none; }
+  .mv:active { transform: translateY(2px); box-shadow: inset 0 -1px 0 #ddd3f7; background: #ebe4ff; }
+  .mv small { font: 800 11px var(--font-body); color: var(--ink2); margin-top: 2px; }
+  .mv.mid { background: #fff4d6; color: #b07b00; }
+  .mvbtns { display: flex; gap: 6px; justify-content: flex-end; }
+  .mvbtns .btn { padding: 6px 14px; font-size: 15px; }
+  .mvnote { margin: 0; font: 600 12px var(--font-body); color: var(--muted); text-align: center; }
   .gsets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .gset { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 4px 6px; border-radius: 16px; border: 3px solid transparent; background: rgba(255, 255, 255, .9); cursor: pointer; font: inherit; box-shadow: var(--shadow-sm); }
   .gset.done { border-color: #ffd36b; background: #fffaf0; box-shadow: 0 0 14px rgba(255, 200, 80, .45); }
@@ -377,7 +467,10 @@
     .gearpane, .grid { flex: none; overflow: visible; }
     .tabs button { font-size: 16px; gap: 4px; padding: 6px 4px; min-width: 0; }
     .tabs button em { display: none; }
-    .tabs button :global(svg), .tabs .geartab img { width: 30px; height: 30px; }
+    .gslots { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .mover { bottom: 4px; padding: 8px; gap: 6px; }
+    .mv { min-height: 44px; font-size: 18px; }
+    .tabs button :global(svg), .tabs .shopbtn img { width: 30px; height: 30px; }
     .gtile { padding: 20px 4px 8px; }
     .gtile > img { width: 60px; height: 60px; }
     .gtile b { font-size: 14px; }

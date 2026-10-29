@@ -1,17 +1,23 @@
-// Gear in 3D: what a buddy holds, wears on the back and on its feet. Everything is painted: the cape,
-// wings, kite, wand and the rocket pack use the item pictures themselves (so the 3D piece looks like
-// its card), the shoes and springs use painted tiles. Pieces are fitted to each buddy from its own
+// Gear in 3D: what a buddy holds, wears on its face, neck, back and feet (hats are character.ts).
+// Everything is painted: the cape, wings, kite, wand and the rocket pack use the item pictures
+// themselves (so the 3D piece looks like its card), the shoes and springs use painted tiles, and the
+// library's things are painted models (public/wear). Pieces are fitted to each buddy from its own
 // body: the back from the vertices the spine moves, shoe shells from the feet's own triangles, the
-// hand from the vertices the right hand moves. Things that move (the cape's sway, flapping wings,
-// bubbles, music notes, flames) run from the buddy's own update.
+// hand from the vertices the right hand moves, the face and neck from the head's. Every piece sits in a
+// group that takes the Wardrobe's "Move it" nudge (moved, turned and sized about its own attach point),
+// so a nudge can change live without building the piece again. Things that move (the cape's sway,
+// flapping wings, bubbles, music notes, flames) run from the buddy's own update.
 import * as THREE from 'three';
 import type { Character } from './character';
 import { loadTexture } from './assets';
 import { stage } from './stage';
 import { FRIEND } from '../art/cast';
-import type { Slot } from '../adventure/gear';
+import { loadGltf } from './assets';
+import { NO_NUDGE, type Nudge, type WearSlot } from '../adventure/gear';
+import { LIB } from '../adventure/wardrobe';
+type Slot = WearSlot;
 
-type Worn = { id: string; objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void };
+type Worn = { id: string; objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void; nz: { v: Nudge }; onNudge: (() => void)[] };
 type Rig = { worn: Partial<Record<Slot, Worn>>; t: number; tick: (dt: number) => void; want: Partial<Record<Slot, string | null>> };
 const rigs = new WeakMap<Character, Rig>();
 
@@ -21,8 +27,13 @@ type Fit = {
   /** bind units in a metre (the model is scaled down to its height) */
   unit: number; minY: number; H: number;
   back: { cx: number; top: number; z: number; w: number } | null;
+  /** the back's outline seen from the side, from the shoulders down: the backmost point at each height
+   *  (a backpack, a shell, a tail's root), so a cape can drape over it instead of hanging off it */
+  backLine: { top: number; bottom: number; z: number[] } | null;
   feet: { side: 'Left' | 'Right'; geo: THREE.BufferGeometry | null; cx: number; sole: number; heel: number; toe: number; w: number }[];
   hand: THREE.Vector3 | null;
+  /** the head (bind space): its middle across, the eye line, the front of the face, the width */
+  head: { cx: number; eyes: number; front: number; top: number; w: number; neck: number; zmid: number } | null;
 };
 const fits = new WeakMap<Character, Fit>();
 
@@ -118,6 +129,16 @@ function fitOf(c: Character): Fit {
     const near = points(c, ['Spine01', 'Spine02', 'neck'], 0.3).filter(p => p.y > top - H * 0.22 && p.y < top + H * 0.04);
     back = { cx: pct(torso.map(p => p.x), 0.5), top, z: pct((near.length > 10 ? near : torso).map(p => p.z), 0.02), w: pct(torso.map(p => p.x), 0.95) - pct(torso.map(p => p.x), 0.05) };
   }
+  let backLine: Fit['backLine'] = null;
+  if (back) {
+    const all = points(c, Object.keys(c.bones), 0).filter(p => Math.abs(p.x - back!.cx) < back!.w * 0.55);
+    const top = back.top + H * 0.02, bottom = minY + H * 0.12, N = 18, z: number[] = [];
+    for (let i = 0; i < N; i++) {
+      const y = top - (i / (N - 1)) * (top - bottom), band = all.filter(p => Math.abs(p.y - y) < (top - bottom) / N);
+      z.push(band.length > 4 ? pct(band.map(p => p.z), 0.03) : (z[i - 1] ?? back.z));
+    }
+    backLine = { top, bottom, z };
+  }
   const feet: Fit['feet'] = [];
   for (const side of ['Left', 'Right'] as const) {
     const fp = points(c, [`${side}Foot`, `${side}ToeBase`]);
@@ -130,7 +151,15 @@ function fitOf(c: Character): Fit {
   }
   const hp = points(c, ['RightHand']);
   const hand = hp.length > 6 ? hp.reduce((a, p) => a.add(p), new THREE.Vector3()).divideScalar(hp.length) : null;
-  f = { unit, minY, H, back, feet, hand };
+  const hd = points(c, ['Head'], 0.7);
+  let head: Fit['head'] = null;
+  if (hd.length > 20) {
+    const ys = hd.map(p => p.y), lo = pct(ys, 0.02), hi = pct(ys, 0.98);
+    // the face's front: the most forward points near the eye line (snouts and beaks stick out further)
+    const eyes = lo + (hi - lo) * 0.5, band = hd.filter(p => Math.abs(p.y - eyes) < (hi - lo) * 0.12);
+    head = { cx: pct(hd.map(p => p.x), 0.5), eyes, front: pct((band.length > 10 ? band : hd).map(p => p.z), 0.9), top: hi, w: pct(hd.map(p => p.x), 0.97) - pct(hd.map(p => p.x), 0.03), neck: lo, zmid: pct(hd.map(p => p.z), 0.5) };
+  }
+  f = { unit, minY, H, back, backLine, feet, hand, head };
   fits.set(c, f);
   return f;
 }
@@ -172,26 +201,74 @@ function latheFromPicture(height: number, prof: [number, number][], aspect: numb
   return g;
 }
 
-// ---------- the pieces ----------
+// ---------- moving a piece (the Wardrobe's Move it) ----------
+/** Everything a builder needs: the buddy, its measurements, the piece, and its nudge (a box, so a new
+ *  nudge reaches the piece without building it again; bone-held pieces register how to re-apply it). */
+type Ctx = { c: Character; f: Fit; id: string; nz: { v: Nudge }; onNudge: (() => void)[] };
 type Built = { objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void };
+const _a = new THREE.Matrix4(), _b = new THREE.Matrix4();
+/** T(pivot + offset) · turn · size · T(−pivot): moved, turned (about up) and sized about its own attach
+ *  point. `unit` turns the nudge's shares of the buddy's height into this space's units. */
+function nudgeMatrix(m: THREE.Matrix4, pivot: THREE.Vector3, n: Nudge, unit: number) {
+  m.makeTranslation(-pivot.x, -pivot.y, -pivot.z);
+  m.premultiply(_a.makeScale(n.s, n.s, n.s));
+  m.premultiply(_b.makeRotationY(n.r));
+  m.premultiply(_a.makeTranslation(pivot.x + n.x * unit, pivot.y + n.y * unit, pivot.z + n.z * unit));
+}
+/** A group riding a bone, its children placed in bind space, nudged about `pivot` (bind space). */
+function boneHeld(x: Ctx, bone: string, pivot: THREE.Vector3): { g: THREE.Group; inner: THREE.Group } | null {
+  const g = onBone(x.c, bone);
+  if (!g) return null;
+  const inner = new THREE.Group();
+  inner.matrixAutoUpdate = false;
+  g.add(inner);
+  const apply = () => { nudgeMatrix(inner.matrix, pivot, x.nz.v, x.f.H); inner.matrixWorldNeedsUpdate = true; };
+  apply(); x.onNudge.push(apply);
+  return { g, inner };
+}
+/** A group in the buddy's own space for things that follow the hand each frame: call `at(p)` with the
+ *  hand's place every frame and the nudge turns and sizes about it. */
+function handHeld(x: Ctx): { g: THREE.Group; at: (p: THREE.Vector3) => void } {
+  const g = new THREE.Group();
+  g.matrixAutoUpdate = false;
+  x.c.root.add(g);
+  const h = hw(x.c);
+  return { g, at: p => { nudgeMatrix(g.matrix, p, x.nz.v, h); g.matrixWorldNeedsUpdate = true; } };
+}
 
-async function cape(c: Character, f: Fit): Promise<Built | null> {
-  const b = f.back, g = b && onBone(c, 'Spine02');
-  if (!b || !g) return null;
+// ---------- the pieces ----------
+/** Where a cape, wings or a pack meet the back: just under the shoulders, at the back's surface. */
+const backPivot = (f: Fit) => new THREE.Vector3(f.back!.cx, f.back!.top - f.H * 0.06, f.back!.z);
+
+async function cape(x: Ctx): Promise<Built | null> {
+  const { f } = x, b = f.back, h = b && boneHeld(x, 'Spine02', backPivot(f));
+  if (!b || !h) return null;
   const mat = await painted('gear/tex-cape.webp', { cut: true });
-  const W = Math.max(b.w * 2.1, f.H * 0.42), L = Math.max(f.H * 0.4, b.top - (f.minY + f.H * 0.22)), y0 = b.top + f.H * 0.01, z0 = b.z - f.H * 0.02;
-  const geo = new THREE.PlaneGeometry(1, 1, 10, 14);
+  const W = Math.max(b.w * 2.1, f.H * 0.42), L = Math.max(f.H * 0.4, b.top - (f.minY + f.H * 0.22)), y0 = b.top + f.H * 0.01;
+  // the cape lies on the back from the shoulders down: at each height it's just behind the backmost point
+  // above it (over a backpack or a shell, then straight down past it, never back in)
+  const line = f.backLine, gapZ = f.H * 0.018;
+  const rows = 14, laid: number[] = [];
+  for (let i = 0; i <= rows; i++) {
+    const y = y0 - (i / rows) * L;
+    let z = b.z;
+    if (line) { const k = Math.max(0, Math.min(line.z.length - 1, Math.round(((line.top - y) / (line.top - line.bottom)) * (line.z.length - 1)))); z = line.z[k]; }
+    laid.push(Math.min(z - gapZ, i ? laid[i - 1] : Infinity));
+  }
+  const zAt = (v: number) => { const t = v * rows, i = Math.min(rows - 1, Math.floor(t)), k = t - i; return laid[i] * (1 - k) + laid[i + 1] * k; };
+  const geo = new THREE.PlaneGeometry(1, 1, 10, rows);
   const P = geo.attributes.position as THREE.BufferAttribute, uvs = geo.attributes.uv as THREE.BufferAttribute;
-  const shape = (u: number, v: number, sway: number, x: THREE.Vector3) => {
-    const bulge = (1 - (2 * u - 1) ** 2) * f.H * 0.05 * (0.35 + v);
+  const shape = (u: number, v: number, sway: number, o: THREE.Vector3) => {
+    // rounder across the back as it goes down, and swaying more at the hem
+    const bulge = (1 - (2 * u - 1) ** 2) * f.H * 0.03 * (0.2 + v);
     // seen from behind, +x is on the left: the picture's left edge goes to +x so it reads the right way round
-    x.set(b.cx - (u - 0.5) * W * (0.78 + 0.22 * v), y0 - v * L, z0 - bulge - v * v * sway);
+    o.set(b.cx - (u - 0.5) * W * (0.72 + 0.28 * v), y0 - v * L, zAt(v) - bulge - v * v * sway);
   };
   const tmp = new THREE.Vector3();
   const place = (t: number) => {
     for (let i = 0; i < P.count; i++) {
       const u = uvs.getX(i), v = 1 - uvs.getY(i);
-      const sway = f.H * (0.05 + 0.03 * Math.sin(t * 2.2 + u * 3.2));
+      const sway = f.H * (0.025 + 0.02 * Math.sin(t * 2.2 + u * 3.2));
       shape(u, v, sway, tmp);
       P.setXYZ(i, tmp.x, tmp.y, tmp.z);
     }
@@ -199,21 +276,21 @@ async function cape(c: Character, f: Fit): Promise<Built | null> {
   };
   place(0);
   const mesh = new THREE.Mesh(geo, mat);
-  g.add(mesh); shadows(mesh);
+  h.inner.add(mesh); shadows(mesh);
   let acc = 0;
-  return { objs: [g], tick: (dt, t) => { acc += dt; if (acc > 1 / 30) { acc = 0; place(t); } } };
+  return { objs: [h.g], tick: (dt, t) => { acc += dt; if (acc > 1 / 30) { acc = 0; place(t); } } };
 }
 
-async function wings(c: Character, f: Fit): Promise<Built | null> {
-  const b = f.back, g = b && onBone(c, 'Spine02');
-  if (!b || !g) return null;
+async function wings(x: Ctx): Promise<Built | null> {
+  const { f } = x, b = f.back, h = b && boneHeld(x, 'Spine02', backPivot(f));
+  if (!b || !h) return null;
   const map = await loadTexture('gear/tex-wing.webp');
   if (!map) return null;
   const mat = new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide, depthWrite: false });
-  const h = f.H * 0.46, w = h * (321 / 512);
+  const hh = f.H * 0.46, w = hh * (321 / 512);
   const hinge = new THREE.Vector3(b.cx, b.top - f.H * 0.09, b.z - f.H * 0.015);
   const make = (dir: 1 | -1) => {
-    const geo = new THREE.PlaneGeometry(w, h);
+    const geo = new THREE.PlaneGeometry(w, hh);
     // the picture is the right wing seen from behind: it spreads away from the hinge
     geo.translate(w / 2, 0, 0);
     const piv = new THREE.Group();
@@ -222,12 +299,12 @@ async function wings(c: Character, f: Fit): Promise<Built | null> {
     if (dir === -1) m.scale.x = -1; // the buddy's right side is -x
     m.rotation.y = Math.PI; // face backwards
     piv.add(m); piv.position.copy(hinge);
-    g.add(piv);
+    h.inner.add(piv);
     return piv;
   };
   const right = make(-1), left = make(1);
   return {
-    objs: [g],
+    objs: [h.g],
     tick: (_dt, t) => {
       const flap = 0.5 + 0.32 * Math.sin(t * 6.5);
       left.rotation.y = -flap; right.rotation.y = flap;
@@ -236,15 +313,16 @@ async function wings(c: Character, f: Fit): Promise<Built | null> {
   };
 }
 
-async function rocketPack(c: Character, f: Fit): Promise<Built | null> {
-  const b = f.back, g = b && onBone(c, 'Spine02');
-  if (!b || !g) return null;
+async function rocketPack(x: Ctx): Promise<Built | null> {
+  const { f } = x, b = f.back, hb = b && boneHeld(x, 'Spine02', backPivot(f));
+  if (!b || !hb) return null;
+  const g = hb.inner;
   const [body, fin, flameMap, pack] = await Promise.all([painted('gear/tex-rocket.webp'), painted('gear/tex-fin.webp', { cut: true }), loadTexture('gear/tex-flame.webp'), painted('gear/tex-pack.webp', { cut: true })]);
   const h = f.H * 0.38, rw = h * ROCKET_ASPECT;
   const geo = latheFromPicture(h, ROCKET, ROCKET_ASPECT);
   const flames: THREE.Sprite[] = [];
   const cy = b.top - f.H * 0.16, gap = Math.max(b.w * 0.36, rw * 0.62);
-  for (const s of [-1, 1]) {
+  for (const sd of [-1, 1]) {
     const r = new THREE.Group();
     const m = new THREE.Mesh(geo, body); m.rotation.y = Math.PI; r.add(m);
     for (const fs of [-1, 1]) {
@@ -255,7 +333,7 @@ async function rocketPack(c: Character, f: Fit): Promise<Built | null> {
     const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameMap, transparent: true, depthWrite: false }));
     fl.scale.set(rw * 0.6, rw * 0.62, 1); fl.position.set(0, -h * 0.5 - rw * 0.26, 0);
     r.add(fl); flames.push(fl);
-    r.position.set(b.cx + s * gap, cy, b.z - rw * 0.42);
+    r.position.set(b.cx + sd * gap, cy, b.z - rw * 0.42);
     r.rotation.x = -0.08;
     g.add(r);
   }
@@ -264,7 +342,7 @@ async function rocketPack(c: Character, f: Fit): Promise<Built | null> {
   g.add(pm);
   shadows(g);
   return {
-    objs: [g],
+    objs: [hb.g],
     tick: (_dt, t) => flames.forEach((fl, i) => { const k = 0.85 + 0.25 * Math.abs(Math.sin(t * 23 + i * 2.1)); fl.scale.y = rw * 0.62 * k; fl.position.y = -h * 0.5 - rw * 0.26 * k; }),
   };
 }
@@ -279,21 +357,23 @@ function handTracker(c: Character, f: Fit) {
 }
 const hw = (c: Character) => FRIEND[c.id].height;
 
-async function bubbleWand(c: Character, f: Fit): Promise<Built | null> {
-  const hand = handTracker(c, f);
+async function bubbleWand(x: Ctx): Promise<Built | null> {
+  const { c, f } = x, hand = handTracker(c, f);
   if (!hand) return null;
+  const hold = handHeld(x);
   const s = hw(c), wand = await spriteOf('gear/tex-wand.webp');
   const wh = s * 0.24;
   wand.scale.set(wh * (185 / 384), wh, 1);
   wand.center.set(0.5, 0.08);
-  c.root.add(wand);
+  hold.g.add(wand);
   const bubbleMap = await loadTexture('math/bubble.webp');
   const bubbles: { s: THREE.Sprite; age: number; life: number; v: THREE.Vector3; size: number }[] = [];
   let next = 0.4;
   return {
-    objs: [hand.g, wand],
+    objs: [hand.g, hold.g],
     tick: (dt, t) => {
       const p = hand.at();
+      hold.at(p);
       wand.position.copy(p).add(new THREE.Vector3(0, -s * 0.02, s * 0.03));
       (wand.material as THREE.SpriteMaterial).rotation = 0.18 + Math.sin(t * 1.7) * 0.08;
       next -= dt;
@@ -302,7 +382,7 @@ async function bubbleWand(c: Character, f: Fit): Promise<Built | null> {
         const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleMap, transparent: true, depthWrite: false }));
         const size = s * (0.05 + Math.random() * 0.05);
         sp.position.copy(p).add(new THREE.Vector3(-s * 0.03, wh * 0.85, s * 0.04));
-        c.root.add(sp);
+        hold.g.add(sp);
         bubbles.push({ s: sp, age: 0, life: 2.4 + Math.random(), v: new THREE.Vector3((Math.random() - 0.7) * 0.18, 0.22 + Math.random() * 0.12, (Math.random() - 0.2) * 0.16).multiplyScalar(s), size });
       }
       for (let i = bubbles.length - 1; i >= 0; i--) {
@@ -319,23 +399,25 @@ async function bubbleWand(c: Character, f: Fit): Promise<Built | null> {
   };
 }
 
-async function kite(c: Character, f: Fit): Promise<Built | null> {
-  const hand = handTracker(c, f);
+async function kite(x: Ctx): Promise<Built | null> {
+  const { c, f } = x, hand = handTracker(c, f);
   if (!hand) return null;
+  const hold = handHeld(x);
   const s = hw(c), k = await spriteOf('gear/tex-kite.webp');
   const kh = s * 0.55;
   k.scale.set(kh * (335 / 512), kh, 1);
-  c.root.add(k);
+  hold.g.add(k);
   const N = 14, pts = new Float32Array(N * 3);
   const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(pts, 3));
   const line = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: 0xfff4e0, transparent: true, opacity: 0.9 }));
   line.frustumCulled = false;
-  c.root.add(line);
+  hold.g.add(line);
   const a = new THREE.Vector3(), e = new THREE.Vector3(), m = new THREE.Vector3();
   return {
-    objs: [hand.g, k, line],
+    objs: [hand.g, hold.g],
     tick: (_dt, t) => {
       a.copy(hand.at());
+      hold.at(a);
       k.position.set(-s * 0.5 + Math.sin(t * 0.9) * s * 0.06, s * 1.22 + Math.sin(t * 1.3) * s * 0.05, -s * 0.35);
       (k.material as THREE.SpriteMaterial).rotation = Math.sin(t * 1.1) * 0.12;
       // the string runs from the hand up to the kite's cross, with a gentle sag
@@ -350,9 +432,10 @@ async function kite(c: Character, f: Fit): Promise<Built | null> {
   };
 }
 
-async function boombox(c: Character, f: Fit): Promise<Built | null> {
-  const hand = handTracker(c, f);
+async function boombox(x: Ctx): Promise<Built | null> {
+  const { c, f } = x, hand = handTracker(c, f);
   if (!hand) return null;
+  const hold = handHeld(x);
   const s = hw(c);
   const [front, teal] = await Promise.all([painted('gear/tex-boombox.webp'), painted('gear/tex-teal.webp')]);
   const bw = s * 0.32, bh = bw * (456 / 768), bd = s * 0.1;
@@ -362,15 +445,16 @@ async function boombox(c: Character, f: Fit): Promise<Built | null> {
   handle.position.y = bh / 2;
   box.add(body, handle);
   shadows(box);
-  c.root.add(box);
+  hold.g.add(box);
   const notes = await Promise.all([0, 1, 2].map(i => loadTexture(`gear/tex-note${i}.webp`)));
   const flying: { s: THREE.Sprite; age: number; dx: number }[] = [];
   let next = 0.3, which = 0;
   const cam = new THREE.Vector3();
   return {
-    objs: [hand.g, box],
+    objs: [hand.g, hold.g],
     tick: (dt, t) => {
       const p = hand.at();
+      hold.at(p);
       box.position.set(p.x - s * 0.06, p.y - bh / 2 - bw * 0.3 + s * 0.01, p.z + s * 0.02);
       // turn the speakers toward whoever is looking
       c.root.worldToLocal(cam.copy(stage.camera.position));
@@ -382,7 +466,7 @@ async function boombox(c: Character, f: Fit): Promise<Built | null> {
         next = 0.55 + Math.random() * 0.35;
         const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: notes[which++ % 3], transparent: true, depthWrite: false }));
         sp.position.copy(box.position).add(new THREE.Vector3((Math.random() - 0.5) * bw * 0.6, bh * 0.6, 0));
-        c.root.add(sp);
+        hold.g.add(sp);
         flying.push({ s: sp, age: 0, dx: (Math.random() - 0.5) * 0.3 });
       }
       for (let i = flying.length - 1; i >= 0; i--) {
@@ -397,21 +481,27 @@ async function boombox(c: Character, f: Fit): Promise<Built | null> {
   };
 }
 
-async function shoes(c: Character, f: Fit, id: string): Promise<Built | null> {
+/** Shoes: a painted shell around each foot (the foot's own triangles, pushed out a little), and for the
+ *  battle shoes their extras: springs, boosters, cloud puffs. A library pair is just its painted tile. */
+async function shoes(x: Ctx): Promise<Built | null> {
+  const { c, f, id } = x;
   if (!f.feet.length) return null;
-  const tile = id === 'rocket_sneakers' ? 'tile-sneaker_rocket' : id === 'spring_shoes' ? 'tile-sneaker_spring' : 'tile-cloud';
+  const lib = LIB[id];
+  const tile = lib?.shoeTile ?? `gear/${id === 'rocket_sneakers' ? 'tile-sneaker_rocket' : id === 'spring_shoes' ? 'tile-sneaker_spring' : 'tile-cloud'}.webp`;
   const [shell, chrome, rocket, flameMap, puffA, puffB] = await Promise.all([
-    painted(`gear/${tile}.webp`, { repeat: true }), painted('gear/tile-chrome.webp', { repeat: true }), painted('gear/tex-rocket.webp'),
+    painted(tile, { repeat: true }), painted('gear/tile-chrome.webp', { repeat: true }), painted('gear/tex-rocket.webp'),
     loadTexture('gear/tex-flame.webp'), loadTexture('game/storm1.webp'), loadTexture('game/storm2.webp'),
   ]);
   if (id === 'cloud_slippers') { shell.roughness = 0.9; shell.emissive = new THREE.Color(0x2a3550); }
   const s = hw(c) * f.unit, objs: THREE.Object3D[] = [], ticks: ((dt: number, t: number) => void)[] = [];
   for (const ft of f.feet) {
-    const g = onBone(c, `${ft.side}Foot`);
-    if (!g) continue;
-    objs.push(g);
+    const hb = boneHeld(x, `${ft.side}Foot`, new THREE.Vector3(ft.cx, ft.sole, (ft.heel + ft.toe) / 2));
+    if (!hb) continue;
+    const g = hb.inner;
+    objs.push(hb.g);
     if (ft.geo) { const m = new THREE.Mesh(ft.geo, shell); g.add(m); }
     const outer = ft.side === 'Left' ? 1 : -1;
+    if (lib) continue;
     if (id === 'spring_shoes') {
       // a coil spring under the back of the heel: squashes and springs back
       const turns = 4.5, r = s * 0.032, hh = s * 0.075;
@@ -460,11 +550,64 @@ async function shoes(c: Character, f: Fit, id: string): Promise<Built | null> {
   return { objs, tick: (dt, t) => ticks.forEach(k => k(dt, t)) };
 }
 
-const BUILD: Record<string, (c: Character, f: Fit, id: string) => Promise<Built | null>> = {
+/** A painted model from the library (public/wear), for the face, neck, back or hand. Its origin is
+ *  where it attaches, Y up, front +Z; `size` is its width as a share of the head (face, neck) or the
+ *  back, or its height as a share of the buddy (hand). */
+async function libModel(x: Ctx): Promise<Built | null> {
+  const { c, f, id } = x, lib = LIB[id];
+  if (!lib?.model) return null;
+  const gl = await loadGltf(lib.model);
+  if (!gl) return null;
+  const obj = gl.scene.clone(true);
+  const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3());
+  shadows(obj);
+  if (lib.slot === 'hand') {
+    const hand = handTracker(c, f);
+    if (!hand) return null;
+    const hold = handHeld(x), s = hw(c);
+    const k = (lib.size * s) / Math.max(1e-6, size.y);
+    obj.scale.multiplyScalar(k);
+    const pivot = new THREE.Group(); pivot.add(obj);
+    hold.g.add(pivot);
+    return {
+      objs: [hand.g, hold.g],
+      tick: (_dt, t) => {
+        const p = hand.at();
+        hold.at(p);
+        // held a little in front of the hand, upright, swaying with the buddy
+        pivot.position.set(p.x - s * 0.02, p.y - s * 0.03, p.z + s * 0.04);
+        pivot.rotation.set(0, -0.25 + Math.sin(t * 1.3) * 0.06, Math.sin(t * 1.7) * 0.05);
+      },
+    };
+  }
+  // everything else rides a bone, placed in bind space (the model is in metres: bind units are 1/scale)
+  const hd = f.head, b = f.back;
+  let bone = 'Head', at: THREE.Vector3 | null = null, width = 0, turn = 0;
+  if (lib.slot === 'face' && hd) { at = new THREE.Vector3(hd.cx, hd.eyes, hd.front); width = hd.w; }
+  else if (lib.slot === 'neck' && hd && b) {
+    // where the head meets the shoulders: a scarf or a bow sits round the front of the neck
+    bone = 'Spine02';
+    at = new THREE.Vector3(hd.cx, Math.min(hd.neck, b.top + f.H * 0.03), hd.zmid); width = hd.w;
+  } else if (lib.slot === 'back' && b) { bone = 'Spine02'; at = backPivot(f); width = b.w; turn = Math.PI; }
+  else if (lib.slot === 'head' && hd) { at = new THREE.Vector3(hd.cx, hd.top, hd.zmid); width = hd.w; }
+  if (!at || !width) return null;
+  const hb = boneHeld(x, bone, at);
+  if (!hb) return null;
+  const k = (lib.size * width) / Math.max(1e-6, size.x);
+  obj.scale.multiplyScalar(k);
+  // a back thing faces backwards (its front +Z is the side people see behind the buddy)
+  obj.rotation.y = turn;
+  obj.position.copy(at);
+  hb.inner.add(obj);
+  return { objs: [hb.g] };
+}
+
+const BUILD: Record<string, (x: Ctx) => Promise<Built | null>> = {
   hero_cape: cape, fairy_wings: wings, rocket_pack: rocketPack,
   bubble_wand: bubbleWand, sky_kite: kite, boombox,
   spring_shoes: shoes, cloud_slippers: shoes, rocket_sneakers: shoes,
 };
+const builderOf = (id: string) => BUILD[id] ?? (LIB[id]?.slot === 'feet' ? shoes : LIB[id] ? libModel : null);
 
 function rigOf(c: Character): Rig {
   let r = rigs.get(c);
@@ -477,7 +620,7 @@ function rigOf(c: Character): Rig {
   rigs.set(c, rig);
   return rig;
 }
-function takeOff(w: Worn) {
+function takeOff(w: { objs: THREE.Object3D[] }) {
   for (const o of w.objs) {
     o.removeFromParent();
     o.traverse(x => {
@@ -489,20 +632,31 @@ function takeOff(w: Worn) {
   }
 }
 
-/** Put a piece of gear on a slot (null takes it off). Safe to call again while one is still loading. */
-export async function wearGear(c: Character, slot: Slot, id: string | null) {
+/** Put a piece on a slot (null takes it off), with its nudge. Wearing the same piece again only moves
+ *  it. Safe to call again while one is still loading. */
+export async function wearGear(c: Character, slot: Slot, id: string | null, nudge: Nudge | null = null) {
   const rig = rigOf(c);
-  if ((rig.worn[slot]?.id ?? null) === id && rig.want[slot] === undefined) return;
+  const cur = rig.worn[slot];
+  if ((cur?.id ?? null) === id && rig.want[slot] === undefined) {
+    if (cur) { cur.nz.v = { ...NO_NUDGE, ...(nudge ?? {}) }; cur.onNudge.forEach(f => f()); }
+    return;
+  }
   rig.want[slot] = id;
-  const old = rig.worn[slot];
-  if (old) { takeOff(old); delete rig.worn[slot]; }
-  if (!id || !BUILD[id]) { delete rig.want[slot]; return; }
-  const built = await BUILD[id](c, fitOf(c), id).catch(() => null);
-  if (rig.want[slot] !== id) { if (built) takeOff({ id, ...built }); return; }
+  if (cur) { takeOff(cur); delete rig.worn[slot]; }
+  const build = id ? builderOf(id) : null;
+  if (!id || !build) { delete rig.want[slot]; return; }
+  const x: Ctx = { c, f: fitOf(c), id, nz: { v: { ...NO_NUDGE, ...(nudge ?? {}) } }, onNudge: [] };
+  const built = await build(x).catch(e => { console.warn('gear', id, e); return null; });
+  if (rig.want[slot] !== id) { if (built) takeOff(built); return; }
   delete rig.want[slot];
-  if (built) rig.worn[slot] = { id, ...built };
+  if (built) rig.worn[slot] = { id, ...built, nz: x.nz, onNudge: x.onNudge };
 }
-/** Wear a whole set of pieces (missing slots are taken off). */
-export async function wearKit(c: Character, kit: Partial<Record<Slot, string>>) {
-  await Promise.all((['hand', 'back', 'shoes'] as Slot[]).map(s => wearGear(c, s, kit[s] ?? null)));
+/** Wear everything for every slot but the head (missing slots are taken off), with the nudges. */
+export async function wearKit(c: Character, kit: Partial<Record<Slot, string>>, nudge: Record<string, Nudge> = {}) {
+  await Promise.all((['face', 'neck', 'back', 'hand', 'feet'] as Slot[]).map(s => { const id = kit[s] ?? null; return wearGear(c, s, id, id ? nudge[id] ?? null : null); }));
+}
+/** Live nudge while moving a piece in the Wardrobe (no rebuild). */
+export function nudgeGear(c: Character, slot: Slot, n: Nudge) {
+  const w = rigs.get(c)?.worn[slot];
+  if (w) { w.nz.v = n; w.onNudge.forEach(f => f()); }
 }
