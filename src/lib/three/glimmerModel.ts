@@ -94,12 +94,13 @@ export class GlimmerModel {
   private constructor(id: GlimmerId) { this.id = id; this.root.add(this.inner); this.inner.scale.setScalar(0.001); }
 
   /** `height`: how tall it stands in the scene (metres); an evolved one stands a fifth taller. */
-  static async create(id: GlimmerId, height = 0.6, opts: { evolved?: boolean } = {}): Promise<GlimmerModel> {
+  /** `src`: another model file to show in its place (for comparing versions side by side) */
+  static async create(id: GlimmerId, height = 0.6, opts: { evolved?: boolean; src?: string } = {}): Promise<GlimmerModel> {
     const g = new GlimmerModel(id);
     const el = GLIMMER[id].element;
     g.evolved = !!opts.evolved;
     g.height = height * (g.evolved ? 1.2 : 1);
-    const [gl, meta, shine] = await Promise.all([loadGltf(`models/glimmers/${id}.glb`), metas(), g.evolved ? loadTexture(`game/shine-${el}.webp`) : Promise.resolve(null)]);
+    const [gl, meta, shine] = await Promise.all([loadGltf(opts.src ?? `models/glimmers/${id}.glb`), metas(), g.evolved ? loadTexture(`game/shine-${el}.webp`) : Promise.resolve(null)]);
     if (shine) {
       // mirrored tiling: the painted swatch never shows a seam
       if (shine.wrapS !== THREE.MirroredRepeatWrapping) { shine.wrapS = shine.wrapT = THREE.MirroredRepeatWrapping; shine.needsUpdate = true; }
