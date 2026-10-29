@@ -86,11 +86,12 @@
   const PRAISE = ['Yes! You got it!', 'That\'s it!', 'Brilliant!', 'You did it!', 'Spot on!'];
 
   // ---------- the voice ----------
-  /** The coach says a line (its words stay up); resolves when it's said. */
+  /** The coach says a line (its words stay up); resolves when it's said. (A line cut off by another
+   *  never says it ended, so it also gives up after the time it could possibly take.) */
   async function speak(lineId: string) {
     line = lineText(lineId);
     const t0 = performance.now();
-    await say(lineId, { important: true, caption: false });
+    await Promise.race([say(lineId, { important: true, caption: false }), sleep(2500 + line.length * 95)]);
     // voice off: the words stay up long enough to read before the story moves on
     if (game.settings.voice === false) await sleep(Math.max(0, Math.max(1600, line.length * 55) - (performance.now() - t0)));
   }
@@ -336,7 +337,7 @@
   <!-- words pinned to the 3D things -->
   {#if sc && shown}
     {#each tagsNow as t (t.id + t.text)}
-      <div class="pin" use:pin={() => sc!.boardPoint(t.x, t.y, 0.03)}><span class="tag t-{t.c ?? 'ink'}" style:font-size="{Math.round((t.size ?? 30) * (narrow ? 0.62 : 0.8))}px">{t.text}</span></div>
+      <div class="pin" use:pin={() => sc!.boardPoint(t.x, t.y, 0.03)}><span class="tag t-{t.c ?? 'ink'}" style:--fs={t.size ?? 30}>{t.text}</span></div>
     {/each}
     {#if shown.line}
       {#each ticks as n (n)}
@@ -366,9 +367,13 @@
   <!-- the top: close, progress, and the coach telling the story -->
   <div class="top">
     <CloseButton onclick={leave} label={embedded ? 'Back to my trip' : 'Close the lesson'} size={narrow ? 40 : 46} />
-    <div class="prog" aria-label="Part {Math.max(1, at + 1)} of {total}">
-      {#each Array(total) as _, n}<img src="{base}{n >= lesson.steps.length ? 'learn/marble-c' : 'game/icon-star'}.webp" alt="" class:on={n < at} class:now={n === at} />{/each}
-    </div>
+    {#if check}
+      <div class="prog checkhead"><Icon name="bulb" size={22} /> Quick check: {lesson.title}</div>
+    {:else}
+      <div class="prog" aria-label="Part {Math.max(1, at + 1)} of {total}">
+        {#each Array(total) as _, n}<img src="{base}{n >= lesson.steps.length ? 'learn/marble-c' : 'game/icon-star'}.webp" alt="" class:on={n < at} class:now={n === at} />{/each}
+      </div>
+    {/if}
     <div class="chip"><img src="{base}learn/tile.webp" alt="" /><span><small>{place.name}</small><b>{lesson.title}</b></span></div>
   </div>
   {#if line && phase !== 'load'}
@@ -463,7 +468,8 @@
   /* pinned words: the scene moves .pin to the 3D point; the child sits above it */
   .pin { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 2; }
   .pin > * { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); white-space: nowrap; }
-  .tag { font-family: var(--font-ui); font-weight: 600; paint-order: stroke; -webkit-text-stroke: 0; text-shadow: 0 2px 0 #fff, 0 -2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff, 0 3px 8px rgba(80, 40, 10, .35); }
+  /* words on the table: their board size times the table's scale on screen (never too small to read) */
+  .tag { font-size: max(15px, calc(var(--fs) * var(--u, .8) * 1px)); font-family: var(--font-ui); font-weight: 600; paint-order: stroke; -webkit-text-stroke: 0; text-shadow: 0 2px 0 #fff, 0 -2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff, 0 3px 8px rgba(80, 40, 10, .35); }
   .t-a { color: #1f6fd1; } .t-b { color: #d63c7c; } .t-c { color: #c97f00; } .t-ink { color: #2a1f45; }
   .num { transform: translate(-50%, 0); font: 600 17px var(--font-ui); color: #5a3a14; text-shadow: 0 1px 0 #fff8e8, 0 0 6px rgba(255, 248, 230, .9); }
   .num.here { font-size: 24px; color: #5a3fd0; }
@@ -490,8 +496,9 @@
   @keyframes bub { from { opacity: 0; scale: .9; } }
 
   .top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 12px; padding: 12px 18px; z-index: 3; pointer-events: none; }
-  .top > * { pointer-events: auto; }
+  .top > :global(*) { pointer-events: auto; }
   .prog { flex: 1; display: flex; justify-content: center; gap: 8px; background: rgba(255, 255, 255, .88); border-radius: 999px; padding: 8px 16px; max-width: 520px; margin: 0 auto; box-shadow: 0 6px 18px -8px rgba(60, 30, 10, .45); }
+  .checkhead { flex: 0 1 auto; align-items: center; gap: 8px; font: 600 18px var(--font-ui); color: #8a5a00; }
   .prog img { width: 24px; height: 24px; object-fit: contain; filter: grayscale(1) opacity(.35); transition: filter .3s, transform .3s; }
   .prog img.on { filter: none; }
   .prog img.now { filter: drop-shadow(0 0 6px #ffd36b); transform: scale(1.3); }
@@ -504,7 +511,7 @@
   .cico { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: color-mix(in srgb, var(--sc) 16%, #fff); color: var(--sc); }
 
   .bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 18px 18px; z-index: 3; display: flex; justify-content: center; pointer-events: none; }
-  .bottom > * { pointer-events: auto; }
+  .bottom > :global(*) { pointer-events: auto; }
   .row { display: flex; align-items: center; gap: 14px; justify-content: center; flex-wrap: wrap; }
   .pill { font: 700 18px var(--font-body); color: #fff; background: rgba(60, 36, 20, .72); backdrop-filter: blur(6px); padding: 12px 26px; border-radius: 999px; box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .5); }
   .pill.task { background: rgba(70, 40, 10, .8); box-shadow: 0 0 0 3px rgba(255, 210, 90, .7), 0 8px 20px -8px rgba(0, 0, 0, .5); }
@@ -561,7 +568,6 @@
   .narrow .choices { gap: 10px; }
   .narrow .ask { font-size: 32px; padding: 6px 16px; }
   .narrow .say { font-size: 15px; max-width: 52vw; padding: 8px 12px 10px; }
-  .narrow .tag { font-size: 16px; }
   .narrow .num { font-size: 13px; }
   .narrow .num.here { font-size: 18px; }
   .narrow .eq { font-size: 26px; padding: 4px 14px; }

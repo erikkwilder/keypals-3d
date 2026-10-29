@@ -30,9 +30,9 @@ export type Shot = 'intro' | 'wide' | 'board' | 'buddy' | 'pals';
 type GMove = Parameters<GlimmerModel['play']>[0];
 
 /** the table top's height, and the part of it the picture fills (metres) */
-const TY = 0.48, TW = 1.55, TD = 0.78;
+const TY = 0.48, TW = 1.55, TD = 1.1;
 /** the picture is stretched toward you a little (the camera looks down at it) */
-const DEPTH = 1.3;
+const DEPTH = 1.15;
 /** the number line, where LearnBoard draws it */
 const LY = 236, LX0 = 44, LX1 = BW - 44;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -90,6 +90,8 @@ export class EpisodeScene implements Controller {
   /** told when something the page shows changes (a hop drawn, a task done) */
   onChange: (() => void) | null = null;
   view: View = { top: 0.08, bottom: 0.78, left: 0, right: 1 };
+  /** screen pixels per board unit at the picture's middle (the page sizes words on the table by it) */
+  unit = 1;
   /** hops drawn on the number line so far (the page shows their labels) */
   hopsDrawn = 0;
   /** words the kid has tapped open (a label task) */
@@ -189,8 +191,8 @@ export class EpisodeScene implements Controller {
     this.table.position.set(0, TY - 0.06, 0.8);
     this.table.receiveShadow = true;
     this.root.add(this.table);
-    this.pool = new THREE.Mesh(new THREE.PlaneGeometry(7, 4).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, depthWrite: false, fog: false }));
-    this.pool.position.set(0, TY + 0.0015, 0.1);
+    this.pool = new THREE.Mesh(new THREE.PlaneGeometry(6, 3.2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, depthWrite: false, fog: false }));
+    this.pool.position.set(0, TY + 0.0015, 0.8);
     this.pool.renderOrder = 1;
     this.root.add(this.pool);
     // light: a warm key from the window side with soft shadows, sky and bounce, and a rim from behind
@@ -320,7 +322,7 @@ export class EpisodeScene implements Controller {
     const m = this.map;
     return new THREE.Vector3((x - m.cx) * m.s, TY + lift, (y - m.cy) * m.s * DEPTH);
   }
-  private get r() { return (FC / 2) * this.map.s * 0.84; }
+  private get r() { return (FC / 2) * this.map.s * 0.9; }
   /** how high a counter sits at this spot on the board: in a tin's cup, on a plate, on the plank */
   private liftAt(b: Board, x: number, y: number) {
     for (const f of b.frames) if (x > f.x && x < f.x + FC * 5 && y > f.y && y < f.y + FC * 2) return 0.036;
@@ -382,8 +384,8 @@ export class EpisodeScene implements Controller {
       if (want < this.hopsDrawn || !prev?.line || prev.line.from !== b.line.from) { this.clearStars(); this.hopsDrawn = 0; }
       for (let i = this.hopsDrawn; i < want; i++) this.trail(b.line.hops[i].a, b.line.hops[i].b, instant ? 0 : i * 0.1);
       this.hopsDrawn = want;
-      this.palTo.copy(this.linePoint(b.line.at));
-      if (this.palAt.distanceTo(this.palTo) > 0.01) this.hopPal(this.palTo, instant);
+      const st = this.standAt(b.line.at);
+      if (this.palAt.distanceTo(st) > 0.01) this.hopPal(st, instant);
     } else {
       this.clearStars(); this.hopsDrawn = 0;
       if (this.palAt.distanceTo(this.palHome) > 0.01) this.hopPal(this.palHome.clone(), instant);
@@ -518,6 +520,8 @@ export class EpisodeScene implements Controller {
     return g;
   }
   /** where number n sits on the plank */
+  /** where the Glimmer stands for number n: just behind the plank, so the numbers stay in sight */
+  private standAt(n: number) { return this.linePoint(n).add(new THREE.Vector3(0, 0, -0.05)); }
   linePoint(n: number): THREE.Vector3 {
     const ln = this.board?.line;
     const x = ln ? LX0 + ((n - ln.from) / Math.max(1, ln.to - ln.from)) * (LX1 - LX0) : BW / 2;
@@ -537,7 +541,7 @@ export class EpisodeScene implements Controller {
       const sp = new THREE.Sprite(mat as THREE.SpriteMaterial);
       sp.position.copy(p);
       sp.scale.setScalar(0.001);
-      sp.userData = { born: this.now + delay + k * 0.4, size: i === n - 1 ? 0.05 : 0.034 };
+      sp.userData = { born: this.now + delay + k * 0.4, size: i === n - 1 ? 0.075 : 0.05 };
       this.stars.push(sp); this.root.add(sp);
     }
   }
@@ -809,7 +813,7 @@ export class EpisodeScene implements Controller {
     if (!h) return;
     const sp = this.spots.get('hop');
     if (sp) { this.spots.delete('hop'); sp.leaving = this.now; this.spots.set(`hop${this.now}`, sp); }
-    this.hopPal(this.linePoint(h.b), false);
+    this.hopPal(this.standAt(h.b), false);
     this.trail(h.a, h.b, 0);
     this.hopsDrawn++;
     sfx.star(Math.min(5, this.hopsDrawn - 1));
@@ -920,13 +924,16 @@ export class EpisodeScene implements Controller {
     }
     for (const [i, b] of this.beams.entries()) (b.material as THREE.MeshBasicMaterial).opacity = 0.13 + Math.sin(t * 0.4 + i) * 0.03;
     this.fx.update(dt, t);
-    // pins: the page's words follow their 3D things
+    const u0 = this.toScreen(this.boardPoint(this.map.cx, this.map.cy)), u1 = this.toScreen(this.boardPoint(this.map.cx + 50, this.map.cy));
+    if (u0 && u1) this.unit = Math.hypot(u1.x - u0.x, u1.y - u0.y) / 50;
+    // pins: the page's words follow their 3D things (and get the table's scale for their size)
     for (const [el, at] of this.pins) {
       const p = at();
       const s = p ? this.toScreen(p) : null;
       if (!s) { el.style.visibility = 'hidden'; continue; }
       el.style.visibility = '';
       el.style.transform = `translate(${s.x.toFixed(1)}px, ${s.y.toFixed(1)}px)`;
+      el.style.setProperty('--u', this.unit.toFixed(3));
     }
   }
 
@@ -998,6 +1005,9 @@ export class EpisodeScene implements Controller {
       if (k >= 1) { this.palHop0 = -9; pal.play('hop'); }
     } else if (!this.board?.line) this.palAt.lerp(this.palHome, Math.min(1, dt * 3));
     pal.root.position.copy(this.palAt);
+    // smaller on the number line (a pin on the plank), its own size elsewhere
+    const ps = this.board?.line && !this.together ? 0.62 : 1;
+    pal.root.scale.setScalar(pal.root.scale.x + (ps - pal.root.scale.x) * Math.min(1, dt * 5));
     pal.face = cam.position.clone().setY(this.palAt.y);
     pal.update(dt, t);
     this.gest = this.gest.filter(g => t - g.at < g.for);
@@ -1072,11 +1082,14 @@ export class EpisodeScene implements Controller {
     const palFace = new THREE.Box3(new THREE.Vector3(this.palAt.x - 0.18, this.palAt.y, this.palAt.z - 0.1), new THREE.Vector3(this.palAt.x + 0.05, this.palAt.y + 0.55, this.palAt.z + 0.1));
     let pitch = 0.42, yaw = 0, margin = 0.02;
     const s = this.shotName;
-    if (s === 'board') { box.copy(content).union(face).union(palFace); pitch = 0.46; }
-    else if (s === 'buddy') { box.copy(buddy).union(new THREE.Box3(new THREE.Vector3(head.x - 0.2, TY, a.z0), new THREE.Vector3(head.x + 0.6, TY, a.z0 + 0.3))); pitch = 0.2; yaw = -0.12; }
+    // a tall box (a phone): look down more steeply, so the table's picture fills the width and reads
+    const tall = ((v.right - v.left) * innerWidth) / Math.max(1, (v.bottom - v.top) * innerHeight) < 0.9;
+    if (s === 'board') { box.copy(content).union(face).union(palFace); pitch = tall ? 0.95 : 0.46; }
+    // the buddy close, turned toward it, with all of its picture in front (so nothing looms at the camera)
+    else if (s === 'buddy') { box.copy(buddy).union(content); pitch = tall ? 0.6 : 0.24; yaw = -0.1; }
     else if (s === 'pals') { box.copy(buddy).union(pal); pitch = 0.18; }
     else if (s === 'intro') { box.copy(buddy).union(pal); pitch = 0.16; }
-    else { box.copy(content).union(face).union(palFace); pitch = 0.32; }
+    else { box.copy(content).union(face).union(palFace); pitch = tall ? 0.8 : 0.32; }
     // a slow drift, so the shot is never quite still
     yaw += Math.sin(t * 0.13) * 0.035; pitch += Math.sin(t * 0.17) * 0.012;
     const fwd = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
@@ -1113,7 +1126,7 @@ export class EpisodeScene implements Controller {
     if (topSlack > 0 && botSlack > 0) wantPos.addScaledVector(camUp, -(topSlack - (topSlack + botSlack) * 0.7) * d * tanH);
     const wantAim = wantPos.clone().add(fwd);
     if (!this.ready) { this.camPos.copy(wantPos); this.camAim.copy(wantAim); this.ready = true; }
-    const k = 1 - Math.exp(-dt * (s === 'intro' ? 6 : 2.2));
+    const k = 1 - Math.exp(-dt * (s === 'intro' ? 6 : 3));
     this.camPos.lerp(wantPos, k); this.camAim.lerp(wantAim, k);
     cam.position.copy(this.camPos); cam.lookAt(this.camAim);
     // the key light's shadows cover the table round the action
@@ -1153,7 +1166,8 @@ export class EpisodeScene implements Controller {
     this.me.dispose(); this.pal.dispose(); this.fx.dispose();
     this.clearStars();
     for (const m of this.mats.values()) m.dispose();
-    this.root.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry.dispose(); });
+    // (the buddy and the Glimmer have left the group already: the rest is all ours)
+    this.root.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh || (o as THREE.Sprite).isSprite) { if (m.isMesh) m.geometry.dispose(); for (const mt of [m.material].flat()) (mt as THREE.Material | undefined)?.dispose(); } });
     this.geos?.hue.dispose(); this.geos?.base?.dispose();
   }
 }
@@ -1216,7 +1230,8 @@ function ringTexture() {
 /** the table's shading: clear in the middle where the light falls, warm brown toward the ends */
 function poolTexture() {
   return canvasTex(256, (g, s) => {
-    const r = g.createRadialGradient(s / 2, s * 0.5, s * 0.12, s / 2, s * 0.5, s * 0.62);
+    // (the canvas top is the table's back edge; the light falls round the picture, a quarter of the way in)
+    const r = g.createRadialGradient(s / 2, s * 0.25, s * 0.1, s / 2, s * 0.25, s * 0.7);
     r.addColorStop(0, 'rgba(60,28,8,0)'); r.addColorStop(0.55, 'rgba(60,28,8,.18)'); r.addColorStop(1, 'rgba(50,22,6,.62)');
     g.fillStyle = r; g.fillRect(0, 0, s, s);
   });
