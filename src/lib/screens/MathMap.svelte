@@ -240,6 +240,12 @@
           <img src="{import.meta.env.BASE_URL}math/pizza/tile.webp" alt="" />
           <span class="ptext"><b>Pizza Rush</b><small>Arcade: serve fraction pizzas to hungry Glimmers.{(m.arcade?.['pizza-rush']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['pizza-rush'].best}` : ''}</small></span>
         </button>
+      {:else if area === 'decimals'}
+        <!-- the money arcade game (the Arcade hub has its cabinet too: screen 'market') -->
+        <button class="placement arcade" onclick={() => { sfx.click(); game.go('market'); }}>
+          <img src="{import.meta.env.BASE_URL}math/market/tile.webp" alt="" />
+          <span class="ptext"><b>Market Dash</b><small>Arcade: pay and give change to Glimmer shoppers.{(m.arcade?.['market-dash']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['market-dash'].best}` : ''}</small></span>
+        </button>
       {/if}
     </section>
 

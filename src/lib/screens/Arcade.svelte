@@ -45,12 +45,14 @@
   }
   /** Pizza Rush is the Fractions area's game, on its own screen */
   function openPizza() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('pizza' as Screen); }
-  function hover(id: ArcadeId | 'pizza' | null, el?: HTMLElement) {
+  /** Market Dash is the Decimals and money area's game, on its own screen too */
+  function openMarket() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('market' as Screen); }
+  function hover(id: ArcadeId | 'pizza' | 'market' | null, el?: HTMLElement) {
     if (!scene) return;
     if (!id || !el) { scene.look(null); say = 'Pick a game to play!'; return; }
     const r = el.getBoundingClientRect();
     scene.look((r.left + r.width / 2) / innerWidth);
-    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : 'Pizza! Slice it up!';
+    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'market' ? 'Coins! Count them up!' : 'Pizza! Slice it up!';
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -58,6 +60,7 @@
     const n = Number(e.key);
     if (n >= 1 && n <= ARCADE_GAMES.length) play(ARCADE_GAMES[n - 1].id);
     if (n === ARCADE_GAMES.length + 1) openPizza();
+    if (n === ARCADE_GAMES.length + 2) openMarket();
     if (e.key === 'd' || e.key === 'D') play(today, true);
   }
 
@@ -123,6 +126,11 @@
           <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-pizza.webp" alt="" />
           <span class="plate"><b>Pizza Rush</b><span class="bs">Slice up fractions</span></span>
           {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 1}</span>{/if}
+        </button>
+        <button class="cab" style:--c="#e6a817" style:--d="{(ARCADE_GAMES.length + 1) * 90}ms" onclick={openMarket} onpointerenter={(e) => hover('market', e.currentTarget)} onpointerleave={() => hover(null)}>
+          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-market.webp" alt="" />
+          <span class="plate"><b>Market Dash</b><span class="bs">Pay and make change</span></span>
+          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 2}</span>{/if}
         </button>
       </div>
       <p class="note">Arcade games count as practice: every answer helps your Fact Garden grow, and you earn shells and treasure.</p>

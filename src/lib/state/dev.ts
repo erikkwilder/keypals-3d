@@ -63,6 +63,8 @@ export function devBoot() {
   if (key === 'rivals') { ensure(); game.go('rivals'); }
   // Pizza Rush, the fractions arcade game: #pizza
   if (key === 'pizza') { ensure(); game.go('pizza'); }
+  // Market Dash, the money arcade game: #market
+  if (key === 'market') { ensure(); game.go('market'); }
   // Glimmer Drop: #drop
   if (key === 'drop') { ensure(); game.go('drop'); }
   // the Arcade: #arcade (the plaza), #arcade=slalom|catch|tower (straight into a round), #arcade=daily
