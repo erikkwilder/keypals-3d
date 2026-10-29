@@ -7,6 +7,9 @@ export function answerParts(it: Item): Part[] {
   if (a.kind === 'fraction') return [{ t: 'frac', n: a.n, d: a.d }];
   if (a.kind === 'number') return [{ t: 'num', n: a.value }];
   if (a.kind === 'choice') return it.choices?.find(c => c.id === a.id)?.parts ?? [{ t: 'text', s: a.id }];
+  // a point on a fractions number line is a fraction (1/2, not 0.5)
+  const den = it.line?.denom;
+  if (a.y === undefined && den) return [{ t: 'frac', n: Math.round(a.x * den), d: den }];
   return [{ t: 'text', s: a.y === undefined ? String(a.x) : `(${a.x}, ${a.y})` }];
 }
 /** The right answer in a few characters: 3/4, 12, "The same", (2, 3). */
@@ -16,6 +19,8 @@ export function givenText(it: Item, a: Answer): string {
   if (a.kind === 'fraction') return `${a.n}/${a.d}`;
   if (a.kind === 'number') return String(a.value);
   if (a.kind === 'choice') { const c = it.choices?.find(x => x.id === a.id); return c ? partsText(c.parts) : a.id; }
+  const den = it.line?.denom;
+  if (a.y === undefined && den) return `${Math.round(a.x * den)}/${den}`;
   return a.y === undefined ? String(a.x) : `(${a.x}, ${a.y})`;
 }
 /** A near miss, the kind of wrong answer a child gives (one off, another choice): a ghost's in a duel. */

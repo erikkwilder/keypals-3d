@@ -22,6 +22,7 @@
   import Playground from './lib/screens/Playground.svelte';
   import Adventure from './lib/screens/Adventure.svelte';
   import Battle from './lib/screens/Battle.svelte';
+  import PizzaRush from './lib/screens/PizzaRush.svelte';
   import Glimmers from './lib/screens/Glimmers.svelte';
   import Eggs from './lib/screens/Eggs.svelte';
   import Learn from './lib/screens/Learn.svelte';
@@ -112,6 +113,7 @@
   {:else if game.screen === 'learn'}<Learn />
   {:else if game.screen === 'duel'}{#key game.duelKey}<Duel />{/key}
   {:else if game.screen === 'rivals'}<Rivals />
+  {:else if game.screen === 'pizza'}<PizzaRush />
   {/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}

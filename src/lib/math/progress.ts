@@ -47,7 +47,10 @@ export type MathProgress = {
   skills?: Record<string, FactStat>;
   /** the Number Playground: best stars per level of each game */
   play?: Partial<Record<import('./playground').PlayGame, import('./playground').PlayRecord>>;
+  /** the arcade games (Pizza Rush, by game id): best score and stars, plays, today's challenge best */
+  arcade?: Record<string, ArcadeRecord>;
 };
+export type ArcadeRecord = { best: number; stars: number; plays: number; bestCombo?: number; daily?: { key: string; best: number } };
 
 export const newMathProgress = (): MathProgress => ({ home: 'typing', facts: {}, lessons: {}, history: [], totals: { trips: 0, facts: 0, ms: 0 } });
 

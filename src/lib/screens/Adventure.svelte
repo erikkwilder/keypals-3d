@@ -217,7 +217,7 @@
     </div>
   {/if}
 
-  {#if mapTip && cur}<Coach text="Tap here for your first battle!" at=".node.here" place="below" />{/if}
+  {#if mapTip && cur && !picker}<Coach text="Tap here for your first battle!" at=".node.here" place="below" />{/if}
 
   {#if open}
     {@const n = open}
@@ -347,7 +347,7 @@
   .worldbtn b { font: 600 18px var(--font-ui); color: var(--ink); }
   .areanote { background: #e8f6ff; border-radius: 14px; padding: 8px 12px; color: #1c5fd1 !important; }
 
-  .worlds { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; background: linear-gradient(#2a2160ee, #3b2f7aee); animation: fade .25s; }
+  .worlds { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; background: linear-gradient(#2a2160, #3b2f7a); animation: fade .25s; }
   .wtop { display: flex; align-items: center; gap: 14px; padding: 10px 16px; color: #fff; }
   .wtop h2 { margin: 0; font-size: 28px; color: #fff; }
   .wtop p { margin: 0; font: 600 15px var(--font-body); color: #d9d2ff; }
@@ -371,7 +371,7 @@
   .wlock p { margin: 0; font: 600 15px/1.4 var(--font-body); color: var(--ink2); }
   .wlock .row { grid-column: 1 / -1; justify-content: flex-end; }
   /* a phone: the world picture is as tall as the screen and slides sideways */
-  .worlds.narrow .wscroll { display: block; padding: 0 0 8px; }
+  .worlds.narrow .wscroll { display: block; place-items: normal; padding: 0 0 8px; }
   .worlds.narrow .wpic { width: auto; height: calc(100cqh - 8px); border-radius: 0; }
   .worlds.narrow .wtop p { display: none; }
   .tall .worldbtn { left: 8px; top: 8px; padding: 4px 10px 4px 4px; border-radius: 14px; }

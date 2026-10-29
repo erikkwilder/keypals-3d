@@ -231,6 +231,13 @@
           <span class="ptext"><b>{skillPlacement.title}</b><small>Know some {ar.name.toLowerCase()} already? A quick mix shows where to start.</small></span>
         </button>
       {/if}
+      {#if area === 'fractions'}
+        <!-- the fractions arcade game (an Arcade hub can list it too: screen 'pizza') -->
+        <button class="placement arcade" onclick={() => { sfx.click(); game.go('pizza'); }}>
+          <img src="{import.meta.env.BASE_URL}math/pizza/tile.webp" alt="" />
+          <span class="ptext"><b>Pizza Rush</b><small>Arcade: serve fraction pizzas to hungry Glimmers.{(m.arcade?.['pizza-rush']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['pizza-rush'].best}` : ''}</small></span>
+        </button>
+      {/if}
     </section>
 
     {#each skillRegions as r, ri (r.id)}
@@ -410,6 +417,9 @@
   .placement:hover { transform: translateY(-2px); }
   .pdisc { flex: none; width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: linear-gradient(#ffe48a, var(--star)); box-shadow: 0 4px 0 #d6ae25; font-size: 24px; }
   .placement.done .pdisc { background: linear-gradient(#a8f0cf, var(--mint)); box-shadow: 0 4px 0 var(--mint-edge); }
+  .placement.arcade { background: linear-gradient(#fff8ec, #ffe9c4); box-shadow: 0 0 0 3px #ffb44d, var(--shadow-sm); padding: 6px 18px 6px 6px; }
+  .placement.arcade img { flex: none; width: 66px; height: 66px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(120, 50, 10, .3)); }
+  .placement.arcade b { color: #c0392b; }
   .ptext { display: flex; flex-direction: column; }
   .ptext b { font: 600 20px var(--font-ui); }
   .ptext small { font: 600 14px/1.3 var(--font-body); color: var(--muted); }

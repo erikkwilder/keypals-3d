@@ -233,7 +233,7 @@ export const frLine: Skill = {
       ask: `Drag the pin to ${fs(n, d)}.`, prompt: [{ t: 'text', s: 'Find' }, frac(n, d)],
       input: 'numberline', line: { min: 0, max, step: 1 / d, labels: 'ends', denom: d },
       answer: { kind: 'point', x: n / d }, weight: sub === 'past-one' ? 3 : 2,
-      explain: `Each jump between ticks is ${fs(1, d)}. ${fs(n, d)} is ${n} jumps from 0${n > d ? `, past the 1 (which is ${fs(d, d)})` : ''}.`,
+      explain: `Each jump between ticks is ${fs(1, d)}. ${fs(n, d)} is ${n} ${n === 1 ? "jump" : "jumps"} from 0${n > d ? `, past the 1 (which is ${fs(d, d)})` : ''}.`,
       trick: { name: 'Jump from zero', say: `The bottom number says how many jumps make 1 (${d}). The top number says how many jumps to take (${n}).` },
     };
   },
@@ -286,7 +286,7 @@ export const frMixed: Skill = {
         skill: 'fr-mixed', key: 'fr-mixed:to-frac', id: `fr-mixed:${w}_${n}/${d}`,
         ask: 'What goes on top?', prompt: [{ t: 'num', n: w }, frac(n, d), { t: 'op', s: '=' }, frac(null, d)],
         input: 'number', answer: { kind: 'number', value: top }, weight: 3,
-        explain: `Each whole is ${fs(d, d)}, so ${w} wholes are ${w * d} pieces. Add the ${n} more: ${w * d} + ${n} = ${top}. ${w} ${fs(n, d)} = ${fs(top, d)}.`,
+        explain: `Each whole is ${fs(d, d)}, so ${w} ${w === 1 ? "whole is" : "wholes are"} ${w * d} pieces. Add the ${n} more: ${w * d} + ${n} = ${top}. ${w} ${fs(n, d)} = ${fs(top, d)}.`,
         trick: { name: 'Wholes into pieces', say: `Times the whole number by the bottom (${w} × ${d} = ${w * d}), then add the top (${n}).` },
       };
     }
@@ -294,7 +294,7 @@ export const frMixed: Skill = {
       skill: 'fr-mixed', key: 'fr-mixed:to-mixed', id: `fr-mixed:${top}/${d}`,
       ask: `How many ${NAME[d] ?? 'pieces'} are left over?`, prompt: [frac(top, d), { t: 'op', s: '=' }, { t: 'num', n: w }, frac(null, d)],
       input: 'number', answer: { kind: 'number', value: n }, weight: 3,
-      explain: `${top} ÷ ${d} = ${w} wholes with ${n} left over. ${fs(top, d)} = ${w} ${fs(n, d)}.`,
+      explain: `${top} ÷ ${d} = ${w} ${w === 1 ? "whole" : "wholes"} with ${n} left over. ${fs(top, d)} = ${w} ${fs(n, d)}.`,
       trick: { name: 'Pull out the wholes', say: `Every ${d} pieces make a whole. ${w} wholes use ${w * d} pieces; ${top} − ${w * d} = ${n} are left over.` },
     };
   },
