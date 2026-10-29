@@ -241,9 +241,10 @@ export class RunScene implements Controller {
       me.groundFeet = this.groundFix;
       me.root.position.copy(f.p);
       if (now < this.hopUntil) me.root.position.y += Math.sin(((this.hopUntil - now) / 0.35) * Math.PI) * 0.12;
+      if (this.course === 'slide') this.parkSled();
       if (this.phase === 'dance') {
         // face the camera to dance
-        me.root.rotation.set(0, Math.atan2(f.n.x, f.n.z) - 0.35, 0);
+        me.root.rotation.set(0, this.towardCamera(), 0);
         if (now > this.danceEnd && this.onCelebrated) { const cb = this.onCelebrated; this.onCelebrated = null; cb(); }
       } else if (this.phase === 'results') {
         // after a cheer, back to standing
@@ -298,11 +299,12 @@ export class RunScene implements Controller {
     const sled = this.island.root.userData.sled as THREE.Group | undefined;
     if (kind === 'climb') {
       me.root.position.copy(f.p);
-      // facing the wall while climbing; on the ledge at the top, turned round to the camera
-      const onTop = this.phase === 'arrive' && this.goal - this.pos < 0.8;
-      me.root.rotation.set(0, onTop ? 0 : Math.PI, 0);
-      const a = me.play(me.has('climb') ? 'climb' : 'idle', 0.25);
-      if (a) a.timeScale = v < 0.04 ? 0 : Math.max(0.35, Math.min(2.4, v / 0.55));
+      // facing the wall while climbing; over the lip, a few steps back onto the summit, then round to the camera
+      const overAt = (this.island.root.userData.overAt as (() => number) | undefined)?.() ?? this.finishS;
+      const walking = this.pos > overAt + 0.02, there = this.pos > this.finishS - 0.05;
+      me.root.rotation.set(0, there ? 0 : Math.PI, 0);
+      const a = me.play(walking ? (there ? 'idle' : 'walk') : me.has('climb') ? 'climb' : 'idle', 0.25);
+      if (a && !walking) a.timeScale = v < 0.04 ? 0 : Math.max(0.35, Math.min(2.4, v / 0.55));
     } else if (kind === 'slide') {
       const yaw = Math.atan2(f.t.x, f.t.z), pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
       if (sled) { sled.visible = true; sled.position.copy(f.p); sled.rotation.set(0, yaw - Math.PI / 2, -pitch); }
@@ -357,7 +359,24 @@ export class RunScene implements Controller {
     this.setTier(bestTier);
     if (bestTier < 2) this.me.play(bestTier === 1 ? 'fistpump' : 'idle', 0.4);
     if (bestTier < 2 && !this.me.has('fistpump')) this.me.play('idle', 0.4);
-    this.me.root.rotation.set(0, Math.atan2(this.here.n.x, this.here.n.z) - 0.5, 0);
+    this.me.root.rotation.set(0, this.towardCamera(), 0);
+  }
+  /** Which way the results camera looks from (in front, a little along the way): the buddy faces it. */
+  private resultsDir() {
+    const stop = this.island.trail.at(this.finishS);
+    const along = stop.t.clone().setY(0);
+    if (along.lengthSq() < 1e-4) along.crossVectors(UP_V, stop.n);
+    along.normalize();
+    return { n: stop.n.clone().setY(0).normalize(), along };
+  }
+  private towardCamera() { const { n, along } = this.resultsDir(); const d = n.multiplyScalar(0.88).addScaledVector(along, 0.42); return Math.atan2(d.x, d.z); }
+  /** Off the sled at the bottom: it lies on the snow just up the slope, beside the buddy. */
+  private parkSled() {
+    const sled = this.island.root.userData.sled as THREE.Group | undefined;
+    if (!sled) return;
+    const f = this.island.trail.at(this.pos - 1.9), yaw = Math.atan2(f.t.x, f.t.z), pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
+    sled.position.copy(f.p).addScaledVector(f.n, -0.9);
+    sled.rotation.set(0, yaw - Math.PI / 2 + 0.35, -pitch, 'YXZ');
   }
 
   /** What the camera frames: the buddy, or the buddy on their ride (centre on the trail, and height). */
@@ -390,14 +409,11 @@ export class RunScene implements Controller {
       }
     } else {
       // at the gate: in front, a little to one side; the buddy sits in the middle of the hero area
-      const stop = this.island.trail.at(this.finishS);
       // the way along, kept level (on a cliff the trail runs straight up, on the slope it runs downhill):
       // the camera stands in front and a little to one side, at the buddy's height, never above or below
-      const along = stop.t.clone().setY(0);
-      if (along.lengthSq() < 1e-4) along.crossVectors(UP_V, stop.n);
-      along.normalize();
+      const { n: stopN, along } = this.resultsDir();
       d = Math.max(3.2, Math.min(9, h / (bandH * 0.7 * 2 * tanH)));
-      wantPos.copy(centre).addScaledVector(stop.n, d * 0.88).addScaledVector(along, d * 0.42).y += d * 0.16;
+      wantPos.copy(centre).addScaledVector(stopN, d * 0.88).addScaledVector(along, d * 0.42).y += d * 0.16;
       aim.copy(centre);
     }
     if (this.debugCam) {

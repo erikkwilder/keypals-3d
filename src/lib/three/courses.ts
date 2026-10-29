@@ -95,71 +95,193 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
   if (farIsl) for (let i = 0; i < 7; i++) { const c = farIsl.clone(true); c.position.set(-40 + rnd() * 240, -8 + rnd() * 30, -60 - rnd() * 120); c.scale.setScalar(0.8 + rnd() * 2); c.rotation.y = rnd() * 6; root.add(c); }
 
   if (move === 'climb') {
-    // a sandstone face going up from a meadow; the buddy climbs it facing in, the camera on the open side (+z)
-    const RUN = 4, H = 50;
+    // a sandstone pillar rising from a meadow; the buddy climbs its face (facing in, the camera out on the
+    // open side, +z) and steps over the lip onto a grassy summit. The face ends at the top: nothing hangs
+    // over the climber.
+    const RUN = 4, H = 70, CZ = -3.2, A = 6.1, B = 3.0; // the summit: an oval A by B round (0, CZ)
     const rockTex = await loadTexture('world/rock.webp', { repeat: true, color: true });
-    if (rockTex) rockTex.repeat.set(2.2, 9);
+    if (rockTex) rockTex.repeat.set(2.2, H / 5.5);
     const rockMat = keep(new THREE.MeshStandardMaterial({ map: rockTex, color: rockTex ? 0xffffff : 0xd9b98a, roughness: 0.92 }));
-    const faceGeo = keep(new THREE.PlaneGeometry(11, H, 60, 220));
-    const fp = faceGeo.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < fp.count; i++) {
-      const x = fp.getX(i), y = fp.getY(i);
-      // ledges and bulges, smooth near the climbing line, curving back at the sides
+    // the face's relief: ledges and bulges, smooth near the climbing line, curving back at the sides
+    const faceZ = (x: number, y: number) => {
       const bump = Math.sin(x * 1.7 + y * 0.6) * 0.12 + Math.sin(y * 2.3 - x * 0.8) * 0.08 + Math.max(0, Math.sin(y * 0.9 + x)) * 0.1;
-      fp.setZ(i, bump * Math.min(1, 0.35 + Math.abs(x) / 2) - Math.max(0, Math.abs(x) - 2.8) ** 1.6 * 0.35);
-    }
-    faceGeo.computeVertexNormals();
+      return -0.45 + bump * Math.min(1, 0.35 + Math.abs(x) / 2) - Math.max(0, Math.abs(x) - 2.8) ** 1.6 * 0.35;
+    };
+    const faceGeo = keep(new THREE.PlaneGeometry(11, H, 60, 300));
     const face = new THREE.Mesh(faceGeo, rockMat);
-    face.position.set(0, H / 2 - 1, -0.45); face.receiveShadow = true; face.castShadow = true;
+    face.receiveShadow = true; face.castShadow = true;
     root.add(face);
-    const back = new THREE.Mesh(keep(new THREE.BoxGeometry(11, H, 5)), rockMat);
-    back.position.set(0, H / 2 - 1, -3.4); root.add(back);
-    // the coloured holds up the climbing line, bigger and rounder
-    const holdGeo = keep(new THREE.DodecahedronGeometry(0.11, 1));
-    const holdCols = [0xef4f6a, 0xf7c548, 0x3fa7e0, 0x4fcf98, 0xb98cff, 0xff8a3d];
-    const holds = new THREE.InstancedMesh(holdGeo, keep(new THREE.MeshStandardMaterial({ roughness: 0.45 })), 320);
-    const o = new THREE.Object3D(), c = new THREE.Color();
-    for (let i = 0; i < 320; i++) {
-      const y = 0.3 + (i / 320) * (H - 3), x = (rnd() - 0.5) * 2.2 + (i % 2 ? 0.5 : -0.5);
-      o.position.set(x, y, -0.33); o.rotation.set(rnd() * 3, rnd() * 3, 0); o.scale.set(0.8 + rnd() * 0.8, 0.6 + rnd() * 0.5, 0.7 + rnd() * 0.5); o.updateMatrix();
-      holds.setMatrixAt(i, o.matrix); holds.setColorAt(i, c.set(holdCols[i % holdCols.length]));
-    }
-    holds.castShadow = true; root.add(holds);
-    // a safety rope beside the line, and bolts
-    const rope = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.025, 0.025, H, 6)), keep(new THREE.MeshStandardMaterial({ color: 0xe8543a, roughness: 0.7 })));
-    rope.position.set(-0.85, H / 2 - 0.5, -0.2); root.add(rope);
-    // rock pillars and spires either side, and behind
-    // well back and out to the sides, so none of them comes between the camera and the climber
-    await scatter(root, 'world/rock_spire.glb', 18, [[-14, -10, 1.4, 0.3], [15, -11, 1.6, 2], [-22, -20, 2.2, 1], [23, -18, 2.4, 4], [-32, -34, 2.8, 5], [34, -32, 3, 2]]);
-    // a meadow at the foot: grass, bushes, boulders, flowers
+    // the pillar's sides and back, just behind the face
+    const sideTex = rockTex?.clone();
+    if (sideTex) { sideTex.repeat.set(7, H / 5.5); sideTex.needsUpdate = true; }
+    const pillar = new THREE.Mesh(keep(new THREE.CylinderGeometry(1, 1, H, 48, 1, true)), keep(new THREE.MeshStandardMaterial({ map: sideTex ?? null, color: sideTex ? 0xffffff : 0xd9b98a, roughness: 0.92 })));
+    pillar.scale.set(A - 0.2, 1, B - 0.45); pillar.receiveShadow = true; root.add(pillar);
+    // the summit: grass on a gentle mound, a turf edge hanging over the rock
     const grassTex = await loadTexture('world/grass.webp', { repeat: true, color: true });
+    const capGeo = keep(new THREE.CircleGeometry(1, 72, 0, Math.PI * 2));
+    {
+      const cp = capGeo.attributes.position as THREE.BufferAttribute, uv = capGeo.attributes.uv as THREE.BufferAttribute;
+      for (let i = 0; i < cp.count; i++) {
+        const x = cp.getX(i), y = cp.getY(i), r2 = x * x + y * y, ang = Math.atan2(y, x);
+        const wob = 1 + Math.sin(ang * 5 + 1) * 0.015 * r2;
+        const wx = x * A * wob, wy = y * B * wob;
+        cp.setXYZ(i, wx, wy, 0.1 * (1 - r2));
+        uv.setXY(i, wx / 2.2, wy / 2.2); // about 2 metres of grass per tile, as on the islands
+      }
+      capGeo.computeVertexNormals();
+    }
+    const capTex = grassTex?.clone();
+    if (capTex) { capTex.repeat.set(1, 1); capTex.needsUpdate = true; }
+    const cap = new THREE.Mesh(capGeo, keep(new THREE.MeshStandardMaterial({ map: capTex ?? null, color: capTex ? 0xe8f2d8 : 0x8fc46a, roughness: 1 })));
+    cap.rotation.x = -Math.PI / 2; cap.receiveShadow = true;
+    // the turf's edge: a band of earth just under the grass, all the way round
+    const dirtTex = await loadTexture('world/dirt.webp', { repeat: true, color: true });
+    if (dirtTex) dirtTex.repeat.set(14, 0.25);
+    const turf = new THREE.Mesh(keep(new THREE.CylinderGeometry(1, 0.97, 0.32, 72, 1, true)), keep(new THREE.MeshStandardMaterial({ map: dirtTex ?? null, color: dirtTex ? 0x9c8466 : 0x7a5a3a, roughness: 1 })));
+    turf.scale.set(A, 1, B);
+    // grass blades on the summit, swaying, thicker at the edge where they hang over
+    const wind = { value: 0 };
+    const blade = keep(new THREE.BufferGeometry());
+    {
+      const Wd = 0.03;
+      blade.setAttribute('position', new THREE.Float32BufferAttribute([-Wd, 0, 0, Wd, 0, 0, -Wd * 0.8, 0.4, 0, Wd * 0.8, 0.4, 0, -Wd * 0.5, 0.75, 0, Wd * 0.5, 0.75, 0, 0, 1, 0], 3));
+      blade.setAttribute('color', new THREE.Float32BufferAttribute([0.3, 0.46, 0.18, 0.3, 0.46, 0.18, 0.52, 0.68, 0.28, 0.52, 0.68, 0.28, 0.72, 0.84, 0.4, 0.72, 0.84, 0.4, 0.88, 0.94, 0.52], 3));
+      blade.setIndex([0, 1, 2, 1, 3, 2, 2, 3, 4, 3, 5, 4, 4, 5, 6]);
+    }
+    const bladeMat = keep(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    bladeMat.onBeforeCompile = (sh) => {
+      sh.uniforms.uWind = wind;
+      sh.vertexShader = 'uniform float uWind;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        vec3 ip = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+        float bend = position.y * position.y;
+        transformed.x += (sin(uWind * 1.6 + ip.x * 0.8 + ip.z * 0.5) * 0.5 + sin(uWind * 2.7 + ip.x * 1.9) * 0.18) * 0.2 * bend;
+        transformed.z += cos(uWind * 1.3 + ip.z * 0.9) * 0.08 * bend;`).replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);');
+    };
+    const BLADES = 2600;
+    const blades = new THREE.InstancedMesh(blade, bladeMat, BLADES);
+    blades.receiveShadow = true;
+    const bladeAt: number[][] = [];
+    for (let i = 0; i < BLADES; i++) {
+      // half of them crowd the edge, the rest anywhere on top
+      const ang = rnd() * Math.PI * 2, r = i % 2 ? 0.86 + rnd() * 0.15 : Math.sqrt(rnd()) * 0.95;
+      bladeAt.push([Math.cos(ang) * r * A, Math.sin(ang) * r * B, r, rnd() * Math.PI, 0.6 + rnd() * 0.8, 0.12 + rnd() * 0.16 + (r > 0.85 ? 0.08 : 0), rnd()]);
+    }
+    // climbing holds: sculpted resin shapes bolted to the rock (jugs, crimps, slopers, pinches)
+    const grain = (() => {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+      const g = cv.getContext('2d')!, img = g.createImageData(128, 128);
+      for (let i = 0; i < 128 * 128; i++) { const v = 200 + Math.random() * 55 - (Math.random() < 0.04 ? 60 : 0); img.data.set([v, v, v, 255], i * 4); }
+      g.putImageData(img, 0, 0);
+      const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+      return keep(t);
+    })();
+    const holdMat = keep(new THREE.MeshStandardMaterial({ map: grain, bumpMap: grain, bumpScale: 1.5, roughness: 0.82 }));
+    const shapeHold = (kind: number) => {
+      const g = new THREE.SphereGeometry(0.1, 22, 16), p = g.attributes.position as THREE.BufferAttribute;
+      const [sx, sy, sz] = [[1.35, 0.85, 0.75], [1.7, 0.42, 0.5], [1.2, 1.0, 0.5], [0.6, 1.45, 0.7]][kind];
+      for (let i = 0; i < p.count; i++) {
+        let x = p.getX(i) / 0.1, y = p.getY(i) / 0.1, z = p.getZ(i) / 0.1;
+        // lumpy, like hand-sculpted resin
+        const lump = 1 + (Math.sin(x * 3.1 + kind) * Math.sin(y * 2.7 + 0.3 * kind) * Math.sin(z * 3.3 + 2.1)) * (kind === 2 ? 0.05 : 0.14) + Math.sin(x * 7 + y * 5) * 0.03;
+        x *= lump; y *= lump; z *= lump;
+        // a jug has an incut lip: scoop the top front so fingers can wrap it
+        if (kind === 0 && y > 0.1 && z > 0) z *= 1 - Math.min(0.7, (y - 0.1) * 0.9);
+        if (kind === 1 && y > 0.2) y = 0.2 + (y - 0.2) * 0.4; // a crimp's flat top edge
+        z = Math.max(z, -0.05); // flat on the back, against the rock
+        p.setXYZ(i, x * sx * 0.1, y * sy * 0.1, z * sz * 0.1);
+      }
+      g.computeVertexNormals();
+      return keep(g);
+    };
+    const HOLD_COLS = [0xd8434f, 0xf2b632, 0x2f86c9, 0x3fa36f, 0x8d63cf, 0xee7430, 0x2c2c34, 0xf3efe6];
+    const holdSets = [0, 1, 2, 3].map(k => { const m = new THREE.InstancedMesh(shapeHold(k), holdMat, 200); m.castShadow = true; m.receiveShadow = true; root.add(m); return m; });
+    const bolts = new THREE.InstancedMesh(keep(new THREE.CylinderGeometry(0.014, 0.014, 0.012, 6)), keep(new THREE.MeshStandardMaterial({ color: 0x55585f, metalness: 0.8, roughness: 0.35 })), 800);
+    root.add(bolts);
+    const holdAt: { x: number; y: number; kind: number; turn: number; s: number; col: number }[] = [];
+    for (let y = 0.25; y < H; y += 0.34 + rnd() * 0.12) {
+      // two on the line, one each side of the body, and now and then one further out
+      for (const side of [-1, 1]) holdAt.push({ x: side * (0.28 + rnd() * 0.25), y: y + side * 0.08, kind: Math.floor(rnd() * 4), turn: (rnd() - 0.5) * 0.9, s: 0.85 + rnd() * 0.45, col: Math.floor(rnd() * HOLD_COLS.length) });
+      if (rnd() < 0.6) holdAt.push({ x: (rnd() < 0.5 ? -1 : 1) * (1 + rnd() * 1.4), y: y + rnd() * 0.2, kind: Math.floor(rnd() * 4), turn: (rnd() - 0.5) * 1.6, s: 0.8 + rnd() * 0.5, col: Math.floor(rnd() * HOLD_COLS.length) });
+    }
+    // a rope down the line, tied off to a stake on top
+    const ropeMat = keep(new THREE.MeshStandardMaterial({ color: 0xe8543a, roughness: 0.75 }));
+    const rope = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.022, 0.022, 1, 6)), ropeMat);
+    const tie = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.022, 0.022, 0.8, 6)), ropeMat);
+    tie.rotation.x = Math.PI / 2 - 0.15;
+    const stake = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.035, 0.03, 0.45, 8)), keep(new THREE.MeshStandardMaterial({ color: 0x8a6a48, roughness: 0.9 })));
+    root.add(rope, tie, stake);
+    // rock spires either side and behind, well back so none comes between the camera and the climber
+    await scatter(root, 'world/rock_spire.glb', 18, [[-14, -10, 1.4, 0.3], [15, -11, 1.6, 2], [-22, -20, 2.2, 1], [23, -18, 2.4, 4], [-32, -34, 2.8, 5], [34, -32, 3, 2]]);
+    // a meadow at the foot: grass, bushes, boulders, mushrooms
     if (grassTex) grassTex.repeat.set(30, 30);
     const meadow = new THREE.Mesh(keep(new THREE.CircleGeometry(60, 48)), keep(new THREE.MeshStandardMaterial({ map: grassTex, color: grassTex ? 0xffffff : 0x8fc46a, roughness: 1 })));
     meadow.rotation.x = -Math.PI / 2; meadow.position.y = -0.02; meadow.receiveShadow = true; root.add(meadow);
-    // kept to the sides: the camera stands a few metres out in front of the line
     await scatter(root, 'world/bush.glb', 0.9, [[-4.2, 0.9, 1, 0], [4.4, 0.8, 1.2, 2], [-6.5, 2.5, 1.4, 1], [6.8, 2.2, 1, 3], [8.5, 0.5, 1.3, 1], [-9, 1, 1.2, 2]]);
     await scatter(root, 'world/boulder.glb', 1.1, [[-4.5, 0.4, 1, 0.5], [4.6, -0.2, 1.3, 2], [8.5, 3.5, 1.6, 1], [-8, 4, 1.4, 3]]);
     await scatter(root, 'world/mushroom.glb', 0.5, [[-3.4, 0.8, 1, 0], [3.2, 0.9, 0.8, 1]]);
-    const ledgeTop = new THREE.Mesh(keep(new THREE.BoxGeometry(11, 0.6, 3.6)), keep(new THREE.MeshStandardMaterial({ map: grassTex, color: grassTex ? 0xffffff : 0x8fc46a, roughness: 1 })));
-    const ledge = new THREE.Mesh(keep(new THREE.BoxGeometry(11, 1.4, 3.6)), rockMat);
-    root.add(ledgeTop, ledge);
-    const topBush = await model('world/bush.glb', 0.8);
-    if (topBush) root.add(topBush);
+    // the summit's own things, set on top when the height is known
+    const summit = new THREE.Group();
+    summit.add(cap, turf, blades);
+    for (const [path, h, spots] of [
+      ['world/bush.glb', 0.8, [[-2.9, -1.6, 1.1, 0.4], [3.3, -2.4, 0.9, 2], [-1.2, -5.2, 1.3, 1], [4.6, -4.1, 1.2, 3]]],
+      ['world/boulder.glb', 0.9, [[-4.4, -3.3, 1, 1], [2.2, -5.4, 0.8, 2.5]]],
+      ['world/mushroom.glb', 0.4, [[-2.2, -0.9, 0.9, 0], [-2.5, -1.2, 0.6, 1]]],
+      ['world/pine_tree.glb', 3.6, [[-3.4, -4.8, 1, 0.3], [3.6, -5.0, 0.9, 2]]],
+    ] as [string, number, number[][]][]) {
+      const m = await model(path, h);
+      if (!m) continue;
+      for (const [x, wz, sc, r] of spots) { const z = wz - CZ, c = m.clone(true); c.position.set(x, 0.1 * Math.max(0, 1 - (x / A) ** 2 - (z / B) ** 2), z); c.scale.setScalar(sc); c.rotation.y = r; summit.add(c); }
+    }
+    root.add(summit);
+    // the climb ends OVER metres of trail before the finish; those last metres walk back over the lip
+    const OVER = 0.7;
     at = (s) => {
-      const y = Math.max(0, Math.min(s, finishS) - RUN);
-      // over the top: step onto the ledge
-      const over = Math.max(0, Math.min(1, (s - finishS + 0.6) / 0.6));
-      return { p: new THREE.Vector3(0, y + over * 0.6, over * 1.1), t: UP.clone(), n: new THREE.Vector3(0, 0, 1) };
+      const y = Math.max(0, Math.min(s, finishS - OVER) - RUN);
+      const over = Math.max(0, Math.min(1, (s - finishS + OVER) / OVER));
+      return { p: new THREE.Vector3(0, y + Math.sin(over * Math.PI / 2) * 0.08, -over * 1.4), t: UP.clone(), n: new THREE.Vector3(0, 0, 1) };
     };
+    root.userData.overAt = () => finishS - OVER;
+    const o = new THREE.Object3D(), c = new THREE.Color();
     const place = () => {
-      const top = finishS - RUN;
-      ledge.position.set(0, top - 0.4, 1.0); ledgeTop.position.set(0, top + 0.3, 1.0);
-      fin.position.set(1.6, top + 0.6, 1.4);
-      if (topBush) topBush.position.set(-2.6, top + 0.6, 0.9);
+      const top = finishS - OVER - RUN;
+      // the face, curved to its relief, ending at the summit
+      const fp = faceGeo.attributes.position as THREE.BufferAttribute, base = (faceGeo.userData.base ??= Float32Array.from(fp.array as Float32Array)) as Float32Array;
+      for (let i = 0; i < fp.count; i++) { const x = base[i * 3], y = base[i * 3 + 1] + top - H / 2; fp.setZ(i, faceZ(x, y) + 0.45); }
+      fp.needsUpdate = true; faceGeo.computeVertexNormals();
+      face.position.set(0, top - H / 2, -0.45);
+      pillar.position.set(0, top - H / 2 - 0.05, CZ);
+      summit.position.set(0, top, CZ);
+      cap.position.set(0, 0.0, 0); turf.position.set(0, -0.15, 0);
+      // blades sit on the mound
+      bladeAt.forEach(([x, z, r, turn, w, h, hue], i) => {
+        o.position.set(x, 0.1 * (1 - r * r) - 0.02, z); o.rotation.set(0, turn, (hue - 0.5) * 0.4); o.scale.set(w, h, 1); o.updateMatrix();
+        blades.setMatrixAt(i, o.matrix); blades.setColorAt(i, c.setHSL(0.24 + hue * 0.06, 0.45 + hue * 0.15, 0.36 + hue * 0.14));
+      });
+      blades.instanceMatrix.needsUpdate = true; if (blades.instanceColor) blades.instanceColor.needsUpdate = true;
+      blades.computeBoundingSphere();
+      // the holds, on the rock up to the lip
+      const counts = [0, 0, 0, 0];
+      let nb = 0;
+      for (const h of holdAt) {
+        if (h.y > top - 0.35) continue;
+        const set = holdSets[h.kind], k = counts[h.kind]++;
+        if (k >= 200) continue;
+        const z = faceZ(h.x, h.y);
+        o.position.set(h.x, h.y, z - 0.01); o.rotation.set(0, 0, h.turn); o.scale.setScalar(h.s); o.updateMatrix();
+        set.setMatrixAt(k, o.matrix); set.setColorAt(k, c.set(HOLD_COLS[h.col]));
+        o.position.set(h.x, h.y, z + 0.1 * [0.75, 0.5, 0.5, 0.7][h.kind] * h.s * 0.9); o.rotation.set(Math.PI / 2, 0, 0); o.scale.setScalar(1); o.updateMatrix();
+        if (nb < 800) bolts.setMatrixAt(nb++, o.matrix);
+      }
+      holdSets.forEach((m, k) => { m.count = Math.min(200, counts[k]); m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; m.computeBoundingSphere(); });
+      bolts.count = nb; bolts.instanceMatrix.needsUpdate = true; bolts.computeBoundingSphere();
+      rope.scale.y = top; rope.position.set(-0.85, top / 2, -0.17);
+      stake.position.set(-0.85, top + 0.15, -0.95);
+      tie.position.set(-0.85, top + 0.12, -0.55);
+      fin.position.set(1.9, top + 0.05, -2.3);
     };
     place();
     root.userData.place = place;
-    update = (_dt, t) => wave(fin.userData.cloth, t);
+    update = (_dt, t) => { wave(fin.userData.cloth, t); wind.value = t; };
   } else if (move === 'slide') {
     // a long snowy run down the ridge between pines; the buddy sleds down along +x
     const SLOPE = 0.3;
@@ -197,15 +319,32 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
     const fg = keep(new THREE.BufferGeometry()); fg.setAttribute('position', new THREE.BufferAttribute(flakes, 3));
     const snow = new THREE.Points(fg, keep(new THREE.PointsMaterial({ color: 0xffffff, size: 0.09, transparent: true, opacity: 0.9, depthWrite: false })));
     root.add(snow);
-    // the sled, carried by the scene (the buddy sits on it)
+    // the sled, carried by the scene (the buddy sits on it): painted red and natural wooden slats on a
+    // varnished frame, steel runners curling up at the front, a steering bar and a pull rope
     const sled = new THREE.Group();
-    const red = keep(new THREE.MeshStandardMaterial({ color: 0xd8463c, roughness: 0.45 })), wood = keep(new THREE.MeshStandardMaterial({ color: 0xb07a45, roughness: 0.7 }));
-    const metal = keep(new THREE.MeshStandardMaterial({ color: 0xc9ccd6, metalness: 0.7, roughness: 0.25 }));
-    for (let k = 0; k < 4; k++) { const slat = new THREE.Mesh(keep(new THREE.BoxGeometry(1.3, 0.05, 0.13)), k % 2 ? wood : red); slat.position.set(0, 0.24, -0.23 + k * 0.155); slat.castShadow = true; sled.add(slat); }
+    const redTex = await loadTexture('world/redwood.webp', { repeat: true, color: true });
+    const pineTex = await loadTexture('world/planks.webp', { repeat: true, color: true });
+    // a strip of each texture, so the grain runs along the slat at its true size
+    const strip = (t: THREE.Texture | null, v: number) => { if (!t) return null; const c = t.clone(); c.repeat.set(1, v); c.needsUpdate = true; return keep(c); };
+    const red = keep(new THREE.MeshStandardMaterial({ map: strip(redTex, 0.12), color: redTex ? 0xffffff : 0xd8463c, roughness: 0.42 }));
+    const wood = keep(new THREE.MeshStandardMaterial({ map: strip(pineTex, 0.1), color: pineTex ? 0xf2d2a6 : 0xb07a45, roughness: 0.6 }));
+    const frame = keep(new THREE.MeshStandardMaterial({ map: strip(pineTex, 0.05), color: pineTex ? 0xc8945c : 0x8a5a30, roughness: 0.55 }));
+    const metal = keep(new THREE.MeshStandardMaterial({ color: 0x9aa0aa, metalness: 0.85, roughness: 0.32 }));
+    const slatGeo = keep(new THREE.BoxGeometry(1.3, 0.045, 0.125));
+    // round the slats' top edges a touch
+    { const p = slatGeo.attributes.position as THREE.BufferAttribute; for (let i = 0; i < p.count; i++) if (p.getY(i) > 0) p.setZ(i, p.getZ(i) * 0.9); slatGeo.computeVertexNormals(); }
+    for (let k = 0; k < 4; k++) { const slat = new THREE.Mesh(slatGeo, k % 2 ? wood : red); slat.position.set(-0.02, 0.255, -0.23 + k * 0.153); slat.castShadow = true; slat.receiveShadow = true; sled.add(slat); }
+    // the frame under the slats: two side rails and cross pieces
+    for (const z of [-0.27, 0.27]) { const rail = new THREE.Mesh(keep(new THREE.BoxGeometry(1.36, 0.06, 0.05)), frame); rail.position.set(-0.02, 0.205, z); rail.castShadow = true; sled.add(rail); }
+    for (const x of [-0.55, 0.0, 0.5]) { const bar = new THREE.Mesh(keep(new THREE.BoxGeometry(0.06, 0.04, 0.6)), frame); bar.position.set(x, 0.2, 0); sled.add(bar); }
+    // the steering bar at the front, with a pull rope looping forward
+    const steer = new THREE.Mesh(keep(new THREE.BoxGeometry(0.09, 0.05, 0.78)), frame); steer.position.set(0.6, 0.27, 0); steer.castShadow = true; sled.add(steer);
+    const pull = new THREE.CatmullRomCurve3([new THREE.Vector3(0.6, 0.3, -0.36), new THREE.Vector3(0.85, 0.22, -0.3), new THREE.Vector3(1.05, 0.08, 0), new THREE.Vector3(0.85, 0.22, 0.3), new THREE.Vector3(0.6, 0.3, 0.36)]);
+    sled.add(new THREE.Mesh(keep(new THREE.TubeGeometry(pull, 30, 0.012, 6)), keep(new THREE.MeshStandardMaterial({ color: 0xd9c49a, roughness: 0.9 }))));
     for (const z of [-0.27, 0.27]) {
-      const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.7, 0.05, z), new THREE.Vector3(0.55, 0.04, z), new THREE.Vector3(0.78, 0.12, z), new THREE.Vector3(0.74, 0.3, z), new THREE.Vector3(0.6, 0.32, z)]);
-      const run = new THREE.Mesh(keep(new THREE.TubeGeometry(curve, 24, 0.025, 6)), metal); run.castShadow = true; sled.add(run);
-      for (const x of [-0.45, 0.35]) { const leg = new THREE.Mesh(keep(new THREE.BoxGeometry(0.05, 0.2, 0.05)), metal); leg.position.set(x, 0.14, z); sled.add(leg); }
+      const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.72, 0.05, z), new THREE.Vector3(0.5, 0.035, z), new THREE.Vector3(0.78, 0.1, z), new THREE.Vector3(0.8, 0.26, z), new THREE.Vector3(0.66, 0.3, z), new THREE.Vector3(0.6, 0.24, z)]);
+      const run = new THREE.Mesh(keep(new THREE.TubeGeometry(curve, 40, 0.022, 8)), metal); run.castShadow = true; sled.add(run);
+      for (const x of [-0.5, -0.05, 0.38]) { const leg = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.014, 0.014, 0.17, 6)), metal); leg.position.set(x, 0.12, z); sled.add(leg); }
     }
     root.add(sled);
     root.userData.sled = sled;
@@ -264,50 +403,107 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
     }));
     const water = new THREE.Mesh(keep(new THREE.PlaneGeometry(460, 200, 230, 100)), waterMat);
     water.rotation.x = -Math.PI / 2; water.position.set(150, 0, 0); root.add(water);
-    // sand: the beach behind the lane, and the sea floor near the docks
-    const sandMat = keep(new THREE.MeshStandardMaterial({ color: 0xead6a2, roughness: 1 }));
-    const beach = new THREE.Mesh(keep(new THREE.PlaneGeometry(460, 40, 120, 8)), sandMat);
-    const bp = beach.geometry.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < bp.count; i++) { const y = bp.getY(i); bp.setZ(i, (y + 20) * 0.06 + Math.sin(bp.getX(i) * 0.15) * 0.2); }
-    beach.geometry.computeVertexNormals();
+    // the beach behind the lane: painted sand, darker and wet where the water reaches it
+    const sandTex = await loadTexture('world/sand.webp', { repeat: true, color: true });
+    if (sandTex) sandTex.repeat.set(460 / 3.5, 40 / 3.5);
+    const sandMat = keep(new THREE.MeshStandardMaterial({ map: sandTex, color: sandTex ? 0xffffff : 0xead6a2, roughness: 1, vertexColors: true }));
+    const beachGeo = keep(new THREE.PlaneGeometry(460, 40, 230, 20));
+    // the sand's height at a spot (world x, z): rising gently from the water's edge at z = -6
+    const sandY = (x: number, z: number) => -0.25 + (-z - 6) * 0.06 + Math.sin(x * 0.15) * 0.2;
+    {
+      const bp = beachGeo.attributes.position as THREE.BufferAttribute, col: number[] = [];
+      for (let i = 0; i < bp.count; i++) {
+        const x = bp.getX(i) + 150, z = -26 - bp.getY(i);
+        bp.setZ(i, sandY(x, z) + 0.25);
+        const wet = 1 - Math.min(1, Math.max(0, (-z - 6.2) / 2.2));
+        const k = 1 - wet * 0.32;
+        col.push(k, k * 0.98, k * 0.95);
+      }
+      beachGeo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      beachGeo.computeVertexNormals();
+    }
+    const beach = new THREE.Mesh(beachGeo, sandMat);
     beach.rotation.x = -Math.PI / 2; beach.position.set(150, -0.25, -26); beach.receiveShadow = true; root.add(beach);
-    await scatter(root, 'world/palm_tree.glb', 6, Array.from({ length: 26 }, (_, i) => [-20 + i * 13 + rnd() * 6, -14 - rnd() * 14, 0.8 + rnd() * 0.5, rnd() * 6, 0.6]));
-    await scatter(root, 'world/boulder.glb', 1.2, Array.from({ length: 16 }, () => [-20 + rnd() * 340, -9 - rnd() * 4, 0.6 + rnd() * 1.4, rnd() * 6, -0.2]));
-    await scatter(root, 'world/bush.glb', 1, Array.from({ length: 22 }, () => [-20 + rnd() * 340, -12 - rnd() * 10, 0.8 + rnd() * 0.8, rnd() * 6, 0.5]));
-    await scatter(root, 'world/lighthouse.glb', 12, [[60, -32, 1, 0.4, 1.4], [230, -36, 1, 2, 1.4]]);
+    // everything stands on the sand, a little sunk in
+    const onSand = (spots: number[][], sink = 0.06) => spots.map(([x, z, sc, r]) => [x, z, sc, r, sandY(x, z) - sink]);
+    await scatter(root, 'world/palm_tree.glb', 6, onSand(Array.from({ length: 26 }, (_, i) => [-20 + i * 13 + rnd() * 6, -14 - rnd() * 14, 0.8 + rnd() * 0.5, rnd() * 6])));
+    await scatter(root, 'world/boulder.glb', 1.2, onSand(Array.from({ length: 16 }, () => [-20 + rnd() * 340, -9 - rnd() * 4, 0.6 + rnd() * 1.4, rnd() * 6]), 0.25));
+    await scatter(root, 'world/bush.glb', 1, onSand(Array.from({ length: 22 }, () => [-20 + rnd() * 340, -12 - rnd() * 10, 0.8 + rnd() * 0.8, rnd() * 6]), 0.1));
+    await scatter(root, 'world/lighthouse.glb', 12, onSand([[60, -32, 1, 0.4], [230, -36, 1, 2]], 0.2));
     await scatter(root, 'world/rock_spire.glb', 14, [[30, 60, 1.2, 1, -2], [140, 70, 1.6, 3, -2], [260, 64, 1.3, 5, -2]]);
-    // docks of planks at both ends of the lane
+    // docks of planks at both ends of the lane, on weathered timber posts
     const planksTex = await loadTexture('world/planks.webp', { repeat: true, color: true });
     if (planksTex) planksTex.repeat.set(2, 1.5);
     const wood = keep(new THREE.MeshStandardMaterial({ map: planksTex, color: planksTex ? 0xffffff : 0x9a6b43, roughness: 0.85 }));
-    const postMat = keep(new THREE.MeshStandardMaterial({ color: 0x7a5534, roughness: 0.9 }));
-    const dockGeo = keep(new THREE.BoxGeometry(5, 0.3, 3.4)), postGeo = keep(new THREE.CylinderGeometry(0.13, 0.13, 2.6, 8));
+    const postTex = await loadTexture('world/post.webp', { repeat: true, color: true });
+    if (postTex) postTex.repeat.set(1, 2.4);
+    const postMat = keep(new THREE.MeshStandardMaterial({ map: postTex, color: postTex ? 0xffffff : 0x7a5534, roughness: 0.92 }));
+    const dockGeo = keep(new THREE.BoxGeometry(5, 0.3, 3.4)), postGeo = keep(new THREE.CylinderGeometry(0.14, 0.15, 2.7, 14));
     const dock = (x: number) => {
       const g = new THREE.Group(); const d = new THREE.Mesh(dockGeo, wood); d.position.y = 0.35; d.castShadow = true; d.receiveShadow = true; g.add(d);
-      for (const px of [-2.2, 2.2]) for (const pz of [-1.5, 1.5]) { const p = new THREE.Mesh(postGeo, postMat); p.position.set(px, -0.55, pz); g.add(p); }
+      for (const px of [-2.35, 2.35]) for (const pz of [-1.55, 1.55]) { const p = new THREE.Mesh(postGeo, postMat); p.position.set(px, -0.5, pz); p.castShadow = true; g.add(p); }
       g.position.x = x; root.add(g); return g;
     };
     dock(-2.4);
     const endDock = dock(40);
-    // lane ropes: floats in red and white, bobbing
-    const floatGeo = keep(new THREE.SphereGeometry(0.075, 10, 8));
-    const ropes = new THREE.InstancedMesh(floatGeo, keep(new THREE.MeshStandardMaterial({ roughness: 0.4 })), 2 * 400);
+    // lane lines: ridged racing floats strung tight on a cable, red at the ends and white and blue between,
+    // with an orange marker buoy at each end of each line
+    const FLOAT = 0.12, PER = 700;
+    const prof = [[0.01, -0.065], [0.055, -0.065], [0.075, -0.05], [0.058, -0.035], [0.088, -0.018], [0.094, 0], [0.088, 0.018], [0.058, 0.035], [0.075, 0.05], [0.055, 0.065], [0.01, 0.065]].map(([r, y]) => new THREE.Vector2(r, y));
+    const floatGeo = keep(new THREE.LatheGeometry(prof, 18));
+    floatGeo.rotateZ(Math.PI / 2); // its axis along the lane
+    floatGeo.scale(0.8, 0.8, 0.8);
+    const floats = new THREE.InstancedMesh(floatGeo, keep(new THREE.MeshPhysicalMaterial({ roughness: 0.38, clearcoat: 0.6, clearcoatRoughness: 0.25 })), 2 * PER);
+    floats.castShadow = true; floats.frustumCulled = false;
     const o = new THREE.Object3D(), c = new THREE.Color();
+    const LANES = [-1.8, 1.8];
     let k = 0;
-    for (const z of [-1.8, 1.8]) for (let i = 0; i < 400; i++) { o.position.set(i * 0.34, 0.02, z); o.updateMatrix(); ropes.setMatrixAt(k, o.matrix); ropes.setColorAt(k++, c.set(Math.floor(i / 4) % 2 ? 0xffffff : 0xe8484f)); }
-    root.add(ropes);
+    for (const z of LANES) for (let i = 0; i < PER; i++) { o.position.set(i * FLOAT, 0, z); o.updateMatrix(); floats.setMatrixAt(k, o.matrix); floats.setColorAt(k++, c.set(0xffffff)); }
+    root.add(floats);
+    const cableMat = keep(new THREE.MeshStandardMaterial({ color: 0x2b3440, roughness: 0.6 }));
+    const cables = LANES.map(z => { const m = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.008, 0.008, 1, 4)), cableMat); m.rotation.z = Math.PI / 2; m.position.set(0, 0, z); root.add(m); return m; });
+    const buoyMat = keep(new THREE.MeshPhysicalMaterial({ color: 0xff7a1f, roughness: 0.35, clearcoat: 0.5 }));
+    const bandMat = keep(new THREE.MeshStandardMaterial({ color: 0xf6f3ea, roughness: 0.5 }));
+    const buoy = () => {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.2, 0.26, 0.42, 20)), buoyMat); body.position.y = 0.08; body.castShadow = true;
+      const band = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.212, 0.232, 0.1, 20)), bandMat); band.position.y = 0.12;
+      const cone = new THREE.Mesh(keep(new THREE.ConeGeometry(0.2, 0.24, 20)), buoyMat); cone.position.y = 0.41;
+      const ring = new THREE.Mesh(keep(new THREE.TorusGeometry(0.05, 0.012, 6, 14)), cableMat); ring.position.y = 0.56;
+      g.add(body, band, cone, ring); root.add(g); return g;
+    };
+    const buoys = [buoy(), buoy(), buoy(), buoy()];
+    let laneLen = 0;
+    const lanes = () => {
+      // the lines run from the start dock to the end dock; the last few metres at each end are red
+      laneLen = Math.min(PER, Math.ceil((finishS + 0.2) / FLOAT));
+      for (let li = 0; li < 2; li++) for (let i = 0; i < laneLen; i++) {
+        const x = i * FLOAT, end = Math.min(x, finishS - x);
+        floats.setColorAt(li * laneLen + i, c.set(end < 4 ? 0xe23b3b : Math.floor(i / 6) % 2 ? 0x2f6fd6 : 0xf6f6f2));
+      }
+      floats.count = 2 * laneLen;
+      if (floats.instanceColor) floats.instanceColor.needsUpdate = true;
+      cables.forEach(m => { m.scale.y = laneLen * FLOAT; m.position.x = (laneLen * FLOAT) / 2; });
+      buoys.forEach((b, i) => b.position.set(i % 2 ? finishS - 0.7 : 0.7, -0.06, LANES[i < 2 ? 0 : 1] * 1.17));
+    };
     at = (s) => {
       // swim from the start dock to the end dock; past the finish, climb out onto it
       const onDock = s >= finishS - 0.2;
       return { p: new THREE.Vector3(s, onDock ? 0.5 : -0.62, 0), t: new THREE.Vector3(1, 0, 0), n: new THREE.Vector3(0, 0, 1) };
     };
-    const place = () => { endDock.position.x = finishS + 2.2; fin.position.set(finishS + 1.4, 0.5, -1.2); };
+    const place = () => { endDock.position.x = finishS + 2.2; fin.position.set(finishS + 1.4, 0.5, -1.2); lanes(); };
     place();
     root.userData.place = place;
     update = (_dt, t) => {
       waterMat.uniforms.uT.value = t;
-      for (let i = 0; i < 2 * 400; i++) { const z = i < 400 ? -1.8 : 1.8, x = (i % 400) * 0.34; o.position.set(x, 0.02 + Math.sin(x * 0.45 + t * 1.7) * 0.05, z); o.updateMatrix(); ropes.setMatrixAt(i, o.matrix); }
-      ropes.instanceMatrix.needsUpdate = true;
+      // the floats ride the swell (the same waves the water's surface makes), a little behind each other
+      const wy = (x: number, z: number) => Math.sin(x * 0.45 + t * 1.7) * 0.05 + Math.sin(z * 0.7 - t * 1.3 + x * 0.2) * 0.04;
+      for (let li = 0; li < 2; li++) for (let i = 0; i < laneLen; i++) {
+        const x = i * FLOAT, z = LANES[li], y = wy(x, z);
+        o.position.set(x, y + 0.005, z); o.rotation.set(t * 0.6 + i * 0.4, 0, (wy(x + 0.2, z) - y) * 2); o.updateMatrix(); floats.setMatrixAt(li * laneLen + i, o.matrix);
+      }
+      floats.instanceMatrix.needsUpdate = true;
+      buoys.forEach((b, i) => { b.position.y = wy(b.position.x, b.position.z) - 0.06; b.rotation.set(Math.sin(t * 1.3 + i) * 0.08, 0, Math.cos(t * 1.1 + i) * 0.08); });
       wave(fin.userData.cloth, t);
     };
   }
