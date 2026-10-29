@@ -172,5 +172,25 @@
   "ep.think-times.s3": {
     "text": "Think times: 4 times 3 is 12, so 12 divided by 3 is 4.",
     "why": "math signs read as words"
+  },
+  "ep.dec-tenths.s1": {
+    "seed": 101,
+    "text": "One piece is one tenth. We write it one over ten, or zero point one.",
+    "why": "first take started loud and read 'it' as 'at'"
+  },
+  "ep.dec-tenths.s2": {
+    "seed": 101,
+    "text": "Three pieces are three tenths: zero point three.",
+    "why": "first take read 0.3 as 'zeroed on three'"
+  },
+  "ep.dec-hundredths.s0": {
+    "seed": 101,
+    "text": "One hundred squares make one whole. One square is one over one hundred, or zero point zero one.",
+    "why": "first take said 'Hundred squares'"
+  },
+  "ep.dec-hundredths.s2": {
+    "seed": 101,
+    "text": "Three rows and five more squares: thirty-five hundredths, zero point three five.",
+    "why": "first take read 0.35 as 'zero thirty-five'"
   }
 }

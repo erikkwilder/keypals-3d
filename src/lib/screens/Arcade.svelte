@@ -16,9 +16,11 @@
   import Stars from '../ui/Stars.svelte';
   import Icon from '../ui/Icon.svelte';
   import GearButton from '../ui/GearButton.svelte';
+  import { builderOf, builderOpen } from '../math/place/builder';
 
   const p = $derived(game.profile!);
   const save = $derived(arcadeOf(p));
+  const builderBest = $derived(builderOf(p).best);
   const shells = $derived(advView(p).shells);
   const today = dailyGame();
   const beaten = $derived(dailyBeaten(p, today));
@@ -54,12 +56,16 @@
   function openPizza() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('pizza' as Screen); }
   /** Glimmer Drop: just for fun, on its own screen (it spends play time) */
   function openDrop() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('drop'); }
-  function hover(id: ArcadeId | 'pizza' | 'drop' | null, el?: HTMLElement) {
+  /** Number Builder is the Place value area's game, on its own screen too */
+  function openBuilder() { unlockAudio(); sfx.click(); scene?.cheer(); builderOpen.toy = false; builderOpen.from = 'arcade'; game.go('builder' as Screen); }
+  /** Market Dash is the Decimals and money area's game, on its own screen too */
+  function openMarket() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('market' as Screen); }
+  function hover(id: ArcadeId | 'pizza' | 'builder' | 'market' | 'drop' | null, el?: HTMLElement) {
     if (!scene) return;
     if (!id || !el) { scene.look(null); say = 'Pick a game to play!'; return; }
     const r = el.getBoundingClientRect();
     scene.look((r.left + r.width / 2) / innerWidth);
-    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'drop' ? 'Squish them together!' : 'Pizza! Slice it up!';
+    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'builder' ? 'Build it with blocks!' : id === 'market' ? 'Coins! Count them up!' : id === 'drop' ? 'Squish them together!' : 'Pizza! Slice it up!';
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -67,7 +73,9 @@
     const n = Number(e.key);
     if (n >= 1 && n <= ARCADE_GAMES.length) play(ARCADE_GAMES[n - 1].id);
     if (n === ARCADE_GAMES.length + 1) openPizza();
-    if (n === ARCADE_GAMES.length + 2) openDrop();
+    if (n === ARCADE_GAMES.length + 2) openBuilder();
+    if (n === ARCADE_GAMES.length + 3) openMarket();
+    if (n === ARCADE_GAMES.length + 4) openDrop();
     if (e.key === 'd' || e.key === 'D') play(today, true);
   }
 
@@ -134,12 +142,22 @@
           <span class="plate"><b>Pizza Rush</b><span class="bs">Slice up fractions</span></span>
           {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 1}</span>{/if}
         </button>
+        <button class="cab" style:--c="#2d6fb8" style:--d="{(ARCADE_GAMES.length + 1) * 90}ms" onclick={openBuilder} onpointerenter={(e) => hover('builder', e.currentTarget)} onpointerleave={() => hover(null)}>
+          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-builder.webp" alt="" />
+          <span class="plate"><b>Number Builder</b><span class="bs">{builderBest ? `Best score ${builderBest}` : 'Build numbers with blocks'}</span></span>
+          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 2}</span>{/if}
+        </button>
+        <button class="cab" style:--c="#e6a817" style:--d="{(ARCADE_GAMES.length + 2) * 90}ms" onclick={openMarket} onpointerenter={(e) => hover('market', e.currentTarget)} onpointerleave={() => hover(null)}>
+          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-market.webp" alt="" />
+          <span class="plate"><b>Market Dash</b><span class="bs">Pay and make change</span></span>
+          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 3}</span>{/if}
+        </button>
         <!-- Glimmer Drop: not practice, just for fun, so it uses play time (the same minutes as Adventure) -->
-        <button class="cab fun" style:--c="#9a6cf0" style:--d="{(ARCADE_GAMES.length + 1) * 90}ms" onclick={openDrop} onpointerenter={(e) => hover('drop', e.currentTarget)} onpointerleave={() => hover(null)}>
+        <button class="cab fun" style:--c="#9a6cf0" style:--d="{(ARCADE_GAMES.length + 3) * 90}ms" onclick={openDrop} onpointerenter={(e) => hover('drop', e.currentTarget)} onpointerleave={() => hover(null)}>
           <span class="ribbon fun">Just for fun</span>
           <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-drop.webp" alt="" />
           <span class="plate"><b>Glimmer Drop</b><span class="bs">{drop.best ? `Best score ${fmt(drop.best)}` : 'New! Give it a go'}</span><span class="pt" class:out={!time.open}>{playText}</span></span>
-          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 2}</span>{/if}
+          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 4}</span>{/if}
         </button>
       </div>
       <p class="note">Arcade games count as practice: every answer helps your Fact Garden grow, and you earn shells and treasure. Glimmer Drop is just for fun and uses play time.</p>

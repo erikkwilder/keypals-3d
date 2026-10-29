@@ -288,6 +288,18 @@ export const sfx = {
     tone(1046.5, { type: 'triangle', dur: 0.35, gain: 0.08, delay: 0.22 });
     tone(1567.98, { type: 'sine', dur: 0.4, gain: 0.05, delay: 0.26 });
   },
+  /** A coin dropped in the tray: a little metal clink (bigger coins ring a touch lower). */
+  coin(cents = 10) {
+    const f = cents >= 100 ? 2093 : cents >= 25 ? 2349.3 : cents >= 10 ? 3136 : 2637;
+    tone(f, { type: 'sine', dur: 0.07, gain: 0.05 }); noise(0.025, { gain: 0.03, freq: 7000, q: 4 });
+    tone(f * 1.5, { type: 'sine', dur: 0.12, gain: 0.025, delay: 0.04 });
+  },
+  /** The till: a cha-ching for a sale. */
+  till() {
+    noise(0.05, { gain: 0.05, freq: 3000, q: 1.2 });
+    [2093, 2637, 3136].forEach((n, i) => tone(n, { type: 'sine', dur: 0.1, gain: 0.05, delay: 0.05 + i * 0.05 }));
+    tone(1567.98, { type: 'triangle', dur: 0.5, gain: 0.07, delay: 0.2 });
+  },
   /** Put something on, or someone on your team: a quick "fwip" and a ding. */
   equip() {
     noise(0.15, { gain: 0.06, freq: 1500, sweepTo: 5000, q: 0.9, attack: 0.06 });

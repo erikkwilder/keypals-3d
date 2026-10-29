@@ -52,9 +52,11 @@ export function devBoot() {
   // the math game: #math (math home), #mathrun=twins-2, #garden
   if (key === 'math') { ensure(); game.setHome('math'); game.go('map'); }
   if (key === 'mathrun') { ensure(); game.setHome('math'); game.startMath(val || 'twins-1'); }
+  // a skill trip straight away: #skill=place-a-3 (any skill lesson id)
+  if (key === 'skill') { ensure(); game.setHome('math'); game.startSkill(val || 'place-a-1'); }
   if (key === 'garden') { ensure(); game.go('garden'); }
   // Adventure: #adventure (or #adventure=falls for that world), #battle=meadow-0 (or falls-0), #glimmers, #eggs
-  if (key === 'adventure') { ensure(); if (val === 'sky' || val === 'falls') lastWorld.id = val; game.go('adventure'); }
+  if (key === 'adventure') { ensure(); if (val === 'sky' || val === 'falls' || val === 'caves' || val === 'market') lastWorld.id = val; game.go('adventure'); }
   if (key === 'battle') { ensure(); game.battleNode = val || 'meadow-0'; game.battleKey++; game.go('battle'); }
   if (key === 'glimmers') { ensure(); game.go('glimmers'); }
   if (key === 'eggs') { ensure(); game.go('eggs'); }
@@ -63,6 +65,12 @@ export function devBoot() {
   if (key === 'rivals') { ensure(); game.go('rivals'); }
   // Pizza Rush, the fractions arcade game: #pizza
   if (key === 'pizza') { ensure(); game.go('pizza'); }
+  // Number Builder, the place value arcade game: #builder; the Playground's Block Table: #builder=toy
+  if (key === 'builder') { ensure(); import('../math/place/builder').then(b => { b.builderOpen.toy = val === 'toy'; b.builderOpen.from = val === 'toy' ? 'playground' : 'map'; game.go('builder'); }); }
+  // Market Dash, the money arcade game: #market
+  if (key === 'market') { ensure(); game.go('market'); }
+  // a money Learn episode over the Decimals and money map: #market-learn=dec-coins
+  if (key === 'market-learn') { ensure(); game.mathArea = 'decimals'; game.mathOp = null; game.go('map'); game.learnOverlay = val || 'dec-coins'; }
   // Glimmer Drop: #drop
   if (key === 'drop') { ensure(); game.go('drop'); }
   // the Arcade: #arcade (the plaza), #arcade=slalom|catch|tower (straight into a round), #arcade=daily

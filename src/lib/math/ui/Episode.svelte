@@ -17,12 +17,14 @@
   import { advView, teamOf } from '../../adventure/state';
   import { FRIEND } from '../../art/cast';
   import { GLIMMER } from '../../adventure/glimmers';
-  import { STRAND } from '../course';
-  import { answerOf } from '../facts';
-  import { LESSON, askText, boundsOf, coverOf, finishLesson, hideAnswer, hintFor, markChecked, LEARN_SHELLS, type Board } from '../learn';
-  import { episodeOf, fixChoices, setOf, taskFor, taskWords, type Task } from '../episodes';
+  import { boundsOf, finishLesson, markChecked, type Board } from '../learn';
+  import { SETS, epLesson, taskFor, taskWords, type EpQ, type Task } from '../episodes';
+  import { fracRight } from '../fracEpisodes';
   import LearnBoard from './LearnBoard.svelte';
   import NumPad from './NumPad.svelte';
+  import FracText from './FracText.svelte';
+  import Frac from '../skills/ui/Frac.svelte';
+  import FractionPad from '../skills/ui/FractionPad.svelte';
   import CloseButton from '../../ui/CloseButton.svelte';
   import Confetti from '../../ui/Confetti.svelte';
   import Icon from '../../ui/Icon.svelte';
@@ -33,14 +35,14 @@
   const base = import.meta.env.BASE_URL;
   // (the episode is keyed by its lesson: these don't change while it's open)
   // svelte-ignore state_referenced_locally
-  const lesson = LESSON[id], ep = episodeOf(id), place = setOf(id);
-  const strand = STRAND[lesson.op];
+  const lesson = epLesson(id)!, place = SETS[lesson.set];
   const buddy = game.profile!.buddy;
   // the Glimmer at the table: the player's own (the first on their team) when the story doesn't name the
   // place's one, else the place's
   const team = teamOf(advView(game.profile!));
-  const named = lineText(`ep.${lesson.id}.intro`).includes(GLIMMER[place.star].name);
-  const starId = !named && team[0] ? team[0].id : place.star;
+  const placeStar = lesson.star ?? place.star;
+  const named = lineText(`ep.${lesson.id}.intro`).includes(GLIMMER[placeStar].name);
+  const starId = !named && team[0] ? team[0].id : placeStar;
   const pal = GLIMMER[starId];
   const cardWords = lineText(`ep.${lesson.id}.card`).replace(/^You won the .*? card! /, '');
   const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
@@ -70,6 +72,8 @@
   let wrongOn = $state(false);
   let k = $state(0);
   let typed = $state('');
+  /** a fraction being typed: its top, its bottom, and which one the keys go to */
+  let fn = $state(''), fd = $state(''), ff = $state<'n' | 'd'>('n');
   let misses = $state(0);
   let shake = $state(0);
   let locked = $state(false);
@@ -80,14 +84,16 @@
   const narrow = $derived(w < 760);
 
   const step = $derived(lesson.steps[Math.min(i, lesson.steps.length - 1)]);
-  const fact = $derived(check ? lesson.tries[2] : lesson.tries[Math.min(k, 1)]);
-  const ans = $derived(String(answerOf(fact)));
+  const q = $derived<EpQ>(check ? lesson.tries[2] : lesson.tries[Math.min(k, 1)]);
+  const ans = $derived(q.ans);
+  /** a question to work out ("What fraction is on the plate?") or a sum ("6 + 3"), and its answer after it */
+  const asks = (x: EpQ) => /(\?|\.\.\.)$/.test(x.text);
   const total = lesson.steps.length + 4;
   const at = $derived(phase === 'intro' || phase === 'load' ? -1 : phase === 'step' ? i : phase === 'teach' ? lesson.steps.length : phase === 'turn' ? lesson.steps.length + 1 + k : total - 1);
   /** "8 + 5 = [13]": the part in brackets lit up */
   const eqParts = $derived(step.eq.split(/(\[[^\]]+\])/).filter(Boolean).map(s => (s.startsWith('[') ? { lit: true, t: s.slice(1, -1) } : { lit: false, t: s })));
-  const choices = fixChoices(ep);
-  const right = answerOf(ep.teach.f);
+  const choices = lesson.teach.choices;
+  const right = lesson.teach.q.ans;
   const PRAISE = ['Yes! You got it!', 'That\'s it!', 'Brilliant!', 'You did it!', 'Spot on!'];
 
   // ---------- the voice ----------
@@ -115,7 +121,7 @@
     const r = ++run;
     phase = 'step'; i = n; stepDone = false; eqOn = false; stuck = false; bubble = null;
     const prev = n === 0 ? null : lesson.steps[n - 1].board, next = lesson.steps[n].board;
-    const t = taskFor(prev, next);
+    const t: Task = lesson.steps[n].do === 'watch' ? { kind: 'watch' } : taskFor(prev, next);
     task = t;
     if (n === 0) s.fitBoards(lesson.steps.map(x => x.board));
     if (t.kind === 'watch') {
@@ -153,13 +159,13 @@
     const s = sc; if (!s) return;
     const r = ++run;
     phase = 'teach'; tsub = 'watch'; wrongOn = false; eqOn = false; bubble = null; task = { kind: 'watch' };
-    const pic = lesson.pic(ep.teach.f);
+    const pic = lesson.teach.q.pic;
     s.fitBoards([pic]); s.show(pic); shown = pic;
     s.shot('wide');
     await speak('ep.teach');
     if (r !== run) return;
     s.shot('buddy');
-    bubble = ep.teach.says; s.talk(2.6); s.present(2.4);
+    bubble = lesson.teach.says; s.talk(2.6); s.present(2.4);
     await sleep(2400);
     if (r !== run) return;
     // proud of its answer (it's wrong)
@@ -169,13 +175,13 @@
     tsub = 'fix'; s.shot('wide'); s.palDo('act'); s.think(2.4);
     await speak('ep.fix');
   }
-  function pickFix(n: number) {
+  function pickFix(n: string) {
     if (tsub !== 'fix' || !sc) return;
     if (n === right) {
       ++run;
       tsub = 'fixed'; sfx.cheer();
       sc.gasp(); setTimeout(() => { if (!gone) sc?.oops(); }, 900); sc.palDo('happy'); sc.burst(sc.over(), 1.2);
-      bubble = `Oops! ${hintFor(lesson, ep.teach.f)} Thank you!`;
+      bubble = lesson.teach.fixed;
       setTimeout(() => { if (!gone) sc?.jump(); }, 2500);
       void speak('ep.fixed');
     } else {
@@ -186,8 +192,8 @@
   function startTurn(n: number) {
     const s = sc; if (!s) return;
     ++run;
-    phase = 'turn'; k = n; typed = ''; misses = 0; locked = false; bubble = null; eqOn = false; task = { kind: 'watch' };
-    const pic = lesson.pic(lesson.tries[n]);
+    phase = 'turn'; k = n; typed = ''; fn = ''; fd = ''; ff = 'n'; misses = 0; locked = false; bubble = null; eqOn = false; task = { kind: 'watch' };
+    const pic = lesson.tries[n].pic;
     s.fitBoards([pic]); s.show(pic); shown = pic;
     s.shot('wide');
     void speak(n === 0 ? 'ep.turn' : 'ep.turn2');
@@ -195,8 +201,8 @@
   async function startCheck() {
     const s = sc; if (!s) return;
     const r = ++run;
-    phase = 'check'; typed = ''; misses = 0; locked = false;
-    const pic = lesson.pic(lesson.tries[2]);
+    phase = 'check'; typed = ''; fn = ''; fd = ''; ff = 'n'; misses = 0; locked = false;
+    const pic = lesson.tries[2].pic;
     s.fitBoards([pic]); s.show(pic); shown = pic;
     s.shot('wide'); s.wave(); s.palDo('happy');
     await speak('ep.check');
@@ -210,24 +216,25 @@
     if (typed.length === ans.length) answer();
   }
   function backspace() { if ((phase === 'turn' || phase === 'check') && !locked) typed = typed.slice(0, -1); }
+  /** the fraction pad's Check */
+  function answerFrac() { if ((phase === 'turn' || phase === 'check') && !locked && fn && fd) { typed = `${fn}/${fd}`; answer(); } }
   function answer() {
     const s = sc;
-    if (typed === ans) {
+    if (q.input === 'frac' ? fracRight(q, typed) : typed === ans) {
       locked = true;
       bubble = PRAISE[(k + misses) % PRAISE.length];
       sfx.star(k); s?.cheer(); s?.palDo('happy'); s?.burst(s.over(), 0.8);
       setTimeout(() => {
         if (gone) return;
-        locked = false; typed = '';
+        locked = false; typed = ''; fn = ''; fd = ''; ff = 'n';
         if (phase === 'check') checked();
         else if (k < 1) startTurn(k + 1);
         else card();
       }, 1200);
     } else {
       misses++; shake++; sfx.miss(); s?.shrug();
-      const t = hintFor(lesson, fact);
-      bubble = misses === 1 ? `Not quite. Try the trick: ${hideAnswer(t, fact)}` : `Here's how: ${t} Type ${ans}.`;
-      setTimeout(() => { if (!locked) typed = ''; }, 500);
+      bubble = misses === 1 ? `Not quite. ${q.input === 'frac' ? '' : 'Try the trick: '}${q.hidden}` : `Here's how: ${q.hint} Type ${ans}.`;
+      setTimeout(() => { if (!locked) { typed = ''; fn = ''; fd = ''; ff = 'n'; } }, 500);
     }
   }
   function card() {
@@ -270,6 +277,10 @@
   function onKey(e: KeyboardEvent) {
     if (game.sheet || game.settingsOpen) return;
     const mine = (fn: () => void) => { e.preventDefault(); e.stopPropagation(); fn(); };
+    if ((phase === 'turn' || phase === 'check') && q.input === 'frac') {
+      // (the fraction pad takes the keys itself)
+      if (/^[0-9/]$/.test(e.key) || ['Backspace', 'Enter', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    }
     if (phase === 'turn' || phase === 'check') {
       if (/^[0-9]$/.test(e.key)) return mine(() => digit(e.key));
       if (e.key === 'Backspace') return mine(backspace);
@@ -309,9 +320,10 @@
   onMount(() => {
     addEventListener('keydown', onKey, true);
     const own = advView(game.profile!).glimmers[starId];
-    void EpisodeScene.create({ setId: ep.set, buddy, star: starId, evolved: !!own?.evolved }).then(async s => {
+    void EpisodeScene.create({ setId: lesson.set, buddy, star: starId, evolved: !!own?.evolved, frac: !lesson.cover }).then(async s => {
       if (gone) { s.dispose(); return; }
       before = stage.swap(s); s.enter();
+      if (import.meta.env.DEV) (window as unknown as { __ep: EpisodeScene }).__ep = s;
       s.onChange = () => { hops = s.hopsDrawn; left = s.left; revealed = new Set(s.revealed); };
       s.setView(viewFor());
       sc = s;
@@ -333,7 +345,7 @@
 </script>
 
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
-<div class="ep" class:narrow style:--sc={strand.color} style:--bg="url({base}{place.backdrop})">
+<div class="ep" class:narrow class:frac={!lesson.cover} style:--sc={lesson.color} style:--bg="url({base}{place.backdrop})">
   <!-- the 3D place is the stage behind the page; this layer passes the kid's touches to it -->
   <div class="hit" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="presentation"></div>
   <div class="vignette"></div>
@@ -345,16 +357,16 @@
   <!-- words pinned to the 3D things -->
   {#if sc && shown}
     {#each tagsNow as t (t.id + t.text)}
-      <div class="pin" use:pin={() => sc!.tagPoint(t)}><span class="tag t-{t.c ?? 'ink'}" style:--fs={t.size ?? 30}>{t.text}</span></div>
+      <div class="pin" use:pin={() => sc!.tagPoint(t)}><span class="tag t-{t.c ?? 'ink'}" style:--fs={t.size ?? 30}>{#if /\d\/\d/.test(t.text)}<FracText text={t.text} size={Math.round((t.size ?? 30) * 0.8)} inline />{:else}{t.text}{/if}</span></div>
     {/each}
     {#if shown.line}
       {#each ticks as n (n)}
         {#if every === 1 || n % every === 0 || n === shown.line.at}
-          <div class="pin" use:pin={() => sc!.tickPoint(n)}><span class="num" class:here={n === shown.line.at && task.kind !== 'hop'}>{n}</span></div>
+          <div class="pin" use:pin={() => sc!.tickPoint(n)}><span class="num" class:here={n === shown.line.at && task.kind !== 'hop'}>{#if shown.line.den && n % shown.line.den !== 0}<Frac n={n} d={shown.line.den} size={22} />{:else}{shown.line.den ? n / shown.line.den : n}{/if}</span></div>
         {/if}
       {/each}
       {#each shown.line.hops as hp, n (n)}
-        {#if n < hops}<div class="pin" use:pin={() => sc!.hopPoint(n)}><span class="hlab" class:back={hp.b < hp.a}>{hp.label}</span></div>{/if}
+        {#if n < hops && hp.label}<div class="pin" use:pin={() => sc!.hopPoint(n)}><span class="hlab" class:back={hp.b < hp.a}><FracText text={hp.label} size={20} /></span></div>{/if}
       {/each}
     {/if}
     {#if phase === 'step' && left > 0 && !stepDone}
@@ -362,14 +374,14 @@
       <div class="pin" use:pin={() => sc!.handPoint()}><span class="hand"><i></i></span></div>
     {/if}
     {#if eqOn && phase === 'step'}
-      {#key i}<div class="pin" use:pin={() => sc!.over()}><div class="eq">{#each eqParts as p}{#if p.lit}<span class="lit">{p.t}</span>{:else}<span>{p.t}</span>{/if}{/each}</div></div>{/key}
+      {#key i}<div class="pin" use:pin={() => sc!.over()}><div class="eq">{#each eqParts as p}{#if p.lit}<span class="lit"><FracText text={p.t} size={narrow ? 26 : 34} /></span>{:else}<span><FracText text={p.t} size={narrow ? 22 : 30} /></span>{/if}{/each}</div></div>{/key}
     {/if}
     {#if phase === 'teach' && wrongOn}
-      {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{askText(ep.teach.f)} = {#if tsub === 'fixed'}<span class="lit">{right}</span>{:else}<s>{ep.teach.wrong}</s>?{/if}</div></div>{/key}
+      {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:long={lesson.teach.q.text.length > 10 && !asks(lesson.teach.q)} class:isq={asks(lesson.teach.q)} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{#if asks(lesson.teach.q)}<small class="qt"><FracText text={lesson.teach.q.text} size={narrow ? 14 : 18} /></small>{:else}<FracText text={lesson.teach.q.text} size={narrow ? 22 : 30} /> = {/if}<span class="ans">{#if tsub === 'fixed'}<span class="lit"><FracText text={right} size={narrow ? 26 : 34} /></span>{:else}<s><FracText text={lesson.teach.wrong} size={narrow ? 22 : 30} /></s>?{/if}</span></div></div>{/key}
     {/if}
     <!-- one speech bubble, by the buddy: its own words when it has some, else the story's -->
     {#if bubble || (line && phase !== 'load')}
-      {#key bubble ?? line}<div class="pin" use:pin={() => sc!.bubbleAt()}><div class="say" class:story={!bubble} class:oops={!!bubble && misses > 0 && !locked && (phase === 'turn' || phase === 'check')} class:good={!!bubble && locked}>{#if bubble}<b>{FRIEND[buddy].name}</b>{/if}{bubble ?? line}</div></div>{/key}
+      {#key bubble ?? line}<div class="pin" use:pin={() => sc!.bubbleAt()}><div class="say" class:story={!bubble} class:oops={!!bubble && misses > 0 && !locked && (phase === 'turn' || phase === 'check')} class:good={!!bubble && locked}>{#if bubble}<b>{FRIEND[buddy].name}</b>{/if}<FracText text={bubble ?? line} size={20} inline /></div></div>{/key}
     {/if}
   {/if}
 
@@ -397,7 +409,7 @@
     {:else if phase === 'step'}
       <div class="row">
         {#if !stepDone && task.kind !== 'watch'}
-          <span class="pill task">{taskWords(task, ep.set)}</span>
+          <span class="pill task">{taskWords(task, lesson.set, lesson.noun)}</span>
           {#if stuck}<button class="btn ghostbtn" onclick={showMe}>Show me</button>{/if}
         {:else if stepDone}
           <span class="pill">{i < lesson.steps.length - 1 ? 'See the trick?' : 'That\'s the trick!'}</span>
@@ -410,7 +422,7 @@
       {#if tsub === 'fix'}
         <div class="fix">
           <span class="pill task">Tap the right answer</span>
-          <div class="choices">{#each choices as c, n}<button class="choice" onclick={() => pickFix(c)}><span class="kbd">{n + 1}</span>{c}</button>{/each}</div>
+          <div class="choices">{#each choices as c, n}<button class="choice" onclick={() => pickFix(c)}><span class="kbd">{n + 1}</span><FracText text={c} size={30} /></button>{/each}</div>
         </div>
       {:else if tsub === 'fixed'}
         <div class="row"><span class="pill">You fixed it!</span><button class="btn btn-primary btn-big go" onclick={primary}>My turn! <span class="kbd">enter</span></button></div>
@@ -419,8 +431,12 @@
       {/if}
     {:else if phase === 'turn' || phase === 'check'}
       <div class="turn">
-        {#key shake}<div class="ask" class:shake={shake > 0}>{#if phase === 'turn'}<small>Your turn {k + 1} of 2</small>{:else}<small>Quick check</small>{/if}<span>{askText(fact)} =</span><span class="box" class:good={locked}>{typed || ' '}</span></div>{/key}
-        <NumPad ondigit={digit} onback={backspace} compact={narrow} lit={null} />
+        {#key shake}<div class="ask" class:shake={shake > 0}>{#if phase === 'turn'}<small>Your turn {k + 1} of 2</small>{:else}<small>Quick check</small>{/if}<span><FracText text={q.text} size={34} />{asks(q) ? '' : ' ='}</span>{#if q.input === 'frac'}<span class="fbox" class:good={locked}><Frac n={fn} d={fd} size={34} focus={locked ? null : ff} /></span>{:else}<span class="box" class:good={locked}>{typed || ' '}</span>{/if}</div>{/key}
+        {#if q.input === 'frac'}
+          <FractionPad n={fn} d={fd} focus={ff} disabled={locked} compact={narrow} onchange={(v) => { fn = v.n; fd = v.d; ff = v.focus; sfx.click(); }} onsubmit={answerFrac} />
+        {:else}
+          <NumPad ondigit={digit} onback={backspace} compact={narrow} lit={null} />
+        {/if}
       </div>
     {/if}
   </div>
@@ -432,7 +448,7 @@
         <div class="cin">
           <small>{phase === 'checked' ? 'Remembered!' : 'Trick card'}</small>
           <h2>{lesson.title}</h2>
-          <div class="cpic"><LearnBoard board={coverOf(lesson)} {buddy} view={boundsOf([coverOf(lesson)])} still /></div>
+          <div class="cpic">{#if lesson.art}<img class="cart" src="{base}{lesson.art}" alt="" />{:else if lesson.cover}<LearnBoard board={lesson.cover} {buddy} view={boundsOf([lesson.cover])} still />{/if}</div>
           <p>{cardWords}</p>
         </div>
       </div>
@@ -492,10 +508,20 @@
   .hand { transform: translate(-50%, -50%); width: 46px; height: 46px; border-radius: 50%; border: 4px solid rgba(255, 255, 255, .95); box-shadow: 0 0 0 3px rgba(255, 196, 60, .8), 0 4px 14px rgba(0, 0, 0, .3); display: grid; place-items: center; animation: press 2.2s ease-in-out infinite; }
   .hand i { width: 16px; height: 16px; border-radius: 50%; background: #fff; }
   @keyframes press { 0%, 100% { opacity: 0; scale: 1.3; } 10%, 80% { opacity: 1; scale: .85; } 90% { opacity: 0; } }
-  .eq { font: 600 clamp(30px, 4.4vh, 46px)/1.15 var(--font-ui); color: #3a2400; background: linear-gradient(#fffaf0, #fff0c8); padding: 6px 22px; border-radius: 22px; box-shadow: 0 0 0 4px #ffd75e, 0 0 34px rgba(255, 200, 60, .85), 0 12px 24px rgba(90, 50, 0, .35); animation: eqin .5s cubic-bezier(.3, 1.5, .5, 1) both; white-space: pre; }
+  .eq { font: 600 clamp(30px, 4.4vh, 46px)/1.15 var(--font-ui); color: #3a2400; background: linear-gradient(#fffaf0, #fff0c8); padding: 6px 22px; border-radius: 22px; box-shadow: 0 0 0 4px #ffd75e, 0 0 34px rgba(255, 200, 60, .85), 0 12px 24px rgba(90, 50, 0, .35); animation: eqin .5s cubic-bezier(.3, 1.5, .5, 1) both; white-space: pre; width: max-content; }
+  .eq :global(.ft > span) { white-space: pre; }
   .eq .lit { display: inline-block; background: #ffc93a; color: #4a2f00; padding: 0 12px; border-radius: 12px; box-shadow: 0 4px 0 #e0a51c; margin: 0 2px; }
+  /* a question in words (place value: "3 tens 4 ones") */
+  .long { font-size: .68em; }
   .eq.wrong { box-shadow: 0 0 0 4px #ffb3c8, 0 12px 24px rgba(90, 20, 40, .3); }
   .eq.wrong s { color: #d63c5c; text-decoration-thickness: 4px; }
+  /* a question (not a sum): the question small on top, the buddy's answer under it */
+  .eq.isq { display: flex; flex-direction: column; align-items: center; padding-top: 4px; }
+  .eq .qt { font: 600 18px/1.2 var(--font-ui); color: #7a6440; }
+  .eq .ans { display: inline-flex; align-items: center; gap: 6px; }
+  /* a fraction can't take a line through its text: a slash across it instead */
+  .eq.wrong s:has(:global(.frac)) { position: relative; text-decoration: none; }
+  .eq.wrong s:has(:global(.frac))::after { content: ''; position: absolute; left: -6px; right: -6px; top: 50%; height: 4px; margin-top: -2px; background: #d63c5c; border-radius: 2px; transform: rotate(-20deg); }
   .eq.fixed { box-shadow: 0 0 0 4px #7fe0b0, 0 0 34px rgba(80, 220, 150, .7), 0 12px 24px rgba(0, 60, 30, .3); }
   @keyframes eqin { from { opacity: 0; transform: translate(-50%, -60%) scale(.6); } }
   .say { transform: translate(18px, -60%); white-space: normal; width: max-content; max-width: min(400px, 34vw); background: #fff; border-radius: 26px; padding: 12px 20px 14px; font: 600 22px/1.3 var(--font-ui); text-align: center; color: var(--ink); box-shadow: 0 0 0 3px #fff, 0 12px 26px -10px rgba(40, 20, 80, .55); animation: bub .35s cubic-bezier(.3, 1.4, .5, 1) both; }
@@ -553,6 +579,9 @@
   .cin h2 { margin: 0; font: 600 clamp(22px, 2.6vw, 30px)/1.05 var(--font-ui); color: #4a2f00; }
   .cpic { position: relative; width: 100%; aspect-ratio: 1.6; }
   .cpic :global(.lb) { position: absolute; inset: 0; }
+  .cart { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
+  .fbox { display: inline-grid; place-items: center; padding: 4px 8px; border-radius: 16px; background: #fff; }
+  .fbox.good { box-shadow: 0 0 0 4px #7ed8a2; }
   .cin p { margin: 0; font: 600 14px/1.3 var(--font-body); color: #6b4a14; }
   .prizes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .prize { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 86px; height: 88px; gap: 1px; border-radius: 20px; background: rgba(255, 255, 255, .95); box-shadow: 0 0 0 3px #ffe9a8, var(--shadow-sm); color: #b07a10; }
@@ -576,10 +605,13 @@
   .narrow .choice { min-width: 92px; height: 70px; font-size: 32px; }
   .narrow .choices { gap: 10px; }
   .narrow .ask { font-size: 32px; padding: 6px 16px; }
-  .narrow .say { font-size: 15px; max-width: 58vw; padding: 8px 12px 10px; transform: translate(10px, -40%); }
+  .narrow .say { font-size: 15px; max-width: min(58vw, calc(100vw - var(--px, 0) * 1px - 22px)); padding: 8px 12px 10px; transform: translate(10px, -40%); }
   .narrow .num { font-size: 13px; }
   .narrow .num.here { font-size: 18px; }
   .narrow .eq { font-size: 26px; padding: 4px 14px; }
+  .narrow .eq .qt { font-size: 14px; }
+  /* (fractions on a phone: the pie is right under the friends, so the bubble sits a little higher) */
+  .narrow.frac .say { transform: translate(10px, -74%); }
   .narrow .cardside { left: 0; right: 0; top: auto; bottom: 10px; translate: none; width: 100%; padding: 0 12px; gap: 8px; }
   .narrow .card { width: min(190px, 48vw); }
   .narrow .cin { gap: 2px; }

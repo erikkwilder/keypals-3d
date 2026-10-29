@@ -11,7 +11,9 @@
 export type Op = 'x' | '+' | '-' | '/';
 /** `a op b`. For times, b is the table it belongs to ("six twos" is 6 × 2 in the 2s); for divide, b is
  *  the number shared by (42 ÷ 6); for minus, b is the number taken away. */
-export type Fact = { a: number; b: number; op?: Op };
+/** (a Learn question with words of its own, like "3 tens 4 ones" or "47 → nearest 10", has `text`, and
+ *  `ans` when its answer isn't the plain sum: see math/placeLessons.ts) */
+export type Fact = { a: number; b: number; op?: Op; text?: string; ans?: number };
 
 const opOf = (f: Fact): Op => f.op ?? 'x';
 export const factId = (f: Fact) => `${f.a}${opOf(f)}${f.b}`;
@@ -21,7 +23,7 @@ export const parseFact = (id: string): Fact => {
   const op = m[2] as Op;
   return op === 'x' ? { a: +m[1], b: +m[3] } : { a: +m[1], b: +m[3], op };
 };
-export const answerOf = (f: Fact) => { const op = opOf(f); return op === '+' ? f.a + f.b : op === '-' ? f.a - f.b : op === '/' ? f.a / f.b : f.a * f.b; };
+export const answerOf = (f: Fact) => { if (f.ans !== undefined) return f.ans; const op = opOf(f); return op === '+' ? f.a + f.b : op === '-' ? f.a - f.b : op === '/' ? f.a / f.b : f.a * f.b; };
 /** The sign as shown: ×, +, − (a real minus) and ÷. */
 export const opSign = (f: Fact | Op) => ({ x: '×', '+': '+', '-': '−', '/': '÷' })[typeof f === 'string' ? f : opOf(f)];
 /** A fact's partner, learned together: the turnaround (6 × 2 and 2 × 6, 3 + 5 and 5 + 3), or for minus

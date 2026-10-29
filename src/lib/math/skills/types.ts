@@ -14,7 +14,13 @@ export type InputKind = 'number' | 'fraction' | 'choice' | 'numberline' | 'grid'
 
 /** A fraction picture: a pie cut into `parts` slices, a bar cut into `parts` pieces, or a set of `parts`
  *  cupcakes, `filled` of them shaded (or iced). */
-export type Pic = { kind: 'pie' | 'bar' | 'set'; parts: number; filled: number };
+export type FracPic = { kind: 'pie' | 'bar' | 'set'; parts: number; filled: number };
+/** Money and decimal pictures: coins (their values in cents, 100 for a dollar coin, -100 for a dollar
+ *  bill), or a chocolate slab of 100 squares, `filled` of them still there (hundredths). */
+export type Pic = FracPic | { kind: 'coins'; coins: number[] } | { kind: 'grid'; parts: 100; filled: number };
+
+/** A number as base-ten blocks: thousands cubes, hundreds flats, tens rods and ones cubes. */
+export type Blocks = { th?: number; h: number; t: number; o: number };
 
 /** One piece of a question line. */
 export type Part =
@@ -23,6 +29,10 @@ export type Part =
   | { t: 'frac'; n: number | null; d: number | null }
   | { t: 'op'; s: string }
   | { t: 'pic'; pic: Pic }
+  /** base-ten blocks (place value) */
+  | { t: 'blocks'; b: Blocks }
+  /** an amount of money: 35¢, or $1.35 from a dollar up (or when `dollars`) */
+  | { t: 'money'; cents: number; dollars?: boolean }
   /** where the answer goes (a number blank) */
   | { t: 'blank' };
 

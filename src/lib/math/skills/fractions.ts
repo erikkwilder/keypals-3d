@@ -6,7 +6,7 @@
 // again "until it's different": every choice comes from a list that already leaves out what it mustn't
 // be, so a question is made in one go whatever the random numbers are.
 import type { Rng } from '../../engine/rng';
-import type { Answer, Item, Part, Pic, Skill } from './types';
+import type { Answer, FracPic, Item, Part, Pic, Skill } from './types';
 
 const pick = <T>(rng: Rng, xs: readonly T[]): T => xs[Math.min(xs.length - 1, Math.floor(rng() * xs.length))];
 /** a number from lo to hi that isn't `not` (lo..hi must hold at least two numbers) */
@@ -38,7 +38,7 @@ export const frName: Skill = {
   make(rng, sub, level) {
     const d = +sub;
     const n = level === 1 ? (rng() < 0.6 ? 1 : int(rng, 1, d - 1)) : int(rng, 1, d - 1);
-    const kind: Pic['kind'] = rng() < 0.5 ? 'pie' : 'bar';
+    const kind: FracPic['kind'] = rng() < 0.5 ? 'pie' : 'bar';
     return {
       skill: 'fr-name', key: `fr-name:${d}`, id: `fr-name:${kind}:${n}/${d}`,
       ask: 'What fraction is shaded?', prompt: [pic({ kind, parts: d, filled: n })],
@@ -163,7 +163,7 @@ export const frUnit: Skill = {
   make(rng, sub, level) {
     const d = pick(rng, level === 1 ? [2, 3, 4, 6] : [3, 4, 5, 6, 8, 10, 12]);
     if (sub === 'one') {
-      const kind: Pic['kind'] = rng() < 0.5 ? 'pie' : 'bar';
+      const kind: FracPic['kind'] = rng() < 0.5 ? 'pie' : 'bar';
       return {
         skill: 'fr-unit', key: 'fr-unit:one', id: `fr-unit:one:${kind}:${d}`,
         ask: 'One piece is what fraction of the whole?', prompt: [pic({ kind, parts: d, filled: 1 })],

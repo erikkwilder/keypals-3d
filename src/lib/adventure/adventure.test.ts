@@ -219,3 +219,26 @@ describe('Fraction Falls', () => {
     expect(foeFor(p, NODE['meadow-1'], pl, 3).mischief).toBeUndefined();
   });
 });
+
+describe('Counting Caves', () => {
+  it('is a world of its own with six stops, opens once place value is started, and every card is place value', () => {
+    const p = newProfile('Ava', 'dino'), a = advOf(p);
+    expect(nodesOf('caves').map(n => n.kind)).toEqual(['battle', 'battle', 'practice', 'battle', 'battle', 'champion']);
+    expect(currentNode(a, 'caves')!.id).toBe('caves-0');
+    expect(worldOpen(p, 'caves')).toBe(false);
+    const m = (p.math = mathOf(p));
+    noteSkillAnswers(m, [{ key: 'pv-tens:read', ok: true, thinkMs: 3000 }, { key: 'pv-count:next', ok: true, thinkMs: 2000 }], Date.now());
+    expect(worldOpen(p, 'caves')).toBe(true);
+    const pl = mathPool(p, 'place');
+    expect(pl.subject === 'math' && pl.skills!.every(s => s.key.startsWith('pv-'))).toBe(true);
+    const b = newBattle({ pool: pl, seed: 6, sparkMax: 20, role: 'heart', gear: null, team: [], foe: foeFor(p, NODE['caves-0'], pl, 6) });
+    expect(b.cards.every(c => c.item?.skill.startsWith('pv-'))).toBe(true);
+  });
+  it('its Grumbles shake crystals loose and live there; the Champion is the Prism Hornback', () => {
+    const p = newProfile('Ava', 'dino'), pl = mathPool(p, 'place');
+    expect(foeFor(p, NODE['caves-5'], pl, 1)).toMatchObject({ glimmer: 'prismhorn', champion: true, mischief: { kind: 'pebbles' } });
+    const seen = new Set<string>();
+    for (let s = 1; s <= 200; s++) { const f = foeFor(p, NODE['caves-1'], pl, s); expect(f.mischief?.name).toMatch(/crystals/); seen.add(f.glimmer); }
+    expect(['geodemole', 'rollodillo', 'potgolem'].every(id => seen.has(id))).toBe(true);
+  });
+});

@@ -4,7 +4,7 @@
 // answer is still how a skill grows all the way to a bloom, so choices come up less as a skill grows, and
 // never in a checkpoint or placement.
 import type { Rng } from '../../engine/rng';
-import type { Item, Part } from './types';
+import type { FracPic, Item, Part } from './types';
 import type { SkillLesson } from './course';
 import { sameValue } from './fractions';
 
@@ -13,7 +13,8 @@ type F = { n: number; d: number };
 export const CHOICE_RIGHT = 'right';
 const fracsIn = (it: Item): F[] => it.prompt.flatMap(p => (p.t === 'frac' && p.n !== null && p.d !== null ? [{ n: p.n, d: p.d }] : []));
 const numsIn = (it: Item): number[] => it.prompt.flatMap(p => (p.t === 'num' ? [p.n] : []));
-const picIn = (it: Item) => it.prompt.find(p => p.t === 'pic')?.pic ?? null;
+/** the fraction picture in a question (pies, bars and sets: money pictures don't count) */
+const picIn = (it: Item): FracPic | null => { for (const p of it.prompt) if (p.t === 'pic' && (p.pic.kind === 'pie' || p.pic.kind === 'bar' || p.pic.kind === 'set')) return p.pic; return null; };
 /** the gap's own bottom number, for "what goes on top?" (a fraction with its top missing) */
 const gapBottom = (it: Item) => { const g = it.prompt.find(p => p.t === 'frac' && p.n === null); return g && g.t === 'frac' ? g.d : null; };
 

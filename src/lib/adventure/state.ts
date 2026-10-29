@@ -23,13 +23,13 @@ import type { RegionId } from '../engine/course';
 import { newStats, noteStats, type GhostStats, type RivalState } from './ghosts';
 
 // ---------- the map ----------
-export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls';
+export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls' | 'caves' | 'market';
 export type NodeKind = 'battle' | 'practice' | 'champion';
 export type MapNode = { id: string; island: IslandId; kind: NodeKind; n: number };
 /** The worlds on the world map: the Sky Islands (the first three islands, any math or typing), and worlds
  *  of one kind of math (Fraction Falls: every battle card is a fraction). Each world's stops are in order
  *  on their own; finishing one world doesn't open another. */
-export type WorldId = 'sky' | 'falls';
+export type WorldId = 'sky' | 'falls' | 'caves' | 'market';
 export type Island = {
   id: IslandId; world: WorldId; name: string; element: Element; region: RegionId; champion: GlimmerId; blurb: string; odds: Partial<Record<Rarity, number>>;
   /** how tough its Grumbles are (and how many shells they give): 0 for the first island */
@@ -50,6 +50,16 @@ export const ISLANDS: Island[] = [
   { id: 'falls', world: 'falls', tier: 1, name: 'Fraction Falls', element: 'tide', region: 'cliffs', champion: 'stormlamb', area: 'fractions',
     natives: ['bubbleocto', 'rainbootfrog', 'frostjelly'], mischief: { kind: 'rain', name: 'Waterfall spray is coming' },
     blurb: 'A pie shop, bridges from pool to pool, and a waterfall for every fraction.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
+  // Counting Caves: crystal caves with glowing number veins, mine carts of blocks, and a crystal throne at
+  // the top; its Grumbles shake crystals loose from the ceiling
+  { id: 'caves', world: 'caves', tier: 1, name: 'Counting Caves', element: 'stone', region: 'burrows', champion: 'prismhorn', area: 'place',
+    natives: ['geodemole', 'rollodillo', 'potgolem'], mischief: { kind: 'pebbles', name: 'Falling crystals are coming' },
+    blurb: 'Crystal caves, mine carts full of blocks, and a crystal throne at the top.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
+  // Market Isle: a floating bazaar of striped stalls, a coin fountain, a balance scale and a golden market
+  // hall at the top; the wind from the awnings is its weather
+  { id: 'market', world: 'market', tier: 1, name: 'Market Isle', element: 'sun', region: 'village', champion: 'prismhorn', area: 'decimals',
+    natives: ['geodemole', 'popcornpuff', 'rollodillo', 'teakettledrake'], mischief: { kind: 'gust', name: 'A gust from the awnings is coming' },
+    blurb: 'Striped stalls, a coin fountain and a golden market hall. Every battle card is money or decimals.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
 ];
 export const islandsOf = (w: WorldId) => ISLANDS.filter(i => i.world === w);
 export const ISLAND: Record<IslandId, Island> = Object.fromEntries(ISLANDS.map(i => [i.id, i])) as Record<IslandId, Island>;

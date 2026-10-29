@@ -5,8 +5,8 @@
   // little above, so the chocolate pieces are drawn the same way: each one a block standing on the tray's
   // floor (wider at the front, like the floor), with its front edge showing and the tray's front rim drawn
   // over it, so it sits down in the dish.
-  import type { Pic } from '../types';
-  type Props = { pic: Pic; size?: number };
+  import type { FracPic } from '../types';
+  type Props = { pic: FracPic; size?: number };
   let { pic, size = 150 }: Props = $props();
   const base = import.meta.env.BASE_URL;
   const uid = `fp${Math.random().toString(36).slice(2, 8)}`;

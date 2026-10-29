@@ -102,6 +102,15 @@ function blockStack() {
   spots.forEach(([x, y, z, r], i) => { const m = mesh(geo, std(cols[i], { roughness: 0.45 }), [x, y, z]); m.rotation.y = r; g.add(m); });
   return g;
 }
+/** a cluster of glowing blue crystals on a rock (the Crystal Cave Workshop) */
+function crystals() {
+  const g = new THREE.Group();
+  g.add(mesh(new THREE.DodecahedronGeometry(0.08), std(0x7d6a5c, { roughness: 0.9, flatShading: true }), [0, 0.03, 0]));
+  const glass = std(0x7fc4ff, { roughness: 0.15, metalness: 0.1, emissive: 0x2f7fe0, emissiveIntensity: 0.55, transparent: true, opacity: 0.92, flatShading: true });
+  const spots: [number, number, number, number, number][] = [[0, 0.17, 0, 0.035, 0], [0.05, 0.12, 0.02, 0.025, 0.5], [-0.05, 0.11, 0.01, 0.026, -0.45], [0.01, 0.1, 0.06, 0.02, 0.3], [-0.02, 0.09, -0.05, 0.022, -0.3]];
+  for (const [x, y, z, r, lean] of spots) { const m = mesh(new THREE.OctahedronGeometry(r, 0), glass, [x, y, z]); m.scale.set(1, 3.2, 1); m.rotation.z = lean; g.add(m); }
+  return g;
+}
 function brushJar() {
   const g = new THREE.Group();
   g.add(mesh(new THREE.CylinderGeometry(0.06, 0.055, 0.15, 20), std(0x6fa8dc, { roughness: 0.35 }), [0, 0.075, 0]));
@@ -149,6 +158,7 @@ export function propsFor(id: SetId): { left: THREE.Group; right: THREE.Group } {
     case 'picnic': return { left: basket(), right: lemonade() };
     case 'workshop': return { left: blockStack(), right: brushJar() };
     case 'garden': return { left: flowerPot(), right: wateringCan() };
+    case 'cave': return { left: crystals(), right: blockStack() };
   }
 }
 
@@ -162,6 +172,7 @@ const HERO: Record<SetId, [string, number, number][]> = {
   picnic: [['basket', 0.3, 0.4], ['', 0, 0]],
   workshop: [['train', 0.22, 0.7], ['paints', 0.18, -0.3]],
   garden: [['flowerpot', 0.34, 0.2], ['can', 0.28, -0.8]],
+  cave: [['', 0, 0], ['lantern', 0.36, -0.3]],
 };
 /** The set's modelled things for the front corners, or null if they can't load (the simple ones stand in). */
 export async function heroProps(id: SetId): Promise<{ left: THREE.Group; right: THREE.Group } | null> {

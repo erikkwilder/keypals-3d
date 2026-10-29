@@ -79,7 +79,7 @@ describe('Learn tries', () => {
   it('each try uses its own lesson\'s trick, so the help after a miss matches the lesson', async () => {
     const { hintFor } = await import('./learn');
     for (const l of LESSONS) for (const f of l.tries) {
-      if (!l.id.startsWith('times-')) expect(lessonForFact(f).id, `${l.id} ${f.a} ${f.b}`).toBe(l.id);
+      if (!l.id.startsWith('times-') && !l.area) expect(lessonForFact(f).id, `${l.id} ${f.a} ${f.b}`).toBe(l.id);
       expect(hintFor(l, f), `${l.id} ${f.a} ${f.b}`).toContain(String(answerOf(f)));
     }
   });
