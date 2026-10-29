@@ -12,7 +12,6 @@
   import { parseFact, answerOf, opSign } from '../math/facts';
   import { MATH_TREASURE, mathGoal, MATH_RIDE } from '../math/meter';
   import { mathOf, nextMathLesson } from '../math/progress';
-  import Flower from '../math/ui/Flower.svelte';
   import RunResults from '../ui/RunResults.svelte';
 
   const last = game.mathLast;
@@ -69,9 +68,9 @@
           {/if}
           {#if grew.bloomed.length || grew.budded.length || grew.sprouted.length}
             <div class="grew" title="New growth in your Fact Garden">
-              {#if grew.bloomed.length}<span class="g"><Flower stage={3} size={26} hue={320} /><b>{grew.bloomed.length}</b> bloomed</span>{/if}
-              {#if grew.budded.length}<span class="g"><Flower stage={2} size={26} hue={270} /><b>{grew.budded.length}</b> budding</span>{/if}
-              {#if grew.sprouted.length}<span class="g"><Flower stage={1} size={26} /><b>{grew.sprouted.length}</b> sprouted</span>{/if}
+              {#if grew.bloomed.length}<span class="g"><img class="gst" src="{import.meta.env.BASE_URL}icons/bloom.webp" alt="" /><b>{grew.bloomed.length}</b> bloomed</span>{/if}
+              {#if grew.budded.length}<span class="g"><img class="gst" src="{import.meta.env.BASE_URL}garden/bud.webp" alt="" /><b>{grew.budded.length}</b> budding</span>{/if}
+              {#if grew.sprouted.length}<span class="g"><img class="gst" src="{import.meta.env.BASE_URL}garden/sprout.webp" alt="" /><b>{grew.sprouted.length}</b> sprouted</span>{/if}
             </div>
           {/if}
         </div>
@@ -80,7 +79,7 @@
   </RunResults>
 {/if}
 
-{#snippet gardenArt()}<Flower stage={3} size={36} hue={320} />{/snippet}
+{#snippet gardenArt()}<img class="gst big" src="{import.meta.env.BASE_URL}icons/garden.webp" alt="" />{/snippet}
 
 <style>
   .bhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 4px 0 5px; }
@@ -102,4 +101,6 @@
   .grew { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .g { display: flex; align-items: center; gap: 3px; font: 700 13.5px var(--font-body); color: var(--ink2); }
   .g b { font: 600 18px var(--font-ui); color: var(--ink); }
+  .gst { width: 28px; height: 28px; object-fit: contain; vertical-align: middle; }
+  .gst.big { width: 40px; height: 40px; }
 </style>
