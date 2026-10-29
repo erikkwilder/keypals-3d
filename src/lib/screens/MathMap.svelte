@@ -29,6 +29,8 @@
   import { SKILL_LESSONS, SKILL_PLACEMENTS, nextSkillLesson, skillMovedOn, skillPassed, skillRegionOpen, skillRegionsOf, skillUnlocked, type SkillLesson, type SkillRegion } from '../math/skills/course';
   import { keyStage } from '../math/skills/progress';
   import type { AreaId } from '../math/skills/types';
+  import { MARKET_LESSON, MARKET_LESSONS } from '../math/market/episodes';
+  import MarketEpisode from '../math/market/MarketEpisode.svelte';
 
   const p = $derived(game.profile!);
   const m = $derived(mathOf(p));
@@ -119,6 +121,8 @@
 </script>
 
 <svelte:window onkeydown={onKey} />
+
+{#if game.learnOverlay && MARKET_LESSON[game.learnOverlay]}<MarketEpisode lesson={MARKET_LESSON[game.learnOverlay]} onclose={() => (game.learnOverlay = null)} />{/if}
 
 <div class="screen map" bind:clientWidth={sw}>
   <header class="bar">
@@ -240,6 +244,19 @@
           <img src="{import.meta.env.BASE_URL}math/pizza/tile.webp" alt="" />
           <span class="ptext"><b>Pizza Rush</b><small>Arcade: serve fraction pizzas to hungry Glimmers.{(m.arcade?.['pizza-rush']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['pizza-rush'].best}` : ''}</small></span>
         </button>
+      {:else if area === 'decimals'}
+        <!-- the money arcade game (the Arcade hub has its cabinet too: screen 'market') -->
+        <button class="placement arcade" onclick={() => { sfx.click(); game.go('market'); }}>
+          <img src="{import.meta.env.BASE_URL}math/market/tile.webp" alt="" />
+          <span class="ptext"><b>Market Dash</b><small>Arcade: pay and give change to Glimmer shoppers.{(m.arcade?.['market-dash']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['market-dash'].best}` : ''}</small></span>
+        </button>
+        <!-- the money Learn episodes, at the sky market (open over the map: game.learnOverlay) -->
+        <div class="learnrow">
+          <span class="lrh"><Icon name="book" size={20} /> Learn it</span>
+          {#each MARKET_LESSONS as l (l.id)}
+            <button class="lchip" class:done={isLearned(m, l.id)} onclick={() => { sfx.click(); game.learnOverlay = l.id; }}>{l.title}{#if isLearned(m, l.id)} <Icon name="check" size={16} />{/if}</button>
+          {/each}
+        </div>
       {/if}
       {#if area === 'place'}
         <!-- the place value arcade game (its cabinet is in the Arcade too) -->
@@ -430,6 +447,10 @@
   .placement.arcade { background: linear-gradient(#fff8ec, #ffe9c4); box-shadow: 0 0 0 3px #ffb44d, var(--shadow-sm); padding: 6px 18px 6px 6px; }
   .placement.arcade img { flex: none; width: 66px; height: 66px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(120, 50, 10, .3)); }
   .placement.arcade b { color: #c0392b; }
+  .learnrow { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .lrh { display: inline-flex; align-items: center; gap: 4px; font: 800 13px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-right: 4px; }
+  .lchip { display: inline-flex; align-items: center; gap: 4px; border: 0; cursor: pointer; font: 700 14px var(--font-body); color: #6b3d10; background: #fff6df; border-radius: 999px; padding: 6px 12px; box-shadow: inset 0 0 0 2px #f0d38a; }
+  .lchip.done { background: #e2f7ee; color: #0f6a48; box-shadow: inset 0 0 0 2px #9fdcbf; }
   .ptext { display: flex; flex-direction: column; }
   .ptext b { font: 600 20px var(--font-ui); }
   .ptext small { font: 600 14px/1.3 var(--font-body); color: var(--muted); }

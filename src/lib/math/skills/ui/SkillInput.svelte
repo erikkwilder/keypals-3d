@@ -5,6 +5,9 @@
   export type CustomInputProps = { item: Item; disabled: boolean; compact: boolean; onanswer: (a: Answer) => void; onfirst: () => void };
   const CUSTOM = new Map<string, Component<CustomInputProps>>();
   export function registerInput(name: string, c: Component<CustomInputProps>) { CUSTOM.set(name, c); }
+  // the inputs the areas bring
+  import CoinTray from './CoinTray.svelte';
+  registerInput('coins', CoinTray);
 </script>
 
 <script lang="ts">

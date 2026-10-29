@@ -6,6 +6,7 @@ import { answerOf, factId, opSign, type Fact, type Op } from '../facts';
 import { groupFacts, trickOf } from '../course';
 import { checkAnswer, FRACTION_SKILLS } from './fractions';
 import { PLACE_SKILLS } from './place';
+import { DECIMAL_SKILLS } from './decimals';
 import type { Area, AreaId, Item, Skill } from './types';
 
 const base = 'math/';
@@ -16,7 +17,7 @@ export const AREAS: Area[] = [
   { id: 'share', op: '/', name: 'Sharing', grades: '3', blurb: 'Dividing, thinking of the times tables.', color: '#2fa898', art: `${base}strand-share.webp`, live: true },
   { id: 'fractions', name: 'Fractions', grades: '3-5', blurb: 'Parts of a whole: naming, comparing, equal fractions and adding.', color: '#e0567a', art: `${base}area-fractions.webp`, sign: '½', live: true },
   { id: 'place', name: 'Place value and big numbers', grades: 'K-4', blurb: 'Counting on, tens and ones, hundreds, adding and taking away big numbers, rounding, numbers to a million.', color: '#5a8de8', art: `${base}area-place.webp`, sign: '10s', live: true },
-  { id: 'decimals', name: 'Decimals and money', grades: '2-5', blurb: 'Coins and change, tenths and hundredths.', color: '#d9a21b', art: `${base}area-fractions.webp`, live: false },
+  { id: 'decimals', name: 'Decimals and money', grades: '2-5', blurb: 'Coins and change, tenths and hundredths, adding decimals and rounding.', color: '#d9a21b', art: `${base}area-decimals.webp`, sign: '¢', live: true },
   { id: 'measure', name: 'Measurement and time', grades: '1-5', blurb: 'Clocks, lengths, weights, area and perimeter.', color: '#8a6bd6', art: `${base}area-fractions.webp`, live: false },
   { id: 'shapes', name: 'Shapes and angles', grades: 'K-8', blurb: 'Shapes, symmetry, angles, area and volume.', color: '#2fb3a0', art: `${base}area-fractions.webp`, live: false },
   { id: 'ratios', name: 'Ratios and percents', grades: '6-7', blurb: 'Ratios, rates, percents.', color: '#f07a3a', art: `${base}area-fractions.webp`, live: false },
@@ -52,7 +53,7 @@ const FACT_SKILLS: Skill[] = [
   factSkill('div-facts', '/', 3, '3.OA.C.7', 'Sharing (dividing)', 'Knows the division facts that undo the times tables.', ['/2', '/10', '/5', '/4', '/3', '/9', '/6', '/8', '/7']),
 ];
 
-export const SKILLS: Skill[] = [...FACT_SKILLS, ...FRACTION_SKILLS, ...PLACE_SKILLS];
+export const SKILLS: Skill[] = [...FACT_SKILLS, ...FRACTION_SKILLS, ...PLACE_SKILLS, ...DECIMAL_SKILLS];
 export const SKILL: Record<string, Skill> = Object.fromEntries(SKILLS.map(s => [s.id, s]));
 export const skillsOf = (area: AreaId) => SKILLS.filter(s => s.area === area);
 /** A memory key's skill and sub: `fr-name:4` -> fr-name, 4. */

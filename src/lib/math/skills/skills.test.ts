@@ -14,9 +14,9 @@ const T0 = new Date('2026-11-02T16:00:00').getTime();
 const DAY = 86_400_000;
 
 describe('skills registry', () => {
-  it('lists every K-8 area, the four fact strands and fractions live', () => {
+  it('lists every K-8 area, the four fact strands, fractions and decimals live', () => {
     expect(AREAS.length).toBe(13);
-    expect(AREAS.filter(a => a.live).map(a => a.id)).toEqual(['plus', 'minus', 'times', 'share', 'fractions', 'place']);
+    expect(AREAS.filter(a => a.live).map(a => a.id)).toEqual(['plus', 'minus', 'times', 'share', 'fractions', 'place', 'decimals']);
     expect(skillsOf('fractions').map(s => s.id)).toEqual(['fr-name', 'fr-unit', 'fr-set', 'fr-line', 'fr-compare', 'fr-equal', 'fr-add', 'fr-sub', 'fr-mixed', 'fr-times', 'fr-unlike']);
     for (const s of SKILLS) { expect(s.standard).toMatch(/^\d\.[A-Z]+\./); expect(s.subs.length).toBeGreaterThan(0); }
   });
@@ -40,7 +40,7 @@ describe('fraction generators', () => {
         expect(it.prompt.length).toBeGreaterThan(0);
         if (it.answer.kind === 'fraction') { expect(it.answer.d).toBeGreaterThan(0); expect(it.answer.n).toBeGreaterThan(0); }
         if (it.input === 'choice') expect(it.choices!.some(c => c.id === (it.answer as { id: string }).id)).toBe(true);
-        for (const p of it.prompt) if (p.t === 'pic') { expect(p.pic.filled).toBeGreaterThan(0); expect(p.pic.filled).toBeLessThan(p.pic.parts); }
+        for (const p of it.prompt) if (p.t === 'pic') { if (p.pic.kind === 'coins') expect(p.pic.coins.length).toBeGreaterThan(0); else { expect(p.pic.filled).toBeGreaterThan(0); expect(p.pic.filled).toBeLessThan(p.pic.parts); } }
       }
       // (halves have only one fraction to show, as a pie or a bar)
       expect(ids.size, `${s.id}:${sub.id}:${lv}`).toBeGreaterThan(1);
@@ -50,7 +50,7 @@ describe('fraction generators', () => {
     const it = SKILL['fr-name'].make(mulberry32(5), '8', 2);
     const p = it.prompt[0];
     expect(p.t).toBe('pic');
-    if (p.t === 'pic' && it.answer.kind === 'fraction') { expect(it.answer.n).toBe(p.pic.filled); expect(it.answer.d).toBe(8); }
+    if (p.t === 'pic' && p.pic.kind !== 'coins' && it.answer.kind === 'fraction') { expect(it.answer.n).toBe(p.pic.filled); expect(it.answer.d).toBe(8); }
   });
   it('compare: picks the bigger one, or "the same" for equal fractions', () => {
     const rng = mulberry32(9);

@@ -1,7 +1,7 @@
 // The world map: every world of Adventure on one painted picture (worlds-wide.webp). The Sky Islands,
-// Fraction Falls and Counting Caves are open (Counting Caves is painted onto the picture as a cut-out);
-// the rest are the math areas still to come, shown so a child can see where the adventure goes next. Each
-// open world has its own painted map, wide (desktop) and tall (phones).
+// Fraction Falls, Counting Caves and Market Isle are open (Counting Caves is painted onto the picture as a
+// cut-out); the rest are the math areas still to come, shown so a child can see where the adventure goes
+// next. Each open world has its own painted map, wide (desktop) and tall (phones).
 import type { AreaId } from '../math/skills/types';
 import type { WorldId } from './state';
 
@@ -28,7 +28,8 @@ export const WORLD_PINS: WorldPin[] = [
     art: { src: 'game/world-caves.webp', at: [12, 79], w: 18 },
     map: { wide: 'game/map-caves-wide.webp', tall: 'game/map-caves-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   { id: 'peaks', name: 'Shape Peaks', blurb: 'Shapes, angles and crystals.', at: [89, 31], area: 'shapes' },
-  { id: 'market', name: 'Coin Market', blurb: 'Money, change and decimals.', at: [33, 60], area: 'decimals' },
+  { id: 'market', name: 'Market Isle', blurb: 'A floating bazaar. Every battle card is money or decimals.', at: [33, 60], area: 'decimals',
+    map: { wide: 'game/map-market-wide.webp', tall: 'game/map-market-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Clocks, lengths and weights.', at: [60, 55], area: 'measure' },
   { id: 'stars', name: 'Star Lab', blurb: 'Expressions and equations.', at: [88, 57], area: 'algebra' },
   { id: 'frost', name: 'Below Zero Caves', blurb: 'Negative numbers, under the ice.', at: [37, 87], area: 'integers' },
