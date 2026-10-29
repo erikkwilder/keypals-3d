@@ -10,8 +10,10 @@
   import { sfx } from '../audio/sound';
   import { STRANDS, MATH_LESSONS } from '../math/course';
   import { mathOf, nextMathLesson } from '../math/progress';
-  import { LESSON, LESSONS, checkDue, isLearned, nextToLearn, type Lesson } from '../math/learn';
-  import { setOf } from '../math/episodes';
+  import { LESSONS, checkDueId, isLearned, nextToLearn, type Lesson } from '../math/learn';
+  import { SETS, epLesson, isEpisode, setOf } from '../math/episodes';
+  import { FRAC_LESSONS, type FracLesson } from '../math/fracEpisodes';
+  import { SKILL_LESSONS } from '../math/skills/course';
   import { GLIMMER } from '../adventure/glimmers';
   import { glimmerArt } from '../adventure/evolve';
   import { FRIEND } from '../art/cast';
@@ -29,9 +31,10 @@
   const pv = LESSONS.filter(l => l.area === 'place');
   const nextStop = $derived(nextMathLesson(m, m.strand ?? 'x'));
   const hero = $derived(nextToLearn(m, nextStop));
-  const due = $derived(checkDue(m));
+  const dueId = $derived(checkDueId(m, isEpisode));
+  const due = $derived(dueId ? epLesson(dueId) : null);
   let tall = $state(false);
-  const open = $derived(game.learnId ? LESSON[game.learnId] ?? null : null);
+  const open = $derived(game.learnId && isEpisode(game.learnId) ? game.learnId : null);
   /** the open episode is just its next-day quick check */
   let checking = $state(false);
   // the 3D buddy, for the list and the lessons
@@ -41,21 +44,29 @@
   let gone = false;
   const hello = $derived(due ? `${p.name}, do you remember ${due.title}? Quick check!` : hero ? (isLearned(m, hero.id) ? `Want to see ${hero.title} again? Tap Watch!` : `${p.name}, I'll show you a trick: ${hero.title}! It takes about two minutes.`) : 'Pick a trick to watch!');
 
-  function watch(l: Lesson) { sfx.click(); checking = false; game.learnId = l.id; }
-  function quickCheck(l: Lesson) { sfx.click(); checking = true; game.learnId = l.id; }
+  function watch(l: { id: string }) { sfx.click(); checking = false; game.learnId = l.id; }
+  function quickCheck(l: { id: string }) { sfx.click(); checking = true; game.learnId = l.id; }
   function close() { game.learnId = null; checking = false; }
-  /** the first stop that uses this trick, to practise it right after */
-  function practiceStop(l: Lesson) {
-    if (l.practice) return l.practice;
-    if (l.id === 'zero-one') return 'twins-1';
-    const r = l.regions[0];
+  /** the first stop that uses this trick, to practise it right after (a fraction idea: the fractions
+   *  stop that meets its skill; a place value lesson names its own practice lesson) */
+  function practiceStop(id: string) {
+    const f = FRAC_LESSONS.find(x => x.id === id);
+    if (f) return SKILL_LESSONS.find(x => x.kind === 'meet' && x.learn.includes(f.skill))?.id ?? null;
+    if (id === 'zero-one') return 'twins-1';
+    const l = LESSONS.find(x => x.id === id);
+    if (l?.practice) return l.practice;
+    const r = l?.regions[0];
     return MATH_LESSONS.find(x => x.region === r && x.kind === 'meet')?.id ?? null;
   }
-  function practise(l: Lesson) {
-    const stop = practiceStop(l);
+  function practise(id: string) {
+    const stop = practiceStop(id);
     game.learnId = null;
-    if (stop) { game.setHome('math'); if (l.practice) game.startSkill(stop); else game.startMath(stop); }
+    if (!stop) return;
+    game.setHome('math');
+    if (FRAC_LESSONS.some(x => x.id === id) || LESSONS.find(x => x.id === id)?.practice) game.startSkill(stop); else game.startMath(stop);
   }
+  const fracLearned = $derived(FRAC_LESSONS.filter(l => isLearned(m, l.id)));
+  const fracSet = (l: FracLesson) => SETS[l.set];
   function back() { if (open) close(); else game.go(game.learnBack === 'learn' ? 'map' : game.learnBack); }
   onMount(() => {
     const onR = () => { tall = innerWidth < 760 || innerHeight > innerWidth * 1.05; };
@@ -77,12 +88,12 @@
 
 <div class="screen learn" class:tall style:--board="url({boardArt})">
   {#if open}
-    {#key `${open.id}-${checking}`}
-      <Episode id={open.id} check={checking} onclose={close} onpractice={practiceStop(open) ? () => practise(open) : undefined} onwatch={() => { checking = false; }} />
+    {#key `${open}-${checking}`}
+      <Episode id={open} check={checking} onclose={close} onpractice={practiceStop(open) ? () => practise(open) : undefined} onwatch={() => { checking = false; }} />
     {/key}
   {:else}
   <div class="veil"></div>
-  <Header title="Learn" sub={`${learned.length} of ${LESSONS.length} tricks learned`} {back} />
+  <Header title="Learn" sub={`${learned.length + fracLearned.length} of ${LESSONS.length + FRAC_LESSONS.length} tricks learned`} {back} />
     <div class="room">
     <div class="side">
       {#key hello}<div class="bubble"><p>{hello}</p></div>{/key}
@@ -91,8 +102,8 @@
     </div>
     <div class="list scroll" bind:this={listEl}>
       {#if due}
-        {@const ds = setOf(due.id)}
-        <section class="due" style:--sc={STRANDS.find(s => s.op === due.op)?.color}>
+        {@const ds = SETS[due.set]}
+        <section class="due" style:--sc={due.color}>
           <img class="dglim" src="{base}{glimmerArt(ds.star)}" alt="" />
           <div class="dtext"><small>Quick check</small><b>Do you remember {due.title}?</b><span>One question, and the trick is yours for good.</span></div>
           <button class="btn btn-primary" onclick={() => quickCheck(due)}><Icon name="bulb" size={22} /> Check it</button>
@@ -126,6 +137,32 @@
           </div>
         </section>
       {/if}
+
+      <!-- fractions: the pie, the pizza, the chocolate bar, the cupcakes and the plank -->
+      <section class="strand" style:--sc="#ef8a4b">
+        <h3><img src="{base}learn/frac/card-pie.webp" alt="" />Fractions<small>{fracLearned.length} of {FRAC_LESSONS.length} learned</small></h3>
+        <div class="grid">
+          {#each FRAC_LESSONS as l (l.id)}
+            {@const done = isLearned(m, l.id)}
+            {@const fs = fracSet(l)}
+            <article class="lcard" class:done>
+              <button class="lpic" style:--set="url({base}{l.art})" onclick={() => watch(l)} aria-label="Watch {l.title}">
+                <img class="gface" src="{base}{glimmerArt(l.star ?? fs.star)}" alt="" />
+                <span class="play small"><Icon name="play" size={24} /></span>
+                <span class="where">{fs.name}</span>
+              </button>
+              <div class="ltext">
+                <b>{l.title}</b>
+                <span>{l.blurb}</span>
+                <div class="lrow">
+                  {#if done}<span class="pill ok"><Icon name="check" size={14} /> Learned</span>{:else}<span class="pill new">New</span>{/if}
+                  <button class="btn small" class:btn-primary={!done} onclick={() => watch(l)}>{done ? 'Watch again' : 'Watch'}</button>
+                </div>
+              </div>
+            </article>
+          {/each}
+        </div>
+      </section>
 
       {#each STRANDS as st (st.op)}
         {@const ls = LESSONS.filter(l => l.op === st.op && !l.area)}

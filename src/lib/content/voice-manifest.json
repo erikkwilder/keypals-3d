@@ -1254,5 +1254,253 @@
   "ep.dec-add.card": {
     "voice": "coach",
     "ms": 4860
+  },
+  "ep.frac-parts.intro": {
+    "voice": "coach",
+    "ms": 4685
+  },
+  "ep.frac-parts.s0": {
+    "voice": "coach",
+    "ms": 5104
+  },
+  "ep.frac-parts.s1": {
+    "voice": "coach",
+    "ms": 4071
+  },
+  "ep.frac-parts.s2": {
+    "voice": "coach",
+    "ms": 7812
+  },
+  "ep.frac-parts.card": {
+    "voice": "coach",
+    "ms": 6096
+  },
+  "ep.frac-one-piece.intro": {
+    "voice": "coach",
+    "ms": 4535
+  },
+  "ep.frac-one-piece.s0": {
+    "voice": "coach",
+    "ms": 1741
+  },
+  "ep.frac-one-piece.s1": {
+    "voice": "coach",
+    "ms": 3617
+  },
+  "ep.frac-one-piece.s2": {
+    "voice": "coach",
+    "ms": 4131
+  },
+  "ep.frac-one-piece.card": {
+    "voice": "coach",
+    "ms": 6251
+  },
+  "ep.frac-of-a-set.intro": {
+    "voice": "coach",
+    "ms": 4864
+  },
+  "ep.frac-of-a-set.s0": {
+    "voice": "coach",
+    "ms": 1372
+  },
+  "ep.frac-of-a-set.s1": {
+    "voice": "coach",
+    "ms": 5418
+  },
+  "ep.frac-of-a-set.s2": {
+    "voice": "coach",
+    "ms": 4091
+  },
+  "ep.frac-of-a-set.s3": {
+    "voice": "coach",
+    "ms": 4490
+  },
+  "ep.frac-of-a-set.s4": {
+    "voice": "coach",
+    "ms": 5059
+  },
+  "ep.frac-of-a-set.card": {
+    "voice": "coach",
+    "ms": 7743
+  },
+  "ep.frac-number-line.intro": {
+    "voice": "coach",
+    "ms": 4640
+  },
+  "ep.frac-number-line.s0": {
+    "voice": "coach",
+    "ms": 3063
+  },
+  "ep.frac-number-line.s1": {
+    "voice": "coach",
+    "ms": 3472
+  },
+  "ep.frac-number-line.s2": {
+    "voice": "coach",
+    "ms": 3048
+  },
+  "ep.frac-number-line.s3": {
+    "voice": "coach",
+    "ms": 2325
+  },
+  "ep.frac-number-line.card": {
+    "voice": "coach",
+    "ms": 4879
+  },
+  "ep.frac-bigger.intro": {
+    "voice": "coach",
+    "ms": 4665
+  },
+  "ep.frac-bigger.s0": {
+    "voice": "coach",
+    "ms": 3492
+  },
+  "ep.frac-bigger.s1": {
+    "voice": "coach",
+    "ms": 3288
+  },
+  "ep.frac-bigger.s2": {
+    "voice": "coach",
+    "ms": 6959
+  },
+  "ep.frac-bigger.s3": {
+    "voice": "coach",
+    "ms": 5233
+  },
+  "ep.frac-bigger.card": {
+    "voice": "coach",
+    "ms": 7114
+  },
+  "ep.frac-equal.intro": {
+    "voice": "coach",
+    "ms": 4784
+  },
+  "ep.frac-equal.s0": {
+    "voice": "coach",
+    "ms": 1941
+  },
+  "ep.frac-equal.s1": {
+    "voice": "coach",
+    "ms": 3387
+  },
+  "ep.frac-equal.s2": {
+    "voice": "coach",
+    "ms": 3502
+  },
+  "ep.frac-equal.s3": {
+    "voice": "coach",
+    "ms": 7428
+  },
+  "ep.frac-equal.card": {
+    "voice": "coach",
+    "ms": 6146
+  },
+  "ep.frac-add.intro": {
+    "voice": "coach",
+    "ms": 4141
+  },
+  "ep.frac-add.s0": {
+    "voice": "coach",
+    "ms": 3363
+  },
+  "ep.frac-add.s1": {
+    "voice": "coach",
+    "ms": 1866
+  },
+  "ep.frac-add.s2": {
+    "voice": "coach",
+    "ms": 2295
+  },
+  "ep.frac-add.s3": {
+    "voice": "coach",
+    "ms": 8326
+  },
+  "ep.frac-add.card": {
+    "voice": "coach",
+    "ms": 4126
+  },
+  "ep.frac-take-away.intro": {
+    "voice": "coach",
+    "ms": 4241
+  },
+  "ep.frac-take-away.s0": {
+    "voice": "coach",
+    "ms": 1666
+  },
+  "ep.frac-take-away.s1": {
+    "voice": "coach",
+    "ms": 2684
+  },
+  "ep.frac-take-away.s2": {
+    "voice": "coach",
+    "ms": 7887
+  },
+  "ep.frac-take-away.card": {
+    "voice": "coach",
+    "ms": 4251
+  },
+  "ep.frac-mixed.intro": {
+    "voice": "coach",
+    "ms": 4470
+  },
+  "ep.frac-mixed.s0": {
+    "voice": "coach",
+    "ms": 3891
+  },
+  "ep.frac-mixed.s1": {
+    "voice": "coach",
+    "ms": 5602
+  },
+  "ep.frac-mixed.s2": {
+    "voice": "coach",
+    "ms": 7019
+  },
+  "ep.frac-mixed.card": {
+    "voice": "coach",
+    "ms": 3772
+  },
+  "ep.frac-times.intro": {
+    "voice": "coach",
+    "ms": 4350
+  },
+  "ep.frac-times.s0": {
+    "voice": "coach",
+    "ms": 2205
+  },
+  "ep.frac-times.s1": {
+    "voice": "coach",
+    "ms": 4046
+  },
+  "ep.frac-times.s2": {
+    "voice": "coach",
+    "ms": 6321
+  },
+  "ep.frac-times.card": {
+    "voice": "coach",
+    "ms": 6525
+  },
+  "ep.frac-unlike.intro": {
+    "voice": "coach",
+    "ms": 4620
+  },
+  "ep.frac-unlike.s0": {
+    "voice": "coach",
+    "ms": 5193
+  },
+  "ep.frac-unlike.s1": {
+    "voice": "coach",
+    "ms": 2934
+  },
+  "ep.frac-unlike.s2": {
+    "voice": "coach",
+    "ms": 3088
+  },
+  "ep.frac-unlike.s3": {
+    "voice": "coach",
+    "ms": 5143
+  },
+  "ep.frac-unlike.card": {
+    "voice": "coach",
+    "ms": 5428
   }
 }
