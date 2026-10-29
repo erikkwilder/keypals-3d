@@ -124,7 +124,7 @@
     {/snippet}
   </Header>
 
-  <div class="mapwrap" bind:this={wrap} style:--bg="url({base}game/map-{kind}.webp)">
+  <div class="mapwrap" bind:this={wrap} style:--bg="url({new URL(`${base}game/map-${kind}.webp`, document.baseURI).href})">
     <div class="backdrop"></div>
     <div class="map" style:width="{box.w}px" style:height="{box.h}px" style:left="{box.x}px" style:top="{box.y}px" style:background-image="url({base}game/map-{kind}.webp)">
       <svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d={pathD} /></svg>
