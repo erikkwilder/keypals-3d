@@ -74,6 +74,9 @@
   let burst = $state(0);
   let budPos = $state({ x: 0.27, y: 0.2 }); let foePos = $state({ x: 0.7, y: 0.18 });
   let narrow = $state(innerWidth < 760);
+  let vh = $state(innerHeight);
+  // the joined card shrinks on short screens so the title, card, prizes and buttons all fit
+  const revealW = $derived(Math.round(Math.max(130, Math.min(narrow ? 160 : 210, (vh - (narrow ? 560 : 620)) * 0.62))));
   let stageEl: HTMLDivElement | undefined = $state();
   let raf = 0;
 
@@ -132,7 +135,10 @@
   }
   function float(which: 'buddy' | 'foe' | 'team0' | 'team1', text: string, kind: string, img?: string) {
     const pos = scene?.screenOf(which, 0.2) ?? { x: which === 'buddy' ? 0.3 : 0.7, y: 0.3 };
-    const f = { id: fid++, x: pos.x + (kind === 'helper' ? 0 : (Math.random() - 0.5) * 0.03), y: pos.y, text, kind, img };
+    // a helper's badge stays on screen even when its Glimmer stands at the very edge
+    const edge = Math.min(0.4, 105 / Math.max(1, innerWidth));
+    const x = kind === 'helper' ? Math.min(1 - edge, Math.max(edge, pos.x)) : pos.x + (Math.random() - 0.5) * 0.03;
+    const f = { id: fid++, x, y: kind === 'helper' ? Math.max(0.2, pos.y) : pos.y, text, kind, img };
     floats = [...floats, f];
     setTimeout(() => (floats = floats.filter(x => x.id !== f.id)), kind === 'helper' ? 2200 : 1500);
   }
@@ -347,9 +353,9 @@
   const strongEl = $derived(Object.entries(ELEMENT).find(([, v]) => v.beats === b.foe.element)?.[0] as Element);
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} bind:innerHeight={vh} />
 
-<div class="battle" class:narrow>
+<div class="battle" class:narrow class:won={ui === 'won'}>
   <div class="top">
     <button class="leave" onclick={toMap} aria-label="Leave the battle">‹</button>
     <div class="where"><small>{island.name}</small><b>{champion ? 'Champion battle' : `Battle ${node.n + 1}`}</b></div>
@@ -361,7 +367,7 @@
     <img class="bi" src="{base}game/icon-spark.webp" alt="" />
     <div class="bt"><span class="lab">Your energy</span><div class="track"><div class="fill" style:width="{sparkPct}%"></div></div><span class="num"><b>{sparkNow}</b> / {b.sparkMax}</span></div>
   </button>
-  <button class="bar grump" class:champ={champion} style:left={narrow ? 'auto' : `${foePos.x * 100}%`} style:right={narrow ? '10px' : 'auto'} style:top={narrow ? '62px' : `${foePos.y * 100}%`} onclick={() => show({ kind: 'grumpy' })}>
+  <button class="bar grump" class:champ={champion} style:left={narrow ? 'auto' : `${foePos.x * 100}%`} style:right={narrow ? '10px' : 'auto'} style:top={narrow ? '62px' : `${Math.max(0.2, foePos.y) * 100}%`} onclick={() => show({ kind: 'grumpy' })}>
     <img class="bi" src="{base}game/icon-grump.webp" alt="" />
     <div class="bt"><span class="lab">{foeName} is grumpy</span><div class="track"><div class="fill" style:width="{grumpPct}%"></div></div><span class="num"><b>{grumpNow}</b> grumps left</span></div>
   </button>
@@ -433,7 +439,7 @@
     <div class="reveal r-{m.rarity}">
       <div class="rays"></div>
       <div class="rtitle"><small>{GLIMMER[m.id].name} is happy again!</small><b>{RARITY[m.rarity].name}</b><em>{RARE_WORDS[m.rarity]}</em></div>
-      <div class="rcard"><GlimmerCard id={m.id} width={narrow ? 160 : 210} level={m.level} shine /></div>
+      <div class="rcard"><GlimmerCard id={m.id} width={revealW} level={m.level} shine /></div>
       <div class="rinfo" class:in={step >= 1}>
         {#if m.isNew}
           <h2>{GLIMMER[m.id].name} joined you!</h2>
@@ -484,7 +490,7 @@
           <div class="hr"><div class="mini"><span class="mstars">{#each Array(5) as _}<img src="{base}game/icon-star.webp" alt="" />{/each}</span></div><p><b>5 right in a row</b> = your buddy's Finale.</p></div>
           <div class="hr"><div class="mini"><span class="mcard el-tide"><img src="{base}game/icon-tide.webp" alt="" />6 + 2<em>⚡ Strong</em></span></div><p><b>Strong cards</b> also calm its next rain.</p></div>
         </div>
-        {#if team.length}<div class="hteam">{#each team as m}<span><img src="{base}game/glimmers/{m.id}.webp" alt="" /><b>{GLIMMER[m.id].name}:</b> {GLIMMER[m.id].power.text(m.level)}</span>{/each}</div>{/if}
+        {#if team.length}<div class="hteam">{#each team as m}<span><img src="{base}game/glimmers/{m.id}.webp" alt="" /><p><b>{GLIMMER[m.id].name}:</b> {GLIMMER[m.id].power.text(m.level)}</p></span>{/each}</div>{/if}
         <button class="btn btn-primary" onclick={() => (help = false)}>Got it</button>
       </div>
     </div>
@@ -545,6 +551,7 @@
   .helpbtn { margin-left: auto; width: 46px; height: 46px; border-radius: 50%; border: 0; background: #fff; font: 600 26px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); }
 
   .bar { font: inherit; text-align: left; border: 0; cursor: pointer; }
+  .won .bar { display: none; } .won .bottom, .won .top, .won .teamrow { visibility: hidden; }
   .bar { position: absolute; transform: translate(-50%, -100%); display: flex; align-items: center; gap: 6px; padding: 6px 14px 6px 6px; border-radius: 999px; background: linear-gradient(#ffffff, #eef2ff); box-shadow: 0 0 0 3px rgba(255, 255, 255, .9), 0 10px 24px -10px rgba(30, 20, 70, .55); min-width: 210px; z-index: 5; transition: left .1s linear, top .1s linear; }
   .narrow .bar { transform: none; min-width: 0; width: calc(50% - 18px); transition: none; }
   .bar .bi { width: 40px; height: 40px; flex: none; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .2)); }
@@ -609,20 +616,20 @@
 
   .cards { display: flex; gap: 16px; justify-content: center; width: min(1100px, 100%); }
   .cards.dim { opacity: .6; }
-  .card { position: relative; flex: 1; max-width: 330px; display: flex; align-items: center; gap: 10px; padding: 12px 18px 12px 12px; border-radius: 30px; border: 4px solid #fff; cursor: pointer; box-shadow: 0 12px 24px -12px rgba(30, 20, 70, .6), inset 0 -8px 16px rgba(0, 0, 0, .08), inset 0 6px 10px rgba(255, 255, 255, .7); animation: cardin .5s var(--d) cubic-bezier(.2, 1.3, .4, 1) both, bob 3s calc(var(--d) * 4) ease-in-out infinite; transition: transform .15s; text-align: left; }
-  .card:hover:not(:disabled) { transform: translateY(-6px) scale(1.03); }
-  .card .ci { width: 70px; height: 70px; flex: none; object-fit: contain; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .18)); }
+  .cards .card { position: relative; flex: 1; max-width: 330px; display: flex; align-items: center; gap: 10px; padding: 12px 18px 12px 12px; border-radius: 30px; border: 4px solid #fff; cursor: pointer; box-shadow: 0 12px 24px -12px rgba(30, 20, 70, .6), inset 0 -8px 16px rgba(0, 0, 0, .08), inset 0 6px 10px rgba(255, 255, 255, .7); animation: cardin .5s var(--d) cubic-bezier(.2, 1.3, .4, 1) both, bob 3s calc(var(--d) * 4) ease-in-out infinite; transition: transform .15s; text-align: left; }
+  .cards .card:hover:not(:disabled) { transform: translateY(-6px) scale(1.03); }
+  .cards .card .ci { width: 70px; height: 70px; flex: none; object-fit: contain; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .18)); }
   .ct { display: flex; flex-direction: column; min-width: 0; }
   .ct em { align-self: flex-start; margin-top: 4px; font: 800 12px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 3px 9px; border-radius: 999px; }
   .ct em.bl { color: #c2348a; }
   .ct b { font: 600 clamp(28px, 3.4vw, 42px)/1.05 var(--font-ui); color: #2a1f45; white-space: nowrap; }
-  .el-sun.card { background: linear-gradient(160deg, #fff6c4, #ffd36b); }
-  .el-tide.card { background: linear-gradient(160deg, #e2f4ff, #8fd0ff); }
-  .el-frost.card { background: linear-gradient(160deg, #f6f0ff, #c8b8ff); }
-  .el-leaf.card { background: linear-gradient(160deg, #eaffe6, #9ee8a6); }
-  .el-stone.card { background: linear-gradient(160deg, #fbf3e8, #e2c7a2); }
-  .card.super { box-shadow: 0 0 0 3px #ffd36b, 0 0 22px #ffd36b, 0 12px 24px -12px rgba(30, 20, 70, .6); }
-  .card.bloom::after { content: ''; position: absolute; inset: -4px; border-radius: 30px; box-shadow: 0 0 0 3px #ff9ad5, 0 0 18px #ff9ad5; pointer-events: none; }
+  .cards .el-sun.card { background: linear-gradient(160deg, #fff6c4, #ffd36b); }
+  .cards .el-tide.card { background: linear-gradient(160deg, #e2f4ff, #8fd0ff); }
+  .cards .el-frost.card { background: linear-gradient(160deg, #f6f0ff, #c8b8ff); }
+  .cards .el-leaf.card { background: linear-gradient(160deg, #eaffe6, #9ee8a6); }
+  .cards .el-stone.card { background: linear-gradient(160deg, #fbf3e8, #e2c7a2); }
+  .cards .card.super { box-shadow: 0 0 0 3px #ffd36b, 0 0 22px #ffd36b, 0 12px 24px -12px rgba(30, 20, 70, .6); }
+  .cards .card.bloom::after { content: ''; position: absolute; inset: -4px; border-radius: 30px; box-shadow: 0 0 0 3px #ff9ad5, 0 0 18px #ff9ad5; pointer-events: none; }
   @keyframes cardin { from { opacity: 0; transform: translateY(60px) scale(.8); } }
   @keyframes bob { 50% { translate: 0 -4px; } }
   .hint { margin: 0; min-height: 22px; font: 600 19px var(--font-ui); color: #fff; text-shadow: 0 2px 6px rgba(20, 10, 50, .8); text-align: center; }
@@ -656,10 +663,11 @@
   .reveal { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 20px; background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .25), rgba(30, 20, 60, .55) 70%); }
   .rays { position: absolute; left: 50%; top: 40%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px; background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, .22) 0 8deg, transparent 8deg 22deg); animation: spin 18s linear infinite; mask: radial-gradient(circle, #000 20%, transparent 60%); -webkit-mask: radial-gradient(circle, #000 20%, transparent 60%); pointer-events: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .rtitle { position: relative; text-align: center; animation: bigin .7s cubic-bezier(.2, 1.4, .4, 1) both; }
-  .rtitle small { display: block; font: 600 24px var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+  .rtitle { position: relative; text-align: center; animation: titlein .7s cubic-bezier(.2, 1.4, .4, 1) both; }
+  @keyframes titlein { 0% { opacity: 0; transform: scale(.4) rotate(-6deg); } 100% { opacity: 1; transform: none; } }
+  .rtitle small { display: block; font: 600 22px var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
   .rtitle em { display: inline-block; margin-top: 6px; font: 700 15px var(--font-body); font-style: normal; color: var(--ink); background: #fff; padding: 3px 12px; border-radius: 999px; }
-  .rtitle b { display: block; font: 600 clamp(52px, 9vw, 96px)/1 var(--font-ui); color: var(--rc, #fff); -webkit-text-stroke: 3px #fff; paint-order: stroke; text-shadow: 0 6px 0 rgba(0, 0, 0, .25), 0 0 50px var(--rc, #fff); }
+  .rtitle b { display: block; font: 600 clamp(44px, min(9vw, 9vh), 96px)/1 var(--font-ui); color: var(--rc, #fff); -webkit-text-stroke: 3px #fff; paint-order: stroke; text-shadow: 0 6px 0 rgba(0, 0, 0, .25), 0 0 50px var(--rc, #fff); }
   .r-common { --rc: #7d8494; } .r-uncommon { --rc: #3fbf73; } .r-rare { --rc: #2f8ef0; } .r-epic { --rc: #a061f0; } .r-legendary { --rc: #f0b21f; }
   .r-mythic { --rc: #ff5fb0; } .r-mythic .rtitle b { background: linear-gradient(90deg, #ff6fa8, #ffb44d, #ffe066, #6fe3a0, #5bb6ff, #a98cff); -webkit-background-clip: text; color: transparent; }
   .rcard { position: relative; animation: flipin .9s .3s cubic-bezier(.2, 1.2, .4, 1) both; }
@@ -687,10 +695,12 @@
   .infobox > .btn { grid-column: 1 / -1; justify-self: end; }
   .ibig { width: 96px; height: 96px; object-fit: contain; }
   .ibig.note { display: grid; place-items: center; font: 600 60px var(--font-ui); color: #9b6bff; background: #f1eaff; border-radius: 50%; }
-  .hrows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .hr { display: flex; gap: 10px; align-items: center; background: #faf8fe; border-radius: 16px; padding: 8px; }
-  .hr p { margin: 0; font: 600 14px/1.35 var(--font-body); color: var(--ink2); }
-  .mini { flex: none; width: 150px; display: grid; place-items: center; }
+  /* picture tiles: the little picture on top, a short caption under it */
+  .hrows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .hr { display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center; background: #faf8fe; border-radius: 16px; padding: 12px 10px; }
+  .hr p { margin: 0; font: 600 15px/1.35 var(--font-body); color: var(--ink2); }
+  .hr p b { display: block; color: var(--ink); font-size: 16px; }
+  .mini { flex: none; width: 100%; height: 64px; display: grid; place-items: center; }
   .mbar { display: flex; align-items: center; gap: 4px; background: #fff; border-radius: 999px; padding: 3px 8px 3px 3px; box-shadow: var(--shadow-sm); }
   .mbar img { width: 26px; height: 26px; object-fit: contain; }
   .mbar i { display: block; width: 90px; height: 9px; border-radius: 999px; background: #e6e2f2; overflow: hidden; }
@@ -705,12 +715,13 @@
   .mstars { display: flex; gap: 1px; background: rgba(30, 22, 60, .78); padding: 4px 6px; border-radius: 999px; }
   .mstars img { width: 22px; height: 22px; object-fit: contain; }
   .hteam { display: flex; flex-direction: column; gap: 6px; }
-  .hteam span { display: flex; align-items: center; gap: 8px; font: 600 14px/1.35 var(--font-body); color: var(--ink2); }
+  .hteam span { display: flex; align-items: center; gap: 10px; }
+  .hteam p { margin: 0; font: 600 15px/1.35 var(--font-body); color: var(--ink2); }
   .hteam img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; object-position: center 35%; flex: none; }
   .rw { display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 999px; padding: 4px 14px 4px 4px; font: 700 15px var(--font-body); color: var(--ink); box-shadow: var(--shadow-sm); }
   .rw img { width: 34px; height: 34px; object-fit: contain; }
   .helpbg { position: absolute; inset: 0; z-index: 30; background: rgba(40, 28, 70, .4); display: grid; place-items: center; }
-  .helpcard { width: min(560px, 92vw); max-height: 88vh; overflow: auto; padding: 18px 24px; display: flex; flex-direction: column; gap: 8px; }
+  .helpcard { width: min(680px, 94vw); max-height: 88vh; overflow: auto; padding: 18px 24px; display: flex; flex-direction: column; gap: 8px; }
   .helpcard h2 { margin: 0; } .helpcard h3 { margin: 6px 0 0; font-size: 20px; }
   .helpcard ul { margin: 0; padding-left: 4px; list-style: none; display: flex; flex-direction: column; gap: 6px; }
   .helpcard li { font: 600 15px/1.4 var(--font-body); color: var(--ink2); }
@@ -731,14 +742,17 @@
   .narrow .bt span { font-size: 13px; } .narrow .bt span b { font-size: 16px; }
   .narrow .bottom { padding: 4px 8px 10px; }
   .narrow .cards { gap: 6px; }
-  .narrow .card { flex-direction: column; gap: 2px; padding: 8px 4px; border-radius: 22px; text-align: center; }
-  .narrow .card .ci { width: 44px; height: 44px; }
+  .narrow .cards .card { flex-direction: column; gap: 2px; padding: 8px 4px; border-radius: 22px; text-align: center; }
+  .narrow .cards .card .ci { width: 44px; height: 44px; }
   .narrow .ct em { align-self: center; font-size: 10px; padding: 2px 6px; }
   .narrow .teamrow em { display: none; }
   .narrow .bt .lab { font-size: 12px; } .narrow .bt .num { font-size: 10px; } .narrow .bt .num b { font-size: 14px; }
   .narrow .finalebig b { font-size: 22px; } .narrow .finalebig img { width: 40px; height: 40px; }
   .narrow .hint { font-size: 14px; }
-  .narrow .hrows { grid-template-columns: 1fr; }
+  .narrow .hrows { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .narrow .hr { padding: 10px 6px; }
+  .narrow .hr p { font-size: 13px; } .narrow .hr p b { font-size: 14px; }
+  .narrow .mini { zoom: .8; }
   .narrow .prize { width: 76px; height: 88px; } .narrow .prize img { width: 36px; height: 36px; }
   .narrow .infobox { grid-template-columns: 1fr; justify-items: center; text-align: center; }
   .narrow .ct b { font-size: 24px; }

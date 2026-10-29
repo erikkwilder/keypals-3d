@@ -12,6 +12,8 @@
     epic: [10.4, 9.5, 82.7, 396], legendary: [10.1, 13.7, 81.5, 396], mythic: [12.7, 13.2, 83.7, 409],
   };
   const box = $derived(BOX[g.rarity]);
+  // the name fits its plate: smaller letters for small cards and long names
+  const nameFs = $derived(Math.round(Math.min(17, width * 0.11, (width * 0.7 * 1.9) / Math.max(6, (locked ? 3 : g.name.length))) * 10) / 10);
   const base = import.meta.env.BASE_URL;
 </script>
 
@@ -22,7 +24,7 @@
   <img class="el" src="{base}game/icon-{g.element}.webp" alt={ELEMENT[g.element].name} title={ELEMENT[g.element].name} draggable="false" />
   {#if level && !locked}<span class="lv">Lv {level}</span>{/if}
   {#if fresh}<span class="new">New!</span>{/if}
-  <div class="plate"><b>{locked ? '???' : g.name}</b></div>
+  <div class="plate"><b style:font-size="{nameFs}px">{locked ? '???' : g.name}</b></div>
   {#if locked}<div class="q">?</div>{/if}
 </div>
 
@@ -34,7 +36,7 @@
   .lv { position: absolute; top: calc(var(--t) + 2.5%); right: calc(var(--l) + 2%); font: 700 clamp(10px, calc(var(--w, 180px) * 0.07), 15px) var(--font-ui); color: #fff; background: rgba(30, 20, 60, .7); padding: 2px 8px; border-radius: 999px; }
   .new { position: absolute; top: -4%; right: -4%; font: 800 12px var(--font-body); background: var(--pink, #ef6fa6); color: #fff; padding: 3px 9px; border-radius: 999px; box-shadow: 0 0 0 3px #fff; transform: rotate(8deg); }
   .plate { position: absolute; left: 14%; right: 14%; bottom: 5.5%; height: 9.5%; display: grid; place-items: center; }
-  .plate b { font: 600 clamp(10px, 1.6vw, 17px)/1 var(--font-ui); color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .plate b { font: 600 15px/1 var(--font-ui); color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .locked .art { filter: brightness(0) saturate(0) opacity(.55); }
   .locked .el { filter: grayscale(1) opacity(.5); }
   .q { position: absolute; left: 0; right: 0; top: 30%; text-align: center; font: 600 clamp(28px, 5vw, 56px) var(--font-ui); color: rgba(255, 255, 255, .85); text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }

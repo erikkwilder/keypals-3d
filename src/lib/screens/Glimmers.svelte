@@ -78,10 +78,11 @@
           {#each [0, 1] as slot}
             {@const t = a.team[slot] && owns(a, a.team[slot]!) ? a.team[slot] : null}
             <button class="slot" class:filled={!!t} onclick={() => (swapping ? setTeam(slot) : t ? pick(t) : null)}>
-              {#if t}<GlimmerCard id={t} width={96} level={a.glimmers[t]?.level} />{:else}<span class="empty">+<small>Empty</small></span>{/if}
+              {#if t}<GlimmerCard id={t} width={110} level={a.glimmers[t]?.level} />{:else}<span class="empty">+<small>Empty</small></span>{/if}
               {#if swapping}<span class="swapin">Swap</span>{/if}
             </button>
           {/each}
+          {#if !swapping && owned.length > 2}<p class="how">To change it: tap a Glimmer below, then <b>Add to team</b>.</p>{/if}
         </div>
       </div>
       <div class="info card r-{g.rarity}">
@@ -143,9 +144,10 @@
   .teambox.swapping { box-shadow: 0 0 0 4px #ffd36b, var(--shadow-sm); }
   .teambox h3 { margin: 0; font-size: 20px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .teambox h3 small { font: 700 13px var(--font-body); color: var(--muted); }
-  .slots { display: flex; gap: 14px; }
+  .slots { display: flex; gap: 14px; align-items: center; }
+  .how { margin: 0 0 0 6px; max-width: 220px; font: 600 15px/1.4 var(--font-body); color: var(--ink2); }
   .slot { position: relative; border: 0; background: none; padding: 0; cursor: pointer; }
-  .slot .empty { width: 96px; aspect-ratio: 394 / 600; border-radius: 14px; border: 3px dashed #d9cff0; display: flex; flex-direction: column; align-items: center; justify-content: center; font: 600 34px/1 var(--font-ui); color: #b8acd6; background: #faf8fe; }
+  .slot .empty { width: 110px; aspect-ratio: 394 / 600; border-radius: 14px; border: 3px dashed #d9cff0; display: flex; flex-direction: column; align-items: center; justify-content: center; font: 600 34px/1 var(--font-ui); color: #b8acd6; background: #faf8fe; }
   .slot .empty small { font: 700 12px var(--font-body); }
   .swapin { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); font: 800 13px var(--font-body); background: #ffd36b; color: #6a4300; padding: 4px 12px; border-radius: 999px; animation: pulse .9s ease-in-out infinite; }
   @keyframes pulse { 50% { transform: translateX(-50%) scale(1.1); } }
@@ -153,15 +155,10 @@
   .acts .big { font-size: 18px; padding: 10px 18px; }
   .onteam { font: 600 17px var(--font-ui); color: #1f9a6a; }
   .grid h4 { margin: 4px 0; font-size: 16px; color: var(--ink2); grid-column: 1 / -1; }
-  .cards { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cards { display: flex; flex-wrap: wrap; gap: 8px 8px; row-gap: 14px; padding-bottom: 6px; }
   .cell { position: relative; }
-  .cell .tag { position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%); font: 800 11px var(--font-body); background: #2fbf73; color: #fff; padding: 2px 9px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
-  .teamrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
-  .slot { display: flex; align-items: center; gap: 8px; border: 3px dashed #d9cff0; background: #faf8fe; border-radius: 18px; padding: 4px 12px 4px 4px; cursor: pointer; }
-  .slot.on { border-style: solid; border-color: var(--primary-hi); background: #f3eeff; }
-  .slot img, .slot .empty { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; object-position: center 35%; display: grid; place-items: center; font: 600 26px var(--font-ui); color: #b8acd6; background: #fff; }
-  .slot small { font: 700 13px var(--font-body); color: var(--ink2); }
-  .grid { flex: 1; min-height: 0; overflow: auto; padding: 4px; }
+  .cell .tag { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); font: 800 11px var(--font-body); background: #2fbf73; color: #fff; padding: 2px 9px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
+  .grid { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 12px; background: rgba(255, 255, 255, .86); border-radius: 22px; box-shadow: var(--shadow-sm); }
   .cell { border: 0; background: none; padding: 3px; border-radius: 16px; cursor: pointer; display: grid; place-items: center; transition: transform .15s; }
   .cell:hover { transform: translateY(-3px); }
   .cell.on { background: rgba(255, 255, 255, .7); box-shadow: 0 0 0 3px var(--primary-hi); }

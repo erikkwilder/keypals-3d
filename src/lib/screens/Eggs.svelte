@@ -74,7 +74,7 @@
             {#if cracking === i}<svg class="cr" viewBox="0 0 100 120"><path d="M50 10 L44 34 L56 46 L46 66" style:opacity={cracks >= 1 ? 1 : 0} /><path d="M56 46 L70 58 L64 78" style:opacity={cracks >= 2 ? 1 : 0} /><path d="M46 66 L30 74 L36 96 M64 78 L58 100" style:opacity={cracks >= 3 ? 1 : 0} /></svg>{/if}
           </div>
           <div class="lab">
-            <b style:color={RARITY[e.rarity].color}>{RARITY[e.rarity].name} egg</b>
+            <b style:color={e.rarity === 'common' ? null : RARITY[e.rarity].color}>{RARITY[e.rarity].name} egg</b>
             {#if e.have >= e.need}<button class="btn btn-primary hatch" onclick={() => doHatch(i)} disabled={cracking >= 0}>Hatch!</button>
             {:else}<div class="bar"><i style:width="{(e.have / e.need) * 100}%"></i></div><span>{e.need - e.have} more right answers to hatch</span>{/if}
           </div>
@@ -117,7 +117,7 @@
   .nests { display: flex; gap: 18px; justify-content: center; padding: 0 16px; flex-wrap: wrap; }
   .slot { position: relative; width: 230px; display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, .9); border-radius: 26px; padding: 10px 10px 14px; box-shadow: 0 14px 30px -16px rgba(40, 20, 80, .55); }
   .nimg { width: 190px; margin-top: 70px; }
-  .eggw { position: absolute; top: 4px; left: 0; right: 0; margin: 0 auto; width: 108px; display: grid; place-items: center; }
+  .eggw { position: absolute; top: 14px; left: 0; right: 0; margin: 0 auto; width: 108px; display: grid; place-items: center; }
   .egg { width: 100%; height: 118px; object-fit: contain; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .3)); }
   .ready .egg { animation: wobble .7s ease-in-out infinite; }
   .ready { box-shadow: 0 0 0 4px #ffd36b, 0 0 30px #ffd36b; }
@@ -127,7 +127,7 @@
   .cr { position: absolute; inset: 0; width: 100%; height: 100%; }
   .cr path { fill: none; stroke: #3a2a1a; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; transition: opacity .1s; filter: drop-shadow(0 0 3px #fff); }
   .lab { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; }
-  .lab b { font: 600 18px var(--font-ui); }
+  .lab b { font: 600 18px var(--font-ui); color: var(--ink2); }
   .lab span { font: 700 13px var(--font-body); color: var(--muted); }
   .bar { width: 80%; height: 12px; border-radius: 999px; background: var(--bg2); overflow: hidden; }
   .bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffb52e, #ff7ab8); }
