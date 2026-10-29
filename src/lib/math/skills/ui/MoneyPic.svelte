@@ -31,7 +31,8 @@
     <rect x="0" y="0" width="108" height="108" rx="7" fill="#b98a55" />
     <rect x="2" y="2" width="104" height="104" rx="6" fill="#d9b27a" />
     {#each Array(100) as _, i}
-      {@const x = 4 + (i % 10) * cell, y = 4 + Math.floor(i / 10) * cell}
+      {@const x = 4 + (i % 10) * cell}
+      {@const y = 4 + Math.floor(i / 10) * cell}
       {#if i < pic.filled}
         <rect x={x + 0.5} y={y + 0.5} width={cell - 1} height={cell - 1} rx="1.4" fill="url(#{uid}ch)" />
         <rect x={x + 1.6} y={y + 1.3} width={cell - 3.2} height="1.6" rx=".8" fill="#fff" opacity=".28" />
