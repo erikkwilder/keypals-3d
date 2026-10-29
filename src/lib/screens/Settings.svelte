@@ -59,7 +59,9 @@
     game.go(game.save.profiles.length ? 'players' : 'newPlayer');
   }
   function remove() {
-    game.removePlayer(p.id);
+    // (a player with a save code is remembered as "not on this computer", so signing in later doesn't
+    // bring it back here; it can be added again on the Grown-ups screen)
+    deleteHereOnly(p.id);
     leave();
   }
   function removeHereOnly() { deleteHereOnly(p.id); leave(); }

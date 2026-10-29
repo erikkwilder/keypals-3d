@@ -100,8 +100,17 @@ export async function refreshAccount() {
   else { const was = signedInBefore(); cloud.signedOut = was ? { name: was } : null; }
 }
 
-/** Give a player a save code (and file it under the signed-in grown-up, if any). */
-export async function makeCode(id: string, refresh = true) {
+/** Give a player a save code (and file it under the signed-in grown-up, if any). Asked twice at once (a
+ *  catch-up and a save), the player still gets one code. */
+const making = new Map<string, Promise<string | null>>();
+export function makeCode(id: string, refresh = true): Promise<string | null> {
+  const now = making.get(id);
+  if (now) return now;
+  const run = newCode(id, refresh).finally(() => making.delete(id));
+  making.set(id, run);
+  return run;
+}
+async function newCode(id: string, refresh: boolean) {
   const p = game.save.profiles.find(x => x.id === id);
   if (!p) return null;
   clearLocalOnly(id);

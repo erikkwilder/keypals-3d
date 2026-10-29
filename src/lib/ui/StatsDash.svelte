@@ -100,6 +100,7 @@
   table { width: 100%; border-collapse: collapse; font: 600 13px var(--font-body); color: var(--ink2); }
   td { padding: 3px 0; }
   td.k { max-width: 0; width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 6px; }
+  td.muted { padding-left: 10px; white-space: nowrap; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); padding-left: 6px; width: 1%; white-space: nowrap; }
   td.meter span { display: block; height: 8px; border-radius: 0 4px 4px 0; background: var(--primary-hi); }
   .msg { color: #c0396f; font-weight: 700; margin: 0; }
