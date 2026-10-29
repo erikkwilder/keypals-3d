@@ -180,6 +180,12 @@ export async function heroProps(id: SetId): Promise<{ left: THREE.Group; right: 
     grp.add(o);
     return grp;
   });
-  if (id === 'kitchen') { const bowl = bowlOfBerries(); bowl.position.set(-0.26, 0, 0.16); left.add(bowl); }
+  if (id === 'kitchen') {
+    // a bowl of blueberries by the pie, a rolling pin in flour by the teapot, and cookie crumbs
+    const bowl = bowlOfBerries(); bowl.position.set(-0.26, 0, 0.16); left.add(bowl);
+    const pin = rollingPin(); pin.position.set(0.05, 0, 0.26); pin.scale.setScalar(0.8); right.add(pin);
+    const crumb = new THREE.DodecahedronGeometry(0.008), dough = new THREE.MeshStandardMaterial({ color: 0xc98a4c, roughness: 0.8 });
+    for (let i = 0; i < 9; i++) { const m = new THREE.Mesh(crumb, dough); m.position.set(0.14 + Math.sin(i * 2.3) * 0.08, 0.004, 0.2 + Math.cos(i * 1.7) * 0.06); m.rotation.set(i, i * 2, 0); m.scale.setScalar(0.6 + (i % 3) * 0.3); left.add(m); }
+  }
   return { left, right };
 }

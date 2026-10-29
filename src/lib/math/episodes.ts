@@ -25,7 +25,7 @@ export const SETS: Record<SetId, {
   key: number; sky: number; ground: number; haze: number;
 }> = {
   kitchen: { name: 'The Bakery Kitchen', backdrop: 'learn/ep/set-kitchen.webp', table: 'learn/ep/tex-kitchen.webp', star: 'sproutbun', token: 'cookie',
-    tray: { word: 'muffin tin', color: 0xc9ced8, rim: 0x6f7688 }, plate: { word: 'plate', color: 0xfdf7ee, rim: 0x6f9fd8 }, key: 0xffd9a0, sky: 0xffe9c8, ground: 0x7a5236, haze: 0xf3c891 },
+    tray: { word: 'muffin tin', color: 0xb9c0cc, rim: 0x5a6274 }, plate: { word: 'plate', color: 0xfdf7ee, rim: 0x6f9fd8 }, key: 0xffd9a0, sky: 0xffe9c8, ground: 0x7a5236, haze: 0xf3c891 },
   dock: { name: 'The Sunny Dock', backdrop: 'learn/ep/set-dock.webp', table: 'learn/ep/tex-dock.webp', star: 'puddlepup', token: 'pearl',
     tray: { word: 'shell crate', color: 0xc99a62, rim: 0x8a6239 }, plate: { word: 'bucket', color: 0x5fb3d9, rim: 0x2f7aa3 }, key: 0xfff0d0, sky: 0xcfeaff, ground: 0x5b7a8c, haze: 0xbfe3f6 },
   picnic: { name: 'The Picnic Meadow', backdrop: 'learn/ep/set-picnic.webp', table: 'learn/ep/tex-picnic.webp', star: 'snowseal', token: 'berry',
