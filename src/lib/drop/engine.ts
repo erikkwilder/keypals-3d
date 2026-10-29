@@ -11,21 +11,21 @@ import type { GlimmerId, Rarity } from '../adventure/glimmers';
 
 /** The chain, smallest to biggest: each merge makes the next one. Radii in jar units (the jar is JAR.w wide). */
 export const CHAIN: { id: GlimmerId; name: string; r: number; egg: Rarity }[] = [
-  { id: 'sproutbun', name: 'Sprout Bunny', r: 17, egg: 'common' },
-  { id: 'puddlepup', name: 'Puddle Pup', r: 23, egg: 'common' },
-  { id: 'sunsnail', name: 'Sunny Snail', r: 30, egg: 'uncommon' },
-  { id: 'bubbleocto', name: 'Bubble Octopus', r: 37, egg: 'uncommon' },
-  { id: 'mushmouse', name: 'Mushroom Mouse', r: 46, egg: 'rare' },
-  { id: 'popcornpuff', name: 'Popcorn Puffling', r: 56, egg: 'rare' },
-  { id: 'frostowl', name: 'Frost Owl', r: 67, egg: 'epic' },
-  { id: 'cactuskit', name: 'Cactus Kitten', r: 79, egg: 'epic' },
-  { id: 'stormlamb', name: 'Thundercloud Lamb', r: 92, egg: 'legendary' },
-  { id: 'cometcat', name: 'Comet Cat', r: 106, egg: 'legendary' },
-  { id: 'phoenixchick', name: 'Phoenix Chick', r: 121, egg: 'mythic' },
+  { id: 'sproutbun', name: 'Sprout Bunny', r: 18, egg: 'common' },
+  { id: 'puddlepup', name: 'Puddle Pup', r: 25, egg: 'common' },
+  { id: 'sunsnail', name: 'Sunny Snail', r: 32, egg: 'uncommon' },
+  { id: 'bubbleocto', name: 'Bubble Octopus', r: 40, egg: 'uncommon' },
+  { id: 'mushmouse', name: 'Mushroom Mouse', r: 50, egg: 'rare' },
+  { id: 'popcornpuff', name: 'Popcorn Puffling', r: 60, egg: 'rare' },
+  { id: 'frostowl', name: 'Frost Owl', r: 72, egg: 'epic' },
+  { id: 'cactuskit', name: 'Cactus Kitten', r: 85, egg: 'epic' },
+  { id: 'stormlamb', name: 'Thundercloud Lamb', r: 99, egg: 'legendary' },
+  { id: 'cometcat', name: 'Comet Cat', r: 114, egg: 'legendary' },
+  { id: 'phoenixchick', name: 'Phoenix Chick', r: 131, egg: 'mythic' },
 ];
 export const TOP = CHAIN.length - 1;
-/** the jar inside: width, height, and the line you mustn't fill past (from the top) */
-export const JAR = { w: 430, h: 640, line: 96 };
+/** the jar inside: width, height, the line you mustn't fill past (from the top), and how round its bottom corners are */
+export const JAR = { w: 480, h: 600, line: 92, corner: 110 };
 /** eggs you can be given: the first five of the chain, small ones more often */
 const DROP_WEIGHTS = [30, 26, 20, 14, 10];
 /** points for making each one (making the biggest from two of them: a Glimmer party) */
@@ -79,10 +79,22 @@ export class DropGame {
   constructor(seed: number) {
     this.rng = mulberry32(seed);
     this.engine = Matter.Engine.create({ gravity: { x: 0, y: 1, scale: 0.0016 }, positionIterations: 8, velocityIterations: 6 });
-    const W = JAR.w, H = JAR.h, T = 200;
-    const wall = (x: number, y: number, w: number, h: number) => Matter.Bodies.rectangle(x, y, w, h, { isStatic: true, friction: 0.2, restitution: 0.1, label: 'wall' });
-    // floor, walls (tall enough that nothing ever goes over them sideways)
-    Matter.Composite.add(this.engine.world, [wall(W / 2, H + T / 2, W + T * 2, T), wall(-T / 2, H / 2 - 200, T, H + 600), wall(W + T / 2, H / 2 - 200, T, H + 600)]);
+    const W = JAR.w, H = JAR.h, C = JAR.corner, T = 200;
+    const opts = { isStatic: true, friction: 0.2, restitution: 0.1, label: 'wall' };
+    const wall = (x: number, y: number, w: number, h: number) => Matter.Bodies.rectangle(x, y, w, h, opts);
+    // floor between the round corners, walls (tall enough that nothing ever goes over them sideways)
+    const parts = [wall(W / 2, H + T / 2, W - C * 2 + 2, T), wall(-T / 2, (H - C - 600) / 2, T, H - C + 600), wall(W + T / 2, (H - C - 600) / 2, T, H - C + 600)];
+    // the round bottom corners: short flat pieces along each quarter circle, pushed out so their inside face is the curve
+    const N = 10, th = 40;
+    for (const [cx, a0] of [[C, Math.PI / 2], [W - C, 0]] as const) {
+      for (let i = 0; i < N; i++) {
+        const t1 = a0 + (i / N) * (Math.PI / 2), t2 = a0 + ((i + 1) / N) * (Math.PI / 2), tm = (t1 + t2) / 2;
+        const x1 = cx + C * Math.cos(t1), y1 = H - C + C * Math.sin(t1), x2 = cx + C * Math.cos(t2), y2 = H - C + C * Math.sin(t2);
+        const len = Math.hypot(x2 - x1, y2 - y1) + 2;
+        parts.push(Matter.Bodies.rectangle((x1 + x2) / 2 + Math.cos(tm) * th / 2, (y1 + y2) / 2 + Math.sin(tm) * th / 2, len, th, { ...opts, angle: Math.atan2(y2 - y1, x2 - x1) }));
+      }
+    }
+    Matter.Composite.add(this.engine.world, parts);
     this.hold = this.pick(); this.next = this.pick();
     this.gustAt = 30 + this.rng() * 12;
     Matter.Events.on(this.engine, 'collisionStart', e => this.touch(e.pairs, true));

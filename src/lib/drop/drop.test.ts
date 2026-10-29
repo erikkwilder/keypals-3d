@@ -30,6 +30,22 @@ describe('Glimmer Drop', () => {
     expect(g.balls.map(b => b.tier)).toEqual([1]);
     expect(g.score).toBe(pointsFor(1));
   });
+  it('the jar\'s round bottom corners hold a Glimmer in the curve', () => {
+    const g = new DropGame(2);
+    g.hold = 0; g.setAim(0); g.drop();
+    const r = CHAIN[0].r, C = JAR.corner;
+    // dropped by the wall, it lands on the curve and rolls down it to the floor, never through the glass
+    let worst = 0;
+    for (let i = 0; i < 180; i++) {
+      g.step(1 / 60);
+      const b = g.balls[0].body.position;
+      if (b.x < C && b.y > JAR.h - C) worst = Math.max(worst, Math.hypot(b.x - C, b.y - (JAR.h - C)) - (C - r));
+    }
+    expect(worst).toBeLessThan(2);
+    const b = g.balls[0].body.position;
+    expect(b.x).toBeGreaterThan(r);
+    expect(Math.abs(b.y - (JAR.h - r))).toBeLessThan(2);
+  });
   it('an egg cracks open just after it is dropped', () => {
     const g = new DropGame(2);
     g.drop();

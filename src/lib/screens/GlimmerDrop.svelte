@@ -8,7 +8,7 @@
   import { stage } from '../three/stage';
   import { ShowScene } from '../three/showScene';
   import { sfx } from '../audio/sound';
-  import { danceOf, dayKey } from '../engine/profile';
+  import { dayKey } from '../engine/profile';
   import { playLeft, PLAY_RULES, advView } from '../adventure/state';
   import { nextLesson } from '../engine/profile';
   import { mathOf, nextMathLesson } from '../math/progress';
@@ -30,7 +30,7 @@
   const sprites: HTMLImageElement[] = CHAIN.map(c => { const im = new Image(); im.src = `${base}drop/${c.id}.webp`; return im; });
   const eggs: Record<string, HTMLImageElement> = {};
   for (const r of ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic']) { const im = new Image(); im.src = `${base}game/egg-${r}.webp`; eggs[r] = im; }
-  const rimImg = new Image(); rimImg.src = `${base}drop/rim.webp`;
+  const lidImg = new Image(); lidImg.src = `${base}drop/lid.webp`;
   const pedImg = new Image(); pedImg.src = `${base}drop/pedestal.webp`;
 
   // ---------- the round ----------
@@ -58,7 +58,7 @@
   const found = $derived(new Set(save.found));
 
   // ---------- floating words and the discovery card ----------
-  type Float = { id: number; x: number; y: number; text: string; kind: string };
+  type Float = { id: number; x: number; y: number; word: string; pts: string; size: number };
   let floats = $state<Float[]>([]); let fid = 0;
   let banner = $state<{ text: string; key: number; big: boolean } | null>(null);
   let discovery = $state<{ tier: number; key: number } | null>(null);
@@ -67,9 +67,13 @@
   let scene: ShowScene | null = null;
   let disposed = false;
   let lastMove = 0;
+  /** where the buddy stands: right beside the jar, as tall as most of it (worked out with the jar's size) */
+  let buddyView = { top: 0.3, bottom: 0.92, left: 0.1, right: 0.32 };
   function viewOf() {
-    return narrow ? { top: 0.7, bottom: 0.995, left: -0.06, right: 0.44 } : { top: 0.24, bottom: 0.86, left: 0.12, right: 0.42 };
+    return narrow ? { top: 0.7, bottom: 0.995, left: -0.06, right: 0.44 } : buddyView;
   }
+  /** the buddy's cheers: moves that keep facing you (dances and the fist pump turn away mid-move) */
+  const CHEER = ['cheer', 'jump'];
   // on a phone the jar fills the screen, so the buddy cheers as a picture in front of it
   let cheer = $state(0);
   function react(move: string, force = false) {
@@ -89,7 +93,9 @@
   let k = 1, ox = 0, oy = 0;
   let shake = 0;
   let glass = $state({ l: 0, t: 0, w: 0, h: 0, r: 0 });
-  type Part = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string; kind: 'star' | 'dot' | 'shard' | 'ring'; spin: number; a: number };
+  /** a white flash over the whole jar (big chains) */
+  let flashAll = 0;
+  type Part = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string; kind: 'star' | 'dot' | 'shard' | 'ring' | 'flash' | 'blob'; spin: number; a: number };
   const parts: Part[] = [];
   /** where the held egg is aimed (jar units), drawn smoothly */
   let aimDraw = JAR.w / 2;
@@ -103,39 +109,95 @@
     canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
     canvas.style.width = `${cw}px`; canvas.style.height = `${ch}px`;
     ctx = canvas.getContext('2d');
-    // room above the jar for the cloud and its egg, below for the pedestal
-    const top = 140, bottom = 50, side = 16;
+    // room above the jar for the cloud lid, below for the pedestal
+    const top = narrow ? 150 : 160, bottom = 40, side = narrow ? 4 : 16;
     k = Math.min((cw - side * 2) / (JAR.w + 40), (ch - 10) / (JAR.h + top + bottom));
     // a phone keeps the jar up top, leaving the bottom corner for the buddy
     ox = (cw - JAR.w * k) / 2; oy = (narrow ? 6 : Math.max(6, (ch - (JAR.h + top + bottom) * k) / 2)) + top * k;
     // the frosted glass behind the jar (the island blurs through it)
     const gi = 10 * k;
-    glass = { l: X(0) - gi, t: Y(-24), w: JAR.w * k + gi * 2, h: Y(JAR.h) + gi - Y(-24), r: 56 * k };
+    glass = { l: X(0) - gi, t: Y(-24), w: JAR.w * k + gi * 2, h: Y(JAR.h) + gi - Y(-24), r: JAR.corner * k + gi };
+    // the buddy stands just left of the glass, feet on the ground by the pedestal
+    const edge = (r.left + X(0) - gi) / innerWidth + 0.035;
+    buddyView = { top: Math.max(0.1, (r.top + Y(JAR.h * 0.12)) / innerHeight), bottom: Math.min(0.99, (r.top + Y(JAR.h) + 30 * k) / innerHeight), left: edge - 0.3, right: edge + 0.05 };
+    looks.fill(null);
     if (scene) scene.view = viewOf();
   }
   const X = (x: number) => ox + x * k, Y = (y: number) => oy + y * k;
   /** a point in jar units, as a position on the page (for the floating words) */
   function pagePos(x: number, y: number) { const r = box!.getBoundingClientRect(); return { x: r.left + X(x), y: r.top + Y(y) }; }
 
-  function drawBall(c: CanvasRenderingContext2D, tier: number, x: number, y: number, r: number, angle: number, squash: number, alpha = 1) {
+  // ---------- the jelly Glimmers ----------
+  // Each one is painted once per size into its own little canvas (the picture, and a light layer: shade on the
+  // far side, a rim of light on the right, a bright shine at the top left), so a full jar is a few image draws
+  // a ball. The light layer doesn't turn as the ball rocks, so the light always comes from the same side.
+  type Look = { body: HTMLCanvasElement; light: HTMLCanvasElement; R: number; bx: number; by: number };
+  const looks: (Look | null)[] = CHAIN.map(() => null);
+  function lookOf(tier: number): Look | null {
     const im = sprites[tier], art = BALL_ART[CHAIN[tier].id];
+    if (!im.complete || !im.naturalWidth) return null;
+    const R = Math.max(8, Math.round(CHAIN[tier].r * k * dpr));
+    const had = looks[tier];
+    if (had && had.R === R) return had;
+    // the picture, sized so its round body has radius R (a touch over, so neighbours squish into each other)
+    const w = Math.round((R * 1.07) / art.r), h = Math.round(w * (im.naturalHeight / im.naturalWidth));
+    const body = document.createElement('canvas'); body.width = w; body.height = h;
+    body.getContext('2d')!.drawImage(im, 0, 0, w, h);
+    // the light on top
+    const S = R * 2 + 8, light = document.createElement('canvas'); light.width = light.height = S;
+    const l = light.getContext('2d')!;
+    l.translate(S / 2, S / 2);
+    l.save(); l.beginPath(); l.arc(0, 0, R * 1.02, 0, Math.PI * 2); l.clip();
+    const shade = l.createRadialGradient(-R * 0.3, -R * 0.35, R * 0.2, -R * 0.1, -R * 0.1, R * 1.25);
+    shade.addColorStop(0, 'rgba(40,10,80,0)'); shade.addColorStop(0.7, 'rgba(40,10,80,0)'); shade.addColorStop(1, 'rgba(40,10,80,.32)');
+    l.fillStyle = shade; l.fillRect(-S, -S, S * 2, S * 2);
+    l.restore();
+    // a rim of light down the right side
+    l.save(); l.lineCap = 'round'; l.strokeStyle = 'rgba(255,255,255,.75)'; l.lineWidth = R * 0.07; l.shadowColor = '#ffffff'; l.shadowBlur = R * 0.12;
+    l.beginPath(); l.arc(0, 0, R * 0.9, -0.3 * Math.PI, 0.32 * Math.PI); l.stroke(); l.restore();
+    // the shine: a soft glow and a sharp little window of light
+    const sh = l.createRadialGradient(-R * 0.4, -R * 0.45, 0, -R * 0.4, -R * 0.45, R * 0.42);
+    sh.addColorStop(0, 'rgba(255,255,255,.7)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+    l.fillStyle = sh; l.beginPath(); l.arc(-R * 0.4, -R * 0.45, R * 0.42, 0, Math.PI * 2); l.fill();
+    l.save(); l.translate(-R * 0.42, -R * 0.5); l.rotate(-0.7); l.fillStyle = 'rgba(255,255,255,.92)';
+    l.beginPath(); l.ellipse(0, 0, R * 0.17, R * 0.08, 0, 0, Math.PI * 2); l.fill(); l.restore();
+    l.fillStyle = 'rgba(255,255,255,.85)'; l.beginPath(); l.arc(-R * 0.2, -R * 0.6, R * 0.035, 0, Math.PI * 2); l.fill();
+    const L = { body, light, R, bx: art.cx * w, by: art.cy * h };
+    looks[tier] = L;
+    return L;
+  }
+  /** the soft shadow each ball casts on the ones behind and under it */
+  const shadowImg = (() => {
+    const s = document.createElement('canvas'); s.width = s.height = 64;
+    const g2 = s.getContext('2d')!, gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(40,20,80,.5)'); gr.addColorStop(0.6, 'rgba(40,20,80,.28)'); gr.addColorStop(1, 'rgba(40,20,80,0)');
+    g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
+    return s;
+  })();
+  // blinking: when each ball next blinks (game seconds), by ball id
+  const blinkAt = new Map<number, number>();
+  function drawBall(c: CanvasRenderingContext2D, tier: number, x: number, y: number, r: number, tilt: number, sx: number, sy: number, blink: boolean) {
+    const L = lookOf(tier), art = BALL_ART[CHAIN[tier].id];
     c.save();
-    c.globalAlpha = alpha;
     c.translate(x, y);
-    // squash flat on impact, stretch back up
-    c.scale(1 + squash * 0.55, 1 - squash * 0.45);
+    c.scale(sx, sy);
+    if (!L) { c.fillStyle = art.color; c.beginPath(); c.arc(0, 0, r, 0, Math.PI * 2); c.fill(); c.restore(); return; }
+    const s = r / L.R;
     c.save();
-    c.rotate(angle);
-    if (im.complete && im.naturalWidth) {
-      const s = (r * 1.06) / (art.r * im.naturalWidth);
-      const w = im.naturalWidth * s, h = im.naturalHeight * s;
-      c.drawImage(im, -art.cx * w, -art.cy * h, w, h);
-    } else { c.fillStyle = '#cfe3ff'; c.beginPath(); c.arc(0, 0, r, 0, Math.PI * 2); c.fill(); }
+    c.rotate(tilt);
+    c.drawImage(L.body, -L.bx * s, -L.by * s, L.body.width * s, L.body.height * s);
+    // eyes shut for a moment: the skin above them pulled down, and a happy closed curve
+    if (blink && art.eyes && art.lid) {
+      const w = L.body.width * s, h = L.body.height * s;
+      for (const e of art.eyes) {
+        const ex = e.x * w - L.bx * s, ey = e.y * h - L.by * s, rx = e.rx * w, ry = e.ry * w;
+        c.fillStyle = art.lid; c.beginPath(); c.ellipse(ex, ey, rx * 1.18, ry * 1.2, 0, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = 'rgba(50,25,40,.85)'; c.lineWidth = Math.max(1.2, rx * 0.28); c.lineCap = 'round';
+        c.beginPath(); c.ellipse(ex, ey + ry * 0.05, rx * 0.8, ry * 0.5, 0, 0.12 * Math.PI, 0.88 * Math.PI); c.stroke();
+      }
+    }
     c.restore();
-    // a glossy shine that stays at the top left as it rolls
-    const gl = c.createRadialGradient(-r * 0.38, -r * 0.42, r * 0.04, -r * 0.3, -r * 0.35, r * 0.75);
-    gl.addColorStop(0, 'rgba(255,255,255,.55)'); gl.addColorStop(0.45, 'rgba(255,255,255,.08)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
-    c.fillStyle = gl; c.beginPath(); c.arc(0, 0, r * 0.98, 0, Math.PI * 2); c.fill();
+    c.drawImage(L.light, -(L.R + 4) * s, -(L.R + 4) * s, L.light.width * s, L.light.height * s);
     c.restore();
   }
   function drawEgg(c: CanvasRenderingContext2D, tier: number, x: number, y: number, r: number, wob = 0) {
@@ -146,9 +208,10 @@
     c.drawImage(im, -w / 2, -h * 0.56, w, h);
     c.restore();
   }
-  function jarPath(c: CanvasRenderingContext2D, inset = 0) {
-    const l = X(0) - inset, r = X(JAR.w) + inset, t = Y(-24), b = Y(JAR.h) + inset, rad = 56 * k;
-    c.beginPath(); c.moveTo(l, t); c.lineTo(l, b - rad); c.quadraticCurveTo(l, b, l + rad, b); c.lineTo(r - rad, b); c.quadraticCurveTo(r, b, r, b - rad); c.lineTo(r, t);
+  /** the glass's outline, `out` past the inside (the same round corners the Glimmers roll on) */
+  function jarPath(c: CanvasRenderingContext2D, out = 0, top = -24) {
+    const l = X(0) - out, r = X(JAR.w) + out, t = Y(top), b = Y(JAR.h) + out, rad = JAR.corner * k + out;
+    c.beginPath(); c.moveTo(l, t); c.lineTo(l, b - rad); c.arc(l + rad, b - rad, rad, Math.PI, Math.PI / 2, true); c.lineTo(r - rad, b); c.arc(r - rad, b - rad, rad, Math.PI / 2, 0, true); c.lineTo(r, t);
   }
 
   function draw(dt: number, t: number) {
@@ -160,11 +223,15 @@
     shake *= Math.exp(-dt * 7);
     // the pedestal under the jar
     if (pedImg.complete && pedImg.naturalWidth) { const w = JAR.w * k * 1.42, h = w * (pedImg.naturalHeight / pedImg.naturalWidth); c.drawImage(pedImg, X(JAR.w / 2) - w / 2, Y(JAR.h) - h * 0.42, w, h); }
-    // the back of the glass
-    jarPath(c, 10 * k); c.closePath();
-    const bg = c.createLinearGradient(X(0), 0, X(JAR.w), 0);
-    bg.addColorStop(0, 'rgba(200,228,255,.42)'); bg.addColorStop(0.5, 'rgba(236,246,255,.22)'); bg.addColorStop(1, 'rgba(190,220,255,.42)');
+    // the back of the glass: a cool tint, thicker (so brighter) towards the edges, and the back of its lip
+    const gi = 10 * k;
+    jarPath(c, gi); c.closePath();
+    const bg = c.createLinearGradient(X(0) - gi, 0, X(JAR.w) + gi, 0);
+    bg.addColorStop(0, 'rgba(205,235,255,.55)'); bg.addColorStop(0.12, 'rgba(225,244,255,.2)'); bg.addColorStop(0.5, 'rgba(235,248,255,.1)');
+    bg.addColorStop(0.88, 'rgba(225,244,255,.2)'); bg.addColorStop(1, 'rgba(200,230,255,.5)');
     c.fillStyle = bg; c.fill();
+    c.save(); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = Math.max(2, 4 * k);
+    c.beginPath(); c.ellipse(X(JAR.w / 2), Y(-24), JAR.w * k / 2 + gi, 16 * k, 0, Math.PI, Math.PI * 2); c.stroke(); c.restore();
     // the line not to fill past: a soft ribbon of light, red and pulsing when the jar is too full
     const ly = Y(JAR.line), pulse = warning ? 0.55 + Math.sin(t * 12) * 0.45 : 0;
     c.save();
@@ -181,40 +248,93 @@
       c.save(); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2; c.setLineDash([4, 8]);
       c.beginPath(); c.moveTo(ex, ey + r); c.lineTo(ex, Y(JAR.h)); c.stroke(); c.restore();
     }
-    // the Glimmers
-    if (g) for (const b of g.balls) {
-      const r = CHAIN[b.tier].r * b.grow * k, x = X(b.body.position.x), y = Y(b.body.position.y);
-      if (b.egg) drawEgg(c, b.tier, x, y, CHAIN[b.tier].r * k, t * 10);
-      else drawBall(c, b.tier, x, y, r, b.body.angle, b.squash);
+    // the Glimmers: soft shadows first (so each one shades the ones behind and under it), then the balls
+    if (g) {
+      c.save(); jarPath(c, 0, -400); c.closePath(); c.clip();
+      for (const b of g.balls) {
+        if (b.egg) continue;
+        const r = CHAIN[b.tier].r * b.grow * k;
+        c.drawImage(shadowImg, X(b.body.position.x) - r * 1.02 + r * 0.1, Y(b.body.position.y) - r * 0.98 + r * 0.24, r * 2.04, r * 2.04);
+      }
+      c.restore();
+      for (const b of g.balls) {
+        const r = CHAIN[b.tier].r * b.grow * k, x = X(b.body.position.x), y = Y(b.body.position.y);
+        if (b.egg) { drawEgg(c, b.tier, x, y, CHAIN[b.tier].r * k, t * 10); continue; }
+        // jelly: squash on landing, a gentle breathing wobble, and a big wobble when it's just hatched or been made
+        const age = g.t - b.born;
+        const jig = 0.022 * Math.sin(t * 2.6 + b.id * 1.7) + (age < 1 ? 0.14 * Math.exp(-age * 4.5) * Math.sin(age * 24) : 0);
+        const sx = (1 + b.squash * 0.55) * (1 + jig), sy = (1 - b.squash * 0.45) * (1 - jig);
+        // it rocks a little as it rolls, but stays the right way up
+        const tilt = Math.sin(b.body.angle) * 0.35;
+        let nb = blinkAt.get(b.id);
+        if (nb === undefined) { nb = g.t + 1 + Math.random() * 4; blinkAt.set(b.id, nb); }
+        const blink = g.t >= nb;
+        if (g.t > nb + 0.14) blinkAt.set(b.id, g.t + 2.2 + Math.random() * 4.5);
+        drawBall(c, b.tier, x, y + r * b.squash * 0.35, r, tilt, sx, sy, blink);
+      }
     }
     // sparkles, shards and rings
     for (let i = parts.length - 1; i >= 0; i--) {
       const q = parts[i];
       q.life -= dt; if (q.life <= 0) { parts.splice(i, 1); continue; }
-      q.x += q.vx * dt; q.y += q.vy * dt; q.vy += (q.kind === 'shard' ? 900 : 120) * dt; q.vx *= Math.exp(-dt * 2); q.a += q.spin * dt;
+      q.x += q.vx * dt; q.y += q.vy * dt; q.vy += (q.kind === 'shard' || q.kind === 'blob' ? 900 : q.kind === 'flash' ? 0 : 120) * dt; q.vx *= Math.exp(-dt * 2); q.a += q.spin * dt;
       const f = q.life / q.max;
       c.save(); c.globalAlpha = Math.min(1, f * 1.6); c.translate(q.x, q.y); c.rotate(q.a);
-      if (q.kind === 'ring') { c.strokeStyle = q.color; c.lineWidth = 4 * f; c.beginPath(); c.arc(0, 0, q.size * (1.4 - f), 0, Math.PI * 2); c.stroke(); }
-      else if (q.kind === 'star') { c.fillStyle = q.color; c.shadowColor = q.color; c.shadowBlur = 10; const s = q.size; c.beginPath(); for (let j = 0; j < 8; j++) { const rr = j % 2 ? s * 0.38 : s; const a = (j / 8) * Math.PI * 2; c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } c.closePath(); c.fill(); }
+      if (q.kind === 'flash') {
+        // a burst of light, added on top so it glows
+        c.globalCompositeOperation = 'lighter'; c.globalAlpha = f * f;
+        const rr = q.size * (1.15 - f * 0.5), gr = c.createRadialGradient(0, 0, 0, 0, 0, rr);
+        gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, q.color); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        c.fillStyle = gr; c.beginPath(); c.arc(0, 0, rr, 0, Math.PI * 2); c.fill();
+      }
+      else if (q.kind === 'ring') { c.strokeStyle = q.color; c.lineWidth = Math.max(2, q.size * 0.08) * f; c.beginPath(); c.arc(0, 0, q.size * (1.5 - f), 0, Math.PI * 2); c.stroke(); }
+      else if (q.kind === 'star') { c.fillStyle = q.color; c.shadowColor = q.color; c.shadowBlur = 10; const s = q.size; c.beginPath(); for (let j = 0; j < 10; j++) { const rr = j % 2 ? s * 0.45 : s; const a = (j / 10) * Math.PI * 2 - Math.PI / 2; c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } c.closePath(); c.fill(); }
+      else if (q.kind === 'blob') {
+        // a drop of jelly with a little shine
+        c.fillStyle = q.color; c.beginPath(); c.arc(0, 0, q.size, 0, Math.PI * 2); c.fill();
+        c.fillStyle = 'rgba(255,255,255,.7)'; c.beginPath(); c.arc(-q.size * 0.35, -q.size * 0.35, q.size * 0.3, 0, Math.PI * 2); c.fill();
+      }
       else if (q.kind === 'shard') { c.fillStyle = q.color; c.beginPath(); c.moveTo(-q.size, -q.size * 0.4); c.lineTo(q.size, 0); c.lineTo(-q.size * 0.3, q.size * 0.6); c.closePath(); c.fill(); }
       else { c.fillStyle = q.color; c.beginPath(); c.arc(0, 0, q.size * f, 0, Math.PI * 2); c.fill(); }
       c.restore();
     }
-    // the front of the glass: a thick edge (outside and in), long shines, a bright bottom curve and a rim
+    // a white flash over the jar for a big chain
+    if (flashAll > 0.01) { c.save(); c.globalAlpha = flashAll * 0.5; c.fillStyle = '#fffbe8'; jarPath(c, gi); c.closePath(); c.fill(); c.restore(); }
+    flashAll *= Math.exp(-dt * 6);
+    // the front of the glass: the light it catches. A bright edge with a blue glow, a thinner inner edge (the
+    // glass is thick), long streaks of reflected sky down the left and right, a curve of light around the
+    // bottom, and the front of the lip
     c.save();
-    jarPath(c, 10 * k);
-    c.strokeStyle = 'rgba(255,255,255,.92)'; c.lineWidth = Math.max(3, 5 * k); c.shadowColor = 'rgba(90,150,230,.7)'; c.shadowBlur = 12; c.stroke();
+    jarPath(c, gi);
+    c.strokeStyle = 'rgba(255,255,255,.95)'; c.lineWidth = Math.max(3, 5 * k); c.shadowColor = 'rgba(80,150,235,.75)'; c.shadowBlur = 14; c.stroke();
     c.shadowBlur = 0;
     jarPath(c, 3 * k);
-    c.strokeStyle = 'rgba(170,210,255,.55)'; c.lineWidth = Math.max(1.5, 2.5 * k); c.stroke();
-    // the curve of light along the bottom
-    c.beginPath(); c.ellipse(X(JAR.w / 2), Y(JAR.h - 18), JAR.w * 0.36 * k, 10 * k, 0, 0.15 * Math.PI, 0.85 * Math.PI);
-    c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = Math.max(2, 4 * k); c.lineCap = 'round'; c.stroke();
+    c.strokeStyle = 'rgba(160,210,255,.6)'; c.lineWidth = Math.max(1.5, 2.5 * k); c.stroke();
+    c.lineCap = 'round';
+    // the big streak down the left, following the corner round
+    const streak = (x0: number, w: number, a: number, y0: number, y1: number) => {
+      const gr = c.createLinearGradient(X(x0), 0, X(x0 + w), 0);
+      gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.35, `rgba(255,255,255,${a})`); gr.addColorStop(0.6, `rgba(255,255,255,${a})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = gr; c.beginPath(); c.roundRect(X(x0), Y(y0), w * k, (y1 - y0) * k, (w * k) / 2); c.fill();
+    };
+    streak(14, 30, 0.55, 8, JAR.h - JAR.corner - 10); streak(54, 10, 0.35, 30, JAR.h * 0.55); streak(JAR.w - 34, 16, 0.3, 40, JAR.h - JAR.corner - 30);
+    c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = Math.max(3, 9 * k);
+    c.beginPath(); c.arc(X(JAR.corner), Y(JAR.h - JAR.corner), (JAR.corner - 22) * k, 0.62 * Math.PI, 0.93 * Math.PI); c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = Math.max(2, 5 * k);
+    c.beginPath(); c.moveTo(X(JAR.corner + 10), Y(JAR.h - 14)); c.lineTo(X(JAR.w - JAR.corner - 10), Y(JAR.h - 14)); c.stroke();
+    // little glints
+    for (const [gx, gy, gs] of [[30, 60, 9], [JAR.w - 26, JAR.h - JAR.corner + 20, 7]]) {
+      const tw = 0.6 + 0.4 * Math.sin(t * 3 + gx);
+      c.fillStyle = `rgba(255,255,255,${0.9 * tw})`; c.beginPath();
+      for (let j = 0; j < 8; j++) { const rr = j % 2 ? gs * 0.18 : gs; const a = (j / 8) * Math.PI * 2; c.lineTo(X(gx) + Math.cos(a) * rr * k, Y(gy) + Math.sin(a) * rr * k); }
+      c.closePath(); c.fill();
+    }
+    // the front of the lip
+    c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = Math.max(2.5, 5 * k);
+    c.beginPath(); c.ellipse(X(JAR.w / 2), Y(-24), JAR.w * k / 2 + gi, 16 * k, 0, 0, Math.PI); c.stroke();
     c.restore();
-    const shine = (x0: number, w: number, a: number) => { const gr = c.createLinearGradient(X(x0), 0, X(x0 + w), 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, `rgba(255,255,255,${a})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(X(x0), Y(10), w * k, (JAR.h - 70) * k); };
-    shine(18, 34, 0.32); shine(62, 12, 0.22); shine(JAR.w - 40, 22, 0.18);
-    // the cloud rim on the jar's mouth
-    if (rimImg.complete && rimImg.naturalWidth) { const w = JAR.w * k * 1.26, h = w * (rimImg.naturalHeight / rimImg.naturalWidth); c.drawImage(rimImg, X(JAR.w / 2) - w / 2, Y(-30) - h * 0.62, w, h); }
+    // the cloud lid sitting on the jar's mouth
+    if (lidImg.complete && lidImg.naturalWidth) { const w = (JAR.w + 20) * k * 1.08, h = w * (lidImg.naturalHeight / lidImg.naturalWidth); c.drawImage(lidImg, X(JAR.w / 2) - w / 2, Y(-24) - h * 0.86, w, h); }
     // the egg you're holding, in front of the cloud, on a soft glow so it's easy to find
     if (g && phase === 'play' && !g.done && g.canDrop()) {
       const r = CHAIN[g.hold].r * k, ex = X(aimDraw), ey = Y(JAR.line - CHAIN[g.hold].r - 46);
@@ -241,13 +361,28 @@
     }
   }
   const COLORS = ['#ffffff', '#ffe066', '#ff9fd0', '#8fe3ff', '#b9a4ff'];
-  function float(x: number, y: number, text: string, kind: string) {
+  /** the words that pop up where two Glimmers merged: a word and the points, bigger for longer chains */
+  function float(x: number, y: number, word: string, pts: string, size: number) {
     const pos = pagePos(x, y);
-    const f = { id: fid++, x: pos.x, y: pos.y, text, kind };
-    floats = [...floats, f];
-    setTimeout(() => (floats = floats.filter(q => q.id !== f.id)), 1300);
+    // keep it on the screen
+    const f = { id: fid++, x: Math.max(90, Math.min(innerWidth - 90, pos.x)), y: Math.max(70, pos.y), word, pts, size };
+    // a chain going on in the same spot replaces its last word instead of piling up on it
+    floats = [...floats.filter(q => Math.hypot(q.x - f.x, q.y - f.y) > 140 * Math.max(0.6, k)), f];
+    setTimeout(() => (floats = floats.filter(q => q.id !== f.id)), 1400);
   }
   const CHAIN_WORDS = ['', 'Merge!', 'Double!', 'Triple!', 'Mega chain!', 'Super chain!', 'Ultra chain!'];
+  /** a burst where two merged: a flash of light, a ring, stars, and drops of the new one's jelly */
+  function pop(x: number, y: number, tier: number, chain: number) {
+    const r = CHAIN[tier].r * k, col = BALL_ART[CHAIN[tier].id].color, big = 1 + (chain - 1) * 0.45;
+    parts.push({ x, y, vx: 0, vy: 0, life: 0.42, max: 0.42, size: r * (2.1 + chain * 0.5), color: 'rgba(255,240,190,.55)', kind: 'flash', spin: 0, a: 0 });
+    parts.push({ x, y, vx: 0, vy: 0, life: 0.5, max: 0.5, size: r * 1.25 * big, color: 'rgba(255,255,255,.95)', kind: 'ring', spin: 0, a: 0 });
+    if (chain >= 2) parts.push({ x, y, vx: 0, vy: 0, life: 0.7, max: 0.7, size: r * 2 * big, color: 'rgba(255,224,102,.9)', kind: 'ring', spin: 0, a: 0 });
+    sparkle(x, y, Math.round((12 + tier * 2) * big), ['#ffffff', '#ffe066', '#fff3b0', col], (200 + tier * 25) * Math.sqrt(big), (6 + tier * 0.7) * Math.max(0.7, k) * Math.sqrt(big));
+    for (let i = 0; i < 8 + tier; i++) {
+      const a = Math.random() * Math.PI * 2, v = (160 + Math.random() * 260) * Math.max(0.7, k);
+      parts.push({ x: x + Math.cos(a) * r * 0.6, y: y + Math.sin(a) * r * 0.6, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 220, life: 0.5 + Math.random() * 0.35, max: 0.85, size: (3 + Math.random() * 4 + tier * 0.4) * Math.max(0.7, k), color: col, kind: 'blob', spin: 0, a: 0 });
+    }
+  }
 
   function handle(ev: DropEvent[]) {
     for (const e of ev) {
@@ -256,27 +391,31 @@
       else if (e.k === 'land') sfx.plop(g?.balls.find(b => b.id === e.id)?.tier ?? 0, Math.min(3, e.force / 3));
       else if (e.k === 'merge') {
         sfx.merge(e.tier, e.chain);
-        const r = CHAIN[e.tier].r * k;
-        sparkle(X(e.x), Y(e.y), 10 + e.tier * 3 + e.chain * 4, COLORS, 180 + e.tier * 30, 5 + e.tier * 0.8);
-        parts.push({ x: X(e.x), y: Y(e.y), vx: 0, vy: 0, life: 0.45, max: 0.45, size: r * 1.2, color: 'rgba(255,255,255,.9)', kind: 'ring', spin: 0, a: 0 });
-        float(e.x, e.y - CHAIN[e.tier].r, e.chain < 2 && e.tier >= 3 ? `Merge! +${e.points}` : `+${e.points}`, e.chain >= 2 ? 'big' : 'pts');
-        if (e.chain >= 2) { banner = { text: CHAIN_WORDS[Math.min(CHAIN_WORDS.length - 1, e.chain)], key: Date.now(), big: e.chain >= 4 }; shake = Math.min(1, 0.25 + e.chain * 0.15); if (e.chain >= 3) react('fistpump'); }
-        if (e.tier >= 6) shake = Math.max(shake, 0.35);
+        pop(X(e.x), Y(e.y), e.tier, e.chain);
+        // MERGE! +N where it happened (tiny merges just show the points); chains say how long they are
+        // (from four in a row the big word comes up over the jar instead, so here it's just the points)
+        const word = e.chain >= 4 ? '' : e.chain >= 2 ? CHAIN_WORDS[e.chain] : e.tier >= 2 ? 'Merge!' : '';
+        float(e.x, e.y - CHAIN[e.tier].r * 0.6, word, `+${e.points}`, Math.min(1.9, 0.85 + e.tier * 0.04 + (e.chain - 1) * 0.28) * (narrow ? 0.72 : 1));
+        shake = Math.max(shake, Math.min(1, (e.chain >= 2 ? 0.2 + e.chain * 0.16 : 0) + (e.tier >= 6 ? 0.3 : 0)));
+        // the long ones: the jar flashes and the big word comes up over everything
+        if (e.chain >= 3) { flashAll = Math.min(1, 0.4 + e.chain * 0.12); react(CHEER[e.chain % CHEER.length]); }
+        if (e.chain >= 4) { banner = { text: CHAIN_WORDS[Math.min(CHAIN_WORDS.length - 1, e.chain)], key: Date.now(), big: true }; burst++; }
         // a Glimmer of the chain made for the first time
         let isNew = false;
         game.update(pp => { isNew = markFound(pp, e.tier); });
         if (isNew) {
           discovery = { tier: e.tier, key: Date.now() };
           sfx.reveal(Math.min(5, Math.floor(e.tier / 2)));
-          if (e.tier >= 5) { burst++; react(danceOf(me), true); }
+          if (e.tier >= 5) { burst++; react(CHEER[1], true); }
           setTimeout(() => { if (discovery?.tier === e.tier) discovery = null; }, 2600);
         }
       } else if (e.k === 'party') {
         sfx.party(); burst++; shake = 1;
         sparkle(X(e.x), Y(e.y), 70, COLORS, 520, 11);
+        pop(X(e.x), Y(e.y), TOP, 5); flashAll = 1;
         banner = { text: 'Glimmer party!', key: Date.now(), big: true };
-        float(e.x, e.y, `+${e.points}`, 'big');
-        react('jump', true);
+        float(e.x, e.y, 'Party!', `+${e.points}`, 1.9);
+        react(CHEER[1], true);
       } else if (e.k === 'gustWarn') { gustDir = e.dir; sfx.gustWarn(); }
       else if (e.k === 'gust') { sfx.gust(); setTimeout(() => (gustDir = 0), 1300); }
       else if (e.k === 'warn') { warning = e.on; if (e.on) sfx.brink(); }
@@ -331,7 +470,7 @@
     score = 0; hold = g.hold; next = g.next; warning = false; gustDir = 0; ended = null; timeUp = null; paused = false;
     unsaved = 0; lastSave = performance.now();
     phase = 'play'; sfx.unlock();
-    react('fistpump', true);
+    react(CHEER[0], true);
     // for checking the end card: __drop.over = 99 fills the jar
     if (import.meta.env.DEV) (window as unknown as { __drop: DropGame }).__drop = g;
   }
@@ -344,7 +483,7 @@
     game.update(pp => { res = recordRound(pp, { score: r.score, tier: r.tier, daily: mode === 'daily', day, ms, at: Date.now() }); });
     ended = { why, ...r, ...res };
     if (why === 'full') sfx.jarFull(); else sfx.complete();
-    if (res.newBest || res.newDaily) { burst++; react(danceOf(me), true); } else react('wave1', true);
+    if (res.newBest || res.newDaily) { burst++; react(CHEER[2], true); } else react('wave1', true);
     warning = false; gustDir = 0; timeUp = null;
     setTimeout(() => { phase = 'over'; tick++; }, 900);
   }
@@ -377,6 +516,8 @@
   const sprite = (t: number) => `${base}drop/${CHAIN[t].id}.webp`;
 </script>
 
+{#snippet pts(r: { today: number; best: number })}{#if r.today}<em>{fmt(r.today)}</em>{:else}<em class="pb"><small>best</small> {fmt(r.best)}</em>{/if}{/snippet}
+
 <svelte:window onkeydown={(e) => onKey(e, true)} onkeyup={(e) => onKey(e, false)} />
 
 <div class="drop" class:narrow>
@@ -391,14 +532,8 @@
 
   <div class="main">
     {#if !narrow}
-      <aside class="side left">
-        <div class="board card">
-          <h3>Family scores <span>today's jar</span></h3>
-          {#each board.slice(0, 5) as r, i (r.id)}
-            <div class="row" class:me={r.id === p.id}><span class="rk">{i + 1}</span><Critter friend={r.buddy} size={30} round /><b>{r.name}</b><em>{fmt(r.today || r.best)}</em></div>
-          {:else}<p class="muted">Play today's jar to be first on the board!</p>{/each}
-        </div>
-      </aside>
+      <!-- the buddy stands here, beside the jar -->
+      <aside class="side left"></aside>
     {/if}
 
     <div class="jarbox" bind:this={box} onpointermove={onMove} onpointerdown={onDown} onpointerup={onUp} role="application" aria-label="The cloud jar: move to aim, tap or press space to drop">
@@ -409,7 +544,7 @@
           <div class="score card"><small>Score</small><b>{fmt(score)}</b><span>Best {fmt(Math.max(save.best, score))}</span></div>
           <div class="next card"><small>Next</small><img src="{base}game/egg-{CHAIN[next].egg}.webp" alt="" /><img class="nb" src={sprite(next)} alt={CHAIN[next].name} /></div>
         </div>
-        {#if narrow}<div class="pal"><Critter friend={me.buddy} size={150} pulse={{ kind: 'joy', n: cheer }} /></div>{/if}
+        {#if narrow}<div class="pal"><Critter friend={me.buddy} size={230} pulse={{ kind: 'joy', n: cheer }} /></div>{/if}
         {#if warning}<div class="warnpill">Too full! Merge to make room</div>{/if}
         {#if timeUp !== null}<div class="warnpill time">Play time's up: {Math.ceil(timeUp)} seconds to finish!</div>{/if}
         {#if paused}<div class="pausebg"><div class="card pausecard"><h2>Paused</h2><button class="btn btn-primary" onclick={() => (paused = false)}>Keep going</button><button class="btn" onclick={leave}>Leave</button></div></div>{/if}
@@ -424,17 +559,24 @@
           <div class="chain">
             {#each CHAIN as c, i (c.id)}
               <div class="link" class:got={found.has(i) || i < 5} title={found.has(i) || i < 5 ? c.name : 'Not made yet'}>
-                <img src={sprite(i)} alt="" style:width="{15 + i * 2.5}px" />
+                <img src={sprite(i)} alt="" style:width="{14 + i * 2.2}px" />
               </div>
               {#if i < TOP}<span class="arr">›</span>{/if}
             {/each}
           </div>
         </div>
+        <div class="board card">
+          <!-- a score from today's jar where there is one, otherwise that player's best (and it says so) -->
+          <h3>Family scores <span>{board.some(r => r.today) ? "today's jar" : 'best scores'}</span></h3>
+          {#each board.slice(0, 5) as r, i (r.id)}
+            <div class="row" class:me={r.id === p.id}><span class="rk">{i + 1}</span><Critter friend={r.buddy} size={30} round /><b>{r.name}</b>{@render pts(r)}</div>
+          {:else}<p class="muted">Play today's jar to be first on the board!</p>{/each}
+        </div>
       </aside>
     {/if}
   </div>
 
-  {#each floats as f (f.id)}<div class="float {f.kind}" style:left="{f.x}px" style:top="{f.y}px">{f.text}</div>{/each}
+  {#each floats as f (f.id)}<div class="float" class:hot={f.size > 1.2} style:left="{f.x}px" style:top="{f.y}px" style:font-size="{Math.round(f.size * 30)}px">{#if f.word}<b>{f.word}</b>{/if}<span>{f.pts}</span></div>{/each}
   {#if banner}{#key banner.key}<div class="banner" class:bigb={banner.big}>{banner.text}</div>{/key}{/if}
   {#if discovery}
     {#key discovery.key}
@@ -481,7 +623,7 @@
         </div>
         {#if board.length}
           <div class="board mini">
-            {#each board.slice(0, 4) as r, i (r.id)}<div class="row" class:me={r.id === p.id}><span class="rk">{i + 1}</span><Critter friend={r.buddy} size={26} round /><b>{r.name}</b><em>{fmt(r.today || r.best)}</em></div>{/each}
+            {#each board.slice(0, 4) as r, i (r.id)}<div class="row" class:me={r.id === p.id}><span class="rk">{i + 1}</span><Critter friend={r.buddy} size={26} round /><b>{r.name}</b>{@render pts(r)}</div>{/each}
           </div>
         {/if}
         <div class="modes">
@@ -509,7 +651,7 @@
   .chip.mode { font-size: 15px; color: #6d3fd6; }
   .chip.time.low { box-shadow: 0 0 0 3px #ff8fa8, var(--shadow-sm); }
   .mn { font-size: 13px; color: var(--muted); }
-  .main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(360px, 1.5fr) minmax(220px, 1fr); gap: 12px; padding: 4px 16px 12px; }
+  .main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(200px, 1fr) minmax(360px, 1.9fr) minmax(250px, 1fr); gap: 12px; padding: 4px 16px 12px; }
   /* the jar reaches up between the top buttons, so it can be as big as the screen allows */
   .drop:not(.narrow) .main { margin-top: -60px; }
   .drop:not(.narrow) .side { padding-top: 60px; }
@@ -526,6 +668,7 @@
   .row .rk { width: 20px; font: 700 14px var(--font-ui); color: var(--muted); text-align: center; }
   .row b { flex: 1; font: 600 16px var(--font-ui); color: var(--ink); }
   .row em { font: 600 16px var(--font-ui); font-style: normal; color: #6d3fd6; }
+  .row em.pb { color: var(--muted); } .row em.pb small { font: 700 11px var(--font-body); text-transform: uppercase; letter-spacing: .04em; }
   .muted { color: var(--muted); font: 600 14px/1.4 var(--font-body); margin: 0; }
   .chainbox { padding: 14px; }
   .chain { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 2px; margin-top: 10px; }
@@ -552,8 +695,11 @@
   .pausebg { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(40, 28, 70, .25); }
   .pausecard { padding: 18px 26px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
   .pausecard h2 { margin: 0; }
-  .float { position: fixed; transform: translate(-50%, -50%); font: 600 30px var(--font-ui); color: #fff; -webkit-text-stroke: 6px #2f7be0; paint-order: stroke; text-shadow: 0 3px 0 #1d55a8, 0 0 16px #bfe8ff; pointer-events: none; z-index: 6; animation: rise 1.3s cubic-bezier(.2, .8, .3, 1) forwards; white-space: nowrap; }
-  .float.big { font-size: 40px; -webkit-text-stroke-color: #e07b00; text-shadow: 0 3px 0 #b35a00, 0 0 22px #ffe066; }
+  /* MERGE! +N, like the picture: white letters in a thick sky-blue outline with a glow; chains go gold */
+  .float { position: fixed; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; line-height: .95; font-family: var(--font-ui); font-weight: 600; color: #fff; -webkit-text-stroke: .2em #1d8fe8; paint-order: stroke; text-shadow: 0 .08em 0 #135fb0, 0 0 .5em rgba(120, 220, 255, .9); pointer-events: none; z-index: 6; animation: rise 1.4s cubic-bezier(.2, .8, .3, 1) forwards; white-space: nowrap; }
+  .float b { font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
+  .float span { font-size: .9em; }
+  .float.hot { -webkit-text-stroke-color: #f08a00; text-shadow: 0 .08em 0 #b35a00, 0 0 .6em rgba(255, 220, 90, .95); }
   @keyframes rise { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -170%) scale(1); } }
   .banner { position: fixed; left: 50%; top: 32%; transform: translate(-50%, -50%); z-index: 7; pointer-events: none; font: 600 clamp(36px, 6vw, 64px)/1 var(--font-ui); color: #fff; -webkit-text-stroke: 3px #6d3fd6; paint-order: stroke; text-shadow: 0 6px 0 #4a23a8, 0 0 30px #fff; animation: bannerin 1.1s cubic-bezier(.2, 1.3, .4, 1) forwards; white-space: nowrap; }
   .banner.bigb { font-size: clamp(46px, 8vw, 88px); -webkit-text-stroke-color: #e07b00; text-shadow: 0 6px 0 #b35a00, 0 0 40px #ffe066; }
