@@ -9,8 +9,11 @@ import { newPalProgress, type PalProgress, type StickerDef } from '../engine/sti
 import type { Reward } from '../engine/rewards';
 import { settlePractice } from '../engine/settle';
 import { groupFacts, moveOf, MATH_LESSON, MATH_LESSONS, MATH_REGION, PLACEMENTS, regionsOf, type MathLesson, type MathRegionId } from './course';
-import { factId, familyOf, newStat, parseFact, seedPartner, updateFact, FAST_MS, type FactStat, type Op, type Stage } from './facts';
+import { factId, familyOf, isRuleFact, newStat, parseFact, seedPartner, updateFact, FAST_MS, type FactStat, type Op, type Stage } from './facts';
 import { mathTreasureFor, type FactResult, type TripStats } from './meter';
+import { factRung } from './course';
+import { factAnswers, noteAbility, STRAND_SKILL, thetaOf } from './skills/ability';
+import { applyPlacement, foundInStrand, placeStart, strandLadder, type Found } from './skills/placement';
 
 export type MathLessonRecord = {
   stars: number; bestScore: number; bestFpm: number; bestAcc: number; bestRide: number;
@@ -49,6 +52,12 @@ export type MathProgress = {
   /** the skill areas' memory (fractions and on), one record per skill and sub (`fr-name:4`), kept like
    *  the facts' own: sprout, bud, bloom, reviews (math/skills) */
   skills?: Record<string, FactStat>;
+  /** how hard each skill's (and fact strand's) questions should be: an ability estimate in rungs, per
+   *  skill id (`fr-name`, `mult-facts`), learned from every answer (math/skills/ability.ts); missing in
+   *  older saves, which start from their memory */
+  ability?: Record<string, import('./skills/ability').Ability>;
+  /** the last Show What You Know, per area or strand: what it found, in words for grown-ups */
+  placed?: Record<string, { at: number; comfortable: string[]; next: string[] }>;
   /** the Number Playground: best stars per level of each game */
   play?: Partial<Record<import('./playground').PlayGame, import('./playground').PlayRecord>>;
   /** the arcade games (Pizza Rush, by game id): best score and stars, plays, today's challenge best */
@@ -148,6 +157,8 @@ export type MathOutcome = {
   slipped: string[];
   /** regions passed by the placement trip */
   testedOut: MathRegionId[];
+  /** a placement: what it found (comfortable with, next to grow) */
+  placed?: Found;
 };
 
 /** Friendship XP for a trip, paced like a typing lesson's (a 20-fact trip earns about what 90 letters do). */
@@ -157,7 +168,7 @@ export function tripXp(st: TripStats, stars: number, medals: number, finished: b
 
 export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
   const lesson = MATH_LESSON[run.lessonId];
-  const grown = p0.settings.grown;
+  const grown = !!p0.settings.grown;
   const st = run.stats;
   const p: Profile = structuredClone(p0);
   const m: MathProgress = (p.math = mathOf(p));
@@ -183,6 +194,19 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
     if ((m.facts[id]?.stage ?? 0) !== 3) continue;
     for (const fam of familyOf(parseFact(id))) { const fid = factId(fam); if (!m.facts[fid]?.stage) m.facts[fid] = { ...(m.facts[fid] ?? newStat()), stage: 1 }; }
   }
+  // ---- how hard the questions should be: every first try moves the strand's ability; a placement sets it ----
+  let placed: Found | undefined;
+  const firsts = run.results.filter(r => !r.intro);
+  if (lesson.region === 'start') {
+    const ladder = strandLadder(lesson.op);
+    const answers = firsts.map(r => { const rung = factRung(parseFact(r.id)); return { skill: STRAND_SKILL[lesson.op], rung, d: rung, ok: r.ok }; });
+    if (run.finished && answers.length) {
+      applyPlacement(m, ladder, answers, placeStart(mathOf(p0), ladder, run.at), run.at);
+      placed = foundInStrand(m, lesson.op, run.at);
+      m.placed = { ...(m.placed ?? {}), [lesson.op]: { at: run.at, ...placed } };
+    }
+  } else noteAbility(m, firsts.flatMap(r => factAnswers([{ f: parseFact(r.id), ok: r.ok, thinkMs: r.thinkMs }], run.at, fastMs, r.rung)), 'trip', grown);
+
   const grew = { bloomed: [] as string[], budded: [] as string[], sprouted: [] as string[] };
   const slipped: string[] = [];
   for (const [id, b] of stageBefore) {
@@ -213,14 +237,20 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
   m.lessons[lesson.id] = record;
   m.strand = lesson.op;
 
-  // ---- the placement trip: test out of every table, in order, that came back all right and mostly fast ----
+  // ---- the placement trip: test out of the regions it covers, in order: each one whose facts came back all
+  // right and mostly fast, or that it didn't ask but sits clearly below what the child showed (a rung past
+  // its typical fact); the first that doesn't stops it ----
   const testedOut: MathRegionId[] = [];
   if (lesson.region === 'start' && run.finished) {
-    for (const r of regionsOf(lesson.op)) {
+    const level = thetaOf(m, STRAND_SKILL[lesson.op], run.at);
+    for (const r of regionsOf(lesson.op).filter(x => x.groups.some(g => lesson.groups.includes(g)))) {
       const ids = new Set(r.groups.flatMap(groupFacts).map(factId));
       const mine = run.results.filter(x => !x.intro && ids.has(x.id));
       const fast = mine.filter(x => x.ok && x.speed === 'fast').length;
-      if (!mine.length || mine.some(x => !x.ok) || fast < Math.ceil(mine.length * 0.6)) break;
+      const rungs = r.groups.flatMap(groupFacts).filter(f => !isRuleFact(f)).map(factRung).sort((a, b) => a - b);
+      const typical = rungs[Math.floor(rungs.length / 2)] ?? 1;
+      const shown = mine.length > 0 && !mine.some(x => !x.ok) && fast >= Math.ceil(mine.length * 0.6);
+      if (!shown && !(mine.length === 0 && level >= typical + 1)) break;
       const cp = r.lessons.at(-1)!;
       const was = m.lessons[cp.id];
       if ((was?.stars ?? 0) > 0) continue;
@@ -270,7 +300,7 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
     before, record,
     newBestScore: !!before && run.finished && st.score > before.bestScore,
     newBestRide: !!before && run.bestRide > before.bestRide,
-    goalJustHit: done.goalJustHit, regionJustDone, grew, slipped, testedOut,
+    goalJustHit: done.goalJustHit, regionJustDone, grew, slipped, testedOut, placed,
   };
 }
 

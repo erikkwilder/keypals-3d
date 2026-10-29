@@ -43,7 +43,7 @@
   const lesson = MATH_LESSON[game.mathLessonId] ?? MATH_LESSON['twins-1'];
   const regionName = lesson.region === 'start' ? STRAND[lesson.op].name : MATH_REGION[lesson.region].name;
   const fastMs = m.fastMs ?? FAST_MS;
-  const picker = new TripPicker({ lesson, facts: m.facts, now: Date.now(), fastMs });
+  const picker = new TripPicker({ lesson, facts: m.facts, now: Date.now(), fastMs, math: m, grown: !!grown });
   let calm = $state(!!m.calm);
   const meter = new FactMeter(grown, !!m.calm);
   const record = m.lessons[lesson.id];
@@ -113,6 +113,8 @@
   const trickText = $derived(trick?.say ?? '');
   const sign = $derived(fact ? opSign(fact) : '×');
   const showHelp = $derived(phase === 'play' && (mode === 'learn' || mode === 'fix'));
+  // at the gentlest rung the dot picture shows with the question too (math/course.ts FACT_RUNGS)
+  const dots = $derived(!!item && phase === 'play' && mode === 'ask' && lesson.kind !== 'placement' && picker.spec.dots);
 
   function begin() {
     phase = 'play';
@@ -166,15 +168,15 @@
       const thinkMs = (firstDigitAt ?? t) - shownAt;
       if (ok) {
         const speed = speedOf({ ok, thinkMs, fastMs });
-        results.push({ id, ok: true, speed, thinkMs, ms: t - shownAt, intro: false });
+        results.push({ id, ok: true, speed, thinkMs, ms: t - shownAt, intro: false, rung: item.rung });
         funEvent('mathRight', { value: answer, a: fact.a, b: fact.b });
         eggWarm++;
-        picker.answer(true);
+        picker.answer(true, thinkMs);
         meter.push(true, t - shownAt);
         stepOn(speed === 'fast');
       } else {
         // no buzzer: the answer and its trick show, the fact will come back
-        picker.answer(false);
+        picker.answer(false, thinkMs);
         missThink = thinkMs;
         mode = 'fix';
         typed = '';
@@ -380,6 +382,7 @@
             </span>
           </div>
         {/key}
+        {#if dots}<div class="qdots"><DotPicture {fact} size={compact ? 96 : 130} /></div>{/if}
         {#if streakPop}{#key streakPop.n}<div class="streak">{streakPop.text}</div>{/key}{/if}
       {/if}
     </div>
@@ -512,6 +515,7 @@
   .ladder { flex: none; }
 
   .qwrap { position: absolute; left: 0; right: 0; top: clamp(74px, 11%, 100px); display: flex; flex-direction: column; align-items: center; z-index: 5; min-height: 10px; }
+  .qdots { margin-top: 8px; padding: 6px 10px; background: rgba(255, 255, 255, .92); border-radius: 18px; box-shadow: var(--shadow-sm); }
   .q { display: flex; align-items: center; gap: clamp(10px, 1.6vw, 22px); padding: clamp(10px, 2vh, 22px) clamp(22px, 3vw, 44px); background: #fff; border-radius: 34px; box-shadow: var(--shadow); border: var(--panel-border); font: 600 clamp(54px, 10vh, 112px)/1 var(--font-ui); color: var(--ink); transition: box-shadow .2s, background .2s; }
   .q .op { color: var(--primary); font-size: .8em; }
   .q.shake { animation: wiggle .35s ease; }

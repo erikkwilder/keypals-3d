@@ -130,9 +130,12 @@ describe('skill trips', () => {
     expect(Object.values(mem).some(s => s.stage === 3)).toBe(true);
     expect(skillStatus(mathOf(p), 'fr-name')).not.toBe('not started');
     // a slip steps a bloom back to a bud
-    const bloomKey = Object.keys(mem).find(k => mem[k].stage === 3)!;
-    const r = playTrip('frac-a-1', p, T0 + 3 * DAY, { miss: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] });
-    expect(mathOf(r.out.profile).skills![bloomKey].stage).toBeLessThan(3);
+    const blooms = Object.keys(mem).filter(k => mem[k].stage === 3);
+    const r = playTrip('frac-a-1', p, T0 + 3 * DAY, { miss: Array.from({ length: 40 }, (_, i) => i) });
+    const missed = new Set(r.results.filter(x => !x.ok).map(x => x.key));
+    const hit = blooms.filter(k => missed.has(k));
+    expect(hit.length).toBeGreaterThan(0);
+    for (const k of hit) expect(mathOf(r.out.profile).skills![k].stage).toBeLessThan(3);
     // fact memory untouched by skill trips
     expect(Object.keys(mathOf(p).facts)).toEqual([]);
   });
@@ -173,14 +176,21 @@ describe('the whole fractions area', () => {
       }
     }
   });
-  it('every lesson draws on real skills, each region ends in a checkpoint, and the placement asks two of each skill', () => {
+  it('every lesson draws on real skills, each region ends in a checkpoint, and the placement walks the area\'s ladder', () => {
     expect(SKILL_LESSONS.filter(l => l.area === 'fractions').length).toBe(18);
     for (const r of ['frac-a', 'frac-b', 'frac-c']) expect(SKILL_LESSONS.filter(l => l.region === r).at(-1)!.kind).toBe('check');
-    const pl = new SkillTripPicker({ lesson: SKILL_LESSON['start-fractions'], mem: {}, now: T0, seed: 3 });
-    const per = new Map<string, number>();
-    let x; while ((x = pl.next())) { per.set(x.item.skill, (per.get(x.item.skill) ?? 0) + 1); pl.answer(true); }
-    expect(per.size).toBe(FRACTION_SKILLS.length);
-    expect([...per.values()].every(n => n === 2)).toBe(true);
+    const run = (ok: boolean) => {
+      const pl = new SkillTripPicker({ lesson: SKILL_LESSON['start-fractions'], mem: {}, now: T0, seed: 3 });
+      const asked: { skill: string; rung: number }[] = [];
+      let x; while ((x = pl.next())) { asked.push({ skill: x.item.skill, rung: x.item.rung! }); expect(x.reason).toBe('test'); pl.answer(ok); }
+      return asked;
+    };
+    const up = run(true), down = run(false);
+    expect(up.length).toBeGreaterThanOrEqual(12); expect(up.length).toBeLessThanOrEqual(16);
+    expect(new Set(up.map(a => a.skill)).size).toBeGreaterThanOrEqual(6); // across the area, not one skill
+    const order = FRACTION_SKILLS.map(s => s.id), late = (xs: typeof up) => xs.slice(-6).reduce((t, a) => t + order.indexOf(a.skill) + a.rung, 0) / 6;
+    expect(late(up)).toBeGreaterThan(late(down) + 5); // all right climbs to later skills and higher rungs
+    expect(down.slice(-4).every(a => a.rung <= 2 && order.indexOf(a.skill) <= 4)).toBe(true);
   });
   it('a Meet lesson only asks the subs it has introduced', () => {
     for (const seed of [1, 2, 3, 4, 5]) {

@@ -10,6 +10,8 @@ import { mathTreasureFor, type FactResult, type TripStats } from '../meter';
 import { mathOf, tripXp, type MathLessonRecord, type MathProgress } from '../progress';
 import { SKILL, splitKey } from './registry';
 import { SKILL_LESSON, SKILL_REGION, skillRegionsOf, tempoOf, type SkillLesson } from './course';
+import { noteAbility, skillAnswers, thetaOf } from './ability';
+import { applyPlacement, foundInArea, placeStart, skillLadder, type Found } from './placement';
 
 /** The memory of the skill areas (empty in older saves). */
 export const skillMem = (m: MathProgress): Record<string, FactStat> => m.skills ?? {};
@@ -26,14 +28,17 @@ export function skillStatus(m: MathProgress, skillId: string): 'not started' | '
   return stages.every(x => x >= 2) && stages.filter(x => x === 3).length >= Math.ceil(stages.length / 2) ? 'solid' : 'growing';
 }
 
-/** Answers from a battle or a duel count for the skill memory, as in practice. */
-export function noteSkillAnswers(m: MathProgress, answers: { key: string; ok: boolean; thinkMs: number }[], at: number) {
+/** Answers from a battle, a duel or an arcade game count for the skill memory, as in practice, and move
+ *  the ability (a little less than a practice trip's answers do: games are noisier). */
+export function noteSkillAnswers(m: MathProgress, answers: { key: string; ok: boolean; thinkMs: number; rung?: number }[], at: number) {
   const mem = (m.skills = { ...(m.skills ?? {}) }), day = dayKey(at);
   for (const x of answers) mem[x.key] = updateFact(mem[x.key], { ok: x.ok, thinkMs: x.thinkMs, day, at, fastMs: SKILL[splitKey(x.key).skill]?.fastMs });
+  noteAbility(m, skillAnswers(m, answers, at), 'game');
 }
 
-/** One answered question: its memory key and the question's id. */
-export type SkillResult = FactResult & { key: string; label: string };
+/** One answered question: its memory key and the question's id, the rung it was asked at, and whether it
+ *  was turned into choices (easier: it counts half a rung lower). */
+export type SkillResult = FactResult & { key: string; label: string; rung?: number; choice?: boolean };
 
 export type SkillRunInput = { lessonId: string; results: SkillResult[]; stats: TripStats; stars: number; bestRide: number; finished: boolean; at: number; napped?: boolean };
 export type SkillOutcome = Settled & {
@@ -42,6 +47,8 @@ export type SkillOutcome = Settled & {
   grew: { bloomed: string[]; budded: string[]; sprouted: string[] }; slipped: string[];
   /** lessons passed by testing out (placement) */
   testedOut: string[];
+  /** a placement: what it found (comfortable with, next to grow) */
+  placed?: Found;
 };
 
 export function applySkillRun(p0: Profile, run: SkillRunInput): SkillOutcome {
@@ -61,6 +68,20 @@ export function applySkillRun(p0: Profile, run: SkillRunInput): SkillOutcome {
     if (r.intro) { const s = mem[r.key] ?? newStat(); mem[r.key] = { ...s, seen: s.seen + 1, last: run.at, stage: Math.max(1, s.stage) as Stage }; }
     else mem[r.key] = updateFact(mem[r.key], { ok: r.ok, thinkMs: r.thinkMs, day, at: run.at, fastMs: sk?.fastMs });
   }
+  // ---- how hard the questions should be: every first try moves the ability; a placement sets it ----
+  let placed: Found | undefined;
+  const firsts = run.results.filter(r => !r.intro);
+  if (lesson.kind === 'placement') {
+    const ladder = skillLadder(lesson.area).filter(x => lesson.skills.includes(x.skill));
+    const base = new Map(ladder.map(x => [x.skill, x.base]));
+    const answers = firsts.filter(r => r.rung && base.has(splitKey(r.key).skill)).map(r => { const skill = splitKey(r.key).skill; return { skill, rung: r.rung!, d: base.get(skill)! + r.rung!, ok: r.ok }; });
+    if (run.finished && answers.length) {
+      applyPlacement(m, ladder, answers, placeStart(mathOf(p0), ladder, run.at), run.at);
+      placed = foundInArea(m, lesson.area, run.at);
+      m.placed = { ...(m.placed ?? {}), [lesson.area]: { at: run.at, ...placed } };
+    }
+  } else noteAbility(m, firsts.map(r => ({ skill: splitKey(r.key).skill, rung: (r.rung ?? 0) - (r.choice ? 0.5 : 0), ok: r.ok, thinkMs: r.thinkMs, at: run.at })).filter(x => x.rung > 0), 'trip', grown);
+
   const grew = { bloomed: [] as string[], budded: [] as string[], sprouted: [] as string[] };
   const slipped: string[] = [];
   for (const [key, b] of before) {
@@ -85,14 +106,19 @@ export function applySkillRun(p0: Profile, run: SkillRunInput): SkillOutcome {
   };
   m.lessons[lesson.id] = record;
 
-  // ---- placement: every lesson of a skill whose questions all came back right (and mostly quick) opens ----
+  // ---- placement: a Meet lesson opens when its skill's questions all came back right (and mostly
+  // quick) and the placement puts the child at grade level on it or past it; or when it wasn't asked but
+  // sits clearly below what the child showed (as before: nothing new is locked, nothing marked done that
+  // the answers don't show) ----
   const testedOut: string[] = [];
   if (lesson.kind === 'placement' && run.finished) {
     for (const r of skillRegionsOf(lesson.area)) for (const l of r.lessons) {
       if (l.kind !== 'meet' || (m.lessons[l.id]?.stars ?? 0) > 0) continue;
       const mine = run.results.filter(x => !x.intro && l.learn.includes(splitKey(x.key).skill));
       const fast = mine.filter(x => x.ok && x.speed === 'fast').length;
-      if (mine.length < 2 || mine.some(x => !x.ok) || fast < Math.ceil(mine.length * 0.5)) continue;
+      const level = Math.min(...l.learn.map(id => thetaOf(m, id, run.at)));
+      const shown = mine.length > 0 && !mine.some(x => !x.ok) && fast >= Math.ceil(mine.length * 0.5) && level >= 3;
+      if (!shown && !(mine.length === 0 && level >= 4.5)) continue;
       m.lessons[l.id] = { ...(m.lessons[l.id] ?? { bestScore: 0, bestFpm: 0, bestAcc: 0, bestRide: 0, attempts: 0, finishes: 0, passes: 0, lastAt: run.at }), stars: 1, testedOut: true };
       testedOut.push(l.id);
     }
@@ -129,6 +155,6 @@ export function applySkillRun(p0: Profile, run: SkillRunInput): SkillOutcome {
     ...done, profile: p, before: prior, record,
     newBestScore: !!prior && run.finished && score > prior.bestScore,
     newBestRide: !!prior && run.bestRide > prior.bestRide,
-    regionJustDone, grew, slipped, testedOut,
+    regionJustDone, grew, slipped, testedOut, placed,
   };
 }

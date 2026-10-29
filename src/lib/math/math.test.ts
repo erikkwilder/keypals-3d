@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { factId, newStat, seedPartner, updateFact, weakness, FAST_MS, type FactStat } from './facts';
-import { MATH_LESSON, MATH_LESSONS, PLACEMENT, lessonFacts, tableFacts, trickFor } from './course';
+import { factId, newStat, parseFact, seedPartner, updateFact, weakness, FAST_MS, type FactStat } from './facts';
+import { MATH_LESSON, MATH_LESSONS, PLACEMENT, factRung, lessonFacts, tableFacts, trickFor } from './course';
 import { TripPicker, TRIP_LENGTH, MAX_NEW, type Item } from './picker';
 import { FactMeter, MATH_RIDE, mathStars, mathTreasureFor, tripStats, type FactResult } from './meter';
 import { applyMathRun, mathOf, mathUnlocked, nextMathLesson, regionPassed } from './progress';
@@ -215,10 +215,15 @@ describe('fact picker', () => {
     for (const a of asked) if (a.item.reason === 'known') counts.set(factId(a.item.fact), (counts.get(factId(a.item.fact)) ?? 0) + 1);
     expect(Math.max(...counts.values())).toBeLessThanOrEqual(4);
   });
-  it('the placement trip samples all four tables evenly', () => {
-    const asked = play(new TripPicker({ lesson: PLACEMENT, facts: {}, now: T0, seed: 2 })).map(a => a.item.fact.b);
-    expect(asked).toHaveLength(20);
-    for (const t of [2, 10, 5, 4]) expect(asked.filter(b => b === t)).toHaveLength(5);
+  it('the placement trip is a staircase over the strand: right answers climb to harder facts, misses come down', () => {
+    const up = play(new TripPicker({ lesson: PLACEMENT, facts: {}, now: T0, seed: 2 }), () => true).map(a => a.item.fact);
+    const down = play(new TripPicker({ lesson: PLACEMENT, facts: {}, now: T0, seed: 2 }), () => false).map(a => a.item.fact);
+    expect(up).toHaveLength(16);
+    expect(new Set(up.map(f => factId(f))).size).toBe(16); // never the same fact twice
+    expect(up.every(f => f.a > 1 && f.b > 1)).toBe(true); // no 0 and 1 rule facts
+    const mean = (fs: typeof up) => fs.slice(-8).reduce((t, f) => t + factRung(f), 0) / 8;
+    expect(mean(up)).toBeGreaterThan(4.5);
+    expect(mean(down)).toBeLessThan(1.5);
   });
 });
 
@@ -323,11 +328,24 @@ describe('math progress and rewards', () => {
   });
   it('the placement trip tests out of tables answered right and fast, in order', () => {
     const p = newProfile('Ava', 'dino');
-    const asked = play(new TripPicker({ lesson: PLACEMENT, facts: {}, now: T0, seed: 8 })).map(a => a.item.fact);
-    const rs: FactResult[] = asked.map(f => ({ id: factId(f), ok: f.b !== 5, speed: f.b !== 5 ? 'fast' : 'miss', thinkMs: 900, ms: 2000, intro: false }));
+    // right and quick on the 2s, 10s and the harder tables, but a 5s fact missed
+    const facts = ['6x2', '9x2', '7x10', '4x10', '3x4', '8x4', '6x3', '7x5', '7x6', '8x7', '9x6', '4x9'].map(parseFact);
+    const rs: FactResult[] = facts.map(f => ({ id: factId(f), ok: f.b !== 5, speed: f.b !== 5 ? 'fast' : 'miss', thinkMs: 900, ms: 2000, intro: false }));
     const out = applyMathRun(p, { lessonId: PLACEMENT.id, results: rs, stats: tripStats(rs), stars: 1, bestRide: 2, finished: true, at: T0 });
     expect(out.testedOut).toEqual(['twins', 'tens']); // stops at the 5s, so the 4s aren't skipped either
     expect(nextMathLesson(mathOf(out.profile)).id).toBe('fives-1');
+    // and it sets how hard the times questions are: well past the start, and the grown-ups get it in words
+    expect(mathOf(out.profile).ability!['mult-facts'].t).toBeGreaterThan(3);
+    expect(out.placed!.comfortable).toContain('the 2s');
+  });
+  it('a placement with everything wrong opens nothing and starts gently', () => {
+    const p = newProfile('Ava', 'dino');
+    const asked = play(new TripPicker({ lesson: PLACEMENT, facts: {}, now: T0, seed: 8 }), () => false).map(a => a.item.fact);
+    const rs: FactResult[] = asked.map(f => ({ id: factId(f), ok: false, speed: 'miss', thinkMs: 900, ms: 2000, intro: false }));
+    const out = applyMathRun(p, { lessonId: PLACEMENT.id, results: rs, stats: tripStats(rs), stars: 0, bestRide: 0, finished: true, at: T0 });
+    expect(out.testedOut).toEqual([]);
+    expect(mathOf(out.profile).ability!['mult-facts'].t).toBeLessThan(1.5);
+    expect(out.placed!.comfortable).toEqual([]);
   });
   it('after testing out of the first four tables, carries on with the 3s', () => {
     const p = newProfile('Ava', 'dino');

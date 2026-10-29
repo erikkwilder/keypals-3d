@@ -33,6 +33,8 @@ export type FactResult = {
   ms: number;
   /** a new fact's first showing, with its trick: not scored */
   intro: boolean;
+  /** the trip's rung when it was asked (math/picker.ts: the speed target for the ability) */
+  rung?: number;
 };
 
 export type TripStats = {

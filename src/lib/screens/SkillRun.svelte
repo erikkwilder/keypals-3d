@@ -49,7 +49,7 @@
   const area = AREA[lesson.area];
   const regionName = lesson.region === 'start' ? area.name : SKILL_REGION[lesson.region].name;
   const tempo = tempoOf(lesson.area);
-  const picker = new SkillTripPicker({ lesson, mem: m.skills ?? {}, now: Date.now() });
+  const picker = new SkillTripPicker({ lesson, mem: m.skills ?? {}, now: Date.now(), math: m, grown: !!grown });
   // some questions are asked as choices (likely mistakes to pick from): often while a kind is new
   const mix = mulberry32(Date.now() % 1e9);
   /** this question was turned into choices */
@@ -124,7 +124,7 @@
     // a question asked as choices: the right choice (its own check might look for a typed answer)
     const ok = choiced ? a.kind === 'choice' && a.id === CHOICE_RIGHT : skill.check(item, a);
     if (a.kind === 'choice') marked = { id: a.id, ok };
-    const base = { id: item.id, key: item.key, label: shortText(item) };
+    const base = { id: item.id, key: item.key, label: shortText(item), rung: item.rung, choice: choiced };
     if (mode === 'ask') {
       const thinkMs = (firstAt ?? t) - shownAt;
       if (ok) {
@@ -132,11 +132,11 @@
         // picking from choices counts as right, but only a typed answer grows a bloom
         results.push({ ...base, ok: true, speed: choiced && speed === 'fast' ? 'slow' : speed, thinkMs, ms: t - shownAt, intro: false });
         eggWarm++;
-        picker.answer(true);
+        picker.answer(true, thinkMs);
         meter.push(true, (t - shownAt) / tempo);
         stepOn(speed === 'fast');
       } else {
-        picker.answer(false);
+        picker.answer(false, thinkMs);
         missThink = thinkMs;
         mode = 'fix'; feedback = 'wrong'; shake++; streak = 0;
         sfx.miss(); scene?.key(false, steps);
