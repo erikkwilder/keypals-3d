@@ -186,7 +186,7 @@
   .glow { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 80%, rgba(255, 240, 160, .35), rgba(255, 240, 160, 0) 60%); animation: fade .6s ease-out forwards; z-index: 2; }
   @keyframes fade { 0% { opacity: 1; } 100% { opacity: 0; } }
 
-  .compact .card { top: 66px; padding: 6px 18px 8px; gap: 10px; }
+  .compact .card { top: 100px; padding: 6px 18px 8px; gap: 10px; }
   .compact .make { font-size: 22px; }
   .compact .card b { font-size: 54px; }
   .compact .arrow { width: 76px; height: 76px; bottom: 12px; }

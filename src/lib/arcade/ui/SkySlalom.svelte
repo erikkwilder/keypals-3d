@@ -208,11 +208,11 @@
   .flash { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 60%, rgba(255, 230, 120, 0) 40%, rgba(255, 220, 90, .28) 100%); animation: flash .5s ease-out forwards; z-index: 2; }
   @keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }
 
-  .compact .card { top: 66px; padding: 6px 22px 8px; gap: 8px; }
+  .compact .card { top: 100px; padding: 6px 22px 8px; gap: 8px; }
   .compact .sum { font-size: 52px; }
   .compact .st { width: 24px; height: 24px; }
   .compact .st.s2 { width: 28px; height: 28px; }
-  .compact .reveal { top: 140px; font-size: 21px; }
+  .compact .reveal { top: 176px; font-size: 21px; }
   .compact .gauge { width: 104px; right: 50%; transform: translateX(50%); bottom: 14px; padding: 6px 8px 4px; border-radius: 18px; }
   .compact .gauge span { font-size: 17px; margin-top: -8px; }
   .compact .arrow { width: 84px; height: 84px; bottom: 14px; }

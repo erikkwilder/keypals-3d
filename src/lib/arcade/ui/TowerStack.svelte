@@ -107,7 +107,7 @@
   function updateView() {
     if (!scene) return;
     const padTop = padEl ? padEl.getBoundingClientRect().top / innerHeight : 0.78;
-    scene.view = { top: compact ? 0.24 : 0.2, bottom: Math.max(0.5, padTop - 0.02) };
+    scene.view = { top: compact ? 0.28 : 0.2, bottom: Math.max(0.5, padTop - 0.02) };
   }
 
   $effect(() => {
@@ -194,10 +194,10 @@
   .padwrap { position: relative; z-index: 6; padding: 10px 18px 16px; background: linear-gradient(rgba(255, 255, 255, .9), rgba(246, 241, 255, .96)); border-top: var(--panel-border); box-shadow: 0 -10px 30px -20px rgba(60, 40, 110, .3); }
   .hint { text-align: center; margin: -2px 0 8px; font: 700 13px var(--font-body); color: var(--muted); }
 
-  .compact .card { top: 66px; padding: 6px 16px 8px; gap: 8px; font-size: 44px; border-radius: 24px; }
+  .compact .card { top: 100px; padding: 6px 16px 8px; gap: 8px; font-size: 44px; border-radius: 24px; }
   .compact .box { border-radius: 12px; border-width: 3px; }
-  .compact .reveal { top: 136px; font-size: 21px; }
-  .compact .side { left: 8px; top: 150px; transform: none; padding: 8px 8px 6px; gap: 6px; }
+  .compact .reveal { top: 170px; font-size: 21px; }
+  .compact .side { left: 8px; top: 186px; transform: none; padding: 8px 8px 6px; gap: 6px; }
   .compact .height b { font-size: 28px; }
   .compact .lives img { width: 22px; height: 22px; }
   .compact .padwrap { padding: 8px 10px 10px; }

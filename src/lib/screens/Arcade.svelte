@@ -4,7 +4,7 @@
   // for everyone in the family, and bonus shells for beating its goal. Arcade rounds count as practice:
   // every answer feeds the fact memory, and they earn stars, shells and treasure (not lessons).
   import { onDestroy, onMount } from 'svelte';
-  import { game } from '../state/game.svelte';
+  import { game, type Screen } from '../state/game.svelte';
   import { advView } from '../adventure/state';
   import { ARCADE, ARCADE_GAMES, arcadeOf, dailyBeaten, dailyGame, dailyGoal, DAILY_SHELLS, type ArcadeId } from '../arcade/arcade';
   import { stage } from '../three/stage';
@@ -43,18 +43,21 @@
     scene?.cheer();
     game.playArcade(id, daily);
   }
-  function hover(id: ArcadeId | null, el?: HTMLElement) {
+  /** Pizza Rush is the Fractions area's game, on its own screen */
+  function openPizza() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('pizza' as Screen); }
+  function hover(id: ArcadeId | 'pizza' | null, el?: HTMLElement) {
     if (!scene) return;
     if (!id || !el) { scene.look(null); say = 'Pick a game to play!'; return; }
     const r = el.getBoundingClientRect();
     scene.look((r.left + r.width / 2) / innerWidth);
-    say = ARCADE[id].id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : 'How tall can we go?';
+    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : 'Pizza! Slice it up!';
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'Escape') { game.go('map'); return; }
     const n = Number(e.key);
     if (n >= 1 && n <= ARCADE_GAMES.length) play(ARCADE_GAMES[n - 1].id);
+    if (n === ARCADE_GAMES.length + 1) openPizza();
     if (e.key === 'd' || e.key === 'D') play(today, true);
   }
 
@@ -115,10 +118,12 @@
             {#if !compact}<span class="kbd">{i + 1}</span>{/if}
           </button>
         {/each}
-        <div class="cab soon" style:--d="{ARCADE_GAMES.length * 90}ms">
-          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-soon.webp" alt="" />
-          <span class="plate"><b>Coming soon</b><span class="bs">More games on the way</span></span>
-        </div>
+        <!-- Pizza Rush lives with the Fractions area (its own screen and records); its cabinet stands here too -->
+        <button class="cab" style:--c="#e2452b" style:--d="{ARCADE_GAMES.length * 90}ms" onclick={openPizza} onpointerenter={(e) => hover('pizza', e.currentTarget)} onpointerleave={() => hover(null)}>
+          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-pizza.webp" alt="" />
+          <span class="plate"><b>Pizza Rush</b><span class="bs">Slice up fractions</span></span>
+          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 1}</span>{/if}
+        </button>
       </div>
       <p class="note">Arcade games count as practice: every answer helps your Fact Garden grow, and you earn shells and treasure.</p>
     </div>
@@ -166,9 +171,6 @@
   .bs { font: 700 13px var(--font-body); color: var(--muted); white-space: nowrap; }
   .kbd { position: absolute; top: 6px; left: 8px; z-index: 2; }
   .ribbon { position: absolute; top: 4%; right: -4px; z-index: 2; padding: 4px 10px; border-radius: 10px; background: linear-gradient(#ffb43d, #f08a1c); color: #fff; font: 600 15px var(--font-ui); box-shadow: 0 3px 0 #c0650a; transform: rotate(8deg); }
-  .cab.soon { cursor: default; opacity: .9; }
-  .cab.soon:hover { transform: none; }
-  .cab.soon .plate { box-shadow: 0 0 0 3px #e0d6f5, 0 10px 20px -10px rgba(40, 30, 90, .3); }
   @keyframes rise-in { 0% { transform: translateY(40px) scale(.9); opacity: 0; } 100% { transform: none; opacity: 1; } }
   .note { margin: 0; align-self: center; text-align: center; font: 700 13.5px var(--font-body); color: #fff; text-shadow: 0 1px 4px rgba(40, 30, 60, .8); }
 
