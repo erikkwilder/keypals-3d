@@ -25,6 +25,7 @@
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
   import TileArt from '../ui/TileArt.svelte';
+  import Turntable from '../ui/Turntable.svelte';
 
   const p = $derived(game.profile!);
   let who = $state<FriendId>(game.profile!.buddy);
@@ -53,7 +54,6 @@
   let stageEl: HTMLDivElement | undefined = $state();
   let disposed = false;
   const RAR = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
-  const ICON: Record<string, string> = { fistpump: '✊', jump: '⭐', dance_floss: '🕺', dance_robot: '🤖', dance_chicken: '🐔', dance_moonwalk: '🌙', dance_gangnam: '🐴', dance_hype: '🔥', dance_raiseroof: '🙌', dance_twist: '🌀', dance_cabbage: '🥬', dance_macarena: '💃' };
 
   async function show(id: FriendId) {
     const old = scene;
@@ -181,38 +181,13 @@
   <div class="body">
     <div class="stagebox" bind:this={stageEl}>
       <Confetti {burst} count={50} x={50} y={45} />
-      {#if moving}
-        {@const c = CAT[moving.id]}
-        <!-- Move it: big buttons to nudge the thing into place (hold to keep going) -->
-        <div class="mover card">
-          <div class="mvhead"><img src="{base}{c?.icon}" alt="" /><b>Move the {c?.name ?? 'thing'}</b></div>
-          <div class="mvgrid">
-            <span></span><button class="mv" onpointerdown={() => hold({ y: 1 })} aria-label="Up">▲<small>Up</small></button><span></span>
-            <button class="mv" onpointerdown={() => hold({ x: -1 })} aria-label="Left">◀<small>Left</small></button>
-            <button class="mv mid" onpointerdown={() => hold({ z: 1 })} aria-label="Closer">●<small>Closer</small></button>
-            <button class="mv" onpointerdown={() => hold({ x: 1 })} aria-label="Right">▶<small>Right</small></button>
-            <span></span><button class="mv" onpointerdown={() => hold({ y: -1 })} aria-label="Down">▼<small>Down</small></button><button class="mv" onpointerdown={() => hold({ z: -1 })} aria-label="Further">○<small>Further</small></button>
-          </div>
-          <div class="mvrow">
-            <button class="mv wide" onpointerdown={() => hold({ s: -1 })}>－<small>Smaller</small></button>
-            <button class="mv wide" onpointerdown={() => hold({ s: 1 })}>＋<small>Bigger</small></button>
-            <button class="mv wide" onpointerdown={() => hold({ r: -1 })}>↺<small>Turn</small></button>
-            <button class="mv wide" onpointerdown={() => hold({ r: 1 })}>↻<small>Turn</small></button>
-          </div>
-          <div class="mvbtns">
-            <button class="btn" onclick={resetMove}>Reset</button>
-            <button class="btn" onclick={cancelMove}>Cancel</button>
-            <button class="btn btn-primary" onclick={saveMove}>Done</button>
-          </div>
-          <p class="mvnote">Just for {FRIEND[who].name}: every other buddy keeps its own fit.</p>
-        </div>
-      {/if}
+      <Turntable scene={() => scene} el={stageEl} />
     </div>
     <div class="side">
       <div class="who card">
         <h2>{FRIEND[who].name}</h2>
         {#if joined}
-          <div class="xp"><span class="lvl">♥ Friendship {lvl.level}</span><div class="bar"><i style:width="{(lvl.into / lvl.need) * 100}%"></i></div><span class="muted">{lvl.into}/{lvl.need} XP</span></div>
+          <div class="xp"><span class="lvl"><Icon name="heart" size={15} /> Friendship {lvl.level}</span><div class="bar"><i style:width="{(lvl.into / lvl.need) * 100}%"></i></div><span class="muted">{lvl.into}/{lvl.need} XP</span></div>
           <p class="quirk">{FRIEND[who].quirk}</p>
           <p class="advline"><img src="{import.meta.env.BASE_URL}game/icon-star.webp" alt="" /><span><b>In Adventure, {ROLE[BUDDY_ROLE[who]].name}:</b> {ROLE[BUDDY_ROLE[who]].text}</span></p>
           {#if p.buddy !== who}<button class="btn btn-primary" onclick={makeBuddy}>Play with {FRIEND[who].name}</button>{/if}
@@ -223,7 +198,32 @@
           <p class="quirk">{FRIEND[who].quirk}</p>
         {/if}
       </div>
-      {#if joined}
+      {#if joined && moving}
+        {@const c = CAT[moving.id]}
+        <!-- Move it: big buttons to nudge the thing into place (hold to keep going) -->
+        <div class="mover card">
+          <div class="mvhead"><img src="{base}{c?.icon}" alt="" /><b>Move the {c?.name ?? 'thing'}</b></div>
+          <div class="mvgrid">
+            <span></span><button class="mv" onpointerdown={() => hold({ y: 1 })} aria-label="Up"><Icon name="up" size={36} /><small>Up</small></button><span></span>
+            <button class="mv" onpointerdown={() => hold({ x: -1 })} aria-label="Left"><Icon name="left" size={36} /><small>Left</small></button>
+            <button class="mv mid" onpointerdown={() => hold({ z: 1 })} aria-label="Closer"><Icon name="closer" size={36} /><small>Closer</small></button>
+            <button class="mv" onpointerdown={() => hold({ x: 1 })} aria-label="Right"><Icon name="right" size={36} /><small>Right</small></button>
+            <span></span><button class="mv" onpointerdown={() => hold({ y: -1 })} aria-label="Down"><Icon name="down" size={36} /><small>Down</small></button><button class="mv" onpointerdown={() => hold({ z: -1 })} aria-label="Further"><Icon name="further" size={36} /><small>Further</small></button>
+          </div>
+          <div class="mvrow">
+            <button class="mv wide" onpointerdown={() => hold({ s: -1 })} aria-label="Smaller"><Icon name="smaller" size={36} /><small>Smaller</small></button>
+            <button class="mv wide" onpointerdown={() => hold({ s: 1 })} aria-label="Bigger"><Icon name="bigger" size={36} /><small>Bigger</small></button>
+            <button class="mv wide" onpointerdown={() => hold({ r: -1 })} aria-label="Turn left"><Icon name="turnleft" size={36} /><small>Turn left</small></button>
+            <button class="mv wide" onpointerdown={() => hold({ r: 1 })} aria-label="Turn right"><Icon name="turnright" size={36} /><small>Turn right</small></button>
+          </div>
+          <div class="mvbtns">
+            <button class="btn resetbtn" onclick={resetMove}><Icon name="reset" size={20} /> Reset</button>
+            <button class="btn" onclick={cancelMove}>Cancel</button>
+            <button class="btn btn-primary" onclick={saveMove}>Done</button>
+          </div>
+          <p class="mvnote">Just for {FRIEND[who].name}: every other buddy keeps its own fit.</p>
+        </div>
+      {:else if joined}
       <div class="tabs">
         <button class:on={tab === 'wear'} onclick={() => setTab('wear')}><TileArt kind="outfits" size={40} /><span>Wardrobe</span><em>{ownedCount}/{CATALOG.length}</em></button>
         <button class:on={tab === 'dances'} onclick={() => setTab('dances')}><TileArt kind="dances" size={40} /><span>Dances</span><em>{dancesOpen}/{DANCES.length}</em></button>
@@ -245,7 +245,7 @@
             {@const cur = CAT[onSlot(slot)!]}
             <div class="wearing">
               <span><b>{cur?.name}</b> is on.</span>
-              <button class="btn movebtn" onclick={startMove}>✥ Move it</button>
+              <button class="btn movebtn" onclick={startMove}><Icon name="hand" size={18} /> Move it</button>
               <button class="btn" onclick={() => takeOff(slot)}>Take off</button>
             </div>
           {/if}
@@ -256,12 +256,12 @@
                 <span class="grar">{RARITY[c.rarity].name}</span>
                 <img src="{base}{c.icon}" alt="" />
                 <b>{c.name}</b>
-                <span class="gpow">{c.power ? `⚔️ ${c.text}` : c.text}</span>
-                {#if wearing}<em class="gst on">✓ Wearing</em>
+                <span class="gpow">{#if c.power}<Icon name="shield" size={14} /> {/if}{c.text}</span>
+                {#if wearing}<em class="gst on"><Icon name="check" size={14} /> Wearing</em>
                 {:else if mine}<em class="gst">Tap to wear</em>
                 {:else if c.how === 'shop'}<em class="gst buy"><img src="{base}game/icon-shell.webp" alt="" />{c.price}</em>
-                {:else if c.how === 'friendship'}<em class="gst gift">♥ Friendship {c.level}</em>
-                {:else}<em class="gst champ">🏆 Champion prize</em>{/if}
+                {:else if c.how === 'friendship'}<em class="gst gift"><Icon name="heart" size={14} /> Friendship {c.level}</em>
+                {:else}<em class="gst champ"><Icon name="trophy" size={14} /> Champion prize</em>{/if}
               </button>
             {/each}
           </div>
@@ -271,7 +271,7 @@
               {@const done = setsWorn.includes(sid)}
               <button class="gset" class:done onclick={() => { setPeek = sid; sfx.pop(); }}>
                 <span class="gsicons">{#each setItems(sid) as it}<img class:off={look.on[it.slot] !== it.id} src="{base}gear/{it.id}.webp" alt="" />{/each}</span>
-                <span class="gsname"><b>{SETS[sid].name}</b><small>{done ? '✓ Bonus on!' : `${setItems(sid).filter(i => look.on[i.slot] === i.id).length} of 3 on`}</small></span>
+                <span class="gsname"><b>{SETS[sid].name}</b><small>{#if done}<Icon name="check" size={12} /> Bonus on!{:else}{setItems(sid).filter(i => look.on[i.slot] === i.id).length} of 3 on{/if}</small></span>
               </button>
             {/each}
           </div>
@@ -282,10 +282,10 @@
           {#each DANCES as d (d.id)}
             {@const lk = locked(d)}
             <button class="of dance rar-{d.rarity}" class:on={pal.dance === d.id} class:locked={lk} class:shake={shake === d.id} onclick={() => dance(d)}>
-              <div class="thumb note">{ICON[d.id] ?? '♪'}</div>
+              <div class="thumb dpic"><Icon name="dance" dance={d.id} size={64} /></div>
               <b>{d.name}</b>
               {#if !lk}<span class="rar {d.rarity}">{pal.dance === d.id ? 'My finish dance' : RAR[d.rarity]}</span>
-              {:else}<span class="lock" title="Unlocks at friendship {d.level}"><Icon name="lock" size={13} /> ♥ {d.level}</span>{/if}
+              {:else}<span class="lock" title="Unlocks at friendship {d.level}"><Icon name="lock" size={13} /> <Icon name="heart" size={13} /> {d.level}</span>{/if}
             </button>
           {/each}
       </div>
@@ -315,9 +315,9 @@
             <button class="btn btn-primary gbuy" disabled={short > 0} onclick={() => buy(it)}><img src="{base}game/icon-shell.webp" alt="" />{short > 0 ? `You need ${short} more shells` : `Buy for ${it.price} shells`}</button>
             <p class="muted gnote">Yours to keep, for every buddy. You have {adv.shells} shells: practice and battles earn more.</p>
           {:else if it.how === 'friendship'}
-            <p class="gchamp">♥ A friendship gift: reach friendship <b>{it.level}</b> with any buddy (your best is {bestFriendship(p)}).</p>
+            <p class="gchamp"><Icon name="heart" size={16} /> A friendship gift: reach friendship <b>{it.level}</b> with any buddy (your best is {bestFriendship(p)}).</p>
           {:else}
-            <p class="gchamp">🏆 {howText(it, island)} in Adventure to win it.</p>
+            <p class="gchamp"><Icon name="trophy" size={16} /> {howText(it, island)} in Adventure to win it.</p>
           {/if}
         </div>
         <button class="btn gclose" onclick={() => (peek = null)}>OK</button>
@@ -335,7 +335,7 @@
         <div class="gtext">
           <h3>{SETS[sid].name}</h3>
           <p><b>Wear all three:</b> {SETS[sid].text}</p>
-          <ul>{#each setItems(sid) as it}<li class:on={look.on[it.slot] === it.id}>{look.on[it.slot] === it.id ? '✓' : '○'} {it.name} <span class="muted">({SLOT_NAME[it.slot].toLowerCase()}{ownsItem(p, it.id) ? '' : `: ${howText(CAT[it.id], island)}`})</span></li>{/each}</ul>
+          <ul>{#each setItems(sid) as it}<li class:on={look.on[it.slot] === it.id}>{#if look.on[it.slot] === it.id}<Icon name="check" size={14} />{:else}○{/if} {it.name} <span class="muted">({SLOT_NAME[it.slot].toLowerCase()}{ownsItem(p, it.id) ? '' : `: ${howText(CAT[it.id], island)}`})</span></li>{/each}</ul>
         </div>
         <button class="btn gclose" onclick={() => (setPeek = null)}>OK</button>
       </div>
@@ -385,7 +385,12 @@
   .of.locked { opacity: .55; filter: grayscale(.6); }
   .of.shake { animation: wiggle .35s ease; }
   .thumb { width: 88px; height: 88px; display: grid; place-items: center; }
-  .thumb.note { font-size: 54px; color: #9b6bff; background: linear-gradient(135deg, #efe4ff, #ffe4f1); border-radius: 50%; width: 76px; height: 76px; }
+  .thumb.dpic { border-radius: 50%; background: radial-gradient(circle at 50% 40%, #fff, #f3eaff); }
+  .resetbtn { display: inline-flex; align-items: center; gap: 6px; }
+  .lvl { display: inline-flex; align-items: center; gap: 4px; }
+  .gchamp { display: flex; align-items: center; gap: 6px; }
+  .gsname small { display: inline-flex; align-items: center; gap: 3px; }
+  .movebtn { display: inline-flex; align-items: center; gap: 6px; }
   .rar { font: 800 11px var(--font-body); padding: 2px 8px; border-radius: 999px; background: var(--bg2); color: var(--ink2); }
   .rar.rare { background: #dcecff; color: #2f6fb8; }
   .rar.epic { background: #efe2ff; color: #7a4fd0; }
@@ -423,12 +428,13 @@
   .tabs .shopbtn { flex: 0 0 auto; }
   .tabs .shopbtn img { width: 34px; height: 34px; object-fit: contain; }
   /* Move it: a card over the stage with big buttons */
-  .mover { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 5; width: min(360px, 96%); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 0 0 3px #ffd36b, var(--shadow); }
+  /* Move it takes the place of the wardrobe in the side panel, so the buddy stays in full view */
+  .mover { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 0 0 3px #ffd36b, var(--shadow); }
   .mvhead { display: flex; align-items: center; gap: 8px; font: 600 17px var(--font-ui); }
   .mvhead img { width: 36px; height: 36px; object-fit: contain; }
   .mvgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .mvrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .mv { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 52px; border: 0; border-radius: 14px; background: #f4f0ff; font: 600 22px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: inset 0 -3px 0 #ddd3f7; touch-action: none; user-select: none; }
+  .mv { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 64px; border: 0; border-radius: 14px; background: #f4f0ff; font: 600 22px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: inset 0 -3px 0 #ddd3f7; touch-action: none; user-select: none; }
   .mv:active { transform: translateY(2px); box-shadow: inset 0 -1px 0 #ddd3f7; background: #ebe4ff; }
   .mv small { font: 800 11px var(--font-body); color: var(--ink2); margin-top: 2px; }
   .mv.mid { background: #fff4d6; color: #b07b00; }
@@ -460,6 +466,12 @@
   .setpics img { width: 56px; height: 56px; }
   .gtext ul { margin: 4px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font: 600 14px var(--font-body); color: var(--muted); }
   .gtext li.on { color: #1f9a6a; }
+  /* short screens: the buddy card keeps just the name, friendship and the button */
+  @media (max-height: 820px) and (min-width: 761px) {
+    .who { padding: 10px 16px; gap: 4px; }
+    .who h2 { font-size: 24px; }
+    .quirk, .keep, .advline { display: none; }
+  }
   @media (max-width: 760px) {
     .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 46vh 1fr; }
     /* phones: the whole panel under the buddy scrolls, so the pieces never squash to nothing */
@@ -468,8 +480,8 @@
     .tabs button { font-size: 16px; gap: 4px; padding: 6px 4px; min-width: 0; }
     .tabs button em { display: none; }
     .gslots { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .mover { bottom: 4px; padding: 8px; gap: 6px; }
-    .mv { min-height: 44px; font-size: 18px; }
+    .mover { padding: 8px; gap: 6px; }
+    .mv { min-height: 54px; font-size: 18px; } .mv :global(img) { width: 30px; height: 30px; }
     .tabs button :global(svg), .tabs .shopbtn img { width: 30px; height: 30px; }
     .gtile { padding: 20px 4px 8px; }
     .gtile > img { width: 60px; height: 60px; }

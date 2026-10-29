@@ -45,6 +45,7 @@
   import NavTile from './NavTile.svelte';
   import GearButton from './GearButton.svelte';
   import Icon from './Icon.svelte';
+  import { funEvent } from '../fun/bus';
 
   type Props = {
     run: ResultsRun;
@@ -193,6 +194,7 @@
   $effect(() => { void heroW; void heroH; void narrow; requestAnimationFrame(updateView); });
 
   onMount(() => {
+    funEvent('results'); // (now and then another buddy photobombs: src/lib/fun)
     // the run's scene carries on (the buddy has just danced at the gate); if it isn't there, make one
     const cur = stage.current();
     const ready = cur instanceof RunScene ? Promise.resolve(cur) : makeScene().then(sc => { sc.pos = sc.goal = sc.finishS; stage.use(sc); return sc; });
@@ -300,7 +302,7 @@
 
   <div class="hero" class:full={!earned.length}>
     <div class="ridepic" bind:this={heroEl}></div>
-    <button class="dancebtn" onclick={() => dance(myDance)}><Icon name="dance" size={24} /> Dance!</button>
+    <button class="dancebtn" onclick={() => dance(myDance)}><Icon name="dance" dance={myDance} size={24} /> Dance!</button>
 
     <div class="ridebanner" class:top={best >= 4} bind:this={bannerEl}>
       <span class="rbicon"><svg viewBox="0 0 48 48">{@html rideIcon(best, '#fff', move)}</svg></span>
@@ -321,7 +323,7 @@
             <button class="ipic outfit tap rar-{e.rarity}" onclick={() => peekAt(e)} title="Take a look"><img class="othumb" src="{import.meta.env.BASE_URL}outfits/{e.id}.webp" alt="" /></button>
             <button class="wear" onclick={() => wear(e.id)} disabled={heroOutfit === e.id}>{heroOutfit === e.id ? 'Wearing' : 'Wear it'}</button>
           {:else if e.kind === 'dance'}
-            <button class="ipic outfit dance tap rar-{e.rarity}" onclick={() => dance(e.id)} title="See it danced"><span class="note"><Icon name="dance" size={44} /></span><span class="dname">{e.name}</span></button>
+            <button class="ipic outfit dance tap rar-{e.rarity}" onclick={() => dance(e.id)} title="See it danced"><span class="note"><Icon name="dance" dance={e.id} size={44} /></span><span class="dname">{e.name}</span></button>
             <button class="wear" onclick={() => dance(e.id, true)} disabled={myDance === e.id && dancingNow === e.id}>{myDance === e.id ? 'My dance!' : 'Dance it'}</button>
           {:else if e.kind === 'medal'}
             <button class="ipic medal tap" onclick={() => show(e)} title="What's this?">{@html renderMedal(e.m, e.m.tier)}</button>
@@ -484,9 +486,9 @@
         <p class="ddesc">{TREASURES[i].desc}</p>
         <p class="dmore">Score {treasureAt[i]} or more {treasureWhere} to find one. It's worth {treasureWorth(i)} shells.{' '}{#if i === treasure}You found one this time!{:else if i <= treasureBest}You've found one before.{:else}Not found yet. You can do it!{/if}</p>
         <div class="tnav">
-          <button class="btn" disabled={i === 0} onclick={() => showTreasure(i - 1)} aria-label="Previous treasure">‹</button>
+          <button class="btn" disabled={i === 0} onclick={() => showTreasure(i - 1)} aria-label="Previous treasure"><Icon name="back" size={26} /></button>
           <button class="btn btn-primary" onclick={() => (tdetail = null)}>OK</button>
-          <button class="btn" disabled={i === TREASURES.length - 1} onclick={() => showTreasure(i + 1)} aria-label="Next treasure">›</button>
+          <button class="btn" disabled={i === TREASURES.length - 1} onclick={() => showTreasure(i + 1)} aria-label="Next treasure"><Icon name="play" size={26} /></button>
         </div>
       </div>
     </div>

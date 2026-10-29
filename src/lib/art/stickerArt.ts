@@ -6,8 +6,18 @@ import type { FriendId, Look } from './cast';
 import { rideIcon } from './vehicles';
 import { RIDES, type RideId } from '../engine/rides';
 import { GLYPH } from './badges';
-import type { StickerDef, StickerPose, StickerShape } from '../engine/stickers';
-import type { AwardDef } from '../engine/achievements';
+import { STICKERS, type StickerDef, type StickerPose, type StickerShape } from '../engine/stickers';
+import { MEDALS, type AwardDef } from '../engine/achievements';
+import { iconUrl, medalArtUrl, stickerArtUrl } from './icons';
+
+/** The stickers and medals in the book have painted art; any other (retired ones in old saved games) is drawn. */
+const PAINTED_STICKERS = new Set(STICKERS.map(s => s.id));
+const PAINTED_MEDALS = new Set(MEDALS.map(m => m.id));
+/** Not won yet: the painted art in soft grey. */
+const greyFilter = (id: string) => `<filter id="${id}grey" color-interpolation-filters="sRGB"><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncR type="linear" slope=".5" intercept=".46"/><feFuncG type="linear" slope=".5" intercept=".45"/><feFuncB type="linear" slope=".5" intercept=".5"/></feComponentTransfer></filter>`;
+/** A painted sparkle that twinkles (the legendary stickers, the gold and rainbow medals). */
+const twinkle = (x: number, y: number, r: number, begin: number, anim: boolean) =>
+  `<image href="${iconUrl('sparkle')}" x="${x - r}" y="${y - r}" width="${r * 2}" height="${r * 2}"${anim ? ` opacity="0"><animate attributeName="opacity" values="0;1;0" dur="2s" begin="${begin}s" repeatCount="indefinite"/></image>` : '/>'}`;
 
 let SID = 0;
 
@@ -74,6 +84,7 @@ export type StickerRender = { svg: string };
  * three/snapshot.ts); until it's ready the sticker shows the buddy's portrait.
  */
 export function renderSticker(def: StickerDef, friend: FriendId, _look: Look, opts: { locked?: boolean; outfit?: string; animate?: boolean; image?: string | null } = {}): string {
+  if (PAINTED_STICKERS.has(def.id)) return paintedSticker(def, friend, opts);
   const id = 'st' + (SID++);
   const shape = shapePath(def.shape);
   const bg = bgPattern(id, def.bg, def.hue, def.hue2);
@@ -109,6 +120,58 @@ export function renderSticker(def: StickerDef, friend: FriendId, _look: Look, op
       <path d="M-78,-14 L78,-14 L70,0 L78,14 L-78,14 L-70,0 Z" fill="${locked ? '#d9d2e6' : `hsl(${def.hue} 60% 52%)`}" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
       <text y="6" text-anchor="middle" font-family="Fredoka, sans-serif" font-weight="700" font-size="${nameSize}" fill="#fff">${locked ? '???' : def.name}</text>
     </g>
+    ${sparkles}
+  </svg>`;
+}
+
+/**
+ * A sticker with painted art: the die-cut backing (white edge, glossy patterned paper, its prop) under the
+ * buddy, and the painted ribbon and number badge over it, with the name and number as text on top. The
+ * shine, foil and sparkles of the rarer ones play over it as before.
+ */
+function paintedSticker(def: StickerDef, friend: FriendId, opts: { locked?: boolean; animate?: boolean; image?: string | null }): string {
+  const id = 'st' + (SID++);
+  const shape = shapePath(def.shape);
+  const img = opts.image ?? `${import.meta.env.BASE_URL}portraits/${friend}.png`;
+  const locked = !!opts.locked;
+  const anim = opts.animate !== false;
+  const nameSize = def.name.length > 14 ? 15 : def.name.length > 10 ? 17 : 19;
+  let fx = '';
+  if (!locked && def.rarity !== 'common') {
+    fx += `<linearGradient id="${id}sh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".6"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>${anim ? `<animate attributeName="x1" values="-1;1.2" dur="3.2s" repeatCount="indefinite"/><animate attributeName="x2" values="0;2.2" dur="3.2s" repeatCount="indefinite"/>` : ''}</linearGradient>`;
+  }
+  if (!locked && (def.rarity === 'epic' || def.rarity === 'legendary')) {
+    fx += `<linearGradient id="${id}holo" x1="0" y1="0" x2="1" y2="0.6"><stop offset="0" stop-color="hsl(338 100% 75%)"/><stop offset=".2" stop-color="hsl(52 100% 72%)"/><stop offset=".4" stop-color="hsl(160 90% 70%)"/><stop offset=".6" stop-color="hsl(200 100% 74%)"/><stop offset=".8" stop-color="hsl(268 100% 78%)"/><stop offset="1" stop-color="hsl(338 100% 75%)"/>${anim ? `<animateTransform attributeName="gradientTransform" type="translate" values="-0.6 0; 0.6 0; -0.6 0" dur="5s" repeatCount="indefinite"/>` : ''}</linearGradient>`;
+  }
+  const grey = locked ? ` filter="url(#${id}grey)"` : '';
+  const num = def.number && !locked ? `<text x="150" y="42" text-anchor="middle" font-family="Fredoka, sans-serif" font-weight="700" font-size="${def.number.length > 2 ? 12 : 16}" fill="#fff" stroke="rgba(40,20,70,.25)" stroke-width="2" paint-order="stroke">${def.number}</text>` : '';
+  const sparkles = !locked && def.rarity === 'legendary' ? [[30, 40, 0], [170, 150, 0.7], [160, 30, 1.4], [36, 150, 2.1]].map(([x, y, b]) => twinkle(x, y, 11, b, anim)).join('') : '';
+  return `<svg class="sticker rar-${def.rarity}${locked ? ' locked' : ''}" viewBox="-6 -6 212 212" role="img" aria-label="${locked ? 'A sticker to win' : def.name}">
+    <defs>${fx}${locked ? greyFilter(id) : ''}<clipPath id="${id}c"><path d="${shape}"/></clipPath></defs>
+    <image href="${stickerArtUrl(def.id)}" x="-6" y="-6" width="212" height="212"${grey}/>
+    <g clip-path="url(#${id}c)">
+      <image href="${img}" x="22" y="14" width="156" height="148" preserveAspectRatio="xMidYMax meet" ${locked ? 'filter="url(#lockedfx)" opacity=".55"' : ''}/>
+      ${def.rarity === 'epic' || def.rarity === 'legendary' ? `<rect width="200" height="200" fill="url(#${id}holo)" opacity="${locked ? 0 : 0.22}" style="mix-blend-mode:overlay"/>` : ''}
+      ${!locked && def.rarity !== 'common' ? `<rect width="200" height="200" fill="url(#${id}sh)"/>` : ''}
+    </g>
+    <image href="${stickerArtUrl(def.id + '-front')}" x="-6" y="-6" width="212" height="212"${grey}/>
+    ${num}
+    ${locked ? `<text x="100" y="112" text-anchor="middle" font-family="Fredoka, sans-serif" font-weight="700" font-size="56" fill="#cfc6e0">?</text>` : ''}
+    <text x="100" y="176" text-anchor="middle" font-family="Fredoka, sans-serif" font-weight="700" font-size="${nameSize}" fill="#fff" stroke="rgba(40,20,70,.28)" stroke-width="2.4" paint-order="stroke">${locked ? '???' : def.name}</text>
+    ${sparkles}
+  </svg>`;
+}
+
+/** A medal with painted art: the whole medal for its tier; not won yet, the Rose one in soft grey. */
+function paintedMedal(award: AwardDef, tier: number, opts: { locked?: boolean; animate?: boolean }): string {
+  const id = 'md' + (SID++);
+  const locked = !!opts.locked || tier < 0;
+  const T = locked ? 0 : Math.min(3, Math.max(0, tier));
+  const anim = opts.animate !== false && !locked;
+  const sparkles = locked ? '' : T === 2 ? twinkle(160, 92, 12, 0.3, anim) : T === 3 ? twinkle(162, 88, 13, 0.2, anim) + twinkle(40, 104, 9, 1.1, anim) + twinkle(160, 200, 9, 1.8, anim) : '';
+  return `<svg class="medal tier-${locked ? -1 : T}" viewBox="0 0 200 230" role="img" aria-label="${award.name}">
+    ${locked ? `<defs>${greyFilter(id)}</defs>` : ''}
+    <image href="${medalArtUrl(award.id, T)}" x="0" y="0" width="200" height="230" preserveAspectRatio="xMidYMid meet"${locked ? ` filter="url(#${id}grey)" opacity=".75"` : ''}/>
     ${sparkles}
   </svg>`;
 }
@@ -571,6 +634,7 @@ const hashStr = (s: string) => [...s].reduce((a, ch) => (a * 31 + ch.charCodeAt(
 const GLITTER = [[-34, -20, 1.4], [30, -32, 1.1], [38, 8, 1.3], [-40, 10, 1], [-26, 34, 1.2], [24, 34, 1.4], [6, -42, 1], [-12, 42, 1], [42, -12, 1]];
 
 export function renderMedal(award: AwardDef, tier: number, opts: { locked?: boolean; animate?: boolean } = {}): string {
+  if (PAINTED_MEDALS.has(award.id)) return paintedMedal(award, tier, opts);
   const id = 'md' + (SID++);
   const locked = !!opts.locked || tier < 0;
   const T = locked ? -1 : Math.min(3, Math.max(0, tier));

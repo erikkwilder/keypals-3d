@@ -150,7 +150,7 @@
         {#if done.out.rewards.length || done.out.stickers.length || done.out.medals.length || done.out.buddies.length}
           <div class="news">
             {#each done.out.medals as m}<span class="chip"><Icon name="medal" size={18} /> {m.name}</span>{/each}
-            {#each done.out.rewards as r}<span class="chip"><Icon name={r.kind === 'dance' ? 'dance' : 'hanger'} size={18} /> New {r.kind}: {r.name}</span>{/each}
+            {#each done.out.rewards as r}<span class="chip"><Icon name={r.kind === 'dance' ? 'dance' : 'hanger'} dance={r.id} size={18} /> New {r.kind}: {r.name}</span>{/each}
             {#each done.out.stickers as s}<span class="chip"><Icon name="sticker" size={18} /> Sticker: {s.name}</span>{/each}
             {#each done.out.buddies as b}<span class="chip new"><Icon name="popper" size={18} /> {FRIEND[b].name} joined your team!</span>{/each}
           </div>

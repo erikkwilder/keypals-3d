@@ -26,6 +26,8 @@
   import { homeDemo, lessonDemo, type DemoStep } from '../engine/demos';
   import { lessonTitle } from '../engine/course';
   import TextRibbon from '../ui/TextRibbon.svelte';
+  import { chance } from '../fun/luck';
+  import { funEvent } from '../fun/bus';
   import Keyboard from '../ui/Keyboard.svelte';
   import Hands from '../ui/Hands.svelte';
   import RideLadder from '../ui/RideLadder.svelte';
@@ -54,6 +56,8 @@
     pools: POOLS,
     custom: profile.customText,
   });
+  // now and then one letter in the middle of the lesson is golden: typing it right is a little party
+  const gold = (() => { if (!chance(1 / 5)) return -1; const at = [...text].map((c, i) => (/[a-z]/i.test(c) && i > text.length * 0.25 && i < text.length * 0.8 ? i : -1)).filter(i => i >= 0); return at.length ? at[Math.floor(Math.random() * at.length)] : -1; })();
   const session = new Session(text, { timeLimitMs: lesson.kind === 'sprint' ? 60000 : lesson.kind === 'final' ? 120000 : undefined });
   // dev checks type the lesson from the browser
   if (import.meta.env.DEV) (window as unknown as { __runText: string }).__runText = text;
@@ -209,6 +213,7 @@
       scene?.key(true, session.pos);
       if (S.melody) melodyNote(); else sfx.key(fingerFor(layout, r.expected));
       if (r.expected === ' ') scene?.hop();
+      if (session.pos - 1 === gold && !missed.has(gold)) funEvent('golden');
       const st = session.streak;
       // shown, not heard: a sound here pulled attention from typing
       if (st === 10 || st === 25 || st === 50 || st === 100 || (st > 100 && st % 50 === 0)) streakPop = { text: `${st} in a row!`, n: (streakPop?.n ?? 0) + 1 };
@@ -396,7 +401,7 @@
     </div>
 
     <div class="ribbon-wrap" bind:this={ribbonEl}>
-      <TextRibbon {text} {pos} {missed} {look} {layout} {shake} />
+      <TextRibbon {text} {pos} {missed} {look} {layout} {shake} {gold} />
     </div>
 
     <!-- announcements live below the letter bar and are clipped to that zone, so they never cover letters -->

@@ -31,6 +31,7 @@
   import FactGarden from './lib/screens/FactGarden.svelte';
   import { stage } from './lib/three/stage';
   import QuickSettings from './lib/ui/QuickSettings.svelte';
+  import FunLayer from './lib/fun/FunLayer.svelte';
   import LessonChart from './lib/ui/LessonChart.svelte';
   import FancyAntIntro from './lib/ui/FancyAntIntro.svelte';
   // the FancyAnt hello plays once when the game opens (not on dev shortcuts like #run=)
@@ -98,6 +99,7 @@
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}
   {#if game.chartLesson && game.profile}{#key game.chartLesson}<LessonChart />{/key}{/if}
   {#if game.sheet}<QuickSettings />{/if}
+  <FunLayer />
   {#if game.toast}<div class="toast">{game.toast}</div>{/if}
 </main>
 

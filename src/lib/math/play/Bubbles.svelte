@@ -7,6 +7,8 @@
   import type { FriendId } from '../../art/cast';
   import type { PlayBuddy } from './buddy';
   import { bondPair, bondTarget, slipStars } from '../playground';
+  import { chance } from '../../fun/luck';
+  import { funEvent } from '../../fun/bus';
 
   type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
@@ -28,7 +30,8 @@
   function add(n: number) {
     const free = freeSlots(); if (!free.length) return;
     const slot = free[Math.floor(rng() * free.length)];
-    bubbles.push({ id: nextId++, n, slot, color: COLORS[Math.floor(rng() * COLORS.length)], state: 'idle', delay: rng() * 3 });
+    // now and then a rainbow bubble drifts in (just for fun: it pops like any other)
+    bubbles.push({ id: nextId++, n, slot, color: chance(1 / 30) ? 'rainbow' : COLORS[Math.floor(rng() * COLORS.length)], state: 'idle', delay: rng() * 3 });
   }
   function addPair() { const [a, b] = bondPair(level, rng); add(a); add(b); }
   for (let k = 0; k < 4; k++) addPair();
@@ -46,6 +49,7 @@
     if (sel === b) { b.state = 'idle'; return; }
     if (sel.n + b.n === target) {
       sel.state = 'pop'; b.state = 'pop'; found++; cheer++; sfx.pop(); sfx.star(Math.min(2, found % 3)); pal?.cheer();
+      if (sel.color === 'rainbow' || b.color === 'rainbow') funEvent('bubblePop');
       const ids = [sel.id, b.id];
       timers.push(setTimeout(() => {
         bubbles = bubbles.filter(x => !ids.includes(x.id));
@@ -72,7 +76,7 @@
   <div class="pond" role="group" aria-label="Bubbles" style:--pondart="url({art('math/pond.webp')})" style:--bubart="url({art('math/bubble.webp')})">
     {#each bubbles as b (b.id)}
       {@const p = pos(b.slot)}
-      <button class="bub {b.state}" style:left="min({p.x}%, calc(100% - clamp(70px, 11vw, 104px) - 6px))" style:top="min({p.y}%, calc(100% - clamp(70px, 11vw, 104px) - 6px))" style:--c={b.color} style:--h="{(b.id * 67) % 360}deg" style:--d="{b.delay}s" onpointerdown={(e) => { e.preventDefault(); tap(b); }} aria-label={String(b.n)}>
+      <button class="bub {b.state}" class:rainbow={b.color === 'rainbow'} style:left="min({p.x}%, calc(100% - clamp(70px, 11vw, 104px) - 6px))" style:top="min({p.y}%, calc(100% - clamp(70px, 11vw, 104px) - 6px))" style:--c={b.color} style:--h="{(b.id * 67) % 360}deg" style:--d="{b.delay}s" onpointerdown={(e) => { e.preventDefault(); tap(b); }} aria-label={String(b.n)}>
         <span>{b.n}</span>
       </button>
     {/each}
@@ -105,6 +109,8 @@
   .bub.sel { transform: scale(1.14); box-shadow: 0 0 0 4px rgba(255, 255, 255, .95), 0 0 0 8px #7c5cf5, 0 0 24px 8px rgba(255, 255, 255, .6); }
   .bub.wrong { animation: wobble .45s ease; }
   .bub.pop { animation: pop .42s ease-out forwards; pointer-events: none; }
+  .bub.rainbow::before { animation: rainbowhue 1.8s linear infinite; }
+  @keyframes rainbowhue { from { filter: hue-rotate(0deg) saturate(1.7) drop-shadow(0 0 10px rgba(255, 255, 255, .9)); } to { filter: hue-rotate(360deg) saturate(1.7) drop-shadow(0 0 10px rgba(255, 255, 255, .9)); } }
   @keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -12px; } }
   @keyframes rise { from { opacity: 0; scale: .3; } to { opacity: 1; scale: 1; } }
   @keyframes wobble { 0%, 100% { rotate: 0deg; } 25% { rotate: -12deg; } 75% { rotate: 12deg; } }

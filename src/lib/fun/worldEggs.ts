@@ -12,28 +12,35 @@
 // (1 in 3); and the shooting star at the finish.
 import * as THREE from 'three';
 import { sfx } from '../audio/sound';
+import { stage } from '../three/stage';
 import { chance, recall, remember, season } from './luck';
 import { world } from './bus';
-import { cameo, fish, pumpkinPatch, saucer, shootingStar, snowman, tinyDoor, type Keep, type Leaper, type Saucer } from './props3d';
+import { cameo, fish, pumpkinPatch, saucer, shootingStar, snowman, soft, tinyDoor, type Keep, type Leaper, type Saucer } from './props3d';
 
 type TP = { p: THREE.Vector3; t: THREE.Vector3; n: THREE.Vector3 };
+/** A spot far off in the sky that shows at (x, y) on the screen (-1..1 each way), `dist` metres away:
+ *  so the sky's surprises always cross the open sky you can see, whichever way the trail bends. */
+function skyPoint(x: number, y: number, dist: number) {
+  const cam = stage.camera, v = new THREE.Vector3(x, y, 0.5).unproject(cam);
+  return cam.position.clone().add(v.sub(cam.position).normalize().multiplyScalar(dist));
+}
 type GM = Awaited<ReturnType<typeof cameo>>;
 const rand = () => Math.random();
 
 /** Snow falling round the camera's subject (a cheap cloud of points that follows it). */
 function snowfall(keep: Keep) {
-  const N = 320, pos = new Float32Array(N * 3), sp = new Float32Array(N);
-  for (let i = 0; i < N; i++) { pos[i * 3] = (rand() - 0.5) * 26; pos[i * 3 + 1] = rand() * 12; pos[i * 3 + 2] = (rand() - 0.5) * 26; sp[i] = 0.5 + rand() * 0.7; }
+  const N = 650, pos = new Float32Array(N * 3), sp = new Float32Array(N);
+  for (let i = 0; i < N; i++) { pos[i * 3] = (rand() - 0.5) * 18; pos[i * 3 + 1] = rand() * 9; pos[i * 3 + 2] = (rand() - 0.5) * 18; sp[i] = 0.5 + rand() * 0.7; }
   const geo = keep(new THREE.BufferGeometry()); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const pts = new THREE.Points(geo, keep(new THREE.PointsMaterial({ color: 0xffffff, size: 0.09, transparent: true, opacity: 0.9, depthWrite: false })));
+  const pts = new THREE.Points(geo, keep(new THREE.PointsMaterial({ map: soft(), color: 0xffffff, size: 0.3, transparent: true, opacity: 0.95, depthWrite: false })));
   pts.frustumCulled = false;
   return {
     pts,
     update(dt: number, t: number, focus: THREE.Vector3) {
-      pts.position.set(focus.x, focus.y - 2, focus.z);
+      pts.position.set(focus.x, focus.y - 1.5, focus.z);
       for (let i = 0; i < N; i++) {
         let y = pos[i * 3 + 1] - dt * sp[i];
-        if (y < 0) y += 12;
+        if (y < 0) y += 9;
         pos[i * 3 + 1] = y; pos[i * 3] += Math.sin(t * 0.8 + i) * dt * 0.15;
       }
       geo.attributes.position.needsUpdate = true;
@@ -51,8 +58,8 @@ function finishStar(group: THREE.Group, keep: Keep) {
       star.update(dt);
       if (!armed || focus.distanceTo(fin.p) > 3) return;
       armed = false;
-      const far = fin.p.clone().addScaledVector(fin.n, -70);
-      star.fire(far.clone().addScaledVector(fin.t, -40).add(new THREE.Vector3(0, 42, 0)), far.clone().addScaledVector(fin.t, 35).add(new THREE.Vector3(0, 26, 0)));
+      // across the open sky you can see, high on the right and falling to the left
+      star.fire(skyPoint(0.95, 0.78, 90), skyPoint(-0.4, 0.42, 90));
       setTimeout(() => sfx.twinkle(), 150);
     },
   };
@@ -75,7 +82,7 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
   let pumpkins: THREE.Object3D[] | null = null, snow: ReturnType<typeof snowfall> | null = null;
 
   function visit(s: number) {
-    finishS = s; startT = -1; mothT = -1; ufoT = -1; pebbleSaid = false;
+    finishS = s; startT = -1; mothT = -1; ufoT = -1; pebbleSaid = false; lastS = 0;
     // Pebble: on from where he got to last time (back to the start once he's made it)
     const walked = recall<number>('pebbleWalk', 0);
     pebbleMade = 6 + walked >= finishS - 5;
@@ -83,7 +90,7 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
     remember('pebbleWalk', pebbleMade ? 0 : walked + 7);
     roll = { whale: chance(1 / 5), moth: chance(1 / 4), ufo: chance(1 / 40) };
     star.arm();
-    if (roll.whale && !whale) void cameo('skywhale', 7).then(g => { whale = g; group.add(g.root); }).catch(() => null);
+    if (roll.whale && !whale) void cameo('skywhale', 6).then(g => { whale = g; group.add(g.root); }).catch(() => null);
     if (roll.moth && !moth) void cameo('sparkmoth', 0.42).then(g => { moth = g; group.add(g.root); }).catch(() => null);
     if (roll.ufo && !ufo) void saucer(keep).then(u => { ufo = u; group.add(u.group); u.group.visible = false; }).catch(() => null);
     const sz = season();
@@ -102,11 +109,22 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
     });
   }
 
+  /** roughly where along the trail a point is (the nearest of a few samples near the last answer) */
+  let lastS = 0;
+  function nearS(p: THREE.Vector3) {
+    let best = lastS, bd = Infinity;
+    // a wide look after a jump (a new lesson), a narrow one as you go
+    const wide = o.trail.at(lastS).p.distanceToSquared(p) > 64;
+    for (let s = wide ? 0 : Math.max(0, lastS - 6); s <= (wide ? finishS + 4 : lastS + 12); s += wide ? 1 : 0.5) { const d = o.trail.at(s).p.distanceToSquared(p); if (d < bd) { bd = d; best = s; } }
+    return (lastS = best);
+  }
   function update(dt: number, t: number, focus: THREE.Vector3) {
     group.visible = world.run;
     if (!world.run) return;
     if (startT < 0) startT = t;
     const since = t - startT;
+    // where you are along the trail (once a frame), for the things that keep you company
+    const here = o.trail.at(nearS(focus));
     const fin = o.trail.at(finishS);
     star.update(dt, focus, fin);
     if (pebble) {
@@ -121,9 +139,11 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
     if (whale) {
       whale.root.visible = roll.whale;
       if (roll.whale) {
-        const f = o.trail.at(finishS * 0.5);
-        whale.root.position.copy(f.p).addScaledVector(f.n, -62).addScaledVector(f.t, -30 + since * 0.7).add(new THREE.Vector3(0, 20 + Math.sin(t * 0.3) * 1.5, 0));
-        whale.face = whale.root.position.clone().add(f.t);
+        // drifting slowly across the far sky from right to left, about once every minute and a half
+        const dk = import.meta.env.DEV ? (window as unknown as { __whaleK?: number }).__whaleK : undefined;
+        const k = dk ?? (since % 90) / 90, x = 1.25 - k * 2.6, y = 0.34 + Math.sin(t * 0.3) * 0.02; // (its base: its body shows above)
+        whale.root.position.copy(skyPoint(x, y, 75));
+        whale.face = skyPoint(x - 0.2, y, 75);
         whale.update(dt, t);
       }
     }
@@ -135,8 +155,8 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
         mothT += dt;
         const away = Math.max(0, mothT - 12) * 3;
         const a = t * 1.6;
-        const f = o.trail.at(finishS * 0.5);
-        moth.root.position.copy(fs).addScaledVector(f.n, -1.3 + Math.sin(a) * 0.4).add(new THREE.Vector3(Math.cos(a) * 0.9, 1.5 + Math.sin(a * 2) * 0.25 + away, 0));
+        const f = here;
+        moth.root.position.copy(fs).addScaledVector(f.n, -0.9 + Math.sin(a) * 0.35).addScaledVector(f.t, 1.4 + Math.cos(a) * 0.6).add(new THREE.Vector3(0, 0.45 + Math.sin(a * 2) * 0.18 + away, 0));
         moth.face = fs.clone().add(new THREE.Vector3(0, 1, 0));
         moth.update(dt, t);
       }
@@ -145,9 +165,8 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
       const u = ufo;
       if (roll.ufo && ufoT < 0 && since > 12) {
         ufoT = 0;
-        const f = o.trail.at(Math.min(finishS, finishS * 0.4 + since * 0.5));
-        ufoAt.copy(f.p).addScaledVector(f.n, -28).add(new THREE.Vector3(0, 13, 0));
-        ufoFrom.copy(ufoAt).addScaledVector(f.t, 70).add(new THREE.Vector3(0, 30, 0));
+        ufoAt.copy(skyPoint(0.4, 0.62, 38));
+        ufoFrom.copy(skyPoint(1.4, 1.1, 70));
         u.group.visible = true;
         sfx.ufo();
       }
@@ -156,7 +175,7 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
         const k = ufoT;
         if (k < 3) u.group.position.lerpVectors(ufoFrom, ufoAt, 1 - (1 - k / 3) ** 3);
         else if (k < 6) u.group.position.copy(ufoAt).add(new THREE.Vector3(Math.sin(k * 3) * 0.3, Math.sin(k * 2) * 0.4, 0));
-        else u.group.position.copy(ufoAt).add(new THREE.Vector3(0, (k - 6) ** 2 * 18, 0)).addScaledVector(ufoFrom.clone().sub(ufoAt).setY(0).normalize(), -(k - 6) * 25);
+        else u.group.position.lerpVectors(ufoAt, skyPoint(-1.6, 1.3, 80), Math.min(1, ((k - 6) / 1.6) ** 2));
         u.group.rotation.y = t * 2.5;
         (u.beam.material as THREE.MeshBasicMaterial).opacity = k > 3.6 && k < 5.6 ? 0.22 + Math.sin(t * 12) * 0.05 : 0;
         u.lights.forEach((l, i) => (l.material as THREE.MeshBasicMaterial).color.setHSL(((t * 1.5 + i / 10) % 1), 0.9, 0.65));
@@ -165,6 +184,7 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
     }
     snow?.update(dt, t, focus);
   }
+  if (import.meta.env.DEV) (window as unknown as { __trailEggs: unknown }).__trailEggs = () => ({ roll, run: world.run, group: group.visible, parent: !!group.parent?.parent, pebble: pebble && [pebble.root.visible, pebble.root.getWorldPosition(new THREE.Vector3()).toArray().map(Math.round), pebbleS], whale: whale && [whale.root.visible, whale.root.getWorldPosition(new THREE.Vector3()).toArray().map(Math.round), whale.root.getWorldPosition(new THREE.Vector3()).project(stage.camera).toArray().map(v => Math.round(v * 100) / 100)], cam: stage.camera.position.toArray().map(Math.round), fov: stage.camera.fov, ufo: ufo && [ufo.group.visible, ufoT] });
   return { visit, update };
 }
 
@@ -244,7 +264,7 @@ export function courseEggs(move: 'climb' | 'slide' | 'swim', c: CourseCtx) {
       if (!busy && nextLeap < 0 && focus.x < fs - 3) {
         nextLeap = 6 + rand() * 7;
         const dir = rand() < 0.5 ? 1 : -1;
-        leaper.leap(new THREE.Vector3(focus.x + 2 + rand() * 5, 0, -(2.6 + rand() * 2.4)), dir);
+        leaper.leap(new THREE.Vector3(focus.x + 1.5 + rand() * 4, 0, -(2.3 + rand() * 1.2)), dir);
         sfx.splashSmall(0.6);
       }
     }

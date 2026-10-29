@@ -375,14 +375,17 @@
     .go { gap: 6px; }
   }
 
-  /* phones: one header row; the nav tiles show their pictures only, the goal pill and FancyAnt button go */
+  /* phones: two header rows, as on the home page and the typing map: Home, the title, your stars and the gear
+     on top, then the picture tiles with their words (one row of eight ran off a 360 or 390 phone) */
   @media (max-width: 760px) {
-    .bar { flex-wrap: nowrap; gap: 5px !important; padding: 6px 8px !important; }
-    .bar .pill.goal, .bar .pill.stars, .bar > :global(button.round) { display: none; }
-    .navs { order: 0 !important; width: auto !important; gap: 4px; }
-    .navs :global(.tile) { flex: none !important; padding: 2px !important; }
-    .navs :global(.tile .lbl), .bar > :global(.tile .lbl) { display: none !important; }
-    .bar > :global(.tile) { padding: 2px !important; }
-    .subj { font-size: 20px !important; margin: 0 !important; }
+    .bar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px 8px; }
+    .bar .pill.goal, .bar > :global(button.round) { display: none; }
+    .bar .pill.stars { padding: 4px 10px; }
+    .bar > :global(.tile) { flex: none; padding: 2px; }
+    .bar > :global(.tile .lbl) { display: none; }
+    .subj { font-size: 22px; margin: 0 0 0 2px; }
+    .navs { gap: 4px; }
+    .navs :global(.tile) { flex-direction: column; gap: 1px; padding: 4px 2px 5px; }
+    .navs :global(.tile .lbl) { font-size: 12.5px; white-space: nowrap; }
   }
 </style>

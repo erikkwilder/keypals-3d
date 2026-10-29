@@ -19,7 +19,8 @@ async function sprite(path: string, height: number): Promise<THREE.Sprite | null
   return s;
 }
 
-const soft = (() => {
+/** a soft round dot (puffs, snowflakes, the shooting star's head) */
+export const soft = (() => {
   let tex: THREE.CanvasTexture | null = null;
   return () => {
     if (tex) return tex;
@@ -34,7 +35,7 @@ const soft = (() => {
 // ---------- a fish that leaps out of the bay ----------
 export type Leaper = { group: THREE.Group; leap(at: THREE.Vector3, dir: number): void; update(dt: number): boolean };
 export async function fish(keep: Keep): Promise<Leaper | null> {
-  const s = await sprite('fun/fish.webp', 1.05);
+  const s = await sprite('fun/fish.webp', 1.2);
   if (!s) return null;
   const group = new THREE.Group();
   group.add(s);
@@ -45,7 +46,7 @@ export async function fish(keep: Keep): Promise<Leaper | null> {
   const drop = new THREE.Sprite(new THREE.SpriteMaterial({ map: soft(), color: 0xe8fbff, transparent: true, opacity: 0, depthWrite: false }));
   drop.scale.setScalar(0.7); group.add(drop);
   let k = 9, from = new THREE.Vector3(), dir = 1;
-  const DUR = 1.25, SPAN = 3.2, HIGH = 1.8;
+  const DUR = 1.2, SPAN = 2.8, HIGH = 1.25;
   return {
     group,
     leap(at, d) { from.copy(at); dir = d; k = 0; s.visible = true; rings[0].r.position.set(at.x, 0.02, at.z); rings[0].k = 0; },
@@ -153,7 +154,7 @@ export type Saucer = { group: THREE.Group; beam: THREE.Mesh; lights: THREE.Mesh[
 export async function saucer(keep: Keep): Promise<Saucer> {
   const chrome = await loadTexture('gear/tile-chrome.webp', { repeat: true, color: true });
   const group = new THREE.Group();
-  const hull = new THREE.Mesh(keep(new THREE.SphereGeometry(1, 36, 16)), keep(new THREE.MeshStandardMaterial({ map: chrome, color: 0xdde6f2, metalness: 0.65, roughness: 0.28 })));
+  const hull = new THREE.Mesh(keep(new THREE.SphereGeometry(1, 36, 16)), keep(new THREE.MeshStandardMaterial({ map: chrome, color: 0xf2f6fc, metalness: 0.25, roughness: 0.32, emissive: 0x8899b8, emissiveIntensity: 0.25 })));
   hull.scale.set(1.4, 0.3, 1.4); group.add(hull);
   const rim = new THREE.Mesh(keep(new THREE.TorusGeometry(1.36, 0.08, 10, 48)), keep(new THREE.MeshStandardMaterial({ color: 0x8e9bb0, metalness: 0.8, roughness: 0.3 })));
   rim.rotation.x = Math.PI / 2; group.add(rim);

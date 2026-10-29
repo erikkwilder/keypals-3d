@@ -116,9 +116,9 @@
 <div class="screen adv" class:tall>
   <Header title="Adventure" back={() => game.go('hub')} sub="{met} of {GLIMMERS.length} Glimmers found" gear={!tall}>
     {#snippet right()}
-      <button class="chip help" onclick={() => { intro = 0; sfx.pop(); }} title="How Adventure works">?</button>
+      <button class="chip help" onclick={() => { intro = 0; sfx.pop(); }} title="How Adventure works"><Icon name="help" size={28} /></button>
       <span class="chip shells" title="Shells: spend them in the shop"><img src="{base}game/icon-shell.webp" alt="" />{a.shells}</span>
-      {#if play.left !== null}<span class="chip time" class:low={play.left < 3} title={PLAY_RULES[a.settings.rule].text}><Icon name="clock" size={20} /> {Math.max(0, Math.floor(play.left))} min</span>{/if}
+      {#if play.left !== null}<span class="chip time" class:low={play.left < 3} title={PLAY_RULES[a.settings.rule].text}><Icon name="clock" size={20} /> {Math.max(0, Math.floor(play.left))}<span class="mn">&nbsp;min</span></span>{/if}
     {/snippet}
   </Header>
 
@@ -327,7 +327,9 @@
   .dots i.on { background: var(--primary); width: 24px; border-radius: 999px; }
 
   .tall :global(.hd .tt span) { display: none; }
-  .tall .chip { font-size: 15px; padding: 2px 8px 2px 2px; } .tall .chip img { width: 24px; height: 24px; } .tall .chip.time { padding: 4px 8px; font-size: 13px; } .tall .chip.help { width: 32px; height: 32px; font-size: 18px; padding: 0; }
+  .tall .chip { font-size: 15px; padding: 2px 8px 2px 2px; } .tall .chip img { width: 24px; height: 24px; } .tall .chip.time { padding: 4px 8px; font-size: 13px; }
+  /* phone header: smaller painted icons so the title keeps its room */
+  .tall .chip.time { gap: 3px; padding: 4px 7px 4px 4px; } .tall .chip.time :global(.ico) { width: 16px; height: 16px; } .tall .chip.help :global(.ico) { width: 22px; height: 22px; } .tall .chip.time .mn { display: none; } .tall .chip.help { width: 32px; height: 32px; font-size: 18px; padding: 0; }
   .tall .dock { position: static; flex: none; justify-content: center; gap: 8px; padding: 8px 8px 10px; background: rgba(255, 255, 255, .92); border-top: var(--panel-border); }
   .tall .dock { gap: 6px; padding: 8px 6px 10px; }
   .tall .dock :global(.tile) { width: calc((100vw - 36px) / 5); max-width: 96px; min-width: 0; height: 84px; padding: 6px 2px; gap: 2px; }

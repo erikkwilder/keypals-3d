@@ -78,6 +78,18 @@
         { say: 'A little "yay" (the hands cheer in a finger lesson)', like: 'three quick notes up', play: () => sfx.cheer() },
       ],
     },
+    {
+      name: 'Little surprises', blurb: 'The Easter eggs (docs/easter-eggs.md): rare, and never about right or wrong.',
+      items: [
+        { say: 'A shooting star at the finish', like: 'a soft high sparkle falling away', play: () => sfx.twinkle() },
+        { say: 'A flying saucer', like: 'a wobbly cartoon "wooo-OOO"', play: () => sfx.ufo() },
+        { say: 'A fish leaps, Puddle Pup splashes', like: 'a small splash', play: () => sfx.splashSmall() },
+        { say: 'Your buddy giggles (tickled on Home)', like: 'quick little rising squeaks', play: () => sfx.giggle() },
+        { say: 'A sneeze (a tickled buddy, a grumpy Glimmer)', like: '"ah... ah... ACHOO!"', play: () => sfx.sneeze() },
+        { say: 'A golden letter typed', like: 'a bright bell with a shimmer', play: () => sfx.golden() },
+        { say: 'A secret word found', like: 'a little magic run up and back', play: () => sfx.secret() },
+      ],
+    },
   ];
 
   /** A whole battle, start to finish, so the sounds can be heard in order. */

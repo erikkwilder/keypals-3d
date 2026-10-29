@@ -4,6 +4,7 @@
   // for where you are on the whole ladder.
   import { RIDES, rideName, rideVerb, type Move } from '../engine/rides';
   import { rideIcon } from '../art/vehicles';
+  import Icon from './Icon.svelte';
 
   type Props = { tier: number; progress: number; best: number; record?: number; blocked?: boolean; move?: Move };
   let { tier, progress, best, record = 0, blocked = false, move = 'run' }: Props = $props();
@@ -23,7 +24,7 @@
         <div class="rung on" title={rideName(tier, move)}><svg class="icon" viewBox="0 0 48 48">{@html rideIcon(tier, COLORS[tier], move)}</svg></div>
       {/key}
       {#if next}
-        <span class="arrow">›</span>
+        <span class="arrow"><Icon name="play" size={14} /></span>
         <div class="rung next" title="Next: {next.name}">
           <svg class="ring" viewBox="0 0 48 48"><circle cx="24" cy="24" r={R} fill="none" stroke="#ece6f7" stroke-width="4" /><circle cx="24" cy="24" r={R} fill="none" stroke={COLORS[tier + 1]} stroke-width="4" stroke-linecap="round" stroke-dasharray={C} stroke-dashoffset={C * (1 - progress)} transform="rotate(-90 24 24)" /></svg>
           <svg class="icon" viewBox="0 0 48 48">{@html rideIcon(tier + 1, '#cfc7e2', move)}</svg>
@@ -45,7 +46,7 @@
   .now.warn { color: #d9467f; animation: wiggle .6s ease-in-out infinite; display: inline-block; }
   .box { display: flex; flex-direction: column; align-items: center; gap: 5px; background: rgba(255, 255, 255, .9); padding: 6px 10px 7px; border-radius: 22px; box-shadow: var(--shadow-sm); border: var(--panel-border); }
   .pair { display: flex; align-items: center; gap: 6px; }
-  .arrow { font: 700 20px/1 var(--font-ui); color: #c9bfe0; }
+  .arrow { line-height: 0; opacity: .6; }
   .rung { position: relative; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; }
   .rung .icon { width: 27px; height: 27px; }
   .rung.on { width: 46px; height: 46px; background: #fff; box-shadow: 0 6px 14px -6px rgba(60, 40, 110, .45); animation: pop-in .35s cubic-bezier(.3, .8, .4, 1.5); }

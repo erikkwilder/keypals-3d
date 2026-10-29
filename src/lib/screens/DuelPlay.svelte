@@ -398,9 +398,9 @@
 
 <div class="duel" class:narrow class:won={ui === 'won'}>
   <div class="top">
-    <button class="leave" onclick={onexit} aria-label="Leave">‹</button>
+    <button class="leave" onclick={onexit} aria-label="Leave"><Icon name="back" size={28} /></button>
     <div class="where"><small>{mode === 'duel' ? 'Family Duel' : 'Rival Ghosts'}</small><b>Who cheers up {gName}?</b></div>
-    <button class="helpbtn" onclick={() => { help = true; sfx.pop(); }} aria-label="How to play">?</button>
+    <button class="helpbtn" onclick={() => { help = true; sfx.pop(); }} aria-label="How to play"><Icon name="help" size={30} /></button>
   </div>
 
   <!-- each side's cheer bar, Finale stars and Glimmers -->
@@ -507,7 +507,7 @@
               <button class="prize" onclick={() => show({ kind: 'shells' })}><img src="{base}game/icon-shell.webp" alt="" /><b>+{x.o!.shells}</b><small>shells</small></button>
               <button class="prize" onclick={() => show({ kind: 'friendship' })}><span class="heart"><Icon name="heart" size={38} /></span><b>+{x.o!.xp.gained}</b><small>friendship</small></button>
               {#if mode === 'rival'}<button class="prize" onclick={() => show({ kind: 'points' })}><img src="{base}game/league-{x.o!.league}.webp" alt="" /><b>+{x.o!.points}</b><small>points</small></button>{/if}
-              {#each x.o!.rewards as r (r.id)}<div class="prize">{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart"><Icon name="dance" size={40} /></span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></div>{/each}
+              {#each x.o!.rewards as r (r.id)}<div class="prize">{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart"><Icon name="dance" dance={r.id} size={40} /></span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></div>{/each}
               {#each x.o!.stickers ?? [] as st (st.id)}<div class="prize" title={st.desc}><img src="{base}game/icon-stickers.webp" alt="" /><b>Sticker</b><small>{st.name}</small></div>{/each}
             </div>
           </div>
@@ -602,11 +602,11 @@
   .duel > * { pointer-events: auto; }
   .stage { flex: 1; min-height: 0; pointer-events: none; }
   .top { display: flex; align-items: center; gap: 10px; padding: 12px 16px 0; }
-  .leave { width: 46px; height: 46px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .92); font: 600 30px/1 var(--font-ui); color: var(--ink2); cursor: pointer; box-shadow: var(--shadow-sm); }
+  .leave { display: grid; place-items: center; padding: 0; width: 46px; height: 46px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .92); font: 600 30px/1 var(--font-ui); color: var(--ink2); cursor: pointer; box-shadow: var(--shadow-sm); }
   .where { display: flex; flex-direction: column; background: rgba(255, 255, 255, .9); border-radius: 16px; padding: 4px 14px; box-shadow: var(--shadow-sm); }
   .where small { font: 800 11px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .where b { font: 600 18px var(--font-ui); color: var(--ink); }
-  .helpbtn { margin-left: auto; width: 46px; height: 46px; border-radius: 50%; border: 0; background: #fff; font: 600 26px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); }
+  .helpbtn { display: grid; place-items: center; padding: 0; margin-left: auto; width: 46px; height: 46px; border-radius: 50%; border: 0; background: #fff; font: 600 26px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); }
   .won .top, .won .hud, .won .bottom { visibility: hidden; }
 
   /* the two players along the top */

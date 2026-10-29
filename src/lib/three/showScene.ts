@@ -32,8 +32,14 @@ export class ShowScene implements Controller {
   /** a little hop when a buddy is picked (seconds on the stage clock it started; -1: on the next frame) */
   private hopAt: number | null = null;
   private now = 0;
-  /** turntable angle the player can drag (the Keypals screen) */
+  /** turntable angle the player can drag, all the way round (the Wardrobe and the Shop) */
   spin = 0;
+  /** where a turn button is taking the spin (null: a drag sets it directly) */
+  private spinGoal: number | null = null;
+  /** Turn the buddy on show by an angle, smoothly (a turn button). */
+  turn(by: number) { this.spinGoal = (this.spinGoal ?? this.spin) + by; }
+  /** Drag it round (a finger or the mouse): no easing, and any turn in progress stops. */
+  drag(by: number) { this.spinGoal = null; this.spin += by; }
   /** the extra moves (the one-hand wave, dances), loaded after the buddy appears */
   private movesReady: Promise<unknown> = Promise.resolve();
   private shown = new Set<Character>();
@@ -139,6 +145,10 @@ export class ShowScene implements Controller {
 
   update(dt: number, t: number) {
     this.now = t;
+    if (this.spinGoal !== null) {
+      this.spin += (this.spinGoal - this.spin) * (1 - Math.exp(-dt * 7));
+      if (Math.abs(this.spinGoal - this.spin) < 0.002) { this.spin = this.spinGoal; this.spinGoal = null; }
+    }
     this.place(dt);
     this.chars.forEach((c, i) => {
       const d = this.dancing[i];

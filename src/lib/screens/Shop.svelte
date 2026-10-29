@@ -15,8 +15,11 @@
   import { ShowScene } from '../three/showScene';
   import Header from '../ui/Header.svelte';
   import Confetti from '../ui/Confetti.svelte';
+  import Icon from '../ui/Icon.svelte';
+  import Turntable from '../ui/Turntable.svelte';
 
   const base = import.meta.env.BASE_URL;
+  const narrow = innerWidth < 760;
   const p = $derived(game.profile!);
   const who = game.profile!.buddy;
   const adv = $derived(advView(p));
@@ -38,7 +41,9 @@
   let disposed = false;
   function viewOf() {
     const r = stageEl?.getBoundingClientRect();
-    return r ? { top: r.top / innerHeight, bottom: r.bottom / innerHeight, left: r.left / innerWidth, right: r.right / innerWidth } : { top: 0.2, bottom: 0.95, left: 0, right: 0.4 };
+    // the buddy stands above the try-on card at the bottom of this area
+    const card = innerWidth < 760 ? 150 : 165;
+    return r ? { top: r.top / innerHeight, bottom: Math.max(r.top + 120, r.bottom - card) / innerHeight, left: r.left / innerWidth, right: r.right / innerWidth } : { top: 0.2, bottom: 0.75, left: 0, right: 0.4 };
   }
   function onResize() { if (scene) scene.view = viewOf(); }
   onMount(async () => {
@@ -54,7 +59,8 @@
   function tryOn(c: CatalogItem) {
     sel = c; sfx.pop();
     if (!scene) return;
-    void scene.redress(who).then(() => { if (sel !== c) return; if (c.slot === 'head') { scene?.char(who)?.nudgeHat(null); void scene?.wear(who, c.id); } else void scene?.wearGear(who, c.slot, c.id); });
+    // (compare ids: a $state value is a proxy, never === the plain item)
+    void scene.redress(who).then(() => { if (sel?.id !== c.id) return; if (c.slot === 'head') { scene?.char(who)?.nudgeHat(null); void scene?.wear(who, c.id); } else void scene?.wearGear(who, c.slot, c.id); });
   }
   function buyIt(c: CatalogItem) {
     let r: { ok: boolean; why?: string } = { ok: false };
@@ -81,12 +87,13 @@
 </script>
 
 <div class="screen shop">
-  <Header title="Island Shop" sub="Things to wear for every buddy, eggs and treats" back={() => { sfx.click(); game.go(game.shopBack); }}>
+  <Header title="Island Shop" sub={narrow ? undefined : 'Things to wear for every buddy, eggs and treats'} back={() => { sfx.click(); game.go(game.shopBack); }}>
     {#snippet right()}<span class="wallet"><img src="{base}game/icon-shell.webp" alt="" /><b>{adv.shells}</b> shells</span>{/snippet}
   </Header>
   <div class="body">
     <div class="stagebox" bind:this={stageEl}>
       <Confetti {burst} count={50} x={50} y={45} />
+      <Turntable scene={() => scene} el={stageEl} top />
       {#if sel && tab === 'wear'}
         {@const mine = ownsItem(p, sel.id)}
         {@const on = wornIn(p, who, sel.slot) === sel.id}
@@ -98,11 +105,11 @@
             <span>{sel.power ? `In battles: ${sel.text}` : sel.text}</span>
           </div>
           <div class="act">
-            {#if on}<em class="have">✓ {FRIEND[who].name} has it on</em>
+            {#if on}<em class="have"><Icon name="check" size={14} /> {FRIEND[who].name} has it on</em>
             {:else if mine}<button class="btn btn-primary" onclick={() => wearIt(sel!)}>Wear it</button>
             {:else if sel.how === 'shop'}<button class="btn btn-primary buy" disabled={adv.shells < (sel.price ?? 0)} onclick={() => buyIt(sel!)}><img src="{base}game/icon-shell.webp" alt="" />{adv.shells < (sel.price ?? 0) ? `${(sel.price ?? 0) - adv.shells} more` : `Buy: ${sel.price}`}</button>
-            {:else if sel.how === 'friendship'}<em class="gift">♥ Friendship {sel.level} with any buddy (best: {bestFriendship(p)})</em>
-            {:else}<em class="champ">🏆 {howText(sel, island)}</em>{/if}
+            {:else if sel.how === 'friendship'}<em class="gift"><Icon name="heart" size={14} /> Friendship {sel.level} with any buddy (best: {bestFriendship(p)})</em>
+            {:else}<em class="champ"><Icon name="trophy" size={14} /> {howText(sel, island)}</em>{/if}
           </div>
         </div>
       {:else if tab === 'wear'}
@@ -132,11 +139,11 @@
               <span class="rar">{RARITY[c.rarity].name}</span>
               <img src="{base}{c.icon}" alt="" loading="lazy" />
               <b>{c.name}</b>
-              <span class="where">{SLOT_NAME[c.slot]}{c.power ? ' · ⚔️' : ''}</span>
-              {#if mine}<em class="have">✓ Yours</em>
+              <span class="where">{SLOT_NAME[c.slot]}{#if c.power} · <Icon name="shield" size={12} />{/if}</span>
+              {#if mine}<em class="have"><Icon name="check" size={13} /> Yours</em>
               {:else if c.how === 'shop'}<em class="price"><img src="{base}game/icon-shell.webp" alt="" />{c.price}</em>
-              {:else if c.how === 'friendship'}<em class="gift">♥ {c.level}</em>
-              {:else}<em class="champ">🏆</em>{/if}
+              {:else if c.how === 'friendship'}<em class="gift"><Icon name="heart" size={13} /> {c.level}</em>
+              {:else}<em class="champ"><Icon name="trophy" size={14} /> Prize</em>{/if}
             </button>
           {:else}
             <p class="none">Nothing like that yet. Try another vibe!</p>
@@ -192,7 +199,7 @@
   .it.sel { box-shadow: 0 0 0 4px var(--primary-hi), 0 0 18px rgba(124, 92, 245, .35); }
   .it > img { width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 6px 8px rgba(40, 20, 80, .2)); }
   .it b { font: 600 15px/1.1 var(--font-ui); color: var(--ink); }
-  .it .where { font: 700 11px var(--font-body); color: var(--muted); }
+  .it .where { font: 700 11px var(--font-body); color: var(--muted); display: inline-flex; align-items: center; gap: 3px; }
   .it .rar { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); font: 800 10px var(--font-body); color: #fff; background: var(--rc); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
   .it em, .tryon em { margin-top: 4px; font: 800 12px var(--font-body); font-style: normal; padding: 3px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
   .price { background: #fff3d6; color: #7a5300; }
@@ -210,7 +217,7 @@
   .small { font-size: 12px; }
   .foot { margin: 0; font: 600 13px var(--font-body); color: var(--muted); text-align: center; }
   @media (max-width: 760px) {
-    .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 38vh 1fr; padding: 8px 10px; gap: 8px; }
+    .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 44vh 1fr; padding: 8px 10px; gap: 8px; }
     .side { min-width: 0; }
     .tabs button { font-size: 15px; } .tabs button img { width: 28px; height: 28px; } .tabs button em { display: none; }
     .chips button { font-size: 12px; padding: 4px 9px; }

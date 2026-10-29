@@ -89,12 +89,14 @@
       <span><b>{Math.floor(today / 60000)}</b>/{p.settings.dailyGoalMin} min today</span>
     </div>
     <div class="spacer"></div>
-    <NavTile size={tile} tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
-      {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={tile === 'sm' ? 40 : 62} round />{/snippet}
-    </NavTile>
-    <NavTile size={tile} tone="lilac" kind="dances" label="Dances" title="Dances: pick your finish-line dance" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
-    <NavTile size={tile} tone="butter" kind="stickers" label="Stickers" badge={STICKERS.filter(s => bookView(p).stickers[s.id]).length || ''} onclick={() => game.openStickers('stickers')} />
-    <NavTile size={tile} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (bookView(p).medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
+    <div class="navs">
+      <NavTile size={tile} tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
+        {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={tile === 'sm' ? 40 : 62} round />{/snippet}
+      </NavTile>
+      <NavTile size={tile} tone="lilac" kind="dances" label="Dances" title="Dances: pick your finish-line dance" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
+      <NavTile size={tile} tone="butter" kind="stickers" label="Stickers" badge={STICKERS.filter(s => bookView(p).stickers[s.id]).length || ''} onclick={() => game.openStickers('stickers')} />
+      <NavTile size={tile} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (bookView(p).medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
+    </div>
     <FancyAntButton variant="round" />
     <GearButton size={tile === 'sm' ? 40 : 46} />
   </header>
@@ -153,6 +155,7 @@
 <style>
   .map { display: flex; flex-direction: column; background: linear-gradient(#cfe9fa, #eaf6ff 60%, #f3f9ff); }
   .bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 18px; background: rgba(255, 255, 255, .92); border-bottom: var(--panel-border); box-shadow: 0 6px 20px -16px rgba(60, 40, 110, .4); z-index: 5; }
+  .navs { display: flex; align-items: center; gap: 12px; }
   .me { display: flex; align-items: center; gap: 8px; background: none; border: 0; cursor: pointer; padding: 0 8px 0 0; border-radius: 16px; }
   .me:hover { background: var(--bg2); }
   .nm { font: 600 22px var(--font-ui); }
@@ -193,16 +196,19 @@
   .go .kbd { background: rgba(255, 255, 255, .25); border-color: rgba(255, 255, 255, .4); color: inherit; font-size: 11px; height: 22px; }
   .plat { position: absolute; right: 6px; top: 2px; font: 800 13px/1 var(--font-body); color: #7c5cf5; text-shadow: 0 0 6px #fff, 0 0 2px #fff; }
 
-  /* phones: one header row; the nav tiles show their pictures only, the pills and FancyAnt button go */
+  /* phones: two header rows, as on the home page: Home, the title, your stars and the gear on top, then the
+     picture tiles with their words, sharing the width (one row of seven didn't fit a 360 or 390 phone) */
   @media (max-width: 760px) {
-    /* small picture tiles in one row that fits a 390-wide phone (the word Typing pushes them right) */
-    .bar { flex-wrap: nowrap; gap: 3px; padding: 6px 8px; }
-    .bar .pill, .bar > :global(button.round) { display: none; }
-    .bar :global(.tile) { flex: none; padding: 2px; }
-    .bar :global(.tile .lbl) { display: none; }
+    .bar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px 8px; }
+    .bar .pill.goal, .bar > :global(button.round) { display: none; }
+    .bar .pill.stars { padding: 4px 10px; }
+    .bar > :global(.tile) { flex: none; padding: 2px; }
+    .bar > :global(.tile .lbl) { display: none; }
     .bar :global(.gear) { padding: 3px; }
-    .subj { font-size: 18px; margin: 0 auto 0 2px; }
-    .spacer { display: none; }
+    .subj { font-size: 22px; margin: 0 0 0 2px; }
+    .navs { order: 10; width: 100%; gap: 4px; justify-content: space-between; }
+    .navs :global(.tile) { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 1px; padding: 4px 2px 5px; }
+    .navs :global(.tile .lbl) { font-size: 12.5px; white-space: nowrap; }
     /* the lesson stops: smaller, and the regions taller so the two rows of stops don't run into each other;
        only the climb, swim and sled stops keep their chip (the trail is the usual way) */
     .scroller { padding: 12px 12px 110px; gap: 16px; }

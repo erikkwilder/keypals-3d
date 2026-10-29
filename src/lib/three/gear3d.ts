@@ -30,10 +30,13 @@ type Fit = {
   /** the back's outline seen from the side, from the shoulders down: the backmost point at each height
    *  (a backpack, a shell, a tail's root), so a cape can drape over it instead of hanging off it */
   backLine: { top: number; bottom: number; z: number[] } | null;
+  /** the front's outline the same way (the most forward point at each height, near the middle), from the
+   *  top of the head down: where a bow tie or a medal sits */
+  frontLine: { top: number; bottom: number; z: number[] } | null;
   feet: { side: 'Left' | 'Right'; geo: THREE.BufferGeometry | null; cx: number; sole: number; heel: number; toe: number; w: number }[];
   hand: THREE.Vector3 | null;
   /** the head (bind space): its middle across, the eye line, the front of the face, the width */
-  head: { cx: number; eyes: number; front: number; top: number; w: number; neck: number; zmid: number } | null;
+  head: { cx: number; eyes: number; front: number; top: number; w: number; neck: number; zmid: number; face: number; fx: number } | null;
 };
 const fits = new WeakMap<Character, Fit>();
 
@@ -139,6 +142,17 @@ function fitOf(c: Character): Fit {
     }
     backLine = { top, bottom, z };
   }
+  let frontLine: Fit['frontLine'] = null;
+  {
+    const cx = back?.cx ?? 0, w = back?.w ?? H * 0.3;
+    const all = points(c, Object.keys(c.bones), 0).filter(p => Math.abs(p.x - cx) < w * 0.35);
+    const top = maxY, bottom = minY + H * 0.2, N = 24, z: number[] = [];
+    for (let i = 0; i < N; i++) {
+      const y = top - (i / (N - 1)) * (top - bottom), band = all.filter(p => Math.abs(p.y - y) < (top - bottom) / N);
+      z.push(band.length > 4 ? pct(band.map(p => p.z), 0.97) : (z[i - 1] ?? 0));
+    }
+    frontLine = { top, bottom, z };
+  }
   const feet: Fit['feet'] = [];
   for (const side of ['Left', 'Right'] as const) {
     const fp = points(c, [`${side}Foot`, `${side}ToeBase`]);
@@ -155,11 +169,39 @@ function fitOf(c: Character): Fit {
   let head: Fit['head'] = null;
   if (hd.length > 20) {
     const ys = hd.map(p => p.y), lo = pct(ys, 0.02), hi = pct(ys, 0.98);
-    // the face's front: the most forward points near the eye line (snouts and beaks stick out further)
-    const eyes = lo + (hi - lo) * 0.5, band = hd.filter(p => Math.abs(p.y - eyes) < (hi - lo) * 0.12);
-    head = { cx: pct(hd.map(p => p.x), 0.5), eyes, front: pct((band.length > 10 ? band : hd).map(p => p.z), 0.9), top: hi, w: pct(hd.map(p => p.x), 0.97) - pct(hd.map(p => p.x), 0.03), neck: lo, zmid: pct(hd.map(p => p.z), 0.5) };
+    const zs = hd.map(p => p.z), zmid = pct(zs, 0.5), zfront = pct(zs, 0.97), depth = zfront - pct(zs, 0.03);
+    // the face is the front of the head: the frontmost third of its depth (big ears, hair, antennas and
+    // fluff stick out at the sides and the top further back)
+    const face = hd.filter(p => p.z > zfront - depth * 0.33);
+    // the eye line: a little over halfway up the part of the face that's nearly full width (not ear tips
+    // or leaves; snouts sit low, so not right in the middle)
+    const N = 24, bandW: number[] = [];
+    for (let k = 0; k < N; k++) {
+      const y0 = lo + (k / N) * (hi - lo), y1 = lo + ((k + 1) / N) * (hi - lo), xs = face.filter(p => p.y >= y0 && p.y < y1).map(p => p.x);
+      bandW.push(xs.length > 3 ? Math.max(...xs) - Math.min(...xs) : 0);
+    }
+    const full = Math.max(...bandW), core = bandW.map((w, k) => (w >= full * 0.6 ? k : -1)).filter(k => k >= 0);
+    let eyes = core.length ? lo + ((core[0] + (core[core.length - 1] + 1 - core[0]) * 0.55) / N) * (hi - lo) : lo + (hi - lo) * 0.55;
+    const band = face.filter(p => Math.abs(p.y - eyes) < (hi - lo) * 0.1);
+    let front = pct((band.length > 10 ? band : face).map(p => p.z), 0.9);
+    const w = pct(hd.map(p => p.x), 0.97) - pct(hd.map(p => p.x), 0.03);
+    let faceW = band.length > 10 ? Math.min(w, pct(band.map(p => p.x), 0.95) - pct(band.map(p => p.x), 0.05)) : w;
+    // a buddy whose eyes are drawn on (Scruff, under all that straw): its own eye spot
+    // centred on the face itself (a sprout or headphones on one side pull the whole head's middle over)
+    let fx = band.length > 10 ? (pct(band.map(p => p.x), 0.05) + pct(band.map(p => p.x), 0.95)) / 2 : pct(hd.map(p => p.x), 0.5);
+    const e = FRIEND[c.id].eyes, hb = c.bones.Head, sk = skinned(c).find(m => m.skeleton.bones.includes(hb));
+    if (e && hb && sk) {
+      const at = new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(sk.skeleton.boneInverses[sk.skeleton.bones.indexOf(hb)]).invert());
+      // (the eye spot is in metres; bind units per metre from the buddy's own measured height)
+      const upm = H / FRIEND[c.id].height;
+      eyes = at.y + e.up * upm; front = at.z + (e.fwd + 0.02) * upm; fx = at.x + (e.x ?? 0) * upm;
+      faceW = Math.min(faceW, (e.gap + e.size * 4) * upm * 2.2);
+    }
+    // never behind the front of the body at the eye line (a box head only partly moved by the Head bone)
+    if (!e) front = Math.max(front, lineAt(frontLine, eyes, front));
+    head = { cx: pct(hd.map(p => p.x), 0.5), eyes, front, top: hi, w, neck: lo, zmid, face: faceW, fx };
   }
-  f = { unit, minY, H, back, backLine, feet, hand, head };
+  f = { unit, minY, H, back, backLine, frontLine, feet, hand, head };
   fits.set(c, f);
   return f;
 }
@@ -288,7 +330,7 @@ async function wings(x: Ctx): Promise<Built | null> {
   if (!map) return null;
   const mat = new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide, depthWrite: false });
   const hh = f.H * 0.46, w = hh * (321 / 512);
-  const hinge = new THREE.Vector3(b.cx, b.top - f.H * 0.09, b.z - f.H * 0.015);
+  const hinge = new THREE.Vector3(b.cx, b.top - f.H * 0.05, b.z - f.H * 0.015);
   const make = (dir: 1 | -1) => {
     const geo = new THREE.PlaneGeometry(w, hh);
     // the picture is the right wing seen from behind: it spreads away from the hinge
@@ -318,10 +360,11 @@ async function rocketPack(x: Ctx): Promise<Built | null> {
   if (!b || !hb) return null;
   const g = hb.inner;
   const [body, fin, flameMap, pack] = await Promise.all([painted('gear/tex-rocket.webp'), painted('gear/tex-fin.webp', { cut: true }), loadTexture('gear/tex-flame.webp'), painted('gear/tex-pack.webp', { cut: true })]);
-  const h = f.H * 0.38, rw = h * ROCKET_ASPECT;
+  // two rockets riding high on the back (they hung down by the knees when sized and placed lower)
+  const h = f.H * 0.3, rw = h * ROCKET_ASPECT;
   const geo = latheFromPicture(h, ROCKET, ROCKET_ASPECT);
   const flames: THREE.Sprite[] = [];
-  const cy = b.top - f.H * 0.16, gap = Math.max(b.w * 0.36, rw * 0.62);
+  const cy = b.top - f.H * 0.09, gap = Math.max(b.w * 0.36, rw * 0.62);
   for (const sd of [-1, 1]) {
     const r = new THREE.Group();
     const m = new THREE.Mesh(geo, body); m.rotation.y = Math.PI; r.add(m);
@@ -550,55 +593,79 @@ async function shoes(x: Ctx): Promise<Built | null> {
   return { objs, tick: (dt, t) => ticks.forEach(k => k(dt, t)) };
 }
 
-/** A painted model from the library (public/wear), for the face, neck, back or hand. Its origin is
- *  where it attaches, Y up, front +Z; `size` is its width as a share of the head (face, neck) or the
- *  back, or its height as a share of the buddy (hand). */
+/** A line's value at a height (bind space). */
+function lineAt(l: { top: number; bottom: number; z: number[] } | null, y: number, dflt: number) {
+  if (!l) return dflt;
+  const k = Math.max(0, Math.min(l.z.length - 1, Math.round(((l.top - y) / (l.top - l.bottom)) * (l.z.length - 1))));
+  return l.z[k];
+}
+/** A painted model from the library (public/wear), for the face, neck, back or hand. It's placed by
+ *  its own box, so it sits right whatever its origin: glasses with their back on the front of the
+ *  face at the eyes; a bow tie or a medal on the front of the chest at the neck, a scarf or a lei round
+ *  the neck; a pack with its back on the buddy's back under the shoulders (its front, +Z, facing out
+ *  behind); a held thing at its grip (its origin, if that's inside it, else a third of the way up).
+ *  `size` is its width as a share of the head (face, neck) or the back, or its height as a share of
+ *  the buddy (hand). */
 async function libModel(x: Ctx): Promise<Built | null> {
   const { c, f, id } = x, lib = LIB[id];
   if (!lib?.model) return null;
   const gl = await loadGltf(lib.model);
   if (!gl) return null;
   const obj = gl.scene.clone(true);
-  const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3());
+  const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3()), mid = box.getCenter(new THREE.Vector3());
   shadows(obj);
   if (lib.slot === 'hand') {
     const hand = handTracker(c, f);
     if (!hand) return null;
     const hold = handHeld(x), s = hw(c);
-    const k = (lib.size * s) / Math.max(1e-6, size.y);
-    obj.scale.multiplyScalar(k);
-    const pivot = new THREE.Group(); pivot.add(obj);
-    hold.g.add(pivot);
+    const inside = box.min.y <= 0 && box.max.y >= 0 && Math.abs(mid.x) < size.x && Math.abs(mid.z) < size.z;
+    const grip = new THREE.Vector3(mid.x, inside ? 0 : box.min.y + size.y * 0.33, mid.z);
+    obj.position.copy(grip).negate();
+    const piece = new THREE.Group(); piece.add(obj);
+    piece.scale.setScalar((lib.size * s) / Math.max(1e-6, size.y));
+    hold.g.add(piece);
     return {
       objs: [hand.g, hold.g],
       tick: (_dt, t) => {
         const p = hand.at();
         hold.at(p);
         // held a little in front of the hand, upright, swaying with the buddy
-        pivot.position.set(p.x - s * 0.02, p.y - s * 0.03, p.z + s * 0.04);
-        pivot.rotation.set(0, -0.25 + Math.sin(t * 1.3) * 0.06, Math.sin(t * 1.7) * 0.05);
+        piece.position.set(p.x - s * 0.02, p.y, p.z + s * 0.04);
+        piece.rotation.set(0, -0.25 + Math.sin(t * 1.3) * 0.06, Math.sin(t * 1.7) * 0.05);
       },
     };
   }
-  // everything else rides a bone, placed in bind space (the model is in metres: bind units are 1/scale)
+  // everything else rides a bone, placed in bind space
   const hd = f.head, b = f.back;
-  let bone = 'Head', at: THREE.Vector3 | null = null, width = 0, turn = 0;
-  if (lib.slot === 'face' && hd) { at = new THREE.Vector3(hd.cx, hd.eyes, hd.front); width = hd.w; }
-  else if (lib.slot === 'neck' && hd && b) {
-    // where the head meets the shoulders: a scarf or a bow sits round the front of the neck
+  let bone = 'Head', at: THREE.Vector3 | null = null, anchor = new THREE.Vector3(), width = 0, turn = 0;
+  if (lib.slot === 'face' && hd) {
+    at = new THREE.Vector3(hd.fx, hd.eyes, hd.front); width = hd.face;
+    anchor.set(mid.x, mid.y, box.min.z);
+  } else if (lib.slot === 'neck' && hd) {
+    // where the head meets the shoulders
     bone = 'Spine02';
-    at = new THREE.Vector3(hd.cx, Math.min(hd.neck, b.top + f.H * 0.03), hd.zmid); width = hd.w;
-  } else if (lib.slot === 'back' && b) { bone = 'Spine02'; at = backPivot(f); width = b.w; turn = Math.PI; }
-  else if (lib.slot === 'head' && hd) { at = new THREE.Vector3(hd.cx, hd.top, hd.zmid); width = hd.w; }
+    const y = Math.min(hd.neck, (b?.top ?? hd.neck) + f.H * 0.04) - f.H * 0.015;
+    const wraps = size.z > size.x * 0.45;
+    at = new THREE.Vector3(hd.cx, y, wraps ? (hd.zmid + lineAt(f.frontLine, y, hd.front)) / 2 : lineAt(f.frontLine, y, hd.front));
+    // sized to the shoulders, not the head (big ears made a lei the size of the buddy)
+    width = b?.w ?? hd.face;
+    anchor.set(mid.x, wraps ? box.max.y - size.y * 0.3 : mid.y, wraps ? mid.z : box.min.z);
+  } else if (lib.slot === 'back' && b) {
+    bone = 'Spine02';
+    const y = b.top - f.H * 0.04;
+    at = new THREE.Vector3(b.cx, y, lineAt(f.backLine, y, b.z)); width = b.w; turn = Math.PI;
+    anchor.set(mid.x, box.max.y - size.y * 0.12, box.min.z);
+  }
   if (!at || !width) return null;
   const hb = boneHeld(x, bone, at);
   if (!hb) return null;
-  const k = (lib.size * width) / Math.max(1e-6, size.x);
-  obj.scale.multiplyScalar(k);
+  obj.position.copy(anchor).negate();
+  const piece = new THREE.Group(); piece.add(obj);
+  piece.scale.setScalar((lib.size * width) / Math.max(1e-6, size.x));
   // a back thing faces backwards (its front +Z is the side people see behind the buddy)
-  obj.rotation.y = turn;
-  obj.position.copy(at);
-  hb.inner.add(obj);
+  piece.rotation.y = turn;
+  piece.position.copy(at);
+  hb.inner.add(piece);
   return { objs: [hb.g] };
 }
 

@@ -205,7 +205,7 @@
           {#if cloud.online && (cloud.google || cloud.microsoft || cloud.account)}
             <h4>Parents and teachers</h4>
             {#if cloud.account}
-              <p class="small">Signed in as <b>{cloud.account.name ?? cloud.account.email}</b>{#if cloud.account.email && cloud.account.name} ({cloud.account.email}){/if}. Players on this computer are kept in your account.</p>
+              <p class="small">Signed in as <b>{cloud.account.name ?? cloud.account.email}</b>{#if cloud.account.email && cloud.account.name}{' '}({cloud.account.email}){/if}. Players on this computer are kept in your account.</p>
               {#if cloud.players.some(cp => !here.has(cp.code))}
                 <p class="muted small">In your account, not on this computer yet:</p>
                 <div class="row">{#each cloud.players.filter(cp => !here.has(cp.code)) as cp (cp.code)}<button class="btn" disabled={cloud.busy} onclick={() => act(() => openCode(cp.code), `${cp.name} is on this computer now.`)}>Add {cp.name}</button>{/each}</div>

@@ -39,7 +39,7 @@
   // the next thing to aim for, like a typing lesson's
   const rideTh = grown ? MATH_RIDE.grown : MATH_RIDE.kids;
   const goalText = !last || !st ? '' : last.stars < 3 ? `Next goal: a score of ${goal} for three stars. Right first time counts most, then speed.`
-    : RIDES[last.bestRide + 1] ? `Next goal: reach ${rideName(last.bestRide + 1, moveOf(lesson))} (about ${rideTh[last.bestRide + 1]} right a minute).` : 'Top ride and three stars. Try the next trip!';
+    : RIDES[last.bestRide + 1] ? `Next goal: reach ${rideName(last.bestRide + 1, moveOf(lesson))} (about ${rideTh[last.bestRide + 1]} right a minute).` : 'Top speed and three stars. Try the next trip!';
 
   // every fact of the trip, in order, coloured by how it went
   const strip = (last?.results ?? []).map(r => ({ ...parseFact(r.id), kind: r.intro ? 'new' : r.speed }));

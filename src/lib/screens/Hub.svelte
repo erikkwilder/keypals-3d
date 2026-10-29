@@ -95,7 +95,7 @@
     <div class="pill shells" title="Shells: earned in practice and battles, spent in the Adventure shop">
       <img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><span><b>{adv.shells}</b> shells</span>
     </div>
-    <button class="howbtn" onclick={() => { guide = true; sfx.pop(); }} title="How Keypals works">?</button>
+    <button class="howbtn" onclick={() => { guide = true; sfx.pop(); }} title="How Keypals works"><Icon name="help" size={28} /></button>
     <div class="spacer"></div>
     <div class="tiles">
       <NavTile size={tsz} tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
@@ -225,7 +225,7 @@
   .ft em { display: block; height: 100%; background: linear-gradient(90deg, var(--primary-hi), var(--pink)); }
   .spacer { flex: 1; }
   .pill.shells img { width: 28px; height: 28px; object-fit: contain; }
-  .howbtn { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 0; background: #fff; font: 600 22px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b; }
+  .howbtn { display: grid; place-items: center; padding: 0; width: 40px; height: 40px; flex: none; border-radius: 50%; border: 0; background: #fff; font: 600 22px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b; }
   .guidebg { position: fixed; inset: 0; z-index: 40; background: rgba(30, 20, 60, .5); display: grid; place-items: center; padding: 16px; }
   .guide { width: min(1040px, 96vw); max-height: 92vh; overflow: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
   .guide h2 { margin: 0; font-size: 32px; }

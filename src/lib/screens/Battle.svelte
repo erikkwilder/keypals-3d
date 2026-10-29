@@ -10,6 +10,7 @@
   import { stage } from '../three/stage';
   import { BattleScene } from '../three/battleScene';
   import { sfx } from '../audio/sound';
+  import { funEvent } from '../fun/bus';
   import { buddyPal, danceOf, outfitOf } from '../engine/profile';
   import { levelFromXp } from '../engine/stickers';
   import { FRIEND } from '../art/cast';
@@ -132,6 +133,7 @@
     } catch (e) { console.error(e); }
     ui = 'intro';
     sfx.battleStart();
+    funEvent('battleStart'); // (once in a while the grumpy Glimmer sneezes: src/lib/fun)
     bigBanner = { text: `${foeName} is grumpy!`, sub: champion ? `The Champion of ${island.name}. Cheer it up and it joins your team!` : 'Answer cards to cheer it up. Then it joins your team!', kind: champion ? 'champ' : 'intro', key: Date.now() };
     setTimeout(() => {
       bigBanner = null; sync(); ui = 'pick';
@@ -383,9 +385,9 @@
 
 <div class="battle" class:narrow class:won={ui === 'won'}>
   <div class="top">
-    <button class="leave" onclick={toMap} aria-label="Leave the battle">‹</button>
+    <button class="leave" onclick={toMap} aria-label="Leave the battle"><Icon name="back" size={28} /></button>
     <div class="where"><small>{island.name}</small><b>{champion ? 'Champion battle' : `Battle ${node.n + 1}`}</b></div>
-    <button class="helpbtn" onclick={() => { help = true; sfx.pop(); }} aria-label="How to play">?</button>
+    <button class="helpbtn" onclick={() => { help = true; sfx.pop(); }} aria-label="How to play"><Icon name="help" size={30} /></button>
   </div>
 
   <!-- your energy over your buddy, its grumpy bar over it (on phones both sit at the top) -->
@@ -486,7 +488,7 @@
         <button class="prize" onclick={() => show({ kind: 'friendship' })}><span class="heart"><Icon name="heart" size={40} /></span><b>+{out.xp.gained}</b><small>friendship</small></button>
         {#if out.gear}<button class="prize gearprize" onclick={() => show({ kind: 'gear', id: out!.gear!.id })}><img src="{base}gear/{out.gear.id}.webp" alt="" /><b>Gear!</b><small>{out.gear.name}</small></button>{/if}
         {#if out.egg}<button class="prize egg" onclick={() => show({ kind: 'egg', id: out!.egg!.rarity })}><img src="{base}game/egg-{out.egg.rarity}.webp" alt="" /><b>Egg!</b><small>new</small></button>{/if}
-        {#each out.rewards as r}<button class="prize" onclick={() => show({ kind: 'reward', id: r.id })}>{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart"><Icon name="dance" size={42} /></span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></button>{/each}
+        {#each out.rewards as r}<button class="prize" onclick={() => show({ kind: 'reward', id: r.id })}>{#if r.kind === 'outfit'}<img src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="heart"><Icon name="dance" dance={r.id} size={42} /></span>{/if}<b>New</b><small>{r.kind === 'outfit' ? 'outfit' : 'dance'}</small></button>{/each}
         {#each out.stickers ?? [] as st (st.id)}<div class="prize" title={st.desc}><img src="{base}game/icon-stickers.webp" alt="" /><b>Sticker</b><small>{st.name}</small></div>{/each}
       </div>
       <p class="tapnote" class:in={step >= 2}>Tap a prize to see what it's for</p>
@@ -568,7 +570,7 @@
           <div><h3>A new egg!</h3><p>Every right answer in practice (math, typing or the playground) makes it grow. When its bar is full, it hatches into a new Glimmer.</p></div>
         {:else if i.kind === 'reward'}
           {@const r = out?.rewards.find(x => x.id === i.id)}
-          {#if r?.kind === 'outfit'}<img class="ibig" src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="ibig note"><Icon name="dance" size={72} /></span>{/if}
+          {#if r?.kind === 'outfit'}<img class="ibig" src="{base}outfits/{r.id}.webp" alt="" />{:else}<span class="ibig note"><Icon name="dance" dance={r?.id} size={72} /></span>{/if}
           <div><h3>New {r?.kind === 'outfit' ? 'outfit' : 'dance'}: {r?.name}</h3><p>{r?.kind === 'outfit' ? `Dress ${FRIEND[p0.buddy].name} up on the Keypals screen.${GEAR[r.id] ? ` In battles: ${GEAR[r.id].text}` : ''}` : `Pick it as ${FRIEND[p0.buddy].name}'s finish dance on the Keypals screen. It's the Finale move in battles too.`}</p></div>
         {/if}
         <button class="btn btn-primary" onclick={() => (info = null)}>OK</button>
@@ -583,11 +585,11 @@
   .battle > * { pointer-events: auto; }
   .stage { flex: 1; min-height: 0; pointer-events: none; }
   .top { display: flex; align-items: center; gap: 10px; padding: 12px 16px 0; }
-  .leave { width: 46px; height: 46px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .92); font: 600 30px/1 var(--font-ui); color: var(--ink2); cursor: pointer; box-shadow: var(--shadow-sm); }
+  .leave { display: grid; place-items: center; padding: 0; width: 46px; height: 46px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .92); font: 600 30px/1 var(--font-ui); color: var(--ink2); cursor: pointer; box-shadow: var(--shadow-sm); }
   .where { display: flex; flex-direction: column; background: rgba(255, 255, 255, .9); border-radius: 16px; padding: 4px 14px; box-shadow: var(--shadow-sm); }
   .where small { font: 800 11px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .where b { font: 600 18px var(--font-ui); color: var(--ink); }
-  .helpbtn { margin-left: auto; width: 46px; height: 46px; border-radius: 50%; border: 0; background: #fff; font: 600 26px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); }
+  .helpbtn { display: grid; place-items: center; padding: 0; margin-left: auto; width: 46px; height: 46px; border-radius: 50%; border: 0; background: #fff; font: 600 26px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); }
 
   .bar { font: inherit; text-align: left; border: 0; cursor: pointer; }
   .won .bar { display: none; } .won .bottom, .won .top, .won .teamrow { visibility: hidden; }

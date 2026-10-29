@@ -32,6 +32,7 @@
   import Confetti from '../ui/Confetti.svelte';
   import Stars from '../ui/Stars.svelte';
   import Icon from '../ui/Icon.svelte';
+  import { funEvent } from '../fun/bus';
 
   const profile = $state.snapshot(game.profile!) as Profile;
   const S = profile.settings;
@@ -162,6 +163,7 @@
       if (ok) {
         const speed = speedOf({ ok, thinkMs, fastMs });
         results.push({ id, ok: true, speed, thinkMs, ms: t - shownAt, intro: false });
+        funEvent('mathRight', { value: answer, a: fact.a, b: fact.b });
         eggWarm++;
         picker.answer(true);
         meter.push(true, t - shownAt);
@@ -446,7 +448,7 @@
         {:else}
           <p class="howscore">Calm mode: no rides and no speed. Just you, {buddy.name} and the facts.</p>
         {/if}
-        {#if record}<div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore} · ride: {RIDES[record.bestRide].name}</div>{/if}
+        {#if record}<div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore} · top speed: {rideName(record.bestRide, moveOf(lesson))}</div>{/if}
         <div class="tiles">
           <NavTile size="md" tone="sky" kind="home" label="Home" onclick={leave} />
           <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={() => { unlockAudio(); begin(); }} />

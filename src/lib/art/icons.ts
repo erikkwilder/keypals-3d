@@ -12,3 +12,10 @@ export const gameIconUrl = (name: string) => `${BASE}game/icon-${name}.webp`;
 export const MOVE_PIC: Record<'run' | 'climb' | 'slide' | 'swim', string> = {
   run: iconUrl('ride-run-1'), climb: iconUrl('ride-climb-1'), slide: iconUrl('ride-slide-2'), swim: iconUrl('ride-swim-2'),
 };
+
+/** A dance's own painted picture (fist pump, robot, chicken, moonwalk ...). */
+export const danceIconUrl = (id: string) => `${BASE}icons/dances/${id}.webp`;
+/** A medal at a tier (0 Rose, 1 Silver, 2 Gold, 3 Rainbow), painted whole: ribbon, rim and face. */
+export const medalArtUrl = (id: string, tier: number) => `${BASE}icons/medals/${id}-${tier}.webp`;
+/** A sticker's painted die-cut backing: white edge, glossy patterned paper and its prop; the buddy goes on top. */
+export const stickerArtUrl = (id: string) => `${BASE}icons/stickers/${id}.webp`;

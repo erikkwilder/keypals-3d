@@ -4,8 +4,9 @@
   import type { Layout } from '../engine/layouts';
   import { fingerFor } from '../engine/layouts';
 
-  type Props = { text: string; pos: number; missed: Set<number>; look: Look; layout: Layout; shake: number; showFriend?: boolean };
-  let { text, pos, missed, look, layout, shake, showFriend = true }: Props = $props();
+  /** `gold`: a golden letter (a little surprise), or -1 */
+  type Props = { text: string; pos: number; missed: Set<number>; look: Look; layout: Layout; shake: number; showFriend?: boolean; gold?: number };
+  let { text, pos, missed, look, layout, shake, showFriend = true, gold = -1 }: Props = $props();
 
   const WINDOW_BACK = 28, WINDOW_FWD = 70;
   const start = $derived(Math.max(0, pos - WINDOW_BACK));
@@ -45,7 +46,7 @@
   <div class="track" bind:this={track} style:transform="translateX({shift}px)">
     {#each chars as ch, i (start + i)}
       {@const idx = start + i}
-      <span class="ch" class:done={idx < pos} class:cur={idx === pos} class:miss={missed.has(idx) && idx < pos} class:sp={ch === ' '}
+      <span class="ch" class:done={idx < pos} class:cur={idx === pos} class:miss={missed.has(idx) && idx < pos} class:sp={ch === ' '} class:gold={idx === gold && !missed.has(idx)}
         style:--fc={idx === pos ? color : undefined}>{ch === ' ' ? ' ' : ch}</span>
     {/each}
   </div>
@@ -76,6 +77,9 @@
   .ch { display: inline-block; padding: 6px 1px; min-width: .32em; text-align: center; border-radius: 12px; transition: color .15s, opacity .15s; }
   .ch.sp { min-width: .42em; }
   .ch.done { opacity: .28; }
+  /* a golden letter: gold and shimmering until it's typed */
+  .ch.gold:not(.done) { color: #e0a100; text-shadow: 0 0 14px rgba(255, 210, 60, .9), 0 2px 0 #b07800; animation: goldglow 1.2s ease-in-out infinite; }
+  @keyframes goldglow { 50% { text-shadow: 0 0 24px rgba(255, 220, 90, 1), 0 2px 0 #b07800; transform: translateY(-3px); } }
   .ch.miss { color: #e05a8f; opacity: .55; }
   .ch.cur {
     background: var(--fc); color: var(--ink);
