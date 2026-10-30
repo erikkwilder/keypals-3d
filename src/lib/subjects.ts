@@ -68,8 +68,8 @@ const mathPractice: Thing[] = [
   ...live.map(a => ({ id: a.id, name: a.op ? STRAND[a.op].name : a.name, line: a.op ? STRAND[a.op].blurb : a.blurb, art: a.op ? STRAND[a.op].art : a.art, areas: [a.id], kind: 'trail' })),
   { id: 'garden', name: 'Fact Garden', line: 'Every fact you know, growing. Water the ones that need it.', art: 'icons/garden.webp', areas: FACT_AREAS, kind: 'review' },
 ];
-const PLAY_AREA: Record<string, AreaId> = { line: 'place', bonds: 'plus', build: 'place', stall: 'decimals' };
-const PLAY_ART: Record<string, string> = { line: 'math/play-line.webp', bonds: 'math/play-bubbles.webp', build: 'math/play-build.webp', stall: 'math/play-stall.webp' };
+const PLAY_AREA: Record<string, AreaId> = { line: 'place', bonds: 'plus', build: 'place', stall: 'decimals', lab: 'ratios' };
+const PLAY_ART: Record<string, string> = { line: 'math/play-line.webp', bonds: 'math/play-bubbles.webp', build: 'math/play-build.webp', stall: 'math/play-stall.webp', lab: 'math/play-lab.webp' };
 const mathGames: Thing[] = [
   ...ARCADE_GAMES.map(g => ({ id: g.id, name: g.name, line: g.blurb, art: g.art, areas: FACT_AREAS, kind: 'arcade' })),
   { id: 'pizza', name: 'Pizza Rush', line: 'Serve fraction pizzas to hungry Glimmers.', art: 'arcade/cab-pizza.webp', areas: ['fractions'], kind: 'arcade' },
