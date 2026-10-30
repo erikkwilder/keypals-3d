@@ -90,7 +90,7 @@
     const d = /^[0-9]$/.test(e.key) ? e.key : m ? m[1] : null;
     if (d) { e.preventDefault(); digit(d); }
     else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); back(); }
-    else if ((e.key === '.' || e.key === ',') && !whole) { e.preventDefault(); digit('.'); }
+    else if ((e.key === '.' || e.key === ',') && !whole && item.signed !== true) { e.preventDefault(); digit('.'); }
     else if (e.key === '-' && !whole) { e.preventDefault(); digit('-'); }
     else if (e.key === 'Enter') { e.preventDefault(); submitNumber(); }
   }
@@ -130,7 +130,7 @@
   </div>
 {:else if item.input === 'number'}
   <div class="num">
-    <NumPad ondigit={digit} onback={back} {disabled} {compact} extra={whole ? [] : ['.', '-']} />
+    <NumPad ondigit={digit} onback={back} {disabled} {compact} extra={whole ? [] : item.signed === true ? ['-'] : ['.', '-']} />
     {#if !whole}<button class="ok" disabled={!text || bad || disabled} onpointerdown={(e) => { e.preventDefault(); submitNumber(); }} tabindex="-1"><Icon name="check" size={28} /><span>Check</span></button>{/if}
   </div>
 {:else if item.input === 'fraction'}

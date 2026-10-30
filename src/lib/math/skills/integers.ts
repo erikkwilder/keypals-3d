@@ -50,7 +50,8 @@ function item(skill: string, sub: string, id: string, o: Omit<Item, 'skill' | 'k
 }
 /** a number to type (the minus key always there) */
 function typed(skill: string, sub: string, id: string, ask: string, prompt: Part[], value: number, weight: number, explain: string, trick: Trick): Item {
-  return item(skill, sub, id, { ask, prompt, input: 'number', signed: true, answer: { kind: 'number', value: dec(value) }, weight, explain, trick });
+  // (decimals below zero get the decimal point key too)
+  return item(skill, sub, id, { ask, prompt, input: 'number', signed: skill === 'in-rat' ? 'decimal' : true, answer: { kind: 'number', value: dec(value) }, weight, explain, trick });
 }
 /** choices (given in order; `right` is the right one's id) */
 function choose(skill: string, sub: string, id: string, ask: string, prompt: Part[], choices: Choice[], right: string, weight: number, explain: string, trick: Trick): Item {

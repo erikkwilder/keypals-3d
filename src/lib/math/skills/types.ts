@@ -99,8 +99,9 @@ export type Item = {
   /** a custom input's name and settings (areas register the component) */
   custom?: { name: string; spec: unknown };
   /** the number pad always has its minus key (negative numbers: the sign is part of the answer, so a
-   *  positive answer mustn't give itself away), and the answer is checked with Check */
-  signed?: boolean;
+   *  positive answer mustn't give itself away), and the answer is checked with Check; 'decimal': a
+   *  decimal point key too (decimals below zero) */
+  signed?: boolean | 'decimal';
   answer: Answer;
   /** how hard, 1 (gentle) to 5: a battle card's cheer comes from it */
   weight: number;

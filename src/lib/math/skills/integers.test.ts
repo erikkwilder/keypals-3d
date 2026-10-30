@@ -28,7 +28,7 @@ describe('negative numbers: the area', () => {
   });
   it('every typed answer has the minus key, and every question has a trick', () => {
     for (const s of INTEGER_SKILLS) for (const sub of s.subs) for (let r = 1; r <= 6; r++) for (const it of many(s, sub.id, r, 40)) {
-      if (it.input === 'number') expect(it.signed, `${it.id}`).toBe(true);
+      if (it.input === 'number') expect(it.signed, `${it.id}`).toBe(it.skill === 'in-rat' ? 'decimal' : true);
       expect(it.trick?.say.length, it.id).toBeGreaterThan(10);
     }
   });

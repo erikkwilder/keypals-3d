@@ -1,6 +1,7 @@
 <script lang="ts">
-  // A coordinate grid to tap: the point snaps to the nearest crossing, arrow keys move it, Check (or
-  // Enter) answers. Axes are numbered; negative numbers work (the coordinate plane).
+  // A coordinate grid to tap or drag on: the point snaps to the nearest crossing (and follows a finger
+  // dragged across the grid), arrow keys move it, Check (or Enter) answers. Axes are numbered; negative
+  // numbers work (the coordinate plane) and are written with a real minus sign.
   import Icon from '../../../ui/Icon.svelte';
   import type { GridSpec } from '../types';
   type Props = { grid: GridSpec; disabled?: boolean; compact?: boolean; onanswer: (x: number, y: number) => void; onfirst?: () => void };
@@ -11,8 +12,11 @@
   const X = (x: number) => PAD + (x - grid.xMin) * S, Y = (y: number) => PAD + (grid.yMax - y) * S;
   let pt = $state<{ x: number; y: number } | null>(null);
   let svg: SVGSVGElement | undefined = $state();
+  let dragging = false;
+  const txt = (n: number) => (n < 0 ? `−${-n}` : String(n));
   function tap(e: PointerEvent) {
     if (!svg || disabled) return;
+    if (e.type === 'pointerdown') { dragging = true; (e.currentTarget as Element).setPointerCapture?.(e.pointerId); }
     const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) * (W / r.width), sy = (e.clientY - r.top) * (H / r.height);
     onfirst?.();
     pt = { x: Math.max(grid.xMin, Math.min(grid.xMax, Math.round((sx - PAD) / S + grid.xMin))), y: Math.max(grid.yMin, Math.min(grid.yMax, Math.round(grid.yMax - (sy - PAD) / S))) };
@@ -28,13 +32,13 @@
 <svelte:window onkeydown={key} />
 
 <div class="gi" class:compact>
-  <svg bind:this={svg} viewBox="0 0 {W} {H}" class="grid" onpointerdown={tap} role="img" aria-label="Coordinate grid">
+  <svg bind:this={svg} viewBox="0 0 {W} {H}" class="grid" onpointerdown={tap} onpointermove={(e) => { if (dragging) tap(e); }} onpointerup={() => (dragging = false)} onpointercancel={() => (dragging = false)} role="img" aria-label="Coordinate grid">
     <rect x="0" y="0" width={W} height={H} rx="18" fill="#fffaf0" />
     {#each Array(nx + 1) as _, i}<line x1={X(grid.xMin + i)} y1={PAD} x2={X(grid.xMin + i)} y2={H - PAD} stroke={grid.xMin + i === 0 ? '#5b3416' : '#e6d9c2'} stroke-width={grid.xMin + i === 0 ? 3 : 1.5} />{/each}
     {#each Array(ny + 1) as _, j}<line x1={PAD} y1={Y(grid.yMin + j)} x2={W - PAD} y2={Y(grid.yMin + j)} stroke={grid.yMin + j === 0 ? '#5b3416' : '#e6d9c2'} stroke-width={grid.yMin + j === 0 ? 3 : 1.5} />{/each}
-    {#each Array(nx + 1) as _, i}<text x={X(grid.xMin + i)} y={H - 10} text-anchor="middle" class="lab">{grid.xMin + i}</text>{/each}
-    {#each Array(ny + 1) as _, j}<text x="14" y={Y(grid.yMin + j) + 6} text-anchor="middle" class="lab">{grid.yMin + j}</text>{/each}
-    {#if pt}<circle cx={X(pt.x)} cy={Y(pt.y)} r="11" fill="#f2a63a" stroke="#fff" stroke-width="4" /><text x={X(pt.x)} y={Y(pt.y) - 18} text-anchor="middle" class="pl">({pt.x}, {pt.y})</text>{/if}
+    {#each Array(nx + 1) as _, i}<text x={X(grid.xMin + i)} y={H - 10} text-anchor="middle" class="lab">{txt(grid.xMin + i)}</text>{/each}
+    {#each Array(ny + 1) as _, j}<text x="14" y={Y(grid.yMin + j) + 6} text-anchor="middle" class="lab">{txt(grid.yMin + j)}</text>{/each}
+    {#if pt}<circle cx={X(pt.x)} cy={Y(pt.y)} r="11" fill="#f2a63a" stroke="#fff" stroke-width="4" /><text x={X(pt.x)} y={Y(pt.y) - 18} text-anchor="middle" class="pl">({txt(pt.x)}, {txt(pt.y)})</text>{/if}
   </svg>
   <button class="ok" disabled={!pt || disabled} onpointerdown={(e) => { e.preventDefault(); if (pt && !disabled) onanswer(pt.x, pt.y); }} tabindex="-1"><Icon name="check" size={28} /><span>Check</span></button>
 </div>
