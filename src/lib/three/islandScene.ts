@@ -38,9 +38,8 @@ import { ITEM, HABITAT_OF } from '../island/catalog';
 import { centerOf, footprint, type IslandSave, type Placed, type Rot } from '../island/save';
 import { PropKit, type Tick } from '../island/props3d';
 import { gridTex, stones } from '../island/paint';
+import { drawThumbs } from './islandThumbs';
 
-/** the catalogue's pictures, drawn once a session */
-const THUMBS = new Map<string, string>();
 /** how tall a Glimmer stands on the island */
 const GLIM_H = 0.8;
 /** one square of the grid, in metres */
@@ -1250,39 +1249,7 @@ export class IslandScene implements Controller {
   // ---------- pictures for the catalogue ----------
   /** Draw things one by one, lit like the island on clear ground, for the catalogue's cards (kept for the
    *  session). `onOne` gets each picture as it's ready. */
-  async thumbs(ids: string[], onOne: (id: string, url: string) => void, size = 168) {
-    const r = stage.renderer; if (!r) return;
-    const scene = new THREE.Scene();
-    scene.add(new THREE.HemisphereLight(0xfff4e6, 0x9ab06a, 1.6));
-    const d = new THREE.DirectionalLight(0xffe8cc, 2.6); d.position.set(-3, 5, 4); scene.add(d);
-    const cam = new THREE.PerspectiveCamera(26, 1, 0.05, 200);
-    const rt = new THREE.WebGLRenderTarget(size, size, { samples: 4 }); rt.texture.colorSpace = THREE.SRGBColorSpace;
-    const buf = new Uint8Array(size * size * 4), cv = document.createElement('canvas'); cv.width = cv.height = size;
-    const g = cv.getContext('2d')!, clear = r.getClearColor(new THREE.Color()), alpha = r.getClearAlpha();
-    try {
-      for (const id of ids) {
-        const had = THUMBS.get(id);
-        if (had) { onOne(id, had); continue; }
-        const bp = id.startsWith('block:') ? id.split(':') : null;
-        const o = bp ? this.blk.sample(bp[1] as ShapeId, Number(bp[2] ?? 14)) : this.kit.make(id); if (!o) continue;
-        scene.add(o); o.updateMatrixWorld(true);
-        const box = new THREE.Box3(); o.traverse(m => { if ((m as THREE.Mesh).isMesh) box.expandByObject(m); });
-        const sph = box.getBoundingSphere(new THREE.Sphere());
-        const dir = new THREE.Vector3(0.45, 0.5, 1).normalize();
-        cam.position.copy(sph.center).addScaledVector(dir, (sph.radius / Math.sin(THREE.MathUtils.degToRad(cam.fov / 2))) * 0.94); cam.lookAt(sph.center);
-        r.setRenderTarget(rt); r.setClearColor(0x000000, 0); r.clear(); r.render(scene, cam);
-        r.readRenderTargetPixels(rt, 0, 0, size, size, buf);
-        r.setRenderTarget(null);
-        const img = g.createImageData(size, size);
-        for (let y = 0; y < size; y++) img.data.set(buf.subarray((size - 1 - y) * size * 4, (size - y) * size * 4), y * size * 4);
-        g.clearRect(0, 0, size, size); g.putImageData(img, 0, 0);
-        const url = cv.toDataURL('image/webp', 0.9);
-        THUMBS.set(id, url); onOne(id, url);
-        scene.remove(o);
-        await new Promise(res => setTimeout(res, 0));
-      }
-    } finally { r.setRenderTarget(null); r.setClearColor(clear, alpha); rt.dispose(); }
-  }
+  async thumbs(ids: string[], onOne: (id: string, url: string) => void, size = 168) { await drawThumbs(this.kit, this.blk, ids, onOne, size); }
 
   // ---------- the camera ----------
   /** Back to the view of the whole island. */

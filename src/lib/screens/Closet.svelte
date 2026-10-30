@@ -2,7 +2,8 @@
   // Four of My stuff's pages, each showing only its own thing (`mode`), on the same turntable buddy:
   // - Keypals: every buddy in a gallery (the only page with them all), friendship, and who plays.
   // - Wardrobe: what you have, on the buddy playing now (its chip, and a Change buddy button to Keypals).
-  // - Shop: everything there is, to try on and buy, and the eggs and treats.
+  // - Shop: its Wear section (screens/Shop.svelte has the three): everything there is to wear, to try on and
+  //   buy. Things you have say so: Wear it, or Move and size it (that's the Wardrobe's job: it opens there).
   // - Dances: the dances for the buddy playing now (the same chip and Change buddy).
   // Below is how the old two sides worked; the pages are those sides, one at a time:
   // - My things: what you have. Put it on, take it off, move it ("Move it" nudges it into place on this
@@ -10,9 +11,9 @@
   //   buddy keeps its own look. Dances unlock as each buddy's own friendship grows.
   // - Shop: everything there is, with how to get it. Tap a thing to try it on (nothing changes until you
   //   buy it or wear it); what you buy is yours for every buddy. Eggs and treats for Adventure are here too.
-  // Anything you own and have on can be moved from either side; a thing you're only trying on can't (buy
-  // it first). Buddies not on the team yet show in shadowy grey with what brings them in. Tapping a thing
-  // on the buddy itself picks it up to move, too.
+  // Moving and sizing is the Wardrobe's (one place for it): the Shop's "Move and size it" opens the Wardrobe
+  // with Move it on that thing. Buddies not on the team yet show in shadowy grey with what brings them in.
+  // In the Wardrobe, tapping a thing on the buddy itself picks it up to move, too.
   import { onDestroy, onMount, tick } from 'svelte';
   import { Raycaster, Vector2 } from 'three';
   import { game } from '../state/game.svelte';
@@ -22,9 +23,10 @@
   import { levelFromXp } from '../engine/stickers';
   import { joinProgress, onTeam, UNLOCKS } from '../engine/team';
   import { BUDDY_ROLE, GLIMMER, RARITY, ROLE } from '../adventure/glimmers';
-  import { advView, buy, EGG_ODDS, ISLAND, markSeen, SHOP, teamOf } from '../adventure/state';
+  import { advView, ISLAND, markSeen } from '../adventure/state';
   import { NO_NUDGE, SETS, SET_IDS, SLOT_NAME, WEAR_SLOTS, setItems, setsOn, lookView, type Nudge, type SetId, type WearSlot } from '../adventure/gear';
-  import { CATALOG, CAT, VIBES, bestFriendship, buyItem, howText, nudgeItem, nudgeOf, ownsItem, wearItem, wornIn, type CatalogItem, type Vibe } from '../adventure/wardrobe';
+  import { CATALOG, CAT, VIBES, bestFriendship, howText, nudgeItem, nudgeOf, ownsItem, wearItem, wornIn, type CatalogItem, type Vibe } from '../adventure/wardrobe';
+  import { buyShop } from '../shop/shop';
   import { highlightWorn, nudgeGear, wornAt } from '../three/gear3d';
   import { colourSoon } from '../adventure/colours';
   import Coach from '../ui/Coach.svelte';
@@ -38,14 +40,13 @@
   import TileArt from '../ui/TileArt.svelte';
   import CloseButton from '../ui/CloseButton.svelte';
   import Turntable from '../ui/Turntable.svelte';
-  import { SNACKS, buySnacks } from '../island/play'; // My Sky Island's treats, sold with the eggs
-  import { islandView } from '../island/save';
 
   type Side = 'mine' | 'shop';
   type Mode = 'keypals' | 'wardrobe' | 'shop' | 'dances';
-  /** a spot on the buddy, or (on one side only) everything, the dances or the eggs */
-  type Cat = WearSlot | 'all' | 'dances' | 'eggs';
-  let { mode = 'wardrobe' }: { mode?: Mode } = $props();
+  /** a spot on the buddy, or (on one side only) everything or the dances */
+  type Cat = WearSlot | 'all' | 'dances';
+  /** `embedded`: inside the Shop's page (it has the bar and the sections) */
+  let { mode = 'wardrobe', embedded = false }: { mode?: Mode; embedded?: boolean } = $props();
   // svelte-ignore state_referenced_locally
   const start: Side = mode === 'shop' ? 'shop' : 'mine';
 
@@ -64,16 +65,15 @@
   const setsWorn = $derived(setsOn(look));
   const joined = $derived(onTeam(p, who));
   const join = $derived(joinProgress(p, who));
-  const team = $derived(teamOf(adv).map(t => t.id));
   const wearTip = $derived(side === 'mine' && joined && isSlot(cat) && !adv.seen.includes('wardrobe1'));
   // a few dances bump into some buddies' heads or hats: those buddies don't get them
   const DANCES = $derived(forBuddy(ALL_DANCES, who));
   const dancesOpen = $derived(DANCES.filter(d => !locked(d)).length);
   const teamCount = $derived(BUDDIES.filter(b => onTeam(p, b.id)).length);
   const onSlot = (sl: WearSlot) => wornIn(p, who, sl);
-  // the row of spots: the Shop starts with everything and ends with the eggs; My things ends with the dances
-  const rail = $derived<Cat[]>(side === 'shop' ? ['all', ...WEAR_SLOTS, 'eggs'] : [...WEAR_SLOTS]);
-  const CAT_NAME: Record<Cat, string> = { ...SLOT_NAME, all: 'All', dances: 'Dances', eggs: 'Eggs' };
+  // the row of spots: the Shop starts with everything
+  const rail = $derived<Cat[]>(side === 'shop' ? ['all', ...WEAR_SLOTS] : [...WEAR_SLOTS]);
+  const CAT_NAME: Record<Cat, string> = { ...SLOT_NAME, all: 'All', dances: 'Dances' };
   /** the picture on a spot's button: what's on it, or (faded) the first thing that goes there */
   const slotPic = (s: WearSlot) => { const id = onSlot(s); return id ? { src: CAT[id]?.icon, on: true } : { src: CATALOG.find(c => c.slot === s)?.icon, on: false }; };
   let burst = $state(0);
@@ -96,6 +96,9 @@
     requestAnimationFrame(onResize); setTimeout(onResize, 400);
     if (old && old !== sc) old.dispose();
     sc.select(id);
+    // opened by the Shop's "Move and size it": Move it on that thing
+    const mv = game.closetMove;
+    if (mv && mode === 'wardrobe') { game.closetMove = null; const c = CAT[mv]; if (c && onSlot(c.slot) === mv) void startMove(c.slot); }
   }
   function viewOf() {
     const r = stageEl?.getBoundingClientRect();
@@ -134,7 +137,6 @@
     if (c === cat) return;
     cat = c;
     game.closetTab = c === 'dances' ? 'dances' : 'outfits';
-    if (c === 'eggs') dropTryOn();
     sfx.pop();
   }
 
@@ -212,11 +214,11 @@
   function dropTryOn() { if (!sel) return; sel = null; return scene?.redress(who); }
   function buyIt(c: CatalogItem) {
     let r: { ok: boolean; why?: string } = { ok: false };
-    game.update(pp => { r = buyItem(pp, who, c.id); });
+    game.update(pp => { r = buyShop(pp, `wear:${c.id}`, { buddy: who }); }, { bought: [`wear:${c.id}`] });
     if (!r.ok) { sfx.nope(); if (r.why) game.say(r.why); return; }
     burst++; sfx.buy();
     void scene?.redress(who);
-    game.say(`The ${c.name} is yours! ${FRIEND[who].name} has it on. Tap Move it to put it just where you want.`, 3600);
+    game.say(`The ${c.name} is yours! ${FRIEND[who].name} has it on.${c.slot === 'colour' ? '' : ' To move it or size it, tap Move and size it.'}`, 3600);
   }
   function wearIt(c: CatalogItem) {
     game.update(pp => { wearItem(pp, who, c.slot, c.id); });
@@ -224,20 +226,13 @@
     saved();
     burst++; sfx.equip();
   }
-  /** treats for the Glimmers on My Sky Island (island/play.ts) */
-  function buyIslandTreats() {
-    let r: { ok: boolean; why?: string } = { ok: false };
-    game.update(pp => { r = buySnacks(pp); });
-    const res = r as { ok: boolean; why?: string };
-    if (res.ok) { sfx.buy(); burst++; game.say(`${SNACKS.n} treats! Give them to your Glimmers on My Sky Island.`); }
-    else { sfx.nope(); game.say(res.why ?? 'Not now.'); }
-  }
-  function buyThing(id: string) {
-    let r: ReturnType<typeof buy> = { ok: false };
-    game.update(pp => { r = buy(pp, id, id === 'treat' ? (team[0] ?? undefined) : undefined); });
-    const res = r as ReturnType<typeof buy>;
-    if (res.ok) { sfx.buy(); burst++; game.say(id === 'treat' ? `${GLIMMER[team[0]].name} grew a level!` : `Your new egg is ${res.where === 'nest' ? 'waiting in the nest' : 'in the incubator: practice to hatch it'}.`); }
-    else { sfx.nope(); game.say(res.why ?? 'Not now.'); }
+  /** The Shop's "Move and size it": it goes on, and the Wardrobe opens with Move it on it (moving and
+   *  sizing are the Wardrobe's job, so each place does one thing). */
+  function moveInWardrobe(c: CatalogItem) {
+    if (onSlot(c.slot) !== c.id) game.update(pp => { wearItem(pp, who, c.slot, c.id); });
+    sel = null; sfx.click();
+    game.closetMove = c.id; game.closetTab = 'outfits';
+    if (game.backTo()?.screen === 'closet') game.back(); else game.visit('closet');
   }
 
   // ---------- Move it: nudge a worn thing into place on this buddy ----------
@@ -285,8 +280,9 @@
       if (!c.acting && ray.intersectObject(c.model, true).length) { c.tickle(); sfx.giggle(); }
       return;
     }
-    // something only tried on in the Shop can't be moved: buy it first (yours but not on: put it on)
-    if (!ownsItem(p, hit.id)) { sfx.nope(); game.say(`Buy the ${CAT[hit.id]?.name ?? 'thing'} to keep it and move it.`); return; }
+    // the Shop: a tap on a thing shows its card (what you can do with it there)
+    if (side === 'shop') { const it = CAT[hit.id]; if (it) { sel = it; sfx.pop(); } return; }
+    if (!ownsItem(p, hit.id)) return;
     if (onSlot(hit.slot) !== hit.id) { const it = CAT[hit.id]; if (it) wearIt(it); }
     if (moving?.slot === hit.slot) return;
     leaveMove(() => void startMove(hit.slot));
@@ -356,8 +352,8 @@
   onDestroy(() => { shortQ?.removeEventListener('change', onShort); disposed = true; clearInterval(holdTimer); removeEventListener('resize', onResize); removeEventListener('pointerup', release); stageEl?.removeEventListener('pointerdown', stageDown); stageEl?.removeEventListener('pointerup', stageUp); if (scene && stage.current() === scene) stage.use(null); });
 </script>
 
-<div class="screen closet" class:shopside={side === 'shop'}>
-  <Header {back} />
+<div class="closet" class:screen={!embedded} class:embedded class:shopside={side === 'shop'}>
+  {#if !embedded}<Header {back} />{/if}
   <div class="body" class:kp={mode === 'keypals'}>
     <div class="left">
       {#if mode !== 'keypals'}
@@ -390,7 +386,7 @@
         <Confetti {burst} count={50} x={50} y={45} />
         <Turntable scene={() => scene} el={stageEl} top />
         {#key savedAt}{#if savedAt}<span class="savedpill" role="status"><Icon name="check" size={16} /> Saved</span>{/if}{/key}
-        {#if side === 'shop' && sel && cat !== 'eggs' && joined && !moving}
+        {#if side === 'shop' && sel && joined && !moving}
           {@const s = sel}
           {@const mine = ownsItem(p, s.id)}
           {@const on = wornIn(p, who, s.slot) === s.id}
@@ -402,14 +398,14 @@
               <span>{s.power ? `In battles: ${s.text}` : s.text}</span>
             </div>
             <div class="act">
-              {#if on}<em class="have"><Icon name="check" size={14} /> {FRIEND[who].name} has it on</em>{#if s.slot !== 'colour'}<button class="btn movebtn" onclick={() => startMove(s.slot)}><Icon name="hand" size={18} /> Move it</button>{/if}<button class="btn" onclick={() => { sel = null; sfx.pop(); }}>Done</button>
-              {:else if mine}<span class="keepline">Only trying it on: not saved yet.</span><button class="btn btn-primary savebtn save" onclick={() => wearIt(s)}><Icon name="check" size={18} /> Save</button>
-              {:else if s.how === 'shop'}<span class="keepline">Buy it to keep it and move it.</span><button class="btn btn-primary buy" disabled={adv.shells < (s.price ?? 0)} onclick={() => buyIt(s)}><img src="{base}game/icon-shell.webp" alt="" />{adv.shells < (s.price ?? 0) ? `${(s.price ?? 0) - adv.shells} more` : `Buy: ${s.price}`}</button>
+              {#if on}<em class="have"><Icon name="check" size={14} /> Yours: {FRIEND[who].name} has it on</em>{#if s.slot !== 'colour'}<button class="btn movebtn" onclick={() => moveInWardrobe(s)}><Icon name="hand" size={18} /> Move and size it</button>{/if}
+              {:else if mine}<em class="have"><Icon name="check" size={14} /> Yours</em><button class="btn btn-primary savebtn save" onclick={() => wearIt(s)}><Icon name="check" size={18} /> Wear it</button>{#if s.slot !== 'colour'}<button class="btn movebtn" onclick={() => moveInWardrobe(s)}><Icon name="hand" size={18} /> Move and size it</button>{/if}
+              {:else if s.how === 'shop'}<span class="keepline">Only trying it on. Buy it to keep it.</span><button class="btn btn-primary buy" disabled={adv.shells < (s.price ?? 0)} onclick={() => buyIt(s)}><img src="{base}game/icon-shell.webp" alt="" />{adv.shells < (s.price ?? 0) ? `${(s.price ?? 0) - adv.shells} more` : `Buy: ${s.price}`}</button>
               {:else if s.how === 'friendship'}<em class="gift"><Icon name="heart" size={14} /> Friendship {s.level} with any buddy (best: {bestFriendship(p)})</em>
               {:else}<em class="champ"><Icon name="trophy" size={14} /> {howText(s, island)}</em>{/if}
             </div>
           </div>
-        {:else if side === 'shop' && joined && cat !== 'eggs' && !moving}
+        {:else if side === 'shop' && joined && !moving}
           <p class="hint">Tap anything to try it on {FRIEND[who].name}.</p>
         {:else if side === 'mine' && joined && wearsAny && !moving && cat !== 'dances'}
           <p class="hint taphint"><Icon name="hand" size={18} /> Tap something {FRIEND[who].name} has on to move it</p>
@@ -472,7 +468,7 @@
             <p class="muted gfoot">What they wear is in the Wardrobe; their dances are in Dances.</p>
           </div>
         {:else}
-        <p class="sidehead">{side === 'shop' ? 'Try on anything. Buy it to keep it and move it.' : cat === 'dances' ? `Pick the dance ${FRIEND[who].name} does at the finish line.` : 'Put your things on, take them off, and move them.'}</p>
+        <p class="sidehead">{side === 'shop' ? 'Try on anything, then buy it. Move and size your things in the Wardrobe.' : cat === 'dances' ? `Pick the dance ${FRIEND[who].name} does at the finish line.` : 'Wear your things, take them off, move and size them. New things are in the Shop.'}</p>
         {/if}
         {#if mode !== 'keypals' && mode !== 'dances' && (joined || side === 'shop')}
           <div class="rail" class:wide={rail.length > 9}>
@@ -482,7 +478,6 @@
                 <button class="rb" class:on={cat === r} class:soon onclick={() => (soon && side === 'mine' ? soonNote() : setCat(r))}>
                   {#if r === 'all'}<span class="rpic"><img src="{base}outfits/party_hat.webp" alt="" /></span>
                   {:else if r === 'dances'}<span class="rpic"><TileArt kind="dances" size={40} /></span>
-                  {:else if r === 'eggs'}<span class="rpic"><img src="{base}game/egg-rare.webp" alt="" /></span>
                   {:else}
                     {@const sp = slotPic(r)}
                     <span class="rpic" class:empty={!sp.on} style:--rc={sp.on && onSlot(r) ? RARITY[CAT[onSlot(r)!]?.rarity ?? 'common'].color : null}>{#if soon}<img src="{base}colours/colour_rainbow.webp" alt="" />{:else if sp.src}<img src="{base}{sp.src}" alt="" />{/if}</span>
@@ -490,7 +485,7 @@
                   <small>{CAT_NAME[r]}</small>
                 </button>
                 {#if soon && side === 'mine'}<em class="soonpill">soon</em>{/if}
-                {#if joined && isSlot(r) && movable(r)}<button class="gmv" onclick={() => startMove(r)} title="Move the {CAT[onSlot(r)!]?.name}" aria-label="Move the {CAT[onSlot(r)!]?.name}"><Icon name="hand" size={15} /></button>{/if}
+                {#if side === 'mine' && joined && isSlot(r) && movable(r)}<button class="gmv" onclick={() => startMove(r)} title="Move the {CAT[onSlot(r)!]?.name}" aria-label="Move the {CAT[onSlot(r)!]?.name}"><Icon name="hand" size={15} /></button>{/if}
               </div>
             {/each}
           </div>
@@ -499,7 +494,7 @@
           <!-- (Keypals shows the buddies and who plays: what they wear and dance is on their own pages) -->
         {:else if !joined && side === 'mine'}
           <div class="card soon"><p>When {FRIEND[who].name} joins your team, they start their own friendship and dances, and they can wear everything you have.</p></div>
-        {:else if !joined && cat !== 'eggs'}
+        {:else if !joined}
           <div class="card soon"><p>{FRIEND[who].name} isn't on your team yet. Pick a buddy on your team to try things on.</p></div>
         {:else if side === 'mine' && cat === 'dances'}
           <div class="grid scroll">
@@ -553,23 +548,6 @@
               {/each}
             </div>
             {/if}
-          </div>
-        {:else if cat === 'eggs'}
-          <div class="eggs scroll">
-            {#each SHOP as it (it.id)}
-              <div class="egg card">
-                <img src="{base}game/{it.egg ? `egg-${it.egg}` : 'icon-star'}.webp" alt="" />
-                <div><b>{it.name}</b><span>{it.text}{it.id === 'treat' && team[0] ? ` (for ${GLIMMER[team[0]].name})` : ''}</span></div>
-                <button class="btn btn-primary" disabled={adv.shells < it.price || (it.id === 'treat' && !team[0])} onclick={() => buyThing(it.id)}><img src="{base}game/icon-shell.webp" alt="" />{it.price}</button>
-              </div>
-            {/each}
-            <!-- My Sky Island's treats -->
-            <div class="egg card">
-              <img src="{base}island/treat.webp" alt="" />
-              <div><b>Island treats</b><span>{SNACKS.n} treats to give your Glimmers on My Sky Island (you have {islandView(p).treats}).</span></div>
-              <button class="btn btn-primary" disabled={adv.shells < SNACKS.price} onclick={buyIslandTreats}><img src="{base}game/icon-shell.webp" alt="" />{SNACKS.price}</button>
-            </div>
-            <p class="muted small">An egg hatches into a new Glimmer as you practice. Eggs from battles: {EGG_ODDS}</p>
           </div>
         {:else}
           {#if short}
@@ -661,6 +639,7 @@
 
 <style>
   .closet { display: flex; flex-direction: column; background: transparent; }
+  .closet.embedded { flex: 1; min-height: 0; }
   /* the buddy a page is for, and the small "Change buddy" (Keypals has the row of buddies) */
   .wholine { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; flex: none; }
   .whochip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 16px 4px 4px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 2px #e6def5, 0 6px 16px -8px rgba(40, 20, 80, .45); }
@@ -747,7 +726,7 @@
   .keepline { font: 700 13px var(--font-body); color: var(--ink2); }
   .tryon em { font: 800 12px var(--font-body); font-style: normal; padding: 3px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
   .buy { display: inline-flex; align-items: center; gap: 6px; }
-  .buy img, .egg .btn img { width: 20px; height: 20px; object-fit: contain; }
+  .buy img { width: 20px; height: 20px; object-fit: contain; }
   .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; align-content: start; padding: 4px; overflow: auto; }
   .countline { margin: 0; align-self: center; flex: none; font: 700 14px var(--font-body); color: var(--ink2); text-align: center; background: rgba(255, 255, 255, .92); padding: 3px 14px; border-radius: 999px; box-shadow: var(--shadow-sm); }
   .of { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px; border-radius: 18px; border: 3px solid transparent; background: #fff; cursor: pointer; box-shadow: var(--shadow-sm); font: 600 14px var(--font-ui); color: var(--ink); }
@@ -842,12 +821,6 @@
   .gift { background: #ffe4f0; color: #b02a6a; }
   .champ { background: #fff1c2; color: #8a6400; }
   .none { grid-column: 1 / -1; text-align: center; font: 600 16px var(--font-body); color: var(--muted); }
-  .eggs { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
-  .egg { display: grid; grid-template-columns: 60px 1fr auto; gap: 12px; align-items: center; padding: 8px 14px; }
-  .egg > img { width: 60px; height: 60px; object-fit: contain; }
-  .egg b { display: block; font: 600 18px var(--font-ui); }
-  .egg span { font: 600 14px/1.35 var(--font-body); color: var(--ink2); }
-  .egg .btn { display: inline-flex; align-items: center; gap: 6px; }
   .small { font-size: 12px; }
   .foot { margin: 0; font: 600 13px var(--font-body); color: var(--muted); text-align: center; flex: none; }
   .gbg { position: fixed; inset: 0; z-index: 30; background: rgba(40, 28, 70, .4); display: grid; place-items: center; padding: 16px; }
@@ -903,13 +876,14 @@
     .stagebox { flex: none; height: 36vh; }
     /* phones: the whole panel under the buddy scrolls, so the pieces never squash to nothing */
     .side { overflow-y: auto; padding-bottom: 16px; }
-    .gearpane, .grid, .sgrid, .eggs { flex: none; overflow: visible; }
+    .gearpane, .grid, .sgrid { flex: none; overflow: visible; }
     .sides button { font-size: 17px; gap: 6px; padding: 4px 6px; } .sides button img, .sides button :global(img.art) { width: 30px; height: 30px; } .sides button em { display: none; }
     .sidehead { font-size: 13px; }
     .rail { grid-auto-columns: 62px; overflow-x: auto; padding: 6px 4px 2px; margin: -6px -4px 0; scrollbar-width: none; }
     .rail::-webkit-scrollbar { display: none; }
-    /* the Wardrobe's spots wrap onto a second row instead of scrolling sideways (the Shop keeps its row for now) */
-    .closet:not(.shopside) .rail { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-columns: auto; overflow: visible; margin: 0; padding: 2px 0 0; }
+    /* the spots wrap onto a second row instead of scrolling sideways (the Wardrobe's 8 in fours, the Shop's 9 in fives) */
+    .closet .rail { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-columns: auto; overflow: visible; margin: 0; padding: 2px 0 0; }
+    .closet.shopside .rail { grid-template-columns: repeat(5, minmax(0, 1fr)); }
     .rpic { width: 40px; height: 40px; } .rpic img, .rpic :global(img.art) { width: 34px; height: 34px; }
     .mover { padding: 8px; gap: 6px; }
     .mv { min-height: 50px; font-size: 18px; } .mv :global(img) { width: 30px; height: 30px; }

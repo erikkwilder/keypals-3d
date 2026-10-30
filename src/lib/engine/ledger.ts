@@ -21,6 +21,8 @@ export type LedgerEntry = {
   medals?: string[];
   stickers?: string[];
   glimmers?: string[];
+  /** what shells bought (the Shop's keys, shop/shop.ts: 'island:cottage', 'wear:party_hat'), with its spending */
+  bought?: string[];
 };
 export const LEDGER_CAP = 200;
 /** one game's results come in a few steps (the run, then a reward tapped open): they make one line */
@@ -54,7 +56,7 @@ export function ledgerSnap(p: Profile): LedgerSnap {
 
 /** Write down what came in since `before` (nothing if nothing did). A lesson or trip names itself; anything
  *  else is named by `where` (the screen it happened on). Returns the line written (or added to). */
-export function ledgerNote(p: Profile, before: LedgerSnap, where: { from: string; ref?: string }, at = Date.now()): LedgerEntry | null {
+export function ledgerNote(p: Profile, before: LedgerSnap, where: { from: string; ref?: string; bought?: string[] }, at = Date.now()): LedgerEntry | null {
   const now = ledgerSnap(p);
   const e: LedgerEntry = { at, from: where.from, ...(where.ref ? { ref: where.ref } : {}) };
   // a lesson or a trip just played: its stars, and its name
@@ -83,6 +85,8 @@ export function ledgerNote(p: Profile, before: LedgerSnap, where: { from: string
     const got = [...now.stickers].filter(id => !before.stickers!.has(id));
     if (got.length) e.stickers = got;
   }
+  // what was bought (only when shells went out for it)
+  if (where.bought?.length && shells < 0) e.bought = [...where.bought];
   if (!e.stars && !e.shells && !e.eggs && !e.glimmers && !e.medals && !e.stickers) return null;
   const list = (p.ledger ??= []);
   // the same game's next step (its reward opened on the results card): onto its line
@@ -91,7 +95,7 @@ export function ledgerNote(p: Profile, before: LedgerSnap, where: { from: string
     if (e.stars) prev.stars = (prev.stars ?? 0) + e.stars;
     if (e.shells) prev.shells = (prev.shells ?? 0) + e.shells;
     if (e.eggs) prev.eggs = (prev.eggs ?? 0) + e.eggs;
-    for (const k of ['glimmers', 'medals', 'stickers'] as const) if (e[k]) prev[k] = [...(prev[k] ?? []), ...e[k]!];
+    for (const k of ['glimmers', 'medals', 'stickers', 'bought'] as const) if (e[k]) prev[k] = [...(prev[k] ?? []), ...e[k]!];
     return prev;
   }
   list.push(e);

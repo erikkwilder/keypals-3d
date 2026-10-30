@@ -422,7 +422,7 @@ export function menuMore(): MenuItem[] {
 export const STUFF_GO: Record<string, () => void> = {
   keypals: () => game.go('keypals'),
   closet: () => { game.closetTab = 'outfits'; game.go('closet'); },
-  shop: () => { game.shopSlot = null; game.go('shop'); },
+  shop: () => { game.shopSlot = null; game.shopSection = null; game.go('shop'); },
   dances: () => { game.closetTab = 'dances'; game.go('dances'); },
   stickers: () => { game.stickerTab = 'stickers'; game.go('stickers'); },
   glimmers: () => { game.glimmerTab = 'team'; game.go('glimmers'); },

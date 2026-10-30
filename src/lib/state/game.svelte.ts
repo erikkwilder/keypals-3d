@@ -237,11 +237,19 @@ class Game {
     this.closetTab = tab;
     this.visit(tab === 'dances' ? 'dances' : 'closet');
   }
-  /** The Shop (one for the whole game: My stuff, the shells card and the Wardrobe open it). */
-  openShop(slot: string | null = null) {
+  /** The Shop (one for the whole game: My stuff, the shells card, the Wardrobe and My Sky Island open it),
+   *  on the section you came from: Wear (a spot on the buddy: `slot`), Island or Care. */
+  openShop(slot: string | null = null, section: 'wear' | 'island' | 'care' | null = null) {
     this.shopSlot = slot;
+    this.shopSection = section ?? (slot ? 'wear' : null);
     this.visit('shop');
   }
+  /** The Shop's section to open on (null: the one last open, Wear the first time) */
+  shopSection = $state<'wear' | 'island' | 'care' | null>(null);
+  /** the Wardrobe opens with Move it on this thing (the Shop's "Move and size it") */
+  closetMove = $state<string | null>(null);
+  /** My Sky Island opens ready to put this thing out (the Shop's "Put it on my island") */
+  islandPlace = $state<string | null>(null);
 
   say(msg: string, ms = 2600) {
     this.toast = msg;
@@ -270,14 +278,16 @@ class Game {
     this.persist();
   }
 
-  update(fn: (p: Profile) => void) {
+  /** Change the player (and save). `also.bought`: what shells were spent on (the Shop's keys), for the
+   *  "What I earned" list. */
+  update(fn: (p: Profile) => void, also?: { bought?: string[] }) {
     const p = this.profile;
     if (!p) return;
     const played = this.watchActivity?.(p); // class work counts battles and Learn too (teach/student.svelte.ts)
     const was = ledgerSnap(p); // what came in goes in the player's ledger (engine/ledger.ts)
     fn(p);
     played?.();
-    ledgerNote(p, was, this.where());
+    ledgerNote(p, was, { ...this.where(), ...(also?.bought ? { bought: also.bought } : {}) });
     p.updatedAt = Date.now();
     this.persist();
     this.onProfileChange?.();

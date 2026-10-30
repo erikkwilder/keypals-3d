@@ -27,6 +27,7 @@
   import { glimmerName, type GlimmerId } from '../adventure/glimmers';
   import { ARCADE_GAMES } from '../arcade/arcade';
   import { isTopic, openSubjectPage } from '../nav';
+  import { SHOP_ENTRY } from '../shop/shop';
   import Header from '../ui/Header.svelte';
   import Ring from '../ui/Ring.svelte';
 
@@ -241,6 +242,7 @@
                     <div class="got">
                       {#if e.stars}<span class="g"><img src="{base}game/icon-star.webp" alt="" />{e.stars} {e.stars === 1 ? 'star' : 'stars'}</span>{/if}
                       {#if e.shells && e.shells > 0}<span class="g"><img src="{base}game/icon-shell.webp" alt="" />+{fmt(e.shells)} shells</span>{/if}
+                      {#each counted(e.bought ?? []) as bt (bt.id)}{@const it = SHOP_ENTRY[bt.id]}<span class="g spent bought">{#if it?.pic}<img src="{base}{it.pic}" alt="" />{/if}Bought: {it?.name ?? 'something'}{bt.n > 1 ? ` ×${bt.n}` : ''}</span>{/each}
                       {#if e.shells && e.shells < 0}<span class="g spent"><img src="{base}game/icon-shell.webp" alt="" />{fmt(-e.shells)} shells spent</span>{/if}
                       {#if e.eggs}<span class="g"><img src="{base}game/egg-common.webp" alt="" />{e.eggs === 1 ? 'An egg' : `${e.eggs} eggs`}</span>{/if}
                       {#each counted(e.medals ?? []) as md (md.id)}<span class="g"><img src={medalPic(md.id)} alt="" />{AWARD[md.id]?.name ?? 'A medal'}{md.n > 1 ? ` ×${md.n}` : ''}</span>{/each}
@@ -331,6 +333,7 @@
   .g img { width: 22px; height: 22px; object-fit: contain; }
   .g img.face { border-radius: 50%; object-fit: cover; }
   .g.spent { color: var(--ink2); background: #f6f4f9; }
+  .g.bought { padding-left: 10px; } .g.bought img { margin-left: -6px; }
   .more { align-self: center; margin-top: 4px; }
   @media (max-width: 900px) {
     .body { padding: 10px 10px 28px; }

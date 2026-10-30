@@ -36,7 +36,8 @@
   import SecretsSheet from '../island/SecretsSheet.svelte';
   import { FIRST_PAINT, MAX_BLOCKS, PAINTS, SHAPE, blockCount, blockList, canPlace, ctxOf, paintBlock, placeBlock, removeBlock, turnBlock, undoOp, type BuildResult, type Op, type ShapeId } from '../island/blocks';
   import { BOTTLE_NOTE, NOTE_WORDS, SECRET, SECRETS, bottlePond, busyCells, darkness, foundCount, foundOf, findSecret, keepOutOf, noteFrom, openedToday, rainToday, sparkleSpot, type SecretId } from '../island/secrets';
-  import { SNACKS, WANTS, buySnacks, canWish, dig, feed, fetched, grantWish, heartsOf, newWish, pet, wishAtWell, wishWords, type Wish, type WellGift } from '../island/play';
+  import { WANTS, canWish, dig, feed, fetched, grantWish, heartsOf, newWish, pet, wishAtWell, wishWords, type Wish, type WellGift } from '../island/play';
+  import { buyShop, islandEntry, islandShelf, paintEntry } from '../shop/shop';
   import { islandDev } from '../island/dev';
   import { mulberry32 } from '../engine/rng';
   import { dayKey } from '../engine/profile';
@@ -112,6 +113,9 @@
         if (news) { hearts = news; setTimeout(() => sc.hearts(), 900); }
         lookForVisitor(true);
         setupSecrets(sc);
+        // from the Shop's "Put it on my island": ready to put it out
+        const want = game.islandPlace;
+        if (want) { game.islandPlace = null; later(() => { if (storedOf(islandView(me), want) > 0) { mode = 'things'; kind = 'storage'; pickItem(want); } }, 400); }
       } else say(`${o.name}'s island. Have a look round, and leave a heart!`, 5000);
       void sc.thumbs([...ITEMS.map(i => i.id), ...PAINTS.filter(x => x.kind !== 'plain').map(x => `block:cube:${x.id}`), ...SHAPES_IDS.map(id => `block:${id}:${paint}`)], (id, url) => { thumbs[id] = url; });
     } catch (e) { console.error(e); }
@@ -195,16 +199,19 @@
   let placing = $state<{ item: string; x: number; z: number; rot: Rot; uid: string | null } | null>(null);
   let selected = $state<string | null>(null);
   const stored = $derived(storage(isl));
-  const shown = $derived(kind === 'storage' ? stored.map(s => s.item) : ITEMS.filter(i => i.kind === kind && !i.gift));
+  // the tray is a window onto the Shop's Island section: the same things at the same prices (shop/shop.ts)
+  const shown = $derived(kind === 'storage' ? stored.map(s => s.item) : islandShelf(kind).map(e => ITEM[e.id]));
+  /** a thing's price: the Shop's */
+  const priceOf = (id: string) => islandEntry(id)?.price ?? ITEM[id].price;
   const ghostOk = $derived(placing ? fits(isl, grow.r, ITEM[placing.item], placing.x, placing.z, placing.rot, placing.uid ?? undefined) : false);
-  const placingCost = $derived(placing && !placing.uid && storedOf(isl, placing.item) < 1 ? ITEM[placing.item].price : 0);
+  const placingCost = $derived(placing && !placing.uid && storedOf(isl, placing.item) < 1 ? priceOf(placing.item) : 0);
   function ghost() { if (scene && placing) scene.setGhost({ item: placing.item, x: placing.x, z: placing.z, rot: placing.rot, ok: ghostOk, hide: placing.uid }); }
   $effect(() => { void ghostOk; ghost(); });
   function pickItem(id: string) {
     if (visiting) return;
     const it = ITEM[id];
     const have = storedOf(isl, id) > 0;
-    if (!have && shells < it.price) { sfx.nope(); say(`You need ${fmt(it.price - shells)} more shells for the ${it.name}. Practice and battles earn shells!`); return; }
+    if (!have && shells < priceOf(id)) { sfx.nope(); say(`You need ${fmt(priceOf(id) - shells)} more shells for the ${it.name}. Practice and battles earn shells!`); return; }
     const spot = freeSpot(isl, grow.r, it, 0, { x: 0.5, z: 1.5 });
     if (!spot) { sfx.nope(); say('No room left! Your island grows when you meet more Glimmers.'); return; }
     sfx.click();
@@ -233,7 +240,9 @@
     if (!pl) return;
     let r = { ok: false, why: '' } as Result;
     const hadInvites = Object.values(invitesOf(isl)).some(n => n > 0);
-    game.update(pp => { r = pl.uid ? move(pp, pl.uid, pl.x, pl.z, pl.rot) : buyAndPlace(pp, pl.item, pl.x, pl.z, pl.rot); });
+    // (buying here is the Shop's buying: it goes in "What I earned" with what it bought)
+    const buying = !pl.uid && placingCost > 0;
+    game.update(pp => { r = pl.uid ? move(pp, pl.uid, pl.x, pl.z, pl.rot) : buyAndPlace(pp, pl.item, pl.x, pl.z, pl.rot); }, buying ? { bought: [islandEntry(pl.item).key] } : undefined);
     if (!r.ok) { sfx.nope(); say(r.why); return; }
     placing = null;
     scene?.setGhost(null); scene?.setBuilding(false);
@@ -327,8 +336,11 @@
   function unlockPaint() {
     const pd = lockedPaint === null ? null : PAINTS[lockedPaint];
     if (!pd?.special) return;
-    if (shells < pd.special.price) { sfx.nope(); say(`You need ${pd.special.price - shells} more shells.`); return; }
-    game.update(pp => { const s = islandOf(pp); advOf(pp).shells -= pd.special!.price; s.mats = [...new Set([...s.mats, pd.id])]; });
+    const e = paintEntry(pd.id);
+    let r: ReturnType<typeof buyShop> = { ok: false };
+    game.update(pp => { r = buyShop(pp, e.key); }, { bought: [e.key] });
+    const res = r as ReturnType<typeof buyShop>;
+    if (!res.ok) { sfx.nope(); say(res.why ?? 'Not now.'); return; }
     sfx.buy(); lockedPaint = null; setPaint(pd.id);
     say(`${pd.name} blocks are yours! Build with them as much as you like.`);
   }
@@ -419,12 +431,10 @@
     say(`Yum! ${GLIMMER[g.id].name} loves treats.`, 2400);
     if (res.note) setTimeout(() => noteNow(g.id), 2200);
   }
-  function getTreats() {
-    keepCard();
-    let r: ReturnType<typeof buySnacks> = { ok: false };
-    game.update(pp => { r = buySnacks(pp); });
-    if ((r as ReturnType<typeof buySnacks>).ok) { sfx.buy(); say(`${SNACKS.n} treats for your Glimmers!`, 2400); } else { sfx.nope(); say((r as ReturnType<typeof buySnacks>).why ?? 'Not now.'); }
-  }
+  /** No treats: they're in the Shop's Care section (one place sells each thing; Back comes back here) */
+  function getTreats() { sfx.click(); game.openShop(null, 'care'); }
+  /** the whole Island section in the Shop (Back comes back here) */
+  function toShop() { sfx.click(); if (placing) cancelPlace(); game.openShop(null, 'island'); }
   function playBall() {
     const g = gcard; if (!g) return;
     if (scene?.throwBall(g.id)) { gcard = null; say(`Fetch, ${GLIMMER[g.id].name}!`, 2000); } else sfx.nope();
@@ -723,7 +733,7 @@
       {#if w}<p class="wl">Wishes for {WANTS[w.want].words}!</p>{/if}
       <div class="row">
         {#if isl.treats > 0}<button class="act" onclick={giveTreat}><img src="{base}island/treat.webp" alt="" />Treat<em>{isl.treats}</em></button>
-        {:else}<button class="act buyt" onclick={getTreats}><img src="{base}island/treat.webp" alt="" />{SNACKS.n} treats<span><img src="{base}game/icon-shell.webp" alt="" />{SNACKS.price}</span></button>{/if}
+        {:else}<button class="act buyt" onclick={getTreats}><img src="{base}island/treat.webp" alt="" />Treats<span>in the Shop</span></button>{/if}
         <button class="act" onclick={playBall}><img src="{base}island/ball.webp" alt="" />Ball</button>
       </div>
     </div>
@@ -790,6 +800,7 @@
                 <button class:on={mode === 'things'} onclick={() => { mode = 'things'; sfx.click(); }}><img src="{base}island/tile.webp" alt="" />Things</button>
                 <button class:on={mode === 'blocks'} onclick={() => { mode = 'blocks'; sfx.click(); hinted = true; }}><img src="{base}icons/blocks.webp" alt="" />Blocks</button>
               </span>
+              <button class="toshop" onclick={toShop} title="Everything for the island, in the Shop"><img src="{base}game/icon-shell.webp" alt="" />Shop</button>
               {#if mode === 'things'}
                 {#each KINDS as k (k.id)}<button role="tab" aria-selected={kind === k.id} class:on={kind === k.id} onclick={() => { kind = k.id; sfx.click(); }}>{k.name}</button>{/each}
                 <button role="tab" aria-selected={kind === 'storage'} class:on={kind === 'storage'} onclick={() => { kind = 'storage'; sfx.click(); }}>Storage{#if stored.length}<em>{stored.reduce((t, s) => t + s.n, 0)}</em>{/if}</button>
@@ -805,12 +816,12 @@
             <div class="cards">
               {#each shown as it (it.id)}
                 {@const have = storedOf(isl, it.id)}
-                {@const short = !have && shells < it.price}
+                {@const short = !have && shells < priceOf(it.id)}
                 <button class="item" class:short class:dream={it.dream} onclick={() => pickItem(it.id)} title={it.blurb}>
                   <span class="pic">{#if thumbs[it.id]}<img src={thumbs[it.id]} alt="" />{:else}<i class="wait"></i>{/if}</span>
                   <span class="nm">{it.name}</span>
                   {#if have}<span class="price have">{have} in storage</span>
-                  {:else}<span class="price"><img src="{base}game/icon-shell.webp" alt="" />{fmt(it.price)}</span>{/if}
+                  {:else}<span class="price"><img src="{base}game/icon-shell.webp" alt="" />{fmt(priceOf(it.id))}</span>{/if}
                   {#if it.habitat}<span class="hab" title="A Glimmer home"><img src="{base}game/icon-{it.habitat}.webp" alt="" /></span>{/if}
                 </button>
               {:else}
@@ -1004,6 +1015,9 @@
   .tabs button.on { background: #fff1cc; color: #7a4a00; box-shadow: inset 0 0 0 2px #ffd36b; }
   .tabs em { font: 800 11px var(--font-body); font-style: normal; color: #fff; background: var(--primary); border-radius: 999px; padding: 1px 6px; }
   .tabs .tclose { margin-left: auto; background: #f2eef8; padding: 4px; }
+  /* the whole Island section in the Shop, one tap away */
+  .tabs .toshop { background: #eafaf1; color: #1f7a4a; box-shadow: inset 0 0 0 2px #9fe3bd; margin-right: 4px; }
+  .tabs .toshop img { width: 20px; height: 20px; object-fit: contain; }
   .cards { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 4px; scroll-snap-type: x proximity; }
   .item { position: relative; flex: none; width: 128px; display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: #fff; border-radius: 20px; padding: 6px 6px 8px; cursor: pointer; box-shadow: inset 0 0 0 2px #efe7da, 0 4px 10px -6px rgba(80, 50, 30, .35); scroll-snap-align: start; transition: transform .15s; }
   .item:hover { transform: translateY(-3px); box-shadow: inset 0 0 0 2px #ffd36b, 0 8px 16px -8px rgba(80, 50, 30, .45); }
