@@ -37,36 +37,33 @@ function comfortable(p: Profile, skills: string[], at = MON) {
 }
 
 describe('the units', () => {
-  it('every subject has a path; math has a unit for every region of every area, in grade order', () => {
+  it('every subject has a path; math is the curriculum: grades, then units in order (curriculum.test.ts walks it all)', () => {
     expect(PATH_SUBJECTS().map(s => s.id).sort()).toEqual(['math', 'typing']);
     const math = pathOf('math');
-    const regions = [...MATH_REGIONS.map(r => r.id), ...SKILL_REGIONS.filter(r => AREAS.find(a => a.id === r.area)?.live).map(r => r.id)];
-    expect(math.map(u => u.region).sort()).toEqual([...regions].sort());
-    for (const a of AREAS.filter(x => x.live)) expect(math.some(u => u.area === a.id)).toBe(true);
     const grades = math.map(u => u.grade!);
     expect(grades).toEqual([...grades].sort((x, y) => x - y));
-    expect(math.map(u => u.n)).toEqual(math.map((_, i) => i + 1));
     expect(new Set(math.map(u => u.id)).size).toBe(math.length);
-    // the areas are mixed together within a grade, not one area after another
-    const g1 = math.filter(u => u.grade === 1).map(u => u.area);
-    expect(new Set(g1.slice(0, 4)).size).toBeGreaterThan(2);
+    expect(math.every(u => u.id.startsWith('math:G') && (u.lessons?.length ?? 0) > 0)).toBe(true);
+    // a grade's units mix the areas (Kindergarten: sorting and counting, then number partners...)
+    const g2 = math.filter(u => u.grade === 2).map(u => u.area);
+    expect(new Set(g2).size).toBeGreaterThan(2);
   });
   it('each unit mixes the four ways and ends with a check', () => {
     for (const u of pathOf('math')) {
       const kinds = u.items.map(i => i.kind);
-      expect(['learn', 'practice']).toContain(kinds[0]);
+      expect(['learn', 'practice', 'warmup']).toContain(kinds[0]);
       expect(kinds).toContain('practice');
-      expect(kinds).toContain('game');
-      expect(kinds).toContain('battle');
+      expect(kinds.some(k => k === 'game' || k === 'battle')).toBe(true);
       expect(kinds.at(-1)).toBe('check');
       expect(u.skills.every(s => SKILL[s])).toBe(true);
     }
-    // the fractions units: Pizza Rush and Fraction Falls; the fact units share the Arcade and the Sky Islands
-    const pie = unitById('math:frac-a')!;
-    expect(pie.items.find(i => i.kind === 'game')!.ref).toBe('game:pizza:1');
-    expect(pie.items.find(i => i.kind === 'battle')!.ref).toBe('battle:falls:1');
-    expect(unitById('math:plus-s')!.items.find(i => i.kind === 'battle')!.ref).toMatch(/^battle:sky:\d+$/);
+    // the fractions unit: Pizza Rush and Fraction Falls; the fact units share the Arcade and the Sky Islands
+    const fr = unitById('math:G3-U5')!;
+    expect(fr.items.find(i => i.kind === 'game')!.ref).toBe('game:pizza:1');
+    expect(fr.items.find(i => i.kind === 'battle')!.ref).toBe('battle:falls:1');
+    expect(unitById('math:G1-U3')!.items.find(i => i.kind === 'battle')!.ref).toMatch(/^battle:sky:\d+$/);
     expect(KIND_NAME.check).toBe('Unit check');
+    expect(KIND_NAME.quick).toBe('Quick check');
   });
   it('typing: the course\'s regions in order (not the Open Road), new keys as Learn, the big run as the check', () => {
     const t = pathOf('typing');
@@ -90,41 +87,31 @@ describe('the units', () => {
       expect(days.every(d => typeof d === 'number')).toBe(true);
       for (const d of days) {
         const its = u.items.filter(i => i.day === d);
-        expect(its.length).toBeLessThanOrEqual(5);
+        expect(its.length).toBeLessThanOrEqual(7);
         // a Learn is never the last thing of a day: its practice comes straight after
         expect(its.at(-1)!.kind).not.toBe('learn');
       }
-      // every day but the check day has some play when the unit has more than one day
       if (s === 'math' && days.length > 2) for (const d of days.slice(0, -1)) expect(u.items.some(i => i.day === d && (i.kind === 'game' || i.kind === 'battle'))).toBe(true);
-      // Learn episodes are spread out, not stacked at the start
       const eps = u.items.filter(i => i.ref.startsWith('ep:'));
       if (eps.length > 1) expect(new Set(eps.map(i => i.day)).size).toBeGreaterThan(1);
     }
-    const pie = unitById('math:frac-a')!;
-    expect(pie.items.map(i => i.kind).slice(0, 6)).toEqual(['learn', 'practice', 'game', 'learn', 'practice', 'battle']);
+    const fr = unitById('math:G3-U5')!;
+    expect(fr.items.map(i => i.kind).slice(0, 4)).toEqual(['warmup', 'learn', 'practice', 'game']);
+    expect(fr.items.filter(i => i.day === 2).map(i => i.kind)).toEqual(['warmup', 'learn', 'practice', 'battle', 'quick']);
   });
-  it('every Learn on the path is followed straight away by practice on the same skill', () => {
-    let pairs = 0, own = 0;
+  it('every Learn on the path is followed straight away by practice of its own lesson', () => {
+    let pairs = 0;
     for (const u of pathOf('math')) u.items.forEach((it, i) => {
-      const [k, ep] = it.ref.split(':');
-      if (k !== 'ep') return;
-      const [nk, id] = (u.items[i + 1]?.ref ?? '').split(':');
-      const where = `${u.id}: ${it.name} -> ${u.items[i + 1]?.name}`;
+      if (!it.ref.startsWith('ep:')) return;
       pairs++;
-      // a fact trick: its own Meet (or rules) stop
-      if (nk === 'trip' && MATH_LESSON[id]) { expect(lessonForStop(MATH_LESSON[id])?.id, where).toBe(ep); own++; return; }
-      // a skill episode: a trip whose main skill it teaches, or a "Try it" of its skill
-      const teaches = episodeSkills(ep), main = nk === 'trip' ? SKILL_LESSON[id]?.skills[0] : nk === 'skill' ? id : undefined;
-      expect(['trip', 'skill'], where).toContain(nk);
-      expect(teaches, where).toContain(main);
-      if (main === episodeSkill(ep)) own++;
+      expect(u.items[i + 1].kind, `${u.id} ${it.ref}`).toBe('practice');
+      expect(u.items[i + 1].lesson).toBe(it.lesson);
     });
     expect(pairs).toBeGreaterThan(60);
-    // nearly all on the episode's own skill (the rest on a skill it teaches that the unit has instead)
-    expect(own / pairs).toBeGreaterThan(0.9);
-    // Sides and Corners (counting sides and corners) goes with the Sides and Corners trip, not Meet the Shapes
-    const sh = unitById('math:shapes-a')!.items, at = sh.findIndex(i => i.ref === 'ep:sh-sides');
-    expect(sh[at + 1].ref).toBe('trip:shapes-a-2');
+    // Sides and Corners goes with the trip on sides and corners, not Meet the Shapes
+    const sh = unitById('math:G2-U6')!.items, at = sh.findIndex(i => i.ref === 'ep:sh-sides');
+    expect(sh[at + 1].ref).toBe('trip:les-g2-sides-corners');
+    expect(episodeSkill('sh-sides')).toBe('sh-sides');
   });
 });
 
@@ -138,11 +125,11 @@ describe('done, next and you know this', () => {
     expect(unitLevel(p, st[0].unit, MON)).toBe('not started');
   });
   it('real play ticks items off wherever it happened, and Next moves along', () => {
-    const p = kid(), u = unitById('math:frac-a')!;
-    finishLesson(p, 'frac-parts', MON);
-    passTrip(p, 'frac-a-1');
+    const p = kid(), u = unitById('math:G3-U5')!;
+    finishLesson(p, 'frac-one-piece', MON);
+    passTrip(p, 'frac-a-2');
     let s = unitState(p, u, { now: MON });
-    expect(s.items.filter(i => i.done).map(i => i.ref)).toEqual(['ep:frac-parts', 'trip:frac-a-1']);
+    expect(s.items.filter(i => i.done).map(i => i.ref)).toEqual(['ep:frac-one-piece', 'trip:les-g3-one-piece']);
     expect(s.next!.ref).toBe('game:pizza:1');
     // a round of Pizza Rush, a battle won on Fraction Falls
     mathOf(p); p.math!.arcade = { 'pizza-rush': { best: 100, stars: 1, plays: 1 } };
@@ -150,38 +137,35 @@ describe('done, next and you know this', () => {
     s = unitState(p, u, { now: MON });
     expect(s.items.find(i => i.kind === 'game')!.done).toBe(true);
     expect(s.items.find(i => i.kind === 'battle')!.done).toBe(true);
-    expect(s.next!.ref).toBe('ep:frac-one-piece');
-    // the second fractions unit wants a second round and more stops
-    const u2 = unitById('math:frac-b')!;
+    expect(s.next!.ref).toBe('ep:sh-halves');
+    // the next fractions unit wants a second round and more stops
+    const u2 = unitById('math:G4-U2')!;
     expect(itemDone(p, u2, u2.items.find(i => i.kind === 'game')!)).toBe(false);
-    expect(itemDone(p, u2, u2.items.find(i => i.kind === 'battle')!)).toBe(false);
   });
-  it('the check: comfortable on every skill (or the island\'s run passed); typing: the checkpoint', () => {
-    const p = kid(), u = unitById('math:frac-a')!;
+  it('the unit check: every lesson\'s quick check done (or the unit check run passed); typing: the checkpoint', () => {
+    const p = kid(), u = unitById('math:G3-U5')!;
     expect(itemDone(p, u, u.items.at(-1)!, { now: MON })).toBe(false);
-    comfortable(p, u.skills);
+    for (const id of u.lessons!) passTrip(p, `les-${id}-qc`);
     expect(itemDone(p, u, u.items.at(-1)!, { now: MON })).toBe(true);
     const q = kid();
     passTrip(q, u.checkTrip!);
+    expect(u.checkTrip).toBe('unit-G3-U5');
     expect(itemDone(q, u, u.items.at(-1)!, { now: MON })).toBe(true);
     const t = kid(), v = pathOf('typing')[0];
     t.lessons['village-9'] = { stars: 3, bestWpm: 20, bestAcc: 0.95, bestRide: 1, attempts: 1, passes: 1, lastAt: MON, bestScore: 20, scoreSum: 20, finishes: 1 };
     expect(unitState(t, v, { now: MON }).checked).toBe(true);
     expect(unitLevel(t, v)).toBe('strong');
   });
-  it('Show What You Know: the units it showed are "You know this", open, and the path moves past them', () => {
-    const p = kid(), m = mathOf(p);
-    const ladder = skillLadder('fractions');
-    // a placement that got everything right, well up the ladder
-    applyPlacement(m, ladder, ladder.map(x => ({ skill: x.skill, rung: 6, d: x.base + 6, ok: true })), 3, MON);
-    p.math = m;
+  it('Show What You Know: the lessons it showed are "You know this", open, and the path moves past them', () => {
+    const p = kid(), u = unitById('math:GK-U3')!;
+    for (const id of u.lessons!) passTrip(p, `les-${id}-qc`);
     const st = pathStates(p, 'math', MON);
-    const fr = st.filter(s => s.unit.area === 'fractions');
-    expect(fr.every(s => s.status === 'known')).toBe(true);
-    expect(fr[0].level === 'strong' || fr[0].level === 'stretching').toBe(true);
+    const k = st.find(s => s.unit.id === u.id)!;
+    expect(k.status).toBe('known');
+    expect(k.lessons.every(l => l.ticks.known)).toBe(true);
     // never locked: its items can still be started, and the current unit is another one
-    expect(fr[0].items.every(i => !i.done || i.kind === 'check')).toBe(true);
-    expect(st.find(s => s.status === 'current')!.unit.area).not.toBe('fractions');
+    expect(k.items.filter(i => i.kind === 'learn' || i.kind === 'practice').every(i => !i.done && i.skip === 'known')).toBe(true);
+    expect(st.find(s => s.status === 'current')!.unit.id).not.toBe(u.id);
   });
   it('a path can start at a grade: the units before it are earlier ones, still open', () => {
     const p = kid();
@@ -198,17 +182,18 @@ describe('today', () => {
     const p = kid() as PathProfile;
     finishLesson(p, 'frac-parts', MON - 3 * DAY);
     startPath(p, MON - DAY);
-    expect(pathSave(p).done!['math:frac-a/ep:frac-parts']).toBe(0);
+    expect(pathSave(p).done!['math:G3-U5/ep:frac-parts']).toBe(0);
     expect(doneToday(p, MON)).toBe(0);
     finishLesson(p, 'frac-one-piece', MON);
     passTrip(p, 'frac-a-1', MON);
     const added = notePath(p, MON);
-    expect(added).toContain('math:frac-a/ep:frac-one-piece');
-    expect(added).toContain('math:frac-a/trip:frac-a-1');
+    expect(added).toContain('math:G3-U5/ep:frac-one-piece');
+    expect(added).toContain('math:G3-U5/trip:les-g3-name-fraction');
     expect(doneToday(p, MON)).toBe(2);
     // tomorrow it starts again; a stamp never goes away
     expect(doneToday(p, MON + DAY)).toBe(0);
-    expect(itemDone(p, unitById('math:frac-a')!, unitById('math:frac-a')!.items[1])).toBe(true);
+    const u = unitById('math:G3-U5')!;
+    expect(itemDone(p, u, u.items.find(i => i.ref === 'ep:frac-one-piece')!)).toBe(true);
   });
   it("the same thing in a teacher's unit and on the path counts once", () => {
     const p = kid();
@@ -216,14 +201,19 @@ describe('today', () => {
     finishLesson(p, 'frac-parts', MON);
     const teacher = unitFromAssignment({ id: 'u9', title: 'Fractions week', items: ['ep:frac-parts', 'game:pizza'], subject: 'math' });
     const added = notePath(p, MON, [{ unit: teacher, since: MON - H }]);
-    expect(added).toEqual(expect.arrayContaining(['math:frac-a/ep:frac-parts', 'class:u9/ep:frac-parts']));
+    expect(added).toEqual(expect.arrayContaining(['math:G3-U5/ep:frac-parts', 'class:u9/ep:frac-parts']));
     expect(doneToday(p, MON)).toBe(1);
   });
-  it('a check is a milestone, not one of today\'s things', () => {
+  it('a check is a milestone, not one of today\'s things; a quick check ticked by Show What You Know isn\'t either', () => {
     const p = kid();
     startPath(p, MON - DAY);
-    comfortable(p, unitById('math:frac-a')!.skills, MON);
-    expect(notePath(p, MON)).toContain('math:frac-a/check');
+    passTrip(p, 'unit-G3-U5', MON);
+    expect(notePath(p, MON)).toContain('math:G3-U5/check');
+    expect(doneToday(p, MON)).toBe(0);
+    const m = mathOf(p);
+    m.lessons['les-g3-one-piece-qc'] = { stars: 1, bestScore: 0, bestFpm: 0, bestAcc: 0, bestRide: 0, attempts: 0, finishes: 0, passes: 0, lastAt: MON, testedOut: true };
+    p.math = m;
+    expect(notePath(p, MON)).toContain('math:G3-U5/quick:les-g3-one-piece-qc');
     expect(doneToday(p, MON)).toBe(0);
   });
   it('one line: things today, minutes, the unit', () => {
@@ -231,13 +221,13 @@ describe('today', () => {
     startPath(p, MON - DAY);
     p.days[dayKey(MON)] = { ms: 10 * 60000, runs: 2 };
     p.settings.dailyGoalMin = 20;
-    finishLesson(p, 'sh-sides', MON); notePath(p, MON);
+    finishLesson(p, 'data-sort', MON); notePath(p, MON);
     const n = nextOnPath(p, 'math', MON)!;
+    expect(n.unit.unit.id).toBe('math:GK-U3');
     const t = todayLine(p, 3, n, MON);
     expect(t.line).toBe(`1 of 3 things done today · 10 of 20 minutes · Unit ${n.unit.unit.n}: just started`);
-    p.math!.learned = [...(p.math!.learned ?? []), 'sh-halves'];
-    passTrip(p, 'shapes-a-1', MON); passTrip(p, 'shapes-a-2', MON); notePath(p, MON);
-    expect(todayLine(p, 3, nextOnPath(p, 'math', MON), MON).line).toMatch(/^All 3 things done today! · 10 of 20 minutes · Unit 1: (halfway there|just started)$/);
+    passTrip(p, 'les-k-sort-count', MON); passTrip(p, 'les-k-sort-count-qc', MON); notePath(p, MON);
+    expect(todayLine(p, 3, nextOnPath(p, 'math', MON), MON).line).toMatch(/^All 3 things done today! · 10 of 20 minutes · Unit \d+: (halfway there|almost done|just started|ready to start)$/);
   });
 });
 
@@ -361,7 +351,7 @@ describe('two computers', () => {
     addUsed(school, 'island', 5 * 60000, MON); addUsed(home, 'island', 7 * 60000, MON + H);
     school.updatedAt = MON; home.updatedAt = MON + H;
     const both = mergeProfile(school, home, base) as PathProfile;
-    expect(Object.keys(both.path!.done!)).toEqual(expect.arrayContaining(['math:frac-a/ep:frac-parts', 'math:shapes-a/ep:sh-sides']));
+    expect(Object.keys(both.path!.done!)).toEqual(expect.arrayContaining(['math:G3-U5/ep:frac-parts', 'math:G2-U6/ep:sh-sides']));
     expect(doneToday(both, MON + 2 * H)).toBe(2);
     expect(usedMs(both, 'island', MON)).toBe(7 * 60000);
   });

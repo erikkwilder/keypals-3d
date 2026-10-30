@@ -34,7 +34,7 @@
   import { ALG_LESSON } from '../math/algebra/episodes';
   import { isLearned } from '../math/learn';
   import Episode from '../math/ui/Episode.svelte';
-  import { SkillTripPicker, type SkillPick } from '../math/skills/picker';
+  import { SkillTripPicker, inBand, lessonKeys, type SkillPick } from '../math/skills/picker';
   import { applySkillRun, type SkillResult } from '../math/skills/progress';
   import { answerParts, shortText } from '../math/skills/text';
   import { asChoices, choiceChance, typedAs, CHOICE_RIGHT } from '../math/skills/choices';
@@ -55,7 +55,8 @@
   const m = mathOf(profile);
   const lesson = SKILL_LESSON[game.skillLessonId] ?? SKILL_LESSON['frac-a-1'];
   /** a stop that meets a new idea: its Learn episode, to watch first */
-  const introEp = lesson.kind === 'meet' ? (lesson.learn.map(k => SKILL_EPISODES[k]).find(e => e && (FRAC_LESSON[e] || SHAPE_LESSON[e] || RATIO_LESSON[e] || NEG_LESSON[e] || DATA_LESSON[e] || ALG_LESSON[e])) ?? null) : null;
+  // (a curriculum lesson's trip says its own Learn, or none: never a borrowed one)
+  const introEp = lesson.ep !== undefined ? null : lesson.kind === 'meet' ? (lesson.learn.map(k => SKILL_EPISODES[k]).find(e => e && (FRAC_LESSON[e] || SHAPE_LESSON[e] || RATIO_LESSON[e] || NEG_LESSON[e] || DATA_LESSON[e] || ALG_LESSON[e])) ?? null) : null;
   const area = AREA[lesson.area];
   const regionName = lesson.region === 'start' ? area.name : SKILL_REGION[lesson.region].name;
   const tempo = tempoOf(lesson.area);
@@ -75,7 +76,8 @@
   const stretches = picker.length;
   // the Meet card's example: the first new kind of question, pitched easy for this child (a teach: 90%)
   // (a seeded source, never a constant one: generators draw again until two numbers differ)
-  const example = lesson.learn[0] ? makeAt(SKILL[lesson.learn[0]], mulberry32(37), SKILL[lesson.learn[0]].subs[Math.min(2, SKILL[lesson.learn[0]].subs.length - 1)].id, pitch(m, lesson.learn[0], TARGET.teach, { grown: !!grown })) : null;
+  const exSubs = lesson.learn[0] ? lessonKeys(lesson, lesson.learn[0]).map(k => k.slice(k.indexOf(':') + 1)) : [];
+  const example = lesson.learn[0] && exSubs.length ? makeAt(SKILL[lesson.learn[0]], mulberry32(37), exSubs[Math.min(2, exSubs.length - 1)], inBand(lesson, pitch(m, lesson.learn[0], TARGET.teach, { grown: !!grown }))) : null;
 
   let phase = $state<'intro' | 'play' | 'paused' | 'done'>('intro');
   const replaying = game.quickStart;

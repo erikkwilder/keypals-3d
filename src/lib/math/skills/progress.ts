@@ -11,7 +11,7 @@ import { mathOf, tripXp, type MathLessonRecord, type MathProgress } from '../pro
 import { SKILL, splitKey } from './registry';
 import { SKILL_LESSON, SKILL_REGION, skillRegionsOf, tempoOf, type SkillLesson } from './course';
 import { noteAbility, skillAnswers, thetaOf } from './ability';
-import { applyPlacement, foundInArea, placeStart, skillLadder, type Found } from './placement';
+import { applyPlacement, foundOnLadder, foundInArea, placeStart, skillLadder, type Found } from './placement';
 
 /** The memory of the skill areas (empty in older saves). */
 export const skillMem = (m: MathProgress): Record<string, FactStat> => m.skills ?? {};
@@ -72,13 +72,14 @@ export function applySkillRun(p0: Profile, run: SkillRunInput): SkillOutcome {
   let placed: Found | undefined;
   const firsts = run.results.filter(r => !r.intro);
   if (lesson.kind === 'placement') {
-    const ladder = skillLadder(lesson.area).filter(x => lesson.skills.includes(x.skill));
+    const ladder = lesson.ladder ?? skillLadder(lesson.area).filter(x => lesson.skills.includes(x.skill));
     const base = new Map(ladder.map(x => [x.skill, x.base]));
     const answers = firsts.filter(r => r.rung && base.has(splitKey(r.key).skill)).map(r => { const skill = splitKey(r.key).skill; return { skill, rung: r.rung!, d: base.get(skill)! + r.rung!, ok: r.ok }; });
     if (run.finished && answers.length) {
       applyPlacement(m, ladder, answers, placeStart(mathOf(p0), ladder, run.at), run.at);
-      placed = foundInArea(m, lesson.area, run.at);
-      m.placed = { ...(m.placed ?? {}), [lesson.area]: { at: run.at, ...placed } };
+      placed = lesson.ladder ? foundOnLadder(m, lesson.ladder, run.at) : foundInArea(m, lesson.area, run.at);
+      // (a grade's or a unit's Show What You Know is kept under its own id, an area's under the area)
+      m.placed = { ...(m.placed ?? {}), [lesson.ladder ? lesson.id : lesson.area]: { at: run.at, ...placed } };
     }
   } else noteAbility(m, firsts.map(r => ({ skill: splitKey(r.key).skill, rung: (r.rung ?? 0) - (r.choice ? 0.5 : 0), ok: r.ok, thinkMs: r.thinkMs, at: run.at })).filter(x => x.rung > 0), 'trip', grown);
 
@@ -111,7 +112,20 @@ export function applySkillRun(p0: Profile, run: SkillRunInput): SkillOutcome {
   // sits clearly below what the child showed (as before: nothing new is locked, nothing marked done that
   // the answers don't show) ----
   const testedOut: string[] = [];
-  if (lesson.kind === 'placement' && run.finished) {
+  if (lesson.kind === 'placement' && run.finished && lesson.testOut) {
+    // a grade's or a unit's Show What You Know: a curriculum lesson is "You know this" (its quick check
+    // passed) on the same rule, at its own grade's rung (lessonTrips.ts comfortableAt)
+    for (const t of lesson.testOut) {
+      if ((m.lessons[t.trip]?.stars ?? 0) > 0) continue;
+      const mine = run.results.filter(x => !x.intro && (t.keys.includes(x.key) || t.keys.includes(splitKey(x.key).skill)));
+      const fast = mine.filter(x => x.ok && x.speed === 'fast').length;
+      const level = Math.min(...t.skills.map(id => thetaOf(m, id, run.at)));
+      const shown = mine.length > 0 && !mine.some(x => !x.ok) && fast >= Math.ceil(mine.length * 0.5) && level >= t.min;
+      if (!shown && !(mine.length === 0 && level >= t.min + 1.5)) continue;
+      m.lessons[t.trip] = { ...(m.lessons[t.trip] ?? { bestScore: 0, bestFpm: 0, bestAcc: 0, bestRide: 0, attempts: 0, finishes: 0, passes: 0, lastAt: run.at }), stars: 1, testedOut: true };
+      testedOut.push(t.trip);
+    }
+  } else if (lesson.kind === 'placement' && run.finished) {
     for (const r of skillRegionsOf(lesson.area)) for (const l of r.lessons) {
       if (l.kind !== 'meet' || (m.lessons[l.id]?.stars ?? 0) > 0) continue;
       const mine = run.results.filter(x => !x.intro && l.learn.includes(splitKey(x.key).skill));

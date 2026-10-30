@@ -91,7 +91,7 @@ export class TripPicker {
     this.grown = !!o.grown;
     this.home = { facts: o.facts, skills: o.math?.skills, ability: { ...(o.math?.ability ?? {}) } };
     this.skill = STRAND_SKILL[o.lesson.op];
-    this.length = o.length ?? TRIP_LENGTH;
+    this.length = o.length ?? o.lesson.length ?? TRIP_LENGTH;
     const stat = (f: Fact) => o.facts[factId(f)];
 
     if (o.lesson.kind === 'placement') {
@@ -139,7 +139,7 @@ export class TripPicker {
   private testPlan(): Fact[] {
     const l = this.lesson;
     let set: Fact[];
-    if (l.kind === 'check' && l.op === 'x') {
+    if (l.kind === 'check' && l.op === 'x' && l.tables.length === 1) {
       const t = l.tables[0];
       // all eleven facts of the table, and the turnarounds (t × 0, then t × 2 to t × 10): 20
       set = [...groupFacts(`x${t}`), ...groupFacts(`x${t}`).filter(f => f.a !== 1 && f.a !== t).map(partnerOf)];
