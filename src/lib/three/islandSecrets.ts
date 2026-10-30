@@ -39,6 +39,9 @@ function floatingRock(keep: Keep, stoneMat: THREE.Material, grassMat: THREE.Mate
   const pts: THREE.Vector2[] = [];
   const prof: [number, number][] = [[1, 0], [1.02, 0.08], [0.95, 0.25], [0.82, 0.45], [0.62, 0.65], [0.38, 0.84], [0.12, 0.97], [0.001, 1]];
   for (const [k, d] of prof) pts.push(new THREE.Vector2(r * k * (0.95 + rnd() * 0.1), -d * depth));
+  // (a lathe's outline goes up from the bottom, or its faces point inward and the rock looks hollow
+  // from below: the point first, the rim last)
+  pts.reverse();
   const body = new THREE.Mesh(keep(new THREE.LatheGeometry(pts, 14)), stoneMat);
   body.position.y = top - 0.06; body.castShadow = true; body.receiveShadow = true; g.add(body);
   const cap = new THREE.Mesh(keep(new THREE.CylinderGeometry(r * 1.04, r * 1.0, 0.12, 18)), grassMat);
