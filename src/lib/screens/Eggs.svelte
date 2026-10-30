@@ -13,7 +13,8 @@
   import { nextLesson } from '../engine/profile';
   import { mathOf, nextMathLesson } from '../math/progress';
   import { GLIMMER, RARITY, rarityRank } from '../adventure/glimmers';
-  import { advOf, hatch, EGG_ODDS, type Hatch, advView } from '../adventure/state';
+  import { advOf, hatch, EGG_ODDS, type Hatch, type Egg, advView } from '../adventure/state';
+  import { SOURCES } from '../adventure/ladder';
   import Header from '../ui/Header.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
   import Confetti from '../ui/Confetti.svelte';
@@ -160,7 +161,7 @@
     if (!egg) return;
     cracking = slot; got = null; step = 0; broken = false; flash = false; pieces = []; sparks = []; shown = [0, 0, 0, 0, 0]; glow = 0; squash = 1;
     // the egg rises out of its nest into the light, over the stage where its Glimmer will stand
-    const src = `${base}game/egg-${egg.rarity}.webp`;
+    const src = eggSrc(egg);
     eggImg = new Image(); eggImg.src = src;
     try { await eggImg.decode(); } catch { /* drawn when it arrives */ }
     const v = HATCH_VIEW();
@@ -199,6 +200,9 @@
     else { game.setHome('math'); game.startMath(nextMathLesson(mathOf(p)).id); }
   }
   const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
+  // a special egg (the 100-Glimmer ladder): its own painting and name ("Milestone egg")
+  const eggSrc = (e: Egg) => `${base}game/egg-${e.kind && e.glimmer ? e.kind : e.rarity}.webp`;
+  const eggName = (e: Egg) => (e.kind && e.glimmer ? SOURCES[e.kind].egg : `${RARITY[e.rarity].name} egg`);
 </script>
 
 <div class="screen eggs" class:showing={!!got || !!hm}>
@@ -214,13 +218,13 @@
           <img class="nimg" src="{base}game/nest.webp" alt="" />
           {#if e}
             <i class="eshadow" class:gone={cracking === i}></i>
-            <img class="egg r-{e.rarity}" class:gone={cracking === i} src="{base}game/egg-{e.rarity}.webp" alt="{RARITY[e.rarity].name} egg" />
+            <img class="egg r-{e.rarity}" class:gone={cracking === i} src={eggSrc(e)} alt={eggName(e)} />
             <img class="nfront" src="{base}game/nest.webp" alt="" aria-hidden="true" />
           {/if}
         </div>
         {#if e}
           <div class="lab">
-            <b style:color={e.rarity === 'common' ? null : RARITY[e.rarity].color}>{RARITY[e.rarity].name} egg</b>
+            <b style:color={e.rarity === 'common' ? null : RARITY[e.rarity].color}>{eggName(e)}</b>
             {#if e.have >= e.need}<button class="btn btn-primary hatch" onclick={() => doHatch(i)} disabled={cracking >= 0}>Hatch!</button>
             {:else}<div class="bar"><i style:width="{(e.have / e.need) * 100}%"></i></div><span>{e.need - e.have} more right answers to hatch</span>{/if}
           </div>
@@ -229,7 +233,7 @@
     {/each}
   </div>
   {#if a.nest.length}
-    <div class="waiting"><span>Waiting in the nest:</span>{#each a.nest as e}<img src="{base}game/egg-{e.rarity}.webp" alt="{RARITY[e.rarity].name} egg" title="{RARITY[e.rarity].name} egg" />{/each}</div>
+    <div class="waiting"><span>Waiting in the nest:</span>{#each a.nest as e}<img src={eggSrc(e)} alt={eggName(e)} title={eggName(e)} />{/each}</div>
   {/if}
   <div class="how card">
     <div class="howpic" style:background-image="url({base}game/intro-practice.webp)"></div>
@@ -279,7 +283,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="hatched r-{got.rarity}" onclick={closeHatched}>
       <div class="hcol">
-        <div class="rt"><small>It hatched!</small><b>{RARITY[got.rarity].name}</b></div>
+        <div class="rt"><small>{got.special ? 'Something special hatched!' : 'It hatched!'}</small><b>{RARITY[got.rarity].name}</b></div>
         <div class="flip"><GlimmerCard id={got.id} width={innerWidth < 760 ? 120 : 190} level={got.level} shine /></div>
         <div class="msg card"><h2>{GLIMMER[got.id].name}{got.isNew ? ' joined your team!' : ''}</h2><p>{got.isNew ? `${GLIMMER[got.id].power.name}: ${GLIMMER[got.id].power.text(1)}` : `You have one already: stardust! ${GLIMMER[got.id].name} is level ${got.level}.`}</p><small>Tap to close</small></div>
       </div>

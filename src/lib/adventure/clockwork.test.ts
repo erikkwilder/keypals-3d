@@ -8,7 +8,7 @@ import { SKILL, splitKey } from '../math/skills/registry';
 import { ISLAND, NODE, foeFor, islandsOf, mathPool, nodesOf, worldOpen } from './state';
 import { WORLD_PIN } from './worlds';
 import { SPOTS } from './mapSpots';
-import { GLIMMER, GLIMMERS } from './glimmers';
+import { EVOLVED, GLIMMER, GLIMMERS } from './glimmers';
 import { CLOCKWORK_GLIMMERS } from './clockwork';
 import { STATION } from '../audio/stations';
 import type { Pool } from './battle';
@@ -49,11 +49,17 @@ describe('Clockwork Isle', () => {
     for (let s = 1; s <= 60; s++) expect(foeFor(p, NODE['clockwork-1'], pool, s).mischief?.name).toMatch(/cuckoo/);
     for (const g of ISLAND.clockwork.natives!) expect(GLIMMER[g], g).toBeTruthy();
   });
-  it('writes its own three Glimmers and Champion, kept out until their models are made', () => {
+  it('writes its own three Glimmers and Champion, natives of the world on their way until their models are made', () => {
     expect(CLOCKWORK_GLIMMERS.map(g => g.rarity)).toEqual(['common', 'uncommon', 'rare', 'legendary']);
-    expect(CLOCKWORK_GLIMMERS.filter(g => g.champion)).toHaveLength(1);
-    const ids = new Set<string>(GLIMMERS.map(g => g.id));
-    for (const g of CLOCKWORK_GLIMMERS) { expect(g.pending).toBe(true); expect(ids.has(g.id), g.id).toBe(false); expect(g.power.text(1).length).toBeGreaterThan(10); }
+    expect(CLOCKWORK_GLIMMERS.filter(g => g.champion)).toEqual([expect.objectContaining({ id: 'gearlion', champion: 'clockwork' })]);
+    const rolls = new Set<string>(GLIMMERS.map(g => g.id));
+    for (const g of CLOCKWORK_GLIMMERS) {
+      expect(g).toMatchObject({ source: 'native', world: 'clockwork', pending: true });
+      // in the Book (GLIMMER, with a grown-up form and an outline), never in a random roll
+      expect(GLIMMER[g.id]).toBe(g); expect(EVOLVED[g.id].name.length).toBeGreaterThan(3); expect(rolls.has(g.id), g.id).toBe(false);
+      expect(pub(`game/glimmers/shape/${g.id}.webp`), g.id).toBe(true);
+      expect(g.power.text(1).length).toBeGreaterThan(10);
+    }
   });
   it('plays the Storybook station (with its Magical Mysterious Clockwork) while the choice is Auto', () => {
     // (Adventure hands the world's station to startMusic, which plays it only while the choice is Auto)

@@ -15,7 +15,7 @@
   import { MEDALS } from '../engine/achievements';
   import { DANCES, forBuddy } from '../engine/rewards';
   import { teamBuddies } from '../engine/team';
-  import { GLIMMERS } from '../adventure/glimmers';
+  import { GLIMMER_TOTAL } from '../adventure/glimmers';
   import { advView, teamOf, playLeft } from '../adventure/state';
   import { seasonView } from '../adventure/versus';
   import { LEAGUES } from '../adventure/ghosts';
@@ -81,7 +81,7 @@
   })));
   function anyLine(id: string): string {
     if (id === 'arcade') return arcBest ? `${arcStars} stars · best ${fmt(arcBest)}` : 'Every game in one place';
-    if (id === 'adventure') return `${found}/${GLIMMERS.length} Glimmers · ${world}`;
+    if (id === 'adventure') return `${found}/${GLIMMER_TOTAL} Glimmers · ${world}`;
     if (id === 'drop') return drop.best ? `Best ${fmt(drop.best)} · uses play time` : 'Just for fun · uses play time';
     if (id === 'duel') return duels.played ? `${duels.won} won of ${duels.played}` : 'Two players, one screen';
     return league;
@@ -94,6 +94,8 @@
     { id: 'stickers', name: 'Stickers', img: 'game/icon-stickers.webp', line: `${stickers} of ${STICKERS.length}`, go: () => game.openStickers('stickers') },
     { id: 'medals', name: 'Medals', img: 'game/icon-medals.webp', line: `${medals} of ${MEDALS.length} kinds won`, go: () => game.openStickers('medals') },
     { id: 'eggs', name: 'Eggs', img: `game/egg-${a.incubator.find(e => e)?.rarity ?? 'rare'}.webp`, line: eggsReady ? `${eggsReady} ready to hatch!` : eggsAll ? `${eggsAll} warming up` : 'Practice hatches eggs', hot: eggsReady > 0, go: () => game.go('eggs') },
+    // the 100-Glimmer ladder's book: every Glimmer and how each one comes
+    { id: 'book', name: 'Glimmer Book', img: 'icons/book.webp', line: `${found} of ${GLIMMER_TOTAL} met`, go: () => game.openBook() },
     { id: 'team', name: 'Glimmers and Team', face: team[0] ? `game/glimmers/face/${team[0].id}${team[0].evolved ? '-evo' : ''}.webp` : 'game/glimmers/face/puddlepup.webp', line: team.length ? `${team.length} on your team · ${found} found` : `${found} found`, go: () => game.go('glimmers') },
   ]);
   function go(t: Tile) { sfx.click(); game.closeMenu(); t.go(); }
@@ -119,7 +121,7 @@
     <div class="score">
       <span><img src="{base}game/icon-star.webp" alt="" /><b>{fmt(allStars)}</b> stars</span>
       <span><img src="{base}icons/garden.webp" alt="" /><b>{blooms}</b> in bloom</span>
-      <span><img class="round" src="{base}game/glimmers/face/puddlepup.webp" alt="" /><b>{found}</b>/{GLIMMERS.length} Glimmers</span>
+      <span><img class="round" src="{base}game/glimmers/face/puddlepup.webp" alt="" /><b>{found}</b>/{GLIMMER_TOTAL} Glimmers</span>
       <span><img src="{base}game/icon-stickers.webp" alt="" /><b>{stickers}</b>/{STICKERS.length} stickers</span>
       <span><img src="{base}game/icon-shell.webp" alt="" /><b>{fmt(a.shells)}</b> shells</span>
       <span><img src="{base}icons/heart.webp" alt="" />Friendship <b>{lvl.level}</b></span>

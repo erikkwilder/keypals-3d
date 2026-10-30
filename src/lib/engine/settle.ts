@@ -101,7 +101,7 @@ export function settlePractice(p: Profile, o: { at: number; ms: number; finished
   pal.treasureBest = Math.max(pal.treasureBest, treasure);
   const stickers = checkStickers(p, o.at);
   const buddies = welcomeNew(p);
-  const eggsReady = o.finished ? notePractice(p, o.right) : [];
+  const eggsReady = o.finished ? notePractice(p, o.right, true, o.at) : [];
   const shells = o.finished ? earnShells(p, practiceShells({ stars: o.stars, medals: ids.length, stickers: stickers.length, treasure })) : 0;
   return { goalJustHit, medals, xp, rewards, stickers, buddies, eggsReady, shells, treasure, newBestTreasure };
 }

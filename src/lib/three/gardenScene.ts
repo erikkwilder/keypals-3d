@@ -189,6 +189,8 @@ export class GardenScene implements Controller {
   private near = { plot: -1, bed: null as number | null, plant: -1 };
   /** the buddy says something (the secrets) */
   onSay: ((text: string) => void) | null = null;
+  /** a secret of the 100-Glimmer ladder was found ('hut': the Seed Library's door) */
+  onSecret: ((id: 'hut') => void) | null = null;
   /** you walked to another plot or bed */
   onWhere: ((plot: number, bed: number | null) => void) | null = null;
   /** you walked up to a plant (null: none close) */
@@ -600,6 +602,7 @@ export class GardenScene implements Controller {
         fire: () => {
           want = 1; outWant = 1; sfx.secret();
           setTimeout(() => say(`Shh... this is the Seed Library! Every fact you learn starts as one of these seeds.`), 700);
+          this.onSecret?.('hut');
           if (keeper) { keeper.root.visible = true; keeper.play('appear'); }
         },
         tick: (dt, t) => {

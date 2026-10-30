@@ -304,9 +304,9 @@ describe('Shape Peaks', () => {
     const fresh = mathPool(newProfile('Al', 'dino'), 'shapes') as unknown as MathPool;
     expect(fresh.skills.every(s => s.key.startsWith('sh-'))).toBe(true);
   });
-  it('its own Glimmers are written down and waiting for their models', () => {
+  it('its own Glimmers are natives of Shape Peaks, on their way until their models come', () => {
     expect(SHAPE_PEAKS_GLIMMERS).toHaveLength(4);
-    expect(SHAPE_PEAKS_GLIMMERS.filter(g => g.champion)).toHaveLength(1);
-    expect(SHAPE_PEAKS_GLIMMERS.every(g => g.pending && !(g.id in GLIMMER))).toBe(true);
+    expect(SHAPE_PEAKS_GLIMMERS.filter(g => g.champion)).toEqual([expect.objectContaining({ id: 'prismgryphon', champion: 'peaks' })]);
+    expect(SHAPE_PEAKS_GLIMMERS.every(g => g.source === 'native' && g.world === 'peaks' && g.pending && GLIMMER[g.id] === g)).toBe(true);
   });
 });

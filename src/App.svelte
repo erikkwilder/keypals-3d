@@ -45,9 +45,14 @@
   import Arcade from './lib/screens/Arcade.svelte';
   import ArcadePlay from './lib/screens/ArcadePlay.svelte';
   import Ideas from './lib/screens/Ideas.svelte';
+  // the 100-Glimmer ladder: its book, and the special eggs' moments (looked for on the calm screens)
+  import GlimmerBook from './lib/screens/GlimmerBook.svelte';
+  import LadderMoment from './lib/ui/LadderMoment.svelte';
+  import { CALM_SCREENS, lookForEggs } from './lib/adventure/ladderMoment.svelte';
   import { installProblemReports } from './lib/state/reports';
   import { countScreen, countPlayer } from './lib/state/counting';
   import { untrack } from 'svelte';
+  $effect(() => { const s = game.screen, id = game.profile?.id; if (id && CALM_SCREENS.has(s)) untrack(() => setTimeout(() => { if (game.screen === s) lookForEggs(); }, 700)); });
   // counting visits (no identifiers: counts.ts): every screen opened, and each player's first visit today
   $effect(() => { const s = game.screen; untrack(() => countScreen(s)); });
   $effect(() => {
@@ -92,7 +97,7 @@
 
   // menu music on the screens around the lessons; Adventure's own on its screens and the Arcade's (Auto
   // plays an adventure there; a picked station just keeps playing)
-  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'shifter', 'shapebuilder']);
+  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'glimmerBook', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'shifter', 'shapebuilder']);
   $effect(() => {
     const scr = game.screen;
     // (a world with a station of its own, Clockwork Isle's Storybook or Shape Peaks' snow, plays it on its map and in its battles while the choice is Auto)
@@ -155,7 +160,9 @@
   {:else if game.screen === 'teach'}<Teach />
   {:else if game.screen === 'classLogin'}<ClassLogin />
   {:else if game.screen === 'boards'}<Boards />
+  {:else if game.screen === 'glimmerBook'}<GlimmerBook />
   {/if}
+  <LadderMoment />
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}
   {#if game.chartLesson && game.profile}{#key game.chartLesson}<LessonChart />{/key}{/if}

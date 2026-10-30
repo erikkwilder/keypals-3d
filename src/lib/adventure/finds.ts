@@ -12,6 +12,7 @@ import { noteSkillAnswers } from '../math/skills/progress';
 import type { Rarity } from './glimmers';
 import { advOf, giveEgg, warmEggs, type Adventure, type Egg, type IslandId, type WorldId } from './state';
 import { findId, type FindKind } from './trails';
+import { noteSecret } from './ladderSave'; // 100-Glimmer ladder: two of its secrets are found here
 
 /** Collected today already (it fills up again tomorrow). */
 export const findDone = (a: Adventure, id: string, now = Date.now()) => a.finds?.[id] === dayKey(now);
@@ -61,6 +62,8 @@ export function collectHidden(p: Profile, island: IslandId, now = Date.now()): F
     : { kind: 'hidden', shells: 6 + Math.floor(rng() * 5), egg: null, eggFull: false, treasure: ['marble', 'copper', 'silver', 'shell'][Math.floor(rng() * 4)], first, warmed: [] };
   a.shells += out.shells;
   if (!first) out.warmed = warmEggs(p, 3);
+  // Cloudwhale Bay's hidden spot (behind the waterfall, the far end of the Sky Islands) is a ladder secret
+  if (island === 'bay') noteSecret(p, a, 'trail');
   mark(a, id, now);
   return out;
 }
@@ -69,6 +72,8 @@ export function collectHidden(p: Profile, island: IslandId, now = Date.now()): F
 export const BONUS_QUESTIONS = 5;
 /** Stars for a Bonus Round, like a practice round's: all five right is three stars. */
 export const bonusStars = (right: number) => (right >= 5 ? 3 : right >= 4 ? 2 : right >= 3 ? 1 : 0);
+/** A Bonus Round all right with every answer this quick is a ladder secret. */
+export const BONUS_QUICK_MS = 5000;
 export type BonusRun = {
   island: IslandId; at: number; ms: number; right: number; answers: number;
   answered: { f: Fact; ok: boolean; thinkMs: number }[];
@@ -87,6 +92,8 @@ export function applyBonus(p: Profile, r: BonusRun): BonusOutcome | null {
   }
   if (r.skillAnswers.length) noteSkillAnswers((p.math = mathOf(p)), r.skillAnswers, r.at);
   const stars = bonusStars(r.right);
+  const thinks = [...r.answered, ...r.skillAnswers].map(x => x.thinkMs);
+  if (r.right >= BONUS_QUESTIONS && thinks.length >= BONUS_QUESTIONS && thinks.every(ms => ms <= BONUS_QUICK_MS)) noteSecret(p, a, 'bonus');
   const settled = settlePractice(p, { at: r.at, ms: r.ms, finished: true, stars, medals: [], right: r.right, xp: () => 30 + stars * 15 });
   const rng = mulberry32(seedOf(id, r.at));
   const chest: FindPrize = { kind: 'bonus', shells: 10 + stars * 5, egg: null, eggFull: false, treasure: stars >= 3 ? 'diamond' : stars >= 2 ? 'gold' : 'silver', first: !a.finds?.[id], warmed: [] };
