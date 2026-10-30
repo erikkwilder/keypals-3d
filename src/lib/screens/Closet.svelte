@@ -34,6 +34,8 @@
   import TileArt from '../ui/TileArt.svelte';
   import CloseButton from '../ui/CloseButton.svelte';
   import Turntable from '../ui/Turntable.svelte';
+  import { SNACKS, buySnacks } from '../island/play'; // My Sky Island's treats, sold with the eggs
+  import { islandView } from '../island/save';
 
   type Side = 'mine' | 'shop';
   /** a spot on the buddy, or (on one side only) everything, the dances or the eggs */
@@ -224,6 +226,14 @@
     void scene?.redress(who);
     saved();
     burst++; sfx.equip();
+  }
+  /** treats for the Glimmers on My Sky Island (island/play.ts) */
+  function buyIslandTreats() {
+    let r: { ok: boolean; why?: string } = { ok: false };
+    game.update(pp => { r = buySnacks(pp); });
+    const res = r as { ok: boolean; why?: string };
+    if (res.ok) { sfx.buy(); burst++; game.say(`${SNACKS.n} treats! Give them to your Glimmers on My Sky Island.`); }
+    else { sfx.nope(); game.say(res.why ?? 'Not now.'); }
   }
   function buyThing(id: string) {
     let r: ReturnType<typeof buy> = { ok: false };
@@ -538,6 +548,12 @@
                 <button class="btn btn-primary" disabled={adv.shells < it.price || (it.id === 'treat' && !team[0])} onclick={() => buyThing(it.id)}><img src="{base}game/icon-shell.webp" alt="" />{it.price}</button>
               </div>
             {/each}
+            <!-- My Sky Island's treats -->
+            <div class="egg card">
+              <img src="{base}island/treat.webp" alt="" />
+              <div><b>Island treats</b><span>{SNACKS.n} treats to give your Glimmers on My Sky Island (you have {islandView(p).treats}).</span></div>
+              <button class="btn btn-primary" disabled={adv.shells < SNACKS.price} onclick={buyIslandTreats}><img src="{base}game/icon-shell.webp" alt="" />{SNACKS.price}</button>
+            </div>
             <p class="muted small">An egg hatches into a new Glimmer as you practice. Eggs from battles: {EGG_ODDS}</p>
           </div>
         {:else}

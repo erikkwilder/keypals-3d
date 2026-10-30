@@ -8,6 +8,13 @@
 // The camera turns round the island (drag), comes closer or further (pinch, scroll), slides (two fingers,
 // right-drag), and frames the whole island in the space the screen leaves for it. In build mode a soft
 // grid shows the squares, and the thing being placed or moved hovers over its squares, green where it fits.
+//
+// Blocks the child builds (three/islandBlocks.ts) are solid ground: the buddy and the Glimmers walk up ramps
+// and stairs, stand on roofs and walk off bridges (the walking rules are island/blocks.ts), and a tap on a
+// roof finds the way round to the ramp. The Glimmers use what's built: they swim in ponds, nap on benches,
+// warm up on the sun dais and perch on high blocks; you can pet them, feed them treats and throw a ball for
+// them to bring back, and now and then one thinks of a wish (a picture in a bubble). The island's secrets
+// (three/islandSecrets.ts) live here too, and the evening brings the night sky.
 import * as THREE from 'three';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
@@ -17,6 +24,10 @@ import { loadGltf, loadTexture } from './assets';
 import { GlimmerModel } from './glimmerModel';
 import { THEMES } from './themes';
 import { blocked, resolve, step, type Box, type Solid } from './gardenLayout';
+import { BlockKit } from './islandBlocks';
+import { IslandSecrets } from './islandSecrets';
+import { BLOCK, SHAPE, blockCells, fall, findPath, floorAt, perches, standUp, walk, worldOf, type Block, type P3, type ShapeId, type World } from '../island/blocks';
+import { rocksOf, onRock, WHALE_Y } from '../island/secrets';
 import type { Island } from './island';
 import type { View } from './runScene';
 import type { FriendId } from '../art/cast';
@@ -38,10 +49,27 @@ const rand = (seed: number) => () => { seed = (seed * 16807) % 2147483647; retur
 const easeOutBack = (x: number) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
 
 export type Out = { id: GlimmerId; level: number; evolved: boolean };
-export type Pick = { kind: 'glimmer'; id: GlimmerId } | { kind: 'visitor' } | { kind: 'item'; uid: string } | { kind: 'buddy' } | null;
+export type Pick = { kind: 'glimmer'; id: GlimmerId } | { kind: 'visitor' } | { kind: 'item'; uid: string } | { kind: 'buddy' }
+  | { kind: 'bottle' } | { kind: 'note' } | { kind: 'rainbow' } | { kind: 'butterfly' } | null;
+/** what a build tool would do where the pointer is: the square a new piece goes in, or the block a tool acts on */
+export type Aim = { place: Block | null; on: Block | null; key: string | null };
+/** a Glimmer's place to be: in a pond, on a bench, on the sun dais, up on the blocks */
+type Spot = { kind: 'swim' | 'sit' | 'warm' | 'perch'; at: THREE.Vector3; r: number; face?: number; taken?: GlimmerId };
 type Thing = { uid: string; pl: Placed; obj: THREE.Object3D; tick: Tick | null; pop: number };
-type Mood = 'idle' | 'walk' | 'nap' | 'play';
-type Pal = { id: GlimmerId; m: GlimmerModel; mood: Mood; until: number; to: THREE.Vector3 | null; home: THREE.Vector3 | null; hopAt: number; zzz: number; heart?: THREE.Sprite; heartT?: number; heartAt?: number };
+type Mood = 'idle' | 'walk' | 'nap' | 'play' | 'swim' | 'sit' | 'warm' | 'perch' | 'fetch' | 'bring' | 'munch';
+type Pal = {
+  id: GlimmerId; m: GlimmerModel; mood: Mood; until: number; to: THREE.Vector3 | null; home: THREE.Vector3 | null; hopAt: number; zzz: number; heart?: THREE.Sprite; heartT?: number; heartAt?: number;
+  /** where it is (its feet), how fast it's falling */
+  p3: P3; vy: number;
+  /** a hop through the air (on to a bench, up a tower, into a pond) and what it does when it lands */
+  hop?: { from: THREE.Vector3; to: THREE.Vector3; t0: number; dur: number; h: number; then: Mood; until: number } | null;
+  /** the place it's walking to, to do something there */
+  next?: Spot | null; spot?: Spot | null;
+  /** a wish bubble over its head */
+  wish?: THREE.Sprite | null;
+  /** munching a treat until then */
+  munch?: number;
+};
 
 /** The island's edge at an angle: round, with a gentle wobble so it never looks drawn with a compass. */
 const edge = (R: number, a: number) => R * (1 + 0.028 * Math.sin(3 * a + 0.7) + 0.018 * Math.sin(5 * a + 2.1) + 0.01 * Math.sin(11 * a + 0.3));
@@ -77,6 +105,7 @@ export class IslandScene implements Controller {
   private selected: string | null = null;
   private floaters: { o: THREE.Object3D; y: number; ph: number }[] = [];
   private flies: { g: THREE.Group; l: THREE.Object3D; r: THREE.Object3D; ph: number; sp: number; rad: number; y: number }[] = [];
+  private goldWing: THREE.Material | null = null; private wingMat: THREE.Material | null = null;
   private clouds: THREE.Sprite[] = [];
   private extras: THREE.Object3D[] = [];
   private fall = { uT: { value: 0 } };
@@ -93,6 +122,27 @@ export class IslandScene implements Controller {
   private growK = 1; private growFrom = 1;
   /** told when a visitor lands (to show its card) */
   onLanded: (() => void) | null = null;
+  /** told when the buddy gets somewhere secret: the cave rock, the floating rock, high enough to see the whale */
+  onReach: ((what: 'cave' | 'skyrock' | 'whale') => void) | null = null;
+  /** told when a Glimmer brings the ball back */
+  onFetched: ((id: GlimmerId) => void) | null = null;
+  private blk!: BlockKit;
+  readonly secrets: IslandSecrets;
+  /** what walkers walk on: the blocks, the secret rocks, the grass */
+  world: World = { cols: new Map(), rocks: [], groundR: 5 };
+  private rocks = rocksOf(5);
+  private blockSq = new Set<string>();
+  private spots: Spot[] = [];
+  /** the buddy's feet, its falling speed, where its picture stands (steps eased) and the way it's walking */
+  private meP: P3 = { x: 0, y: 0, z: 0 }; private meVy = 0; private meShow = 0;
+  private path: P3[] = [];
+  private ball: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; t0: number; who: GlimmerId; phase: 'fly' | 'rest' | 'held'; } | null = null;
+  /** sky: day to night (0..1) and rain (0..1), eased toward what's wanted */
+  private weather = { dark: 0, rain: 0, wantDark: 0, wantRain: 0 };
+  private skyU: Record<string, { value: THREE.Color }> | null = null;
+  private hemi!: THREE.HemisphereLight;
+  private golden = { on: false, t: 0 };
+  private reached = new Set<string>();
 
   private constructor(island: Island, kit: PropKit, root: THREE.Group, view: View) {
     this.island = island; this.kit = kit; this.root = root; this.view = view;
@@ -100,15 +150,17 @@ export class IslandScene implements Controller {
     this.marker.visible = false; this.marker.renderOrder = 1;
     root.add(this.marker);
     stage.scene.add(this.fx.root);
+    this.secrets = new IslandSecrets(this.fx, this.fall.uT);
+    root.add(this.secrets.root);
     if (import.meta.env.DEV) (window as unknown as { __isle: IslandScene }).__isle = this;
   }
 
-  static async create(o: { save: IslandSave; r: number; buddy: FriendId; dress?: Dress | null; view: View; grewFrom?: number }): Promise<IslandScene> {
+  static async create(o: { save: IslandSave; r: number; buddy: FriendId; dress?: Dress | null; view: View; grewFrom?: number; caveOpen?: boolean }): Promise<IslandScene> {
     const own: { dispose(): void }[] = [];
     const keep = <T extends { dispose(): void }>(x: T) => { own.push(x); return x; };
     const root = new THREE.Group();
     const T = { ...THEMES.village, fog: 0xf3dcc4 };
-    const kit = await PropKit.load();
+    const [kit, blk] = await Promise.all([PropKit.load(), BlockKit.load()]);
     const island: Island = {
       trail: { length: 1, at: () => ({ p: new THREE.Vector3(), t: new THREE.Vector3(1, 0, 0), n: new THREE.Vector3(0, 0, 1) }) as unknown as ReturnType<Island['trail']['at']> },
       height: () => 0, placeFinish: () => {}, gateSolid: () => {}, root, theme: T as Island['theme'], stats: {},
@@ -118,8 +170,11 @@ export class IslandScene implements Controller {
     island.setSmooth = (on) => { for (const c of sc.clouds) c.visible = !on || c.userData.near; sc.extras.forEach((e, i) => (e.visible = !on || !!e.userData.keep || i % 3 === 0)); };
     sc.own.push(...own);
     sc.r = o.r; sc.rimR = (o.r + 0.95) * CELL;
+    sc.blk = blk; root.add(blk.root);
+    sc.rocks = rocksOf(o.r);
     await sc.sky();
     await sc.buildLand(o.r);
+    await sc.secrets.build(sc.rocks, sc.rimR, !!o.caveOpen);
     if (o.grewFrom && o.grewFrom < o.r) { sc.growFrom = (o.grewFrom + 0.95) / (o.r + 0.95); sc.growK = 0; }
     sc.sync(o.save);
     for (const t of sc.things.values()) t.pop = 1;
@@ -132,6 +187,8 @@ export class IslandScene implements Controller {
       void me.loadMoves();
       me.root.position.copy(sc.freeSpot(new THREE.Vector3(0.6, 0, 2.6)));
       me.root.rotation.y = 0.3;
+      sc.meP = { x: me.root.position.x, y: 0, z: me.root.position.z };
+      standUp(sc.world, sc.meP); sc.meShow = sc.meP.y;
       sc.me = me;
     }
     sc.frame(true);
@@ -145,18 +202,21 @@ export class IslandScene implements Controller {
     const sunDir = new THREE.Vector3(-0.42, -0.17, -0.89).normalize();
     const sky = new THREE.Mesh(keep(new THREE.SphereGeometry(1500, 32, 16)), keep(new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false,
-      uniforms: { top: { value: new THREE.Color(0x7fb2ea) }, mid: { value: new THREE.Color(0xf7d7b4) }, low: { value: new THREE.Color(0xffeccd) }, sunDir: { value: sunDir } },
+      uniforms: { top: { value: new THREE.Color(0x7fb2ea) }, mid: { value: new THREE.Color(0xf7d7b4) }, low: { value: new THREE.Color(0xffeccd) }, sunDir: { value: sunDir }, sunA: { value: 1 } },
       vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position = p.xyww; }',
-      fragmentShader: `uniform vec3 top, mid, low, sunDir; varying vec3 vDir;
+      fragmentShader: `uniform vec3 top, mid, low, sunDir; uniform float sunA; varying vec3 vDir;
         void main(){ float y = vDir.y; vec3 c = mix(low, mid, smoothstep(-0.55, -0.15, y)); c = mix(c, top, smoothstep(-0.2, 0.35, y));
           float s = max(0.0, dot(normalize(vDir), sunDir));
-          c += vec3(1.0, 0.88, 0.62) * (smoothstep(0.9993, 0.9997, s) * 1.4 + pow(s, 60.0) * 0.5 + pow(s, 8.0) * 0.22);
+          c += sunA * vec3(1.0, 0.88, 0.62) * (smoothstep(0.9993, 0.9997, s) * 1.4 + pow(s, 60.0) * 0.5 + pow(s, 8.0) * 0.22);
           gl_FragColor = vec4(c, 1.0);
           #include <colorspace_fragment>
         }`,
     })));
     sky.renderOrder = -1; root.add(sky);
+    this.skyU = (sky.material as THREE.ShaderMaterial).uniforms as unknown as Record<string, { value: THREE.Color }>;
+    for (const k of ['top', 'mid', 'low']) this.skyU[k + '0'] = { value: this.skyU[k].value.clone() };
     const hemi = new THREE.HemisphereLight(0xfff0dc, 0x9ab06a, 1.25);
+    this.hemi = hemi;
     const sun = new THREE.DirectionalLight(0xffe4c0, 2.55);
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
@@ -168,6 +228,7 @@ export class IslandScene implements Controller {
     if (cloudTex) {
       const low = keep(new THREE.SpriteMaterial({ map: cloudTex, color: 0xfff3e6, transparent: true, depthWrite: false, fog: true }));
       const high = keep(new THREE.SpriteMaterial({ map: cloudTex, color: 0xffe9d6, transparent: true, depthWrite: false, fog: false, opacity: 0.85 }));
+      this.cloudMats = [{ m: low, c: low.color.clone() }, { m: high, c: high.color.clone() }];
       // the sea of cloud the island floats over, from just under the cliff out to the horizon
       for (let i = 0; i < 64; i++) {
         const a = rnd() * Math.PI * 2, r = this.rimR + 5 + Math.pow(rnd(), 0.9) * 170;
@@ -219,6 +280,9 @@ export class IslandScene implements Controller {
       };
       const lg = half(true), rg = half(false);
       for (let i = 0; i < 5; i++) { const g = new THREE.Group(), l = new THREE.Mesh(lg, wingMat), r = new THREE.Mesh(rg, wingMat); g.add(l, r); g.scale.setScalar(1.4); root.add(g); this.flies.push({ g, l, r, ph: i * 1.9, sp: 0.5 + (i % 3) * 0.15, rad: 1.5 + i * 0.7, y: 0.8 + (i % 2) * 0.5 }); }
+      // the golden one (a secret): golden wings and a glitter trail, a little bigger
+      this.goldWing = keep(new THREE.MeshStandardMaterial({ map: fly, alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.3, metalness: 0.4, color: 0xffd34d, emissive: 0xb07800, emissiveIntensity: 0.6 }));
+      this.wingMat = wingMat;
     }
   }
 
@@ -430,9 +494,33 @@ export class IslandScene implements Controller {
     }
     for (const [uid, t] of this.things) if (!seen.has(uid)) { t.obj.removeFromParent(); this.things.delete(uid); if (this.selected === uid) this.select(null); }
     this.solidsFrom();
+    // the blocks: drawn, and walked on (anyone a block landed on climbs out on top)
+    this.blk.sync(save.blocks);
+    this.world = worldOf(save.blocks, [this.rocks.cave, this.rocks.sky], this.walkR);
+    this.blockSq = blockCells(save.blocks);
+    standUp(this.world, this.meP);
+    for (const p of this.pals) if (!p.hop && p.mood !== 'swim' && p.mood !== 'sit' && p.mood !== 'warm') standUp(this.world, p.p3);
     this.meadow();
+    this.spotsFrom();
     // Glimmers who live by a home of their element
     for (const p of this.pals) p.home = this.homeOf(GLIMMER[p.id].element);
+  }
+  /** the places Glimmers like to be: ponds to swim in, bench seats, the sun dais, the tops of high blocks */
+  private spotsFrom() {
+    const was = new Map(this.spots.map(sp => [`${sp.kind}|${sp.at.x.toFixed(2)}|${sp.at.z.toFixed(2)}`, sp.taken]));
+    const out: Spot[] = [];
+    for (const t of this.things.values()) {
+      const id = t.pl.item, c = this.centre(t.pl), turn = -t.pl.rot * Math.PI / 2;
+      if (id === 'pond') out.push({ kind: 'swim', at: c.clone().setY(0.03), r: 0.55 });
+      else if (id === 'tidepond' || id === 'icepool') out.push({ kind: 'swim', at: c.clone().setY(0.04), r: 0.45 });
+      else if (id === 'bench') for (const sx of [-0.42, 0.42]) out.push({ kind: 'sit', at: c.clone().add(new THREE.Vector3(Math.cos(turn) * sx, 0.47, -Math.sin(turn) * sx)), r: 0, face: turn });
+      else if (id === 'sundais') for (let i = 0; i < 3; i++) { const a = i * 2.1 + 0.5; out.push({ kind: 'warm', at: c.clone().add(new THREE.Vector3(Math.cos(a) * 0.45, 0.29, Math.sin(a) * 0.45)), r: 0 }); }
+    }
+    for (const q of perches(this.world, 1.0).slice(0, 8)) out.push({ kind: 'perch', at: new THREE.Vector3(q.x, q.y, q.z), r: 0 });
+    for (const sp of out) sp.taken = was.get(`${sp.kind}|${sp.at.x.toFixed(2)}|${sp.at.z.toFixed(2)}`);
+    // a Glimmer whose place went (a bench put away, a tower taken down) gets down
+    for (const p of this.pals) if (p.spot && !out.some(sp => sp.taken === p.id)) { p.spot = null; if (p.mood !== 'walk' && p.mood !== 'fetch' && p.mood !== 'bring') this.hopDown(p); }
+    this.spots = out;
   }
   /** a thing's middle on the ground, in metres */
   private centre(pl: Placed) { const it = ITEM[pl.item], c = centerOf(it, pl.x, pl.z, pl.rot); return new THREE.Vector3(c.x * CELL, 0, c.z * CELL); }
@@ -510,6 +598,7 @@ export class IslandScene implements Controller {
     const t = this.tufts!; t.count = 0; for (const b of this.blooms) b.count = 0; if (this.leaves) this.leaves.count = 0;
     const busy = new Set<string>();
     for (const th of this.things.values()) { const it = ITEM[th.pl.item]; if (!it) continue; const f = footprint(it, th.pl.rot); for (let i = 0; i < f.w; i++) for (let j = 0; j < f.d; j++) busy.add(`${th.pl.x + i},${th.pl.z + j}`); }
+    for (const k of this.blockSq) busy.add(k);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), R = Math.ceil(this.r);
     for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) {
       if (Math.hypot(i, j) > this.r - 0.3 || busy.has(`${i},${j}`)) continue;
@@ -579,24 +668,90 @@ export class IslandScene implements Controller {
     if (!p || Math.hypot(p.x, p.z) > this.rimR) return null;
     return { i: Math.round(p.x / CELL), j: Math.round(p.z / CELL), x: p.x / CELL, z: p.z / CELL };
   }
-  private groundAt(clientX: number, clientY: number) {
+  private rayAt(clientX: number, clientY: number) {
     const ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2((clientX / innerWidth) * 2 - 1, -(clientY / innerHeight) * 2 + 1), stage.camera);
-    return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+    return ray;
   }
+  private groundAt(clientX: number, clientY: number) {
+    return this.rayAt(clientX, clientY).ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+  }
+
+  // ---------- building with blocks ----------
+  /** Where a build tool points: for placing, the square next to the face of the block under the pointer (or
+   *  on the grass); for painting, turning or taking away, the block itself. `turnFor`: a ramp or stairs put
+   *  against a block's side rises toward it; on the grass or on top it rises away from the camera. */
+  blockAim(clientX: number, clientY: number, shape: ShapeId, paint: number, turn: number): Aim {
+    const ray = this.rayAt(clientX, clientY), hit = this.blk.pick(ray);
+    const camRot = ((Math.round(-this.cam.yaw / (Math.PI / 2)) % 4) + 4) % 4;
+    const rotOf = (r: number) => (((r + turn) % 4) + 4) % 4 as Block['r'];
+    if (hit) {
+      const n = hit.normal, b = hit.block, ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
+      let place: Block | null = null;
+      if (ay >= 0.55 || (ay > ax && ay > az)) {
+        place = n.y > 0 ? { x: b.x, y: b.y + SHAPE[b.s].tall, z: b.z, s: shape, r: rotOf(camRot), p: paint } : (b.y > 0 ? { x: b.x, y: b.y - SHAPE[shape].tall, z: b.z, s: shape, r: rotOf(camRot), p: paint } : null);
+      } else {
+        const dx = ax > az ? Math.sign(n.x) : 0, dz = ax > az ? 0 : Math.sign(n.z);
+        const y = Math.max(b.y, Math.min(b.y + SHAPE[b.s].tall - 1, Math.floor(hit.point.y / BLOCK + 1e-4)));
+        // rising toward the block it's put against: its back faces back the way it came
+        const r = dx > 0 ? 3 : dx < 0 ? 1 : dz > 0 ? 0 : 2;
+        place = { x: b.x + dx, y, z: b.z + dz, s: shape, r: rotOf(r), p: paint };
+      }
+      return { place, on: b, key: `${b.x},${b.y},${b.z}` };
+    }
+    const g = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+    if (!g || Math.hypot(g.x, g.z) > this.rimR + 0.5) return { place: null, on: null, key: null };
+    return { place: { x: Math.floor(g.x / BLOCK), y: 0, z: Math.floor(g.z / BLOCK), s: shape, r: rotOf(camRot), p: paint }, on: null, key: null };
+  }
+  /** The see-through piece where the next one goes (null: none). */
+  ghostBlock(b: Block | null, ok = true) { this.blk.ghost(b, ok); if (b) this.busyT = 0.5; }
+  /** A soft box round the block a tool acts on. */
+  markBlock(b: Block | null, color?: number) { this.blk.mark(b, color); }
+  /** A new block pops in (call before the sync that brings it), with a puff and a pop. */
+  popBlock(b: Block) {
+    this.blk.pop(`${b.x},${b.y},${b.z}`);
+    this.fx.emit({ at: new THREE.Vector3((b.x + 0.5) * BLOCK, (b.y + 0.5) * BLOCK, (b.z + 0.5) * BLOCK), count: 10, shape: ['star', 'dot'], color: [0xffffff, 0xfff2a8], speed: [0.6, 1.4], up: 0.8, life: [0.3, 0.5], size: [0.05, 0.1], drag: 2 });
+  }
+  /** A puff where a block was taken away. */
+  puffBlock(b: Block) {
+    this.fx.emit({ at: new THREE.Vector3((b.x + 0.5) * BLOCK, (b.y + 0.5) * BLOCK, (b.z + 0.5) * BLOCK), count: 14, shape: ['dot', 'pebble'], color: [0xffffff, 0xe8e0d0], speed: [0.6, 1.6], up: 0.6, life: [0.3, 0.6], size: [0.06, 0.12], drag: 2, gravity: 3 });
+  }
+  /** the blocks' draws and triangles */
+  blockStats() { return this.blk.stats(); }
   /** a puff of joy where something was placed */
   cheerAt(uid: string) { const t = this.things.get(uid); if (!t) return; t.pop = 0; sfx.pop(); }
 
   // ---------- the buddy ----------
   /** The keys or the stick: right and forward (-1..1), relative to the camera; 0, 0 lets go. */
   steer(x: number, z: number) { this.drive.x = x; this.drive.z = z; if (x || z) { this.goto = null; this.walk.mode = 'drive'; this.walk.lastDrive = this.now; } }
-  /** Tap the ground: the buddy walks there. */
-  walkTo(clientX: number, clientY: number): boolean {
-    const p = this.groundAt(clientX, clientY);
-    if (!p || Math.hypot(p.x, p.z) > this.walkR) return false;
-    this.goto = p.setY(0); this.walk.mode = 'drive'; this.walk.lastDrive = this.now;
-    this.fx.emit({ at: p.clone().setY(0.08), count: 10, shape: 'ring', color: 0xffd34d, speed: [0.05, 0.2], life: [0.4, 0.6], size: [0.25, 0.4], drag: 2 });
-    return true;
+  /** Tap the ground, a roof or a rock: the buddy finds its way there (up ramps, round walls). 'none': not
+   *  somewhere to stand; 'noway': there's no way up there (yet). */
+  walkTo(clientX: number, clientY: number): 'ok' | 'none' | 'noway' {
+    const ray = this.rayAt(clientX, clientY), hit = this.blk.pick(ray);
+    let at: THREE.Vector3 | null = null;
+    if (hit && hit.normal.y > 0.5) at = hit.point.clone();
+    else if (hit) at = hit.point.clone().addScaledVector(hit.normal.setY(0).normalize(), 0.3);
+    if (!at) for (const q of [this.rocks.cave, this.rocks.sky]) { const pt = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -q.top), new THREE.Vector3()); if (pt && Math.hypot(pt.x - q.x, pt.z - q.z) < q.r) { at = pt; break; } }
+    if (!at) { const g = this.groundAt(clientX, clientY); if (g && Math.hypot(g.x, g.z) <= this.walkR) at = g; }
+    if (!at) return 'none';
+    const fy = floorAt(this.world, at.x, at.z, at.y + 0.05);
+    if (fy === null) return 'none';
+    const to = { x: at.x, y: fy, z: at.z };
+    const pts = findPath(this.world, this.meP, to, (x, z, y) => y < 0.3 && blocked({ x, z }, this.solids, this.boxes, 0.22));
+    if (!pts && fy > 0.3) return 'noway';
+    this.path = pts ?? [to];
+    this.goto = new THREE.Vector3(to.x, to.y, to.z); this.walk.mode = 'drive'; this.walk.lastDrive = this.now;
+    this.fx.emit({ at: new THREE.Vector3(to.x, to.y + 0.08, to.z), count: 10, shape: 'ring', color: 0xffd34d, speed: [0.05, 0.2], life: [0.4, 0.6], size: [0.25, 0.4], drag: 2 });
+    return 'ok';
+  }
+  /** where the buddy's feet are */
+  get buddyAt(): P3 { return { ...this.meP }; }
+  /** Move someone by `dist` toward `dir`: round the island's things while on the grass, over and up the blocks. */
+  private move3(p: P3, dir: { x: number; z: number }, dist: number, r2d: number, r3d = 0.15): number {
+    let dx = dir.x * dist, dz = dir.z * dist;
+    if (p.y < 0.3) { const q = { x: p.x, z: p.z }; step(q, dir, dist, this.solids, this.boxes, r2d, Infinity); dx = q.x - p.x; dz = q.z - p.z; }
+    const len = Math.hypot(dx, dz);
+    return len < 1e-6 ? 0 : walk(this.world, p, { x: dx / len, z: dz / len }, len, r3d);
   }
   cheer() {
     const me = this.me; if (!me) return;
@@ -614,7 +769,7 @@ export class IslandScene implements Controller {
   /** The Glimmers living on the island (only the changes are made). */
   async setOut(list: Out[]) {
     const want = new Set(list.map(o => o.id));
-    for (const p of [...this.pals]) if (!want.has(p.id)) { p.m.dispose(); p.heart?.removeFromParent(); this.pals = this.pals.filter(x => x !== p); }
+    for (const p of [...this.pals]) if (!want.has(p.id)) { p.m.dispose(); p.heart?.removeFromParent(); p.wish?.removeFromParent(); if (p.spot) p.spot.taken = undefined; if (p.next) p.next.taken = undefined; this.pals = this.pals.filter(x => x !== p); }
     for (const o of list) {
       if (this.pals.some(p => p.id === o.id)) continue;
       const m = await GlimmerModel.create(o.id, GLIM_H, { evolved: o.evolved }).catch(() => null);
@@ -626,15 +781,17 @@ export class IslandScene implements Controller {
       m.root.rotation.y = Math.random() * 6;
       m.appearThen = 'idle';
       this.root.add(m.root);
-      this.pals.push({ id: o.id, m, mood: 'idle', until: this.now + 1 + Math.random() * 3, to: null, home, hopAt: 0, zzz: 0 });
+      this.pals.push({ id: o.id, m, mood: 'idle', until: this.now + 1 + Math.random() * 3, to: null, home, hopAt: 0, zzz: 0, p3: { x: m.root.position.x, y: 0, z: m.root.position.z }, vy: 0 });
     }
   }
   /** A Glimmer was tapped: a happy hop and hearts. */
   poke(id: GlimmerId) {
     const p = this.pals.find(x => x.id === id) ?? (this.visitor?.pal.id === id ? this.visitor.pal : null);
     if (!p) return;
-    p.m.droop = 0; p.mood = 'idle'; p.until = this.now + 2.5; p.to = null;
-    p.m.face = this.camPos.clone().setY(0);
+    p.m.droop = 0;
+    // (in a pond, on a bench or up high it stays there)
+    if (!p.spot && !p.hop && p.mood !== 'fetch' && p.mood !== 'bring') { p.mood = 'idle'; p.until = this.now + 2.5; p.to = null; if (p.next) { p.next.taken = undefined; p.next = null; } }
+    p.m.face = this.camPos.clone().setY(p.p3.y);
     p.m.play('happy');
     this.fx.emit({ at: p.m.root.position.clone().add(new THREE.Vector3(0, 0.7, 0)), count: 16, shape: ['heart', 'star'], color: [0xff8fc0, 0xffd34d, 0xffffff], speed: [0.6, 1.6], up: 1.2, life: [0.6, 1.0], size: [0.08, 0.16], drag: 1.5 });
   }
@@ -654,43 +811,323 @@ export class IslandScene implements Controller {
     }
     const s = new THREE.Sprite(this.heartMat); s.renderOrder = 4; return s;
   }
+  /** a Glimmer's place to go now and then, by what it likes (water ones swim, sunny ones warm up...) */
+  private goSomewhere(p: Pal): boolean {
+    const el = GLIMMER[p.id].element;
+    const like: Record<Spot['kind'], number> = { swim: el === 'tide' ? 4 : el === 'frost' ? 2.5 : 0.8, sit: 1.2, warm: el === 'sun' ? 4 : 0.5, perch: el === 'stone' ? 2 : 1.1 };
+    const free = this.spots.filter(sp => !sp.taken);
+    if (!free.length) return false;
+    let total = free.reduce((a, sp) => a + like[sp.kind], 0), r = Math.random() * total;
+    const sp = free.find(x => (r -= like[x.kind]) <= 0) ?? free[0];
+    void total;
+    sp.taken = p.id; p.next = sp;
+    p.mood = 'walk'; p.until = this.now + 14;
+    // to the edge of the pond, the front of the bench, the foot of the tower
+    p.to = this.freeSpot(sp.at.clone().setY(0).add(new THREE.Vector3(p.p3.x - sp.at.x, 0, p.p3.z - sp.at.z).setLength(sp.kind === 'perch' ? 0.45 : sp.r + 0.5)), 0.22);
+    return true;
+  }
+  /** Hop through the air on to a place (or down from it). */
+  private hopTo(p: Pal, to: THREE.Vector3, then: Mood, until: number) {
+    const from = p.m.root.position.clone(), up = to.y - from.y;
+    p.hop = { from, to: to.clone(), t0: this.now, dur: 0.5 + Math.min(1, Math.abs(up) * 0.22 + from.distanceTo(to) * 0.08), h: Math.max(0.35, up + 0.45), then, until };
+    p.m.droop = 0;
+  }
+  private hopOnto(p: Pal, sp: Spot) {
+    const to = sp.at.clone();
+    if (sp.kind === 'swim') to.add(new THREE.Vector3((Math.random() - 0.5) * sp.r, 0, (Math.random() - 0.5) * sp.r));
+    p.spot = sp; p.next = null;
+    this.hopTo(p, to, sp.kind, this.now + 8 + Math.random() * 7);
+  }
+  /** down from a place on to the grass near by */
+  private hopDown(p: Pal) {
+    if (p.spot) { p.spot.taken = undefined; p.spot = null; }
+    const at = this.randomSpot(new THREE.Vector3(p.p3.x, 0, p.p3.z), 0.7, 0.22);
+    const y = floorAt(this.world, at.x, at.z, 0) ?? 0;
+    this.hopTo(p, at.setY(y), 'idle', this.now + 1 + Math.random() * 2);
+  }
   private palMove(p: Pal, dt: number, t: number) {
-    const m = p.m, pos = m.root.position;
+    const m = p.m, P = p.p3;
     // now and then a happy one shows a heart
     p.heartAt ??= t + 3 + Math.random() * 12;
-    if (t > p.heartAt && p.mood !== 'nap') { p.heartAt = t + 10 + Math.random() * 16; p.heartT = 0; if (!p.heart) { p.heart = this.heartBubble(); this.root.add(p.heart); } }
+    if (t > p.heartAt && p.mood !== 'nap' && p.mood !== 'sit') { p.heartAt = t + 10 + Math.random() * 16; p.heartT = 0; if (!p.heart) { p.heart = this.heartBubble(); this.root.add(p.heart); } }
     if (p.heart) {
       p.heartT = (p.heartT ?? 0) + dt;
       const k = p.heartT, show = k < 2.4, s = show ? Math.min(1, easeOutBack(Math.min(1, k / 0.35))) * 0.42 : Math.max(0, 0.42 - (k - 2.4) * 2);
-      p.heart.visible = s > 0.01; p.heart.scale.setScalar(Math.max(0.001, s * 1.3));
-      p.heart.position.copy(pos).add(new THREE.Vector3(0.18, m.height * (m.floats ? 1.75 : 1.4) + Math.sin(t * 3) * 0.03, 0));
+      p.heart.visible = s > 0.01 && !p.wish; p.heart.scale.setScalar(Math.max(0.001, s * 1.3));
+      p.heart.position.copy(m.root.position).add(new THREE.Vector3(0.18, m.height * (m.floats ? 1.75 : 1.4) + Math.sin(t * 3) * 0.03, 0));
     }
-    if (t > p.until && p.mood !== 'walk') {
-      // what next: wander (often to its home), stand about, nap, or play by its home
+    if (p.wish) { p.wish.position.copy(m.root.position).add(new THREE.Vector3(0.2, m.height * (m.floats ? 1.9 : 1.55) + Math.sin(t * 2.4) * 0.05, 0)); p.wish.scale.setScalar(0.62 + Math.sin(t * 3) * 0.02); }
+    // in the air
+    if (p.hop) {
+      const h = p.hop, k = Math.min(1, (t - h.t0) / h.dur);
+      m.root.position.lerpVectors(h.from, h.to, k); m.root.position.y += Math.sin(k * Math.PI) * h.h;
+      m.face = h.to.clone().setY(m.root.position.y);
+      if (h.to.y - h.from.y > 1.2 && Math.random() < dt * 25) this.fx.emit({ at: m.root.position.clone(), count: 1, shape: ['star', 'spark'], color: [0xffffff, 0xfff2a8], speed: [0.1, 0.4], life: [0.4, 0.7], size: [0.05, 0.1], drag: 1 });
+      if (k >= 1) {
+        P.x = h.to.x; P.y = h.to.y; P.z = h.to.z; p.vy = 0;
+        p.hop = null; p.mood = h.then; p.until = h.until;
+        if (h.then === 'swim') { sfx.pop(); this.fx.emit({ at: h.to.clone().setY(h.to.y + 0.05), count: 14, shape: 'drop', color: [0xbfeaff, 0xffffff], speed: [0.6, 1.6], up: 1.8, life: [0.4, 0.7], size: [0.05, 0.1], gravity: 6 }); }
+        else m.play('hop');
+        if (h.then === 'sit') m.face = this.spotFace(p);
+      }
+      m.update(dt, t);
+      return;
+    }
+    if (t > p.until && p.mood !== 'walk' && p.mood !== 'fetch' && p.mood !== 'bring') {
+      if (p.mood === 'nap' || p.mood === 'sit') { m.droop = 0; m.play('happy'); }
+      // done with its place: down again
+      if (p.spot) { this.hopDown(p); m.update(dt, t); return; }
       const r = Math.random();
-      if (p.mood === 'nap') { m.droop = 0; m.play('happy'); }
-      if (r < 0.5) { p.mood = 'walk'; p.to = this.randomSpot(p.home && Math.random() < 0.7 ? p.home : null, 1.0); p.until = t + 12; }
-      else if (r < 0.7) { p.mood = 'idle'; p.until = t + 2 + Math.random() * 3; p.to = null; m.face = Math.random() < 0.5 && this.me ? this.me.root.position.clone() : null; }
-      else if (r < 0.84) { p.mood = 'nap'; p.until = t + 7 + Math.random() * 6; p.to = null; m.face = null; }
+      if (r < 0.34 && P.y < 0.3 && this.goSomewhere(p)) { /* on its way */ }
+      else if (r < 0.62) { p.mood = 'walk'; p.to = this.randomSpot(p.home && Math.random() < 0.7 ? p.home : null, 1.0); p.until = t + 12; }
+      else if (r < 0.78) { p.mood = 'idle'; p.until = t + 2 + Math.random() * 3; p.to = null; m.face = Math.random() < 0.5 && this.me ? this.me.root.position.clone() : null; }
+      else if (r < 0.88) { p.mood = 'nap'; p.until = t + 7 + Math.random() * 6; p.to = null; m.face = null; }
       else { p.mood = 'play'; p.until = t + 3 + Math.random() * 2; p.to = null; }
     }
+    let swimY = 0;
+    const walkOn = (to: THREE.Vector3, speed: number) => {
+      const d = new THREE.Vector3(to.x - P.x, 0, to.z - P.z), len = d.length();
+      if (len < 0.08) return len;
+      const moved = this.move3(P, { x: d.x / len, z: d.z / len }, Math.min(len, dt * speed), 0.2, 0.12);
+      m.face = to.clone().setY(P.y);
+      if (!m.floats && t > p.hopAt) { m.play('hop'); p.hopAt = t + (speed > 1 ? 0.32 : 0.5); }
+      return moved < dt * speed * 0.15 && len > 0.3 ? -1 : len;
+    };
     if (p.mood === 'walk' && p.to) {
-      const d = p.to.clone().sub(pos); d.y = 0;
-      const len = d.length();
-      if (len < 0.08 || t > p.until) { p.mood = 'idle'; p.until = t + 1.5 + Math.random() * 2; p.to = null; }
-      else {
-        step(pos, d.multiplyScalar(1 / len), Math.min(len, dt * (m.floats ? 0.75 : 0.62)), this.solids, this.boxes, 0.2, this.walkR - 0.25);
-        m.face = p.to.clone();
-        if (!m.floats && t > p.hopAt) { m.play('hop'); p.hopAt = t + 0.5; }
+      const len = walkOn(p.to, m.floats ? 0.75 : 0.62);
+      if (len < 0.1 || t > p.until || (len < 0 && Math.random() < dt * 2)) {
+        const sp = p.next;
+        if (sp && Math.hypot(sp.at.x - P.x, sp.at.z - P.z) < 2.4) this.hopOnto(p, sp);
+        else { if (sp) { sp.taken = undefined; p.next = null; } p.mood = 'idle'; p.until = t + 1.5 + Math.random() * 2; p.to = null; }
       }
-    } else if (p.mood === 'nap') {
+    } else if (p.mood === 'fetch' && this.ball?.who === p.id) {
+      const b = this.ball, len = walkOn(b.to, 1.7);
+      if (b.phase === 'rest' && len >= 0 && len < 0.4) { b.phase = 'held'; p.mood = 'bring'; p.until = t + 16; m.play('happy'); sfx.pop(); }
+      else if (t > p.until) this.dropBall(p, false);
+    } else if (p.mood === 'bring' && this.ball?.who === p.id) {
+      const me = this.meP, len = walkOn(new THREE.Vector3(me.x, me.y, me.z), 1.5);
+      if (len >= 0 && len < 0.8) this.dropBall(p, true);
+      else if (t > p.until) this.dropBall(p, false);
+    } else if (p.mood === 'fetch' || p.mood === 'bring') { p.mood = 'idle'; p.until = t + 1; }
+    else if (p.mood === 'swim' && p.spot) {
+      // round and round the pond, low in the water, with ripples
+      const sp = p.spot, a = t * 0.7 + p.id.length, rr = sp.r * 0.55;
+      const to = sp.at.clone().add(new THREE.Vector3(Math.cos(a) * rr, 0, Math.sin(a) * rr));
+      P.x += (to.x - P.x) * Math.min(1, dt * 1.5); P.z += (to.z - P.z) * Math.min(1, dt * 1.5); P.y = sp.at.y;
+      m.face = sp.at.clone().add(new THREE.Vector3(Math.cos(a + 0.6) * rr, 0, Math.sin(a + 0.6) * rr));
+      swimY = -m.height * 0.32 + Math.sin(t * 2.2) * 0.03;
+      p.zzz -= dt;
+      if (p.zzz <= 0) { p.zzz = 0.5; this.fx.emit({ at: new THREE.Vector3(P.x, sp.at.y + 0.03, P.z), count: 1, shape: 'ring', color: 0xe6f8ff, speed: [0.02, 0.06], life: [0.8, 1.1], size: [0.3, 0.5], grow: 1.5, drag: 2 }); }
+    } else if (p.mood === 'sit' || p.mood === 'nap') {
       m.droop = Math.min(0.9, m.droop + dt * 0.8);
       p.zzz -= dt;
-      if (p.zzz <= 0) { p.zzz = 0.9; this.fx.emit({ at: pos.clone().add(new THREE.Vector3(0.1, m.height * 0.9, 0)), count: 1, shape: 'dot', color: 0xffffff, speed: [0.15, 0.3], up: 0.6, life: [1.2, 1.6], size: [0.05, 0.09], drag: 0.5, fade: 1 }); }
+      if (p.zzz <= 0) { p.zzz = 0.9; this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0.1, m.height * 0.9, 0)), count: 1, shape: 'dot', color: 0xffffff, speed: [0.15, 0.3], up: 0.6, life: [1.2, 1.6], size: [0.05, 0.09], drag: 0.5, fade: 1 }); }
+    } else if (p.mood === 'warm') {
+      m.face = this.sun.position.clone();
+      if (Math.random() < dt * 4) this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0, m.height * 0.6, 0)), count: 1, shape: ['spark', 'star'], color: [0xffd34d, 0xffb52e, 0xffffff], speed: [0.1, 0.4], up: 0.8, life: [0.5, 0.9], size: [0.05, 0.1], drag: 1 });
+    } else if (p.mood === 'perch') {
+      if (t > p.hopAt) { p.hopAt = t + 2 + Math.random() * 2; m.face = new THREE.Vector3(P.x + Math.cos(t) * 3, P.y, P.z + Math.sin(t) * 3); if (Math.random() < 0.4) m.play('happy'); }
     } else if (p.mood === 'play') {
-      if (t > p.hopAt) { m.play(Math.random() < 0.4 ? 'happy' : 'hop'); p.hopAt = t + 0.9 + Math.random() * 0.6; if (Math.random() < 0.5) this.fx.emit({ at: pos.clone().add(new THREE.Vector3(0, 0.5, 0)), count: 6, shape: ['star', 'dot'], color: [0xffffff, 0xfff2a8], speed: [0.3, 0.9], up: 0.8, life: [0.4, 0.7], size: [0.05, 0.1], drag: 2 }); }
+      if (t > p.hopAt) { m.play(Math.random() < 0.4 ? 'happy' : 'hop'); p.hopAt = t + 0.9 + Math.random() * 0.6; if (Math.random() < 0.5) this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0, 0.5, 0)), count: 6, shape: ['star', 'dot'], color: [0xffffff, 0xfff2a8], speed: [0.3, 0.9], up: 0.8, life: [0.4, 0.7], size: [0.05, 0.1], drag: 2 }); }
     }
+    // a treat: munch, munch, munch
+    if (p.munch && t < p.munch) { if (t > p.hopAt) { m.play('act'); p.hopAt = t + 0.34; this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0, m.height * 0.5, 0)), count: 3, shape: 'dot', color: [0xe8a050, 0xffd9a0], speed: [0.3, 0.8], up: 0.6, life: [0.3, 0.5], size: [0.03, 0.05], gravity: 4 }); } }
+    if (p.mood !== 'swim' && p.mood !== 'sit' && p.mood !== 'warm' && p.mood !== 'perch') p.vy = fall(this.world, P, p.vy, dt);
+    m.root.position.set(P.x, P.y + swimY, P.z);
     m.update(dt, t);
+  }
+  /** which way a Glimmer on a bench faces (out from the back) */
+  private spotFace(p: Pal) { const sp = p.spot, a = sp?.face ?? 0; return new THREE.Vector3(p.p3.x - Math.sin(a) * -2, p.p3.y, p.p3.z + Math.cos(a) * 2); }
+
+  // ---------- playing with the Glimmers ----------
+  private ballMat: THREE.Material | null = null;
+  /** Throw a ball for a Glimmer: it runs to it and brings it back. */
+  throwBall(id: GlimmerId): boolean {
+    const p = this.pals.find(x => x.id === id), me = this.me;
+    if (!p || !me || this.ball || p.hop) return false;
+    if (p.spot) { p.spot.taken = undefined; p.spot = null; }
+    if (p.next) { p.next.taken = undefined; p.next = null; }
+    if (!this.ballMat) {
+      const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64;
+      const g = cv.getContext('2d')!; g.fillStyle = '#ff5f6d'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#ffd34d'; g.fillRect(0, 22, 128, 20); g.fillStyle = '#ffffff'; g.fillRect(0, 28, 128, 8);
+      const tx = this.keep(new THREE.CanvasTexture(cv)); tx.colorSpace = THREE.SRGBColorSpace;
+      this.ballMat = this.keep(new THREE.MeshStandardMaterial({ map: tx, roughness: 0.35 }));
+    }
+    const mesh = new THREE.Mesh(this.keep(new THREE.SphereGeometry(0.11, 16, 12)), this.ballMat); mesh.castShadow = true;
+    const from = me.root.position.clone().add(new THREE.Vector3(0, 0.95, 0));
+    const ground = new THREE.Vector3(this.meP.x, 0, this.meP.z);
+    let to = this.randomSpot(ground, 2.6, 0.25);
+    for (let i = 0; i < 6 && to.distanceTo(ground) < 1.8; i++) to = this.randomSpot(ground, 2.6, 0.25);
+    to.y = (floorAt(this.world, to.x, to.z, 0) ?? 0) + 0.11;
+    mesh.position.copy(from); this.root.add(mesh);
+    this.ball = { mesh, from, to, t0: this.now, who: id, phase: 'fly' };
+    me.root.rotation.y = Math.atan2(to.x - this.meP.x, to.z - this.meP.z);
+    const a = me.play(me.has('wave1') ? 'wave1' : me.has('cheer') ? 'cheer' : 'idle', 0.15); a?.reset();
+    this.walk.mode = 'idle'; this.walk.until = this.now + 30; this.path = []; this.goto = null;
+    p.mood = 'fetch'; p.until = this.now + 16; p.to = null; p.m.droop = 0;
+    sfx.whoosh();
+    return true;
+  }
+  get fetching(): GlimmerId | null { return this.ball?.who ?? null; }
+  private dropBall(p: Pal, brought: boolean) {
+    const b = this.ball; if (!b) return;
+    this.ball = null;
+    b.mesh.removeFromParent();
+    p.mood = 'idle'; p.until = this.now + 2;
+    this.walk.until = this.now + 1.5;
+    if (brought) {
+      p.m.play('happy'); p.m.face = this.me?.root.position.clone() ?? null;
+      this.fx.emit({ at: p.m.root.position.clone().add(new THREE.Vector3(0, 0.7, 0)), count: 18, shape: ['heart', 'star'], color: [0xff8fc0, 0xffd34d, 0xffffff], speed: [0.6, 1.6], up: 1.2, life: [0.6, 1.0], size: [0.08, 0.16], drag: 1.5 });
+      sfx.cheer();
+      this.onFetched?.(p.id);
+    } else this.fx.emit({ at: b.mesh.position.clone(), count: 12, shape: 'dot', color: 0xffffff, speed: [0.4, 1], life: [0.3, 0.5], size: [0.06, 0.1], drag: 2 });
+  }
+  private ballMove(t: number) {
+    const b = this.ball; if (!b) return;
+    if (b.phase === 'fly') {
+      const k = Math.min(1, (t - b.t0) / 0.9);
+      b.mesh.position.lerpVectors(b.from, b.to, k); b.mesh.position.y += Math.sin(k * Math.PI) * 1.6;
+      b.mesh.rotation.x += 0.3;
+      if (k >= 1) { b.phase = 'rest'; b.t0 = t; sfx.pop(); this.fx.emit({ at: b.to.clone(), count: 6, shape: 'dot', color: 0xeaffd0, speed: [0.3, 0.7], up: 0.6, life: [0.3, 0.5], size: [0.04, 0.07], gravity: 4 }); }
+    } else if (b.phase === 'rest') {
+      const k = t - b.t0; b.mesh.position.copy(b.to); b.mesh.position.y += Math.abs(Math.sin(k * 9)) * 0.18 * Math.max(0, 1 - k * 1.6);
+    } else {
+      const p = this.pals.find(x => x.id === b.who);
+      if (p) { const f = p.m.root.rotation.y; b.mesh.position.copy(p.m.root.position).add(new THREE.Vector3(Math.sin(f) * 0.24, p.m.height * 0.42, Math.cos(f) * 0.24)); }
+    }
+  }
+  /** A treat flies from the buddy to a Glimmer, who munches it. */
+  feedFx(id: GlimmerId) {
+    const p = this.pals.find(x => x.id === id), me = this.me;
+    if (!p || !me) return;
+    const from = me.root.position.clone().add(new THREE.Vector3(0, 0.9, 0)), to = p.m.root.position.clone().add(new THREE.Vector3(0, p.m.height * 0.5, 0));
+    if (!p.spot && !p.hop) { p.mood = 'idle'; p.until = this.now + 3; p.to = null; }
+    p.m.face = from.clone().setY(p.p3.y);
+    this.fx.fly(from, to, { color: 0xffb35c, size: 0.16, time: 0.55, arc: 0.7, trail: at => ({ at, count: 1, shape: 'dot', color: [0xffd9a0, 0xffffff], speed: [0.05, 0.2], life: [0.2, 0.4], size: [0.03, 0.06], drag: 2 }), hit: () => {
+      p.munch = this.now + 1.4; p.hopAt = 0;
+      this.fx.emit({ at: to, count: 16, shape: ['heart', 'star'], color: [0xff8fc0, 0xffd34d, 0xffffff], speed: [0.5, 1.4], up: 1.2, life: [0.6, 1.0], size: [0.07, 0.14], drag: 1.5 });
+      sfx.pop();
+    } });
+  }
+  /** A Glimmer's wish, as a picture in a thought bubble over its head (null: none). */
+  setWish(id: GlimmerId | null, pic: string | null) {
+    for (const p of this.pals) if (p.wish && p.id !== id) { p.wish.removeFromParent(); (p.wish.material as THREE.SpriteMaterial).map?.dispose(); (p.wish.material as THREE.SpriteMaterial).dispose(); p.wish = null; }
+    const p = id ? this.pals.find(x => x.id === id) : null;
+    if (!p || p.wish) return;
+    const cv = document.createElement('canvas'); cv.width = cv.height = 160;
+    const g = cv.getContext('2d')!;
+    const draw = (img?: HTMLImageElement) => {
+      g.clearRect(0, 0, 160, 160);
+      g.fillStyle = 'rgba(80,50,30,.18)';
+      for (const [x, y, r] of [[82, 72, 60], [40, 60, 30], [120, 58, 30], [26, 140, 9], [44, 124, 13]]) { g.beginPath(); g.arc(x + 2, y + 3, r, 0, 7); g.fill(); }
+      g.fillStyle = '#ffffff';
+      for (const [x, y, r] of [[80, 70, 60], [38, 58, 30], [118, 56, 30], [24, 138, 9], [42, 122, 13]]) { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+      if (img) g.drawImage(img, 30, 18, 100, 100);
+      tex.needsUpdate = true;
+    };
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+    draw();
+    if (pic) { const img = new Image(); img.onload = () => draw(img); img.src = pic; }
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    s.renderOrder = 5; s.scale.setScalar(0.62);
+    p.wish = s; this.root.add(s);
+    p.m.play('happy');
+  }
+  /** The wish came true: the bubble pops, hearts everywhere, a happy dance. */
+  wishGranted(id: GlimmerId) {
+    const p = this.pals.find(x => x.id === id);
+    if (!p) return;
+    if (p.wish) { this.fx.emit({ at: p.wish.position.clone(), count: 24, shape: ['star', 'dot'], color: [0xffffff, 0xfff2a8, 0xb8ffcf], speed: [0.6, 1.8], life: [0.4, 0.8], size: [0.06, 0.12], drag: 2 }); p.wish.removeFromParent(); p.wish = null; }
+    p.m.play('happy');
+    for (let i = 0; i < 3; i++) setTimeout(() => this.fx.emit({ at: p.m.root.position.clone().add(new THREE.Vector3(0, 0.8, 0)), count: 14, shape: 'heart', color: [0xff6fa8, 0xff9fc6, 0xffffff], speed: [0.6, 1.6], up: 1.4, life: [0.8, 1.2], size: [0.1, 0.18], drag: 1.2 }), i * 260);
+  }
+  /** The secrets' things on the island: the sparkle in the grass (a square, or none), a bottle in a pond
+   *  (the pond's id), a note beside a very happy Glimmer. */
+  showSparkle(at: { x: number; z: number } | null) { this.secrets.setSparkle(at ? new THREE.Vector3(at.x * CELL, 0.01, at.z * CELL) : null); }
+  showBottle(uid: string | null) { const t = uid ? this.things.get(uid) : null; this.secrets.setBottle(t ? this.centre(t.pl).add(new THREE.Vector3(0.28, 0.05, 0.22)) : null); }
+  showNote(id: GlimmerId | null) {
+    if (!id) { this.secrets.setNote(null); return; }
+    const p = this.pals.find(x => x.id === id), at = this.freeSpot(p ? new THREE.Vector3(p.p3.x + 0.55, 0, p.p3.z + 0.35) : new THREE.Vector3(1, 0, 1.6), 0.2);
+    this.secrets.setNote(at.setY(floorAt(this.world, at.x, at.z, 0) ?? 0));
+  }
+  /** the rainbow after the rain (on or off) */
+  rainbow(on: boolean) { this.secrets.setRainbow(on); }
+  /** Is the buddy standing on the sparkle in the grass? */
+  get onSparkle(): boolean { const s = this.secrets.sparkleAt; return !!s && Math.hypot(s.x - this.meP.x, s.z - this.meP.z) < 0.55 && this.meP.y < 0.2; }
+  /** Dig on the sparkle: the buddy digs, then the chest (the first time) or a treat comes up. */
+  dig(first: boolean, done: () => void) {
+    const me = this.me, at = this.secrets.sparkleAt?.clone();
+    if (!me || !at) return;
+    this.walk.mode = 'idle'; this.walk.until = this.now + 4.5; this.path = []; this.goto = null;
+    const a = me.play(me.has('fistpump') ? 'fistpump' : me.has('jump') ? 'jump' : 'cheer', 0.2); a?.reset();
+    this.secrets.dig(at.setY(0), first, done);
+    sfx.whoosh();
+  }
+  /** A coin flies from the buddy into the Wishing Well, and it sparkles. */
+  wishFx(uid: string, done: () => void) {
+    const t = this.things.get(uid), me = this.me;
+    if (!t || !me) { done(); return; }
+    const to = this.centre(t.pl).setY(0.45), from = me.root.position.clone().add(new THREE.Vector3(0, 0.9, 0));
+    this.fx.fly(from, to, { color: 0xffd34d, size: 0.14, time: 0.7, arc: 1.2, trail: at => ({ at, count: 1, shape: 'spark', color: [0xffe27a, 0xffffff], speed: [0.05, 0.2], life: [0.2, 0.4], size: [0.04, 0.07], drag: 2 }), hit: () => {
+      this.fx.emit({ at: to, count: 22, shape: 'drop', color: [0xbfeaff, 0xffffff], speed: [0.6, 1.6], up: 2, life: [0.4, 0.7], size: [0.05, 0.1], gravity: 6 });
+      for (let i = 0; i < 4; i++) setTimeout(() => this.fx.emit({ at: to.clone().setY(0.6 + i * 0.35), count: 10, shape: ['star', 'spark'], color: [0xffd34d, 0xfff2a8, 0xffffff], speed: [0.3, 1], up: 1.2, life: [0.5, 0.9], size: [0.06, 0.12], drag: 1.5 }), i * 160);
+      sfx.twinkle(); done();
+    } });
+  }
+  /** Where a placed thing is on the screen (for a label over it). */
+  screenAt(v: THREE.Vector3): { x: number; y: number } | null {
+    const q = v.clone().project(stage.camera);
+    return q.z > 1 ? null : { x: (q.x + 1) / 2, y: (1 - q.y) / 2 };
+  }
+  thingAt(uid: string): THREE.Vector3 | null { const t = this.things.get(uid); return t ? this.centre(t.pl) : null; }
+  /** A Glimmer's feet (for the note it leaves near it). */
+  glimmerAt(id: GlimmerId): THREE.Vector3 | null { const p = this.pals.find(x => x.id === id); return p ? new THREE.Vector3(p.p3.x, p.p3.y, p.p3.z) : null; }
+
+  // ---------- the sky: night and rain ----------
+  /** How dark (0 day, 1 night) and how rainy (0, 1) it should be; the sky eases there. */
+  setWeather(o: { dark?: number; rain?: number; now?: boolean }) {
+    if (o.dark !== undefined) this.weather.wantDark = o.dark;
+    if (o.rain !== undefined) this.weather.wantRain = o.rain;
+    if (o.now) { this.weather.dark = this.weather.wantDark; this.weather.rain = this.weather.wantRain; this.skyTick(0); }
+    this.secrets.setNight(this.weather.wantDark);
+    this.secrets.setRain(this.weather.wantRain > 0.5);
+  }
+  private cloudMats: { m: THREE.SpriteMaterial; c: THREE.Color }[] = [];
+  private skyTick(dt: number) {
+    const w = this.weather, ease = (a: number, b: number) => (dt <= 0 ? b : a + (b - a) * Math.min(1, dt * 0.8));
+    const wasD = w.dark, wasR = w.rain;
+    w.dark = ease(w.dark, w.wantDark); w.rain = ease(w.rain, w.wantRain);
+    if (dt > 0 && Math.abs(w.dark - wasD) < 1e-4 && Math.abs(w.rain - wasR) < 1e-4) return;
+    const d = w.dark, r = w.rain * (1 - d * 0.5);
+    const mix = (day: number, rain: number, night: number) => new THREE.Color(day).lerp(new THREE.Color(rain), r).lerp(new THREE.Color(night), d);
+    if (this.skyU) {
+      this.skyU.top.value.copy(this.skyU.top0.value).lerp(new THREE.Color(0x8d9bb0), r).lerp(new THREE.Color(0x0b1640), d);
+      this.skyU.mid.value.copy(this.skyU.mid0.value).lerp(new THREE.Color(0xb9c2cf), r).lerp(new THREE.Color(0x2a2f66), d);
+      this.skyU.low.value.copy(this.skyU.low0.value).lerp(new THREE.Color(0xd5d9df), r).lerp(new THREE.Color(0x4a3f72), d);
+      (this.skyU.sunA as unknown as { value: number }).value = Math.max(0, 1 - d * 1.2 - r * 0.8);
+    }
+    // (a moonlit night: blue, but the island still easy to see)
+    this.hemi.intensity = 1.25 - r * 0.3 - d * 0.42; this.hemi.color.copy(mix(0xfff0dc, 0xe8eef6, 0xa8b6ff));
+    this.sun.intensity = 2.55 - r * 1.3 - d * 1.6; this.sun.color.copy(mix(0xffe4c0, 0xe6ecf4, 0xb8c4ff));
+    (stage.scene.fog as THREE.Fog | null)?.color.copy(mix(0xf3dcc4, 0xc8ccd4, 0x3a4274));
+    for (const c of this.cloudMats) c.m.color.copy(c.c).lerp(new THREE.Color(0xb0b6c2), r).lerp(new THREE.Color(0x6c72a4), d);
+    this.blk.setNight(d);
+    this.kit.setNight?.(d);
+  }
+
+  // ---------- a photo ----------
+  /** where the middle of the island is on the screen (0..1) */
+  islandOnScreen(): { x: number; y: number } | null { return this.screenAt(new THREE.Vector3(0, 0.3, 0)); }
+  /** The island as it is now, as a picture (a data URL). */
+  snapshot(): string | null {
+    const r = stage.renderer; if (!r) return null;
+    // (sharper than the screen when it's drawing fewer pixels to keep up: up to about 2400 across)
+    const was = r.getPixelRatio(), size = r.getSize(new THREE.Vector2()), k = Math.min(2, 2400 / Math.max(1, size.x));
+    if (k > was) r.setPixelRatio(k);
+    r.render(stage.scene, stage.camera);
+    const url = r.domElement.toDataURL('image/png');
+    if (k > was) r.setPixelRatio(was);
+    return url;
   }
 
   // ---------- visitors ----------
@@ -713,7 +1150,7 @@ export class IslandScene implements Controller {
     if (arriving && ct) { cloud = new THREE.Sprite(this.keep(new THREE.SpriteMaterial({ map: ct, transparent: true, depthWrite: false, color: 0xffffff }))); cloud.scale.set(1.5, 0.66, 1); this.root.add(cloud); }
     let present: THREE.Object3D | null = null;
     if (v.present) { present = this.present(); present.position.copy(this.freeSpot(at.clone().add(new THREE.Vector3(0.55, 0, 0.25)), 0.25)); present.visible = !arriving; this.root.add(present); }
-    this.visitor = { pal: { id: v.id, m, mood: 'idle', until: this.now + 3, to: null, home: at, hopAt: 0, zzz: 0 }, arrive: arriving ? this.now : -99, from: at.clone().setY(7), at, present, cloud, opened: !v.present };
+    this.visitor = { pal: { id: v.id, m, mood: 'idle', until: this.now + 3, to: null, home: at, hopAt: 0, zzz: 0, p3: { x: at.x, y: 0, z: at.z }, vy: 0 }, arrive: arriving ? this.now : -99, from: at.clone().setY(7), at, present, cloud, opened: !v.present };
     if (arriving) sfx.twinkle();
   }
   /** The present is opened: it pops. */
@@ -770,10 +1207,18 @@ export class IslandScene implements Controller {
     for (const p of this.pals) { const d = boxHit(p.m.root, 0.12); if (d < bd) { bd = d; best = { kind: 'glimmer', id: p.id }; } }
     if (this.visitor) { const d = Math.min(boxHit(this.visitor.pal.m.root, 0.15), this.visitor.present ? boxHit(this.visitor.present, 0.1) : Infinity); if (d < bd) { bd = d; best = { kind: 'visitor' }; } }
     if (this.me) { const d = boxHit(this.me.root, 0); if (d < bd) { bd = d; best = { kind: 'buddy' }; } }
+    // the secrets: a bottle in a pond, a Glimmer's note, the golden butterfly, the rainbow
+    const near = (v: THREE.Vector3 | null, r: number) => { if (!v) return Infinity; const d = ray.ray.distanceSqToPoint(v); return d < r * r ? ray.ray.origin.distanceTo(v) : Infinity; };
+    for (const [kind, v, r] of [['bottle', this.secrets.bottleAt, 0.4], ['note', this.secrets.noteAt?.clone().setY((this.secrets.noteAt?.y ?? 0) + 0.06) ?? null, 0.4], ['butterfly', this.golden.on ? this.flies[0]?.g.position ?? null : null, 0.45]] as const) {
+      const d = near(v, r); if (d < bd) { bd = d; best = { kind } as Pick; }
+    }
+    if (!best && this.secrets.hitsRainbow(ray.ray)) best = { kind: 'rainbow' };
     // things: the mesh hit nearest (only if nothing alive is in front)
     const objs = [...this.things.values()].filter(t => t.obj.visible).map(t => t.obj);
     const h = ray.intersectObjects(objs, true).find(x => (x.object as THREE.Mesh).isMesh && x.object.visible);
-    if (h && h.distance < bd) {
+    // (a block in front of a thing hides it)
+    const bh = this.blk.pick(ray), bdist = bh ? bh.point.distanceTo(ray.ray.origin) : Infinity;
+    if (h && h.distance < bd && h.distance < bdist) {
       let o: THREE.Object3D | null = h.object;
       while (o && !o.userData.item) o = o.parent;
       const t = o ? [...this.things.values()].find(x => x.obj === o) : null;
@@ -809,7 +1254,8 @@ export class IslandScene implements Controller {
       for (const id of ids) {
         const had = THUMBS.get(id);
         if (had) { onOne(id, had); continue; }
-        const o = this.kit.make(id); if (!o) continue;
+        const bp = id.startsWith('block:') ? id.split(':') : null;
+        const o = bp ? this.blk.sample(bp[1] as ShapeId, Number(bp[2] ?? 14)) : this.kit.make(id); if (!o) continue;
         scene.add(o); o.updateMatrixWorld(true);
         const box = new THREE.Box3(); o.traverse(m => { if ((m as THREE.Mesh).isMesh) box.expandByObject(m); });
         const sph = box.getBoundingSphere(new THREE.Sphere());
@@ -857,7 +1303,7 @@ export class IslandScene implements Controller {
     c.target.addScaledVector(right, -dx * k).addScaledVector(fwd, dy * k / Math.max(0.35, Math.sin(c.pitch)));
     this.clampTarget(); this.framed = false; this.busyT = 0.6;
   }
-  private clampTarget() { const t = this.cam.target, d = Math.hypot(t.x, t.z), m = this.rimR + 1; if (d > m) { t.x *= m / d; t.z *= m / d; } t.y = 0.55; }
+  private clampTarget() { const t = this.cam.target, d = Math.hypot(t.x, t.z), m = this.rimR + 4; if (d > m) { t.x *= m / d; t.z *= m / d; } t.y = Math.max(0.55, Math.min(4, t.y)); }
   /** Is the camera somewhere you put it (not the whole island)? */
   get looking() { return !this.framed; }
 
@@ -875,14 +1321,21 @@ export class IslandScene implements Controller {
     if (this.ghost) { this.ghost.obj.position.y = 0.12 + Math.sin(t * 4) * 0.05; (this.marker.material as THREE.MeshBasicMaterial).opacity = 0.35 + Math.sin(t * 5) * 0.12; }
     else if (this.marker.visible) (this.marker.material as THREE.MeshBasicMaterial).opacity = 0.3 + Math.sin(t * 4) * 0.12;
     for (const f of this.floaters) f.o.position.y = f.y + Math.sin(t * 0.5 + f.ph) * 0.25;
+    // a little while after the island opens, one butterfly turns golden (a secret: tap it)
+    if (!this.golden.on && this.goldWing && (this.golden.t += dt) > 14) { this.golden.on = true; const b = this.flies[0]; if (b) { (b.l as THREE.Mesh).material = this.goldWing; (b.r as THREE.Mesh).material = this.goldWing; b.g.scale.setScalar(1.9); b.y = 1.0; b.rad = 2.4; } }
     this.flies.forEach((b, i) => {
       const tt = t * b.sp + b.ph, p = new THREE.Vector3(Math.cos(tt * 0.6) * b.rad + Math.sin(tt * 2.1) * 0.3, b.y + Math.sin(tt * 1.3) * 0.3, Math.sin(tt * 0.6 + i) * b.rad * 0.8 + Math.cos(tt * 1.7) * 0.3);
       const v = p.clone().sub(b.g.position); b.g.position.copy(p); if (v.lengthSq() > 1e-6) b.g.rotation.y = Math.atan2(v.x, v.z);
       const flap = Math.sin(t * 16 + b.ph) * 0.9; b.l.rotation.z = -flap; b.r.rotation.z = flap;
+      if (i === 0 && this.golden.on && Math.random() < dt * 12) this.fx.emit({ at: p.clone(), count: 1, shape: ['spark', 'star'], color: [0xffd34d, 0xffffff], speed: [0.05, 0.2], life: [0.4, 0.7], size: [0.04, 0.08], drag: 1 });
     });
+    this.blk.update(t, dt);
+    this.ballMove(t);
     this.buddy(dt, t);
     for (const p of this.pals) this.palMove(p, dt, t);
     this.visit(dt, t);
+    this.skyTick(dt);
+    this.secrets.update(t, dt, this.camPos);
     this.fx.setScale(innerHeight * Math.min(2, devicePixelRatio || 1), stage.camera.fov);
     this.fx.update(dt, t);
     this.camera(dt, t);
@@ -892,21 +1345,24 @@ export class IslandScene implements Controller {
 
   private buddy(dt: number, t: number) {
     const me = this.me; if (!me) return;
-    const w = this.walk, pos = me.root.position;
+    const w = this.walk, P = this.meP;
     const turnTo = (a: number, k: number) => { const d = Math.atan2(Math.sin(a - me.root.rotation.y), Math.cos(a - me.root.rotation.y)); me.root.rotation.y += d * Math.min(1, dt * k); };
     if (w.mode === 'drive') {
-      let dir: THREE.Vector3 | null = null, speed = 0;
+      let dir: { x: number; z: number } | null = null, speed = 0;
       if (this.drive.x || this.drive.z) {
         const c = this.cam, fwd = new THREE.Vector3(-Math.sin(c.yaw), 0, -Math.cos(c.yaw)), right = new THREE.Vector3(Math.cos(c.yaw), 0, -Math.sin(c.yaw));
-        dir = fwd.multiplyScalar(this.drive.z).addScaledVector(right, this.drive.x);
-        const mm = Math.min(1, dir.length()); dir.normalize(); speed = 3.0 * mm; w.lastDrive = t;
-      } else if (this.goto) {
-        const d = this.goto.clone().sub(pos); d.y = 0; const len = d.length();
-        if (len < 0.15) this.goto = null; else { dir = d.multiplyScalar(1 / len); speed = len > 2 ? 3.0 : 1.1 + len; w.lastDrive = t; }
+        const d = fwd.multiplyScalar(this.drive.z).addScaledVector(right, this.drive.x);
+        const mm = Math.min(1, d.length()); d.normalize(); dir = d; speed = 3.0 * mm; w.lastDrive = t;
+        this.path = []; this.goto = null;
+      } else if (this.path.length) {
+        const to = this.path[0], dx = to.x - P.x, dz = to.z - P.z, len = Math.hypot(dx, dz);
+        if (len < 0.1) { this.path.shift(); if (!this.path.length) this.goto = null; }
+        else { dir = { x: dx / len, z: dz / len }; speed = this.path.length > 1 || len > 2 ? 3.0 : 1.1 + len; w.lastDrive = t; }
       }
       if (dir && speed > 0) {
-        const moved = step(pos.setY(0), dir, speed * dt, this.solids, this.boxes, 0.3, this.walkR);
-        if (this.goto && moved < speed * dt * 0.2) this.goto = null;
+        const moved = this.move3(P, dir, speed * dt, 0.3);
+        // stuck against something on the way: give up on it
+        if (this.path.length && moved < speed * dt * 0.2) { this.stuck += dt; if (this.stuck > 0.5) { this.path = []; this.goto = null; } } else this.stuck = 0;
         turnTo(Math.atan2(dir.x, dir.z), 12);
         const gait = speed > 2.2 && me.has('run') ? 'run' : 'walk'; me.play(gait, 0.2);
         const a = me.actions[gait]; if (a) a.timeScale = Math.max(0.6, Math.min(2, Math.max(0.3, moved / Math.max(1e-4, dt)) / (me.speedOf[gait] || speed)));
@@ -914,23 +1370,38 @@ export class IslandScene implements Controller {
       // left alone for a while: it potters about by itself again
       if (t - w.lastDrive > 8) { w.mode = 'idle'; w.until = t + 2; }
     } else if (w.mode === 'walk') {
-      const d = w.to.clone().sub(pos); d.y = 0; const len = d.length();
+      const dx = w.to.x - P.x, dz = w.to.z - P.z, len = Math.hypot(dx, dz);
       if (len < 0.1 || t > w.until) { w.mode = 'idle'; w.until = t + 3 + Math.random() * 4; const a = me.play(me.has('wave1') && Math.random() < 0.25 ? 'wave1' : 'idle', 0.3); a?.reset(); }
-      else { step(pos.setY(0), d.multiplyScalar(1 / len), Math.min(len, dt * 1.05), this.solids, this.boxes, 0.3, this.walkR); turnTo(Math.atan2(d.x, d.z), 8); me.play('walk', 0.3); const a = me.actions.walk; if (a) a.timeScale = Math.max(0.6, 1.05 / (me.speedOf.walk || 1)); }
+      else { this.move3(P, { x: dx / len, z: dz / len }, Math.min(len, dt * 1.05), 0.3); turnTo(Math.atan2(dx, dz), 8); me.play('walk', 0.3); const a = me.actions.walk; if (a) a.timeScale = Math.max(0.6, 1.05 / (me.speedOf.walk || 1)); }
     } else {
-      if (t > w.until) {
-        // off to look at something: a Glimmer, a thing, or just somewhere
+      // off to look at something (only from the grass: up on what's built it stays put till you walk it)
+      if (t > w.until && P.y < 0.3 && !this.ball) {
         const things = [...this.things.values()];
-        const pick = Math.random() < 0.4 && this.pals.length ? this.pals[Math.floor(Math.random() * this.pals.length)].m.root.position : Math.random() < 0.6 && things.length ? this.centre(things[Math.floor(Math.random() * things.length)].pl) : null;
+        const pick = Math.random() < 0.4 && this.pals.length ? this.pals[Math.floor(Math.random() * this.pals.length)].m.root.position.clone().setY(0) : Math.random() < 0.6 && things.length ? this.centre(things[Math.floor(Math.random() * things.length)].pl) : null;
         w.to.copy(this.randomSpot(pick, 0.8, 0.3)); w.mode = 'walk'; w.until = t + 10;
-      } else me.play('idle', 0.4);
+      } else {
+        me.play('idle', 0.4);
+        if (this.ball) { const p = this.pals.find(x => x.id === this.ball!.who); if (p) turnTo(Math.atan2(p.p3.x - P.x, p.p3.z - P.z), 4); }
+      }
     }
+    this.meVy = fall(this.world, P, this.meVy, dt);
+    // its picture: steps up eased, falls as they come
+    this.meShow = P.y <= this.meShow ? P.y : this.meShow + (P.y - this.meShow) * Math.min(1, dt * 16);
+    me.root.position.set(P.x, this.meShow, P.z);
+    // somewhere secret?
+    const reach = (what: 'cave' | 'skyrock' | 'whale', yes: boolean) => { if (yes && !this.reached.has(what)) { this.reached.add(what); this.onReach?.(what); } };
+    reach('cave', onRock(this.rocks.cave, P.x, P.y, P.z));
+    reach('skyrock', onRock(this.rocks.sky, P.x, P.y, P.z));
+    reach('whale', P.y >= WHALE_Y);
     me.update(dt);
   }
+  private stuck = 0;
+  /** Let a secret place tell again (it was found, or the moment is over). */
+  unreach(what: 'cave' | 'skyrock' | 'whale') { this.reached.delete(what); }
 
   private camera(dt: number, _t: number) {
     const c = this.cam, cam = stage.camera;
-    if (this.walk.mode === 'drive' && this.me && (this.drive.x || this.drive.z || this.goto) && !this.framed) c.target.lerp(this.me.root.position.clone().setY(0.55), 1 - Math.exp(-dt * 3));
+    if (this.walk.mode === 'drive' && this.me && (this.drive.x || this.drive.z || this.goto) && !this.framed) c.target.lerp(this.me.root.position.clone().setY(this.meShow + 0.55), 1 - Math.exp(-dt * 3));
     if (this.framed) { this.frame(); c.yaw = Math.sin(_t * 0.07) * 0.14; }
     const pos = c.target.clone().add(new THREE.Vector3(Math.sin(c.yaw) * Math.cos(c.pitch), Math.sin(c.pitch), Math.cos(c.yaw) * Math.cos(c.pitch)).multiplyScalar(c.dist));
     // the view band isn't the middle of the screen (the bars cover some): shift so the island sits in it
@@ -949,6 +1420,10 @@ export class IslandScene implements Controller {
 
   dispose() {
     this.me?.dispose();
+    this.blk.dispose();
+    this.secrets.dispose();
+    this.ball?.mesh.removeFromParent();
+    for (const p of this.pals) p.wish?.removeFromParent();
     for (const p of this.pals) p.m.dispose();
     if (this.visitor) this.visitor.pal.m.dispose();
     this.fx.root.removeFromParent(); this.fx.dispose();

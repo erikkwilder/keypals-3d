@@ -12,6 +12,7 @@
   import Critter from '../ui/Critter.svelte';
   import StickerCard from '../ui/StickerCard.svelte';
   import { rideIcon } from '../art/vehicles';
+  import { ISLE_STICKERS } from '../island/secrets'; // My Sky Island's secrets, in the Secrets section
 
   const p = $derived(game.profile!);
   const look = $derived(p.settings.look);
@@ -66,7 +67,8 @@
   <div class="body scroll">
     {#if tab === 'stickers'}
       {#each SECTIONS as [title, test]}
-        {@const list = STICKERS.filter(test)}
+        <!-- (the Secrets section also has My Sky Island's secrets: island/secrets.ts) -->
+        {@const list = title === 'Secrets' ? [...STICKERS.filter(test), ...ISLE_STICKERS] : STICKERS.filter(test)}
         {#if list.length}
         <section>
           <h2>{title} <span class="muted">{list.filter(s => book.stickers[s.id]).length}/{list.length}</span></h2>

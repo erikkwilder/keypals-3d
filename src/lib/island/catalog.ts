@@ -25,8 +25,10 @@ export type ItemDef = {
   habitat?: Element;
   /** you walk over it (stepping stones, decking): nothing bumps into it */
   flat?: boolean;
-  /** only a visitor's gift */
+  /** only a visitor's gift (or a secret's keepsake) */
   gift?: boolean;
+  /** a keepsake from one of the island's secrets (island/secrets.ts) */
+  keepsake?: boolean;
   /** one of the few big things worth saving up for */
   dream?: boolean;
   /** the round part you bump into (a tree's trunk), as a share of a square; absent: the whole footprint */
@@ -90,6 +92,17 @@ export const ITEMS: ItemDef[] = [
   { id: 'gem-tide', name: 'Sea Glass', price: 0, kind: 'gift', gift: true, w: 1, d: 1, invites: { tide: 1 }, blurb: 'A gift from a water visitor.' },
   { id: 'gem-stone', name: 'Geode', price: 0, kind: 'gift', gift: true, w: 1, d: 1, invites: { stone: 1 }, blurb: 'A gift from a stony visitor.' },
   { id: 'gem-leaf', name: 'Leaf Crystal', price: 0, kind: 'gift', gift: true, w: 1, d: 1, invites: { leaf: 1 }, blurb: 'A gift from a leafy visitor.' },
+  // ---------- keepsakes from the island's secrets (not sold; island/secrets.ts) ----------
+  { id: 'k-chest', name: 'Treasure Chest', price: 0, kind: 'gift', gift: true, keepsake: true, w: 1, d: 1, blurb: 'Dug up where the grass sparkled.' },
+  { id: 'k-geode', name: 'Cave Crystal', price: 0, kind: 'gift', gift: true, keepsake: true, w: 1, d: 1, invites: { stone: 1 }, blurb: 'From the cave behind the waterfall.' },
+  { id: 'k-starstone', name: 'Star Stone', price: 0, kind: 'gift', gift: true, keepsake: true, w: 1, d: 1, invites: { sun: 1 }, blurb: 'From the rock floating far out.' },
+  { id: 'k-firefly', name: 'Firefly Jar', price: 0, kind: 'gift', gift: true, keepsake: true, w: 1, d: 1, invites: { sun: 1 }, blurb: 'Fireflies from a night on the island.' },
+  { id: 'k-raincloud', name: 'Rain Cloud', price: 0, kind: 'gift', gift: true, keepsake: true, w: 1, d: 1, invites: { tide: 1 }, blurb: 'A little cloud with its own rainbow.' },
+  { id: 'k-bottle', name: 'Message Bottle', price: 0, kind: 'gift', gift: true, keepsake: true, w: 1, d: 1, invites: { tide: 1 }, blurb: 'It washed up in your pond.' },
+  { id: 'k-wishstar', name: 'Wishing Star', price: 0, kind: 'gift', gift: true, keepsake: true, w: 1, d: 1, invites: { sun: 1 }, blurb: 'Your first wish at the well.' },
+  { id: 'k-letterbox', name: 'Letterbox', price: 0, kind: 'gift', gift: true, keepsake: true, w: 1, d: 1, blurb: 'Where Glimmers leave you notes.' },
+  { id: 'k-whalekite', name: 'Whale Kite', price: 0, kind: 'gift', gift: true, keepsake: true, w: 1, d: 1, invites: { tide: 1 }, blurb: 'It flies like the Sky Whale.' },
+  { id: 'k-butterflies', name: 'Butterfly Bush', price: 0, kind: 'gift', gift: true, keepsake: true, w: 1, d: 1, invites: { leaf: 1 }, blurb: 'The golden butterfly comes back here.' },
 ];
 export const ITEM: Record<string, ItemDef> = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 /** the habitat of each element */

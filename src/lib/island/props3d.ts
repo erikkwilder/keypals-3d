@@ -48,7 +48,7 @@ export class PropKit {
 
   static async load(): Promise<PropKit> {
     const k = new PropKit();
-    const names = ['world/planks.webp', 'world/post.webp', 'world/rock.webp', 'world/dirt.webp', 'world/sand.webp', 'world/snow.webp', 'garden/heads.webp', 'garden/leaves-card.webp', 'world/flowers.webp', 'world/cloud.webp'];
+    const names = ['world/planks.webp', 'world/post.webp', 'world/rock.webp', 'world/dirt.webp', 'world/sand.webp', 'world/snow.webp', 'garden/heads.webp', 'garden/leaves-card.webp', 'world/flowers.webp', 'world/cloud.webp', 'garden/butterfly.webp'];
     const [texs, models] = await Promise.all([
       Promise.all(names.map(n => loadTexture(n, { repeat: true }))),
       Promise.all(MODELS.map(m => loadGltf(`world/${m}.glb`))),
@@ -102,6 +102,12 @@ export class PropKit {
       if (!merged) continue;
       const mesh = new THREE.Mesh(this.keep(merged), mat); root.add(mesh);
     }
+  }
+  /** Night (0 day .. 1 night): lanterns and windows glow brighter. */
+  setNight(k: number) {
+    const lamp = this.mats.get('lampGlass') as THREE.MeshStandardMaterial | undefined, win = this.mats.get('windowGlass') as THREE.MeshStandardMaterial | undefined;
+    if (lamp) lamp.emissiveIntensity = 1.6 + k * 1.6;
+    if (win) win.emissiveIntensity = 1.25 + k * 1.8;
   }
   /** The moving parts of a placed copy, or null. */
   tickFor(root: THREE.Object3D): Tick | null { const a = this.animators.get(root.userData.item); return a ? a(root) : null; }
@@ -261,6 +267,8 @@ export class PropKit {
       case 'lighthouse': this.lighthouse(g); break;
       case 'treehouse': g.add(this.model('treehouse_tree', 5.6)); break;
       case 'rainbow': this.rainbow(g); break;
+      case 'k-chest': case 'k-geode': case 'k-starstone': case 'k-firefly': case 'k-raincloud': case 'k-bottle': case 'k-wishstar': case 'k-letterbox': case 'k-whalekite': case 'k-butterflies':
+        this.keepsake(g, id); break;
       default:
         if (it.gift) this.crystal(g, id.replace('gem-', '') as Element);
         else return null;
@@ -658,6 +666,119 @@ export class PropKit {
     cols.forEach((c, i) => g.add(this.mesh(new THREE.TorusGeometry(1.42 - i * 0.075, 0.045, 8, 48, Math.PI), this.std(`rb${i}`, { color: c, emissive: c, emissiveIntensity: 0.35, roughness: 0.4 }), 0, 0.05, 0)));
     const cloud = this.std('puff', { color: 0xffffff, roughness: 0.9, emissive: 0xffffff, emissiveIntensity: 0.15 });
     for (const s of [-1, 1]) for (const [dx, dy, r] of [[0, 0.18, 0.3], [0.22, 0.12, 0.22], [-0.22, 0.12, 0.22], [0.05, 0.38, 0.2]]) g.add(this.mesh(new THREE.SphereGeometry(r, 14, 10), cloud, s * 1.24 + dx, dy, 0));
+  }
+
+  // ---------- keepsakes from the island's secrets ----------
+  private keepsake(g: THREE.Group, id: string) {
+    const r = rnd(id.length * 31);
+    const post = (h: number) => g.add(this.mesh(tiledBox(0.08, h, 0.08, 1), this.post, 0, h / 2, 0));
+    const glass = this.std('jarGlass', { color: 0xdff6ff, transparent: true, opacity: 0.45, roughness: 0.05, metalness: 0.1 });
+    switch (id) {
+      case 'k-chest': {
+        g.add(this.mesh(new THREE.CircleGeometry(0.42, 20).rotateX(-Math.PI / 2), this.std('chestDirt', { map: this.tex.dirt, color: 0xc9a77a, roughness: 1 }), 0, 0.01, 0));
+        const wood = this.std('chestWood', { map: this.turned('planks'), color: 0xb0703e, roughness: 0.7 });
+        g.add(this.mesh(tiledBox(0.56, 0.32, 0.38, 0.6), wood, 0, 0.17, 0));
+        for (const x of [-0.2, 0.2]) g.add(this.mesh(tiledBox(0.06, 0.33, 0.39, 1), this.gold, x, 0.17, 0));
+        const lid = new THREE.Group(); lid.position.set(0, 0.33, -0.19); lid.rotation.x = -1.1; g.add(lid);
+        lid.add(this.mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.56, 16, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), wood, 0, 0, 0.19));
+        const coins = this.mesh(new THREE.SphereGeometry(0.22, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2), this.gold, 0, 0.3, 0); coins.scale.set(1.15, 0.45, 0.75); g.add(coins);
+        for (let i = 0; i < 4; i++) g.add(this.mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.012, 12), this.gold, -0.3 + r() * 0.6, 0.012, 0.25 + r() * 0.12));
+        g.add(this.glowSprite(0xffd34d, 0.9, 0, 0.42, 0, 0.45));
+        break;
+      }
+      case 'k-geode': {
+        g.add(this.model('boulder', 0.36, 0.75));
+        const am = this.std('caveGem', { color: 0xe0b8ff, emissive: 0x9a5af0, emissiveIntensity: 0.8, roughness: 0.12, transparent: true, opacity: 0.92 });
+        for (let k = 0; k < 6; k++) { const h = 0.25 + r() * 0.35, a = (k / 6) * Math.PI * 2, o = this.mesh(new THREE.OctahedronGeometry(0.08, 0), am, Math.cos(a) * 0.1, 0.3 + h / 2, Math.sin(a) * 0.1); o.scale.set(1, h / 0.16, 1); o.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4); g.add(o); }
+        g.add(this.glowSprite(0xd9a8ff, 1.2, 0, 0.5, 0, 0.6));
+        break;
+      }
+      case 'k-starstone': {
+        g.add(this.mesh(new THREE.CylinderGeometry(0.16, 0.24, 0.3, 10), this.greyStone, 0, 0.15, 0));
+        const s = new THREE.Group(); s.name = 'spin'; s.position.y = 0.62; g.add(s);
+        const star = this.std('starGem', { color: 0xffe27a, emissive: 0xffb52e, emissiveIntensity: 1.0, roughness: 0.25, metalness: 0.3 });
+        const m = this.mesh(new THREE.OctahedronGeometry(0.17, 0), star); m.scale.set(1, 1.4, 1); s.add(m);
+        s.add(this.glowSprite(0xffd36b, 1.2, 0, 0, 0, 0.7));
+        this.animators.set('k-starstone', root => { const o = root.getObjectByName('spin')!; return (t) => { o.rotation.y = t * 1.2; o.position.y = 0.62 + Math.sin(t * 1.8) * 0.05; }; });
+        break;
+      }
+      case 'k-firefly': {
+        g.add(this.mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.2, 12), this.std('stump', { map: this.turned('post'), color: 0xb08860 }), 0, 0.1, 0));
+        g.add(this.mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.34, 16, 1, true), glass, 0, 0.37, 0));
+        g.add(this.mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 16), this.darkWood, 0, 0.56, 0));
+        const flies = new THREE.Group(); flies.name = 'flies'; g.add(flies);
+        const bug = this.std('firefly', { color: 0xeaff9a, emissive: 0xc8ff4a, emissiveIntensity: 1.6, roughness: 0.4 });
+        for (let i = 0; i < 6; i++) { const f = new THREE.Group(); f.position.set((r() - 0.5) * 0.16, 0.26 + r() * 0.2, (r() - 0.5) * 0.16); f.add(this.mesh(new THREE.SphereGeometry(0.022, 8, 6), bug), this.glowSprite(0xdcff7a, 0.16, 0, 0, 0, 0.9)); flies.add(f); }
+        g.add(this.glowSprite(0xdcff7a, 1.0, 0, 0.38, 0, 0.4));
+        this.animators.set('k-firefly', root => { const f = root.getObjectByName('flies')!; return (t) => { f.children.forEach((c, i) => { c.position.y = 0.3 + Math.sin(t * 1.5 + i * 2) * 0.09; c.visible = Math.sin(t * 3 + i * 1.7) > -0.3; }); }; });
+        break;
+      }
+      case 'k-raincloud': {
+        post(0.55);
+        const c = new THREE.Group(); c.name = 'cloud'; c.position.y = 0.8; g.add(c);
+        const puff = this.std('puff', { color: 0xffffff, roughness: 0.9, emissive: 0xffffff, emissiveIntensity: 0.15 });
+        [0xff5b5b, 0xff9f3d, 0xffe04d, 0x6fd66a, 0x4fa8ff].forEach((col, i) => c.add(this.mesh(new THREE.TorusGeometry(0.42 - i * 0.045, 0.024, 6, 24, Math.PI), this.std(`krb${i}`, { color: col, emissive: col, emissiveIntensity: 0.45 }), 0, -0.02, 0)));
+        for (const s of [-1, 1]) for (const [x, y, rr] of [[0, 0.05, 0.16], [0.14, 0, 0.12], [-0.13, 0, 0.12], [0.03, 0.15, 0.12]]) c.add(this.mesh(new THREE.SphereGeometry(rr, 12, 8), puff, s * 0.4 + x, y, 0.02));
+        this.animators.set('k-raincloud', root => { const o = root.getObjectByName('cloud')!; return (t) => { o.position.y = 0.8 + Math.sin(t * 1.2) * 0.04; }; });
+        break;
+      }
+      case 'k-bottle': {
+        g.add(this.mesh(new THREE.CircleGeometry(0.4, 18).rotateX(-Math.PI / 2), this.std('sandRim', { map: this.tex.sand, color: 0xfff1d6, roughness: 1 }), 0, 0.012, 0));
+        const b = new THREE.Group(); b.position.set(0, 0.08, 0); b.rotation.set(0, 0.6, Math.PI / 2 - 0.15); g.add(b);
+        b.add(this.mesh(new THREE.CapsuleGeometry(0.08, 0.2, 4, 12), this.std('bottleGlass', { color: 0x8fe0c8, transparent: true, opacity: 0.6, roughness: 0.08 })));
+        b.add(this.mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.12, 10), this.std('bottleGlass', {}), 0, 0.2, 0));
+        b.add(this.mesh(new THREE.CylinderGeometry(0.037, 0.034, 0.06, 10), this.std('cork', { color: 0xb07a48, roughness: 0.9 }), 0, 0.28, 0));
+        b.add(this.mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.18, 10), this.std('scroll', { color: 0xfff3d6, roughness: 0.9 })));
+        for (const [x, z] of [[0.25, 0.2], [-0.22, -0.18]]) { const sh = this.mesh(new THREE.SphereGeometry(0.06, 10, 6, 0, Math.PI), this.std('shell', { color: 0xffd6cf, roughness: 0.45 }), x, 0.015, z); sh.rotation.x = -Math.PI / 2; g.add(sh); }
+        break;
+      }
+      case 'k-wishstar': {
+        post(1.0);
+        const s = new THREE.Group(); s.name = 'spin'; s.position.y = 1.15; g.add(s);
+        const shape = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? 0.08 : 0.2; if (i) shape.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); else shape.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+        s.add(this.mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.05, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2 }).translate(0, 0, -0.025), this.std('wishStar', { color: 0xffe27a, emissive: 0xffb52e, emissiveIntensity: 0.9, roughness: 0.3, metalness: 0.3 })));
+        s.add(this.glowSprite(0xffd36b, 1.0, 0, 0, 0, 0.6));
+        this.animators.set('k-wishstar', root => { const o = root.getObjectByName('spin')!; return (t) => { o.rotation.y = Math.sin(t * 0.9) * 0.6; }; });
+        break;
+      }
+      case 'k-letterbox': {
+        post(0.75);
+        const red = this.std('letterbox', { color: 0xe8584f, roughness: 0.45 });
+        g.add(this.mesh(tiledBox(0.24, 0.18, 0.36, 1), red, 0, 0.84, 0));
+        g.add(this.mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.36, 14, 1, false, 0, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI / 2).rotateY(Math.PI / 2), red, 0, 0.93, 0));
+        g.add(this.mesh(tiledBox(0.2, 0.14, 0.01, 1), this.std('letter', { color: 0xfffaf0 }), 0, 0.95, 0.19));
+        g.add(this.mesh(new THREE.SphereGeometry(0.03, 8, 6), this.std('seal', { color: 0xff4f7a, emissive: 0x5a0a20 }), 0, 0.95, 0.2));
+        g.add(this.mesh(tiledBox(0.02, 0.2, 0.02, 1), this.iron, 0.13, 0.95, -0.08), this.mesh(tiledBox(0.02, 0.08, 0.1, 1), this.std('flag', { color: 0xffd34d }), 0.13, 1.03, -0.04));
+        break;
+      }
+      case 'k-whalekite': {
+        post(0.5);
+        const k = new THREE.Group(); k.name = 'kite'; k.position.set(0, 1.6, -0.2); g.add(k);
+        const blue = this.std('whaleBlue', { color: 0x6aa8f0, roughness: 0.5 }), belly = this.std('whaleBelly', { color: 0xe8f4ff, roughness: 0.6 });
+        const body = this.mesh(new THREE.SphereGeometry(0.22, 16, 12), blue); body.scale.set(1.5, 0.8, 0.9); k.add(body);
+        const b2 = this.mesh(new THREE.SphereGeometry(0.2, 14, 10), belly, 0.02, -0.06, 0); b2.scale.set(1.35, 0.55, 0.75); k.add(b2);
+        const tail = this.mesh(new THREE.ConeGeometry(0.12, 0.25, 4).rotateZ(Math.PI / 2), blue, -0.4, 0.04, 0); tail.scale.set(1, 1, 0.3); k.add(tail);
+        for (const z of [-0.12, 0.12]) k.add(this.mesh(new THREE.SphereGeometry(0.025, 8, 6), this.iron, 0.24, 0.05, z));
+        const str = this.mesh(new THREE.CylinderGeometry(0.006, 0.006, 1, 4).translate(0, 0.5, 0), this.rope); str.name = 'string'; g.add(str);
+        this.animators.set('k-whalekite', root => {
+          const kk = root.getObjectByName('kite')!, ss = root.getObjectByName('string')!, ph = Math.random() * 6, from = new THREE.Vector3(0, 0.5, 0);
+          return (t) => { kk.position.set(Math.sin(t * 0.7 + ph) * 0.25, 1.6 + Math.sin(t * 1.1 + ph) * 0.12, -0.2); kk.rotation.z = Math.sin(t * 0.9 + ph) * 0.2; const d = kk.position.clone().sub(from); ss.position.copy(from); ss.scale.set(1, d.length(), 1); ss.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); };
+        });
+        break;
+      }
+      case 'k-butterflies': {
+        g.add(this.model('bush', 0.62, 1.0));
+        g.add(this.flowerCluster(8, 0.7, 151, 0.4, 0.62, 0.17));
+        const wing = this.std('kWing', { map: this.tex.butterfly, alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.4, color: 0xffe27a, emissive: 0x7a5200, emissiveIntensity: 0.4 });
+        const fl = new THREE.Group(); fl.name = 'flies'; g.add(fl);
+        for (let i = 0; i < 2; i++) { const b = new THREE.Group(); b.position.set(i ? 0.32 : -0.3, 0.82 + i * 0.12, 0.22); b.rotation.set(0.5, i ? -0.6 : 0.5, 0); for (const s of [-1, 1]) { const w = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(0.11, 0.2).translate(s * 0.055, 0, 0).rotateX(-Math.PI / 2)), wing); w.userData.own = false; b.add(w); } b.scale.setScalar(1.3); fl.add(b); }
+        this.animators.set('k-butterflies', root => {
+          const f = root.getObjectByName('flies')!;
+          return (t) => f.children.forEach((b, i) => { const a = t * (0.9 + i * 0.3) + i * 3; b.position.set(Math.cos(a) * 0.45, 0.8 + Math.sin(t * 2 + i) * 0.12, Math.sin(a) * 0.45); b.rotation.y = -a; const fl2 = Math.sin(t * 16 + i) * 0.9; b.children[0].rotation.z = -fl2; b.children[1].rotation.z = fl2; });
+        });
+        break;
+      }
+    }
   }
 
   // ---------- a visitor's gift ----------

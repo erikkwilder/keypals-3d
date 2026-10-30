@@ -118,3 +118,70 @@ export function gridTex(keep: Keep, r: number, cellPx = 64): THREE.CanvasTexture
   const t = tex(keep, cv, false);
   return t;
 }
+
+// ---------- the building blocks' paints (island/blocks.ts) ----------
+/** A painted toy block's face: white (the paint's colour tints it), a soft light from the top left and a
+ *  slightly darker rim, a few brush flecks. */
+export function blockFace(keep: Keep): THREE.CanvasTexture {
+  const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d')!, r = rnd(61);
+  const gr = g.createLinearGradient(0, 0, S, S); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#e9e4dc');
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  const rim = g.createRadialGradient(S * 0.42, S * 0.4, S * 0.25, S / 2, S / 2, S * 0.75); rim.addColorStop(0, 'rgba(0,0,0,0)'); rim.addColorStop(1, 'rgba(70,50,30,.16)');
+  g.fillStyle = rim; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 160; i++) { g.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.18)' : 'rgba(90,70,50,.06)'; g.fillRect(r() * S, r() * S, 1 + r() * 4, 1); }
+  return tex(keep, cv, false);
+}
+/** Red bricks in rows, with pale mortar. */
+export function bricks(keep: Keep): THREE.CanvasTexture {
+  const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d')!, r = rnd(73);
+  g.fillStyle = '#e6d7c0'; g.fillRect(0, 0, S, S);
+  const rows = 4, h = S / rows, w = S / 2;
+  for (let row = 0; row < rows; row++) for (let k = -1; k < 3; k++) {
+    const x = k * w + (row % 2 ? w / 2 : 0), y = row * h, l = 44 + r() * 10, hue = 8 + r() * 10;
+    for (const dx of [0, S]) block(g, x - dx, y, w, h, 7, l, hue, 52, r, false);
+  }
+  return tex(keep, cv);
+}
+/** A clipped hedge: leaves on leaves, darker underneath. */
+export function hedge(keep: Keep): THREE.CanvasTexture {
+  const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d')!, r = rnd(83);
+  g.fillStyle = '#2f6e2c'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 520; i++) {
+    const x = r() * S, y = r() * S, l = 30 + r() * 30, a = r() * Math.PI;
+    for (const [dx, dy] of [[0, 0], [S, 0], [-S, 0], [0, S], [0, -S]]) {
+      g.save(); g.translate(x + dx, y + dy); g.rotate(a);
+      g.fillStyle = `hsl(${95 + r() * 25}, ${45 + r() * 20}%, ${l}%)`; g.beginPath(); g.ellipse(0, 0, 9, 5, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 1; g.beginPath(); g.moveTo(-7, 0); g.lineTo(7, 0); g.stroke();
+      g.restore();
+    }
+  }
+  return tex(keep, cv);
+}
+/** Crystal: pale facets with bright gleams (the paint's colour tints it). */
+export function crystal(keep: Keep): THREE.CanvasTexture {
+  const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d')!, r = rnd(91);
+  g.fillStyle = '#e8e0ff'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 9; i++) {
+    g.fillStyle = `rgba(255,255,255,${0.15 + r() * 0.35})`;
+    g.beginPath(); g.moveTo(r() * S, r() * S); g.lineTo(r() * S, r() * S); g.lineTo(r() * S, r() * S); g.closePath(); g.fill();
+  }
+  g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 3; g.beginPath(); g.moveTo(18, 30); g.lineTo(46, 12); g.stroke();
+  g.beginPath(); g.moveTo(14, 48); g.lineTo(26, 40); g.stroke();
+  return tex(keep, cv, false);
+}
+/** Cloud: soft white puffs. */
+export function puffs(keep: Keep): THREE.CanvasTexture {
+  const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d')!, r = rnd(97);
+  g.fillStyle = '#eef4fb'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 26; i++) {
+    const x = r() * S, y = r() * S, rad = 12 + r() * 22, gr = g.createRadialGradient(x - rad * 0.3, y - rad * 0.35, 1, x, y, rad);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.7, 'rgba(255,255,255,.7)'); gr.addColorStop(1, 'rgba(220,230,245,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill();
+  }
+  return tex(keep, cv);
+}

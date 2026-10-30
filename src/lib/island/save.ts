@@ -17,6 +17,9 @@
 //   90 met), so the long goals have a home you can see.
 // - Family on the same computer (or in the same grown-up's account, whose players all come to this
 //   computer) can look round each other's islands, read only, and leave a heart once a day.
+// - Blocks (island/blocks.ts) are kept as one short string; the secrets found, the special paints, the
+//   Glimmers' friendship, treats and wishes (island/secrets.ts, island/play.ts) are kept here too. Every shell
+//   the island gives (visitors, the Wishing Well) goes through islandShells, within GIFT_SHELLS_DAY a day.
 import { dayKey, type Profile } from '../engine/profile';
 import { mulberry32, type Rng } from '../engine/rng';
 import { ELEMENTS, GLIMMER, ALL_GLIMMERS, type Element, type GlimmerId, type Rarity } from '../adventure/glimmers';
@@ -24,6 +27,9 @@ import { advOf, advView, ISLAND } from '../adventure/state';
 import { ctxOf, standing } from '../adventure/ladder';
 import type { FriendId } from '../art/cast';
 import { GIFT_OF, ITEM, type ItemDef } from './catalog';
+import { blockCells, mergeBlocks } from './blocks';
+import type { SecretId } from './secrets';
+import type { Wish } from './play';
 
 // ---------- the save ----------
 export type Rot = 0 | 1 | 2 | 3;
@@ -55,6 +61,28 @@ export type IslandSave = {
   started: boolean;
   /** the growth stage the child has seen (a bigger one is a moment) */
   grown: number;
+  /** the blocks built (blocks.ts: five letters a block) */
+  blocks: string;
+  /** the special paints unlocked (blocks.ts PAINTS) */
+  mats: number[];
+  /** the secrets found, and when */
+  secrets: Partial<Record<SecretId, number>>;
+  /** Glimmer treats to give */
+  treats: number;
+  /** each Glimmer's friendship on the island (0..100) */
+  friends: Record<string, number>;
+  /** friendship given today by petting, treats and balls, by Glimmer (it's capped a day) */
+  joy: { day: string; n: Record<string, number> };
+  /** Glimmer experience the island gave today */
+  xp: { day: string; n: number };
+  /** the wish a Glimmer is making now, and the wishes granted today */
+  wish: Wish | null;
+  wishes: { day: string; n: number; at: number };
+  /** the days the island was opened (the last, and how many) */
+  days: { last: string; n: number };
+  /** the day the treasure was last dug for, and the day of the last wish at the well */
+  digs: string;
+  well: string;
 };
 
 export const MAX_OUT = 8;
@@ -85,7 +113,11 @@ const STARTER_PLACED: Record<string, Omit<Placed, 'at'>> = {
   's-bush0': { item: 'bush', x: -3, z: 1, rot: 0 }, 's-bush1': { item: 'bush', x: 3, z: -1, rot: 1 },
 };
 
-const empty = (): IslandSave => ({ owned: {}, placed: {}, out: null, visits: [], postcards: [], shells: { day: '', n: 0 }, hearts: [], seenHearts: 0, started: false, grown: 0 });
+const empty = (): IslandSave => ({
+  owned: {}, placed: {}, out: null, visits: [], postcards: [], shells: { day: '', n: 0 }, hearts: [], seenHearts: 0, started: false, grown: 0,
+  blocks: '', mats: [], secrets: {}, treats: 0, friends: {}, joy: { day: '', n: {} }, xp: { day: '', n: 0 }, wish: null, wishes: { day: '', n: 0, at: 0 },
+  days: { last: '', n: 0 }, digs: '', well: '',
+});
 function fill(s: Partial<IslandSave>): IslandSave {
   const d = empty();
   for (const k of Object.keys(d) as (keyof IslandSave)[]) if (s[k] === undefined) (s as Record<string, unknown>)[k] = d[k];
@@ -131,9 +163,9 @@ export function cellsOf(item: ItemDef, x: number, z: number, rot: Rot): [number,
 export function centerOf(item: ItemDef, x: number, z: number, rot: Rot) { const f = footprint(item, rot); return { x: x + (f.w - 1) / 2, z: z + (f.d - 1) / 2 }; }
 /** is a square on the island (the island is round, `r` squares from the middle) */
 export const onIsland = (i: number, j: number, r: number) => Math.hypot(i, j) <= r - 0.5;
-/** the squares taken, but for one thing (the one being moved) */
+/** the squares taken, but for one thing (the one being moved); blocks take their squares too */
 export function taken(s: IslandSave, but?: string): Set<string> {
-  const out = new Set<string>();
+  const out = blockCells(s.blocks);
   for (const [uid, pl] of Object.entries(s.placed)) { if (uid === but || !ITEM[pl.item]) continue; for (const [i, j] of cellsOf(ITEM[pl.item], pl.x, pl.z, pl.rot)) out.add(`${i},${j}`); }
   return out;
 }
@@ -275,6 +307,17 @@ export function checkVisitor(p: Profile, now = Date.now(), rnd: Rng = mulberry32
   s.visits = [...s.visits, v].slice(-VISITS_KEEP);
   return v;
 }
+/** Shells from the island (visitors' gifts, the Wishing Well): up to `n`, never past the day's few for the
+ *  whole island. Returns how many were given. */
+export function islandShells(p: Profile, s: IslandSave, n: number, now: number): number {
+  const day = dayKey(now);
+  if (s.shells.day !== day) s.shells = { day, n: 0 };
+  const got = Math.max(0, Math.min(n, GIFT_SHELLS_DAY - s.shells.n));
+  if (got <= 0) return 0;
+  s.shells = { day, n: s.shells.n + got };
+  advOf(p).shells += got;
+  return got;
+}
 /** What a visitor leaves (and it goes into the save): its postcard the first time, then a crystal of its
  *  element or a few shells (never past the day's few). */
 function giftFrom(p: Profile, s: IslandSave, id: GlimmerId, now: number, rnd: Rng): Gift {
@@ -283,9 +326,7 @@ function giftFrom(p: Profile, s: IslandSave, id: GlimmerId, now: number, rnd: Rn
   if (s.shells.day !== day) s.shells = { day, n: 0 };
   const room = GIFT_SHELLS_DAY - s.shells.n;
   if (rnd() < 0.4 && room > 0) {
-    const n = Math.min(room, 1 + Math.floor(rnd() * GIFT_SHELLS_MAX));
-    s.shells.n += n;
-    advOf(p).shells += n;
+    const n = islandShells(p, s, 1 + Math.floor(rnd() * GIFT_SHELLS_MAX), now);
     return { kind: 'shells', n };
   }
   const item = GIFT_OF[GLIMMER[id].element];
@@ -369,9 +410,32 @@ export function mergeIsland(m: J, t: J, b: J, mineNewer: boolean, add: (m: unkno
   const hearts = byKey<Heart>([...(m.hearts ?? []), ...(t.hearts ?? [])], h => `${h.at}|${h.from}`).sort((x, y) => x.at - y.at).slice(-HEARTS_KEEP);
   const sm = m.shells ?? { day: '', n: 0 }, st = t.shells ?? { day: '', n: 0 }, sb = b?.shells;
   const shells = sm.day === st.day ? { day: sm.day, n: Math.min(GIFT_SHELLS_DAY, add(sm.n, st.n, sb?.day === sm.day ? sb.n : undefined) ?? 0) } : sm.day > st.day ? sm : st;
+  // the blocks block by block; secrets and paints from both; friendship the higher; treats a running count;
+  // the day's counts from the later day (the higher on the same day)
+  const secrets: Record<string, number> = {};
+  for (const x of [m.secrets ?? {}, t.secrets ?? {}]) for (const [k, v] of Object.entries(x as Record<string, number>)) secrets[k] = Math.min(secrets[k] ?? Infinity, v);
+  const friends: Record<string, number> = {};
+  for (const x of [m.friends ?? {}, t.friends ?? {}]) for (const [k, v] of Object.entries(x as Record<string, number>)) friends[k] = Math.max(friends[k] ?? 0, v);
+  const later = <T extends { day?: string; last?: string }>(x: T | undefined, y: T | undefined, same: (x: T, y: T) => T): T | undefined => {
+    if (!x || !y) return x ?? y;
+    const dx = x.day ?? x.last ?? '', dy = y.day ?? y.last ?? '';
+    return dx === dy ? same(x, y) : dx > dy ? x : y;
+  };
+  const joy = later<{ day: string; n: Record<string, number> }>(m.joy, t.joy, (x, y) => {
+    const n: Record<string, number> = { ...x.n };
+    for (const [k, v] of Object.entries(y.n)) n[k] = Math.max(n[k] ?? 0, v);
+    return { day: x.day, n };
+  }) ?? { day: '', n: {} };
+  const xp = later<{ day: string; n: number }>(m.xp, t.xp, (x, y) => ({ day: x.day, n: Math.max(x.n, y.n) })) ?? { day: '', n: 0 };
+  const wishes = later<{ day: string; n: number; at: number }>(m.wishes, t.wishes, (x, y) => ({ day: x.day, n: Math.max(x.n, y.n), at: Math.max(x.at, y.at) })) ?? { day: '', n: 0, at: 0 };
+  const days = later<{ last: string; n: number }>(m.days, t.days, (x, y) => ({ last: x.last, n: Math.max(x.n, y.n) })) ?? { last: '', n: 0 };
+  const lastDay = (x: unknown, y: unknown) => { const a = typeof x === 'string' ? x : '', c = typeof y === 'string' ? y : ''; return a > c ? a : c; };
   return {
     owned, placed, out: n.out ?? o.out ?? null, visits, postcards: [...new Set([...(n.postcards ?? []), ...(o.postcards ?? [])])], shells, hearts,
     seenHearts: Math.max(m.seenHearts ?? 0, t.seenHearts ?? 0), started: !!m.started || !!t.started, grown: Math.max(m.grown ?? 0, t.grown ?? 0),
+    blocks: mergeBlocks(m.blocks, t.blocks, b?.blocks, mineNewer), mats: [...new Set<number>([...(n.mats ?? []), ...(o.mats ?? [])])], secrets,
+    treats: add(m.treats, t.treats, b?.treats) ?? 0, friends, joy, xp, wish: n.wish ?? null, wishes, days,
+    digs: lastDay(m.digs, t.digs), well: lastDay(m.well, t.well),
   };
 }
 
