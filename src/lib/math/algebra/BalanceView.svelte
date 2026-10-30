@@ -53,7 +53,7 @@
     const each = Math.round(right / groups);
     return Array.from({ length: groups }, () => weightsOf(each));
   });
-  const SIZE: Record<number, number> = { 10: 1, 5: 0.84, 1: 0.64 };
+  const SIZE: Record<number, number> = { 10: 1, 5: 0.84, 2: 0.72, 1: 0.64 };
   const ws = $derived(w * 0.075);
   const bs = $derived(w * (boxes + rightBoxes > 4 ? 0.075 : 0.092));
 </script>

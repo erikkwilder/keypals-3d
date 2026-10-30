@@ -17,10 +17,12 @@
   import Icon from '../ui/Icon.svelte';
   import GearButton from '../ui/GearButton.svelte';
   import { builderOf, builderOpen } from '../math/place/builder';
+  import { beamOf } from '../math/algebra/beam';
 
   const p = $derived(game.profile!);
   const save = $derived(arcadeOf(p));
   const builderBest = $derived(builderOf(p).best);
+  const balanceBest = $derived(beamOf(p).best);
   const shells = $derived(advView(p).shells);
   const today = dailyGame();
   const beaten = $derived(dailyBeaten(p, today));
@@ -60,12 +62,14 @@
   function openBuilder() { unlockAudio(); sfx.click(); scene?.cheer(); builderOpen.toy = false; builderOpen.from = 'arcade'; game.go('builder' as Screen); }
   /** Market Dash is the Decimals and money area's game, on its own screen too */
   function openMarket() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('market' as Screen); }
-  function hover(id: ArcadeId | 'pizza' | 'builder' | 'market' | 'drop' | null, el?: HTMLElement) {
+  /** Balance Beam is the Expressions and equations area's game, on its own screen too */
+  function openBalance() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('balance' as Screen); }
+  function hover(id: ArcadeId | 'pizza' | 'builder' | 'market' | 'balance' | 'drop' | null, el?: HTMLElement) {
     if (!scene) return;
     if (!id || !el) { scene.look(null); say = 'Pick a game to play!'; return; }
     const r = el.getBoundingClientRect();
     scene.look((r.left + r.width / 2) / innerWidth);
-    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'builder' ? 'Build it with blocks!' : id === 'market' ? 'Coins! Count them up!' : id === 'drop' ? 'Squish them together!' : 'Pizza! Slice it up!';
+    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'builder' ? 'Build it with blocks!' : id === 'market' ? 'Coins! Count them up!' : id === 'balance' ? 'Keep it level!' : id === 'drop' ? 'Squish them together!' : 'Pizza! Slice it up!';
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -76,6 +80,7 @@
     if (n === ARCADE_GAMES.length + 2) openBuilder();
     if (n === ARCADE_GAMES.length + 3) openMarket();
     if (n === ARCADE_GAMES.length + 4) openDrop();
+    if (n === ARCADE_GAMES.length + 5) openBalance();
     if (e.key === 'd' || e.key === 'D') play(today, true);
   }
 
@@ -152,6 +157,11 @@
           <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-market.webp" alt="" />
           <span class="plate"><span class="part">Decimals and money</span><b>Market Dash</b><span class="bs">Pay and make change</span></span>
           {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 3}</span>{/if}
+        </button>
+        <button class="cab" style:--c="#6c4fd8" style:--d="{(ARCADE_GAMES.length + 3) * 90}ms" onclick={openBalance} onpointerenter={(e) => hover('balance', e.currentTarget)} onpointerleave={() => hover(null)}>
+          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-balance.webp" alt="" />
+          <span class="plate"><span class="part">Equations</span><b>Balance Beam</b><span class="bs">{balanceBest ? `Best score ${balanceBest}` : 'Keep the seesaw level'}</span></span>
+          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 5}</span>{/if}
         </button>
         <!-- Glimmer Drop: not practice, just for fun, so it uses play time (the same minutes as Adventure) -->
         <button class="cab fun" style:--c="#9a6cf0" style:--d="{(ARCADE_GAMES.length + 3) * 90}ms" onclick={openDrop} onpointerenter={(e) => hover('drop', e.currentTarget)} onpointerleave={() => hover(null)}>

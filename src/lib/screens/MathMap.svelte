@@ -244,6 +244,13 @@
           {/each}
         </div>
       {/if}
+      {#if area === 'algebra'}
+        <!-- the equations arcade game (its cabinet is in the Arcade too: screen 'balance') -->
+        <button class="placement arcade" onclick={() => { sfx.click(); game.go('balance'); }}>
+          <img src="{import.meta.env.BASE_URL}math/algebra/tile.webp" alt="" />
+          <span class="ptext"><b>Balance Beam</b><small>Game: say what the mystery boxes weigh before the seesaw tips.{(m.arcade?.['balance-beam']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['balance-beam'].best}` : ''}</small></span>
+        </button>
+      {/if}
       {#if area === 'place'}
         <!-- the place value arcade game (its cabinet is in the Arcade too) -->
         <button class="placement arcade" onclick={() => { sfx.click(); import('../math/place/builder').then(b => { b.builderOpen.toy = false; b.builderOpen.from = 'map'; game.go('builder'); }); }}>

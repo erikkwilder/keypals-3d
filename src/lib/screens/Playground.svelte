@@ -16,6 +16,7 @@
   import Bubbles from '../math/play/Bubbles.svelte';
   import BuildIt from '../math/play/BuildIt.svelte';
   import Stall from '../math/play/Stall.svelte';
+  import Scale from '../math/play/Scale.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import MenuButton from '../ui/MenuButton.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -30,7 +31,7 @@
   let burst = $state(0);
   let k = 0;
   // the 3D island and buddy behind each game
-  const WORLD: Record<PlayGame, RegionId> = { line: 'village', bonds: 'shores', build: 'burrows', stall: 'treetops' };
+  const WORLD: Record<PlayGame, RegionId> = { line: 'village', bonds: 'shores', build: 'burrows', stall: 'treetops', scale: 'ridge' };
   let scene: PlayScene | null = null;
   let areaEl: HTMLElement | null = null;
   let areaOpts: { span?: number; feetAt?: number } = {};
@@ -86,11 +87,12 @@
     bonds: 'Learns: number bonds, pairs that make 5, 10, 20 and 100.',
     build: 'Learns: place value, hundreds, tens and ones, trading ten for one.',
     stall: 'Learns: coins and money, counting up to make change.',
+    scale: 'Learns: equations on a balance, doing the same to both sides.',
   };
   function openBlocks() { sfx.click(); builderOpen.toy = true; builderOpen.from = 'playground'; game.go('builder'); }
   function backToGames() { playing = null; done = null; if (scene && stage.current() === scene) stage.use(null); scene?.dispose(); scene = null; }
   // each game's painted picture (number line with a hopping frog, bubbles, place-value blocks)
-  const ART: Record<PlayGame, 'line' | 'bubbles' | 'blocks' | null> = { line: 'line', bonds: 'bubbles', build: 'blocks', stall: null };
+  const ART: Record<PlayGame, 'line' | 'bubbles' | 'blocks' | null> = { line: 'line', bonds: 'bubbles', build: 'blocks', stall: null, scale: null };
 </script>
 
 <svelte:window onkeydown={onKey} onresize={onResize} />
@@ -113,6 +115,7 @@
           {#if playing.g === 'line'}<NumberLine level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
           {:else if playing.g === 'bonds'}<Bubbles level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
           {:else if playing.g === 'stall'}<Stall level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
+          {:else if playing.g === 'scale'}<Scale level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
           {:else}<BuildIt level={playing.level} buddy={p.buddy} ondone={finished} {pal} />{/if}
         </div>
       {/key}
@@ -128,7 +131,7 @@
           <section class="game" style:--gc={g.color}>
             <button class="gpic" onclick={() => start(g.id, nxt)} aria-label="Play {g.name}">
               <img src="{import.meta.env.BASE_URL}math/play-{g.id === 'bonds' ? 'bubbles' : g.id}.webp" alt="" />
-              <span class="gname"><span class="gart">{#if ART[g.id]}<Icon name={ART[g.id]!} size={40} />{:else}<img class="gcoin" src="{import.meta.env.BASE_URL}math/money/quarter.webp" alt="" />{/if}</span>{g.name}</span>
+              <span class="gname"><span class="gart">{#if ART[g.id]}<Icon name={ART[g.id]!} size={40} />{:else}<img class="gcoin" src="{import.meta.env.BASE_URL}{g.id === 'scale' ? 'math/algebra/tile.webp' : 'math/money/quarter.webp'}" alt="" />{/if}</span>{g.name}</span>
             </button>
             <p class="gblurb">{g.blurb} <span class="what">{WHAT[g.id]}</span></p>
             <div class="levels">
