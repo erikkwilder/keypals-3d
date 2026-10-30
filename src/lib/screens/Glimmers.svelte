@@ -7,7 +7,7 @@
   import { sfx } from '../audio/sound';
   import { stage } from '../three/stage';
   import { GlimmerShow } from '../three/glimmerShow';
-  import { ELEMENT, EVOLVE_AT, EVOLVE_BOOST, EVOLVED, GLIMMER, GLIMMERS, RARITY, RARITIES, glimmerName, rarityRank, type GlimmerId } from '../adventure/glimmers';
+  import { ALL_GLIMMERS, ELEMENT, EVOLVE_AT, EVOLVE_BOOST, EVOLVED, GLIMMER, GLIMMER_TOTAL, RARITY, RARITIES, glimmerName, isLadder, rarityRank, type GlimmerId } from '../adventure/glimmers';
   import { advOf, owns, xpNeed, MAX_LEVEL, advView, markSeen } from '../adventure/state';
   import { canEvolve, evolve, levelsToEvolve } from '../adventure/evolve';
   import Header from '../ui/Header.svelte';
@@ -18,14 +18,16 @@
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
   const a = $derived(advView(p));
-  const sorted = [...GLIMMERS].sort((x, y) => RARITIES.indexOf(x.rarity) - RARITIES.indexOf(y.rarity));
+  // every Glimmer you have (the 100-Glimmer ladder's too); still to find: the ones from battles and eggs
+  // (the rest are in the Glimmer Book)
+  const sorted = [...ALL_GLIMMERS].sort((x, y) => RARITIES.indexOf(x.rarity) - RARITIES.indexOf(y.rarity));
   const firstOwned = (game.glimmerSel as GlimmerId | null) ?? (sorted.find(g => owns(advView(game.profile!), g.id)) ?? sorted[0]).id;
   game.glimmerSel = null;
   let sel = $state<GlimmerId>(firstOwned);
   /** adding to a full team: tap which one it replaces */
   let swapping = $state(false);
   const owned = $derived(sorted.filter(x => owns(a, x.id)));
-  const missing = $derived(sorted.filter(x => !owns(a, x.id)));
+  const missing = $derived(sorted.filter(x => !owns(a, x.id) && !isLadder(x.id)));
   let scene: GlimmerShow | null = null;
   let stageEl: HTMLDivElement | undefined = $state();
   let disposed = false;
@@ -106,7 +108,9 @@
 </script>
 
 <div class="screen gl">
-  <Header title="Your Glimmers" back={() => game.go('adventure')} sub="{GLIMMERS.filter(x => owns(a, x.id)).length} of {GLIMMERS.length} found" />
+  <Header title="Your Glimmers" back={() => game.go('adventure')} sub="{owned.length} of {GLIMMER_TOTAL} found">
+    {#snippet right()}<button class="btn bookbtn" onclick={() => { sfx.click(); game.openBook(); }}><Icon name="book" size={26} /> Glimmer Book</button>{/snippet}
+  </Header>
   <div class="body">
     <div class="stagebox" bind:this={stageEl}>
       {#if !owns(a, sel)}<div class="unknown"><GlimmerCard id={sel} width={200} locked /></div>{/if}
@@ -169,10 +173,11 @@
             </button>
           {/each}
         </div>
-        {#if missing.length}<h4>Still to find ({missing.length})</h4>
+        {#if missing.length}<h4>Still to find in battles and eggs ({missing.length})</h4>
         <div class="cards">
           {#each missing as x (x.id)}<button class="cell" class:on={sel === x.id} onclick={() => pick(x.id)}><GlimmerCard id={x.id} width={84} locked /></button>{/each}
         </div>{/if}
+        <button class="booklink" onclick={() => { sfx.click(); game.openBook(); }}><img src="{base}game/egg-milestone.webp" alt="" /><span><b>{GLIMMER_TOTAL - owned.length - missing.length} more come from goals</b><small>Days played, right answers, seasons, secrets... See them all in the Glimmer Book.</small></span></button>
       </div>
     </div>
   </div>
@@ -228,6 +233,13 @@
   .acts .big { font-size: 18px; padding: 10px 18px; }
   .onteam { display: inline-flex; align-items: center; gap: 5px; font: 600 17px var(--font-ui); color: #1f9a6a; }
   .grid h4 { margin: 4px 0; font-size: 16px; color: var(--ink2); grid-column: 1 / -1; }
+  /* the Glimmer Book (100-Glimmer ladder) */
+  .bookbtn { display: inline-flex; align-items: center; gap: 6px; font: 600 16px var(--font-ui); padding: 8px 14px; }
+  .booklink { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px; border: 0; cursor: pointer; text-align: left; padding: 10px 14px; border-radius: 18px; background: linear-gradient(#fffaf0, #fff0d2); box-shadow: 0 0 0 2px #ffe08a, var(--shadow-sm); }
+  .booklink img { width: 40px; height: 48px; object-fit: contain; flex: none; }
+  .booklink span { display: flex; flex-direction: column; gap: 2px; }
+  .booklink b { font: 600 17px var(--font-ui); color: var(--ink); }
+  .booklink small { font: 700 13px/1.35 var(--font-body); color: var(--ink2); }
   .cards { display: flex; flex-wrap: wrap; gap: 8px 8px; row-gap: 14px; padding-bottom: 6px; }
   .cell { position: relative; }
   .cell .tag { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); font: 800 11px var(--font-body); background: #2fbf73; color: #fff; padding: 2px 9px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }

@@ -11,7 +11,7 @@
   import { mathOf, nextMathLesson } from '../math/progress';
   import { nextToLearn } from '../math/learn';
   import { FRIEND } from '../art/cast';
-  import { GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, type GlimmerId, type Rarity } from '../adventure/glimmers';
+  import { ALL_GLIMMERS, GLIMMER, GLIMMER_TOTAL, RARITIES, RARITY, glimmersOf, type GlimmerId, type Rarity } from '../adventure/glimmers';
   import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, islandsOf, markSeen, nodesOf, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, worldOpen, type MapNode, type WorldId, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
   import { DuelScene } from '../three/duelScene';
@@ -51,7 +51,7 @@
   const ready = $derived(a.incubator.filter(e => e && e.have >= e.need).length);
   const eggs = $derived(a.incubator.filter(e => !!e).length + a.nest.length);
   const team = $derived(a.team.filter(t => t && owns(a, t)) as GlimmerId[]);
-  const met = $derived(GLIMMERS.filter(g => owns(a, g.id)).length);
+  const met = $derived(ALL_GLIMMERS.filter(g => owns(a, g.id)).length);
   const faces = $derived<GlimmerId[]>(team.length ? team : ['puddlepup']);
 
   // the map covers the screen without stretching; it only shrinks back if covering would hide a stop
@@ -78,7 +78,7 @@
     { img: 'intro-story', title: 'Storms made the Glimmers grumpy!', text: 'Glimmers are little island creatures with special powers. A storm cloud is raining on each one. Cheer one up with your answers, and it joins your team!' },
     { img: 'intro-battle', title: 'How battles work', text: 'Tap a card and answer it: every right answer cheers it up. When it sends rain, answer the quick one to block it. Your buddy and your team help.' },
     { img: 'intro-practice', title: 'Practice hatches eggs', text: 'Every right answer in math and typing practice makes your eggs grow. When an egg is full, it hatches into a new Glimmer! Practice earns shells for the shop too.' },
-    { img: 'intro-glimmers', title: 'Find them all', text: `${GLIMMERS.length} Glimmers live on the islands, and each island has its own. Some are easy to find, some are very rare. Cheer up each island's Champion to open the next island.` },
+    { img: 'intro-glimmers', title: 'Find them all', text: `${GLIMMER_TOTAL} Glimmers live in Keypals, and each island has its own. Some are easy to find, some are very rare, and some come from big goals. Cheer up each island's Champion to open the next island.` },
     { img: 'intro-duel', title: 'Play with your family', text: 'Take turns with a grown-up or a friend in a Family Duel, or battle someone\'s ghost in Rival Ghosts. Whoever cheers up the Glimmer first wins it!' },
   ];
 
@@ -166,7 +166,7 @@
 </script>
 
 <div class="screen adv" class:tall>
-  <Header title="Adventure" back={() => game.go('hub')} sub="{met} of {GLIMMERS.length} Glimmers found" gear={!tall}>
+  <Header title="Adventure" back={() => game.go('hub')} sub="{met} of {GLIMMER_TOTAL} Glimmers found" gear={!tall}>
     {#snippet right()}
       <button class="chip help" onclick={() => { intro = 0; sfx.pop(); }} title="How Adventure works"><Icon name="help" size={28} /></button>
       <span class="chip shells" title="Shells: spend them in the shop"><img src="{base}game/icon-shell.webp" alt="" />{a.shells}</span>

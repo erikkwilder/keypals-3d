@@ -25,6 +25,9 @@
   import { onFun, type FunKind } from './bus';
   import { LiveBuddy } from './liveBuddy';
   import { giveSecretSticker, SECRET_STICKER } from './secret';
+  import { noteSecret } from '../adventure/ladderSave';
+  import { advOf } from '../adventure/state';
+  import { lookForEggs } from '../adventure/ladderMoment.svelte';
   import { STICKER } from '../engine/stickers';
   import StickerCard from '../ui/StickerCard.svelte';
 
@@ -117,7 +120,8 @@
       typed = ''; sfx.secret(); party(50, 18, 120); setTimeout(() => party(25, 30, 60), 350); setTimeout(() => party(75, 30, 60), 650);
       // the first time it's a real prize: the Secret Word sticker, and a card saying so; after that, the party
       let first = false;
-      game.update(pp => { first = giveSecretSticker(pp); });
+      game.update(pp => { first = giveSecretSticker(pp); noteSecret(pp, advOf(pp), 'word'); });
+      setTimeout(() => lookForEggs(), first ? 9500 : 3200); // a ladder secret: its egg comes after the card
       if (first) { clearTimeout(secretT); secret = Date.now(); secretT = window.setTimeout(() => (secret = 0), 9000); }
       else say('The secret word again! Party time!', where, 3000, true);
       return;

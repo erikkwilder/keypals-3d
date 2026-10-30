@@ -60,6 +60,8 @@ export function devBoot() {
   if (key === 'battle') { ensure(); game.battleNode = val || 'meadow-0'; game.battleKey++; game.go('battle'); }
   if (key === 'glimmers') { ensure(); game.go('glimmers'); }
   if (key === 'eggs') { ensure(); game.go('eggs'); }
+  // the Glimmer Book (100-Glimmer ladder): #book; #book=demo fills in some progress to look at
+  if (key === 'book') { ensure(); if (val === 'demo') import('../adventure/ladderDemo').then(d => { game.update(d.ladderDemo); game.openBook(); }); else game.openBook(); }
   // Family Duel and Rival Ghosts: #duel, #rivals
   if (key === 'duel') { ensure(); game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); }
   if (key === 'rivals') { ensure(); game.go('rivals'); }

@@ -5,7 +5,8 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
-export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market' | 'ideas' | 'teach' | 'classLogin' | 'boards';
+export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market' | 'ideas' | 'teach' | 'classLogin' | 'boards'
+  | 'glimmerBook'; // the 100-Glimmer ladder's book (screens/GlimmerBook.svelte)
 
 function load(): SaveFile {
   try {
@@ -62,6 +63,9 @@ class Game {
   battleKey = $state(0);
   /** the Glimmer to show first on the Glimmers screen (a new one to put on the team) */
   glimmerSel = $state<string | null>(null);
+  /** the Glimmer Book: where Back goes */
+  bookBack = $state<Screen>('glimmers');
+  openBook() { if (this.screen !== 'glimmerBook') this.bookBack = this.screen; this.screen = 'glimmerBook'; }
   /** Family Duel or Rival Ghosts, and the rival picked (the duel screen rebuilds when duelKey bumps) */
   duelMode = $state<'duel' | 'rival'>('duel');
   duelRival = $state<import('../adventure/ghosts').Rival | null>(null);

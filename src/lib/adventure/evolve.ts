@@ -2,7 +2,7 @@
 // watches it. The grown-up form has a new name and painting, glows with its element's markings in 3D, and
 // in battles its power works as if it were four levels higher, plus one extra thing of its own (EVOLVED).
 import type { Profile } from '../engine/profile';
-import { EVOLVE_AT, EVOLVED, GLIMMER, GLIMMERS, type GlimmerId } from './glimmers';
+import { ALL_GLIMMERS, EVOLVE_AT, EVOLVED, GLIMMER, type GlimmerId } from './glimmers';
 import { advOf, type Adventure } from './state';
 
 export const isEvolved = (a: Adventure, id: GlimmerId) => !!a.glimmers[id]?.evolved;
@@ -18,7 +18,7 @@ export function levelsToEvolve(a: Adventure, id: GlimmerId): number {
   return Math.max(0, EVOLVE_AT - o.level);
 }
 /** Every Glimmer that could evolve right now. */
-export const readyToEvolve = (a: Adventure): GlimmerId[] => GLIMMERS.filter(g => canEvolve(a, g.id)).map(g => g.id);
+export const readyToEvolve = (a: Adventure): GlimmerId[] => ALL_GLIMMERS.filter(g => canEvolve(a, g.id)).map(g => g.id);
 
 /** Grow it up (inside game.update). False if it can't yet. */
 export function evolve(p: Profile, id: GlimmerId): boolean {

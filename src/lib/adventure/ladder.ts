@@ -154,10 +154,12 @@ export type Goal = {
   hint: (x: Ctx) => string;
   /** what the egg's moment says was done */
   done: (x: Ctx) => string;
+  /** a few words for a small card: "37 of 100 days" */
+  short: (x: Ctx) => string;
   season?: SeasonId; secret?: SecretId;
 };
-const step = (id: GlimmerId, need: number, have: (x: Ctx) => number, hint: (need: number, have: number) => string, done: (need: number) => string): Goal =>
-  ({ id, progress: x => ({ have: have(x), need }), hint: x => hint(need, have(x)), done: () => done(need) });
+const step = (id: GlimmerId, need: number, have: (x: Ctx) => number, hint: (need: number, have: number) => string, done: (need: number) => string, unit: string): Goal =>
+  ({ id, progress: x => ({ have: have(x), need }), hint: x => hint(need, have(x)), done: () => done(need), short: x => `${fmt(Math.min(have(x), need))} of ${fmt(need)} ${unit}` });
 
 function nativeGoal(g: GlimmerDef): Goal {
   const w = g.world!, name = worldName(w);
@@ -167,6 +169,7 @@ function nativeGoal(g: GlimmerDef): Goal {
       id: g.id, progress: x => ({ have: node && cleared(x.a, node.id) ? 1 : 0, need: 1 }),
       hint: x => (worldOpen(x.p, w as WorldId) ? `The Champion of ${name}. Cheer it up at the end of ${name}.` : `The Champion of ${name}. ${name} opens when you start ${AREA[worldArea(w)!]?.name.toLowerCase() ?? 'its math'}.`),
       done: () => `You cheered up the Champion of ${name}!`,
+      short: x => (worldOpen(x.p, w as WorldId) ? `Champion of ${name}` : `Opens with ${AREA[worldArea(w)!]?.name.toLowerCase() ?? 'its math'}`),
     };
   }
   const i = Math.max(0, nativesOf(w).findIndex(n => n.id === g.id)), need = NATIVE_WINS[i] ?? 120 + 40 * (i - 2);
@@ -174,6 +177,7 @@ function nativeGoal(g: GlimmerDef): Goal {
     id: g.id, progress: x => ({ have: worldWins(x.a, w), need }),
     hint: x => (worldOpen(x.p, w as WorldId) || worldWins(x.a, w) ? `Lives in ${name}. Win ${need} battles there: ${worldWins(x.a, w)} so far.` : `Lives in ${name}, which opens when you start ${AREA[worldArea(w)!]?.name.toLowerCase() ?? 'its math'}.`),
     done: () => `You won ${need} battles in ${name}!`,
+    short: x => (worldOpen(x.p, w as WorldId) || worldWins(x.a, w) ? `${Math.min(need, worldWins(x.a, w))} of ${need} wins here` : `Opens with ${AREA[worldArea(w)!]?.name.toLowerCase() ?? 'its math'}`),
   };
 }
 function seasonGoal(id: GlimmerId, s: SeasonId): Goal {
@@ -190,10 +194,12 @@ function seasonGoal(id: GlimmerId, s: SeasonId): Goal {
       return s === 'birthday' ? `Comes on your Keypals birthday${when ? `, ${when}` : ''}. Play on ${SEASON_DAYS} days in the two weeks after.` : `Only in ${W.name} (${W.when}). Play on ${SEASON_DAYS} days then.`;
     },
     done: () => (s === 'birthday' ? 'Happy Keypals birthday! You played 5 days in your birthday weeks.' : s === 'newyear' ? 'Happy New Year! You played 5 days around New Year.' : `You played 5 days this ${W.name}!`),
+    short: x => { const w = win(x); return w ? `${Math.min(SEASON_DAYS, x.L.seasons[w] ?? 0)} of ${SEASON_DAYS} days` : s === 'birthday' ? 'On your birthday' : s === 'newyear' ? 'Only at New Year' : `Only in ${W.name}`; },
   };
 }
 const secretGoal = (id: GlimmerId, s: SecretId): Goal => ({
   id, secret: s, progress: x => ({ have: x.L.secrets.includes(s) ? 1 : 0, need: 1 }), hint: () => SECRET_WHISPER[s], done: () => 'You found a secret!',
+  short: x => (x.L.secrets.includes(s) ? 'Found!' : 'A secret'),
 });
 /** Every island's Champion (a world's own once it has one, on its way or not) and one for each math world
  *  still to come: the crown needs them all grown up. */
@@ -207,28 +213,32 @@ const topRaised = (x: Ctx) => ownedIds(x.a).filter(id => x.a.glimmers[id]!.level
 
 const MATH_STRONG = (keys: string[]) => (x: Ctx) => keys.filter(k => x.strong[k]).length;
 export const GOALS: Goal[] = [
-  ...RIGHT_STEPS.map(([id, n]) => step(id, n, x => x.L.right, (need, have) => `Comes to players who give ${fmt(need)} right answers: ${fmt(have)} so far.`, need => `${fmt(need)} right answers!`)),
-  ...DAY_STEPS.map(([id, n]) => step(id, n, x => x.L.days, (need, have) => `Comes to players who play ${need} days: ${have} so far.`, need => `You played ${need} days!`)),
-  ...WPM_STEPS.map(([id, n]) => step(id, n, x => x.wpm, (need, have) => `Comes to typists who reach ${need} words a minute. Your best: ${have}.`, need => `You typed ${need} words a minute!`)),
-  step('balancepanda', 2, MATH_STRONG(['plus', 'minus']), (_, have) => `Comes when adding and taking away are both strong: ${have} of 2 so far.`, () => 'Adding and taking away are strong!'),
-  step('hydrahatchling', 2, MATH_STRONG(['times', 'share']), (_, have) => `Comes when times tables and sharing are both strong: ${have} of 2 so far.`, () => 'Times tables and sharing are strong!'),
+  ...RIGHT_STEPS.map(([id, n]) => step(id, n, x => x.L.right, (need, have) => `Comes to players who give ${fmt(need)} right answers: ${fmt(have)} so far.`, need => `${fmt(need)} right answers!`, 'answers')),
+  ...DAY_STEPS.map(([id, n]) => step(id, n, x => x.L.days, (need, have) => `Comes to players who play ${need} days: ${have} so far.`, need => `You played ${need} days!`, 'days')),
+  ...WPM_STEPS.map(([id, n]) => step(id, n, x => x.wpm, (need, have) => `Comes to typists who reach ${need} words a minute. Your best: ${have}.`, need => `You typed ${need} words a minute!`, 'words a minute')),
+  step('balancepanda', 2, MATH_STRONG(['plus', 'minus']), (_, have) => `Comes when adding and taking away are both strong: ${have} of 2 so far.`, () => 'Adding and taking away are strong!', 'strong'),
+  step('hydrahatchling', 2, MATH_STRONG(['times', 'share']), (_, have) => `Comes when times tables and sharing are both strong: ${have} of 2 so far.`, () => 'Times tables and sharing are strong!', 'strong'),
   { id: 'starsageowl', progress: x => ({ have: Object.values(x.strong).filter(Boolean).length, need: Object.keys(x.strong).length }),
-    hint: x => `Comes when every kind of math is strong: ${Object.values(x.strong).filter(Boolean).length} of ${Object.keys(x.strong).length} so far.`, done: () => 'Every kind of math is strong!' },
-  ...MEET_STEPS.map(([id, n]) => step(id, n, x => x.met, (need, have) => `Comes when you have met ${need} Glimmers: ${have} so far.`, need => `You have met ${need} Glimmers!`)),
-  step('acornsprite', GROW_SOME, x => x.grown, (need, have) => `Comes when ${need} of your Glimmers have grown up: ${have} so far.`, need => `${need} of your Glimmers have grown up!`),
+    hint: x => `Comes when every kind of math is strong: ${Object.values(x.strong).filter(Boolean).length} of ${Object.keys(x.strong).length} so far.`, done: () => 'Every kind of math is strong!',
+    short: x => `${Object.values(x.strong).filter(Boolean).length} of ${Object.keys(x.strong).length} strong` },
+  ...MEET_STEPS.map(([id, n]) => step(id, n, x => x.met, (need, have) => `Comes when you have met ${need} Glimmers: ${have} so far.`, need => `You have met ${need} Glimmers!`, 'met')),
+  step('acornsprite', GROW_SOME, x => x.grown, (need, have) => `Comes when ${need} of your Glimmers have grown up: ${have} so far.`, need => `${need} of your Glimmers have grown up!`, 'grown up'),
   ...(Object.entries(SEASON_OF) as [GlimmerId, SeasonId][]).map(([id, s]) => seasonGoal(id, s)),
   ...(Object.entries(SECRET_OF) as [GlimmerId, SecretId][]).map(([id, s]) => secretGoal(id, s)),
   { id: 'crownedlion',
     progress: x => { const c = championsAll(); return { have: grownChampions(x), need: c.ids.length + c.coming }; },
     hint: x => { const c = championsAll(); return `Comes when the Champion of every island and world has grown up: ${grownChampions(x)} of ${c.ids.length + c.coming} so far.`; },
-    done: () => 'Every Champion has grown up!' },
+    done: () => 'Every Champion has grown up!',
+    short: x => { const c = championsAll(); return `${grownChampions(x)} of ${c.ids.length + c.coming} Champions`; } },
   { id: 'moonrabbit',
     progress: x => ({ have: Math.floor(50 * Math.min(1, x.L.right / BIG_RIGHT)) + Math.floor(50 * Math.min(1, x.L.days / BIG_DAYS)), need: 100 }),
     hint: x => `Comes to players with ${fmt(BIG_RIGHT)} right answers and ${BIG_DAYS} days played: ${fmt(x.L.right)} answers and ${x.L.days} days so far.`,
-    done: () => `${fmt(BIG_RIGHT)} right answers and ${BIG_DAYS} days!` },
-  step('rainbowunicorn', TOP_RAISED, topRaised, (need, have) => `Comes when ${need} of your Glimmers reach level ${MAX_LEVEL}, the top: ${have} so far.`, need => `${need} of your Glimmers reached the top level!`),
+    done: () => `${fmt(BIG_RIGHT)} right answers and ${BIG_DAYS} days!`,
+    short: x => `${fmt(Math.min(x.L.right, BIG_RIGHT))} answers, ${Math.min(x.L.days, BIG_DAYS)} days` },
+  step('rainbowunicorn', TOP_RAISED, topRaised, (need, have) => `Comes when ${need} of your Glimmers reach level ${MAX_LEVEL}, the top: ${have} so far.`, need => `${need} of your Glimmers reached the top level!`, 'at the top'),
   { id: 'dragonkoi', progress: x => ({ have: ownedIds(x.a).filter(id => id !== 'dragonkoi').length, need: GLIMMER_TOTAL - 1 }),
-    hint: x => `Comes to the player who has met all ${GLIMMER_TOTAL - 1} others: ${ownedIds(x.a).filter(id => id !== 'dragonkoi').length} so far.`, done: () => `You have met all ${GLIMMER_TOTAL - 1} other Glimmers!` },
+    hint: x => `Comes to the player who has met all ${GLIMMER_TOTAL - 1} others: ${ownedIds(x.a).filter(id => id !== 'dragonkoi').length} so far.`, done: () => `You have met all ${GLIMMER_TOTAL - 1} other Glimmers!`,
+    short: x => `${ownedIds(x.a).filter(id => id !== 'dragonkoi').length} of ${GLIMMER_TOTAL - 1} met` },
 ];
 /** Every ladder Glimmer's goal (natives' made from their world). */
 export function goalOf(id: GlimmerId): Goal | null {
@@ -245,7 +255,7 @@ export type Standing = {
   id: GlimmerId; source: GlimmerSource;
   /** met: owned. egg: its special egg is waiting in the incubator or the nest. open: still to do. */
   state: 'met' | 'egg' | 'open';
-  pending: boolean; have: number; need: number; hint: string;
+  pending: boolean; have: number; need: number; hint: string; short: string;
   /** the goal is met (a pending one's egg comes when it ships) */
   reached: boolean;
   season?: SeasonId; secret?: SecretId;
@@ -260,13 +270,14 @@ export function standing(id: GlimmerId, x: Ctx): Standing {
   if (source === 'roll') {
     const champ = ISLANDS.find(i => i.champion === id);
     return { id, source, state: owned ? 'met' : 'open', pending, have: owned ? 1 : 0, need: 1, reached: owned,
-      hint: champ ? `The Champion of ${champ.name}. Cheer it up at the end of the island.` : `${RARITY[g.rarity].name}: meet it in battles or eggs.` };
+      hint: champ ? `The Champion of ${champ.name}. Cheer it up at the end of the island.` : `${RARITY[g.rarity].name}: meet it in battles or eggs.`,
+      short: champ ? `Champion of ${champ.name}` : 'Battles and eggs' };
   }
   const goal = goalOf(id)!, pr = goal.progress(x);
   const reached = pr.have >= pr.need || (!goal.season && x.L.waiting.includes(id));
   return {
     id, source, state: owned ? 'met' : eggFor(x.a, id) ? 'egg' : 'open', pending, have: Math.min(pr.have, pr.need), need: pr.need,
-    hint: goal.hint(x), reached, season: goal.season, secret: goal.secret,
+    hint: goal.hint(x), short: goal.short(x), reached, season: goal.season, secret: goal.secret,
   };
 }
 

@@ -26,6 +26,9 @@
   import { skillMem } from '../math/skills/progress';
   import type { AreaId } from '../math/skills/types';
   import SkillPrompt from '../math/skills/ui/SkillPrompt.svelte';
+  import { noteSecret } from '../adventure/ladderSave';
+  import { advOf } from '../adventure/state';
+  import { lookForEggs } from '../adventure/ladderMoment.svelte';
 
   const base = import.meta.env.BASE_URL;
   const pic = (n: string) => `${base}garden/${n}.webp`;
@@ -124,6 +127,8 @@
       scene = sc; stage.use(sc);
       // walking the buddy round: the tabs and beds follow it, the plant beside it shows, the surprises talk
       sc.onSay = (text) => { say = text; };
+      // the Seed Library is a ladder secret: its egg comes a moment later
+      sc.onSecret = (id) => { game.update(pp => { noteSecret(pp, advOf(pp), id); }); setTimeout(() => lookForEggs(), 4000); };
       sc.onWhere = (pl, b) => {
         if (pl < STRANDS.length) { if (op !== STRANDS[pl].op || area) { op = STRANDS[pl].op; area = null; } }
         else { const a = AREA_PLOTS[pl - STRANDS.length]; if (a && area !== a.id) area = a.id; }
