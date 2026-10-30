@@ -1,9 +1,10 @@
 // The world map: every world of Adventure on one painted picture (worlds-wide.webp). The Sky Islands,
-// Fraction Falls, Counting Caves and Market Isle are open (Counting Caves is painted onto the picture as a
+// Fraction Falls, Counting Caves, Market Isle and the Chance Fair are open (Counting Caves is painted onto the picture as a
 // cut-out); the rest are the math areas still to come, shown so a child can see where the adventure goes
 // next. Each open world has its own painted map, wide (desktop) and tall (phones).
 import type { AreaId } from '../math/skills/types';
 import type { WorldId } from './state';
+import type { StationId } from '../audio/stations';
 
 export type WorldMap = { wide: string; tall: string; size: { wide: readonly [number, number]; tall: readonly [number, number] } };
 export type WorldPin = {
@@ -17,6 +18,8 @@ export type WorldPin = {
   map?: WorldMap;
   /** a math world's area (it opens once the area is started) */
   area?: AreaId;
+  /** its own music station on Auto (the Chance Fair plays World) */
+  station?: StationId;
 };
 
 export const WORLD_PINS: WorldPin[] = [
@@ -33,10 +36,13 @@ export const WORLD_PINS: WorldPin[] = [
   { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Clocks, lengths and weights.', at: [60, 55], area: 'measure' },
   { id: 'stars', name: 'Star Lab', blurb: 'Expressions and equations.', at: [88, 57], area: 'algebra' },
   { id: 'frost', name: 'Below Zero Caves', blurb: 'Negative numbers, under the ice.', at: [37, 87], area: 'integers' },
-  { id: 'fair', name: 'Chance Fair', blurb: 'Graphs, chance and data.', at: [73, 86], area: 'data' },
+  { id: 'fair', name: 'Chance Fair', blurb: 'A carnival in the clouds. Every battle card is graphs, data or chance.', at: [73, 86], area: 'data', station: 'world',
+    map: { wide: 'game/map-fair-wide.webp', tall: 'game/map-fair-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
 ];
 export const WORLD_PIN = Object.fromEntries(WORLD_PINS.map(w => [w.id, w])) as Record<string, WorldPin>;
 export const mapOf = (w: WorldId) => WORLD_PIN[w].map!;
+/** the station a world plays on Auto (null: Adventure's usual one) */
+export const stationOf = (w: string | undefined | null) => (w ? WORLD_PIN[w]?.station ?? null : null);
 
 /** The world the Adventure map last showed, so coming back from a battle lands on the same world. */
 export const lastWorld: { id: WorldId } = { id: 'sky' };

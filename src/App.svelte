@@ -3,7 +3,9 @@
   import GlobalMenu from './lib/ui/GlobalMenu.svelte';
   import { onMount } from 'svelte';
   import { game } from './lib/state/game.svelte';
-  import { configureSound, startMusic, unlockAudio, setMusicStyle, setMusicStation } from './lib/audio/sound';
+  import { configureSound, startMusic, unlockAudio, setMusicStyle, setMusicStation, setPlaceStation } from './lib/audio/sound';
+  import { lastWorld, stationOf } from './lib/adventure/worlds';
+  import { NODE, ISLAND } from './lib/adventure/state';
   import SvgDefs from './lib/ui/SvgDefs.svelte';
   import Title from './lib/screens/Title.svelte';
   import Players from './lib/screens/Players.svelte';
@@ -92,6 +94,9 @@
   $effect(() => {
     const scr = game.screen;
     if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
+    // a world with a station of its own plays it on its map and in its battles (the Chance Fair: World)
+    const node = scr === 'battle' ? NODE[game.battleNode ?? ''] : null;
+    if (scr !== 'showdown') setPlaceStation(scr === 'adventure' ? stationOf(lastWorld.id) : node ? stationOf(ISLAND[node.island]?.world) : null);
   });
 
   let canvas: HTMLCanvasElement | undefined = $state();

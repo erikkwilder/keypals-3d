@@ -116,6 +116,24 @@ const PLANS: Record<WorldId, WorldPlan> = {
       },
     },
   },
+  // the Chance Fair: the stone platforms from the balloon stand up to the prize tent; the second route
+  // goes past the big spinner wheel; the tall map has a platform less, so the routes meet on the path
+  fair: {
+    islands: {
+      fair: {
+        pts: {
+          0: { wide: [16.4, 73.0], tall: [52.0, 88.2] }, 1: { wide: [35.7, 64.0], tall: [54.6, 65.4] }, 2: { wide: [46.8, 52.7], tall: [48.7, 46.9] },
+          3: { wide: [66.4, 46.7], tall: [52.0, 29.8] }, 4: { wide: [57.0, 37.0], tall: [75.0, 44.0] }, j: { wide: [80.4, 35.5], tall: [60.0, 22.5] }, 5: { wide: [88.6, 21.6], tall: [67.8, 16.5] },
+          chest: { wide: [7.5, 63.0], tall: [30.0, 84.0] }, bonus: { wide: [30.0, 56.0], tall: [78.0, 62.0] }, hidden: { wide: [73.0, 52.5], tall: [30.0, 30.0] },
+        },
+        edges: [
+          ['0', '1', [[27.0, 67.5]], [[50.0, 77.0]]], ['1', '2', [[41.0, 58.0]], [[60.0, 56.0]]], ['2', '3', [[57.0, 49.0]], [[58.0, 38.0]]], ['3', 'j', [[73.0, 41.0]]],
+          ['2', '4', [[52.0, 44.0]], [[62.0, 49.0]]], ['4', 'j', [[66.0, 33.5]], [[76.0, 33.0], [66.0, 26.0]]], ['j', '5', [[85.0, 28.0]]],
+          ['0', 'chest'], ['1', 'bonus'], ['3', 'hidden'],
+        ],
+      },
+    },
+  },
 };
 
 const KIND_OF = (local: string): TrailKind => (local === 'chest' || local === 'bonus' || local === 'hidden' ? local : local === 'j' ? 'join' : 'stop');

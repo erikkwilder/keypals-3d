@@ -18,7 +18,7 @@ function allDone(world: WorldId) {
 
 describe('the trails on the Adventure maps', () => {
   it('every world that is open has trails, and every stop of it is on them', () => {
-    expect(WORLDS_WITH_TRAILS.sort()).toEqual(['caves', 'falls', 'market', 'sky']);
+    expect(WORLDS_WITH_TRAILS.sort()).toEqual(['caves', 'fair', 'falls', 'market', 'sky']);
     for (const w of WORLDS_WITH_TRAILS) {
       const tr = trailsOf(w);
       for (const n of nodesOf(w)) expect(tr.point[n.id]?.kind).toBe('stop');
@@ -123,7 +123,7 @@ describe('walking the trails', () => {
 
 describe('older saves on the new trails', () => {
   it('every old stop id is a stop on the trails, and the progress reads the same', () => {
-    for (const n of NODES) expect(stopOnTrails(trailsOf(['sky', 'falls', 'caves', 'market'].find(w => nodesOf(w as WorldId).includes(n)) as WorldId).world, n.id)).toBe(n.id);
+    for (const n of NODES) expect(stopOnTrails(trailsOf(['sky', 'falls', 'caves', 'market', 'fair'].find(w => nodesOf(w as WorldId).includes(n)) as WorldId).world, n.id)).toBe(n.id);
     // an older save part way through: battles won up to the old fourth stop of Treetop Hollow
     const p = newProfile('Ava', 'dino'), a = advOf(p);
     for (const id of ['meadow-0', 'meadow-1', 'meadow-2', 'meadow-3', 'meadow-4', 'meadow-5', 'treetops-0', 'treetops-1', 'treetops-2', 'treetops-3']) a.nodes[id] = 1;
