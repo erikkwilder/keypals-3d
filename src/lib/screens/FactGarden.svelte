@@ -338,7 +338,7 @@
     const d = KEYDIR[e.code], tag = (e.target as HTMLElement | null)?.tagName;
     if (d && !game.modalOpen && tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') { e.preventDefault(); keysHeld.add(d); startDrive(); return; }
     if (e.key !== 'Escape' || game.modalOpen) return;
-    if (help) help = false; else if (picked || pickedKey) unpick(); else if (bed !== null) goBed(null); else game.go(game.home);
+    if (help) help = false; else if (picked || pickedKey) unpick(); else if (bed !== null) goBed(null); else game.backFromStuff(() => game.go(game.home));
   }
   const skillGrowing = ALL_KEYS.some(k => (skillMem(mathOf(game.profile!))[k]?.stage ?? 0) > 0);
   let say = $state(grewIds.length && !firstVisit ? `${grewIds.length} ${grewIds.length === 1 ? 'fact grew' : 'facts grew'} since you last looked!`
@@ -353,7 +353,7 @@
 
 <div class="screen garden" class:narrow>
   <header class="bar">
-    <NavTile size="sm" tone="sky" kind="home" label="Home" onclick={() => game.go('hub')} />
+    {#if game.fromStuff}<NavTile size="sm" tone="sky" kind="home" label="My stuff" onclick={() => game.go('mystuff')} />{:else}<NavTile size="sm" tone="sky" kind="home" label="Home" onclick={() => game.go('hub')} />{/if}
     <h1>Fact Garden</h1>
     <div class="tally" aria-label="Garden totals">
       <span title="In bloom"><img src={STAGE_PIC[3]} alt="" /><b>{counts[3]}</b><small>bloom</small></span>

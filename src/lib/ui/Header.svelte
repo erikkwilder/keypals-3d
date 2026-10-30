@@ -5,7 +5,7 @@
   import Icon from './Icon.svelte';
   import GearButton from './GearButton.svelte';
   type Props = { title: string; back?: () => void; right?: Snippet; sub?: string; gear?: boolean; overlay?: boolean };
-  let { title, back = () => game.go(game.home), right, sub, gear = true, overlay = false }: Props = $props();
+  let { title, back = () => game.backFromStuff(() => game.go(game.home)), right, sub, gear = true, overlay = false }: Props = $props();
 </script>
 
 <svelte:window onkeydown={(e) => { if (e.key === 'Escape' && (overlay ? !game.sheet : !game.modalOpen) && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) back(); }} />

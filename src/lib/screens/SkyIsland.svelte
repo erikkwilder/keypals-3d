@@ -654,7 +654,7 @@
     if (blocking && (e.key === 'r' || e.key === 'R')) { turnK = (turnK + 1) % 4; sfx.click(); refreshHover(); return; }
     if (blocking && e.key === 'z' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); undo(); return; }
     if (e.key !== 'Escape') return;
-    if (moment) moment = null; else if (photo) endPhoto(); else if (card) thanks(); else if (sheet) sheet = null; else if (lockedPaint !== null) lockedPaint = null; else if (placing) cancelPlace(); else if (blocking) trayOpen = narrow ? false : (mode = 'things', true); else if (selected) choose(null); else if (owner) void goHome(); else game.go(game.home);
+    if (moment) moment = null; else if (photo) endPhoto(); else if (card) thanks(); else if (sheet) sheet = null; else if (lockedPaint !== null) lockedPaint = null; else if (placing) cancelPlace(); else if (blocking) trayOpen = narrow ? false : (mode = 'things', true); else if (selected) choose(null); else if (owner) void goHome(); else game.backFromStuff(() => game.go(game.home));
   }
   function keyUp(e: KeyboardEvent) { const d = KEYDIR[e.code]; if (d) held.delete(d); }
 
@@ -670,7 +670,7 @@
   <div class="view" bind:this={viewEl} onpointerdown={pdown} onpointermove={pmove} onpointerup={pup} onpointercancel={(e) => ptrs.delete(e.pointerId)} oncontextmenu={(e) => e.preventDefault()}></div>
 
   <header class="top" bind:this={topEl}>
-    <NavTile size={narrow ? 'bar' : 'sm'} tone="sky" kind="home" label="Home" onclick={() => game.go('hub')} />
+    {#if game.fromStuff}<NavTile size={narrow ? 'bar' : 'sm'} tone="sky" kind="home" label="My stuff" onclick={() => game.go('mystuff')} />{:else}<NavTile size={narrow ? 'bar' : 'sm'} tone="sky" kind="home" label="Home" onclick={() => game.go('hub')} />{/if}
     <div class="title">
       <img src="{base}island/tile.webp" alt="" />
       <div><b>{visiting ? `${owner?.name}'s ${narrow ? 'island' : 'Sky Island'}` : 'My Sky Island'}</b>

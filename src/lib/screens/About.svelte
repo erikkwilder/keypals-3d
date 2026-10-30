@@ -33,6 +33,8 @@
       <section class="card blk how">
         <h2>How it's made</h2>
         <p>The painted pictures and the 3D characters are made with the help of AI tools (the 3D models with tools such as Tencent's Hunyuan 3D), then picked, fixed and checked by a person before they go in the game. So: the art you see in Keypals is AI-made art, looked after by people.</p>
+        <p>The voices are made on our own computer with OmniVoice, an open voice model, and checked by a person. The voices are designed for Keypals, not copies of anyone's real voice.</p>
+        <p class="credits">Built with Higgs Materials licensed from Boson AI USA, Inc., Copyright Boson AI USA, Inc., All Rights Reserved, and Meta Llama 3 licensed under the Meta Llama 3 Community License, Copyright Meta Platforms, Inc., All Rights Reserved (part of OmniVoice, used to make the voices).</p>
         <p>The lessons, the math and the game itself are written and tested by hand.</p>
       </section>
 
@@ -80,4 +82,5 @@
     .blk h2 { font-size: 21px; }
     .blk p { font-size: 15.5px; }
   }
+  .credits { font-size: 12px; color: #8a7aa8; line-height: 1.45; }
 </style>

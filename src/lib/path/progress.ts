@@ -57,6 +57,11 @@ export function stopsWon(p: Profile, w: string): number {
   const a = advView(p);
   return nodesOf(w as WorldId).filter(n => cleared(a, n.id)).length;
 }
+/** Battles won on a world's map in all (each stop counts every time it's won; practice stops don't count). */
+export function battlesWon(p: Profile, w: string): number {
+  const a = advView(p);
+  return nodesOf(w as WorldId).filter(n => n.kind !== 'practice').reduce((t, n) => t + (a.nodes[n.id] ?? 0), 0);
+}
 /** A fact group's typical fact, in rungs (the middle of its facts, leaving out the 0 and 1 rules). */
 const groupRung = (g: string) => { const rs = groupFacts(g).filter(f => !isRuleFact(f)).map(factRung).sort((a, b) => a - b); return rs.length ? rs[Math.floor(rs.length / 2)] : 1; };
 
@@ -126,13 +131,14 @@ const gameEvent = (e: ClassEvent, id: string) => (e.k === 'arcade' || e.k === 'g
 export function itemDone(p: Profile, u: Unit, it: PathItem, o: { now?: number; since?: number; events?: ClassEvent[] } = {}): boolean {
   const now = o.now ?? Date.now();
   if (pathSave(p).done?.[itemKey(u, it)] !== undefined && o.since === undefined) return true;
-  const [k, a] = it.ref.split(':');
+  const [k, a, b] = it.ref.split(':');
   const evs = () => (o.events ?? eventsOf(p)).filter(e => e.at >= (o.since ?? 0) && e.at <= now);
   switch (k) {
     case 'ep': return isLearned(mathOf(p), a);
     case 'trip': return it.kind === 'check' ? passed(p, a) : tripDone(p, u, a);
-    case 'game': return o.since !== undefined ? evs().some(e => gameEvent(e, a)) : gamePlays(p, a) >= (u.gameNeed ?? 1);
-    case 'battle': return o.since !== undefined ? evs().some(e => e.k === 'battle' && e.w === a) : stopsWon(p, a) >= (u.battleNeed ?? 1);
+    // n on the item (game:pizza:3) is how many rounds, or battle wins, in all by then
+    case 'game': return o.since !== undefined ? evs().some(e => gameEvent(e, a)) : gamePlays(p, a) >= (b ? +b : u.gameNeed ?? 1);
+    case 'battle': return o.since !== undefined ? evs().some(e => e.k === 'battle' && e.w === a) : b ? battlesWon(p, a) >= +b : stopsWon(p, a) >= (u.battleNeed ?? 1);
     case 'skill': return evs().reduce((t, e) => t + (e.s?.[a]?.r ?? 0), 0) >= 10 || atLeastComfortable(workingOf(mathOf(p), a, now).word);
     case 'check': return checkDone(p, u, now);
     default: return false;

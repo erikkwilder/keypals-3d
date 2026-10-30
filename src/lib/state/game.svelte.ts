@@ -38,6 +38,9 @@ export type LastRun = RunOutcome & {
   ghost?: { beat: boolean; by: number; finished: boolean };
 };
 
+/** the places My stuff opens (their Back returns to My stuff) */
+const STUFF_PLACES = new Set<Screen>(['mystuff', 'closet', 'shop', 'stickers', 'glimmers', 'glimmerBook', 'eggs', 'garden', 'island']);
+
 class Game {
   save = $state<SaveFile>(load());
   screen = $state<Screen>('title');
@@ -68,7 +71,7 @@ class Game {
   glimmerSel = $state<string | null>(null);
   /** the Glimmer Book: where Back goes */
   bookBack = $state<Screen>('glimmers');
-  openBook() { if (this.screen !== 'glimmerBook') this.bookBack = this.screen; this.screen = 'glimmerBook'; }
+  openBook() { if (this.screen !== 'glimmerBook') this.bookBack = this.screen; this.arrive('glimmerBook'); }
   /** Family Duel or Rival Ghosts, and the rival picked (the duel screen rebuilds when duelKey bumps) */
   duelMode = $state<'duel' | 'rival'>('duel');
   duelRival = $state<import('../adventure/ghosts').Rival | null>(null);
@@ -85,7 +88,7 @@ class Game {
     this.arcadeGame = id;
     this.arcadeDaily = daily;
     this.arcadeKey++;
-    this.screen = 'arcadePlay';
+    this.arrive('arcadePlay');
   }
   /** the subject pages (Typing, Math): which way to play shows, Learn, Practice, Games or Adventure */
   way = $state<Record<string, import('../subjects').WayId>>({});
@@ -103,7 +106,7 @@ class Game {
   openLearn(id: string | null = null, back: Screen = this.screen === 'learn' ? this.learnBack : this.screen) {
     this.learnId = id;
     this.learnBack = back;
-    this.screen = 'learn';
+    this.arrive('learn');
   }
 
   get profile(): Profile | null {
@@ -127,10 +130,21 @@ class Game {
   go(screen: Screen) {
     // the sticker book, closet and settings go back to wherever they were opened from
     if (screen === 'hub' || screen === 'map') this.home = screen;
-    if (screen === 'mystuff' && this.screen !== 'mystuff') this.stuffBack = this.screen;
+    // (coming back to My stuff from one of its own places keeps where My stuff itself goes back to)
+    if (screen === 'mystuff' && !STUFF_PLACES.has(this.screen)) this.stuffBack = this.screen;
     if (screen !== this.screen) this.cameFrom = this.screen;
-    this.screen = screen;
+    this.arrive(screen);
   }
+  /** opened from My stuff: its places (the closet, shop, sticker book, Glimmers, the Glimmer Book, eggs, the
+   *  garden, the island) go back to My stuff; leaving them for anywhere else forgets it */
+  fromStuff = $state(false);
+  private arrive(next: Screen) {
+    if (this.screen === 'mystuff' && next !== 'mystuff') this.fromStuff = true;
+    else if (next === 'mystuff' || !STUFF_PLACES.has(next)) this.fromStuff = false;
+    this.screen = next;
+  }
+  /** Back from one of My stuff's places: to My stuff when it was opened from there, else `otherwise` */
+  backFromStuff(otherwise: () => void) { if (this.fromStuff) this.go('mystuff'); else otherwise(); }
   /** the screen before this one: an arcade game opened from the Arcade offers the way back there first */
   cameFrom: Screen = 'title';
   /** where "back" goes from the sticker book, closet and settings: Home or a subject's map */
@@ -158,11 +172,11 @@ class Game {
   /** My stuff and About: where Back goes */
   stuffBack = $state<Screen>('hub');
   aboutBack = $state<Screen>('hub');
-  openAbout() { if (this.screen !== 'about') this.aboutBack = this.screen; this.screen = 'about'; }
+  openAbout() { if (this.screen !== 'about') this.aboutBack = this.screen; this.arrive('about'); }
   openIdeas(tab: 'board' | 'suggest' | 'problem' = 'board') {
     if (this.screen !== 'ideas') this.ideasBack = this.screen;
     this.ideasTab = tab;
-    this.screen = 'ideas';
+    this.arrive('ideas');
   }
   /** the menu that goes anywhere in the game (and shows everything you've earned) */
   menuOpen = $state(false);
@@ -174,17 +188,17 @@ class Game {
   closeChart() { this.chartLesson = null; }
   openStickers(tab: 'stickers' | 'medals' | 'rides' = 'stickers') {
     this.stickerTab = tab;
-    this.screen = 'stickers';
+    this.arrive('stickers');
   }
   openCloset(tab: 'outfits' | 'dances' | 'gear' = 'outfits') {
     this.closetTab = tab;
-    this.screen = 'closet';
+    this.arrive('closet');
   }
   /** The Shop (one for the whole game: Home, the Adventure map and the Wardrobe open it). */
   openShop(slot: string | null = null) {
     if (this.screen !== 'shop') this.shopBack = this.screen;
     this.shopSlot = slot;
-    this.screen = 'shop';
+    this.arrive('shop');
   }
 
   say(msg: string, ms = 2600) {
@@ -266,20 +280,20 @@ class Game {
     this.quickStart = replay;
     this.skillLessonId = id;
     this.runKey++;
-    this.screen = 'skillRun';
+    this.arrive('skillRun');
   }
   startMath(id: string, replay = false) {
     this.quickStart = replay;
     this.mathLessonId = id;
     this.runKey++;
-    this.screen = 'mathRun';
+    this.arrive('mathRun');
   }
 
   startLesson(id: string, replay = false) {
     this.quickStart = replay;
     this.lessonId = id;
     this.runKey++;
-    this.screen = 'run';
+    this.arrive('run');
   }
 }
 

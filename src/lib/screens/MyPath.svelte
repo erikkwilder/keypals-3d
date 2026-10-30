@@ -97,8 +97,12 @@
     </button>
     {#if open}
       <ol class="items">
-        {#each s.items as it (it.ref)}
+        {#each s.items as it, k (it.ref)}
           {@const nx = s.next?.ref === it.ref && (s.status === 'current' || !!teacher)}
+          {#if it.day && it.day !== s.items[k - 1]?.day}
+            {@const dayItems = s.items.filter(x => x.day === it.day)}
+            <li class="dayh" class:done={dayItems.every(x => x.done)}><b>Day {it.day}</b><span>{dayItems.length} things · about {dayItems.length * 5} minutes</span>{#if dayItems.every(x => x.done)}<img src="{base}icons/check.webp" alt="Done" />{/if}</li>
+          {/if}
           <li class:done={it.done} class:next={nx}>
             <button class="row" onclick={() => go(s, it)} style:--kc={kindColor(it.kind)}>
               <img class="ki" src="{base}{KIND_ICON[it.kind]}" alt="" />
@@ -192,6 +196,11 @@
   .lv { font: 700 13px var(--font-body); color: var(--muted); }
 
   .items { list-style: none; margin: 0; padding: 0 12px 10px; display: flex; flex-direction: column; gap: 4px; }
+  .dayh { display: flex; align-items: center; gap: 10px; padding: 8px 8px 2px; font: 600 14px var(--font-ui); color: #6a5a8a; }
+  .dayh b { font: 700 15px var(--font-display, var(--font-ui)); color: #4a3a6a; letter-spacing: .02em; }
+  .dayh span { color: #8a7aa8; font-weight: 500; }
+  .dayh img { width: 18px; height: 18px; }
+  .dayh.done b { color: #2e9e6e; }
   .row { --kc: #7c5cf5; width: 100%; display: flex; align-items: center; gap: 10px; border: 0; cursor: pointer; text-align: left; font: inherit; padding: 5px 10px 5px 6px; border-radius: 14px; background: #faf8fe; box-shadow: inset 0 0 0 2px #f0ebf8; }
   .row:hover { background: #f4f0fd; }
   .ki { width: 36px; height: 36px; object-fit: contain; flex: none; }

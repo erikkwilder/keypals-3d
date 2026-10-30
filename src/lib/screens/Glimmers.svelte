@@ -108,7 +108,7 @@
 </script>
 
 <div class="screen gl">
-  <Header title="Your Glimmers" back={() => game.go('adventure')} sub="{owned.length} of {GLIMMER_TOTAL} found">
+  <Header title="Your Glimmers" back={() => game.backFromStuff(() => game.go('adventure'))} sub="{owned.length} of {GLIMMER_TOTAL} found">
     {#snippet right()}<button class="btn bookbtn" onclick={() => { sfx.click(); game.openBook(); }}><Icon name="book" size={26} /> Glimmer Book</button>{/snippet}
   </Header>
   <div class="body">

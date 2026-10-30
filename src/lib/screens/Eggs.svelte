@@ -206,7 +206,7 @@
 </script>
 
 <div class="screen eggs" class:showing={!!got || !!hm}>
-  <Header title="Eggs" back={() => game.go('adventure')} sub="They hatch into new Glimmers" />
+  <Header title="Eggs" back={() => game.backFromStuff(() => game.go('adventure'))} sub="They hatch into new Glimmers" />
   <div class="stagebox" bind:this={stageEl}></div>
 
   <div class="nests">

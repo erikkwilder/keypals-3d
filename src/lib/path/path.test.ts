@@ -51,7 +51,7 @@ describe('the units', () => {
   it('each unit mixes the four ways and ends with a check', () => {
     for (const u of pathOf('math')) {
       const kinds = u.items.map(i => i.kind);
-      expect(kinds[0]).toBe('learn');
+      expect(['learn', 'practice']).toContain(kinds[0]);
       expect(kinds).toContain('practice');
       expect(kinds).toContain('game');
       expect(kinds).toContain('battle');
@@ -60,9 +60,9 @@ describe('the units', () => {
     }
     // the fractions units: Pizza Rush and Fraction Falls; the fact units share the Arcade and the Sky Islands
     const pie = unitById('math:frac-a')!;
-    expect(pie.items.find(i => i.kind === 'game')!.ref).toBe('game:pizza');
-    expect(pie.items.find(i => i.kind === 'battle')!.ref).toBe('battle:falls');
-    expect(unitById('math:plus-s')!.items.find(i => i.kind === 'battle')!.ref).toBe('battle:sky');
+    expect(pie.items.find(i => i.kind === 'game')!.ref).toBe('game:pizza:1');
+    expect(pie.items.find(i => i.kind === 'battle')!.ref).toBe('battle:falls:1');
+    expect(unitById('math:plus-s')!.items.find(i => i.kind === 'battle')!.ref).toMatch(/^battle:sky:\d+$/);
     expect(KIND_NAME.check).toBe('Unit check');
   });
   it('typing: the course\'s regions in order (not the Open Road), new keys as Learn, the big run as the check', () => {
@@ -73,12 +73,32 @@ describe('the units', () => {
     expect(v.items.at(-1)).toMatchObject({ ref: 'trip:village-9', kind: 'check' });
     expect(v.items.some(i => i.kind === 'battle')).toBe(true);
   });
-  it('each unit that shares a game or a world asks for one more round, or one more stop won', () => {
+  it('game rounds and battle wins count up along the path: each item asks for one more than the last', () => {
     const fr = pathOf('math').filter(u => u.area === 'fractions');
-    expect(fr.map(u => u.gameNeed)).toEqual([1, 2, 3]);
-    expect(fr.map(u => u.battleNeed)).toEqual([2, 4, 6]);
-    const typ = pathOf('typing');
-    expect(typ.at(-1)!.battleNeed).toBe(nodesOf('sky').length);
+    const need = (k: string) => fr.flatMap(u => u.items.filter(i => i.kind === k).map(i => +i.ref.split(':')[2]));
+    const games = need('game'), wins = need('battle');
+    expect(games).toEqual(games.map((_, i) => i + 1));
+    expect(wins).toEqual(wins.map((_, i) => i + 1));
+    expect(games.length).toBeGreaterThan(fr.length);
+  });
+  it('units come as short days that mix learning and play, never all the Learn first', () => {
+    for (const s of ['math', 'typing']) for (const u of pathOf(s)) {
+      const days = [...new Set(u.items.map(i => i.day))];
+      expect(days.every(d => typeof d === 'number')).toBe(true);
+      for (const d of days) {
+        const its = u.items.filter(i => i.day === d);
+        expect(its.length).toBeLessThanOrEqual(5);
+        // a Learn is never the last thing of a day: its practice comes straight after
+        expect(its.at(-1)!.kind).not.toBe('learn');
+      }
+      // every day but the check day has some play when the unit has more than one day
+      if (s === 'math' && days.length > 2) for (const d of days.slice(0, -1)) expect(u.items.some(i => i.day === d && (i.kind === 'game' || i.kind === 'battle'))).toBe(true);
+      // Learn episodes are spread out, not stacked at the start
+      const eps = u.items.filter(i => i.ref.startsWith('ep:'));
+      if (eps.length > 1) expect(new Set(eps.map(i => i.day)).size).toBeGreaterThan(1);
+    }
+    const pie = unitById('math:frac-a')!;
+    expect(pie.items.map(i => i.kind).slice(0, 6)).toEqual(['learn', 'practice', 'game', 'learn', 'practice', 'battle']);
   });
 });
 
@@ -97,13 +117,14 @@ describe('done, next and you know this', () => {
     passTrip(p, 'frac-a-1');
     let s = unitState(p, u, { now: MON });
     expect(s.items.filter(i => i.done).map(i => i.ref)).toEqual(['ep:frac-parts', 'trip:frac-a-1']);
-    expect(s.next!.ref).toBe('ep:frac-one-piece');
-    // a round of Pizza Rush, a stop won on Fraction Falls
+    expect(s.next!.ref).toBe('game:pizza:1');
+    // a round of Pizza Rush, a battle won on Fraction Falls
     mathOf(p); p.math!.arcade = { 'pizza-rush': { best: 100, stars: 1, plays: 1 } };
-    const a = advOf(p); for (const n of nodesOf('falls').slice(0, 2)) a.nodes[n.id] = 1;
+    const a = advOf(p); for (const n of nodesOf('falls').filter(n => n.kind !== 'practice').slice(0, 1)) a.nodes[n.id] = 1;
     s = unitState(p, u, { now: MON });
     expect(s.items.find(i => i.kind === 'game')!.done).toBe(true);
     expect(s.items.find(i => i.kind === 'battle')!.done).toBe(true);
+    expect(s.next!.ref).toBe('ep:frac-one-piece');
     // the second fractions unit wants a second round and more stops
     const u2 = unitById('math:frac-b')!;
     expect(itemDone(p, u2, u2.items.find(i => i.kind === 'game')!)).toBe(false);

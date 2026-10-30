@@ -352,7 +352,7 @@
   function release() { clearInterval(holdTimer); }
 
   function back() {
-    leaveMove(() => { if (game.screen === 'shop') game.go(game.shopBack); else game.go(game.home); });
+    leaveMove(() => game.backFromStuff(() => { if (game.screen === 'shop') game.go(game.shopBack); else game.go(game.home); }));
   }
 
   onMount(() => { shortQ?.addEventListener('change', onShort); show(who); addEventListener('resize', onResize); addEventListener('pointerup', release); stageEl?.addEventListener('pointerdown', stageDown); stageEl?.addEventListener('pointerup', stageUp); });

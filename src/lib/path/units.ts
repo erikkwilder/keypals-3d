@@ -1,6 +1,8 @@
-// My path: each subject laid out like a syllabus, as units in a sensible order, each unit a short list
-// that mixes the four ways to play: a Learn episode or two, the practice trips, a game round in that
-// area, an Adventure battle in its world, and a unit check. It's a guide, not a cage: everything else in
+// My path: each subject laid out like a syllabus, as units in a sensible order. A unit is a few short days
+// (about three things each, about a quarter of an hour), and each day mixes the four ways to play the way
+// a good lesson does: a little practice, a little learning with its practice straight after, then a game
+// round or an Adventure battle (taking turns), and the last day ends with the unit check. Nobody sits
+// through every Learn episode first and every trip after. It's a guide, not a cage: everything else in
 // the game stays open (unless a grown-up or teacher keeps a player to it: rules.ts).
 //
 // Math: every area's regions (the map's islands), in grade order, the areas mixed together (Kindergarten
@@ -10,7 +12,8 @@
 //
 // An item is a short reference (`ref`) that says how it's done and how to start it:
 //   ep:<episode>     a math Learn episode           trip:<lesson>   a practice trip or typing lesson
-//   game:<game>      a round of that game           battle:<world>  a battle won in that world
+//   game:<game>[:n]  a round of that game           battle:<world>[:n]  a battle won in that world
+//                    (n: how many rounds or battle wins in all by then, counting earlier units too)
 //   skill:<skill>    practice on one skill (a teacher's own unit)
 //   check            the unit check: comfortable or better on the unit's skills (math), or the region's
 //                    checkpoint run passed (typing: trip:<checkpoint>, shown as the check)
@@ -27,7 +30,8 @@ import { WORLD_PIN, WORLD_PINS } from '../adventure/worlds';
 import { nodesOf, type WorldId } from '../adventure/state';
 
 export type ItemKind = 'learn' | 'practice' | 'game' | 'battle' | 'check';
-export type PathItem = { ref: string; kind: ItemKind; name: string; line: string };
+/** `day`: which of the unit's days it belongs to (1, 2, 3...; a teacher's own unit has none) */
+export type PathItem = { ref: string; kind: ItemKind; name: string; line: string; day?: number };
 export type Unit = {
   /** `math:frac-a`, `typing:village` (a teacher's unit: `class:<assignment>`) */
   id: string; subject: string;
@@ -161,22 +165,84 @@ function typingDrafts(): Draft[] {
   });
 }
 
-/** Number the units, and work out how many game rounds and battles each one asks for. */
+/** The Learn episode a trip goes with: a fact trip's trick, or the episode for a skill trip's first skill. */
+function epForTrip(id: string): string | null {
+  const f = MATH_LESSON[id];
+  if (f) return f.kind === 'meet' || f.kind === 'rules' ? lessonForStop(f)?.id ?? null : null;
+  const l = SKILL_LESSON[id];
+  if (l && l.kind === 'meet') for (const sk of l.skills) { const ep = SKILL_EPISODES[sk]; if (ep) return ep; }
+  return null;
+}
+
+/** A unit's learning in order: each Learn episode just before the first trip that uses it (so its practice
+ *  comes straight after), any episode with no trip of its own spread among the trips. */
+function learningOrder(d: Draft): string[] {
+  const out: string[] = [], placed = new Set<string>();
+  for (const t of d.trips) {
+    const e = epForTrip(t);
+    if (e && d.eps.includes(e) && !placed.has(e)) { out.push(`ep:${e}`); placed.add(e); }
+    out.push(`trip:${t}`);
+  }
+  const loose = d.eps.filter(e => !placed.has(e));
+  loose.forEach((e, i) => {
+    // before the 1st, 3rd, 5th... trip that isn't already right after a Learn
+    const trips = out.map((r, k) => ({ r, k })).filter(x => x.r.startsWith('trip:') && !out[x.k - 1]?.startsWith('ep:'));
+    const at = trips[Math.min(trips.length - 1, i * 2)]?.k ?? out.length;
+    out.splice(at, 0, `ep:${e}`);
+  });
+  return out;
+}
+
+/** Split a unit's learning into short days: two things a day (a Learn always stays with the practice that
+ *  follows it, so a day can be three), and a very short last day joins the one before. */
+function intoDays(learning: string[], isLearn: (r: string) => boolean): string[][] {
+  const days: string[][] = [];
+  let cur: string[] = [];
+  for (const r of learning) {
+    cur.push(r);
+    if (cur.length >= 2 && !isLearn(r)) { days.push(cur); cur = []; }
+  }
+  if (cur.length) { if (cur.length === 1 && days.length && !isLearn(cur[0])) days[days.length - 1].push(...cur); else days.push(cur); }
+  return days;
+}
+
+/** Number the units and lay each out as days: learning, then a game round or a battle (taking turns),
+ *  the unit check on the last day. Game rounds and battle wins count up along the path (earlier units'
+ *  rounds count too), so each item asks for one more than the last. */
 function finish(drafts: Draft[]): Unit[] {
-  const gameUses: Record<string, number> = {}, worldUnits: Record<string, number> = {}, worldUses: Record<string, number> = {};
-  for (const d of drafts) worldUnits[d.world] = (worldUnits[d.world] ?? 0) + 1;
+  const rounds: Record<string, number> = {}, wins: Record<string, number> = {};
   return drafts.map((d, i) => {
-    const { order: _o, eps, trips, game, world, ...u } = d;
-    const gameNeed = game ? (gameUses[game] = (gameUses[game] ?? 0) + 1) : undefined;
-    const k = (worldUses[world] = (worldUses[world] ?? 0) + 1);
-    const stops = stopsIn(world);
-    const battleNeed = Math.min(stops, Math.ceil((k * stops) / Math.max(1, worldUnits[world])));
-    const refs = [...eps.map(e => `ep:${e}`), ...trips.map(t => `trip:${t}`), ...(game ? [`game:${game}`] : []), `battle:${world}`, d.subject === 'typing' ? (d.checkTrip ? `trip:${d.checkTrip}` : '') : 'check'].filter(Boolean);
-    const items = refs.map(r => itemOf(r, d.subject));
-    // the typing units' own lines: say how many battles it asks for
-    for (const it of items) if (it.kind === 'battle' && battleNeed > 1) it.line = `Win ${battleNeed} stops on the map`;
-    for (const it of items) if (it.kind === 'game' && gameNeed && gameNeed > 1) it.line = `Play round ${gameNeed}`;
-    return { ...u, n: i + 1, gameNeed, battleNeed, items };
+    const { order: _o, eps: _e, trips: _t, game, world, ...u } = d;
+    const typing = d.subject === 'typing';
+    const learnRefs = learningOrder(d);
+    const kindOf = (r: string) => describe(r, d.subject).kind;
+    const days = intoDays(learnRefs, r => kindOf(r) === 'learn');
+    // play after each day's learning: a game round and a battle take turns (typing has no game yet: a
+    // battle every other day); the last day of learning is followed by the check rather than more play
+    const plays: string[] = [];
+    let turn = 0, firstGame: number | undefined, firstWin: number | undefined;
+    const play = (dayNo: number): string | null => {
+      const wantGame = !!game && (turn % 2 === 0 || typing);
+      if (typing && dayNo % 2 === 1 && dayNo > 0) { turn++; return null; }
+      turn++;
+      if (wantGame && game) { const n = (rounds[game] = (rounds[game] ?? 0) + 1); firstGame ??= n; return `game:${game}:${n}`; }
+      const n = (wins[world] = (wins[world] ?? 0) + 1); firstWin ??= n; return `battle:${world}:${n}`;
+    };
+    // the last day: its final review trip (the mix) moves next to the check, so the unit ends "one more
+    // go at everything, then show what you know" rather than three trips in a row
+    const lastDay = days[days.length - 1];
+    const tail = lastDay && lastDay.length >= 2 && kindOf(lastDay[lastDay.length - 1]) !== 'learn' && kindOf(lastDay[lastDay.length - 2]) !== 'learn' ? lastDay.pop()! : null;
+    const items: PathItem[] = [];
+    days.forEach((day, k) => {
+      for (const r of day) items.push({ ...itemOf(r, d.subject), day: k + 1 });
+      const r = play(k);
+      if (r) items.push({ ...itemOf(r, d.subject), day: k + 1 });
+    });
+    const check = typing ? (d.checkTrip ? `trip:${d.checkTrip}` : '') : 'check';
+    const end = tail || check ? days.length + 1 : days.length;
+    if (tail) items.push({ ...itemOf(tail, d.subject), day: end });
+    if (check) items.push({ ...itemOf(check, d.subject), day: tail ? end : Math.max(1, days.length) });
+    return { ...u, n: i + 1, gameNeed: firstGame, battleNeed: firstWin, items };
   });
 }
 
