@@ -419,6 +419,7 @@
   .secrow .chev { width: 26px; height: 26px; opacity: .6; }
   .tryall { display: flex; align-items: center; gap: 16px; padding: 14px 18px; margin: 12px 0; }
   .tryall h3 { margin: 0 0 2px; }
+  .tryall > .btn { flex: none; white-space: nowrap; }
   .tryall .ti { width: 52px; height: 52px; object-fit: contain; flex: none; }
   @media (max-width: 600px) { .tryall .ti { display: none; } }
   .adminpane { border: 3px solid #ffcf8a; }

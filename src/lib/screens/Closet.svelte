@@ -908,6 +908,8 @@
     .sidehead { font-size: 13px; }
     .rail { grid-auto-columns: 62px; overflow-x: auto; padding: 6px 4px 2px; margin: -6px -4px 0; scrollbar-width: none; }
     .rail::-webkit-scrollbar { display: none; }
+    /* the Wardrobe's spots wrap onto a second row instead of scrolling sideways (the Shop keeps its row for now) */
+    .closet:not(.shopside) .rail { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-columns: auto; overflow: visible; margin: 0; padding: 2px 0 0; }
     .rpic { width: 40px; height: 40px; } .rpic img, .rpic :global(img.art) { width: 34px; height: 34px; }
     .mover { padding: 8px; gap: 6px; }
     .mv { min-height: 50px; font-size: 18px; } .mv :global(img) { width: 30px; height: 30px; }
