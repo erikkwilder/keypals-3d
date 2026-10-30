@@ -38,9 +38,9 @@ export type Board = {
   line: { from: number; to: number; at: number; hops: { a: number; b: number; label: string }[]; den?: number } | null;
   /** dishes under whole things (fractions): a pie dish, a pizza board, a chocolate bar's foil, by their middle */
   dishes?: { id: string; x: number; y: number; r: number; kind: 'pie' | 'pizza' | 'foil'; w?: number; h?: number }[];
-  /** a treasure map with a coordinate grid from min to max both ways, its (0, 0) at x, y, `cell` apart
-   *  (negative numbers: math/integers/episodes.ts) */
-  chart?: { x: number; y: number; cell: number; min: number; max: number };
+  /** a treasure map with a coordinate grid (xMin to xMax across, yMin to yMax up), its (0, 0) at x, y,
+   *  `cell` apart (negative numbers: math/integers/episodes.ts) */
+  chart?: { x: number; y: number; cell: number; xMin: number; xMax: number; yMin: number; yMax: number };
   tags: Tag[];
 };
 /** the picture's size; it scales to fit */
@@ -399,7 +399,7 @@ export function boundsOf(boards: Board[]): { x: number; y: number; w: number; h:
     for (const p of b.plates) add(p.x - p.r - 4, p.y - p.r, p.x + p.r + 4, p.y + p.r);
     for (const p of b.dishes ?? []) { const hw = p.kind === 'foil' ? (p.w ?? p.r * 2) / 2 + 8 : p.r + 8, hh = p.kind === 'foil' ? (p.h ?? p.r) / 2 + 8 : p.r + 8; add(p.x - hw, p.y - hh, p.x + hw, p.y + hh); }
     if (b.line) add(10, 236 - 120, BW - 10, 236 + 48);
-    if (b.chart) { const c = b.chart, lo = c.min - 0.8, hi = c.max + 0.8; add(c.x + lo * c.cell, c.y - hi * c.cell, c.x + hi * c.cell, c.y - lo * c.cell); }
+    if (b.chart) { const c = b.chart; add(c.x + (c.xMin - 0.8) * c.cell, c.y - (c.yMax + 0.8) * c.cell, c.x + (c.xMax + 0.8) * c.cell, c.y - (c.yMin - 0.8) * c.cell); }
     // (a fraction picture's words float over its back edge: they don't make the table bigger)
     if (!b.dishes?.length && !b.dots.some(d => d.shape)) for (const t of b.tags) { const sz = t.size ?? 30, w = t.text.length * sz * 0.32 + 8; add(t.x - w, t.y - sz, t.x + w, t.y + 10); }
   }

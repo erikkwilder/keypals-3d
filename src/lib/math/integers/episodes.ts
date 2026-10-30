@@ -31,12 +31,12 @@ const plank = (at: number, hs: Hop[] = [], tags: Tag[] = []): Board => board({ l
 const under = (id: string, n: number, text: string, c: Tag['c'] = 'ink') => tag(id, lx(n), 300, text, c, 24);
 const Q = (text: string, ans: string, hint: string, hidden: string, pic: Board): EpQ => ({ text, ans, input: 'num', hint, hidden, pic });
 
-// ---------- the map: a treasure map on the table, −4 to 4 ----------
-const CX = 300, CY = 172, CELL = 34, MIN = -4, MAX = 4;
+// ---------- the map: a treasure map on the table, −5 to 5 across and −3 to 3 up ----------
+const CX = 300, CY = 172, CELL = 40;
 /** a grid crossing on the board */
 const gp = (x: number, y: number) => ({ x: CX + x * CELL, y: CY - y * CELL });
 const coin = (id: string, x: number, y: number, c: Dot['c'] = 'c', d = 0): Dot => ({ id, ...gp(x, y), c, d });
-const map = (dots: Dot[] = [], tags: Tag[] = []): Board => board({ cell: 30, chart: { x: CX, y: CY, cell: CELL, min: MIN, max: MAX }, dots, tags });
+const map = (dots: Dot[] = [], tags: Tag[] = []): Board => board({ cell: 30, chart: { x: CX, y: CY, cell: CELL, xMin: -5, xMax: 5, yMin: -3, yMax: 3 }, dots, tags });
 const pairTag = (id: string, x: number, y: number, text: string) => tag(id, gp(x, y).x, gp(x, y).y - 26, text, 'c', 22);
 
 export const NEG_LESSONS: NegLesson[] = [

@@ -500,7 +500,7 @@ export class EpisodeScene implements Controller {
       return g;
     } })), instant);
     // a treasure map with its grid (negative numbers)
-    const ck = b.chart ? `${b.chart.x},${b.chart.y},${b.chart.cell},${b.chart.min},${b.chart.max}` : '';
+    const ck = b.chart ? JSON.stringify(b.chart) : '';
     if (ck !== this.chartKey) {
       this.chartKey = ck;
       if (this.chartMesh) { this.chartMesh.removeFromParent(); dispose(this.chartMesh); this.chartMesh = null; }
@@ -679,41 +679,34 @@ export class EpisodeScene implements Controller {
   /** A treasure map lying on the table: old paper with the coordinate grid, the axes as dark lines and
    *  every line numbered (minus numbers in blue), a little lifted at the edges. */
   private makeChart(c: NonNullable<Board['chart']>) {
-    const n = c.max - c.min, P = 96, pad = 0.8;
+    const nx = c.xMax - c.xMin, ny = c.yMax - c.yMin, P = 110, pad = 0.8;
     const cv = document.createElement('canvas');
-    cv.width = cv.height = Math.round((n + pad * 2) * P);
+    cv.width = Math.round((nx + pad * 2) * P); cv.height = Math.round((ny + pad * 2) * P);
     const g = cv.getContext('2d')!;
-    const S = cv.width;
-    const grad = g.createRadialGradient(S / 2, S / 2, S * 0.2, S / 2, S / 2, S * 0.75);
+    const SW = cv.width, SH = cv.height;
+    const grad = g.createRadialGradient(SW / 2, SH / 2, SH * 0.2, SW / 2, SH / 2, SW * 0.6);
     grad.addColorStop(0, '#fbf0d4'); grad.addColorStop(1, '#e8cf9a');
-    g.fillStyle = grad; g.fillRect(0, 0, S, S);
-    for (let i = 0; i < S * S / 400; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(150,100,40,0.06)' : 'rgba(255,255,240,0.2)'; g.fillRect(Math.random() * S, Math.random() * S, 3, 3); }
-    g.strokeStyle = '#b8894a'; g.lineWidth = 10; g.strokeRect(10, 10, S - 20, S - 20);
-    const X = (v: number) => (v - c.min + pad) * P, Y = (v: number) => (c.max - v + pad) * P;
-    for (let v = c.min; v <= c.max; v++) {
-      const axis = v === 0;
-      g.strokeStyle = axis ? '#5b3416' : 'rgba(120,80,35,0.35)'; g.lineWidth = axis ? 8 : 3;
-      g.beginPath(); g.moveTo(X(v), Y(c.max) - (axis ? P * 0.4 : 0)); g.lineTo(X(v), Y(c.min) + (axis ? P * 0.4 : 0)); g.stroke();
-      g.beginPath(); g.moveTo(X(c.min) - (axis ? P * 0.4 : 0), Y(v)); g.lineTo(X(c.max) + (axis ? P * 0.4 : 0), Y(v)); g.stroke();
-    }
-    g.font = `700 ${Math.round(P * 0.36)}px "Fredoka", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
-    const label = (s: string, x: number, y: number, col: string) => { g.strokeStyle = 'rgba(255,248,230,0.95)'; g.lineWidth = 8; g.strokeText(s, x, y); g.fillStyle = col; g.fillText(s, x, y); };
-    for (let v = c.min; v <= c.max; v++) {
-      if (v === 0) continue;
-      const s = v < 0 ? `−${-v}` : String(v), col = v < 0 ? '#1f5f9e' : '#5b3416';
-      label(s, X(v), Y(0) + P * 0.36, col);
-      label(s, X(0) - P * 0.36, Y(v), col);
-    }
-    label('0', X(0) - P * 0.3, Y(0) + P * 0.32, '#5b3416');
+    g.fillStyle = grad; g.fillRect(0, 0, SW, SH);
+    for (let i = 0; i < SW * SH / 400; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(150,100,40,0.06)' : 'rgba(255,255,240,0.2)'; g.fillRect(Math.random() * SW, Math.random() * SH, 3, 3); }
+    g.strokeStyle = '#b8894a'; g.lineWidth = 12; g.strokeRect(10, 10, SW - 20, SH - 20);
+    const X = (v: number) => (v - c.xMin + pad) * P, Y = (v: number) => (c.yMax - v + pad) * P;
+    for (let v = c.xMin; v <= c.xMax; v++) { const axis = v === 0; g.strokeStyle = axis ? '#5b3416' : 'rgba(120,80,35,0.35)'; g.lineWidth = axis ? 9 : 3; g.beginPath(); g.moveTo(X(v), Y(c.yMax) - (axis ? P * 0.45 : 0)); g.lineTo(X(v), Y(c.yMin) + (axis ? P * 0.45 : 0)); g.stroke(); }
+    for (let v = c.yMin; v <= c.yMax; v++) { const axis = v === 0; g.strokeStyle = axis ? '#5b3416' : 'rgba(120,80,35,0.35)'; g.lineWidth = axis ? 9 : 3; g.beginPath(); g.moveTo(X(c.xMin) - (axis ? P * 0.45 : 0), Y(v)); g.lineTo(X(c.xMax) + (axis ? P * 0.45 : 0), Y(v)); g.stroke(); }
+    g.font = `700 ${Math.round(P * 0.46)}px "Fredoka", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    const label = (s: string, x: number, y: number, col: string) => { g.strokeStyle = 'rgba(255,248,230,0.95)'; g.lineWidth = 10; g.strokeText(s, x, y); g.fillStyle = col; g.fillText(s, x, y); };
+    const txt = (v: number) => (v < 0 ? `−${-v}` : String(v));
+    for (let v = c.xMin; v <= c.xMax; v++) if (v !== 0) label(txt(v), X(v), Y(0) + P * 0.42, v < 0 ? '#1f5f9e' : '#5b3416');
+    for (let v = c.yMin; v <= c.yMax; v++) if (v !== 0) label(txt(v), X(0) - P * 0.42, Y(v), v < 0 ? '#1f5f9e' : '#5b3416');
+    label('0', X(0) - P * 0.34, Y(0) + P * 0.38, '#5b3416');
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-    const size = (n + pad * 2) * c.cell * this.map.s;
+    const w = (nx + pad * 2) * c.cell * this.map.s, d = (ny + pad * 2) * c.cell * this.map.s;
     const grp = new THREE.Group();
-    const paper = new THREE.Mesh(new THREE.PlaneGeometry(size, size * DEPTH).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+    const paper = new THREE.Mesh(new THREE.PlaneGeometry(w, d * DEPTH).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
     paper.receiveShadow = true;
     grp.add(paper);
-    grp.add(this.blob(size * 1.25));
-    const at = this.boardPoint(c.x + ((c.min + c.max) / 2) * c.cell, c.y - ((c.min + c.max) / 2) * c.cell, 0.004);
+    grp.add(this.blob(w * 1.2));
+    const at = this.boardPoint(c.x + ((c.xMin + c.xMax) / 2) * c.cell, c.y - ((c.yMin + c.yMax) / 2) * c.cell, 0.004);
     grp.position.copy(at);
     return grp;
   }
