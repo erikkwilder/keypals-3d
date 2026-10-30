@@ -101,6 +101,9 @@ export function devBoot() {
     game.openCloset('gear');
   }
   if (key === 'tester') { addTester(); game.go('map'); history.replaceState(null, '', location.pathname + location.search); }
+  // measurement and time: #measure-pics (every question's picture and input), #measure (its map)
+  if (key === 'measure-pics' && import.meta.env.DEV) { ensure(); void Promise.all([import('svelte'), import('../math/measure/PicGallery.svelte')]).then(([s, m]) => { const c = s.mount(m.default, { target: document.body, props: { onclose: () => s.unmount(c) } }); }); }
+  if (key === 'measure') { ensure(); game.setHome('math'); game.mathArea = 'measure'; game.mathOp = null; game.go('map'); }
   // every sound in the game, with Play buttons (works on the live site too)
   if (key === 'sounds') void Promise.all([import('svelte'), import('../ui/SoundBoard.svelte')]).then(([s, m]) => s.mount(m.default, { target: document.body }));
 }

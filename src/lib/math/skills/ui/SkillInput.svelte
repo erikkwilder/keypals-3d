@@ -8,6 +8,13 @@
   // the inputs the areas bring
   import CoinTray from './CoinTray.svelte';
   registerInput('coins', CoinTray);
+  // measurement and time: clock hands, a ribbon on a ruler, water in a jug
+  import ClockInput from './ClockInput.svelte';
+  import RulerInput from './RulerInput.svelte';
+  import JugInput from './JugInput.svelte';
+  registerInput('clock', ClockInput);
+  registerInput('ruler', RulerInput);
+  registerInput('jug', JugInput);
 </script>
 
 <script lang="ts">

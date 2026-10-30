@@ -55,7 +55,9 @@ export type Part =
   /** an amount of money: 35¢, or $1.35 from a dollar up (or when `dollars`) */
   | { t: 'money'; cents: number; dollars?: boolean }
   /** where the answer goes (a number blank) */
-  | { t: 'blank' };
+  | { t: 'blank' }
+  /** a measuring picture (a clock, a ruler, a scale, a jug, squares, a box: skills/measure.ts) */
+  | { t: 'meas'; m: import('./measure').MeasPic };
 
 export type Choice = { id: string; parts: Part[] };
 
