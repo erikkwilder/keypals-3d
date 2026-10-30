@@ -122,7 +122,7 @@ export const RATIO_LESSONS: FracLesson[] = [
     teach: { q: Q('How many oranges for 4 cups?', '12', 'Every hop is 3 more: 3, 6, 9, 12.', '', plank(4, 4, ['3', '', '', ''], [tag('h', 300, 96, '1 cup = 3 oranges', 'c')])), wrong: '7', says: '4 cups, and 3 oranges... 4 + 3 is 7!', decoy: '9', fixed: 'Every hop is one more cup AND three more oranges: 3, 6, 9, 12. Count the hops in threes!' },
   },
   {
-    id: 'rt-one-each', title: 'One for One', blurb: 'The price of one: share it out, then times it up for more.', set: 'juice', skill: 'rt-rate', art: 'learn/ratio/card-fruit.webp',
+    id: 'rt-one-each', title: 'One for One', blurb: 'The price of one: share it out, then times it up for more.', set: 'juice', skill: 'rt-rate', art: 'learn/ratio/card-share.webp',
     steps: [
       { say: '', board: board({ cell: 36, plates: S4.slice(0, 4).map((x, i) => plate(`pl${i}`, x, 230, 42)), dots: heap('b', many('berry', 12), { x: 300, y: 70 }, 34, 6) }), eq: '12 blueberries for 4 smoothies' },
       { say: '', board: board({ cell: 36, plates: S4.slice(0, 4).map((x, i) => plate(`pl${i}`, x, 230, 42)), dots: Array.from({ length: 12 }, (_, k) => { const p = k % 4, j = Math.floor(k / 4); return { id: `b${k}`, x: S4[p] + (j - 1) * 24, y: 230 + (j === 1 ? -14 : 8), c: 'a' as Hue, d: k * 0.05, shape: { k: 'fruit' as const, f: 'berry' as const } }; }) }), eq: '12 ÷ 4 = [3] each' },
@@ -167,7 +167,7 @@ export const RATIO_LESSONS: FracLesson[] = [
     teach: { q: Q('25% of 8 = ?', '2', '25% is a quarter: share 8 onto 4 plates, 2 on each.', '', shared('mango', 8, 4, [0], 'q')), wrong: '25', says: 'It says 25 percent... so the answer is 25!', decoy: '4', fixed: '25 percent is one quarter! Share 8 onto 4 plates: 2 on each. So 25% of 8 is 2.' },
   },
   {
-    id: 'rt-percent-off', title: 'Percent Off', blurb: '25% off $20: find 25% of the price ($5), then take it off. You pay $15.', set: 'juice', skill: 'rt-shop', art: 'learn/ratio/card-fruit.webp',
+    id: 'rt-percent-off', title: 'Percent Off', blurb: '25% off $20: find 25% of the price ($5), then take it off. You pay $15.', set: 'juice', skill: 'rt-shop', art: 'learn/ratio/card-sale.webp',
     steps: [
       { say: '', board: coins(20, 0, false, [tag('p', 300, 40, 'a $20 blender', 'c')]), eq: '$20, 25% off' },
       { say: '', board: coins(20, 5, false, [tag('p', 300, 40, 'a $20 blender', 'c')]), eq: '25% of $20 = [$5]' },
