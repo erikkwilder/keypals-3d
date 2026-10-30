@@ -411,15 +411,19 @@ export class EpisodeScene implements Controller {
   private workT = 0;
   /** the corner props' half widths */
   private propHalf: [number, number] = [0.15, 0.15];
+  /** the tins, plates, dishes and balances on the table (they grow in and shrink away) */
+  private pieceGroups() { const out = new Set<THREE.Object3D>(); for (const map of [this.trays, this.plates, this.dishes, this.balances]) for (const p of map.values()) out.add(p.g); return out; }
   private measureWork() {
     const all = new THREE.Box3(), b = new THREE.Box3();
     this.workBoxes = [];
     const one = (g: THREE.Object3D) => {
       const box = new THREE.Box3();
-      // (at full size: a new one is still growing in)
-      const sc = g.scale.x; g.scale.setScalar(1); g.updateMatrixWorld(true);
+      // (a tin or a plate at full size, as a new one is still growing in; anything else as it is)
+      const sc = g.scale.clone(), grown = this.pieceGroups().has(g);
+      if (grown) g.scale.setScalar(1);
+      g.updateMatrixWorld(true);
       g.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh && m.castShadow && m.geometry) { m.geometry.computeBoundingBox(); b.copy(m.geometry.boundingBox!).applyMatrix4(m.matrixWorld); box.union(b); } });
-      g.scale.setScalar(sc); g.updateMatrixWorld(true);
+      g.scale.copy(sc); g.updateMatrixWorld(true);
       if (!box.isEmpty()) { this.workBoxes.push(box); all.union(box); }
     };
     for (const map of [this.trays, this.plates, this.dishes, this.balances]) for (const p of map.values()) if (!p.leaving) one(p.g);
@@ -508,7 +512,8 @@ export class EpisodeScene implements Controller {
   private stackDy = 250;
   private mv<T extends { x: number; y: number }>(o: T, b: Board): T {
     if (this.stackFrac) return o.x >= 300 ? { ...o, x: o.x - 250, y: o.y + this.stackDy } : o;
-    if (this.stack && b.frames.length === 2) return o.x >= 300 ? { ...o, x: o.x - 256, y: o.y + FC * 2 + 26 } : o;
+    // (the second tin under the first, its rim clear of the first one's)
+    if (this.stack && b.frames.length === 2) return o.x >= 300 ? { ...o, x: o.x - (b.frames[1].x - b.frames[0].x), y: o.y + FC * 2 + 30 } : o;
     return o;
   }
   private tf(b: Board): Board {
@@ -615,21 +620,10 @@ export class EpisodeScene implements Controller {
     for (const d of b.dots) if (d.c === 'ghost' && !this.spots.has('g:' + d.id)) this.spot('g:' + d.id, this.boardPoint(d.x, d.y), false, instant);
     for (const [k, s] of this.spots) if (k.startsWith('g:') && !ghosts.has(k.slice(2)) && !s.leaving) s.leaving = t;
     // ten frames and plates
-    // (each tin's rim is kept inside half the gap to the next one: two ten frames close together had their
-    // tins overlapping)
-    const rimOf = (f: { x: number; y: number }) => {
-      let mx = 13, md = 11;
-      for (const g of b.frames) {
-        if (g === f) continue;
-        if (Math.abs(g.y - f.y) < FC * 2 + 22) mx = Math.min(mx, (Math.abs(g.x - f.x) - FC * 5) / 2 - 5);
-        if (Math.abs(g.x - f.x) < FC * 5 + 26) md = Math.min(md, (Math.abs(g.y - f.y) - FC * 2) / 2 - 5);
-      }
-      return [Math.max(3, mx), Math.max(3, md)] as const;
-    };
     // (each one is known by where it is and its size too: one that moves or changes between pictures is
     // made again there. The 10 crates of a thousand kept the 3 crates of 300 where they were, under them)
     const at = (p: { id: string; x: number; y: number }, ...more: (number | string | undefined)[]) => `${p.id}@${Math.round(p.x)},${Math.round(p.y)},${more.join(',')}`;
-    this.pieces(this.trays, b.frames.map(f => { const rim = rimOf(f); return { id: at(f, ...rim), make: () => this.tray(f.x, f.y, ...rim) }; }), instant);
+    this.pieces(this.trays, b.frames.map(f => ({ id: at(f), make: () => this.tray(f.x, f.y) })), instant);
     this.pieces(this.plates, b.plates.map(p => ({ id: at(p, p.r, p.empty ? 1 : 0), make: () => this.plate(p.x, p.y, p.r, !!p.empty) })), instant);
     this.pieces(this.dishes, (b.dishes ?? []).map(p => ({ id: at(p, p.kind, p.r, p.w, p.h), make: () => {
       const { g, lift } = makeDish(p.kind, p.r, p.w ?? 0, p.h ?? 0, this.map.s, DEPTH, this.plankTex);
@@ -749,9 +743,9 @@ export class EpisodeScene implements Controller {
   }
   /** a muffin tin (a crate, box or seed tray elsewhere): a top plate with ten round holes and a rolled
    *  rim, standing on ten deep cups, by the frame's top left corner */
-  private tray(x: number, y: number, rimX = 13, rimZ = 11) {
+  private tray(x: number, y: number) {
     const s = this.map.s, c = this.set.tray, cell = FC * s;
-    const w = (FC * 5 + rimX * 2) * s, d = (FC * 2 + rimZ * 2) * s, cr = cell * 0.43;
+    const w = (FC * 5 + 26) * s, d = (FC * 2 + 22) * s, cr = cell * 0.43;
     const tin = this.set.token === 'cookie';
     const g = new THREE.Group();
     const at = (i: number) => [((i % 5) + 0.5 - 2.5) * cell, (Math.floor(i / 5) + 0.5 - 1) * cell] as const;

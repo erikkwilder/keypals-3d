@@ -85,7 +85,8 @@ const triPic = (b: number, h: number) => {
 };
 
 // ---------- 5. layers of cubes ----------
-const FX = [52, 308], FY = 128, FC = 48;
+// (far enough apart that their tins, 26 wider than the cells, stand clear of each other)
+const FX = [40, 320], FY = 128, FC = 48;
 const cubeAt = (i: number, frame: number) => ({ x: FX[frame] + (i % 5) * FC + FC / 2, y: FY + Math.floor(i / 5) * FC + FC / 2 });
 const layer = (prefix: string, frame: number, c: Hue): Dot[] => Array.from({ length: 10 }, (_, i) => ({ id: `${prefix}${i}`, ...cubeAt(i, frame), c, d: i * 0.05 }));
 const FRAMES = [{ id: 'f0', x: FX[0], y: FY }, { id: 'f1', x: FX[1], y: FY }];
@@ -200,10 +201,10 @@ export const SHAPE_LESSONS: FracLesson[] = [
   {
     id: 'sh-boxes', title: 'Layers of Cubes', blurb: 'Fill one layer, then count the layers: length × width × height.', set: 'peaks', skill: 'sh-volume', art: 'learn/shapes/card-boxes.webp',
     steps: [
-      { say: '', board: board({ frames: FRAMES, tags: [tag('l', 172, 258, '5 long', 'a', 24), tag('w', 30, 176, '2', 'a', 24)] }), eq: 'an empty box, 5 long and 2 wide' },
+      { say: '', board: board({ frames: FRAMES, tags: [tag('l', FX[0] + 120, 258, '5 long', 'a', 24), tag('w', FX[0] - 22, 176, '2', 'a', 24)] }), eq: 'an empty box, 5 long and 2 wide' },
       { say: '', board: board({ frames: FRAMES, dots: layer('a', 0, 'a') }), eq: 'one layer: 5 × 2 = [10] cubes' },
       { say: '', board: board({ frames: FRAMES, dots: [...layer('a', 0, 'a'), ...layer('b', 1, 'b')] }), eq: 'two layers: 10 + 10 = [20]' },
-      { say: '', board: board({ frames: FRAMES, dots: [...layer('a', 0, 'a'), ...layer('b', 1, 'b')], tags: [tag('l1', 172, 258, 'layer 1', 'a', 26), tag('l2', 428, 258, 'layer 2', 'b', 26)] }), eq: 'volume = 5 × 2 × 2 = [20]', do: 'watch' },
+      { say: '', board: board({ frames: FRAMES, dots: [...layer('a', 0, 'a'), ...layer('b', 1, 'b')], tags: [tag('l1', FX[0] + 120, 258, 'layer 1', 'a', 26), tag('l2', FX[1] + 120, 258, 'layer 2', 'b', 26)] }), eq: 'volume = 5 × 2 × 2 = [20]', do: 'watch' },
     ],
     tries: [
       Q('A box has 3 layers like this. How many cubes?', '30', 'num', '10 in a layer, 3 layers: 10 × 3 = 30.', 'How many in one layer? Then times the layers.', board({ frames: [FRAMES[0]], dots: layer('a', 0, 'a'), tags: [tag('x', 450, 176, '× 3 layers', 'c', 30)] })),
