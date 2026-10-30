@@ -22,6 +22,7 @@ import { FRIEND, type FriendId } from '../art/cast';
 import { sfx } from '../audio/sound';
 import { BW, FC, boundsOf, type Board, type Hue, type Shape, type Tag } from '../math/learn';
 import { extraMat, makeDish, shapeGeo, shapeKey, shapeMats, type FracTex } from './fracShapes';
+import { makeBalance } from './algebraProps';
 import { SETS, type SetId, type Task, type TokenKind } from '../math/episodes';
 import type { GlimmerId } from '../adventure/glimmers';
 
@@ -134,6 +135,8 @@ export class EpisodeScene implements Controller {
   /** pie dishes, pizza boards and foil (fractions), and how high each one's floor is */
   private dishes = new Map<string, Piece>();
   private dishLift = new Map<string, number>();
+  /** the Star Lab's golden balance between two pans (a board's `beam`) */
+  private balances = new Map<string, Piece>();
   private fracTex: FracTex = { pie: null, pizza: null, choc: null };
   /** the fraction episodes: one pie or bar big on a bare wooden table, the camera in close */
   private close = false;
@@ -450,7 +453,8 @@ export class EpisodeScene implements Controller {
   }
   /** a counter stacked on others (a tower of blocks) sits that many counters higher */
   private upLift(d: { up?: number }) { return (d.up ?? 0) * this.r * (this.set.token === 'block' ? 1.3 : 1.6); }
-  private get deepPlates() { return this.set.token === 'pearl' || this.set.token === 'flower' || this.set.token === 'block'; }
+  // (the Star Lab's pans are shallow brass dishes, so the weights and boxes in them show)
+  private get deepPlates() { return this.setId !== 'lab' && (this.set.token === 'pearl' || this.set.token === 'flower' || this.set.token === 'block'); }
 
   /** Show a picture: everything moves, pops in or leaves to match it. */
   show(raw: Board, instant = false) {
@@ -460,7 +464,7 @@ export class EpisodeScene implements Controller {
     const t = this.now;
     if (this.refit) {
       this.refit = false;
-      for (const map of [this.trays, this.plates, this.dishes]) { for (const p of map.values()) { p.g.removeFromParent(); dispose(p.g); } map.clear(); }
+      for (const map of [this.trays, this.plates, this.dishes, this.balances]) { for (const p of map.values()) { p.g.removeFromParent(); dispose(p.g); } map.clear(); }
       this.trayRects.clear();
       if (this.plank) { this.plank.removeFromParent(); dispose(this.plank); this.plank = null; }
       this.lineKey = '';
@@ -513,6 +517,8 @@ export class EpisodeScene implements Controller {
       if (this.chartMesh) { this.chartMesh.removeFromParent(); dispose(this.chartMesh); this.chartMesh = null; }
       if (b.chart) { this.chartMesh = this.makeChart(b.chart); this.root.add(this.chartMesh); }
     }
+    const pa = b.beam && b.plates.find(p => p.id === b.beam!.a), pb = b.beam && b.plates.find(p => p.id === b.beam!.b);
+    this.pieces(this.balances, pa && pb ? [{ id: `${pa.id}~${pb.id}`, make: () => makeBalance(this.boardPoint(pa.x, pa.y), this.boardPoint(pb.x, pb.y), pa.r * this.map.s) }] : [], instant);
     // the number line
     const lk = b.line ? `${b.line.from}-${b.line.to}` : '';
     if (lk !== this.lineKey) {
@@ -665,13 +671,13 @@ export class EpisodeScene implements Controller {
     const geo = new THREE.LatheGeometry(prof.map(([a, b]) => new THREE.Vector2(a, b)), 40);
     geo.scale(1, 1, DEPTH);
     const g = new THREE.Group();
-    const m = new THREE.Mesh(geo, this.mat('plate', () => new THREE.MeshStandardMaterial({ color: c.color, roughness: 0.32, side: THREE.DoubleSide })));
+    const m = new THREE.Mesh(geo, this.mat('plate', () => new THREE.MeshStandardMaterial({ color: c.color, roughness: 0.32, metalness: this.setId === 'lab' ? 0.7 : 0, side: THREE.DoubleSide })));
     m.castShadow = true; m.receiveShadow = true;
     if (empty) { m.material = this.mat('plate-e', () => new THREE.MeshStandardMaterial({ color: c.color, roughness: 0.32, transparent: true, opacity: 0.55, side: THREE.DoubleSide })); }
     const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 0.985, Math.max(0.004, r * 0.035), 6, 40).rotateX(Math.PI / 2).scale(1, 1, DEPTH), this.mat('rim', () => new THREE.MeshStandardMaterial({ color: c.rim, roughness: 0.4 })));
     rim.position.y = h * 1.01;
     g.add(m, rim);
-    if (!deep && this.plateTex) {
+    if (!deep && this.plateTex && this.setId !== 'lab') {
       // the painted plate (blue vines round the rim) lying in the dish
       const top = new THREE.Mesh(new THREE.CircleGeometry(r * 0.99, 48).rotateX(-Math.PI / 2).scale(1, 1, DEPTH), this.mat('platetop', () => new THREE.MeshStandardMaterial({ map: this.plateTex, roughness: 0.25, transparent: empty, opacity: empty ? 0.6 : 1 })));
       top.position.y = h * 0.46; top.receiveShadow = true;
@@ -1148,7 +1154,7 @@ export class EpisodeScene implements Controller {
     if (innerHeight !== this.lastH) { this.lastH = innerHeight; this.fx.setScale(innerHeight * Math.min(2, devicePixelRatio || 1), stage.camera.fov); }
     this.layout();
     this.tokensUpdate(dt);
-    this.piecesUpdate(this.trays); this.piecesUpdate(this.plates); this.piecesUpdate(this.dishes);
+    this.piecesUpdate(this.trays); this.piecesUpdate(this.plates); this.piecesUpdate(this.dishes); this.piecesUpdate(this.balances);
     // rings: fade in, pulse, fade out
     for (const [k, s] of this.spots) {
       const m = s.mesh.material as THREE.MeshBasicMaterial;
@@ -1588,6 +1594,7 @@ function clothTexture(id: SetId) {
     juice: ['#fff2d6', '#ff9f4a', '#e0702a'],
     frost: ['#eaf4fb', '#9cc8e8', '#3f7fb8'],
     fair: ['#fff1f4', '#f27aa0', '#d9466f'],
+    lab: ['#4a3a8c', '#6a58b8', '#e2b34a'],
   };
   const [bg, line, edge] = C[id];
   return canvasTex(256, (g, s) => {

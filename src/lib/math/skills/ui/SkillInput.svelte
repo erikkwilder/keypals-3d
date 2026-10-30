@@ -40,6 +40,11 @@
   registerInput('bars', BarDrag);
   registerInput('dots', DotTap);
   registerInput('chance', ChanceLine);
+  // expressions and equations: the balance, and the number line for inequalities
+  import BalanceInput from './BalanceInput.svelte';
+  import RayInput from './RayInput.svelte';
+  registerInput('balance', BalanceInput);
+  registerInput('ray', RayInput);
 </script>
 
 <script lang="ts">

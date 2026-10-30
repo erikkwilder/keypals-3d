@@ -278,6 +278,12 @@
           <img src="{import.meta.env.BASE_URL}math/integers/tile.webp" alt="" />
           <span class="ptext"><b>Treasure Grid</b><small>Game: dig for treasure on the map before the tide comes in.{(m.arcade?.['treasure-grid']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['treasure-grid'].best}` : ''}</small></span>
         </button>
+      {:else if area === 'algebra'}
+        <!-- the equations arcade game (its cabinet is in the Arcade too: screen 'balance') -->
+        <button class="placement arcade" onclick={() => { sfx.click(); game.go('balance'); }}>
+          <img src="{import.meta.env.BASE_URL}math/algebra/tile.webp" alt="" />
+          <span class="ptext"><b>Balance Beam</b><small>Game: say what the mystery boxes weigh before the seesaw tips.{(m.arcade?.['balance-beam']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['balance-beam'].best}` : ''}</small></span>
+        </button>
       {/if}
       {#if area === 'place'}
         <!-- the place value arcade game (its cabinet is in the Arcade too) -->

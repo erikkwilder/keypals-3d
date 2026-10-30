@@ -46,7 +46,7 @@
    *  enough on the map and there is somewhere to walk to */
   const ZOOM: Partial<Record<WorldId, Record<MapKind, number>>> = {
     sky: { wide: 1.4, tall: 1.3 }, falls: { wide: 1.12, tall: 1.2 }, caves: { wide: 1.12, tall: 1.2 }, market: { wide: 1.12, tall: 1.2 },
-    clockwork: { wide: 1.12, tall: 1.2 }, peaks: { wide: 1.12, tall: 1.2 }, jungle: { wide: 1.12, tall: 1.2 }, frost: { wide: 1.12, tall: 1.2 }, fair: { wide: 1.12, tall: 1.2 },
+    clockwork: { wide: 1.12, tall: 1.2 }, peaks: { wide: 1.12, tall: 1.2 }, jungle: { wide: 1.12, tall: 1.2 }, frost: { wide: 1.12, tall: 1.2 }, fair: { wide: 1.12, tall: 1.2 }, stars: { wide: 1.12, tall: 1.2 },
   };
   // (a view not laid out yet has no size: never a scale of 0, or a step would be infinitely long)
   const scale = $derived(Math.max(0.05, Math.max(vw / size[0], vh / size[1]) * (ZOOM[world]?.[kind] ?? 1.15)));

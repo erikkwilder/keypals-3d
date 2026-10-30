@@ -26,7 +26,9 @@ export type Shape = { k: 'wedge'; food: 'pie' | 'pizza'; n: number; i: number; r
   /** a crystal tile (the shapes episodes): its corners round the counter's middle, in board units, its colour for the first lot, how thick */
   | { k: 'tile'; pts: [number, number][]; tint?: 'teal' | 'rose' | 'gold' | 'violet' | 'sky' | 'mint' | 'pale'; h?: number }
   /** a fruit of the Juice Jungle (or a gold coin): the ratios episodes (three/fruitShapes.ts) */
-  | { k: 'fruit'; f: import('../three/fruitShapes').FruitKind };
+  | { k: 'fruit'; f: import('../three/fruitShapes').FruitKind }
+  /** the Star Lab (algebra): a mystery box, a brass weight (three/algebraProps.ts) */
+  | { k: 'box' } | { k: 'weight' };
 export type Dot = { id: string; x: number; y: number; c: Hue; /** crossed out: taken away, still shown */ out?: boolean; /** seconds to wait before moving */ d?: number; shape?: Shape;
   /** turned this many degrees (anticlockwise, seen from above): a shape tile turning as it moves */ rot?: number;
   /** stacked this many counters up (a tower of blocks: Data and chance) */ up?: number };
@@ -47,6 +49,8 @@ export type Board = {
   /** a treasure map with a coordinate grid (xMin to xMax across, yMin to yMax up), its (0, 0) at x, y,
    *  `cell` apart (negative numbers: math/integers/episodes.ts) */
   chart?: { x: number; y: number; cell: number; xMin: number; xMax: number; yMin: number; yMax: number };
+  /** the Star Lab's golden balance standing between two plates (its pans), by their ids */
+  beam?: { a: string; b: string };
   tags: Tag[];
 };
 /** the picture's size; it scales to fit */

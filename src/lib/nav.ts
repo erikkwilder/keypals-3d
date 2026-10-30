@@ -86,6 +86,7 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
       else if (t.id === 'smoothie') game.go('smoothie');
       else if (t.id === 'treasure') game.go('treasure');
       else if (t.id === 'showdown') game.go('showdown');
+      else if (t.id === 'balance') game.go('balance');
       else if (t.id === 'builder') { builderOpen.toy = false; builderOpen.from = 'map'; game.go('builder'); }
       else game.playArcade(t.id as ArcadeId);
       return;
@@ -140,7 +141,7 @@ export function statusOf(s: Subject, w: WayId, t: Thing, p: Profile): { tag: str
   if (w === 'learn') return isLearned(m, t.id) ? { tag: 'Learned', done: true } : { tag: 'New' };
   if (w === 'games') {
     const best = t.kind === 'arcade'
-      ? (t.id === 'builder' ? builderOf(p).best : t.id === 'pizza' ? m.arcade?.['pizza-rush']?.best ?? 0 : t.id === 'market' ? m.arcade?.['market-dash']?.best ?? 0 : t.id === 'clockrush' ? m.arcade?.['clock-rush']?.best ?? 0 : t.id === 'smoothie' ? m.arcade?.['smoothie-stand']?.best ?? 0 : t.id === 'treasure' ? m.arcade?.['treasure-grid']?.best ?? 0 : arcadeOf(p)[t.id as ArcadeId]?.best ?? 0)
+      ? (t.id === 'builder' ? builderOf(p).best : t.id === 'pizza' ? m.arcade?.['pizza-rush']?.best ?? 0 : t.id === 'market' ? m.arcade?.['market-dash']?.best ?? 0 : t.id === 'clockrush' ? m.arcade?.['clock-rush']?.best ?? 0 : t.id === 'smoothie' ? m.arcade?.['smoothie-stand']?.best ?? 0 : t.id === 'treasure' ? m.arcade?.['treasure-grid']?.best ?? 0 : t.id === 'balance' ? m.arcade?.['balance-beam']?.best ?? 0 : arcadeOf(p)[t.id as ArcadeId]?.best ?? 0)
       : t.id === 'blocks' || t.id === 'bench' ? 0 : (playOf(p, t.id as PlayGame).stars.filter(Boolean).length);
     if (t.kind === 'toy') return t.id === 'blocks' ? { tag: 'Build anything' } : t.id === 'bench' ? { tag: 'Measure anything' } : best ? { tag: `Level ${playNextLevel(p, t.id as PlayGame)} next`, done: true } : { tag: 'No clock' };
     return best ? { tag: `Best ${Math.round(best).toLocaleString('en-US')}`, done: true } : { tag: 'New! Give it a go' };

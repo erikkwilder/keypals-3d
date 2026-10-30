@@ -13,8 +13,9 @@ import { SHAPE_LESSON } from './shapes/episodes';
 import { RATIO_COLOR, RATIO_LESSON, RATIO_NOUN } from './ratioEpisodes';
 import { NEG_LESSON } from './integers/episodes';
 import { DATA_COLOR, DATA_LESSON } from './data/episodes';
+import { ALG_LESSON } from './algebra/episodes';
 
-export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'clockshop' | 'peaks' | 'juice' | 'frost' | 'fair';
+export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'clockshop' | 'peaks' | 'juice' | 'frost' | 'fair' | 'lab';
 /** what the counters are in each place */
 export type TokenKind = 'cookie' | 'pearl' | 'berry' | 'block' | 'flower';
 
@@ -59,6 +60,9 @@ export const SETS: Record<SetId, {
   // data and chance: Popcorn Puffling's game booth at the Chance Fair (math/data/episodes.ts)
   fair: { name: 'The Fair Booth', backdrop: 'learn/ep/set-fair.webp', table: 'learn/ep/tex-fair.webp', star: 'popcornpuff', token: 'block',
     tray: { word: 'prize tray', color: 0xe9c27a, rim: 0x9b6b2b }, plate: { word: 'bowl', color: 0xfdf3e3, rim: 0xe0567a }, key: 0xffd9a8, sky: 0xffe6f0, ground: 0x7a4a3a, haze: 0xf7cfa8 },
+  // expressions and equations: the Comet Cat's workshop in the Star Lab (pans of a golden balance, brass weights, mystery boxes)
+  lab: { name: 'The Star Lab', backdrop: 'learn/ep/set-lab.webp', table: 'learn/ep/tex-workshop.webp', star: 'cometcat', token: 'block',
+    tray: { word: 'tray', color: 0x8a6fc9, rim: 0x5a3fa0 }, plate: { word: 'pan', color: 0xd9a441, rim: 0x8a5a1a }, key: 0xffe2b8, sky: 0xd8ccff, ground: 0x5a4a7a, haze: 0xd9cdf5 },
 };
 
 export type Episode = {
@@ -242,6 +246,14 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
       teach: { q: n.teach.q, wrong: n.teach.wrong, says: n.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: n.teach.fixed },
       cover: null, art: n.art, noun: 'coins', minus: true };
   }
+  const g = ALG_LESSON[id];
+  if (g) {
+    // the Star Lab: the counters are weights and boxes on a real table (not the close-up of a pie), its card a painting
+    const all = [g.teach.q.ans, g.teach.wrong, g.teach.decoy], k = g.id.length % 3;
+    return { id, title: g.title, blurb: g.blurb, color: '#6c5ce7', set: g.set, star: g.star, steps: g.steps, tries: g.tries,
+      teach: { q: g.teach.q, wrong: g.teach.wrong, says: g.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: g.teach.fixed },
+      cover: g.steps.at(-1)!.board, art: g.art, noun: g.noun ?? 'weights' };
+  }
   const l = LESSON[id];
   if (!l) return null;
   const e = episodeOf(id);
@@ -251,7 +263,7 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
     teach: { q: q(e.teach.f), wrong: String(e.teach.wrong), says: e.teach.says, choices: fixChoices(e).map(String), fixed: `Oops! ${hintFor(l, e.teach.f)} Thank you!` },
     cover: coverOf(l), art: null };
 }
-export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!SHAPE_LESSON[id] || !!RATIO_LESSON[id] || !!LESSON[id] || !!NEG_LESSON[id] || !!DATA_LESSON[id];
+export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!SHAPE_LESSON[id] || !!RATIO_LESSON[id] || !!LESSON[id] || !!NEG_LESSON[id] || !!DATA_LESSON[id] || !!ALG_LESSON[id];
 
 /** The lessons in order, with their episode. */
 export const lessonWithEpisode = (l: Lesson) => ({ lesson: l, ep: episodeOf(l.id), set: setOf(l.id) });

@@ -12,6 +12,7 @@ import { SHAPE_SKILLS } from '../shapes/skills';
 import { RATIO_SKILLS } from './ratios';
 import { INTEGER_SKILLS } from './integers';
 import { DATA_SKILLS } from '../data/skills';
+import { ALGEBRA_SKILLS } from './algebra';
 import { rungOf, type Area, type AreaId, type Item, type Skill } from './types';
 
 const base = 'math/';
@@ -27,7 +28,7 @@ export const AREAS: Area[] = [
   { id: 'shapes', name: 'Shapes and angles', grades: 'K-8', blurb: 'Naming shapes, sides and corners, equal parts, angles, symmetry, area, boxes, circles and the Pythagorean theorem.', color: '#2fb3a0', art: `${base}area-shapes.webp`, sign: '△', live: true },
   { id: 'ratios', name: 'Ratios and percents', grades: '6-7', blurb: 'Ratios and rates, ratio tables and double number lines, percents, sales and tips, and scale drawings.', color: '#f07a3a', art: `${base}area-ratios.webp`, sign: '%', live: true },
   { id: 'integers', name: 'Negative numbers', grades: '5-7', blurb: 'Below zero and the coordinate plane: temperatures, sea level, opposites, the four-corner map, and adding, taking away, times and sharing with negatives.', color: '#3d7fc4', art: `${base}area-integers.webp`, sign: '−3', live: true },
-  { id: 'algebra', name: 'Expressions and equations', grades: '6-8', blurb: 'Order of operations, equations, slope.', color: '#6c5ce7', art: `${base}area-fractions.webp`, live: false },
+  { id: 'algebra', name: 'Expressions and equations', grades: '3-8', blurb: 'Missing numbers, patterns, the order of operations, letters for numbers, equations on the balance, inequalities and slope.', color: '#6c5ce7', art: `${base}area-algebra.webp`, sign: 'x=', live: true },
   { id: 'data', name: 'Data and chance', grades: 'K-7', blurb: 'Sorting and counting, picture and bar graphs, line plots, the mean and median, and chance at the fair.', color: '#e85d9a', art: `${base}area-data.webp`, sign: '1/6', live: true },
 ];
 export const AREA: Record<AreaId, Area> = Object.fromEntries(AREAS.map(a => [a.id, a])) as Record<AreaId, Area>;
@@ -70,7 +71,7 @@ const FACT_SKILLS: Skill[] = [
   factSkill('div-facts', '/', 3, '3.OA.C.7', 'Sharing (dividing)', 'Knows the division facts that undo the times tables.', ['/2', '/10', '/5', '/4', '/3', '/9', '/6', '/8', '/7']),
 ];
 
-export const SKILLS: Skill[] = [...FACT_SKILLS, ...FRACTION_SKILLS, ...PLACE_SKILLS, ...DECIMAL_SKILLS, ...MEASURE_SKILLS, ...SHAPE_SKILLS, ...RATIO_SKILLS, ...INTEGER_SKILLS, ...DATA_SKILLS];
+export const SKILLS: Skill[] = [...FACT_SKILLS, ...FRACTION_SKILLS, ...PLACE_SKILLS, ...DECIMAL_SKILLS, ...MEASURE_SKILLS, ...SHAPE_SKILLS, ...RATIO_SKILLS, ...INTEGER_SKILLS, ...DATA_SKILLS, ...ALGEBRA_SKILLS];
 export const SKILL: Record<string, Skill> = Object.fromEntries(SKILLS.map(s => [s.id, s]));
 export const skillsOf = (area: AreaId) => SKILLS.filter(s => s.area === area);
 /** A memory key's skill and sub: `fr-name:4` -> fr-name, 4. */

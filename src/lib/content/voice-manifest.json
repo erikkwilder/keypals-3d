@@ -2374,5 +2374,145 @@
   "ep.data-both.card": {
     "voice": "coach",
     "ms": 5548
+  },
+  "ep.alg-balance.intro": {
+    "voice": "coach",
+    "ms": 7049
+  },
+  "ep.alg-balance.s0": {
+    "voice": "coach",
+    "ms": 4949
+  },
+  "ep.alg-balance.s1": {
+    "voice": "coach",
+    "ms": 4695
+  },
+  "ep.alg-balance.s2": {
+    "voice": "coach",
+    "ms": 6086
+  },
+  "ep.alg-balance.card": {
+    "voice": "coach",
+    "ms": 5029
+  },
+  "ep.alg-two-step.intro": {
+    "voice": "coach",
+    "ms": 5837
+  },
+  "ep.alg-two-step.s0": {
+    "voice": "coach",
+    "ms": 5543
+  },
+  "ep.alg-two-step.s1": {
+    "voice": "coach",
+    "ms": 5318
+  },
+  "ep.alg-two-step.s2": {
+    "voice": "coach",
+    "ms": 6615
+  },
+  "ep.alg-two-step.card": {
+    "voice": "coach",
+    "ms": 4944
+  },
+  "ep.alg-order.intro": {
+    "voice": "coach",
+    "ms": 5069
+  },
+  "ep.alg-order.s0": {
+    "voice": "coach",
+    "ms": 2894
+  },
+  "ep.alg-order.s1": {
+    "voice": "coach",
+    "ms": 4390
+  },
+  "ep.alg-order.s2": {
+    "voice": "coach",
+    "ms": 4420
+  },
+  "ep.alg-order.card": {
+    "voice": "coach",
+    "ms": 6012
+  },
+  "ep.alg-letters.intro": {
+    "voice": "coach",
+    "ms": 5937
+  },
+  "ep.alg-letters.s0": {
+    "voice": "coach",
+    "ms": 5089
+  },
+  "ep.alg-letters.s1": {
+    "voice": "coach",
+    "ms": 3891
+  },
+  "ep.alg-letters.s2": {
+    "voice": "coach",
+    "ms": 3043
+  },
+  "ep.alg-letters.card": {
+    "voice": "coach",
+    "ms": 4869
+  },
+  "ep.alg-gather.intro": {
+    "voice": "coach",
+    "ms": 6670
+  },
+  "ep.alg-gather.s0": {
+    "voice": "coach",
+    "ms": 5957
+  },
+  "ep.alg-gather.s1": {
+    "voice": "coach",
+    "ms": 5353
+  },
+  "ep.alg-gather.s2": {
+    "voice": "coach",
+    "ms": 8112
+  },
+  "ep.alg-gather.card": {
+    "voice": "coach",
+    "ms": 4675
+  },
+  "ep.alg-pattern.intro": {
+    "voice": "coach",
+    "ms": 6346
+  },
+  "ep.alg-pattern.s0": {
+    "voice": "coach",
+    "ms": 3961
+  },
+  "ep.alg-pattern.s1": {
+    "voice": "coach",
+    "ms": 4370
+  },
+  "ep.alg-pattern.s2": {
+    "voice": "coach",
+    "ms": 3218
+  },
+  "ep.alg-pattern.card": {
+    "voice": "coach",
+    "ms": 4405
+  },
+  "ep.alg-ineq.intro": {
+    "voice": "coach",
+    "ms": 5433
+  },
+  "ep.alg-ineq.s0": {
+    "voice": "coach",
+    "ms": 3308
+  },
+  "ep.alg-ineq.s1": {
+    "voice": "coach",
+    "ms": 4051
+  },
+  "ep.alg-ineq.s2": {
+    "voice": "coach",
+    "ms": 6416
+  },
+  "ep.alg-ineq.card": {
+    "voice": "coach",
+    "ms": 5832
   }
 }

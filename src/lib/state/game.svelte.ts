@@ -6,7 +6,7 @@ import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
 export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market' | 'ideas' | 'teach' | 'classLogin' | 'boards' | 'clockrush' | 'bench' | 'shifter' | 'shapebuilder'
-  | 'glimmerBook' | 'smoothie' | 'treasure' | 'showdown'; // the 100-Glimmer ladder's book (screens/GlimmerBook.svelte)
+  | 'glimmerBook' | 'smoothie' | 'treasure' | 'showdown' | 'balance'; // the 100-Glimmer ladder's book (screens/GlimmerBook.svelte)
 
 function load(): SaveFile {
   try {

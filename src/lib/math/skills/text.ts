@@ -5,6 +5,7 @@ import { measText } from './measure';
 import { figText } from '../shapes/fig';
 import { ratioPicText } from './ratioPic';
 import { dataText } from '../data/pics';
+import { algPicText } from './algebra';
 
 /** A picture in a few words: 3/4 pie, 46¢ in coins, 35 of 100 squares. */
 function picText(p: Pic): string {
@@ -59,7 +60,7 @@ export function nearMiss(it: Item, r: () => number): Answer {
 const blocksText = (b: { th?: number; h: number; t: number; o: number }) => [b.th ? `${b.th} thousands` : '', b.h ? `${b.h} hundreds` : '', b.t ? `${b.t} tens` : '', b.o ? `${b.o} ones` : ''].filter(Boolean).join(', ') || '0';
 /** Parts as plain text: "3/4 or 1/2", "2/5 + 1/5 = ?". A picture reads as its fraction. */
 export function partsText(ps: Part[]): string {
-  return ps.map(p => p.t === 'meas' ? measText(p.m) : p.t === 'text' ? p.s : p.t === 'num' ? (p.paren && p.n < 0 ? `(${signedText(p.n)})` : signedText(p.n)) : p.t === 'op' ? p.s : p.t === 'frac' ? `${p.n ?? '?'}/${p.d ?? '?'}` : p.t === 'pic' ? picText(p.pic) : p.t === 'money' ? moneyText(p.cents, p.dollars) : p.t === 'blocks' ? blocksText(p.b) : p.t === 'fig' ? figText(p.fig) : p.t === 'rpic' ? ratioPicText(p.pic) : p.t === 'pt' ? `(${signedText(p.x)}, ${signedText(p.y)})` : p.t === 'ipic' ? ipicText(p.pic) : p.t === 'data' ? dataText(p.d) : '?').join(' ');
+  return ps.map(p => p.t === 'meas' ? measText(p.m) : p.t === 'text' ? p.s : p.t === 'num' ? (p.paren && p.n < 0 ? `(${signedText(p.n)})` : signedText(p.n)) : p.t === 'op' ? p.s : p.t === 'frac' ? `${p.n ?? '?'}/${p.d ?? '?'}` : p.t === 'pic' ? picText(p.pic) : p.t === 'money' ? moneyText(p.cents, p.dollars) : p.t === 'blocks' ? blocksText(p.b) : p.t === 'fig' ? figText(p.fig) : p.t === 'rpic' ? ratioPicText(p.pic) : p.t === 'pt' ? `(${signedText(p.x)}, ${signedText(p.y)})` : p.t === 'ipic' ? ipicText(p.pic) : p.t === 'data' ? dataText(p.d) : p.t === 'expr' ? p.s : p.t === 'alg' ? algPicText(p.pic) : '?').join(' ');
 }
 /** The question in a few words for lists (results, cards): the question line, or the ask when the line is
  *  only a picture. */

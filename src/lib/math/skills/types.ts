@@ -80,7 +80,11 @@ export type Part =
   /** a negative-numbers picture (thermometer, sea level, number line, coordinate plane) */
   | { t: 'ipic'; pic: IntPic }
   /** a graph, plot, spinner or bag (Data and chance: math/data/pics.ts) */
-  | { t: 'data'; d: DataPic };
+  | { t: 'data'; d: DataPic }
+  /** algebra: an expression written out, its letters in italics ("3n + 2", "2(x + 4)") */
+  | { t: 'expr'; s: string }
+  /** algebra: a picture (a table of x and y, a graph, a number line with a ray, a balance) */
+  | { t: 'alg'; pic: import('./algebra').AlgPic };
 
 export type Choice = { id: string; parts: Part[] };
 

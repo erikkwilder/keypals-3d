@@ -664,4 +664,44 @@ export const DATA_EPISODE_LINES: Line[] = [
   coach("ep.data-both.card", "You won the Two at Once card! Every first thing goes with every second thing, so times them."),
 ];
 
-export const ALL_LINES: Line[] = [...HOME_TUTORIAL, ...LESSON_LINES, ...FINGER_LINES, ...REGION_LINES, ...COACH_BARKS, ...FRIEND_LINES, ...EPISODE_LINES, ...MARKET_EPISODE_LINES, ...FRACTION_LINES, ...MEASURE_EPISODE_LINES, ...SHAPE_EPISODE_LINES, ...RATIO_LINES, ...NEGATIVE_LINES, ...DATA_EPISODE_LINES];
+// The expressions and equations episodes (src/lib/math/algebra/episodes.ts, the same words): the coach tells
+// each Star Lab story, says each step, and hands over the card.
+export const ALGEBRA_EPISODE_LINES: Line[] = [
+  coach("ep.alg-balance.intro", "Welcome to the Star Lab! The Comet Cat put a mystery box on the golden balance. Let's find out what it weighs."),
+  coach("ep.alg-balance.s0", "The box and 3 weights balance 8 weights. It's level, so both sides weigh the same."),
+  coach("ep.alg-balance.s1", "Take 3 off both sides. Tap the glowing weights. Look, it stays level!"),
+  coach("ep.alg-balance.s2", "Now the box is on its own, and it balances 5. Tap the box: it weighs 5!"),
+  coach("ep.alg-balance.card", "You won the Keep It Level card! Take the same off both sides, and the balance stays level."),
+  coach("ep.alg-two-step.intro", "Two mystery boxes and one weight balance 7 weights. Both boxes weigh the same. What is x?"),
+  coach("ep.alg-two-step.s0", "2x + 1 = 7. Two boxes and a weight on this side, seven weights on that side."),
+  coach("ep.alg-two-step.s1", "Step one: take 1 off both sides. Now the two boxes balance 6."),
+  coach("ep.alg-two-step.s2", "Step two: share the 6 between the two boxes. 3 each, so x is 3!"),
+  coach("ep.alg-two-step.card", "You won the Two Steps card! Take off the plus first, then share between the boxes."),
+  coach("ep.alg-order.intro", "The Comet Cat wrote 3 + 2 × 4. Which part do we do first?"),
+  coach("ep.alg-order.s0", "Here are 3 weights, and 2 groups of 4 to make."),
+  coach("ep.alg-order.s1", "Times comes first. Fill the 2 groups with 4 weights each. That makes 8."),
+  coach("ep.alg-order.s2", "Now add: 3 and 8 make 11. Times first, then plus!"),
+  coach("ep.alg-order.card", "You won the Times Comes First card! Brackets first, then times and divide, then plus and take away."),
+  coach("ep.alg-letters.intro", "In the Star Lab, a letter is a box with a number inside. What is 3n, when n is 4?"),
+  coach("ep.alg-letters.s0", "3n means 3 times n: three boxes, with n inside each one."),
+  coach("ep.alg-letters.s1", "Tap the boxes to open them. n is 4, so there are 4 in each."),
+  coach("ep.alg-letters.s2", "Three boxes of 4. 3 times 4 is 12!"),
+  coach("ep.alg-letters.card", "You won the Letters Are Boxes card! Put the number where the letter is, then work it out."),
+  coach("ep.alg-gather.intro", "The Comet Cat packed three bags, each with a box and 2 weights. That's 3 lots of x + 2."),
+  coach("ep.alg-gather.s0", "3(x + 2): three groups, each a box and two weights."),
+  coach("ep.alg-gather.s1", "Gather them up: boxes with boxes, weights with weights. Drag the weights together."),
+  coach("ep.alg-gather.s2", "3 boxes and 6 weights. So 3(x + 2) is 3x + 6: the 3 times everything inside!"),
+  coach("ep.alg-gather.card", "You won the Share It Out card! The number outside times everything inside the brackets."),
+  coach("ep.alg-pattern.intro", "The Comet Cat is piling up weights: 3, then 5, then 7. What comes next?"),
+  coach("ep.alg-pattern.s0", "Look at the piles: 3, 5, 7. They grow every time."),
+  coach("ep.alg-pattern.s1", "How much bigger each time? Tap the jumps. Plus 2, and plus 2 again."),
+  coach("ep.alg-pattern.s2", "So the next pile is 7 plus 2. Build it: 9!"),
+  coach("ep.alg-pattern.card", "You won the Growing Patterns card! Find the jump, then keep on jumping."),
+  coach("ep.alg-ineq.intro", "The Comet Cat wants a number bigger than 3. x > 3. Which numbers work?"),
+  coach("ep.alg-ineq.s0", "x > 3 means x is more than 3."),
+  coach("ep.alg-ineq.s1", "Hop along! 4 works. 5 works. 6 works. Every number bigger than 3 works."),
+  coach("ep.alg-ineq.s2", "But 3 itself doesn't: 3 isn't more than 3. So on the number line, 3 gets an open dot."),
+  coach("ep.alg-ineq.card", "You won the More Than card! An open dot leaves the number out; a filled dot counts it too."),
+];
+
+export const ALL_LINES: Line[] = [...HOME_TUTORIAL, ...LESSON_LINES, ...FINGER_LINES, ...REGION_LINES, ...COACH_BARKS, ...FRIEND_LINES, ...EPISODE_LINES, ...MARKET_EPISODE_LINES, ...FRACTION_LINES, ...MEASURE_EPISODE_LINES, ...SHAPE_EPISODE_LINES, ...RATIO_LINES, ...NEGATIVE_LINES, ...DATA_EPISODE_LINES, ...ALGEBRA_EPISODE_LINES];

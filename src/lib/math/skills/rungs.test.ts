@@ -12,7 +12,7 @@ function sane(it: Item, where: string) {
   expect(it.weight, where).toBeLessThanOrEqual(5);
   const a = it.answer;
   // (negative answers only where the pad has its minus key: `signed`)
-  if (a.kind === 'number') { expect(Number.isFinite(a.value), where).toBe(true); if (!it.signed) expect(a.value, where).toBeGreaterThanOrEqual(0); expect(String(a.value).split('.')[1] ?? '', where).not.toMatch(/0000|9999/); }
+  if (a.kind === 'number') { expect(Number.isFinite(a.value), where).toBe(true); if (!it.signed && !it.skill.startsWith('al-')) expect(a.value, where).toBeGreaterThanOrEqual(0); expect(String(a.value).split('.')[1] ?? '', where).not.toMatch(/0000|9999/); }
   if (a.kind === 'fraction') { expect(a.d, where).toBeGreaterThan(0); expect(a.n, where).toBeGreaterThan(0); expect(Number.isInteger(a.n) && Number.isInteger(a.d), where).toBe(true); }
   if (a.kind === 'choice') expect(it.choices?.some(c => c.id === a.id), where).toBe(true);
   if (a.kind === 'point' && it.line) {

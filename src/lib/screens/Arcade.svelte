@@ -19,12 +19,14 @@
   import { builderOf, builderOpen } from '../math/place/builder';
   import { treasureOf } from '../math/integers/treasure';
   import { showdownOf } from '../math/data/showdown';
+  import { beamOf } from '../math/algebra/beam';
 
   const p = $derived(game.profile!);
   const save = $derived(arcadeOf(p));
   const builderBest = $derived(builderOf(p).best);
   const treasureBest = $derived(treasureOf(p).best);
   const showdownBest = $derived(showdownOf(p).best);
+  const balanceBest = $derived(beamOf(p).best);
   const shells = $derived(advView(p).shells);
   const today = dailyGame();
   const beaten = $derived(dailyBeaten(p, today));
@@ -71,6 +73,8 @@
       line: () => (treasureBest ? `Best score ${treasureBest}` : 'Dig on the map') },
     { id: 'showdown', screen: 'showdown', name: 'Spinner Showdown', part: 'Data and chance', color: '#e2468f', art: 'arcade/cab-spinner.webp', say: 'Spin the big wheel!',
       line: () => (showdownBest ? `Best ${showdownBest} tickets` : 'Graphs, spinners and chances') },
+    { id: 'balance', screen: 'balance', name: 'Balance Beam', part: 'Equations', color: '#6c4fd8', art: 'arcade/cab-balance.webp', say: 'Keep it level!',
+      line: () => (balanceBest ? `Best score ${balanceBest}` : 'Keep the seesaw level') },
   ];
   function openCab(c: AreaCab) { unlockAudio(); sfx.click(); scene?.cheer(); c.before?.(); game.go(c.screen); }
   /** Glimmer Drop: just for fun, on its own screen (it spends play time); its cabinet is always last */

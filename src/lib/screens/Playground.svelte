@@ -19,6 +19,7 @@
   import Lab from '../math/play/Lab.svelte';
   import Sketch from '../math/play/Sketch.svelte';
   import SpinLab from '../math/play/SpinLab.svelte';
+  import Scale from '../math/play/Scale.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import MenuButton from '../ui/MenuButton.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -33,7 +34,7 @@
   let burst = $state(0);
   let k = 0;
   // the 3D island and buddy behind each game
-  const WORLD: Record<PlayGame, RegionId> = { line: 'village', bonds: 'shores', build: 'burrows', stall: 'treetops', lab: 'treetops', sketch: 'ridge', chance: 'cliffs' };
+  const WORLD: Record<PlayGame, RegionId> = { line: 'village', bonds: 'shores', build: 'burrows', stall: 'treetops', lab: 'treetops', sketch: 'ridge', chance: 'cliffs', scale: 'ridge' };
   let scene: PlayScene | null = null;
   let areaEl: HTMLElement | null = null;
   let areaOpts: { span?: number; feetAt?: number } = {};
@@ -92,13 +93,14 @@
     lab: 'Learns: ratios (equal mixes look the same) and percents.',
     sketch: 'Learns: the coordinate grid, all four quadrants, and flipping over an axis.',
     chance: 'Learns: chance, likely and unlikely, and how lots of spins grow toward the chances.',
+    scale: 'Learns: equations on a balance, doing the same to both sides.',
   };
   function openBlocks() { sfx.click(); builderOpen.toy = true; builderOpen.from = 'playground'; game.go('builder'); }
   function backToGames() { playing = null; done = null; if (scene && stage.current() === scene) stage.use(null); scene?.dispose(); scene = null; }
   // each game's painted picture (number line with a hopping frog, bubbles, place-value blocks)
-  const ART: Record<PlayGame, 'line' | 'bubbles' | 'blocks' | null> = { line: 'line', bonds: 'bubbles', build: 'blocks', stall: null, lab: null, sketch: null, chance: null };
+  const ART: Record<PlayGame, 'line' | 'bubbles' | 'blocks' | null> = { line: 'line', bonds: 'bubbles', build: 'blocks', stall: null, lab: null, sketch: null, chance: null, scale: null };
   /** a painted picture instead of an icon (the toys without one) */
-  const PIC: Partial<Record<PlayGame, string>> = { lab: 'math/ratios/tile.webp', sketch: 'game/icon-star.webp', chance: 'math/data/prize-ticket.webp' };
+  const PIC: Partial<Record<PlayGame, string>> = { lab: 'math/ratios/tile.webp', sketch: 'game/icon-star.webp', chance: 'math/data/prize-ticket.webp', scale: 'math/algebra/tile.webp' };
 </script>
 
 <svelte:window onkeydown={onKey} onresize={onResize} />
@@ -124,6 +126,7 @@
           {:else if playing.g === 'lab'}<Lab level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
           {:else if playing.g === 'sketch'}<Sketch level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
           {:else if playing.g === 'chance'}<SpinLab level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
+          {:else if playing.g === 'scale'}<Scale level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
           {:else}<BuildIt level={playing.level} buddy={p.buddy} ondone={finished} {pal} />{/if}
         </div>
       {/key}

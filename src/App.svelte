@@ -35,6 +35,7 @@
   import SmoothieStand from './lib/screens/SmoothieStand.svelte';
   import TreasureGrid from './lib/screens/TreasureGrid.svelte';
   import SpinnerShowdown from './lib/screens/SpinnerShowdown.svelte';
+  import BalanceBeam from './lib/screens/BalanceBeam.svelte';
   import Glimmers from './lib/screens/Glimmers.svelte';
   import Eggs from './lib/screens/Eggs.svelte';
   import Learn from './lib/screens/Learn.svelte';
@@ -95,13 +96,13 @@
   // sound, once per player; a typing lesson asks for itself, before its coach starts talking
   $effect(() => {
     const scr = game.screen;
-    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel', 'drop', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'smoothie', 'treasure', 'showdown'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
+    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel', 'drop', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'smoothie', 'treasure', 'showdown', 'balance'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
     setTimeout(() => { if (game.screen === scr && game.profile && !game.profile.soundSetup && !game.sheet) game.openSheet('setup'); }, 300);
   });
 
   // menu music on the screens around the lessons; Adventure's own on its screens and the Arcade's (Auto
   // plays an adventure there; a picked station just keeps playing)
-  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'glimmerBook', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'shifter', 'shapebuilder', 'smoothie', 'treasure', 'showdown']);
+  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'glimmerBook', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'shifter', 'shapebuilder', 'smoothie', 'treasure', 'showdown', 'balance']);
   $effect(() => {
     const scr = game.screen;
     if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
@@ -162,6 +163,7 @@
   {:else if game.screen === 'smoothie'}<SmoothieStand />
   {:else if game.screen === 'treasure'}<TreasureGrid />
   {:else if game.screen === 'showdown'}<SpinnerShowdown />
+  {:else if game.screen === 'balance'}<BalanceBeam />
   {:else if game.screen === 'drop'}<GlimmerDrop />
   {:else if game.screen === 'arcade'}<Arcade />
   {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}

@@ -7,6 +7,8 @@
 //   Smoothie Lab     mix fruit until the colour matches: ratios and percents (math/ratios/lab.ts)
 //   Star Sketch      plot the points of a picture on a coordinate grid: the map (math/integers/sketch.ts)
 //   Spin Lab         pick what comes up most, then spin and watch a bar graph grow: chance (math/data/lab.ts)
+//   Balance Scale    put weights on a balance until it's level, then say what a mystery box weighs
+//                    (math/algebra/scale.ts)
 // Rounds feed the same friendship, outfits, dances, stickers and daily minutes as every other game.
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
 import { buddyPal } from '../engine/profile';
@@ -17,7 +19,7 @@ import { mathOf } from './progress';
 import type { Rng } from '../engine/rng';
 import { hasEvidence, pitch, TARGET } from './skills/ability';
 
-export type PlayGame = 'line' | 'bonds' | 'build' | 'stall' | 'lab' | 'sketch' | 'chance';
+export type PlayGame = 'line' | 'bonds' | 'build' | 'stall' | 'lab' | 'sketch' | 'chance' | 'scale';
 export type PlayLevel = { n: number; title: string; hint: string };
 
 export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: string; levels: PlayLevel[] }[] = [
@@ -69,6 +71,13 @@ export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: str
     { n: 3, title: 'Roll a die', hint: 'Every number is as likely. Watch them even out.' },
     { n: 4, title: 'Two dice', hint: '7 has the most ways: 1 and 6, 2 and 5, 3 and 4...' },
     { n: 5, title: 'Mixed up', hint: 'Lots of parts: count each colour.' },
+  ] },
+  { id: 'scale', name: 'Balance Scale', blurb: 'Put weights on the balance until it hangs level, then find what the mystery box weighs. No clock.', color: '#6c4fd8', levels: [
+    { n: 1, title: 'One box', hint: 'Add weights until it\'s level: the box weighs the same.' },
+    { n: 2, title: 'A box and weights', hint: 'Level at 8 with a box and 3? The box is 8 take away 3.' },
+    { n: 3, title: 'Two boxes', hint: 'Two boxes balance 10? Share it: 5 each.' },
+    { n: 4, title: 'Two boxes and weights', hint: 'Take the weights away first, then share.' },
+    { n: 5, title: 'Three boxes and weights', hint: 'Take away, then share by 3.' },
   ] },
 ];
 export const PLAY_GAME = Object.fromEntries(PLAY_GAMES.map(g => [g.id, g])) as Record<PlayGame, (typeof PLAY_GAMES)[number]>;
@@ -141,6 +150,7 @@ const PLAY_SKILL: Record<PlayGame, { skill: string; level: number[] }> = {
   lab: { skill: 'rt-ratio', level: [1, 2, 3, 4, 5, 5] },
   sketch: { skill: 'in-quad', level: [1, 2, 3, 4, 5, 5] },
   chance: { skill: 'da-likely', level: [1, 2, 3, 4, 5, 5] },
+  scale: { skill: 'al-missing', level: [1, 2, 3, 4, 5, 5] },
 };
 /** The level the child's practice says they're ready for (pitched easy: 90%), once there is practice to
  *  go by (0 before). It opens levels the way a star does and never closes one. */

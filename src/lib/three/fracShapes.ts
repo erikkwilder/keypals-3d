@@ -10,6 +10,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Hue, Shape } from '../math/learn';
 import { tileGeo, tileKey, tileMat } from './shapeTiles';
 import { fruitExtraMat, fruitGeo, fruitMats } from './fruitShapes';
+import { algShapeGeo, algShapeMats, isAlgShape } from './algebraProps';
 
 /** where slice i of n sits (its middle), from the middle of a whole of radius R (board units) */
 export function sliceAt(n: number, i: number, R: number) {
@@ -18,7 +19,7 @@ export function sliceAt(n: number, i: number, R: number) {
   return { dx: Math.cos(a) * d, dy: Math.sin(a) * d };
 }
 
-export const shapeKey = (s: Shape) => (s.k === 'wedge' ? `w:${s.food}:${s.n}:${s.i}:${s.r}` : s.k === 'chunk' ? `c:${s.w}` : s.k === 'tile' ? tileKey(s) : s.k === 'fruit' ? `f:${s.f}` : 'cup');
+export const shapeKey = (s: Shape) => (s.k === 'wedge' ? `w:${s.food}:${s.n}:${s.i}:${s.r}` : s.k === 'chunk' ? `c:${s.w}` : s.k === 'tile' ? tileKey(s) : s.k === 'fruit' ? `f:${s.f}` : s.k === 'cupcake' ? 'cup' : s.k);
 
 /** A shape's geometry in counter units: `main` carries the colour (two material groups for a wedge: its
  *  top and its sides), `extra` an undyed part (a cupcake's paper cup). */
@@ -26,6 +27,7 @@ export function shapeGeo(s: Shape, RU: number, depth: number): { main: THREE.Buf
   if (s.k === 'fruit') return fruitGeo(s.f);
   if (s.k === 'wedge') return wedge(s.food, s.n, s.i, s.r, RU, depth);
   if (s.k === 'tile') return tileGeo(s, RU, depth);
+  if (isAlgShape(s)) return algShapeGeo(s, RU, depth);
   if (s.k === 'chunk') {
     const w = s.w, h = w * 0.3;
     const g = new RoundedBoxGeometry(w * 0.94, h, w * 0.94, 3, w * 0.07);
@@ -103,6 +105,7 @@ export function shapeMats(s: Shape, hue: Hue, out: boolean, tex: FracTex, cache:
   if (out) return cache('f-out', () => new THREE.MeshStandardMaterial({ color: 0xc9c1b4, roughness: 0.85, transparent: true, opacity: 0.5 }));
   // (the gold ones glow clearly: they're the ones you count)
   const glow = h === 'c' ? 0.4 : 0.04;
+  if (isAlgShape(s)) return algShapeMats(s, h, cache);
   if (s.k === 'wedge') {
     const top = cache(`f-${s.food}-${h}`, () => new THREE.MeshPhysicalMaterial({ map: tex[s.food], color: TINT[h], roughness: s.food === 'pie' ? 0.55 : 0.6, clearcoat: s.food === 'pie' ? 0.35 : 0.15, clearcoatRoughness: 0.4, emissive: h === 'c' ? 0xffa21a : 0x000000, emissiveIntensity: glow }));
     const side = cache(`f-${s.food}-side`, () => new THREE.MeshStandardMaterial({ map: sideTex(s.food), roughness: 0.75 }));

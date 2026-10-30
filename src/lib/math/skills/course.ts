@@ -252,6 +252,41 @@ const INTEGER_REGIONS = [
     ['Deep Freeze Run', 'check', FREEZE_SKILLS, [], 6, 'swim', 'Every kind of question on this island. Already know them? Start here.'],
   ]),
 ];
+// Expressions and equations, grades 3 to 8, in the Star Lab: Star Steps (missing numbers, patterns and the
+// order of operations), the Balance Room (letters for numbers: writing and working out expressions, equal
+// expressions, one-step equations on the balance) and the Telescope Tower (inequalities on a number line,
+// two-step equations, slope, two equations at once).
+const STAR_SKILLS = ['al-missing', 'al-pattern', 'al-order'];
+const ROOM_SKILLS = ['al-write', 'al-eval', 'al-one', 'al-equal'];
+const TOWER_SKILLS = ['al-ineq', 'al-two', 'al-slope', 'al-system'];
+const STAR: Omit<SkillRegion, 'lessons'> = { id: 'alg-a', area: 'algebra', name: 'Star Steps', blurb: 'Missing numbers, number patterns, and which part of a sum to do first.', world: 'ridge', chip: '□ + 3 = 8', skills: STAR_SKILLS };
+const ROOM: Omit<SkillRegion, 'lessons'> = { id: 'alg-b', area: 'algebra', name: 'The Balance Room', blurb: 'Letters for numbers: write them, work them out, and keep the balance level.', world: 'cliffs', chip: 'x + 7 = 15', skills: ROOM_SKILLS };
+const TOWER: Omit<SkillRegion, 'lessons'> = { id: 'alg-c', area: 'algebra', name: 'Telescope Tower', blurb: 'More or less on a number line, two-step equations, slope, and two equations at once.', world: 'shores', chip: 'y = 2x + 1', skills: TOWER_SKILLS };
+const ALGEBRA_REGIONS = [
+  region(STAR, [
+    ['Missing Numbers', 'meet', ['al-missing'], ['al-missing'], 6, 'run', 'Do the opposite: 8 × □ = 48? Share 48 by 8. □ + 7 = 15? Take 7 from 15.'],
+    ['Number Patterns', 'meet', ['al-pattern', 'al-missing'], ['al-pattern'], 6, 'climb', 'Find the jump from one number to the next, then keep going.'],
+    ['Times Comes First', 'meet', ['al-order', 'al-missing'], ['al-order'], 5, 'swim', 'Brackets first, then times and divide, then plus and take away.'],
+    ['Star Steps Mix', 'mix', STAR_SKILLS, [], 6, 'slide', 'Everything so far, all mixed up.'],
+    ['Star Steps Run', 'check', STAR_SKILLS, [], 6, 'run', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(ROOM, [
+    ['Letters for Numbers', 'meet', ['al-write'], ['al-write'], 6, 'run', 'A letter stands for a number: 5 more than n is n + 5, and 3n is 3 × n.'],
+    ['Swap In the Number', 'meet', ['al-eval', 'al-write'], ['al-eval'], 5, 'climb', 'Put the number where the letter is, then work it out.'],
+    ['Keep It Level', 'meet', ['al-one', 'al-eval'], ['al-one'], 5, 'swim', 'Do the same to both sides and the balance stays level: x + 7 = 15, so x = 8.'],
+    ['Share and Gather', 'meet', ['al-equal', 'al-eval'], ['al-equal'], 5, 'slide', '3(x + 4) is 3x + 12, and 2x + 5x is 7x: like goes with like.'],
+    ['Balance Room Mix', 'mix', ROOM_SKILLS, [], 5, 'run', 'Everything on this island, all mixed up.'],
+    ['Balance Room Run', 'check', ROOM_SKILLS, [], 5, 'climb', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(TOWER, [
+    ['More or Less', 'meet', ['al-ineq', 'al-one'], ['al-ineq'], 5, 'run', 'x > 3 means bigger than 3: an open dot at 3, shaded to the right.'],
+    ['Two Steps', 'meet', ['al-two', 'al-one'], ['al-two'], 5, 'climb', 'Undo the plus first, then the times: 2x + 3 = 11, 2x = 8, x = 4.'],
+    ['Slope', 'meet', ['al-slope'], ['al-slope'], 4, 'swim', 'How far y goes up for each 1 that x goes along.'],
+    ['Two at Once', 'meet', ['al-system', 'al-two'], ['al-system'], 4, 'slide', 'Two equations, two letters: take one from the other and a letter disappears.'],
+    ['Telescope Mix', 'mix', [...TOWER_SKILLS, 'al-equal'], [], 4, 'run', 'This island and the last, all mixed up.'],
+    ['Telescope Tower Run', 'check', TOWER_SKILLS, [], 5, 'climb', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+];
 export const SKILL_REGIONS: SkillRegion[] = [
   region(PIE, [
     ['Meet Fractions', 'meet', ['fr-name'], ['fr-name'], 6, 'run', 'The bottom number is how many equal parts; the top is how many you have.'],
@@ -284,6 +319,7 @@ export const SKILL_REGIONS: SkillRegion[] = [
   ...RATIO_REGIONS,
   ...INTEGER_REGIONS,
   ...DATA_REGIONS,
+  ...ALGEBRA_REGIONS,
 ];
 
 export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
@@ -292,6 +328,7 @@ export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
   decimals: { id: 'start-decimals', region: 'start', area: 'decimals', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...COIN_SKILLS, ...CHOC_SKILLS, ...HOUSE_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of money and decimals. Answer what you know and skip ahead!' },
   measure: { id: 'start-measure', region: 'start', area: 'measure', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...TICK_SKILLS, ...MILL_M_SKILLS, ...YARD_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of clocks, rulers, scales, area and units. Answer what you know and skip ahead!' },
   data: DATA_PLACEMENT,
+  algebra: { id: 'start-algebra', region: 'start', area: 'algebra', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...STAR_SKILLS, ...ROOM_SKILLS, ...TOWER_SKILLS], learn: [], goal: 5, move: 'run', world: 'ridge', blurb: 'A quick mix of missing numbers, letters and equations. Answer what you know and skip ahead!' },
   fractions: { id: 'start-fractions', region: 'start', area: 'fractions', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...PIE_SKILLS, ...BAKER_SKILLS, ...MILL_SKILLS], learn: [], goal: 6, move: 'run', world: 'village', blurb: 'A quick mix of fractions. Answer what you know and skip ahead!' },
   shapes: { id: 'start-shapes', region: 'start', area: 'shapes', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...MEADOW_SKILLS, ...RIDGE_SKILLS, ...TERRACE_SKILLS, ...SUMMIT_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of shapes and angles. Answer what you know and skip ahead!' },
   integers: { id: 'start-integers', region: 'start', area: 'integers', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...DOCK_SKILLS, ...GROTTO_SKILLS, ...FREEZE_SKILLS], learn: [], goal: 6, move: 'run', world: 'shores', blurb: 'A quick mix of negative numbers and the map. Answer what you know and skip ahead!' },
@@ -322,6 +359,9 @@ export const SKILL_EPISODES: Record<string, string> = {
   'in-dist': 'neg-map', 'in-add': 'neg-add', 'in-sub': 'neg-sub', 'in-mult': 'neg-times', 'in-rat': 'neg-add',
   // data and chance (the fair booth: math/data/episodes.ts)
   ...DATA_EPISODES,
+  // expressions and equations: the Star Lab episodes (math/algebra/episodes.ts)
+  'al-missing': 'alg-balance', 'al-one': 'alg-balance', 'al-two': 'alg-two-step', 'al-order': 'alg-order', 'al-write': 'alg-letters', 'al-eval': 'alg-letters',
+  'al-equal': 'alg-gather', 'al-pattern': 'alg-pattern', 'al-slope': 'alg-pattern', 'al-ineq': 'alg-ineq', 'al-system': 'alg-two-step',
 };
 export const SKILL_LESSONS: SkillLesson[] = SKILL_REGIONS.flatMap(r => r.lessons);
 export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS].map(l => [l!.id, l!]));
@@ -330,7 +370,7 @@ export const skillRegionsOf = (area: AreaId) => SKILL_REGIONS.filter(r => r.area
 export const isSkillLesson = (id: string) => !!SKILL_LESSON[id];
 /** How much longer a skill question takes than a fact: speeds, treasure and rides are scaled by it so a
  *  good fraction trip feels as fast as a good times-table trip. */
-export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5, measure: 2.8, shapes: 2.5, ratios: 2.5, integers: 2.5, data: 2.5 };
+export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5, measure: 2.8, shapes: 2.5, ratios: 2.5, integers: 2.5, data: 2.5, algebra: 2.8 };
 export const tempoOf = (area: AreaId) => TEMPO[area] ?? 2;
 
 // ---------- what's open ----------

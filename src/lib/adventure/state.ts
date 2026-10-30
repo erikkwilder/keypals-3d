@@ -26,13 +26,13 @@ import { newStats, noteStats, type GhostStats, type RivalState } from './ghosts'
 import { parallel, tellStops } from './trails';
 
 // ---------- the map ----------
-export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls' | 'caves' | 'market' | 'clockwork' | 'peaks' | 'jungle' | 'frost' | 'fair';
+export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls' | 'caves' | 'market' | 'clockwork' | 'peaks' | 'jungle' | 'frost' | 'fair' | 'stars';
 export type NodeKind = 'battle' | 'practice' | 'champion';
 export type MapNode = { id: string; island: IslandId; kind: NodeKind; n: number };
 /** The worlds on the world map: the Sky Islands (the first three islands, any math or typing), and worlds
  *  of one kind of math (Fraction Falls: every battle card is a fraction). Each world's stops are in order
  *  on their own; finishing one world doesn't open another. */
-export type WorldId = 'sky' | 'falls' | 'caves' | 'market' | 'clockwork' | 'peaks' | 'jungle' | 'frost' | 'fair';
+export type WorldId = 'sky' | 'falls' | 'caves' | 'market' | 'clockwork' | 'peaks' | 'jungle' | 'frost' | 'fair' | 'stars';
 export type Island = {
   id: IslandId; world: WorldId; name: string; element: Element; region: RegionId; champion: GlimmerId; blurb: string; odds: Partial<Record<Rarity, number>>;
   /** how tough its Grumbles are (and how many shells they give): 0 for the first island */
@@ -98,6 +98,13 @@ export const ISLANDS: Island[] = [
   { id: 'fair', world: 'fair', tier: 1, name: 'Chance Fair', element: 'leaf', region: 'treetops', champion: 'pinepango', area: 'data',
     natives: ['popcornpuff', 'mushmouse', 'cactuskit', 'teakettledrake'], mischief: { kind: 'gust', name: 'A gust of confetti is coming' },
     blurb: 'Striped tents, a Ferris wheel, a big spinner wheel and a golden prize tent. Every battle card is graphs, data or chance.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
+  // Star Lab: a sky observatory among the stars, with brass telescopes, golden balances and a great domed
+  // observatory at the top; its Grumbles send shooting stars. Its own Glimmers (adventure/starGlimmers.ts)
+  // are still waiting for their 3D models, so for now star-ish Glimmers from the other islands live here
+  // and the Comet Cat is its Champion.
+  { id: 'stars', world: 'stars', tier: 1, name: 'Star Lab', element: 'frost', region: 'ridge', champion: 'cometcat', area: 'algebra',
+    natives: ['sparkmoth', 'frostowl', 'frostjelly', 'whalecalf'], mischief: { kind: 'zap', name: 'Shooting stars are coming' },
+    blurb: 'Telescopes, golden balances and a great domed observatory. Every battle card is an equation.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
 ];
 export const islandsOf = (w: WorldId) => ISLANDS.filter(i => i.world === w);
 export const ISLAND: Record<IslandId, Island> = Object.fromEntries(ISLANDS.map(i => [i.id, i])) as Record<IslandId, Island>;

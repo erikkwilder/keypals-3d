@@ -16,6 +16,7 @@
   import { SHAPE_LESSONS } from '../math/shapes/episodes';
   import { RATIO_COLOR, RATIO_LESSONS } from '../math/ratioEpisodes';
   import { DATA_COLOR, DATA_LESSONS } from '../math/data/episodes';
+  import { ALG_LESSONS } from '../math/algebra/episodes';
   import { SKILL_LESSONS } from '../math/skills/course';
   import { GLIMMER } from '../adventure/glimmers';
   import { glimmerArt } from '../adventure/evolve';
@@ -56,7 +57,7 @@
   /** the first stop that uses this trick, to practise it right after (a fraction idea: the fractions
    *  stop that meets its skill; a place value lesson names its own practice lesson) */
   function practiceStop(id: string) {
-    const f = [...FRAC_LESSONS, ...SHAPE_LESSONS, ...RATIO_LESSONS, ...DATA_LESSONS].find(x => x.id === id);
+    const f = [...FRAC_LESSONS, ...SHAPE_LESSONS, ...RATIO_LESSONS, ...DATA_LESSONS, ...ALG_LESSONS].find(x => x.id === id);
     if (f) return SKILL_LESSONS.find(x => x.kind === 'meet' && x.learn.includes(f.skill))?.id ?? null;
     if (id === 'zero-one') return 'twins-1';
     const l = LESSONS.find(x => x.id === id);
@@ -69,12 +70,13 @@
     game.learnId = null;
     if (!stop) return;
     game.setHome('math');
-    if (FRAC_LESSONS.some(x => x.id === id) || SHAPE_LESSONS.some(x => x.id === id) || RATIO_LESSONS.some(x => x.id === id) || DATA_LESSONS.some(x => x.id === id) || LESSONS.find(x => x.id === id)?.practice) game.startSkill(stop); else game.startMath(stop);
+    if (FRAC_LESSONS.some(x => x.id === id) || SHAPE_LESSONS.some(x => x.id === id) || RATIO_LESSONS.some(x => x.id === id) || DATA_LESSONS.some(x => x.id === id) || ALG_LESSONS.some(x => x.id === id) || LESSONS.find(x => x.id === id)?.practice) game.startSkill(stop); else game.startMath(stop);
   }
   const fracLearned = $derived(FRAC_LESSONS.filter(l => isLearned(m, l.id)));
   const shapeLearned = $derived(SHAPE_LESSONS.filter(l => isLearned(m, l.id)));
   const ratioLearned = $derived(RATIO_LESSONS.filter(l => isLearned(m, l.id)));
   const dataLearned = $derived(DATA_LESSONS.filter(l => isLearned(m, l.id)));
+  const algLearned = $derived(ALG_LESSONS.filter(l => isLearned(m, l.id)));
   const fracSet = (l: FracLesson) => SETS[l.set];
   function back() { if (open) close(); else game.go(game.learnBack === 'learn' ? 'map' : game.learnBack); }
   onMount(() => {
@@ -234,6 +236,32 @@
             {@const fs = fracSet(l)}
             <article class="lcard" class:done>
               <button class="lpic" style:--set="url({base}{l.art})" onclick={() => watch(l)} aria-label="Watch {l.title}">
+                <img class="gface" src="{base}{glimmerArt(l.star ?? fs.star)}" alt="" />
+                <span class="play small"><Icon name="play" size={24} /></span>
+                <span class="where">{fs.name}</span>
+              </button>
+              <div class="ltext">
+                <b>{l.title}</b>
+                <span>{l.blurb}</span>
+                <div class="lrow">
+                  {#if done}<span class="pill ok"><Icon name="check" size={14} /> Learned</span>{:else}<span class="pill new">New</span>{/if}
+                  <button class="btn small" class:btn-primary={!done} onclick={() => watch(l)}>{done ? 'Watch again' : 'Watch'}</button>
+                </div>
+              </div>
+            </article>
+          {/each}
+        </div>
+      </section>
+
+      <!-- expressions and equations: the golden balance, weights and mystery boxes in the Star Lab -->
+      <section class="strand" style:--sc="#6c5ce7">
+        <h3><img src="{base}math/algebra/tile.webp" alt="" />Expressions and equations<small>{algLearned.length} of {ALG_LESSONS.length} learned</small></h3>
+        <div class="grid">
+          {#each ALG_LESSONS as l (l.id)}
+            {@const done = isLearned(m, l.id)}
+            {@const fs = fracSet(l)}
+            <article class="lcard" class:done>
+              <button class="lpic" style:--set="url({base}learn/ep/set-lab.webp)" onclick={() => watch(l)} aria-label="Watch {l.title}">
                 <img class="gface" src="{base}{glimmerArt(l.star ?? fs.star)}" alt="" />
                 <span class="play small"><Icon name="play" size={24} /></span>
                 <span class="where">{fs.name}</span>

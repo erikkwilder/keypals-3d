@@ -53,7 +53,7 @@ function gameOf(s: Screen): Kind | null {
     case 'battle': return { kind: 'battle', subject: 'adventure', area: head(game.battleNode) };
     case 'drop': return { kind: 'glimmer-drop', subject: 'arcade', area: 'drop' };
     case 'duel': return { kind: game.duelMode === 'rival' ? 'rival-ghost' : 'family-duel', subject: 'adventure', area: game.duelMode };
-    case 'playground': case 'pizza': case 'builder': case 'market': case 'smoothie': case 'showdown': return { kind: s, subject: 'math', area: 'playground' };
+    case 'playground': case 'pizza': case 'builder': case 'market': case 'smoothie': case 'showdown': case 'balance': return { kind: s, subject: 'math', area: 'playground' };
     case 'garden': return { kind: 'fact-garden', subject: 'math', area: 'garden' };
     case 'learn': return { kind: 'learn', subject: 'math', area: head(game.learnId) };
     default: return null;

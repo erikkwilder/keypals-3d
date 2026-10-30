@@ -162,6 +162,25 @@ const PLANS: Partial<Record<WorldId, WorldPlan>> = {
       },
     },
   },
+  // Star Lab: from the first telescope over the bridges to the armillary fountain, then either across the
+  // bridge past the golden scales or up the stairs by the big balance, both to the last landing below the
+  // great observatory
+  stars: {
+    islands: {
+      stars: {
+        pts: {
+          0: { wide: [18.5, 70.0], tall: [45.0, 87.5] }, 1: { wide: [34.8, 60.5], tall: [59.3, 72.0] }, 2: { wide: [47.8, 44.5], tall: [55.3, 53.2] },
+          3: { wide: [64.2, 41.3], tall: [68.7, 33.2] }, 4: { wide: [63.5, 31.5], tall: [36.0, 27.5] }, j: { wide: [79.1, 34.4], tall: [55.5, 18.2] }, 5: { wide: [85.8, 17.8], tall: [71.0, 6.4] },
+          chest: { wide: [7.5, 62.0], tall: [30.0, 81.5] }, bonus: { wide: [27.0, 51.5], tall: [80.0, 64.5] }, hidden: { wide: [72.0, 47.0], tall: [85.0, 30.0] },
+        },
+        edges: [
+          ['0', '1', [[27.0, 64.5]], [[50.0, 79.0]]], ['1', '2', [[41.5, 53.5]], [[60.0, 62.5]]], ['2', '3', [[57.5, 45.5]], [[60.0, 43.0]]], ['3', 'j', [[72.0, 37.5]], [[64.0, 24.5]]],
+          ['2', '4', [[54.6, 38.6]], [[38.0, 48.5], [40.0, 36.5]]], ['4', 'j', [[71.0, 30.0]]], ['j', '5', [[82.5, 26.0]], [[50.0, 11.0]]],
+          ['0', 'chest'], ['1', 'bonus'], ['3', 'hidden'],
+        ],
+      },
+    },
+  },
   // the Chance Fair: the stone platforms from the balloon stand up to the prize tent; the second route
   // goes past the big spinner wheel; the tall map has a platform less, so the routes meet on the path
   fair: {

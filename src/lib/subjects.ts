@@ -13,6 +13,7 @@ import { SHAPE_LESSONS } from './math/shapes/episodes';
 import { RATIO_LESSONS } from './math/ratioEpisodes';
 import { NEG_LESSONS } from './math/integers/episodes';
 import { DATA_LESSONS } from './math/data/episodes';
+import { ALG_LESSONS } from './math/algebra/episodes';
 import { setOf, SETS } from './math/episodes';
 import { AREAS, areaOfOp } from './math/skills/registry';
 import { SKILL_LESSONS } from './math/skills/course';
@@ -71,13 +72,14 @@ const mathLearn: Thing[] = [
   ...RATIO_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: l.art, face: faceOf(l.star ?? SETS[l.set].star), areas: ['ratios'], kind: 'episode' })),
   ...NEG_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: l.art, face: faceOf(l.star ?? SETS[l.set].star), areas: ['integers'], kind: 'episode' })),
   ...DATA_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: l.art, face: faceOf(l.star ?? SETS[l.set].star), areas: ['data'], kind: 'episode' })),
+  ...ALG_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: 'learn/ep/set-lab.webp', face: faceOf(l.star ?? SETS[l.set].star), areas: ['algebra'], kind: 'episode' })),
 ];
 const mathPractice: Thing[] = [
   ...live.map(a => ({ id: a.id, name: a.op ? STRAND[a.op].name : a.name, line: a.op ? STRAND[a.op].blurb : a.blurb, art: a.op ? STRAND[a.op].art : a.art, areas: [a.id], kind: 'trail' })),
   { id: 'garden', name: 'Fact Garden', line: 'Every fact you know, growing. Water the ones that need it.', art: 'icons/garden.webp', areas: FACT_AREAS, kind: 'review' },
 ];
-const PLAY_AREA: Record<string, AreaId> = { line: 'place', bonds: 'plus', build: 'place', stall: 'decimals', lab: 'ratios', sketch: 'integers', chance: 'data' };
-const PLAY_ART: Record<string, string> = { line: 'math/play-line.webp', bonds: 'math/play-bubbles.webp', build: 'math/play-build.webp', stall: 'math/play-stall.webp', lab: 'math/play-lab.webp', sketch: 'math/play-sketch.webp', chance: 'math/play-chance.webp' };
+const PLAY_AREA: Record<string, AreaId> = { line: 'place', bonds: 'plus', build: 'place', stall: 'decimals', lab: 'ratios', sketch: 'integers', chance: 'data', scale: 'algebra' };
+const PLAY_ART: Record<string, string> = { line: 'math/play-line.webp', bonds: 'math/play-bubbles.webp', build: 'math/play-build.webp', stall: 'math/play-stall.webp', lab: 'math/play-lab.webp', sketch: 'math/play-sketch.webp', chance: 'math/play-chance.webp', scale: 'math/play-balance.webp' };
 const mathGames: Thing[] = [
   ...ARCADE_GAMES.map(g => ({ id: g.id, name: g.name, line: g.blurb, art: g.art, areas: FACT_AREAS, kind: 'arcade' })),
   { id: 'pizza', name: 'Pizza Rush', line: 'Serve fraction pizzas to hungry Glimmers.', art: 'arcade/cab-pizza.webp', areas: ['fractions'], kind: 'arcade' },
@@ -88,6 +90,7 @@ const mathGames: Thing[] = [
   { id: 'smoothie', name: 'Smoothie Stand', line: 'Mix smoothies by the recipe, as big as the Glimmers ask.', art: 'arcade/cab-smoothie.webp', areas: ['ratios'], kind: 'arcade' },
   { id: 'treasure', name: 'Treasure Grid', line: 'Read the clue, dig at the spot on the map, beat the tide.', art: 'arcade/cab-treasure.webp', areas: ['integers'], kind: 'arcade' },
   { id: 'showdown', name: 'Spinner Showdown', line: 'Spin the big wheel and win tickets with graphs and chances.', art: 'arcade/cab-spinner.webp', areas: ['data'], kind: 'arcade' },
+  { id: 'balance', name: 'Balance Beam', line: 'Keep the seesaw level: work out what the mystery boxes weigh.', art: 'arcade/cab-balance.webp', areas: ['algebra'], kind: 'arcade' },
   ...PLAY_GAMES.map(g => ({ id: g.id, name: g.name, line: g.blurb, art: PLAY_ART[g.id] ?? 'math/strand-playground.webp', areas: [PLAY_AREA[g.id] ?? 'plus'], kind: 'toy' })),
   { id: 'blocks', name: 'Block Table', line: 'Build anything with blocks. No questions, no clock.', art: 'math/play-blocks.webp', areas: ['place'], kind: 'toy' },
   { id: 'bench', name: 'The Measuring Bench', line: 'Measure toys with rulers, weigh them on the balance, pour water. No clock.', art: 'math/play-bench.webp', areas: ['measure'], kind: 'toy' },
