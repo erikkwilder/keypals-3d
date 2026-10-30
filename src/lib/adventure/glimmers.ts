@@ -2,6 +2,8 @@
 // pouting); your buddy cheers them up in a Cheer Duel, and a cheered-up Glimmer joins your team. Each one
 // has a rarity, an element, a power it uses in battle and a bit of personality.
 import type { FriendId } from '../art/cast';
+// 100-Glimmer ladder (2026-10-29): the Glimmers that come from goals, in their own file (ladder.ts)
+import { LADDER_EVOLVED, LADDER_GLIMMERS, type LadderGlimmerId } from './glimmers2';
 
 export type Element = 'sun' | 'frost' | 'tide' | 'stone' | 'leaf';
 /** The ring: each element is strong against the next one round. */
@@ -34,9 +36,15 @@ export const rarityRank = (r: Rarity) => RARITIES.indexOf(r);
  *  own number (`base`). */
 export type PowerKind = 'splash' | 'shell' | 'nibble' | 'ember' | 'hide' | 'coolhead' | 'freeze' | 'glow' | 'crystal' | 'song' | 'lanterns' | 'blossom' | 'secondwind' | 'aurora'
   | 'boost' | 'bubbles' | 'opener' | 'dig';
-export type GlimmerId = 'puddlepup' | 'pebbletort' | 'sproutbun' | 'embernewt' | 'fernfox' | 'snowseal' | 'frostowl' | 'sparkmoth' | 'prismhorn' | 'whalecalf' | 'lanternfox' | 'bloomdrake' | 'skywhale' | 'aurorastag'
+/** The first 30: they come from random rolls (battles and eggs). */
+export type RollGlimmerId = 'puddlepup' | 'pebbletort' | 'sproutbun' | 'embernewt' | 'fernfox' | 'snowseal' | 'frostowl' | 'sparkmoth' | 'prismhorn' | 'whalecalf' | 'lanternfox' | 'bloomdrake' | 'skywhale' | 'aurorastag'
   | 'sunsnail' | 'mittenyeti' | 'bubbleocto' | 'geodemole' | 'popcornpuff' | 'mushmouse' | 'rainbootfrog' | 'rollodillo'
   | 'teakettledrake' | 'cactuskit' | 'frostjelly' | 'potgolem' | 'stormlamb' | 'pinepango' | 'cometcat' | 'phoenixchick';
+export type GlimmerId = RollGlimmerId | LadderGlimmerId;
+/** Where a Glimmer comes from (ladder.ts says how each source works): 'roll' (the first 30, absent on
+ *  them: battles and eggs), 'native' (a math world's own, and its Champion), 'milestone', 'collection',
+ *  'season', 'secret', 'apex' (the four legends). */
+export type GlimmerSource = 'roll' | 'native' | 'milestone' | 'collection' | 'season' | 'secret' | 'apex';
 export type GlimmerDef = {
   id: GlimmerId; name: string; rarity: Rarity; element: Element;
   /** `base`: the power's number at level 1 when it differs from the kind's usual one (bubbles: every how many right answers) */
@@ -44,15 +52,24 @@ export type GlimmerDef = {
   quirk: string;
   /** the island where it lives: its battles turn it up more often there */
   home?: 'meadow' | 'treetops' | 'bay';
-  /** the island whose Champion it is (Champions are always these) */
-  champion?: 'meadow' | 'treetops' | 'bay';
+  /** the island whose Champion it is (an island id: 'meadow', 'caves'...) */
+  champion?: string;
   /** shape of its storm cloud when it's a Champion Grumble */
   cloud?: 'fox' | 'drake' | 'whale';
+  // ---- the 100-Glimmer ladder (ladder.ts) ----
+  /** where it comes from; absent: 'roll' */
+  source?: GlimmerSource;
+  /** a native's (or a world Champion's) math world: a WorldId such as 'falls', 'caves', 'peaks' */
+  world?: string;
+  /** its 3D model isn't made yet: the Glimmer Book shows it "On its way" and nobody can earn it. When the
+   *  model ships, take this off: a child who already met its goal gets it right away. */
+  pending?: boolean;
 };
 
 /** A power's number grows a little as the Glimmer levels up. */
 export const powerNum = (base: number, lvl: number, every = 4) => base + Math.floor((Math.max(1, lvl) - 1) / every);
 
+/** The first 30: the ones random rolls give (battles, eggs). The ladder's are in glimmers2.ts. */
 export const GLIMMERS: GlimmerDef[] = [
   { id: 'puddlepup', home: 'meadow', name: 'Puddle Pup', rarity: 'common', element: 'tide', quirk: 'Shakes off water on everyone, every time.',
     power: { kind: 'splash', name: 'Splash', text: l => `Answer fast and it splashes ${powerNum(3, l)} more cheer.` } },
@@ -117,8 +134,19 @@ export const GLIMMERS: GlimmerDef[] = [
   { id: 'phoenixchick', name: 'Phoenix Chick', rarity: 'mythic', element: 'sun', quirk: 'Every morning it wakes up as a brand-new chick.',
     power: { kind: 'secondwind', name: 'Rise Again', base: 14, text: l => `Once a battle, when your energy runs low, gives you ${powerNum(14, l, 3)} back.` } },
 ];
-export const GLIMMER: Record<GlimmerId, GlimmerDef> = Object.fromEntries(GLIMMERS.map(g => [g.id, g])) as Record<GlimmerId, GlimmerDef>;
+/** Every Glimmer: the first 30 (GLIMMERS, the ones random rolls give) and the ladder's (glimmers2.ts).
+ *  Random rolls (battles, eggs, the Grumbles you meet) only ever use GLIMMERS. */
+export const ALL_GLIMMERS: GlimmerDef[] = [...GLIMMERS, ...LADDER_GLIMMERS];
+/** How many Glimmers there will be once every math world's are in (the Glimmer Book's "of 100"). */
+export const GLIMMER_TOTAL = 100;
+export const GLIMMER: Record<GlimmerId, GlimmerDef> = Object.fromEntries(ALL_GLIMMERS.map(g => [g.id, g])) as Record<GlimmerId, GlimmerDef>;
+/** The Glimmers of a rarity that random rolls can give (never the ladder's). */
 export const glimmersOf = (r: Rarity) => GLIMMERS.filter(g => g.rarity === r);
+/** A ladder Glimmer (it comes from a goal, never from a roll). */
+export const isLadder = (id: GlimmerId) => (GLIMMER[id]?.source ?? 'roll') !== 'roll';
+/** An island's own Champion once its model is in (Counting Caves and Market Isle have their own coming);
+ *  null: the island uses the one in its ISLANDS entry. */
+export const ownChampion = (island: string): GlimmerId | null => ALL_GLIMMERS.find(g => g.champion === island && !g.pending)?.id ?? null;
 /** A power's number at level 1 for this Glimmer (its own, or the kind's usual one). */
 export const powerBase = (id: GlimmerId, usual: number) => GLIMMER[id].power.base ?? usual;
 
@@ -159,6 +187,7 @@ export const EVOLVE_AT = 5;
 export const EVOLVE_BOOST = 4;
 /** Each Glimmer's grown-up form: its new name and the extra thing it does in battles. */
 export const EVOLVED: Record<GlimmerId, { name: string; perk: string }> = {
+  ...LADDER_EVOLVED,
   puddlepup: { name: 'Tidal Pup', perk: 'Water cards splash 2 more cheer.' },
   pebbletort: { name: 'Boulder Tortoise', perk: 'Blocks the first two rains or zaps, not just one.' },
   sproutbun: { name: 'Blossom Bunny', perk: 'Strong ⚡ cards give you 2 more energy back.' },

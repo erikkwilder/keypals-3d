@@ -17,7 +17,8 @@ import { nextSkillLesson } from '../math/skills/course';
 import { noteSkillAnswers } from '../math/skills/progress';
 import { factAnswers, noteAbility, strandOf, thetaOf } from '../math/skills/ability';
 import type { AreaId } from '../math/skills/types';
-import { EVOLVE_BOOST, GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, powerBase, powerNum, rarityRank, type Element, type GlimmerId, type Rarity } from './glimmers';
+import { EVOLVE_BOOST, GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, ownChampion, powerBase, powerNum, rarityRank, type Element, type GlimmerId, type GlimmerSource, type Rarity } from './glimmers';
+import { noteLadder } from './ladderSave'; // 100-Glimmer ladder: right answers and days played count
 import { grumpFor, type MapFoe, type MischiefKind, type Pool, type Subject } from './battle';
 import { championPrize, type BuddyGear, type GearItem, type Wardrobe } from './gear';
 import type { RegionId } from '../engine/course';
@@ -78,7 +79,11 @@ export function worldOpen(p: Profile, w: WorldId): boolean {
 }
 
 // ---------- the player's adventure ----------
-export type Egg = { id: string; rarity: Rarity; need: number; have: number; got: number };
+export type Egg = {
+  id: string; rarity: Rarity; need: number; have: number; got: number;
+  /** a special egg (100-Glimmer ladder, ladder.ts): the Glimmer it hatches into, and the goal kind it came from */
+  glimmer?: GlimmerId; kind?: GlimmerSource;
+};
 export type PlayRule = 'open' | 'balanced' | 'practiceFirst';
 export type AdvSettings = {
   rule: PlayRule;
@@ -132,6 +137,8 @@ export type Adventure = {
   finds?: Record<string, string>;
   /** hidden spots found so far: they stay on the map once found */
   hidden?: string[];
+  /** the 100-Glimmer ladder's counters and the goals whose eggs have come (ladderSave.ts) */
+  ladder?: import('./ladderSave').LadderSave;
 };
 export const newAdventure = (): Adventure => ({
   shells: 0, xp: 0, glimmers: {}, team: [null, null], incubator: [null, null, null], nest: [], eggsMade: 0, nodes: {},
@@ -301,7 +308,8 @@ export function foeFor(p: Profile, node: MapNode, pool: Pool, seed: number): Map
   const a = advOf(p), isl = ISLAND[node.island], rng = mulberry32(seed);
   const islandN = isl.tier, weather = isl.mischief ? { mischief: isl.mischief } : {};
   if (node.kind === 'champion') {
-    const g = GLIMMER[isl.champion];
+    // the island's own Champion once its model is in (ladder: Counting Caves and Market Isle)
+    const g = GLIMMER[ownChampion(isl.id) ?? isl.champion];
     const max = grumpFor(pool, true);
     // the third island's Champion has grown up: it comes evolved, glowing, for a bigger finale
     return { glimmer: g.id, rarity: g.rarity, champion: true, element: g.element, grump: max, max, evolved: islandN >= 2, ...weather };
@@ -345,9 +353,10 @@ export function warmEggs(p: Profile, n: number): Rarity[] {
 /** A practice session finished (typing lesson, math trip, playground game): it counts for the practice
  *  stops, and its right answers warm the eggs. (A Learn lesson only warms the eggs: a minute's lesson
  *  isn't a practice session, so it doesn't finish a practice stop on the map.) */
-export function notePractice(p: Profile, rightAnswers: number, session = true): Rarity[] {
+export function notePractice(p: Profile, rightAnswers: number, session = true, at = Date.now()): Rarity[] {
   const a = advOf(p);
   if (session) a.practiceSessions++;
+  noteLadder(p, a, rightAnswers, at);
   return warmEggs(p, Math.round(rightAnswers));
 }
 /** What a treasure found at the end of practice is worth in shells (step 0 to 9; -1: none). */
@@ -358,17 +367,19 @@ export function practiceShells(o: { stars: number; medals: number; stickers: num
   return 4 + o.stars * 3 + o.medals * 2 + o.stickers * 3 + treasureWorth(o.treasure ?? -1);
 }
 export function earnShells(p: Profile, n: number) { if (n > 0) advOf(p).shells += n; return n; }
-export type Hatch = { id: GlimmerId; rarity: Rarity; isNew: boolean; level: number; ups: number };
+export type Hatch = { id: GlimmerId; rarity: Rarity; isNew: boolean; level: number; ups: number; special?: GlimmerSource };
 /** Hatch a ready egg: a Glimmer of its rarity (a new one if possible). The next nest egg moves in. */
 export function hatch(p: Profile, slot: number, seed = Date.now()): Hatch | null {
   const a = advOf(p), e = a.incubator[slot];
   if (!e || e.have < e.need) return null;
   const rng = mulberry32(seed);
+  // a special egg (ladder.ts) hatches into its own Glimmer; any other egg rolls one (never a ladder one)
+  if (e.glimmer && GLIMMER[e.glimmer]?.pending) return null;
   const newOnes = glimmersOf(e.rarity).filter(g => !owns(a, g.id));
-  const id = (newOnes.length ? newOnes : glimmersOf(e.rarity))[Math.floor(rng() * (newOnes.length || glimmersOf(e.rarity).length))].id;
+  const id = e.glimmer ?? (newOnes.length ? newOnes : glimmersOf(e.rarity))[Math.floor(rng() * (newOnes.length || glimmersOf(e.rarity).length))].id;
   const out = meet(a, id);
   a.incubator[slot] = a.nest.shift() ?? null;
-  return { id, rarity: e.rarity, ...out };
+  return { id, rarity: e.rarity, ...out, ...(e.kind ? { special: e.kind } : {}) };
 }
 /** A Glimmer joins (or, if you have it, it brings stardust: XP for the one you have). */
 export function meet(a: Adventure, id: GlimmerId): { isNew: boolean; level: number; ups: number } {
@@ -442,6 +453,7 @@ export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
   const node = NODE[r.node], isl = ISLAND[node.island], islandN = isl.tier;
   const day = today(a, r.at);
   day.ms += r.ms; day.answers += r.answers; day.right += r.right;
+  noteLadder(p, a, r.right, r.at);
   a.battles++;
   // how you play, for your Rival Ghost
   noteStats((a.ghost ??= newStats()), { answers: r.answers, right: r.right, thinkMs: r.answered.length ? r.answered.reduce((t, x) => t + x.thinkMs, 0) * (r.answers / r.answered.length) : r.ms * 0.55 });
