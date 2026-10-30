@@ -66,13 +66,14 @@ const mathPractice: Thing[] = [
   ...live.map(a => ({ id: a.id, name: a.op ? STRAND[a.op].name : a.name, line: a.op ? STRAND[a.op].blurb : a.blurb, art: a.op ? STRAND[a.op].art : a.art, areas: [a.id], kind: 'trail' })),
   { id: 'garden', name: 'Fact Garden', line: 'Every fact you know, growing. Water the ones that need it.', art: 'icons/garden.webp', areas: FACT_AREAS, kind: 'review' },
 ];
-const PLAY_AREA: Record<string, AreaId> = { line: 'place', bonds: 'plus', build: 'place', stall: 'decimals' };
-const PLAY_ART: Record<string, string> = { line: 'math/play-line.webp', bonds: 'math/play-bubbles.webp', build: 'math/play-build.webp', stall: 'math/play-stall.webp' };
+const PLAY_AREA: Record<string, AreaId> = { line: 'place', bonds: 'plus', build: 'place', stall: 'decimals', sketch: 'integers' };
+const PLAY_ART: Record<string, string> = { line: 'math/play-line.webp', bonds: 'math/play-bubbles.webp', build: 'math/play-build.webp', stall: 'math/play-stall.webp', sketch: 'math/play-sketch.webp' };
 const mathGames: Thing[] = [
   ...ARCADE_GAMES.map(g => ({ id: g.id, name: g.name, line: g.blurb, art: g.art, areas: FACT_AREAS, kind: 'arcade' })),
   { id: 'pizza', name: 'Pizza Rush', line: 'Serve fraction pizzas to hungry Glimmers.', art: 'arcade/cab-pizza.webp', areas: ['fractions'], kind: 'arcade' },
   { id: 'builder', name: 'Number Builder', line: 'Build numbers with hundreds, tens and ones.', art: 'arcade/cab-builder.webp', areas: ['place'], kind: 'arcade' },
   { id: 'market', name: 'Market Dash', line: 'Pay and give change to Glimmer shoppers.', art: 'arcade/cab-market.webp', areas: ['decimals'], kind: 'arcade' },
+  { id: 'treasure', name: 'Treasure Grid', line: 'Read the clue, dig at the spot on the map, beat the tide.', art: 'arcade/cab-treasure.webp', areas: ['integers'], kind: 'arcade' },
   ...PLAY_GAMES.map(g => ({ id: g.id, name: g.name, line: g.blurb, art: PLAY_ART[g.id] ?? 'math/strand-playground.webp', areas: [PLAY_AREA[g.id] ?? 'plus'], kind: 'toy' })),
   { id: 'blocks', name: 'Block Table', line: 'Build anything with blocks. No questions, no clock.', art: 'math/play-blocks.webp', areas: ['place'], kind: 'toy' },
 ];
