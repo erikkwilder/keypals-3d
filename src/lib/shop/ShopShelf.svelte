@@ -195,7 +195,8 @@
   .price img { width: 16px; height: 16px; object-fit: contain; }
   .it .yours { font-size: 12px; padding: 3px 10px; }
   .hasn { position: absolute; top: 6px; right: 6px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 999px; display: grid; place-items: center; font: 800 12px var(--font-body); color: #fff; background: #2fbf73; box-shadow: 0 0 0 2px #fff; }
-  .foot { margin: 0; font: 600 13px var(--font-body); color: var(--muted); text-align: center; flex: none; }
+  /* (on its own chip: readable over the 3D scene) */
+  .foot { margin: 0; align-self: center; flex: none; font: 600 13px/1.3 var(--font-body); color: var(--ink2); text-align: center; background: rgba(255, 255, 255, .94); padding: 4px 14px; border-radius: 999px; box-shadow: var(--shadow-sm); }
   @media (max-height: 820px) and (min-width: 761px) {
     .lpic { width: min(200px, 60%); }
     .ltext h3 { font-size: 24px; }

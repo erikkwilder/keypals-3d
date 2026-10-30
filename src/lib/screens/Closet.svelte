@@ -822,7 +822,8 @@
   .champ { background: #fff1c2; color: #8a6400; }
   .none { grid-column: 1 / -1; text-align: center; font: 600 16px var(--font-body); color: var(--muted); }
   .small { font-size: 12px; }
-  .foot { margin: 0; font: 600 13px var(--font-body); color: var(--muted); text-align: center; flex: none; }
+  /* (on its own chip: readable over the 3D scene) */
+  .foot { margin: 0; align-self: center; flex: none; font: 600 13px/1.3 var(--font-body); color: var(--ink2); text-align: center; background: rgba(255, 255, 255, .94); padding: 4px 14px; border-radius: 999px; box-shadow: var(--shadow-sm); }
   .gbg { position: fixed; inset: 0; z-index: 30; background: rgba(40, 28, 70, .4); display: grid; place-items: center; padding: 16px; }
   .gcard { width: min(520px, 94vw); padding: 18px 20px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; box-shadow: 0 0 0 4px var(--rc, #fff), var(--shadow); }
   .gbig { width: 110px; height: 110px; object-fit: contain; }
