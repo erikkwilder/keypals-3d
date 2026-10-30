@@ -58,7 +58,7 @@
   // first time one is ready: a tip at the button
   const tipOn = $derived(!evolving && !grown && owns(a, sel) && ready(sel) && !(a.seen ?? []).includes('evolve1'));
   function tipDone() { if (!(a.seen ?? []).includes('evolve1')) game.update(pp => markSeen(pp, 'evolve1')); }
-  // on a phone the cards scroll under the 3D view: when the one shown is ready, bring its Evolve row into sight
+  // on a phone the page scrolls: when the one shown is ready, bring its Evolve row into sight
   let sideEl: HTMLDivElement | undefined = $state();
   let shownReady = '';
   $effect(() => {
@@ -77,6 +77,8 @@
     return r ? { top: r.top / innerHeight, bottom: r.bottom / innerHeight, left: r.left / innerWidth, right: r.right / innerWidth } : { top: 0.15, bottom: 0.7, left: 0, right: 0.45 };
   }
   function onResize() { if (scene) scene.view = viewOf(); }
+  let scrollRaf = 0;
+  function onScroll() { if (!scrollRaf) scrollRaf = requestAnimationFrame(() => { scrollRaf = 0; onResize(); }); }
   onMount(async () => {
     addEventListener('resize', onResize);
     const sc = await GlimmerShow.create(viewOf(), 'treetops');
@@ -105,80 +107,87 @@
   }
   function leaveTeam() { game.update(pp => { const ad = advOf(pp); const i = ad.team.indexOf(sel); if (i >= 0) ad.team[i] = null; }); sfx.pop(); }
   const fresh = $derived(new Set(a.fresh));
+  // the cards: as many to a row as fit (smaller on a phone and on short laptop screens)
+  let vw = $state(1280), vh = $state(800);
+  const cardW = $derived(vw < 600 ? 76 : vh < 760 ? 88 : 96);
+  const smallW = $derived(vw < 600 ? 60 : 72);
   const RARE_WORDS: Record<string, string> = { common: 'easy to find', uncommon: 'a bit harder to find', rare: 'hard to find', epic: 'very hard to find', legendary: 'one of a kind', mythic: 'the rarest of all' };
 </script>
+
+<svelte:window bind:innerWidth={vw} bind:innerHeight={vh} />
 
 <div class="screen gl">
   <Header />
   <GlimmerTabs />
-  <div class="body">
-    <!-- tap the Glimmer: it's happy to see you -->
-    <div class="stagebox" bind:this={stageEl} role="button" tabindex="-1" aria-label="Pet your Glimmer" onclick={() => { if (owns(a, sel) && !evolving) { scene?.poke(); sfx.pop(); } }} onkeydown={() => {}}>
-      {#if !owns(a, sel)}<div class="unknown"><GlimmerCard id={sel} width={200} locked /></div>{/if}
-      {#if evolving}<div class="evobanner"><b>What's happening?</b><span>{GLIMMER[evolving].name} is evolving!</span></div>{/if}
-    </div>
-    <div class="side" bind:this={sideEl}>
-      <div class="teambox card" class:swapping>
-        <h3>Your team <small>{swapping ? `Tap who ${nameOf(sel)} replaces` : 'These two come into every battle with you'}</small></h3>
-        <div class="slots">
-          {#each [0, 1] as slot}
-            {@const t = a.team[slot] && owns(a, a.team[slot]!) ? a.team[slot] : null}
-            <button class="slot" class:filled={!!t} onclick={() => (swapping ? setTeam(slot) : t ? pick(t) : null)}>
-              {#if t}<GlimmerCard id={t} width={110} level={a.glimmers[t]?.level} evolved={evo(t)} ready={ready(t)} />{:else}<span class="empty">+<small>Empty</small></span>{/if}
-              {#if swapping}<span class="swapin">Swap</span>{/if}
-            </button>
-          {/each}
-          {#if !swapping && owned.length > 2}<p class="how">To change it: tap a Glimmer below, then <b>Add to team</b>.</p>{/if}
-        </div>
+  <!-- (on a phone the whole page scrolls, and the 3D Glimmer goes along with its box) -->
+  <div class="body" bind:this={sideEl} onscroll={onScroll}>
+    <div class="lcol">
+      <!-- tap the Glimmer: it's happy to see you -->
+      <div class="stagebox" bind:this={stageEl} role="button" tabindex="-1" aria-label="Pet your Glimmer" onclick={() => { if (owns(a, sel) && !evolving) { scene?.poke(); sfx.pop(); } }} onkeydown={() => {}}>
+        {#if !owns(a, sel)}<div class="unknown"><GlimmerCard id={sel} width={150} locked /></div>{/if}
+        {#if evolving}<div class="evobanner"><b>What's happening?</b><span>{GLIMMER[evolving].name} is evolving!</span></div>{/if}
       </div>
+      <!-- the one picked: small and to the point (its name, level, power, growing up, and the team button) -->
       <div class="info card r-{g.rarity}">
         <div class="ih">
           <img src="{base}game/icon-{g.element}.webp" alt={ELEMENT[g.element].name} />
-          <div><small style:color={RARITY[g.rarity].color}>{RARITY[g.rarity].name} · {RARE_WORDS[g.rarity]}</small><h2>{owns(a, sel) ? nameOf(sel) : '???'}{#if mine?.evolved}<span class="evochip"><Icon name="star" size={16} /> Evolved</span>{/if}</h2></div>
+          <div class="nmx"><small style:color={RARITY[g.rarity].color}>{RARITY[g.rarity].name} · {RARE_WORDS[g.rarity]}</small><h2>{owns(a, sel) ? nameOf(sel) : '???'}{#if mine?.evolved}<span class="evochip"><Icon name="star" size={14} /> Evolved</span>{/if}</h2></div>
           {#if mine}<span class="lv">Level {mine.level}</span>{/if}
         </div>
         {#if mine}
-          <p class="pw"><b>In battles it helps you:</b> {g.power.text(mine.level + (mine.evolved ? EVOLVE_BOOST : 0))}</p>
+          <p class="pw"><b>In battles:</b> {g.power.text(mine.level + (mine.evolved ? EVOLVE_BOOST : 0))}</p>
           {#if mine.evolved}<p class="pw perk"><img src="{base}game/icon-star.webp" alt="" /><span><b>Grown-up power:</b> {EVOLVED[sel].perk}</span></p>{/if}
           {#if mine.level < MAX_LEVEL}<div class="xp"><div class="bar"><i style:width="{(mine.xp / xpNeed(mine.level)) * 100}%"></i></div><span>Level {mine.level + 1} after a few more battles</span></div>{/if}
           {#if !mine.evolved}
-            <!-- before and after: now, an arrow, the grown-up form still a mystery -->
             <div class="evorow" class:go={ready(sel)}>
-              <GlimmerCard id={sel} width={50} />
-              <span class="arr"><Icon name="play" size={34} /></span>
-              <div class="mystery"><GlimmerCard id={sel} width={50} evolved locked /></div>
+              <img class="evostar" src="{base}game/icon-star.webp" alt="" />
               {#if ready(sel)}
-                <div class="evotext"><b>{g.name} is ready to grow up!</b><small>It gets a new look, a new name and a stronger power.</small></div>
+                <div class="evotext"><b>{g.name} is ready to grow up!</b><small>A new look, a new name and a stronger power.</small></div>
                 <button class="btn evolvebtn" onclick={doEvolve} disabled={!!evolving}>Evolve!</button>
               {:else}
-                <div class="evotext"><b>Grows up at level {EVOLVE_AT}</b><small>{levelsToEvolve(a, sel)} more level{levelsToEvolve(a, sel) === 1 ? '' : 's'} to go. Win battles with it on your team.</small></div>
+                <div class="evotext"><b>Grows up at level {EVOLVE_AT}</b><small>{levelsToEvolve(a, sel)} more level{levelsToEvolve(a, sel) === 1 ? '' : 's'} to go: win battles with it on your team.</small></div>
               {/if}
             </div>
           {/if}
           {#if inTeam >= 0}
             <div class="acts"><span class="onteam"><Icon name="check" size={20} /> On your team</span><button class="btn" onclick={leaveTeam}>Take off</button></div>
           {:else}
-            <div class="acts"><button class="btn btn-primary big" onclick={add}>Add {nameOf(sel)} to your team</button>{#if swapping}<button class="btn" onclick={() => (swapping = false)}>Cancel</button>{/if}</div>
+            <div class="acts"><button class="btn btn-primary big" onclick={add}>Add {nameOf(sel)} to my team</button>{#if swapping}<button class="btn" onclick={() => (swapping = false)}>Cancel</button>{/if}</div>
           {/if}
         {:else}
           <p class="pw">Not found yet. {g.champion ? 'It\'s the Champion at the end of an island: cheer it up there.' : 'You might meet it grumpy in a battle, or it might hatch from an egg.'}</p>
         {/if}
       </div>
+    </div>
+    <div class="rcol">
+      <!-- the team: one short row (two Glimmers come into every battle) -->
+      <div class="teambox" class:swapping>
+        <h3>My team</h3>
+        {#each [0, 1] as slot}
+          {@const t = a.team[slot] && owns(a, a.team[slot]!) ? a.team[slot] : null}
+          <button class="slot" class:filled={!!t} class:on={!!t && sel === t} onclick={() => (swapping ? setTeam(slot) : t ? pick(t) : null)}>
+            {#if t}<img src="{base}game/glimmers/face/{t}{evo(t) ? '-evo' : ''}.webp" alt="" /><span><b>{nameOf(t)}</b><small>Level {a.glimmers[t]?.level}</small></span>
+            {:else}<span class="plus">+</span><span><b>Empty</b><small>Pick one below</small></span>{/if}
+            {#if swapping}<em class="swapin">Swap</em>{/if}
+          </button>
+        {/each}
+        <p class="how">{swapping ? `Tap who ${nameOf(sel)} replaces.` : 'These two come into every battle with you.'}</p>
+      </div>
       <div class="grid scroll">
-        <h4>Your Glimmers ({owned.length})</h4>
-        <div class="cards">
+        <h4>My Glimmers <small>{owned.length}</small></h4>
+        <div class="cards" style:--cw="{cardW}px">
           {#each owned as x (x.id)}
             <button class="cell" class:on={sel === x.id} class:team={a.team.includes(x.id)} onclick={() => pick(x.id)}>
-              <GlimmerCard id={x.id} width={104} level={a.glimmers[x.id]?.level} fresh={fresh.has(x.id)} evolved={evo(x.id)} ready={ready(x.id)} />
+              <GlimmerCard id={x.id} width={cardW} level={a.glimmers[x.id]?.level} fresh={fresh.has(x.id)} evolved={evo(x.id)} ready={ready(x.id)} />
               {#if a.team.includes(x.id)}<span class="tag">Team</span>{/if}
             </button>
           {/each}
         </div>
-        {#if missing.length}<h4>Still to find in battles and eggs ({missing.length})</h4>
-        <div class="cards">
-          {#each missing as x (x.id)}<button class="cell" class:on={sel === x.id} onclick={() => pick(x.id)}><GlimmerCard id={x.id} width={84} locked /></button>{/each}
+        {#if missing.length}<h4>Still to find in battles and eggs <small>{missing.length}</small></h4>
+        <div class="cards small" style:--cw="{smallW}px">
+          {#each missing as x (x.id)}<button class="cell" class:on={sel === x.id} onclick={() => pick(x.id)}><GlimmerCard id={x.id} width={smallW} locked /></button>{/each}
         </div>{/if}
-        <button class="booklink" onclick={() => { sfx.click(); game.openBook(); }}><img src="{base}game/egg-milestone.webp" alt="" /><span><b>{GLIMMER_TOTAL - owned.length - missing.length} more come from goals</b><small>Days played, right answers, seasons, secrets... See them all in the Glimmer Book.</small></span></button>
+        <button class="booklink" onclick={() => { sfx.click(); game.openBook(); }}><img src="{base}game/egg-milestone.webp" alt="" /><span><b>{GLIMMER_TOTAL - owned.length - missing.length} more come from goals</b><small>Days played, right answers, seasons, secrets... See them all in All {GLIMMER_TOTAL} Glimmers.</small></span></button>
       </div>
     </div>
   </div>
@@ -203,63 +212,67 @@
 
 <style>
   .gl { display: flex; flex-direction: column; background: transparent; }
-  .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr minmax(380px, 1.1fr); gap: 18px; padding: 16px 20px; }
-  .stagebox { position: relative; min-height: 0; }
+  /* left: the Glimmer in 3D, and its card under it; right: the team (one row) and every Glimmer you have */
+  .body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(340px, .72fr) minmax(0, 1.28fr); gap: 16px; padding: 12px 18px 14px; }
+  .lcol { min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+  .stagebox { position: relative; flex: 1; min-height: 150px; }
   .unknown { position: absolute; inset: 0; display: grid; place-items: center; }
-  .side { min-height: 0; display: flex; flex-direction: column; gap: 12px; }
-  .intro { margin: 0; font: 600 15px/1.4 var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .88); border-radius: 16px; padding: 8px 14px; }
-  .info { padding: 14px 18px; display: flex; flex-direction: column; gap: 6px; }
-  .ih { display: flex; align-items: center; gap: 12px; }
-  .ih img { width: 52px; height: 52px; }
-  .ih small { font: 800 13px var(--font-body); text-transform: uppercase; letter-spacing: .05em; }
-  .ih h2 { margin: 0; font-size: 30px; }
-  .lv { margin-left: auto; font: 600 16px var(--font-ui); background: var(--primary); color: #fff; padding: 4px 12px; border-radius: 999px; }
-  .pw { margin: 0; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }
-  .qk { margin: 0; font: 600 14px var(--font-body); color: var(--muted); font-style: italic; }
+  .rcol { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .info { flex: none; padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .ih { display: flex; align-items: center; gap: 10px; }
+  .ih img { width: 38px; height: 38px; flex: none; }
+  .nmx { min-width: 0; }
+  .ih small { font: 800 12px var(--font-body); text-transform: uppercase; letter-spacing: .05em; }
+  .ih h2 { margin: 0; font-size: 25px; line-height: 1.1; }
+  .lv { margin-left: auto; flex: none; font: 600 15px var(--font-ui); background: var(--primary); color: #fff; padding: 3px 12px; border-radius: 999px; }
+  .pw { margin: 0; font: 600 15px/1.35 var(--font-body); color: var(--ink2); }
   .xp { display: flex; align-items: center; gap: 10px; font: 700 12px var(--font-body); color: var(--muted); }
-  .bar { flex: 1; height: 10px; border-radius: 999px; background: var(--bg2); overflow: hidden; }
+  .bar { flex: 1; height: 8px; border-radius: 999px; background: var(--bg2); overflow: hidden; }
   .bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffb52e, #ff7ab8); }
-  .teambox { padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; transition: box-shadow .2s; }
+  /* the team: two small chips in one row, no empty space */
+  .teambox { flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border-radius: 20px; background: rgba(255, 255, 255, .92); box-shadow: var(--shadow-sm); transition: box-shadow .2s; }
   .teambox.swapping { box-shadow: 0 0 0 4px #ffd36b, var(--shadow-sm); }
-  .teambox h3 { margin: 0; font-size: 20px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-  .teambox h3 small { font: 700 13px var(--font-body); color: var(--muted); }
-  .slots { display: flex; gap: 14px; align-items: center; }
-  .how { margin: 0 0 0 6px; max-width: 220px; font: 600 15px/1.4 var(--font-body); color: var(--ink2); }
-  .slot { position: relative; border: 0; background: none; padding: 0; cursor: pointer; }
-  .slot .empty { width: 110px; aspect-ratio: 394 / 600; border-radius: 14px; border: 3px dashed #d9cff0; display: flex; flex-direction: column; align-items: center; justify-content: center; font: 600 34px/1 var(--font-ui); color: #b8acd6; background: #faf8fe; }
-  .slot .empty small { font: 700 12px var(--font-body); }
-  .swapin { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); font: 800 13px var(--font-body); background: #ffd36b; color: #6a4300; padding: 4px 12px; border-radius: 999px; animation: pulse .9s ease-in-out infinite; }
-  @keyframes pulse { 50% { transform: translateX(-50%) scale(1.1); } }
-  .acts { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
-  .acts .big { font-size: 18px; padding: 10px 18px; }
-  .onteam { display: inline-flex; align-items: center; gap: 5px; font: 600 17px var(--font-ui); color: #1f9a6a; }
-  .grid h4 { margin: 4px 0; font-size: 16px; color: var(--ink2); grid-column: 1 / -1; }
-  /* the Glimmer Book (100-Glimmer ladder) */
-  .bookbtn { display: inline-flex; align-items: center; gap: 6px; font: 600 16px var(--font-ui); padding: 8px 14px; }
-  .booklink { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px; border: 0; cursor: pointer; text-align: left; padding: 10px 14px; border-radius: 18px; background: linear-gradient(#fffaf0, #fff0d2); box-shadow: 0 0 0 2px #ffe08a, var(--shadow-sm); }
-  .booklink img { width: 40px; height: 48px; object-fit: contain; flex: none; }
+  .teambox h3 { margin: 0; font-size: 20px; }
+  .slot { position: relative; display: flex; align-items: center; gap: 8px; min-width: 170px; padding: 4px 14px 4px 4px; border-radius: 999px; border: 2px solid #e6def5; background: #fbf9ff; cursor: pointer; text-align: left; }
+  .slot.filled { border-color: #bfe8d2; background: #f0fbf5; }
+  .slot.on { box-shadow: 0 0 0 3px var(--primary-hi); }
+  .slot img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: #fff; box-shadow: 0 0 0 2px #fff; }
+  .slot span:not(.plus) { display: flex; flex-direction: column; min-width: 0; }
+  .slot b { font: 600 16px/1.1 var(--font-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+  .slot small { font: 700 12px var(--font-body); color: var(--ink2); }
+  .slot .plus { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; border: 2px dashed #cbbfe8; font: 600 26px/1 var(--font-ui); color: #8f80b8; background: #fff; box-sizing: border-box; }
+  .how { flex: 1 1 160px; margin: 0; font: 700 14px/1.3 var(--font-body); color: var(--ink2); }
+  .swapin { position: absolute; right: -6px; top: -10px; font: 800 12px var(--font-body); font-style: normal; background: #ffd36b; color: #6a4300; padding: 3px 10px; border-radius: 999px; animation: pulse .9s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.1); } }
+  .acts { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .acts .big { font-size: 18px; padding: 9px 18px; }
+  .onteam { display: inline-flex; align-items: center; gap: 5px; font: 600 17px var(--font-ui); color: #157a52; }
+  /* every Glimmer you have, as many to a row as fit */
+  .grid { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 12px; background: rgba(255, 255, 255, .9); border-radius: 22px; box-shadow: var(--shadow-sm); }
+  .grid h4 { margin: 2px 0 6px; font-size: 18px; color: var(--ink); }
+  .grid h4 small { font: 800 14px var(--font-body); color: var(--muted); margin-left: 4px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(var(--cw) + 8px), 1fr)); justify-items: center; gap: 14px 4px; padding: 4px 0 10px; }
+  .cards.small { gap: 8px 2px; }
+  .cell { position: relative; border: 0; background: none; padding: 3px; border-radius: 14px; cursor: pointer; display: grid; place-items: center; transition: transform .15s; }
+  .cell:hover { transform: translateY(-3px); }
+  .cell.on { background: rgba(240, 234, 255, .9); box-shadow: 0 0 0 3px var(--primary-hi); }
+  .cell .tag { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); font: 800 11px var(--font-body); background: #1f8a55; color: #fff; padding: 2px 9px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
+  .booklink { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 6px; border: 0; cursor: pointer; text-align: left; padding: 8px 14px; border-radius: 18px; background: linear-gradient(#fffaf0, #fff0d2); box-shadow: 0 0 0 2px #ffe08a, var(--shadow-sm); }
+  .booklink img { width: 34px; height: 42px; object-fit: contain; flex: none; }
   .booklink span { display: flex; flex-direction: column; gap: 2px; }
   .booklink b { font: 600 17px var(--font-ui); color: var(--ink); }
   .booklink small { font: 700 13px/1.35 var(--font-body); color: var(--ink2); }
-  .cards { display: flex; flex-wrap: wrap; gap: 8px 8px; row-gap: 14px; padding-bottom: 6px; }
-  .cell { position: relative; }
-  .cell .tag { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); font: 800 11px var(--font-body); background: #2fbf73; color: #fff; padding: 2px 9px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
-  .grid { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 12px; background: rgba(255, 255, 255, .86); border-radius: 22px; box-shadow: var(--shadow-sm); }
-  .cell { border: 0; background: none; padding: 3px; border-radius: 16px; cursor: pointer; display: grid; place-items: center; transition: transform .15s; }
-  .cell:hover { transform: translateY(-3px); }
-  .cell.on { background: rgba(255, 255, 255, .7); box-shadow: 0 0 0 3px var(--primary-hi); }
   /* evolving */
-  .evochip { display: inline-block; white-space: nowrap; margin-left: 10px; vertical-align: middle; font: 800 13px var(--font-body); color: #6a4300; background: linear-gradient(#ffe68a, #ffc93d); padding: 3px 10px; border-radius: 999px; }
+  .evochip { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; margin-left: 8px; vertical-align: middle; font: 800 12px var(--font-body); color: #6a4300; background: linear-gradient(#ffe68a, #ffc93d); padding: 2px 9px; border-radius: 999px; }
   .perk { display: flex; align-items: center; gap: 8px; }
-  .perk img { width: 26px; height: 26px; flex: none; }
-  .evorow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 18px; background: #faf8fe; }
+  .perk img { width: 24px; height: 24px; flex: none; }
+  .evorow { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 16px; background: #faf8fe; }
   .evorow.go { background: linear-gradient(#fff8dc, #ffecb0); box-shadow: 0 0 0 2px #ffd36b; }
-  .evorow .arr { font: 600 22px var(--font-ui); color: #c9a23a; }
-  .mystery { position: relative; }
-  .evotext { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-  .evotext b { font: 600 17px var(--font-ui); color: var(--ink); }
-  .evotext small { font: 600 13px/1.35 var(--font-body); color: var(--ink2); }
-  .evolvebtn { flex: none; font: 600 20px var(--font-ui); padding: 12px 22px; color: #5a3900; background: linear-gradient(#ffe68a, #ffc23a); box-shadow: 0 0 0 3px #fff, 0 0 18px #ffd36b; animation: evobtn 1.2s ease-in-out infinite; }
+  .evostar { width: 26px; height: 26px; flex: none; object-fit: contain; }
+  .evotext { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+  .evotext b { font: 600 16px var(--font-ui); color: var(--ink); }
+  .evotext small { font: 600 13px/1.3 var(--font-body); color: var(--ink2); }
+  .evolvebtn { flex: none; font: 600 19px var(--font-ui); padding: 9px 18px; color: #5a3900; background: linear-gradient(#ffe68a, #ffc23a); box-shadow: 0 0 0 3px #fff, 0 0 18px #ffd36b; animation: evobtn 1.2s ease-in-out infinite; }
   @keyframes evobtn { 50% { box-shadow: 0 0 0 3px #fff, 0 0 30px #ffc23a; } }
   .evobanner { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 20; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 26px; border-radius: 24px; background: rgba(255, 255, 255, .92); box-shadow: 0 0 0 4px #ffd36b, var(--shadow-sm); text-align: center; pointer-events: none; }
   .evobanner b { font: 700 14px var(--font-body); color: var(--muted); }
@@ -275,16 +288,27 @@
   @keyframes pop { from { transform: scale(.4) rotate(-8deg); opacity: 0; } }
   .evocard .pw { position: relative; text-align: left; }
   .evocard .btn { position: relative; }
+  /* short laptop screens: a slimmer card */
+  @media (max-height: 760px) and (min-width: 761px) {
+    .body { padding: 8px 18px 10px; gap: 14px; }
+    .info { padding: 8px 12px 10px; gap: 4px; }
+    .ih h2 { font-size: 22px; } .ih img { width: 32px; height: 32px; }
+    .pw { font-size: 14px; }
+    .evotext small { display: none; }
+    .slot img, .slot .plus { width: 38px; height: 38px; }
+  }
   @media (max-width: 760px) {
     .evorow { flex-wrap: wrap; }
     .evolvebtn { width: 100%; }
     .evobanner { top: 8px; padding: 6px 16px; } .evobanner span { font-size: 20px; }
-    .body { grid-template-columns: 1fr; grid-template-rows: 30vh 1fr; padding: 10px; gap: 10px; }
-    /* the team, the card and the list scroll together under the 3D view */
-    .side { overflow-y: auto; padding-bottom: 12px; }
-    .side > * { flex: none; }
-    .grid { overflow: visible; }
-    .ih h2 { font-size: 24px; }
-    .slot .empty { width: 80px; }
+    /* one column: the 3D view, then the card, the team and the list scroll together under it */
+    .body { display: flex; flex-direction: column; overflow-y: auto; padding: 8px 10px 14px; gap: 10px; }
+    .lcol, .rcol { flex: none; }
+    .stagebox { flex: none; height: 26vh; }
+    .grid { overflow: visible; padding: 8px; }
+    .ih h2 { font-size: 22px; }
+    .teambox h3 { flex-basis: 100%; font-size: 18px; }
+    .slot { min-width: 0; flex: 1 1 0; padding-right: 8px; } .slot img, .slot .plus { width: 36px; height: 36px; } .slot b { font-size: 15px; }
+    .how { flex-basis: 100%; font-size: 13px; }
   }
 </style>
