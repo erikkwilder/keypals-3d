@@ -7,7 +7,9 @@
   export function registerInput(name: string, c: Component<CustomInputProps>) { CUSTOM.set(name, c); }
   // the inputs the areas bring
   import CoinTray from './CoinTray.svelte';
+  import ThermoInput from './ThermoInput.svelte';
   registerInput('coins', CoinTray);
+  registerInput('thermo', ThermoInput);
 </script>
 
 <script lang="ts">
@@ -52,7 +54,8 @@
 
   // ---- whole numbers (and decimals, negatives) ----
   const ans = $derived(item.answer.kind === 'number' ? item.answer.value : 0);
-  const whole = $derived(choice || (item.answer.kind === 'number' && Number.isInteger(ans) && ans >= 0));
+  // (a `signed` item always has its minus key and Check, so a positive answer doesn't give itself away)
+  const whole = $derived(choice || (item.answer.kind === 'number' && Number.isInteger(ans) && ans >= 0 && !item.signed));
   const digits = $derived(String(ans).length);
   const text = $derived(fill?.kind === 'number' ? fill.text : '');
   function digit(d: string) {

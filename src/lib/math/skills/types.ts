@@ -40,13 +40,24 @@ export type FracPic = { kind: 'pie' | 'bar' | 'set'; parts: number; filled: numb
  *  bill), or a chocolate slab of 100 squares, `filled` of them still there (hundredths). */
 export type Pic = FracPic | { kind: 'coins'; coins: number[] } | { kind: 'grid'; parts: 100; filled: number };
 
+/** Pictures for negative numbers and the coordinate plane (skills/integers.ts, drawn by ui/IntPic):
+ *  a thermometer reading `at`, a sea-level gauge with a Glimmer `at` a height (below 0 is under the
+ *  water), a number line with dots and hops, and a coordinate plane with points (`seg`: a line joins
+ *  the first two). Ticks every `step`, numbers written every `label`. */
+export type IntPic =
+  | { kind: 'thermo'; min: number; max: number; at: number; step: number; label: number }
+  | { kind: 'depth'; min: number; max: number; at: number; step: number; label: number; who: 'swim' | 'fly' }
+  | { kind: 'nline'; min: number; max: number; step: number; label: number; dots: { x: number; c: 'a' | 'b' | 'c'; tag?: string }[]; hops?: { a: number; b: number }[] }
+  | { kind: 'plane'; xMin: number; xMax: number; yMin: number; yMax: number; pts: { x: number; y: number; c: 'a' | 'b' | 'c'; tag?: string }[]; seg?: boolean };
+
 /** A number as base-ten blocks: thousands cubes, hundreds flats, tens rods and ones cubes. */
 export type Blocks = { th?: number; h: number; t: number; o: number };
 
 /** One piece of a question line. */
 export type Part =
   | { t: 'text'; s: string }
-  | { t: 'num'; n: number }
+  /** a number (`paren`: a negative one written in brackets inside a sum, 4 + (−3)) */
+  | { t: 'num'; n: number; paren?: boolean }
   | { t: 'frac'; n: number | null; d: number | null }
   | { t: 'op'; s: string }
   | { t: 'pic'; pic: Pic }
@@ -55,7 +66,11 @@ export type Part =
   /** an amount of money: 35¢, or $1.35 from a dollar up (or when `dollars`) */
   | { t: 'money'; cents: number; dollars?: boolean }
   /** where the answer goes (a number blank) */
-  | { t: 'blank' };
+  | { t: 'blank' }
+  /** a point on the coordinate plane, written (3, −2) */
+  | { t: 'pt'; x: number; y: number }
+  /** a negative-numbers picture (thermometer, sea level, number line, coordinate plane) */
+  | { t: 'ipic'; pic: IntPic };
 
 export type Choice = { id: string; parts: Part[] };
 
@@ -83,6 +98,9 @@ export type Item = {
   grid?: GridSpec;
   /** a custom input's name and settings (areas register the component) */
   custom?: { name: string; spec: unknown };
+  /** the number pad always has its minus key (negative numbers: the sign is part of the answer, so a
+   *  positive answer mustn't give itself away), and the answer is checked with Check */
+  signed?: boolean;
   answer: Answer;
   /** how hard, 1 (gentle) to 5: a battle card's cheer comes from it */
   weight: number;
