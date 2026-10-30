@@ -15,6 +15,7 @@ import { settlePractice, type Settled } from '../../engine/settle';
 import { mathOf, type ArcadeRecord } from '../progress';
 import { noteSkillAnswers } from '../skills/progress';
 import { fewest, moneyText } from '../skills/decimals';
+import { pitchRung, TARGET, thetaOf } from '../skills/ability';
 
 export type OrderKind = 'exact' | 'exact-big' | 'change' | 'change-big';
 export type Good = 'apple' | 'cupcake' | 'lollipop' | 'balloons' | 'boat' | 'flowers';
@@ -35,6 +36,8 @@ export type Order = {
   points: number;
   /** how long the shopper waits at the front */
   patienceMs: number;
+  /** how hard it was pitched (1..6; 3 when there's no ability to go by) */
+  rung: number;
 };
 
 export const GAME_ID = 'market-dash';
@@ -64,22 +67,29 @@ export function kindsFor(p: Profile): OrderKind[] {
   return out;
 }
 
+/** How hard each kind of order is for this player: their ability on its skill (math/skills/ability.ts),
+ *  each order pitched from it at about 90% right (a timed game), with the usual little jitter. */
+export function levelsFor(p: Profile): Partial<Record<OrderKind, number>> {
+  const m = mathOf(p), now = Date.now(), g = !!p.settings.grown, t = (s: string) => thetaOf(m, s, now, g);
+  return { exact: t('dm-make'), 'exact-big': t('dm-make'), change: t('dm-change'), 'change-big': t('dm-change') };
+}
+
 /** The i-th order of a round: the first two pay exactly with friendly prices, then everything the
- *  player has met. Never loops. */
-export function makeOrder(rng: Rng, i: number, kinds: readonly OrderKind[]): Order {
+ *  player has met, each as hard as the player's level on it (`levels`). The rungs: 1-2 prices in fives ·
+ *  3 friendly first, then any price · 4-6 any price from the start. Never loops. */
+export function makeOrder(rng: Rng, i: number, kinds: readonly OrderKind[], levels?: Partial<Record<OrderKind, number>>): Order {
   const can = (k: OrderKind) => kinds.includes(k);
   const pool: OrderKind[] = i < 2 ? ['exact'] : kinds.filter(k => k !== 'exact' || rng() < 0.7);
   const ok = pool.filter(can), kind: OrderKind = pick(rng, ok.length ? ok : ['exact']);
   const good = pick(rng, GOOD_IDS);
-  const o = (price: number, paid: number | null, key: string): Order => ({ kind, good, price, paid, want: paid === null ? price : paid - price, key, points: POINTS[kind], patienceMs: PATIENCE[kind] });
-  if (kind === 'exact') {
-    // friendly at first (steps of 5), then any amount up to 50¢
-    const price = i < 4 ? 5 * int(rng, 2, 10) : int(rng, 6, 50);
-    return o(price, null, 'dm-make:to-50');
-  }
-  if (kind === 'exact-big') return o(int(rng, 51, 99), null, 'dm-make:to-100');
-  if (kind === 'change') return o(5 * int(rng, 2, 9), 50, 'dm-change:to-50');
-  return o(i < 6 ? 5 * int(rng, 6, 19) : int(rng, 26, 95), 100, 'dm-change:to-100');
+  const th = levels?.[kind], r = th === undefined ? 3 : pitchRung(th, TARGET.quick, rng);
+  const o = (price: number, paid: number | null, key: string): Order => ({ kind, good, price, paid, want: paid === null ? price : paid - price, key, points: POINTS[kind], patienceMs: PATIENCE[kind], rung: r });
+  // friendly: steps of 5 (on the gentle rungs always; at grade level only at first)
+  const friendly = (early: boolean) => r <= 2 || (r === 3 && early);
+  if (kind === 'exact') return o(friendly(i < 4) ? 5 * int(rng, 2, 10) : int(rng, r >= 4 ? 11 : 6, 50), null, 'dm-make:to-50');
+  if (kind === 'exact-big') return o(r <= 2 ? 5 * int(rng, 11, 19) : int(rng, 51, 99), null, 'dm-make:to-100');
+  if (kind === 'change') return o(r >= 4 ? int(rng, 5, 45) : 5 * int(rng, 2, 9), 50, 'dm-change:to-50');
+  return o(friendly(i < 6) ? 5 * int(rng, 6, 19) : int(rng, r >= 4 ? 11 : 26, 95), 100, 'dm-change:to-100');
 }
 
 /** Whether the coins in the tray are the order. */
@@ -102,10 +112,10 @@ export function dailySeed(at: number): number {
   return h >>> 0;
 }
 /** A round's orders come from one seed (the daily challenge's or a random one). */
-export function orderMaker(seed: number, kinds: readonly OrderKind[]) {
+export function orderMaker(seed: number, kinds: readonly OrderKind[], levels?: Partial<Record<OrderKind, number>>) {
   const rng = mulberry32(seed);
   let i = 0;
-  return () => makeOrder(rng, i++, kinds);
+  return () => makeOrder(rng, i++, kinds, levels);
 }
 
 export const dashOf = (p: Profile): ArcadeRecord => mathOf(p).arcade?.[GAME_ID] ?? { best: 0, stars: 0, plays: 0 };
@@ -113,8 +123,8 @@ export const dailyBestOf = (p: Profile, at = Date.now()) => { const d = dashOf(p
 
 export type DashRun = {
   score: number; served: number; missed: number; bestCombo: number; ms: number; at: number; daily: boolean;
-  /** each order's first try */
-  answers: { key: string; ok: boolean; thinkMs: number }[];
+  /** each order's first try (and the rung it was pitched at) */
+  answers: { key: string; ok: boolean; thinkMs: number; rung?: number }[];
 };
 export type DashOutcome = Settled & { profile: Profile; stars: 0 | 1 | 2 | 3; newBest: boolean; newDaily: boolean; best: number };
 

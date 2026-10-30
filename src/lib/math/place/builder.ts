@@ -15,6 +15,7 @@ import { settlePractice, type Settled } from '../../engine/settle';
 import { mathOf, type ArcadeRecord } from '../progress';
 import { noteSkillAnswers } from '../skills/progress';
 import { words, commas } from '../skills/place';
+import { pitchRung, TARGET, thetaOf } from '../skills/ability';
 import type { Blocks } from '../skills/types';
 
 export type BuildKind = 'two' | 'three' | 'words' | 'expanded' | 'more';
@@ -31,6 +32,8 @@ export type BuildOrder = {
   /** the skill memory key this order practises */
   key: string;
   points: number;
+  /** how hard it was pitched (1..6; 3 when there's no ability to go by) */
+  rung: number;
 };
 
 export const GAME_ID = 'number-builder';
@@ -62,34 +65,46 @@ export function kindsFor(p: Profile): BuildKind[] {
   return out;
 }
 
+/** How hard each kind of order is for this player: their ability on its skill (math/skills/ability.ts),
+ *  each order pitched from it at about 90% right (a timed game), with the usual little jitter. */
+export function levelsFor(p: Profile): Partial<Record<BuildKind, number>> {
+  const m = mathOf(p), now = Date.now(), g = !!p.settings.grown, t = (s: string) => thetaOf(m, s, now, g);
+  return { two: t('pv-tens'), three: t('pv-hundreds'), words: t('pv-count'), expanded: t('pv-hundreds'), more: t('pv-skip') };
+}
+
 /** The i-th order of a round: the first three are small two-digit numbers, then everything the player
- *  has met. Never loops. */
-export function makeOrder(rng: Rng, i: number, kinds: readonly BuildKind[]): BuildOrder {
+ *  has met, each as hard as the player's level on it (`levels`). The rungs: 1-2 smaller numbers, no
+ *  zeros, names to 120, only "10 more" · 3 the full range · 4-6 zeros more often, names to 999, expanded
+ *  sums in any order. Never loops. */
+export function makeOrder(rng: Rng, i: number, kinds: readonly BuildKind[], levels?: Partial<Record<BuildKind, number>>): BuildOrder {
   const pool: BuildKind[] = i < 3 ? ['two'] : kinds.filter(k => k !== 'two' || rng() < 0.5);
   const kind: BuildKind = pick(rng, pool.length ? pool : ['two']);
-  const o = (target: number, card: string, ask: string, key: string, start = 0): BuildOrder => ({ kind, target, card, ask, start, key, points: POINTS[kind] });
+  const th = levels?.[kind], r = th === undefined ? 3 : pitchRung(th, TARGET.quick, rng);
+  const o = (target: number, card: string, ask: string, key: string, start = 0): BuildOrder => ({ kind, target, card, ask, start, key, points: POINTS[kind], rung: r });
   if (kind === 'two') {
-    const n = i < 3 ? int(rng, 11, 49) : int(rng, 11, 99);
+    const n = i < 3 || r <= 1 ? int(rng, 11, 49) : int(rng, 11, 99);
     return o(n, String(n), 'Build this number', 'pv-tens:read');
   }
   if (kind === 'three') {
-    // sometimes with a zero in it (405, 360)
-    const h = int(rng, 1, 9), z = rng();
-    const t = z < 0.15 ? 0 : int(rng, 1, 9), u = z > 0.85 ? 0 : int(rng, 0, 9);
+    // sometimes with a zero in it (405, 360): never on the gentle rungs, more often on the stretch
+    const h = int(rng, 1, r <= 2 ? 5 : 9), z = rng(), zp = r <= 2 ? 0 : r === 3 ? 0.15 : 0.3;
+    const t = z < zp ? 0 : int(rng, 1, 9), u = z > 1 - zp ? 0 : int(rng, r <= 2 ? 1 : 0, 9);
     const n = 100 * h + 10 * t + u;
     return o(n, String(n), 'Build this number', u === 0 || t === 0 ? 'pv-hundreds:zero' : 'pv-hundreds:read');
   }
   if (kind === 'words') {
-    const n = rng() < 0.5 ? int(rng, 21, 120) : int(rng, 101, 999);
+    const n = r <= 2 || (r === 3 && rng() < 0.5) ? int(rng, 21, 120) : int(rng, 101, 999);
     return o(n, words(n), 'Build the number', n <= 120 ? 'pv-count:words' : 'pv-hundreds:read');
   }
   if (kind === 'expanded') {
     const h = int(rng, 1, 9), t = int(rng, 1, 9), u = int(rng, 1, 9);
     const n = 100 * h + 10 * t + u;
-    return o(n, `${100 * h} + ${10 * t} + ${u}`, 'Build the number', 'pv-hundreds:expanded');
+    // the stretch: in any order (5 + 300 + 40)
+    const terms = r >= 4 && rng() < 0.5 ? [u, 100 * h, 10 * t] : [100 * h, 10 * t, u];
+    return o(n, terms.join(' + '), 'Build the number', 'pv-hundreds:expanded');
   }
   // 10 or 100 more or less than a number already on the mat
-  const step = rng() < 0.6 ? 10 : 100, more = rng() < 0.65;
+  const step = r <= 2 || rng() < 0.6 ? 10 : 100, more = r <= 2 || rng() < 0.65;
   let start = step === 10 ? int(rng, more ? 21 : 31, more ? 289 : 299) : int(rng, more ? 105 : 205, more ? 799 : 899);
   // "10 less than 205" would mean breaking a hundred into tens, which the mat doesn't do: keep a ten to take
   if (!more && step === 10 && Math.floor(start / 10) % 10 === 0) start += 10;
@@ -121,10 +136,10 @@ export function dailySeed(at: number): number {
   return h >>> 0;
 }
 /** A round's orders come from one seed (the daily challenge's or a random one). */
-export function orderMaker(seed: number, kinds: readonly BuildKind[]) {
+export function orderMaker(seed: number, kinds: readonly BuildKind[], levels?: Partial<Record<BuildKind, number>>) {
   const rng = mulberry32(seed);
   let i = 0;
-  return () => makeOrder(rng, i++, kinds);
+  return () => makeOrder(rng, i++, kinds, levels);
 }
 
 export const builderOf = (p: Profile): ArcadeRecord => mathOf(p).arcade?.[GAME_ID] ?? { best: 0, stars: 0, plays: 0 };
@@ -132,8 +147,8 @@ export const dailyBestOf = (p: Profile, at = Date.now()) => { const d = builderO
 
 export type BuildRun = {
   score: number; built: number; bestCombo: number; ms: number; at: number; daily: boolean;
-  /** each order's first try */
-  answers: { key: string; ok: boolean; thinkMs: number }[];
+  /** each order's first try (and the rung it was pitched at) */
+  answers: { key: string; ok: boolean; thinkMs: number; rung?: number }[];
 };
 export type BuildOutcome = Settled & { profile: Profile; stars: 0 | 1 | 2 | 3; newBest: boolean; newDaily: boolean; best: number };
 

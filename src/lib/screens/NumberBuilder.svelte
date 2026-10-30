@@ -15,7 +15,7 @@
   import type { Profile } from '../engine/profile';
   import type { Blocks } from '../math/skills/types';
   import { words, commas } from '../math/skills/place';
-  import { ROUND_MS, STAR_AT, applyBuild, builderOf, builderOpen, comboMult, dailyBestOf, dailySeed, kindsFor, orderMaker, orderScore, starsFor, toBlocks, valueOf, type BuildOrder, type BuildOutcome } from '../math/place/builder';
+  import { ROUND_MS, STAR_AT, applyBuild, builderOf, builderOpen, comboMult, dailyBestOf, dailySeed, kindsFor, levelsFor, orderMaker, orderScore, starsFor, toBlocks, valueOf, type BuildOrder, type BuildOutcome } from '../math/place/builder';
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
@@ -47,7 +47,7 @@
   let goal = $state<number | null>(null);
   let canvas: HTMLCanvasElement | undefined = $state();
   let scene: BuilderScene | null = null;
-  let answers: { key: string; ok: boolean; thinkMs: number }[] = [];
+  let answers: { key: string; ok: boolean; thinkMs: number; rung?: number }[] = [];
   let nextOrder = orderMaker(1, ['two']);
   let added: Kind[] = [];
   let tries = 0;
@@ -74,7 +74,7 @@
     sfx.whoosh();
     daily = isDaily;
     const seed = isDaily ? dailySeed(Date.now()) : Math.floor(Math.random() * 1e9);
-    nextOrder = orderMaker(seed, kindsFor(p));
+    nextOrder = orderMaker(seed, kindsFor(p), levelsFor(p));
     score = 0; combo = 0; bestCombo = 0; built = 0; answers = [];
     left = ROUND_MS; outcome = null; msg = null; busy = false;
     phase = 'play';
@@ -186,7 +186,7 @@
   function build() {
     if (toy || phase !== 'play' || !scene || !order || busy) return;
     const o = order, ok = value === o.target, ms = performance.now() - orderAt;
-    if (!tries) answers.push({ key: o.key, ok, thinkMs: ms });
+    if (!tries) answers.push({ key: o.key, ok, thinkMs: ms, rung: o.rung });
     if (ok) {
       const pts = orderScore(o, combo, ms);
       score += pts; combo++; bestCombo = Math.max(bestCombo, combo); built++;

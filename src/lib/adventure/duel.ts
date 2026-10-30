@@ -13,7 +13,7 @@
 import { mulberry32, type Rng } from '../engine/rng';
 import { answerOf, type Fact } from '../math/facts';
 import { givenText, nearMiss } from '../math/skills/text';
-import { newBattle, play, finale, FINALE_AT, type Battle, type BEvent, type Member, type Pool, type Subject, type Answer } from './battle';
+import { newBattle, play, finale, quickFact, FINALE_AT, type Battle, type BEvent, type Member, type Pool, type Subject, type Answer } from './battle';
 import { GLIMMER, powerNum, type GearKind, type GlimmerId, type RoleId } from './glimmers';
 import type { FriendId } from '../art/cast';
 import type { Dress, KitKind, Slot } from './gear';
@@ -150,14 +150,12 @@ function endTurn(d: Duel, out: DEvent[]): DEvent[] {
 }
 
 const pickOne = <T>(r: Rng, xs: readonly T[]) => xs[Math.floor(r() * xs.length)];
-/** A quick one to block a rain cloud: something already known, with the same time as a block in battle. */
+/** A quick one to block a rain cloud: something already known, pitched easy for this side's player (about
+ *  90% right: there's a clock), with the same time as a block in battle. */
 function rainPrompt(s: Side): RainPrompt {
   const seal = s.team.find(m => GLIMMER[m.id].power.kind === 'coolhead');
   const bonus = (seal ? powerNum(2, seal.level, 8) * 1000 : 0) + (s.gear === 'shieldwall' ? 2000 : 0);
-  if (s.pool.subject === 'math') {
-    const known = s.pool.facts.filter(x => x.stage >= 2);
-    return { fact: pickOne(s.b.rng, known.length >= 3 ? known : s.pool.facts).f, limitMs: 5000 + bonus };
-  }
+  if (s.pool.subject === 'math') return { fact: quickFact(s.b), limitMs: 5000 + bonus };
   const short = s.pool.words.filter(w => w.length >= 2 && w.length <= 4);
   const word = pickOne(s.b.rng, short.length ? short : s.pool.words);
   return { word, limitMs: 2000 + 800 * word.length + bonus };

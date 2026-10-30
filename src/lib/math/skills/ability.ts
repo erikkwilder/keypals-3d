@@ -169,6 +169,19 @@ export function pitchItem(h: AbilityHome, key: string, target: number, rng: Rng,
   return makeAt(s, rng, sub, pitch(h, skill, target, { ...o, rng }));
 }
 
+// ---------- facts: which ones suit a rung ----------
+/** How much a fact of rung d suits a question pitched at rung r: the ones at the rung most, easier ones a
+ *  fair amount, harder ones rarely (never zero: each fact's memory still decides which one). */
+export function factFit(d: number, r: number): number {
+  return d > r ? Math.max(0.08, Math.exp(-(((d - r) / 0.8) ** 2))) : Math.max(0.15, Math.exp(-(((r - d) / 2.5) ** 2)));
+}
+/** The fit of a fact for this child at a target (battle cards 0.8, quick blocks and rain 0.9): 1 for
+ *  everything when there's nothing to pitch by (a guest's chosen level). */
+export function factFitFor(theta: Record<string, number> | undefined, f: Fact, rung: Record<string, number>): number {
+  const s = strandOf(f);
+  return theta && theta[s] !== undefined && rung[s] ? factFit(factRung(f), rung[s]) : 1;
+}
+
 // ---------- learning from answers ----------
 export type AbilityAnswer = { skill: string; rung: number; ok: boolean; thinkMs?: number; fastMs?: number; at: number };
 /** The skills just below one in its area (the two before it on the ladder): a right answer nudges them. */

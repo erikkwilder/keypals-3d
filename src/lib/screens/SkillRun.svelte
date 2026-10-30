@@ -20,6 +20,7 @@
   import { FactMeter, mathGoal, mathStars, tripStats } from '../math/meter';
   import { mathOf } from '../math/progress';
   import { SKILL } from '../math/skills/registry';
+  import { makeAt, pitch, TARGET } from '../math/skills/ability';
   import { AREA } from '../math/skills/registry';
   import { SKILL_EPISODES, SKILL_LESSON, SKILL_REGION, tempoOf } from '../math/skills/course';
   import { FRAC_LESSON } from '../math/fracEpisodes';
@@ -62,9 +63,9 @@
   const buddy = FRIEND[profile.buddy];
   const STRETCH = STRIDE[lesson.move];
   const stretches = picker.length + 2;
-  // the Meet card's example: the first new kind of question, gently
+  // the Meet card's example: the first new kind of question, pitched easy for this child (a teach: 90%)
   // (a seeded source, never a constant one: generators draw again until two numbers differ)
-  const example = lesson.learn[0] ? SKILL[lesson.learn[0]].make(mulberry32(37), SKILL[lesson.learn[0]].subs[Math.min(2, SKILL[lesson.learn[0]].subs.length - 1)].id, 1) : null;
+  const example = lesson.learn[0] ? makeAt(SKILL[lesson.learn[0]], mulberry32(37), SKILL[lesson.learn[0]].subs[Math.min(2, SKILL[lesson.learn[0]].subs.length - 1)].id, pitch(m, lesson.learn[0], TARGET.teach, { grown: !!grown })) : null;
 
   let phase = $state<'intro' | 'play' | 'paused' | 'done'>('intro');
   const replaying = game.quickStart;

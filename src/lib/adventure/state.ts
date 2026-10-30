@@ -15,6 +15,7 @@ import { factId, parseFact, seedPartner, updateFact, weakness, type Fact, type O
 import { AREA, SKILL, splitKey } from '../math/skills/registry';
 import { nextSkillLesson } from '../math/skills/course';
 import { noteSkillAnswers } from '../math/skills/progress';
+import { factAnswers, noteAbility, strandOf, thetaOf } from '../math/skills/ability';
 import type { AreaId } from '../math/skills/types';
 import { EVOLVE_BOOST, GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, powerBase, powerNum, rarityRank, type Element, type GlimmerId, type Rarity } from './glimmers';
 import { grumpFor, type Foe, type MischiefKind, type Pool, type Subject } from './battle';
@@ -237,7 +238,11 @@ export function mathPool(p: Profile, only?: AreaId): Pool {
   for (const x of facts) (x as { w?: number }).w = weakness(m.facts[factId(x.f)], m.fastMs);
   // open cards (7 × ?) are kept for later: they confused first-time players
   const skills = skillPool(m, area);
-  return { subject: 'math', facts, open: false, skills, mix: !skills.length ? 0 : area ? 1 : focus === 'all' ? SKILL_MIX : 0 };
+  // the player's ability on everything in the pool, so each question is pitched for them (and in a duel,
+  // each side for its own player)
+  const theta: Record<string, number> = {}, now = Date.now();
+  for (const id of new Set([...facts.map(x => strandOf(x.f)), ...skills.map(x => splitKey(x.key).skill)])) theta[id] = thetaOf(m, id, now, !!p.settings.grown);
+  return { subject: 'math', facts, open: false, skills, mix: !skills.length ? 0 : area ? 1 : focus === 'all' ? SKILL_MIX : 0, theta };
 }
 /** How many battle cards are skill questions once a skill area is started (the rest are facts). */
 export const SKILL_MIX = 0.35;
@@ -400,8 +405,8 @@ export const BATTLE_FRIENDSHIP = { win: 80, perfect: 20, champion: 120, tried: 2
 export type BattleRun = {
   node: string; subject: Subject; won: boolean; perfect: boolean; foe: Foe; ms: number;
   answers: number; right: number; answered: { f: Fact; ok: boolean; thinkMs: number }[];
-  /** skill questions answered (fractions...), for the skill memory */
-  skillAnswers?: { key: string; ok: boolean; thinkMs: number }[];
+  /** skill questions answered (fractions...), for the skill memory and the ability */
+  skillAnswers?: { key: string; ok: boolean; thinkMs: number; rung?: number }[];
   team: GlimmerId[]; crystal: boolean; treasureNose: boolean; at: number; seed: number;
 };
 export type BattleOutcome = {
@@ -430,6 +435,8 @@ export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
   if (r.subject === 'math' && r.answered.length) {
     const m = (p.math = mathOf(p)), dk = dayKey(r.at);
     for (const x of r.answered) { const id = factId(x.f); m.facts[id] = updateFact(m.facts[id], { ok: x.ok, thinkMs: x.thinkMs, day: dk, at: r.at, fastMs: m.fastMs }); seedPartner(m.facts, x.f); }
+    // and move how hard the questions are (a little: a battle is noisier than a trip)
+    noteAbility(m, factAnswers(r.answered, r.at, m.fastMs), 'game', !!p.settings.grown);
   }
   if (r.subject === 'math' && r.skillAnswers?.length) noteSkillAnswers((p.math = mathOf(p)), r.skillAnswers, r.at);
   // your buddy's friendship, paced like practice minute for minute (BATTLE_FRIENDSHIP), and any

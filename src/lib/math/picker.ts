@@ -20,7 +20,7 @@
 import { factRung, factRungSpec, groupFacts, MATH_REGIONS, ruleFacts, type MathLesson } from './course';
 import { factId, isDue, isRuleFact, partnerOf, sameFact, weakness, type Fact, type FactStat } from './facts';
 import { mulberry32, shuffle, type Rng } from '../engine/rng';
-import { learn, pitchRung, priorOf, STRAND_SKILL, TARGET, thetaOf, type AbilityHome } from './skills/ability';
+import { factFit, learn, pitchRung, priorOf, STRAND_SKILL, TARGET, thetaOf, type AbilityHome } from './skills/ability';
 import { PLACE_FACT_N, placeStart, Staircase, strandLadder } from './skills/placement';
 import { Streak } from './skills/picker';
 
@@ -51,11 +51,7 @@ export type Item = { fact: Fact; reason: Reason; rung?: number };
 
 type Opts = { lesson: MathLesson; facts: Record<string, FactStat>; now: number; seed?: number; length?: number; fastMs?: number; math?: AbilityHome; grown?: boolean };
 
-/** How much a fact of rung d suits a trip at rung r: the ones at the rung most, easier ones a fair amount,
- *  harder ones rarely (never zero: memory still decides which fact). */
-export function factFit(d: number, r: number): number {
-  return d > r ? Math.max(0.08, Math.exp(-(((d - r) / 0.8) ** 2))) : Math.max(0.15, Math.exp(-(((r - d) / 2.5) ** 2)));
-}
+export { factFit };
 /** a Meet, practice or mix brings in this many more new facts at the top rungs */
 const extraNew = (rung: number) => (rung >= 6 ? 2 : rung >= 5 ? 1 : 0);
 

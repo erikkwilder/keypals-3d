@@ -9,6 +9,7 @@ import { WORDS_KIDS } from '../content/words';
 import { mathOf } from '../math/progress';
 import { factId, seedPartner, updateFact, type Fact } from '../math/facts';
 import { noteSkillAnswers } from '../math/skills/progress';
+import { factAnswers, noteAbility } from '../math/skills/ability';
 import { advOf, advView, giveXp, mathPool, meet, teamOf, today, typingPool } from './state';
 import { BUDDY_ROLE, GEAR, type GlimmerId, type Rarity } from './glimmers';
 import { guestPool, type GuestLevel, type SideSetup } from './duel';
@@ -70,7 +71,7 @@ export type VersusRun = {
   answers: number; right: number; thinkMs: number; big: number; picks: number;
   answered: { f: Fact; ok: boolean; thinkMs: number }[]; ms: number; at: number;
   /** skill questions answered (fractions...), for the skill memory */
-  skillAnswers?: { key: string; ok: boolean; thinkMs: number }[];
+  skillAnswers?: { key: string; ok: boolean; thinkMs: number; rung?: number }[];
   rival?: Rival; subject: Subject;
 };
 export type VersusOutcome = {
@@ -91,6 +92,7 @@ export function applyVersus(p: Profile, r: VersusRun): VersusOutcome {
   if (r.subject === 'math' && r.answered.length) {
     const m = (p.math = mathOf(p)), dk = dayKey(r.at);
     for (const x of r.answered) { const id = factId(x.f); m.facts[id] = updateFact(m.facts[id], { ok: x.ok, thinkMs: x.thinkMs, day: dk, at: r.at, fastMs: m.fastMs }); seedPartner(m.facts, x.f); }
+    noteAbility(m, factAnswers(r.answered, r.at, m.fastMs), 'game', !!p.settings.grown);
   }
   if (r.subject === 'math' && r.skillAnswers?.length) noteSkillAnswers((p.math = mathOf(p)), r.skillAnswers, r.at);
   noteStats((a.ghost ??= newStats()), { answers: r.answers, right: r.right, thinkMs: r.thinkMs, big: r.big, picks: r.picks });

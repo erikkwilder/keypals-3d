@@ -13,6 +13,7 @@ import { buddyPal, dayKey, type Profile } from '../../engine/profile';
 import { settlePractice, type Settled } from '../../engine/settle';
 import { mathOf, type ArcadeRecord } from '../progress';
 import { noteSkillAnswers } from '../skills/progress';
+import { pitchRung, TARGET, thetaOf } from '../skills/ability';
 
 export type OrderKind = 'tap' | 'cut' | 'equal' | 'add' | 'unlike';
 export type Frac = { n: number; d: number };
@@ -29,6 +30,8 @@ export type Order = {
   points: number;
   /** how long the customer waits at the front */
   patienceMs: number;
+  /** how hard it was pitched (1..6; 3 when there's no ability to go by) */
+  rung: number;
 };
 
 export const GAME_ID = 'pizza-rush';
@@ -61,31 +64,41 @@ export function kindsFor(p: Profile): OrderKind[] {
   return out;
 }
 
+/** How hard each kind of order is for this player: their ability on its skill (math/skills/ability.ts),
+ *  each order pitched from it at about 90% right (a timed game), with the usual little jitter. */
+export function levelsFor(p: Profile): Partial<Record<OrderKind, number>> {
+  const m = mathOf(p), now = Date.now(), g = !!p.settings.grown, t = (s: string) => thetaOf(m, s, now, g);
+  return { tap: t('fr-name'), cut: t('fr-name'), equal: t('fr-equal'), add: t('fr-add'), unlike: t('fr-unlike') };
+}
+
 /** The i-th order of a round: the first two are tap-the-slices with halves and quarters, then cutting
- *  comes in, then everything the player has met. Never loops. */
-export function makeOrder(rng: Rng, i: number, kinds: readonly OrderKind[]): Order {
+ *  comes in, then everything the player has met; each as hard as the player's level on it (`levels`).
+ *  The rungs: 1-2 halves to quarters · 3 to eighths · 4 thirds to eighths · 5 quarters to twelfths · 6
+ *  sixths to twelfths, and bigger pairs to add and match. Never loops. */
+export function makeOrder(rng: Rng, i: number, kinds: readonly OrderKind[], levels?: Partial<Record<OrderKind, number>>): Order {
   const can = (k: OrderKind) => kinds.includes(k);
   const pool: OrderKind[] = i < 2 ? ['tap'] : i < 4 ? ['tap', 'cut'] : kinds.filter(k => k !== 'tap' || rng() < 0.6);
   const ok = pool.filter(can), kind: OrderKind = pick(rng, ok.length ? ok : ['tap']);
-  const o = (parts: Frac[], want: Frac, slices: number | null, key: string): Order => ({ kind, parts, want, slices, key, points: POINTS[kind], patienceMs: PATIENCE[kind] });
+  const th = levels?.[kind], r = th === undefined ? 3 : pitchRung(th, TARGET.quick, rng);
+  const o = (parts: Frac[], want: Frac, slices: number | null, key: string): Order => ({ kind, parts, want, slices, key, points: POINTS[kind], patienceMs: PATIENCE[kind], rung: r });
   if (kind === 'tap' || kind === 'cut') {
-    const d = i < 2 ? pick(rng, [2, 4, 4, 3]) : pick(rng, [2, 3, 4, 4, 6, 8]);
+    const d = i < 2 ? pick(rng, [2, 4, 4, 3]) : pick(rng, ([[2, 4, 4, 3], [2, 3, 4, 4], [2, 3, 4, 4, 6, 8], [3, 4, 6, 8], [4, 6, 8, 12], [6, 8, 12]] as const)[r - 1]);
     const n = int(rng, 1, d - 1);
     return o([{ n, d }], { n, d }, kind === 'tap' ? d : null, kind === 'cut' && n === 1 ? 'fr-unit:one' : `fr-name:${d}`);
   }
   if (kind === 'equal') {
     // 2/4 on a pizza cut in 8: the slices are smaller, so it takes more of them
-    const [d, k] = pick(rng, [[2, 2], [2, 3], [2, 4], [3, 2], [3, 4], [4, 2], [4, 3]] as const);
+    const [d, k] = pick<readonly [number, number]>(rng, r <= 2 ? ([[2, 2], [2, 4], [3, 2], [4, 2]] as const) : r === 3 ? ([[2, 2], [2, 3], [2, 4], [3, 2], [3, 4], [4, 2], [4, 3]] as const) : ([[2, 3], [2, 4], [2, 6], [3, 4], [4, 2], [4, 3], [6, 2]] as const));
     const n = int(rng, 1, d - 1);
     return o([{ n, d }], { n, d }, d * k, `fr-equal:x${k}`);
   }
   if (kind === 'add') {
-    const d = pick(rng, [3, 4, 4, 6, 8]);
+    const d = pick(rng, r <= 2 ? [3, 4, 4] : r === 3 ? [3, 4, 4, 6, 8] : [4, 6, 8, 12]);
     const a = int(rng, 1, d - 1), b = int(rng, 1, d - a);
     return o([{ n: a, d }, { n: b, d }], { n: a + b, d }, d, d <= 5 ? 'fr-add:small' : 'fr-add:mid');
   }
   // different bottoms: 1/2 + 1/4 on a pizza cut into quarters
-  const [d1, d2] = pick(rng, [[2, 4], [2, 4], [2, 6], [2, 8], [3, 6], [4, 8], [3, 12], [4, 12]] as const);
+  const [d1, d2] = pick<readonly [number, number]>(rng, r <= 3 ? ([[2, 4], [2, 4], [2, 6], [2, 8], [3, 6], [4, 8], [3, 12], [4, 12]] as const) : ([[2, 8], [3, 6], [4, 8], [3, 12], [4, 12], [6, 12], [2, 12]] as const));
   const m = d2 / d1, a = int(rng, 1, d1 - 1), b = int(rng, 1, d2 - a * m);
   return o([{ n: a, d: d1 }, { n: b, d: d2 }], { n: a * m + b, d: d2 }, d2, 'fr-unlike:fits');
 }
@@ -117,10 +130,10 @@ export function dailySeed(at: number): number {
   return h >>> 0;
 }
 /** A round's orders come from one seed (the daily challenge's or a random one). */
-export function orderMaker(seed: number, kinds: readonly OrderKind[]) {
+export function orderMaker(seed: number, kinds: readonly OrderKind[], levels?: Partial<Record<OrderKind, number>>) {
   const rng = mulberry32(seed);
   let i = 0;
-  return () => makeOrder(rng, i++, kinds);
+  return () => makeOrder(rng, i++, kinds, levels);
 }
 
 export const rushOf = (p: Profile): ArcadeRecord => mathOf(p).arcade?.[GAME_ID] ?? { best: 0, stars: 0, plays: 0 };
@@ -128,8 +141,8 @@ export const dailyBestOf = (p: Profile, at = Date.now()) => { const d = rushOf(p
 
 export type RushRun = {
   score: number; served: number; missed: number; bestCombo: number; ms: number; at: number; daily: boolean;
-  /** each order's first try */
-  answers: { key: string; ok: boolean; thinkMs: number }[];
+  /** each order's first try (and the rung it was pitched at) */
+  answers: { key: string; ok: boolean; thinkMs: number; rung?: number }[];
 };
 export type RushOutcome = Settled & { profile: Profile; stars: 0 | 1 | 2 | 3; newBest: boolean; newDaily: boolean; best: number };
 

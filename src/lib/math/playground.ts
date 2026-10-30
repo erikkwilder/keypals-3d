@@ -12,6 +12,7 @@ import type { Reward } from '../engine/rewards';
 import { settlePractice } from '../engine/settle';
 import { mathOf } from './progress';
 import type { Rng } from '../engine/rng';
+import { hasEvidence, pitch, TARGET } from './skills/ability';
 
 export type PlayGame = 'line' | 'bonds' | 'build' | 'stall';
 export type PlayLevel = { n: number; title: string; hint: string };
@@ -106,9 +107,29 @@ export function slipStars(slips: number): 0 | 1 | 2 | 3 { return slips <= 1 ? 3 
 
 export type PlayRecord = { stars: number[]; plays: number; best?: number };
 export const playOf = (p: Profile, g: PlayGame): PlayRecord => mathOf(p).play?.[g] ?? { stars: [], plays: 0 };
-/** A level opens once the one before it has a star. */
-export const playUnlocked = (p: Profile, g: PlayGame, level: number) => level === 1 || (playOf(p, g).stars[level - 2] ?? 0) > 0;
-export const playNextLevel = (p: Profile, g: PlayGame) => { const r = playOf(p, g); for (let l = 1; l <= 5; l++) if (!(r.stars[l - 1] ?? 0)) return l; return 5; };
+/** Each game's skill, and the level each of its rungs is ready for (math/skills/ability.ts): the number
+ *  line goes with counting on, the bubbles with adding facts, Build It with hundreds, the stall with change. */
+const PLAY_SKILL: Record<PlayGame, { skill: string; level: number[] }> = {
+  line: { skill: 'pv-count', level: [1, 2, 3, 4, 5, 5] },
+  bonds: { skill: 'add-facts', level: [1, 2, 2, 3, 3, 4] },
+  build: { skill: 'pv-hundreds', level: [2, 3, 4, 5, 5, 5] },
+  stall: { skill: 'dm-change', level: [1, 2, 3, 4, 5, 5] },
+};
+/** The level the child's practice says they're ready for (pitched easy: 90%), once there is practice to
+ *  go by (0 before). It opens levels the way a star does and never closes one. */
+export function readyLevel(p: Profile, g: PlayGame): number {
+  const m = mathOf(p), s = PLAY_SKILL[g];
+  if (!hasEvidence(m, s.skill)) return 0;
+  return s.level[pitch(m, s.skill, TARGET.quick, { grown: !!p.settings.grown }) - 1];
+}
+/** A level opens once the one before it has a star, or when the child's practice says they're ready. */
+export const playUnlocked = (p: Profile, g: PlayGame, level: number) => level === 1 || (playOf(p, g).stars[level - 2] ?? 0) > 0 || level <= readyLevel(p, g);
+/** The level to play next: the first without a star, or where the child is ready for, if that's further. */
+export const playNextLevel = (p: Profile, g: PlayGame) => {
+  const r = playOf(p, g), ready = readyLevel(p, g);
+  for (let l = 1; l <= 5; l++) if (!(r.stars[l - 1] ?? 0)) return Math.max(l, Math.min(5, ready));
+  return 5;
+};
 
 export type PlayOutcome = { eggsReady?: import('../adventure/glimmers').Rarity[]; shells?: number; buddies: import('../art/cast').FriendId[]; profile: Profile; xp: XpInfo; rewards: Reward[]; stickers: StickerDef[]; medals: MedalWin[]; newBest: boolean; opened: number | null; goalJustHit: boolean };
 

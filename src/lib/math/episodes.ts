@@ -4,9 +4,10 @@
 // their own, and wins the trick's card. The pictures are the lesson's own boards (learn.ts): what changes
 // from one board to the next is what the kid's hands do (see taskFor).
 import type { GlimmerId } from '../adventure/glimmers';
-import { answerOf, type Fact } from './facts';
-import { LESSON, LESSONS, askText, coverOf, hideAnswer, hintFor, type Board, type Dot, type Lesson, type Step } from './learn';
-import { STRAND } from './course';
+import { answerOf, factId, isRuleFact, type Fact } from './facts';
+import { LESSON, LESSONS, askText, coverOf, hideAnswer, hintFor, lessonForFact, type Board, type Dot, type Lesson, type Step } from './learn';
+import { factRung, groupFacts, MATH_REGION, STRAND } from './course';
+import { rungFor, STRAND_SKILL, TARGET, thetaOf, type AbilityHome } from './skills/ability';
 import { FRAC_LESSON, type EpQ } from './fracEpisodes';
 
 export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave';
@@ -183,8 +184,28 @@ export type EpLesson = {
 };
 const FRAC_COLOR = '#ef8a4b';
 const NOUN: Record<string, string> = { 'frac-one-piece': 'squares', 'frac-take-away': 'squares', 'frac-times': 'squares', 'frac-of-a-set': 'cupcakes' };
-/** The episode for a lesson id: a fact trick (learn.ts) or a fraction idea (fracEpisodes.ts). */
-export function epLesson(id: string): EpLesson | null {
+/** How hard a trick's "your turn" questions should be for this child: their strand's ability, pitched to
+ *  be easy (about 90% right: the idea is brand new), as a rung. Nothing for the fraction episodes (their
+ *  questions come with their own painted pictures). */
+export function teachRung(h: AbilityHome, id: string, now = Date.now()): number | undefined {
+  const l = LESSON[id];
+  return l && !l.area ? rungFor(thetaOf(h, STRAND_SKILL[l.op], now), TARGET.teach) : undefined;
+}
+/** A trick's three tries at a rung: the lesson's own (chosen to show the trick plainly) for children on
+ *  the gentle rungs; from rung 3 the second try and the next day's check are facts of the same trick at
+ *  the child's rung (the same picture and the same help, bigger numbers). The first stays the lesson's. */
+function pitchedTries(l: Lesson, rung?: number): Fact[] {
+  if (!rung || rung <= 2 || l.area) return l.tries;
+  const groups = [...new Set(l.regions.flatMap(r => MATH_REGION[r]?.groups ?? []))];
+  const own = new Set(l.tries.map(factId));
+  const cands = groups.flatMap(groupFacts).filter(f => !isRuleFact(f) && !own.has(factId(f)) && lessonForFact(f).id === l.id && factRung(f) <= rung);
+  if (cands.length < 2) return l.tries;
+  const top = Math.max(...cands.map(factRung)), near = cands.filter(f => factRung(f) >= top - 1).sort((a, b) => factRung(b) - factRung(a) || answerOf(b) - answerOf(a));
+  return [l.tries[0], near[0], near[Math.min(near.length - 1, 1 + (near.length >> 1))]];
+}
+/** The episode for a lesson id: a fact trick (learn.ts) or a fraction idea (fracEpisodes.ts); `rung`
+ *  pitches a trick's own tries for the child (teachRung). */
+export function epLesson(id: string, rung?: number): EpLesson | null {
   const f = FRAC_LESSON[id];
   if (f) {
     const all = [f.teach.q.ans, f.teach.wrong, f.teach.decoy], k = f.id.length % 3;
@@ -196,7 +217,8 @@ export function epLesson(id: string): EpLesson | null {
   if (!l) return null;
   const e = episodeOf(id);
   const q = (fact: Fact): EpQ => { const hint = hintFor(l, fact); return { text: askText(fact), ans: String(answerOf(fact)), input: 'num', hint, hidden: hideAnswer(hint, fact), pic: l.pic(fact) }; };
-  return { id, title: l.title, blurb: l.blurb, color: STRAND[l.op].color, set: e.set, steps: l.steps, tries: [q(l.tries[0]), q(l.tries[1]), q(l.tries[2])],
+  const tries = pitchedTries(l, rung);
+  return { id, title: l.title, blurb: l.blurb, color: STRAND[l.op].color, set: e.set, steps: l.steps, tries: [q(tries[0]), q(tries[1]), q(tries[2])],
     teach: { q: q(e.teach.f), wrong: String(e.teach.wrong), says: e.teach.says, choices: fixChoices(e).map(String), fixed: `Oops! ${hintFor(l, e.teach.f)} Thank you!` },
     cover: coverOf(l), art: null };
 }

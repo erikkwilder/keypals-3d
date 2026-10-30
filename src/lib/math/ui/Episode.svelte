@@ -18,7 +18,8 @@
   import { FRIEND } from '../../art/cast';
   import { GLIMMER } from '../../adventure/glimmers';
   import { boundsOf, finishLesson, markChecked, type Board } from '../learn';
-  import { SETS, epLesson, taskFor, taskWords, type EpQ, type Task } from '../episodes';
+  import { SETS, epLesson, teachRung, taskFor, taskWords, type EpQ, type Task } from '../episodes';
+  import { mathOf } from '../progress';
   import { fracRight } from '../fracEpisodes';
   import LearnBoard from './LearnBoard.svelte';
   import NumPad from './NumPad.svelte';
@@ -35,7 +36,7 @@
   const base = import.meta.env.BASE_URL;
   // (the episode is keyed by its lesson: these don't change while it's open)
   // svelte-ignore state_referenced_locally
-  const lesson = epLesson(id)!, place = SETS[lesson.set];
+  const lesson = epLesson(id, teachRung(mathOf(game.profile!), id))!, place = SETS[lesson.set];
   const buddy = game.profile!.buddy;
   // the Glimmer at the table: the player's own (the first on their team) when the story doesn't name the
   // place's one, else the place's
