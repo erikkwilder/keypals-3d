@@ -1,7 +1,8 @@
 // Dev hooks for looking at My Sky Island (state/dev.ts): #island=demo gives the player shells and nine
 // Glimmers; add `built` for an island already built up (a pond, lanterns, fences, flowers, a bench, a
 // birdhouse, a habitat), and `family` for a brother, Leo, with an island of his own to visit and a heart
-// he left; `fresh` starts the player's island again. For the blocks and secrets: `house` (a little block
+// he left; `fresh` starts the player's island again; `play` puts out a swing, the lookout, a tree and blocks to
+// jump on (some glowing). For the blocks and secrets: `house` (a little block
 // house), `big` (a castle of about 300 blocks, to check it stays smooth), `night`, `day` and `rain` (the evening,
 // the daytime, a rain shower now), `treats` (a bag of treats), `happy` (Puddle Pup nearly full friendship), `well` (a
 // Wishing Well and a pond), `nosecrets` (the secrets not found yet). Only ever used from the address bar.
@@ -75,6 +76,12 @@ export function islandDemo(val: string) {
     if (want.has('treats')) s.treats = Math.max(s.treats, 9);
     if (want.has('happy')) s.friends = { ...s.friends, puddlepup: 95 };
     if (want.has('well')) { advOf(p).shells += 300; buyAndPlace(p, 'well', -4, 2, 0); buyAndPlace(p, 'pond', 3, -2, 0); }
+    // `play`: things to play on (a swing, the lookout, a puffy tree), blocks one and two high to jump on, glowing blocks
+    if (want.has('play')) {
+      advOf(p).shells += 2000; s.mats = [...new Set([...s.mats, 21])];
+      buyAndPlace(p, 'swing', 2, 2, 0); buyAndPlace(p, 'lookout', -5, -1, 0); buyAndPlace(p, 'puffy', 3, -3, 0);
+      blocks(p, [B(-2, 0, 6), B(-1, 0, 6), B(-2, 0, 7), B(-1, 0, 7), B(-1, 1, 7), B(-2, 1, 7), B(0, 0, 7, 'cube', 21), B(1, 0, 7, 'cube', 21), B(1, 1, 7, 'cube', 21)]);
+    }
   });
   if (want.has('family')) {
     const me = game.profile!;

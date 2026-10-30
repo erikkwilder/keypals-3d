@@ -26,7 +26,8 @@ import { THEMES } from './themes';
 import { blocked, resolve, step, type Box, type Solid } from './gardenLayout';
 import { BlockKit } from './islandBlocks';
 import { IslandSecrets } from './islandSecrets';
-import { BLOCK, SHAPE, blockCells, fall, findPath, floorAt, perches, standUp, walk, worldOf, type Block, type P3, type ShapeId, type World } from '../island/blocks';
+import { BLOCK, BUDDY_STEP, CLEAR, JUMP_UP, SHAPE, blockCells, fall, findPath, floorAt, perches, spansAt, standUp, walk, wallAt, worldOf, type Block, type P3, type ShapeId, type World } from '../island/blocks';
+import { HouseRoom, ROOM_D, ROOM_H, ROOM_W } from './islandRoom';
 import { rocksOf, onRock, WHALE_Y } from '../island/secrets';
 import type { Island } from './island';
 import type { View } from './runScene';
@@ -34,7 +35,7 @@ import type { FriendId } from '../art/cast';
 import type { Dress } from '../adventure/gear';
 import { GLIMMER, type GlimmerId } from '../adventure/glimmers';
 import { sfx } from '../audio/sound';
-import { ITEM, HABITAT_OF } from '../island/catalog';
+import { CLIMB, HOMES, ITEM, HABITAT_OF } from '../island/catalog';
 import { centerOf, footprint, type IslandSave, type Placed, type Rot } from '../island/save';
 import { PropKit, type Tick } from '../island/props3d';
 import { gridTex, stones } from '../island/paint';
@@ -48,7 +49,18 @@ const rand = (seed: number) => () => { seed = (seed * 16807) % 2147483647; retur
 const easeOutBack = (x: number) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
 
 export type Out = { id: GlimmerId; level: number; evolved: boolean };
-export type Pick = { kind: 'glimmer'; id: GlimmerId } | { kind: 'visitor' } | { kind: 'item'; uid: string } | { kind: 'buddy' }
+/** Something the buddy can do where it is (the E key or the action button): talk to a Glimmer, swing,
+ *  go into a house, climb a tree or the lookout, get off or down again, go outside, read the house's note. */
+export type Near = { kind: 'talk'; id: GlimmerId } | { kind: 'swing' | 'house' | 'tree'; uid: string } | { kind: 'off' } | { kind: 'note' } | { kind: 'jump' };
+/** the buddy's jump: the speed it leaves the ground with (it reaches JUMP_UP), and the island's pull */
+const GRAV = 15, JUMP_V = Math.sqrt(2 * GRAV * JUMP_UP);
+/** where the house's room is: well away from the island, under the cloud sea */
+const ROOM_AT = new THREE.Vector3(0, -240, 0);
+type Doing =
+  | { kind: 'swing'; uid: string; t0: number }
+  | { kind: 'tree'; uid: string; t0: number; phase: 'up' | 'over' | 'top' | 'down'; c: THREE.Vector3; side: THREE.Vector3; r: number; climbTop: number; stand: number; from: THREE.Vector3; to: THREE.Vector3; pt0: number }
+  | { kind: 'inside'; uid: string; item: string; p: { x: number; y: number; z: number }; door: THREE.Vector3; out: number };
+export type Pick = { kind: 'glimmer'; id: GlimmerId } | { kind: 'visitor' } | { kind: 'item'; uid: string } | { kind: 'buddy' } | { kind: 'roomnote' }
   | { kind: 'bottle' } | { kind: 'note' } | { kind: 'rainbow' } | { kind: 'butterfly' } | null;
 /** what a build tool would do where the pointer is: the square a new piece goes in, or the block a tool acts on */
 export type Aim = { place: Block | null; on: Block | null; key: string | null };
@@ -83,7 +95,7 @@ function taper(y: number, H: number) {
 }
 
 export class IslandScene implements Controller {
-  get fps() { return this.busyT > 0 || this.drive.x || this.drive.z || this.goto ? 60 : 40; }
+  get fps() { return this.busyT > 0 || this.drive.x || this.drive.z || this.goto || this.air || this.doing ? 60 : 40; }
   readonly island: Island;
   view: View;
   private kit: PropKit;
@@ -144,6 +156,21 @@ export class IslandScene implements Controller {
   private hemi!: THREE.HemisphereLight;
   private golden = { on: false, t: 0 };
   private reached = new Set<string>();
+  // ---------- the buddy's moves (jumping, the swing, climbing, the house) ----------
+  /** in the air: its rising speed */
+  private air: { vy: number } | null = null;
+  /** a squash as it lands (seconds into it), and the buddy's own size */
+  private squashT = -1; private meScale = new THREE.Vector3(1, 1, 1);
+  private doing: Doing | null = null;
+  private room: HouseRoom | null = null;
+  private roomBusy = false;
+  private camWas: { target: THREE.Vector3; yaw: number; pitch: number; dist: number; framed: boolean } | null = null;
+  /** the Glimmer the buddy is talking to */
+  private talking: GlimmerId | null = null;
+  /** the houses whose note was read this time on the island */
+  private notesRead = new Set<string>();
+  /** told when the buddy goes into a house (the item) or comes out (null) */
+  onInside: ((item: string | null) => void) | null = null;
 
   private constructor(island: Island, kit: PropKit, root: THREE.Group, view: View) {
     this.island = island; this.kit = kit; this.root = root; this.view = view;
@@ -153,7 +180,7 @@ export class IslandScene implements Controller {
     stage.scene.add(this.fx.root);
     this.secrets = new IslandSecrets(this.fx, this.fall.uT);
     root.add(this.secrets.root);
-    if (import.meta.env.DEV) (window as unknown as { __isle: IslandScene }).__isle = this;
+    if (import.meta.env.DEV) Object.assign(window, { __isle: this, __stage: stage });
   }
 
   static async create(o: { save: IslandSave; r: number; buddy: FriendId; dress?: Dress | null; view: View; grewFrom?: number; caveOpen?: boolean }): Promise<IslandScene> {
@@ -188,6 +215,7 @@ export class IslandScene implements Controller {
       void me.loadMoves();
       me.root.position.copy(sc.freeSpot(new THREE.Vector3(0.6, 0, 2.6)));
       me.root.rotation.y = 0.3;
+      sc.meScale.copy(me.root.scale);
       sc.meP = { x: me.root.position.x, y: 0, z: me.root.position.z };
       standUp(sc.world, sc.meP); sc.meShow = sc.meP.y;
       sc.me = me;
@@ -748,14 +776,14 @@ export class IslandScene implements Controller {
   /** where the buddy's feet are */
   get buddyAt(): P3 { return { ...this.meP }; }
   /** Move someone by `dist` toward `dir`: round the island's things while on the grass, over and up the blocks. */
-  private move3(p: P3, dir: { x: number; z: number }, dist: number, r2d: number, r3d = 0.15): number {
+  private move3(p: P3, dir: { x: number; z: number }, dist: number, r2d: number, r3d = 0.15, stepUp?: number): number {
     let dx = dir.x * dist, dz = dir.z * dist;
     if (p.y < 0.3) { const q = { x: p.x, z: p.z }; step(q, dir, dist, this.solids, this.boxes, r2d, Infinity); dx = q.x - p.x; dz = q.z - p.z; }
     const len = Math.hypot(dx, dz);
-    return len < 1e-6 ? 0 : walk(this.world, p, { x: dx / len, z: dz / len }, len, r3d);
+    return len < 1e-6 ? 0 : walk(this.world, p, { x: dx / len, z: dz / len }, len, r3d, stepUp);
   }
   cheer() {
-    const me = this.me; if (!me) return;
+    const me = this.me; if (!me || this.doing || this.air) return;
     const a = me.play(me.has('cheer') ? 'cheer' : me.has('jump') ? 'jump' : 'idle', 0.2); a?.reset();
     this.walk.mode = 'idle'; this.walk.until = this.now + 2.2;
     this.fx.emit({ at: me.root.position.clone().add(new THREE.Vector3(0, 1.2, 0)), count: 20, shape: ['heart', 'star'], color: [0xff8fc0, 0xffd34d, 0xffffff], speed: [0.8, 2.2], life: [0.6, 1.1], size: [0.1, 0.2], up: 1, drag: 1.5 });
@@ -1210,6 +1238,13 @@ export class IslandScene implements Controller {
   pick(clientX: number, clientY: number): Pick {
     const ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2((clientX / innerWidth) * 2 - 1, -(clientY / innerHeight) * 2 + 1), stage.camera);
+    // in the house: the note, or the buddy
+    if (this.doing?.kind === 'inside') {
+      const n = this.room?.note;
+      if (n?.visible && ray.ray.distanceSqToPoint(n.getWorldPosition(new THREE.Vector3())) < 0.3 * 0.3) return { kind: 'roomnote' };
+      if (this.me && ray.ray.intersectBox(new THREE.Box3().setFromObject(this.me.root), new THREE.Vector3())) return { kind: 'buddy' };
+      return null;
+    }
     let best: Pick = null, bd = Infinity;
     const boxHit = (o: THREE.Object3D, grow = 0.08) => { const b = new THREE.Box3().setFromObject(o).expandByScalar(grow); const p = ray.ray.intersectBox(b, new THREE.Vector3()); return p ? p.distanceTo(ray.ray.origin) : Infinity; };
     for (const p of this.pals) { const d = boxHit(p.m.root, 0.12); if (d < bd) { bd = d; best = { kind: 'glimmer', id: p.id }; } }
@@ -1233,6 +1268,15 @@ export class IslandScene implements Controller {
       if (t) best = { kind: 'item', uid: t.uid };
     }
     return best;
+  }
+  /** Where the buddy's head is on the screen (0..1), for the hint over it. */
+  buddyScreen(lift = 1.5): { x: number; y: number } | null {
+    const me = this.me;
+    if (!me) return null;
+    const v = me.root.position.clone(); v.y += lift;
+    v.project(stage.camera);
+    if (v.z > 1) return null;
+    return { x: (v.x + 1) / 2, y: (1 - v.y) / 2 };
   }
   /** Where something is on the screen (0..1), for its label: a Glimmer, the visitor, or a thing. */
   screenOf(what: { glimmer?: GlimmerId; visitor?: boolean; uid?: string }, lift = 0.9): { x: number; y: number } | null {
@@ -1266,14 +1310,16 @@ export class IslandScene implements Controller {
     c.target.set(0, 0.35, -0.3);
     if (now) this.camReady = false;
   }
-  orbit(dx: number, dy: number) { const c = this.cam; c.yaw -= dx * 0.006; c.pitch = Math.max(0.18, Math.min(1.35, c.pitch + dy * 0.005)); this.framed = false; this.busyT = 0.6; }
+  orbit(dx: number, dy: number) { if (this.doing?.kind === 'inside') return; const c = this.cam; c.yaw -= dx * 0.006; c.pitch = Math.max(0.18, Math.min(1.35, c.pitch + dy * 0.005)); this.framed = false; this.busyT = 0.6; }
   zoom(factor: number, clientX?: number, clientY?: number) {
+    if (this.doing?.kind === 'inside') return;
     const c = this.cam, was = c.dist;
     c.dist = Math.max(3.2, Math.min(this.rimR * 4 + 10, c.dist * factor));
     if (clientX !== undefined && clientY !== undefined && c.dist < was) { const p = this.groundAt(clientX, clientY); if (p) c.target.lerp(p.setY(c.target.y), 1 - c.dist / was); }
     this.clampTarget(); this.framed = false; this.busyT = 0.6;
   }
   pan(dx: number, dy: number) {
+    if (this.doing?.kind === 'inside') return;
     const c = this.cam, k = (2 * c.dist * Math.tan(THREE.MathUtils.degToRad(stage.camera.fov / 2))) / innerHeight;
     const right = new THREE.Vector3(Math.cos(c.yaw), 0, -Math.sin(c.yaw)), fwd = new THREE.Vector3(-Math.sin(c.yaw), 0, -Math.cos(c.yaw));
     c.target.addScaledVector(right, -dx * k).addScaledVector(fwd, dy * k / Math.max(0.35, Math.sin(c.pitch)));
@@ -1319,50 +1365,80 @@ export class IslandScene implements Controller {
     this.sun.position.copy(f).addScaledVector(dir, 40); this.sun.target.position.copy(f);
   }
 
+  /** where the keys, the stick or a tapped path take the buddy now (null: it isn't being walked) */
+  private steerDir(t: number): { x: number; z: number; speed: number } | null {
+    const P = this.meP;
+    if (this.drive.x || this.drive.z) {
+      const c = this.cam, fwd = new THREE.Vector3(-Math.sin(c.yaw), 0, -Math.cos(c.yaw)), right = new THREE.Vector3(Math.cos(c.yaw), 0, -Math.sin(c.yaw));
+      const d = fwd.multiplyScalar(this.drive.z).addScaledVector(right, this.drive.x);
+      const mm = Math.min(1, d.length()); d.normalize();
+      this.walk.lastDrive = t; this.path = []; this.goto = null;
+      return { x: d.x, z: d.z, speed: 3.0 * mm };
+    }
+    if (this.path.length) {
+      const to = this.path[0], dx = to.x - P.x, dz = to.z - P.z, len = Math.hypot(dx, dz);
+      if (len < 0.1) { this.path.shift(); if (!this.path.length) this.goto = null; return null; }
+      this.walk.lastDrive = t;
+      return { x: dx / len, z: dz / len, speed: this.path.length > 1 || len > 2 ? 3.0 : 1.1 + len };
+    }
+    return null;
+  }
+
   private buddy(dt: number, t: number) {
     const me = this.me; if (!me) return;
     const w = this.walk, P = this.meP;
     const turnTo = (a: number, k: number) => { const d = Math.atan2(Math.sin(a - me.root.rotation.y), Math.cos(a - me.root.rotation.y)); me.root.rotation.y += d * Math.min(1, dt * k); };
-    if (w.mode === 'drive') {
-      let dir: { x: number; z: number } | null = null, speed = 0;
-      if (this.drive.x || this.drive.z) {
-        const c = this.cam, fwd = new THREE.Vector3(-Math.sin(c.yaw), 0, -Math.cos(c.yaw)), right = new THREE.Vector3(Math.cos(c.yaw), 0, -Math.sin(c.yaw));
-        const d = fwd.multiplyScalar(this.drive.z).addScaledVector(right, this.drive.x);
-        const mm = Math.min(1, d.length()); d.normalize(); dir = d; speed = 3.0 * mm; w.lastDrive = t;
-        this.path = []; this.goto = null;
-      } else if (this.path.length) {
-        const to = this.path[0], dx = to.x - P.x, dz = to.z - P.z, len = Math.hypot(dx, dz);
-        if (len < 0.1) { this.path.shift(); if (!this.path.length) this.goto = null; }
-        else { dir = { x: dx / len, z: dz / len }; speed = this.path.length > 1 || len > 2 ? 3.0 : 1.1 + len; w.lastDrive = t; }
-      }
-      if (dir && speed > 0) {
-        const moved = this.move3(P, dir, speed * dt, 0.3);
-        // stuck against something on the way: give up on it
-        if (this.path.length && moved < speed * dt * 0.2) { this.stuck += dt; if (this.stuck > 0.5) { this.path = []; this.goto = null; } } else this.stuck = 0;
-        turnTo(Math.atan2(dir.x, dir.z), 12);
-        const gait = speed > 2.2 && me.has('run') ? 'run' : 'walk'; me.play(gait, 0.2);
-        const a = me.actions[gait]; if (a) a.timeScale = Math.max(0.6, Math.min(2, Math.max(0.3, moved / Math.max(1e-4, dt)) / (me.speedOf[gait] || speed)));
-      } else me.play('idle', 0.3);
-      // left alone for a while: it potters about by itself again
-      if (t - w.lastDrive > 8) { w.mode = 'idle'; w.until = t + 2; }
-    } else if (w.mode === 'walk') {
-      const dx = w.to.x - P.x, dz = w.to.z - P.z, len = Math.hypot(dx, dz);
-      if (len < 0.1 || t > w.until) { w.mode = 'idle'; w.until = t + 3 + Math.random() * 4; const a = me.play(me.has('wave1') && Math.random() < 0.25 ? 'wave1' : 'idle', 0.3); a?.reset(); }
-      else { this.move3(P, { x: dx / len, z: dz / len }, Math.min(len, dt * 1.05), 0.3); turnTo(Math.atan2(dx, dz), 8); me.play('walk', 0.3); const a = me.actions.walk; if (a) a.timeScale = Math.max(0.6, 1.05 / (me.speedOf.walk || 1)); }
+    // on the swing, up a tree or in a house
+    if (this.doing) { this.doingTick(me, dt, t, turnTo); this.squashTick(me, dt); return; }
+    if (this.air) {
+      // in the air: steered as on the ground, over the blocks it clears, down on to whatever it lands on
+      const sd = w.mode === 'drive' ? this.steerDir(t) : null;
+      if (sd) { this.airMove(P, sd, sd.speed * dt); turnTo(Math.atan2(sd.x, sd.z), 12); }
+      const a = this.air; a.vy -= GRAV * dt;
+      let ny = P.y + a.vy * dt;
+      // (a block over its head: bonk)
+      if (a.vy > 0 && spansAt(this.world, P.x, P.z).some(([c0]) => c0 >= P.y + CLEAR - 0.02 && c0 < ny + CLEAR)) { a.vy = 0; ny = P.y; }
+      const f = a.vy <= 0 ? floorAt(this.world, P.x, P.z, P.y, 0.02) : null;
+      if (f !== null && ny <= f) { P.y = f; this.landed(); }
+      else if (ny < -1) { P.y = 0; standUp(this.world, P); this.landed(); }
+      else P.y = ny;
+      this.meShow = P.y;
     } else {
-      // off to look at something (only from the grass: up on what's built it stays put till you walk it)
-      if (t > w.until && P.y < 0.3 && !this.ball) {
-        const things = [...this.things.values()];
-        const pick = Math.random() < 0.4 && this.pals.length ? this.pals[Math.floor(Math.random() * this.pals.length)].m.root.position.clone().setY(0) : Math.random() < 0.6 && things.length ? this.centre(things[Math.floor(Math.random() * things.length)].pl) : null;
-        w.to.copy(this.randomSpot(pick, 0.8, 0.3)); w.mode = 'walk'; w.until = t + 10;
+      if (w.mode === 'drive') {
+        const sd = this.steerDir(t);
+        if (sd && sd.speed > 0) {
+          const moved = this.move3(P, sd, sd.speed * dt, 0.3, 0.15, BUDDY_STEP);
+          // stuck against something on the way: give up on it
+          if (this.path.length && moved < sd.speed * dt * 0.2) { this.stuck += dt; if (this.stuck > 0.5) { this.path = []; this.goto = null; } } else this.stuck = 0;
+          turnTo(Math.atan2(sd.x, sd.z), 12);
+          const gait = sd.speed > 2.2 && me.has('run') ? 'run' : 'walk'; me.play(gait, 0.2);
+          const a = me.actions[gait]; if (a) a.timeScale = Math.max(0.6, Math.min(2, Math.max(0.3, moved / Math.max(1e-4, dt)) / (me.speedOf[gait] || sd.speed)));
+          // walked into a house's door: in you go
+          if (this.drive.x || this.drive.z) { const h = this.doorAhead(sd); if (h) void this.goIn(h); }
+        } else me.play('idle', 0.3);
+        if (this.talking) { const g = this.pals.find(x => x.id === this.talking); if (g) turnTo(Math.atan2(g.p3.x - P.x, g.p3.z - P.z), 6); }
+        // left alone for a while: it potters about by itself again
+        if (t - w.lastDrive > 8 && !this.talking) { w.mode = 'idle'; w.until = t + 2; }
+      } else if (w.mode === 'walk') {
+        const dx = w.to.x - P.x, dz = w.to.z - P.z, len = Math.hypot(dx, dz);
+        if (len < 0.1 || t > w.until) { w.mode = 'idle'; w.until = t + 3 + Math.random() * 4; const a = me.play(me.has('wave1') && Math.random() < 0.25 ? 'wave1' : 'idle', 0.3); a?.reset(); }
+        else { this.move3(P, { x: dx / len, z: dz / len }, Math.min(len, dt * 1.05), 0.3); turnTo(Math.atan2(dx, dz), 8); me.play('walk', 0.3); const a = me.actions.walk; if (a) a.timeScale = Math.max(0.6, 1.05 / (me.speedOf.walk || 1)); }
       } else {
-        me.play('idle', 0.4);
-        if (this.ball) { const p = this.pals.find(x => x.id === this.ball!.who); if (p) turnTo(Math.atan2(p.p3.x - P.x, p.p3.z - P.z), 4); }
+        // off to look at something (only from the grass: up on what's built it stays put till you walk it)
+        if (t > w.until && P.y < 0.3 && !this.ball && !this.talking) {
+          const things = [...this.things.values()];
+          const pick = Math.random() < 0.4 && this.pals.length ? this.pals[Math.floor(Math.random() * this.pals.length)].m.root.position.clone().setY(0) : Math.random() < 0.6 && things.length ? this.centre(things[Math.floor(Math.random() * things.length)].pl) : null;
+          w.to.copy(this.randomSpot(pick, 0.8, 0.3)); w.mode = 'walk'; w.until = t + 10;
+        } else {
+          me.play('idle', 0.4);
+          const look = this.talking ?? this.ball?.who;
+          if (look) { const p = this.pals.find(x => x.id === look); if (p) turnTo(Math.atan2(p.p3.x - P.x, p.p3.z - P.z), 4); }
+        }
       }
+      this.meVy = fall(this.world, P, this.meVy, dt);
+      // its picture: steps up eased, falls as they come
+      this.meShow = P.y <= this.meShow ? P.y : this.meShow + (P.y - this.meShow) * Math.min(1, dt * 16);
     }
-    this.meVy = fall(this.world, P, this.meVy, dt);
-    // its picture: steps up eased, falls as they come
-    this.meShow = P.y <= this.meShow ? P.y : this.meShow + (P.y - this.meShow) * Math.min(1, dt * 16);
     me.root.position.set(P.x, this.meShow, P.z);
     // somewhere secret?
     const reach = (what: 'cave' | 'skyrock' | 'whale', yes: boolean) => { if (yes && !this.reached.has(what)) { this.reached.add(what); this.onReach?.(what); } };
@@ -1370,14 +1446,345 @@ export class IslandScene implements Controller {
     reach('skyrock', onRock(this.rocks.sky, P.x, P.y, P.z));
     reach('whale', P.y >= WHALE_Y);
     me.update(dt);
+    this.squashTick(me, dt);
   }
   private stuck = 0;
   /** Let a secret place tell again (it was found, or the moment is over). */
   unreach(what: 'cave' | 'skyrock' | 'whale') { this.reached.delete(what); }
 
+  // ---------- jumping, the swing, climbing, going into a house, talking ----------
+  /** Is the buddy busy with one of these (on the swing, up a tree, in a house)? */
+  get busy(): 'swing' | 'tree' | 'inside' | null { return this.doing?.kind ?? null; }
+  /** Jump (Space or the jump button). On the swing or up a tree it gets off instead. */
+  jump(): boolean {
+    const me = this.me, d = this.doing, P = this.meP;
+    if (!me) return false;
+    if (d?.kind === 'swing' || (d?.kind === 'tree' && d.phase === 'top')) { this.getOff(); return true; }
+    if (d?.kind === 'tree' || this.air) return false;
+    if (d?.kind === 'inside') { if (d.p.y > 0.01) return false; this.air = { vy: JUMP_V * 0.8 }; }
+    else {
+      if (this.meVy > 0.5 || floorAt(this.world, P.x, P.z, P.y + 0.02, 0.05) === null) return false;
+      this.meShow = P.y; this.air = { vy: JUMP_V };
+      if (this.walk.mode !== 'drive') { this.walk.mode = 'drive'; this.walk.lastDrive = this.now; }
+    }
+    const a = me.play(me.has('jump') ? 'jump' : 'idle', 0.08, 1.35); a?.reset();
+    const feet = me.root.position.clone();
+    this.fx.emit({ at: feet.setY(feet.y + 0.05), count: 8, shape: 'dot', color: [0xffffff, 0xf4ead8], speed: [0.4, 1.0], up: 0.2, life: [0.25, 0.4], size: [0.05, 0.1], drag: 3 });
+    sfx.boink(); this.busyT = 1.2;
+    return true;
+  }
+  /** down on its feet after a jump: a squash and a puff */
+  private landed() {
+    const me = this.me; this.air = null; this.meVy = 0; this.squashT = 0;
+    if (!me) return;
+    const at = me.root.position.clone(); at.y = (this.doing?.kind === 'inside' ? at.y : this.meP.y) + 0.04;
+    this.fx.emit({ at, count: 14, shape: 'dot', color: [0xffffff, 0xf4ead8, 0xe8dcc4], speed: [0.7, 1.6], up: 0.25, life: [0.3, 0.55], size: [0.06, 0.13], drag: 3 });
+    sfx.plop(0, 2);
+    if (!this.drive.x && !this.drive.z) me.play('idle', 0.15);
+  }
+  /** the body squashes as it lands and stretches a little going up (the buddy's own size otherwise) */
+  private squashTick(me: Character, dt: number) {
+    let sy = 1, sxz = 1;
+    if (this.squashT >= 0) { this.squashT += dt; const k = this.squashT / 0.24; if (k >= 1) this.squashT = -1; else { const q = Math.sin(k * Math.PI) * 0.2; sy = 1 - q; sxz = 1 + q * 0.5; } }
+    else if (this.air && this.air.vy > 0) { const q = Math.min(1, this.air.vy / JUMP_V) * 0.1; sy = 1 + q; sxz = 1 - q * 0.5; }
+    me.root.scale.set(this.meScale.x * sxz, this.meScale.y * sy, this.meScale.z * sxz);
+  }
+  /** a move through the air: round the island's things low down, and only where a block isn't at body
+   *  height (so a jump clears a block it's higher than), never out over the edge */
+  private airMove(P: P3, dir: { x: number; z: number }, dist: number) {
+    let dx = dir.x * dist, dz = dir.z * dist;
+    if (P.y < 0.3) { const q = { x: P.x, z: P.z }; step(q, dir, dist, this.solids, this.boxes, 0.3, Infinity); dx = q.x - P.x; dz = q.z - P.z; }
+    const n = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.08)), sx = dx / n, sz = dz / n;
+    const free = (x: number, z: number) => {
+      if (!spansAt(this.world, x, z).length) return false;
+      for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; if (wallAt(this.world, x + Math.cos(a) * 0.15, z + Math.sin(a) * 0.15, P.y, 0.02, CLEAR)) return false; }
+      return true;
+    };
+    for (let i = 0; i < n; i++) {
+      if (free(P.x + sx, P.z + sz)) { P.x += sx; P.z += sz; }
+      else if (free(P.x + sx, P.z)) P.x += sx;
+      else if (free(P.x, P.z + sz)) P.z += sz;
+      else break;
+    }
+  }
+  /** a house's front door, on the grass in front of it */
+  private doorOf(th: Thing): THREE.Vector3 {
+    const it = ITEM[th.pl.item], c = this.centre(th.pl), a = -th.pl.rot * Math.PI / 2, zf = it.d * CELL / 2 + 0.3;
+    return c.add(new THREE.Vector3(Math.sin(a) * zf, 0, Math.cos(a) * zf));
+  }
+  /** walking right into a house's door (the house's uid) */
+  private doorAhead(dir: { x: number; z: number }): string | null {
+    const P = this.meP;
+    if (P.y > 0.3) return null;
+    for (const th of this.things.values()) {
+      if (!HOMES.has(th.pl.item)) continue;
+      const dp = this.doorOf(th), c = this.centre(th.pl), to = new THREE.Vector3(c.x - dp.x, 0, c.z - dp.z).normalize();
+      if (Math.hypot(dp.x - P.x, dp.z - P.z) < 0.5 && dir.x * to.x + dir.z * to.z > 0.6) return th.uid;
+    }
+    return null;
+  }
+  private trunkOf(item: string) { return item === 'lookout' ? 0.86 : (ITEM[item]?.trunk ?? 0.35) * CELL; }
+  /** a block just in front that's too tall to step on but low enough to jump on */
+  private blockAhead(): boolean {
+    const me = this.me, P = this.meP;
+    if (!me) return false;
+    const a = me.root.rotation.y, x = P.x + Math.sin(a) * 0.38, z = P.z + Math.cos(a) * 0.38;
+    if (!wallAt(this.world, x, z, P.y, BUDDY_STEP, CLEAR)) return false;
+    const top = floorAt(this.world, x, z, P.y + JUMP_UP - 0.05, 0);
+    return top !== null && top > P.y + BUDDY_STEP;
+  }
+  /** What the buddy can do where it is now, with its word for the hint ("Talk", "Swing", "Go in"...). */
+  near(): (Near & { label: string }) | null {
+    const d = this.doing, P = this.meP;
+    if (!this.me) return null;
+    if (d?.kind === 'swing') return { kind: 'off', label: 'Get off' };
+    if (d?.kind === 'tree') return d.phase === 'top' ? { kind: 'off', label: 'Hop down' } : null;
+    if (d?.kind === 'inside') {
+      const r = this.room;
+      if (!r) return null;
+      if (r.note.visible && Math.hypot(d.p.x - r.noteSpot.x, d.p.z - r.noteSpot.z) < 0.85) return { kind: 'note', label: 'Read the note' };
+      if (Math.hypot(d.p.x - r.exit.x, d.p.z - r.exit.z) < 0.8) return { kind: 'off', label: 'Go outside' };
+      return null;
+    }
+    if (this.air) return null;
+    let best: (Near & { label: string }) | null = null, bd = Infinity;
+    const consider = (n: Near & { label: string }, dist: number, max: number) => { if (dist < max && dist < bd) { bd = dist; best = n; } };
+    for (const p of this.pals) if (!p.hop && Math.abs(p.p3.y - P.y) < 0.7) consider({ kind: 'talk', id: p.id, label: 'Talk' }, Math.hypot(p.p3.x - P.x, p.p3.z - P.z), 1.35);
+    if (P.y < 0.3) for (const th of this.things.values()) {
+      const item = th.pl.item, c = this.centre(th.pl);
+      if (item === 'swing') consider({ kind: 'swing', uid: th.uid, label: 'Swing' }, Math.hypot(c.x - P.x, c.z - P.z) - 0.35, 1.2);
+      else if (HOMES.has(item)) { const dp = this.doorOf(th); consider({ kind: 'house', uid: th.uid, label: 'Go in' }, Math.hypot(dp.x - P.x, dp.z - P.z), 0.95); }
+      else if (CLIMB.has(item)) consider({ kind: 'tree', uid: th.uid, label: 'Climb' }, Math.hypot(c.x - P.x, c.z - P.z) - this.trunkOf(item), 1.0);
+    }
+    if (best) return best;
+    return this.blockAhead() ? { kind: 'jump', label: 'Jump' } : null;
+  }
+  /** Do what's close (the E key, the action button). Talking and the note are the screen's to show. */
+  act(): (Near & { label: string }) | null {
+    const n = this.near();
+    if (!n) return null;
+    if (n.kind === 'talk') this.talkTo(n.id);
+    else if (n.kind === 'swing') this.sitOnSwing(n.uid);
+    else if (n.kind === 'tree') this.climb(n.uid);
+    else if (n.kind === 'house') void this.goIn(n.uid);
+    else if (n.kind === 'off') this.getOff();
+    else if (n.kind === 'note') this.readNote();
+    else if (n.kind === 'jump') this.jump();
+    return n;
+  }
+  /** Talk to a Glimmer: it stops and looks at the buddy (and the buddy at it) until the talk is over. */
+  talkTo(id: GlimmerId) {
+    const p = this.pals.find(x => x.id === id);
+    if (!p) return;
+    this.poke(id);
+    this.talking = id;
+    if (!p.spot && !p.hop && p.mood !== 'fetch' && p.mood !== 'bring') { p.mood = 'idle'; p.until = this.now + 60; p.to = null; }
+    if (this.me) p.m.face = this.me.root.position.clone().setY(p.p3.y);
+    if (this.walk.mode !== 'drive') { this.walk.mode = 'drive'; this.walk.lastDrive = this.now; }
+  }
+  endTalk() { const p = this.pals.find(x => x.id === this.talking); if (p && p.mood === 'idle' && !p.spot) p.until = this.now + 1.5; this.talking = null; }
+  /** what a Glimmer is doing now (for what it says) */
+  moodOf(id: GlimmerId): Mood | null { return this.pals.find(x => x.id === id)?.mood ?? null; }
+  private sitOnSwing(uid: string) {
+    const me = this.me;
+    if (!me || !this.things.get(uid)) return;
+    this.doing = { kind: 'swing', uid, t0: this.now };
+    this.path = []; this.goto = null; this.air = null; this.endTalk();
+    me.play(me.has('sit') ? 'sit' : 'idle', 0.25);
+    sfx.pop(); this.busyT = 1;
+  }
+  private climb(uid: string) {
+    const th = this.things.get(uid), me = this.me;
+    if (!th || !me) return;
+    const c = this.centre(th.pl), P = this.meP;
+    const side = new THREE.Vector3(P.x - c.x, 0, P.z - c.z);
+    if (side.lengthSq() < 1e-4) side.set(0, 0, 1);
+    // (the lookout is climbed by its ladder, at the front)
+    if (th.pl.item === 'lookout') { const a = -th.pl.rot * Math.PI / 2; side.set(Math.sin(a), 0, Math.cos(a)); }
+    side.normalize();
+    const box = new THREE.Box3().setFromObject(th.obj);
+    // the lookout's floor; a tree's top (where you can see out over the island)
+    const stand = th.pl.item === 'lookout' ? 2.4 : Math.max(1.2, box.max.y - 0.12);
+    this.doing = { kind: 'tree', uid, t0: this.now, phase: 'up', c, side, r: this.trunkOf(th.pl.item), climbTop: Math.max(0.8, Math.min(stand - 0.5, stand * 0.62)), stand, from: new THREE.Vector3(), to: new THREE.Vector3(), pt0: 0 };
+    this.path = []; this.goto = null; this.air = null; this.endTalk();
+    me.root.scale.copy(this.meScale);
+    sfx.click(); this.busyT = 1;
+  }
+  /** In through the door: the cosy room (built the first time), the camera with it. */
+  async goIn(uid: string) {
+    const th = this.things.get(uid), me = this.me;
+    if (!th || !me || this.roomBusy || this.doing) return;
+    if (!this.room) {
+      this.roomBusy = true;
+      try { this.room = await HouseRoom.build(ROOM_AT, this.keep); this.root.add(this.room.root); } finally { this.roomBusy = false; }
+      if (this.doing || !this.things.get(uid)) return;
+    }
+    const r = this.room;
+    r.look(th.pl.item);
+    r.note.visible = !this.notesRead.has(uid);
+    const c = this.cam;
+    this.camWas = { target: c.target.clone(), yaw: c.yaw, pitch: c.pitch, dist: c.dist, framed: this.framed };
+    this.framed = false; this.camReady = false;
+    this.path = []; this.goto = null; this.air = null; this.endTalk();
+    this.doing = { kind: 'inside', uid, item: th.pl.item, p: { x: r.exit.x - 0.3, y: 0, z: r.exit.z }, door: this.doorOf(th), out: 0 };
+    me.root.rotation.set(0, -Math.PI / 2, 0);
+    sfx.whoosh(); this.busyT = 1;
+    this.onInside?.(th.pl.item);
+  }
+  /** Off the swing, down from the tree, out of the house. */
+  getOff() {
+    const d = this.doing, me = this.me, P = this.meP;
+    if (!d || !me) return;
+    if (d.kind === 'swing') {
+      const th = this.things.get(d.uid);
+      this.doing = null;
+      me.root.quaternion.identity();
+      if (th) {
+        const a = -th.pl.rot * Math.PI / 2, c = this.centre(th.pl);
+        const out = this.freeSpot(c.clone().add(new THREE.Vector3(Math.sin(a), 0, Math.cos(a))), 0.3);
+        P.x = out.x; P.z = out.z; P.y = floorAt(this.world, out.x, out.z, 0.3, BUDDY_STEP) ?? 0;
+        me.root.rotation.set(0, a, 0);
+      }
+      this.meShow = P.y; this.air = { vy: JUMP_V * 0.45 };
+      this.walk.mode = 'drive'; this.walk.lastDrive = this.now;
+      me.play('idle', 0.2); sfx.pop();
+    } else if (d.kind === 'tree') {
+      if (d.phase !== 'top') return;
+      const g = this.freeSpot(d.c.clone().addScaledVector(d.side, d.r + 0.9), 0.3);
+      d.from = me.root.position.clone(); d.to = new THREE.Vector3(g.x, floorAt(this.world, g.x, g.z, 0.3, BUDDY_STEP) ?? 0, g.z);
+      d.phase = 'down'; d.pt0 = this.now;
+      me.root.rotation.y = Math.atan2(d.to.x - d.from.x, d.to.z - d.from.z);
+      const a = me.play(me.has('jump') ? 'jump' : 'idle', 0.1, 1.3); a?.reset();
+      sfx.boink();
+    } else {
+      // out of the door, back on the island, the camera as it was
+      this.doing = null; this.air = null;
+      P.x = d.door.x; P.z = d.door.z; P.y = 0; standUp(this.world, P); this.meShow = P.y;
+      const th = this.things.get(d.uid);
+      me.root.rotation.set(0, th ? -th.pl.rot * Math.PI / 2 : 0, 0);
+      me.root.position.set(P.x, P.y, P.z);
+      const w = this.camWas;
+      if (w) { this.cam.target.copy(w.target); this.cam.yaw = w.yaw; this.cam.pitch = w.pitch; this.cam.dist = w.dist; this.framed = w.framed; }
+      this.camWas = null; this.camReady = false;
+      this.walk.mode = 'drive'; this.walk.lastDrive = this.now;
+      me.play('idle', 0.2); sfx.whoosh();
+      this.onInside?.(null);
+    }
+    this.busyT = 1;
+  }
+  /** The note on the bed: picked up (the screen shows what it says). */
+  readNote() {
+    const d = this.doing;
+    if (d?.kind !== 'inside' || !this.room?.note.visible) return;
+    this.room.note.visible = false; this.notesRead.add(d.uid);
+    this.fx.emit({ at: this.room.note.getWorldPosition(new THREE.Vector3()), count: 16, shape: ['heart', 'star'], color: [0xff8fc0, 0xffd34d, 0xffffff], speed: [0.5, 1.4], up: 1, life: [0.5, 0.9], size: [0.06, 0.12], drag: 1.5 });
+    sfx.twinkle();
+  }
+  /** the swing, a tree, the house: each frame */
+  private doingTick(me: Character, dt: number, t: number, turnTo: (a: number, k: number) => void) {
+    const d = this.doing!;
+    if (d.kind === 'swing') {
+      const th = this.things.get(d.uid), seat = th?.obj.getObjectByName('seat');
+      if (!th || !seat) { this.doing = null; me.root.quaternion.identity(); return; }
+      if (this.drive.x || this.drive.z) { this.getOff(); return; }
+      // swinging higher and higher, then back and forth
+      const k = Math.min(1, (t - d.t0) / 1.6);
+      seat.rotation.x = Math.sin((t - d.t0) * 2.2) * 0.62 * k;
+      th.obj.updateMatrixWorld(true);
+      const top = seat.localToWorld(new THREE.Vector3(0, -1.42 + 0.03, 0));
+      me.root.quaternion.copy(seat.getWorldQuaternion(new THREE.Quaternion()));
+      me.root.position.copy(top);
+      me.play(me.has('sit') ? 'sit' : 'idle', 0.25);
+      me.update(dt);
+      me.uprightSpine(0.5);
+      // hips on the seat
+      const hips = me.bones.Hips;
+      if (hips) {
+        me.root.updateMatrixWorld(true);
+        const hp = hips.getWorldPosition(new THREE.Vector3()), up = new THREE.Vector3(0, 1, 0).applyQuaternion(me.root.quaternion);
+        me.root.position.add(top.clone().addScaledVector(up, 0.12).sub(hp));
+        me.root.updateMatrixWorld(true);
+      }
+      // a whoosh at the top of each swing forward
+      const ph = ((t - d.t0) * 2.2) % (Math.PI * 2);
+      if (k >= 1 && ph > 1.5 && ph < 1.5 + dt * 2.2) sfx.whoosh();
+      return;
+    }
+    if (d.kind === 'tree') {
+      if (d.phase === 'up') {
+        const y = Math.min(d.climbTop, (t - d.t0) * 1.1);
+        const at = d.c.clone().addScaledVector(d.side, d.r + 0.17).setY(y);
+        me.root.position.copy(at); me.root.rotation.set(0, Math.atan2(-d.side.x, -d.side.z), 0);
+        me.play(me.has('climb') ? 'climb' : 'walk', 0.2);
+        if (y >= d.climbTop) {
+          d.phase = 'over'; d.from = at.clone(); d.to = d.c.clone().setY(d.stand); d.pt0 = t;
+          const a = me.play(me.has('jump') ? 'jump' : 'idle', 0.1, 1.2); a?.reset(); sfx.boink();
+        }
+      } else if (d.phase === 'over' || d.phase === 'down') {
+        const dur = d.phase === 'over' ? 0.6 : 0.75, k = Math.min(1, (t - d.pt0) / dur);
+        const at = d.from.clone().lerp(d.to, k); at.y += Math.sin(k * Math.PI) * (d.phase === 'over' ? 0.45 : 0.6);
+        me.root.position.copy(at);
+        if (k >= 1) {
+          if (d.phase === 'over') {
+            d.phase = 'top'; me.play('idle', 0.2); sfx.twinkle();
+            this.fx.emit({ at: d.to.clone().setY(d.to.y + 0.9), count: 20, shape: ['star', 'dot'], color: [0xffffff, 0xfff2a8, 0xb8ffcf], speed: [0.6, 1.8], up: 1, life: [0.5, 0.9], size: [0.07, 0.14], drag: 1.6 });
+          } else {
+            const P = this.meP; P.x = d.to.x; P.y = d.to.y; P.z = d.to.z; this.meShow = P.y;
+            this.doing = null; this.walk.mode = 'drive'; this.walk.lastDrive = t; this.landed();
+          }
+        }
+      } else {
+        // up top: look out over the island (and back at you)
+        me.root.position.copy(d.to);
+        turnTo(Math.atan2(this.camPos.x - d.to.x, this.camPos.z - d.to.z), 3);
+        me.play('idle', 0.3);
+        if (this.drive.x || this.drive.z) this.getOff();
+      }
+      me.update(dt);
+      return;
+    }
+    // in the house: walk round the room; out through the door
+    const r = this.room;
+    if (!r) { this.doing = null; return; }
+    const sd = this.steerDir(t);
+    if (sd) {
+      const q = { x: d.p.x, z: d.p.z };
+      step(q, sd, sd.speed * 0.7 * dt, [], r.boxes, 0.26, Infinity);
+      d.p.x = Math.max(-ROOM_W + 0.3, Math.min(ROOM_W - 0.28, q.x)); d.p.z = Math.max(-ROOM_D + 0.3, Math.min(ROOM_D + 0.45, q.z));
+      turnTo(Math.atan2(sd.x, sd.z), 12);
+      if (!this.air) me.play('walk', 0.2);
+      if (d.p.x > ROOM_W - 0.36 && Math.abs(d.p.z - r.exit.z) < 0.42 && sd.x > 0.5) { d.out += dt; if (d.out > 0.15) { this.getOff(); return; } } else d.out = 0;
+    } else if (!this.air) me.play('idle', 0.3);
+    if (this.air) {
+      this.air.vy -= GRAV * dt; d.p.y += this.air.vy * dt;
+      if (d.p.y + 1.3 > ROOM_H && this.air.vy > 0) this.air.vy = 0;
+      if (d.p.y <= 0) { d.p.y = 0; this.landed(); }
+    }
+    me.root.position.copy(r.world(new THREE.Vector3(d.p.x, d.p.y, d.p.z)));
+    r.update(t);
+    me.update(dt);
+  }
+  /** the camera in the house: the room fills the space for it, following the buddy across when it's wider */
+  private roomCam() {
+    const r = this.room, d = this.doing;
+    if (!r || d?.kind !== 'inside') return;
+    const c = this.cam, cam = stage.camera, v = this.view, tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+    const bandH = Math.max(0.2, v.bottom - v.top), bandW = Math.max(0.2, v.right - v.left);
+    c.yaw = 0; c.pitch = 0.2;
+    const halfW = ROOM_W + 0.12, halfH = ROOM_H * 0.5 + 0.1;
+    const wFit = halfW / (tanH * cam.aspect * bandW), hFit = halfH / (tanH * bandH);
+    // (a tall phone screen sees more of the room's height, so the buddy isn't right in your face)
+    c.dist = Math.max(2.4, Math.min(wFit, hFit * 1.45));
+    const seeW = c.dist * tanH * cam.aspect * bandW, lim = Math.max(0, halfW - seeW);
+    c.target.copy(r.at).add(new THREE.Vector3(Math.max(-lim, Math.min(lim, d.p.x)), ROOM_H * 0.46, 0.2));
+  }
+
   private camera(dt: number, _t: number) {
     const c = this.cam, cam = stage.camera;
-    if (this.walk.mode === 'drive' && this.me && (this.drive.x || this.drive.z || this.goto) && !this.framed) c.target.lerp(this.me.root.position.clone().setY(this.meShow + 0.55), 1 - Math.exp(-dt * 3));
+    if (this.doing?.kind === 'inside') this.roomCam();
+    // up a tree or the lookout, on the swing: the camera (when it's yours, not the whole island) keeps the buddy in view
+    else if ((this.doing || this.air) && this.me && !this.framed) c.target.lerp(this.me.root.position.clone().add(new THREE.Vector3(0, 0.6, 0)), 1 - Math.exp(-dt * 2.5));
+    else if (this.walk.mode === 'drive' && this.me && (this.drive.x || this.drive.z || this.goto) && !this.framed) c.target.lerp(this.me.root.position.clone().setY(this.meShow + 0.55), 1 - Math.exp(-dt * 3));
     if (this.framed) { this.frame(); c.yaw = Math.sin(_t * 0.07) * 0.14; }
     const pos = c.target.clone().add(new THREE.Vector3(Math.sin(c.yaw) * Math.cos(c.pitch), Math.sin(c.pitch), Math.cos(c.yaw) * Math.cos(c.pitch)).multiplyScalar(c.dist));
     // the view band isn't the middle of the screen (the bars cover some): shift so the island sits in it

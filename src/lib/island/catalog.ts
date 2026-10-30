@@ -105,6 +105,10 @@ export const ITEMS: ItemDef[] = [
   { id: 'k-butterflies', name: 'Butterfly Bush', price: 0, kind: 'gift', gift: true, keepsake: true, w: 1, d: 1, invites: { leaf: 1 }, blurb: 'The golden butterfly comes back here.' },
 ];
 export const ITEM: Record<string, ItemDef> = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+/** the homes a buddy can go into (a cosy room inside: three/islandRoom.ts), and the things it can climb
+ *  (the trees, the treehouse, the lookout tower): My Sky Island's E key (three/islandScene.ts) */
+export const HOMES = new Set(['cottage', 'burrow', 'mushhouse', 'tent']);
+export const CLIMB = new Set(['oak', 'puffy', 'roundtree', 'pine', 'palm', 'umbrella', 'treehouse', 'lookout']);
 /** the habitat of each element */
 export const HABITAT_OF: Record<Element, string> = { sun: 'sundais', frost: 'icepool', tide: 'tidepond', stone: 'stonecave', leaf: 'leafgrove' };
 /** the gift a visitor of each element leaves */

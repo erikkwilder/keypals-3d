@@ -537,8 +537,9 @@ export class PropKit {
     S.add(this.mesh(new THREE.TorusGeometry(0.08, 0.012, 4, 12, Math.PI), this.std('eye', { color: 0x3a2416 }), 0, 1.97, 0.26).rotateZ(Math.PI));
   }
   private lookout(g: THREE.Group) {
-    const P = 0.7, TOP = 2.35;
-    for (const x of [-P, P]) for (const z of [-P, P]) g.add(this.mesh(tiledBox(0.14, 3.15, 0.14, 1.2), this.post, x, 1.575, z));
+    // (the roof stands high enough over the floor for a buddy who climbs up: RAISE)
+    const P = 0.7, TOP = 2.35, RAISE = 0.55;
+    for (const x of [-P, P]) for (const z of [-P, P]) g.add(this.mesh(tiledBox(0.14, 3.15 + RAISE, 0.14, 1.2), this.post, x, (3.15 + RAISE) / 2, z));
     // cross braces on three sides
     const L = Math.hypot(2 * P, TOP - 0.3);
     for (const [x, z, ry] of [[0, -P, 0], [-P, 0, Math.PI / 2], [P, 0, Math.PI / 2]] as [number, number, number][]) for (const s of [-1, 1]) {
@@ -547,9 +548,9 @@ export class PropKit {
     g.add(this.mesh(tiledBox(1.75, 0.1, 1.75, 1), this.planks, 0, TOP, 0));
     for (const [x, z, w, d] of [[0, -0.86, 1.75, 0.05], [0, 0.86, 1.75, 0.05], [-0.86, 0, 0.05, 1.75], [0.86, 0, 0.05, 1.75]]) g.add(this.mesh(tiledBox(w, 0.06, d, 1), this.darkWood, x, TOP + 0.45, z));
     for (const x of [-0.4, 0, 0.4]) for (const z of [-0.86, 0.86]) g.add(this.mesh(tiledBox(0.05, 0.45, 0.05, 1), this.darkWood, x, TOP + 0.24, z));
-    const roof = this.mesh(new THREE.ConeGeometry(1.42, 0.95, 4), this.std('lookRoof', { map: this.tex.redroof, roughness: 0.6 }), 0, 3.55, 0); roof.rotation.y = Math.PI / 4; g.add(roof);
-    g.add(this.mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.5, 4), this.iron, 0, 4.2, 0));
-    g.add(this.mesh(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(0.32, 0.08), new THREE.Vector2(0, 0.17)])), this.std('flag', { color: 0xffc93d, side: THREE.DoubleSide }), 0.01, 4.27, 0));
+    const roof = this.mesh(new THREE.ConeGeometry(1.42, 0.95, 4), this.std('lookRoof', { map: this.tex.redroof, roughness: 0.6 }), 0, 3.55 + RAISE, 0); roof.rotation.y = Math.PI / 4; g.add(roof);
+    g.add(this.mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.5, 4), this.iron, 0, 4.2 + RAISE, 0));
+    g.add(this.mesh(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(0.32, 0.08), new THREE.Vector2(0, 0.17)])), this.std('flag', { color: 0xffc93d, side: THREE.DoubleSide }), 0.01, 4.27 + RAISE, 0));
     // the ladder up the front
     const lad = new THREE.Group(); lad.position.set(0, 0, P + 0.32); lad.rotation.x = -0.14; g.add(lad);
     for (const x of [-0.22, 0.22]) lad.add(this.mesh(tiledBox(0.06, TOP + 0.4, 0.06, 1), this.post, x, (TOP + 0.4) / 2, 0));
