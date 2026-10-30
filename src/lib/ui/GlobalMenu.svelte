@@ -32,6 +32,7 @@
   import SaveChip from './SaveChip.svelte';
   import { cloud, goSaveOnline } from '../state/cloud.svelte';
   import CloseButton from './CloseButton.svelte';
+  import { classTiles } from '../teach/menu';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -149,6 +150,12 @@
       <section class="grp play">
         <h3>Play anywhere</h3>
         <div class="tiles">
+          {#each classTiles(p) as t (t.id)}<!-- classes: Class work and the Boards -->
+            <button class="tile" onclick={() => { sfx.click(); game.closeMenu(); t.go(); }}>
+              <span class="pic"><img src="{base}{t.img ?? 'icons/book.webp'}" alt="" /></span>
+              <span class="txt"><b>{t.name}</b><small>{t.line}</small></span>
+            </button>
+          {/each}
           {#each anywhere as x (x.id)}
             <button class="tile" class:here={game.screen === x.id} onclick={() => goAny(x.id)}>
               <span class="pic"><img src="{base}{x.icon}" alt="" /></span>

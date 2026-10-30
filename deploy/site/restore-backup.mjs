@@ -39,17 +39,24 @@ const manifest = JSON.parse(get(`${prefix}manifest.json`).toString());
 console.log(`Backup from ${new Date(manifest.at).toISOString()}: ${Object.entries(manifest.counts).map(([t, n]) => `${n} ${t}`).join(', ')} in ${manifest.files.length} file(s).`);
 
 // 2. read every file
-const rows = { players: [], accounts: [] };
+const rows = { players: [], accounts: [] }; // and the classes' tables (classes.js CLASS_TABLES), when the backup has them
 for (const f of manifest.files) {
   const table = f.split('/').pop().split('-')[0];
-  rows[table].push(...JSON.parse(gunzipSync(get(f)).toString()));
+  (rows[table] ??= []).push(...JSON.parse(gunzipSync(get(f)).toString()));
 }
-for (const [t, n] of Object.entries(manifest.counts)) if (rows[t].length !== n) throw new Error(`${t}: the manifest says ${n} rows, the files hold ${rows[t].length}`);
+for (const [t, n] of Object.entries(manifest.counts)) if ((rows[t] ??= []).length !== n) throw new Error(`${t}: the manifest says ${n} rows, the files hold ${rows[t].length}`);
 if (!WRITE) { console.log(`Read ${rows.players.length} players and ${rows.accounts.length} accounts. Nothing written (add --yes to restore into "${DB}"${LOCAL ? ' (local)' : ''}).`); process.exit(0); }
 
 // 3. write them back (accounts first, so players can point at them)
-const COLS = { accounts: ['id', 'provider', 'sub', 'email', 'name', 'created', 'seen'], players: ['code', 'data', 'updated', 'created', 'opened', 'account'] };
-const ordered = [['accounts', rows.accounts], ['players', rows.players]];
+const COLS = {
+  accounts: ['id', 'provider', 'sub', 'email', 'name', 'created', 'seen'], players: ['code', 'data', 'updated', 'created', 'opened', 'account'],
+  // classes (schema-classes.sql)
+  teachers: ['account', 'display', 'agreed', 'created'], classes: ['id', 'teacher', 'name', 'grade', 'code', 'board', 'goal', 'archived', 'created'],
+  students: ['id', 'class', 'name', 'player', 'pics', 'home', 'status', 'claims', 'buddy', 'created'], assignments: ['id', 'class', 'data', 'created', 'due', 'archived'],
+  player_week: ['id', 'player', 'week', 'correct', 'ms', 'stars', 'name', 'buddy', 'updated'], challenges: ['id', 'code', 'week', 'created', 'owner'],
+  challenge_classes: ['id', 'challenge', 'class', 'joined'],
+};
+const ordered = Object.keys(COLS).filter(t => rows[t]?.length).map(t => [t, rows[t]]);
 // one SQL file; a big saved player goes in as pieces (no statement may be longer than about 100 KB)
 const q = (v) => (v === null || v === undefined ? 'NULL' : typeof v === 'number' ? String(v) : `'${String(v).replaceAll("'", "''")}'`);
 const PIECE = 60000;
@@ -68,4 +75,4 @@ const dir = mkdtempSync(join(tmpdir(), 'kp-restore-')), file = join(dir, 'restor
 writeFileSync(file, lines.join('\n'));
 try { wrangler(['d1', 'execute', DB, ...where(LOCAL), '--file', file, ...(LOCAL ? [] : ['--yes'])], { stdio: ['ignore', 'ignore', 'inherit'] }); }
 finally { rmSync(dir, { recursive: true }); }
-console.log(`Restored ${rows.accounts.length} accounts and ${rows.players.length} players into "${DB}"${LOCAL ? ' (local)' : ''}.`);
+console.log(`Restored ${rows.accounts.length} accounts, ${rows.players.length} players and ${(rows.classes ?? []).length} classes into "${DB}"${LOCAL ? ' (local)' : ''}.`);

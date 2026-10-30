@@ -28,6 +28,7 @@
   import TopBar from '../ui/TopBar.svelte';
   import Critter from '../ui/Critter.svelte';
   import Icon from '../ui/Icon.svelte';
+  import ClassWorkCard from '../ui/ClassWorkCard.svelte';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -111,6 +112,8 @@
         <button class="btn ghost" onclick={() => { sfx.click(); staySignedOut(); }}>Stay signed out</button>
       </div>
     {/if}
+
+    <ClassWorkCard compact={sw < 600} /><!-- classes: class work for a player in a class -->
 
     <!-- the subjects: each with the same four ways to play, and the next thing to do -->
     <h2 class="rowh">Subjects</h2>

@@ -20,6 +20,9 @@ cp -R "$V1/dist/." "$HERE/public/keypals1/"
 cd "$HERE"
 export CLOUDFLARE_ACCOUNT_ID=2f5232a84d058ef9f332c077eef372d8 CLOUDFLARE_EMAIL=erikkwilder@gmail.com
 export CLOUDFLARE_API_KEY="$(cat ~/.cloudflare/global-api-key)"
+# the database's tables (every statement is "if not exists": safe to run each time), the classes' own after
+npx wrangler d1 execute keypals --remote --file=schema.sql -y
+npx wrangler d1 execute keypals --remote --file=schema-classes.sql -y
 npx wrangler deploy                          # fancyant.com/keypals (+ /keypals1), the tidy-up and backups
 npx wrangler deploy -c wrangler-org.toml     # keypals.org
 npx wrangler deploy -c wrangler-www.toml     # www.keypals.org -> keypals.org

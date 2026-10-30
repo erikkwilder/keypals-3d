@@ -50,6 +50,10 @@
     const p = game.profile, s = game.screen;
     if (p && s !== 'title' && s !== 'players' && s !== 'newPlayer') untrack(() => countPlayer(p));
   });
+  import Teach from './lib/screens/Teach.svelte';
+  import ClassLogin from './lib/screens/ClassLogin.svelte';
+  import Boards from './lib/screens/Boards.svelte';
+  import { startClasses } from './lib/teach/student.svelte';
   import { stage } from './lib/three/stage';
   import QuickSettings from './lib/ui/QuickSettings.svelte';
   import FunLayer from './lib/fun/FunLayer.svelte';
@@ -96,6 +100,7 @@
     installProblemReports();
     devBoot();
     startCloud();
+    startClasses();
     const unlock = () => unlockAudio();
     window.addEventListener('pointerdown', unlock, { once: true });
   });
@@ -137,6 +142,9 @@
   {:else if game.screen === 'arcade'}<Arcade />
   {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}
   {:else if game.screen === 'ideas'}<Ideas />
+  {:else if game.screen === 'teach'}<Teach />
+  {:else if game.screen === 'classLogin'}<ClassLogin />
+  {:else if game.screen === 'boards'}<Boards />
   {/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}

@@ -12,6 +12,7 @@
   import SaveCodeForm from '../ui/SaveCodeForm.svelte';
   import SafeReminder from '../ui/SafeReminder.svelte';
   import { cloud, goSaveOnline, catchUpSoon } from '../state/cloud.svelte';
+  import ClassEntry from '../ui/ClassEntry.svelte';
   import { onMount } from 'svelte';
   // players added or deleted on another computer show up here (at most once a minute)
   onMount(() => catchUpSoon());
@@ -49,6 +50,7 @@
   </div>
   <SafeReminder />
   <SaveCodeForm />
+  <ClassEntry /><!-- classes: "I'm in a class" and "For teachers" -->
   <div class="foot">
     <button class="btn btn-ghost" onclick={() => game.go('title')}>Back</button>
     <button class="btn btn-ghost" onclick={() => game.go('grownups')}>Grown-ups</button>
