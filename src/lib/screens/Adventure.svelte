@@ -6,7 +6,7 @@
   import CloseButton from '../ui/CloseButton.svelte';
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { sfx, setMusicStation } from '../audio/sound';
+  import { sfx, startMusic } from '../audio/sound';
   import { nextLesson } from '../engine/profile';
   import { mathOf, nextMathLesson } from '../math/progress';
   import { nextToLearn } from '../math/learn';
@@ -15,7 +15,7 @@
   import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, islandsOf, markSeen, nodesOf, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, worldOpen, type MapNode, type WorldId, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
   import { DuelScene } from '../three/duelScene';
-  import { WORLD_PIN, WORLD_PINS, lastWorld, mapOf, worldStation, type WorldPin } from '../adventure/worlds';
+  import { WORLD_PIN, WORLD_PINS, lastWorld, mapOf, type WorldPin } from '../adventure/worlds';
   import { nextSkillLesson } from '../math/skills/course';
     import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -115,7 +115,7 @@
     sfx.pop(); picker = false; open = null;
     if (id === world) return;
     world = id; lastWorld.id = id;
-    setMusicStation(worldStation(id, game.settings.musicStation ?? 'auto'));
+    startMusic('adventure', w.station);
     reach(id);
     if (id !== 'sky' && !a.seen?.includes(`world-${id}`)) { game.say(`Welcome to ${w.name}! ${w.blurb}`); game.update(pp => markSeen(pp, `world-${id}`)); }
   }
@@ -230,7 +230,7 @@
           {:else}
             <p>Do one practice: a math trip, a typing lesson or a playground game. Then come back here for a reward.</p>
             <p class="muted">Practice also makes your eggs grow{a.settings.rule === 'balanced' ? ' and earns more Adventure time' : ''}.{a.settings.rule === 'open' ? ' You can skip ahead for now: the reward waits here.' : ''}</p>
-            <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>{isl.area ? 'Fractions trip' : 'Math trip'}</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing lesson</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
+            <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>Math trip</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing lesson</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
             {#if learnTip}<button class="learnlink" onclick={() => game.openLearn(learnTip!.id, 'adventure')}><img src="{base}learn/tile.webp" alt="" /><span><small>A new trick to learn</small><b>{learnTip.title}</b></span><em>Learn it <Icon name="play" size={16} /></em></button>{/if}
           {/if}
         {:else}
@@ -260,7 +260,7 @@
             </div>
           {/if}
           <div class="teamline"><span>Your team</span>{#each team as t}<span class="tm"><img src="{base}game/glimmers/face/{t}{a.glimmers[t]?.evolved ? '-evo' : ''}.webp" alt="" />{GLIMMER[t].name}</span>{:else}<em>No Glimmers yet: win this battle for your first!</em>{/each}{#if met > 0}<button class="linky" onclick={() => game.go('glimmers')}>Change team</button>{/if}</div>
-          {#if isl.area}<p class="areanote">Every card here is a fraction. Watch out for the waterfall spray!</p>
+          {#if isl.area}<p class="areanote">{WORLD_PIN[isl.world]?.blurb ?? isl.blurb}{isl.mischief ? ` Watch out: ${isl.mischief.name.toLowerCase()}!` : ''}</p>
           {:else}<div class="subj"><span>Answer with</span>
             <button class:on={a.subject === 'math'} onclick={() => setSubject('math')}>Math</button>
             <button class:on={a.subject === 'typing'} onclick={() => setSubject('typing')}>Typing</button></div>{/if}

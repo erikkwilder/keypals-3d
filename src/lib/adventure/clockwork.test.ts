@@ -6,7 +6,7 @@ import { newProfile } from '../engine/profile';
 import { mathOf } from '../math/progress';
 import { SKILL, splitKey } from '../math/skills/registry';
 import { ISLAND, NODE, foeFor, islandsOf, mathPool, nodesOf, worldOpen } from './state';
-import { WORLD_PIN, worldStation } from './worlds';
+import { WORLD_PIN } from './worlds';
 import { SPOTS } from './mapSpots';
 import { GLIMMER, GLIMMERS } from './glimmers';
 import { CLOCKWORK_GLIMMERS } from './clockwork';
@@ -56,9 +56,9 @@ describe('Clockwork Isle', () => {
     for (const g of CLOCKWORK_GLIMMERS) { expect(g.pending).toBe(true); expect(ids.has(g.id), g.id).toBe(false); expect(g.power.text(1).length).toBeGreaterThan(10); }
   });
   it('plays the Storybook station (with its Magical Mysterious Clockwork) while the choice is Auto', () => {
-    expect(worldStation('clockwork', 'auto')).toBe('storybook');
-    expect(worldStation('clockwork', 'rock')).toBe('rock');
-    expect(worldStation('sky', 'auto')).toBe('auto');
+    // (Adventure hands the world's station to startMusic, which plays it only while the choice is Auto)
+    expect(WORLD_PIN.clockwork.station).toBe('storybook');
+    expect(WORLD_PIN.sky.station).toBeUndefined();
     expect(STATION.storybook.tracks.some(t => /clockwork/i.test(t.title))).toBe(true);
   });
 });

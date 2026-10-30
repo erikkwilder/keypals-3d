@@ -136,6 +136,51 @@ const MEASURE_REGIONS = [
     ["Builder's Yard Run", 'check', YARD_SKILLS, [], 5, 'swim', 'Every kind of question on this island. Already know them? Start here.'],
   ]),
 ];
+// Shapes and angles, K to 8, in Shape Peaks: Shape Meadow (naming flat and solid shapes, sides and corners,
+// equal parts, four-sided shapes), Angle Ridge (angles, lines and symmetry, the families of shapes), the
+// Builder's Terrace (area of triangles and polygons, boxes) and the Crystal Summit (angle facts, circles,
+// the Pythagorean theorem, slides, flips and turns).
+const MEADOW_SKILLS = ['sh-name', 'sh-sides', 'sh-parts', 'sh-quad'];
+const RIDGE_SKILLS = ['sh-angle', 'sh-lines', 'sh-family'];
+const TERRACE_SKILLS = ['sh-area', 'sh-volume'];
+const SUMMIT_SKILLS = ['sh-anglefacts', 'sh-circle', 'sh-pyth', 'sh-move'];
+const MEADOW: Omit<SkillRegion, 'lessons'> = { id: 'shapes-a', area: 'shapes', name: 'Shape Meadow', blurb: 'Circles, triangles, squares and cubes: their names, sides and corners, equal parts, and four-sided shapes.', world: 'village', chip: '△ ○ □', skills: MEADOW_SKILLS, art: 'regions/shapes-meadow.webp' };
+const RIDGE: Omit<SkillRegion, 'lessons'> = { id: 'shapes-b', area: 'shapes', name: 'Angle Ridge', blurb: 'Right, acute and obtuse angles, the protractor, parallel lines and folds, and the families of shapes.', world: 'ridge', chip: '90°', skills: RIDGE_SKILLS, art: 'regions/shapes-ridge.webp' };
+const TERRACE: Omit<SkillRegion, 'lessons'> = { id: 'shapes-c', area: 'shapes', name: "Builder's Terrace", blurb: 'The area of triangles and other shapes, and boxes: volume, nets and surface area.', world: 'treetops', chip: '½ b × h', skills: TERRACE_SKILLS, art: 'regions/shapes-terrace.webp' };
+const SUMMIT: Omit<SkillRegion, 'lessons'> = { id: 'shapes-d', area: 'shapes', name: 'Crystal Summit', blurb: 'Angle facts, circles, the Pythagorean theorem, and slides, flips and turns.', world: 'cliffs', chip: 'a² + b²', skills: SUMMIT_SKILLS, art: 'regions/shapes-summit.webp' };
+const SHAPE_REGIONS = [
+  region(MEADOW, [
+    ['Meet the Shapes', 'meet', ['sh-name'], ['sh-name'], 6, 'run', 'Circles, triangles, squares and rectangles: turn them round and they keep their names.'],
+    ['Sides and Corners', 'meet', ['sh-sides', 'sh-name'], ['sh-sides'], 6, 'climb', 'Touch each corner as you count. A shape has as many sides as corners.'],
+    ['Equal Parts', 'meet', ['sh-parts', 'sh-name'], ['sh-parts'], 5, 'swim', 'Halves, thirds and quarters: every part exactly the same size.'],
+    ['Four Sides', 'meet', ['sh-quad', 'sh-sides'], ['sh-quad'], 5, 'slide', 'Squares, rectangles, rhombuses and trapezoids. A square is a rectangle too!'],
+    ['Meadow Mix', 'mix', MEADOW_SKILLS, [], 5, 'run', 'Everything so far, all mixed up.'],
+    ['Shape Meadow Run', 'check', MEADOW_SKILLS, [], 6, 'climb', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(RIDGE, [
+    ['Angles', 'meet', ['sh-angle'], ['sh-angle'], 5, 'climb', 'A square corner is a right angle: 90°. Smaller is acute, bigger is obtuse.'],
+    ['Lines and Folds', 'meet', ['sh-lines', 'sh-angle'], ['sh-lines'], 5, 'swim', 'Parallel lines never meet. A fold where both halves match is a line of symmetry.'],
+    ['Shape Families', 'meet', ['sh-family', 'sh-quad'], ['sh-family'], 5, 'run', 'Every square is a rectangle and a rhombus. Triangles have families too.'],
+    ['Ridge Practice', 'practice', RIDGE_SKILLS, [], 5, 'slide', 'The new ones again: angles, lines and families.'],
+    ['Ridge Mix', 'mix', [...RIDGE_SKILLS, 'sh-quad'], [], 5, 'climb', 'This island and the last, all mixed up.'],
+    ['Angle Ridge Run', 'check', RIDGE_SKILLS, [], 5, 'run', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(TERRACE, [
+    ['Area of Triangles', 'meet', ['sh-area'], ['sh-area'], 4, 'run', 'A triangle is half of a rectangle: base × height ÷ 2.'],
+    ['Boxes and Nets', 'meet', ['sh-volume', 'sh-area'], ['sh-volume'], 4, 'climb', 'Count one layer of cubes, then times by the layers. Unfold a box to see every face.'],
+    ['Terrace Practice', 'practice', TERRACE_SKILLS, [], 4, 'swim', 'Areas and boxes again.'],
+    ['Terrace Mix', 'mix', [...TERRACE_SKILLS, 'sh-angle', 'sh-family'], [], 4, 'slide', 'This island and the last, all mixed up.'],
+    ["Builder's Terrace Run", 'check', TERRACE_SKILLS, [], 4, 'run', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(SUMMIT, [
+    ['Angle Facts', 'meet', ['sh-anglefacts'], ['sh-anglefacts'], 4, 'climb', 'A straight line makes 180°, all the way round 360°, and a triangle\'s corners 180°.'],
+    ['Circles', 'meet', ['sh-circle', 'sh-anglefacts'], ['sh-circle'], 4, 'swim', 'Round a circle is 3.14 × across. Its area is 3.14 × radius × radius.'],
+    ['Pythagoras', 'meet', ['sh-pyth', 'sh-area'], ['sh-pyth'], 4, 'run', 'The squares on the two short sides add up to the square on the long side.'],
+    ['Slides, Flips, Turns', 'meet', ['sh-move'], ['sh-move'], 4, 'slide', 'Slide it, flip it like a mirror, or turn it round a point.'],
+    ['Summit Mix', 'mix', SUMMIT_SKILLS, [], 4, 'climb', 'Everything on this island, all mixed up.'],
+    ['Crystal Summit Run', 'check', SUMMIT_SKILLS, [], 4, 'run', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+];
 export const SKILL_REGIONS: SkillRegion[] = [
   region(PIE, [
     ['Meet Fractions', 'meet', ['fr-name'], ['fr-name'], 6, 'run', 'The bottom number is how many equal parts; the top is how many you have.'],
@@ -164,6 +209,7 @@ export const SKILL_REGIONS: SkillRegion[] = [
   ...PLACE_REGIONS,
   ...DECIMAL_REGIONS,
   ...MEASURE_REGIONS,
+  ...SHAPE_REGIONS,
 ];
 
 export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
@@ -171,6 +217,7 @@ export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
   decimals: { id: 'start-decimals', region: 'start', area: 'decimals', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...COIN_SKILLS, ...CHOC_SKILLS, ...HOUSE_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of money and decimals. Answer what you know and skip ahead!' },
   measure: { id: 'start-measure', region: 'start', area: 'measure', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...TICK_SKILLS, ...MILL_M_SKILLS, ...YARD_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of clocks, rulers, scales, area and units. Answer what you know and skip ahead!' },
   fractions: { id: 'start-fractions', region: 'start', area: 'fractions', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...PIE_SKILLS, ...BAKER_SKILLS, ...MILL_SKILLS], learn: [], goal: 6, move: 'run', world: 'village', blurb: 'A quick mix of fractions. Answer what you know and skip ahead!' },
+  shapes: { id: 'start-shapes', region: 'start', area: 'shapes', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...MEADOW_SKILLS, ...RIDGE_SKILLS, ...TERRACE_SKILLS, ...SUMMIT_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of shapes and angles. Answer what you know and skip ahead!' },
 };
 /** The Learn episode that teaches each fraction skill (a hook for math/learn.ts: an episode added with
  *  one of these ids can be offered on that skill's Meet lesson, its results and its practice stop). */
@@ -187,6 +234,9 @@ export const SKILL_EPISODES: Record<string, string> = {
   // measurement and time (the clockmaker's workshop: math/measure/episodes.ts)
   'ms-hour': 'ms-oclock', 'ms-five': 'ms-fives', 'ms-minute': 'ms-fives', 'ms-elapsed': 'ms-jump', 'ms-ruler': 'ms-zero', 'ms-compare': 'ms-zero',
   'ms-mass': 'ms-marks', 'ms-area': 'ms-rows', 'ms-perim': 'ms-rows',
+  // shapes and angles (the crystal workshop at Shape Peaks: math/shapes/episodes.ts)
+  'sh-name': 'sh-sides', 'sh-sides': 'sh-sides', 'sh-parts': 'sh-halves', 'sh-angle': 'sh-angles', 'sh-family': 'sh-angles',
+  'sh-area': 'sh-tri-area', 'sh-volume': 'sh-boxes', 'sh-anglefacts': 'sh-tri-180', 'sh-pyth': 'sh-pyth',
 };
 export const SKILL_LESSONS: SkillLesson[] = SKILL_REGIONS.flatMap(r => r.lessons);
 export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS].map(l => [l!.id, l!]));
@@ -195,7 +245,7 @@ export const skillRegionsOf = (area: AreaId) => SKILL_REGIONS.filter(r => r.area
 export const isSkillLesson = (id: string) => !!SKILL_LESSON[id];
 /** How much longer a skill question takes than a fact: speeds, treasure and rides are scaled by it so a
  *  good fraction trip feels as fast as a good times-table trip. */
-export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5, measure: 2.8 };
+export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5, measure: 2.8, shapes: 2.5 };
 export const tempoOf = (area: AreaId) => TEMPO[area] ?? 2;
 
 // ---------- what's open ----------

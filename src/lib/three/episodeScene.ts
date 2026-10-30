@@ -72,6 +72,8 @@ type Token = {
   leaving: number; eaten: boolean;
   /** how much it glows (0 none, 1 "touch me") */
   glow: number; lit: number;
+  /** turning (a shape tile): from, to (radians) */
+  spin0: number; spin1: number;
   drag: boolean; squashAt: number;
   /** a counter with a shape of its own (a slice, a square, a cupcake), and its undyed part */
   shape?: Shape; extra?: THREE.Mesh;
@@ -472,9 +474,12 @@ export class EpisodeScene implements Controller {
       let tk = this.tokens.get(d.id);
       if (!tk) {
         tk = this.token(d.id, d.c, at, d.shape);
+        tk.spin0 = tk.spin1 = ((d.rot ?? 0) * Math.PI) / 180;
         tk.born = instant ? -9 : t + (d.d ?? 0) * 1.4;
         if (!instant) { tk.from = at.clone().add(new THREE.Vector3(0, 0.22, 0)); tk.t0 = tk.born; tk.dur = 0.38; tk.arc = 0; tk.squashAt = tk.born + 0.38; }
       } else if (!tk.drag) {
+        const spin = ((d.rot ?? 0) * Math.PI) / 180;
+        if (Math.abs(spin - tk.spin1) > 1e-3) { tk.spin0 = tk.g.rotation.y; tk.spin1 = spin; if (tk.to.distanceTo(at) <= 1e-3) { tk.from = this.tokenPos(tk); tk.t0 = instant ? -9 : t + (d.d ?? 0) * 1.4; tk.dur = 0.75; tk.arc = 0.05; } }
         if (tk.to.distanceTo(at) > 1e-3) { tk.from = this.tokenPos(tk); tk.to = at; tk.t0 = instant ? -9 : t + (d.d ?? 0) * 1.4; tk.dur = 0.75; tk.arc = Math.min(0.25, 0.06 + tk.from.distanceTo(at) * 0.18); }
       }
       if (tk.hue !== d.c) this.recolor(tk, d.c);
@@ -578,7 +583,7 @@ export class EpisodeScene implements Controller {
     g.scale.setScalar(r);
     g.position.copy(at);
     this.root.add(g);
-    const tk: Token = { id, g, hueMesh, halo, rim, blob, hue, out: false, from: at.clone(), to: at.clone(), t0: -9, dur: 0.5, arc: 0, born: -9, scale: r, leaving: 0, eaten: false, glow: 0, lit: 0, drag: false, squashAt: -9, shape, extra };
+    const tk: Token = { id, g, hueMesh, halo, rim, blob, hue, out: false, from: at.clone(), to: at.clone(), t0: -9, dur: 0.5, arc: 0, born: -9, scale: r, leaving: 0, eaten: false, glow: 0, lit: 0, spin0: 0, spin1: 0, drag: false, squashAt: -9, shape, extra };
     // a flat thing (a slice, a square): its glow is a thin border round it, not a big shell
     if (shape && shape.k !== 'cupcake') rim.scale.set(1.08, 1.6, 1.08);
     this.tokens.set(id, tk);
@@ -1142,6 +1147,7 @@ export class EpisodeScene implements Controller {
         g.position.lerpVectors(tk.from, tk.to, e);
         g.position.y = TY + (tk.from.y - TY) * (1 - e) + (tk.to.y - TY) * e + Math.sin(k * Math.PI) * tk.arc;
         if (tk.out) g.position.y -= this.r * 0.25;
+        g.rotation.y = tk.spin0 + (tk.spin1 - tk.spin0) * e;
       }
       // pop in, squash on landing, lifted while held
       const born = tk.born < -1 ? 1 : clamp01((t - tk.born) / 0.4);
@@ -1531,6 +1537,7 @@ function clothTexture(id: SetId) {
     kitchen: ['#f7f1e6', '#5d8fd6', '#3f6fb3'], dock: ['#d9c39a', '#b89a68', '#8a6b3e'], picnic: ['#fbf6ec', '#f3d9a0', '#d6a85a'],
     workshop: ['#6f9a63', '#5f8a55', '#3f6b3a'], garden: ['#e7dcc2', '#c9b88f', '#9c8758'], cave: ['#5b6fa3', '#4c5f92', '#33446f'],
     clockshop: ['#3d6f6a', '#2f5f5a', '#c9a24a'],
+    peaks: ['#ece6fb', '#b8a6ec', '#7f6cc4'],
   };
   const [bg, line, edge] = C[id];
   return canvasTex(256, (g, s) => {

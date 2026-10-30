@@ -1654,5 +1654,197 @@
   "ep.ms-rows.card": {
     "voice": "coach",
     "ms": 6406
+  },
+  "ep.sh-sides.intro": {
+    "voice": "coach",
+    "ms": 6610
+  },
+  "ep.sh-sides.s0": {
+    "voice": "coach",
+    "ms": 6326
+  },
+  "ep.sh-sides.s1": {
+    "voice": "coach",
+    "ms": 7249
+  },
+  "ep.sh-sides.s2": {
+    "voice": "coach",
+    "ms": 4585
+  },
+  "ep.sh-sides.s3": {
+    "voice": "coach",
+    "ms": 4824
+  },
+  "ep.sh-sides.s4": {
+    "voice": "coach",
+    "ms": 7319
+  },
+  "ep.sh-sides.card": {
+    "voice": "coach",
+    "ms": 7019
+  },
+  "ep.sh-halves.intro": {
+    "voice": "coach",
+    "ms": 5258
+  },
+  "ep.sh-halves.s0": {
+    "voice": "coach",
+    "ms": 4046
+  },
+  "ep.sh-halves.s1": {
+    "voice": "coach",
+    "ms": 5922
+  },
+  "ep.sh-halves.s2": {
+    "voice": "coach",
+    "ms": 2380
+  },
+  "ep.sh-halves.s3": {
+    "voice": "coach",
+    "ms": 4265
+  },
+  "ep.sh-halves.s4": {
+    "voice": "coach",
+    "ms": 5109
+  },
+  "ep.sh-halves.card": {
+    "voice": "coach",
+    "ms": 5772
+  },
+  "ep.sh-angles.intro": {
+    "voice": "coach",
+    "ms": 5563
+  },
+  "ep.sh-angles.s0": {
+    "voice": "coach",
+    "ms": 3812
+  },
+  "ep.sh-angles.s1": {
+    "voice": "coach",
+    "ms": 6795
+  },
+  "ep.sh-angles.s2": {
+    "voice": "coach",
+    "ms": 6051
+  },
+  "ep.sh-angles.s3": {
+    "voice": "coach",
+    "ms": 5099
+  },
+  "ep.sh-angles.s4": {
+    "voice": "coach",
+    "ms": 4435
+  },
+  "ep.sh-angles.card": {
+    "voice": "coach",
+    "ms": 7104
+  },
+  "ep.sh-tri-area.intro": {
+    "voice": "coach",
+    "ms": 4590
+  },
+  "ep.sh-tri-area.s0": {
+    "voice": "coach",
+    "ms": 4819
+  },
+  "ep.sh-tri-area.s1": {
+    "voice": "coach",
+    "ms": 5832
+  },
+  "ep.sh-tri-area.s2": {
+    "voice": "coach",
+    "ms": 2764
+  },
+  "ep.sh-tri-area.s3": {
+    "voice": "coach",
+    "ms": 4824
+  },
+  "ep.sh-tri-area.s4": {
+    "voice": "coach",
+    "ms": 5373
+  },
+  "ep.sh-tri-area.s5": {
+    "voice": "coach",
+    "ms": 5428
+  },
+  "ep.sh-tri-area.card": {
+    "voice": "coach",
+    "ms": 5647
+  },
+  "ep.sh-boxes.intro": {
+    "voice": "coach",
+    "ms": 4670
+  },
+  "ep.sh-boxes.s0": {
+    "voice": "coach",
+    "ms": 3208
+  },
+  "ep.sh-boxes.s1": {
+    "voice": "coach",
+    "ms": 5802
+  },
+  "ep.sh-boxes.s2": {
+    "voice": "coach",
+    "ms": 2500
+  },
+  "ep.sh-boxes.s3": {
+    "voice": "coach",
+    "ms": 7194
+  },
+  "ep.sh-boxes.card": {
+    "voice": "coach",
+    "ms": 4555
+  },
+  "ep.sh-tri-180.intro": {
+    "voice": "coach",
+    "ms": 7353
+  },
+  "ep.sh-tri-180.s0": {
+    "voice": "coach",
+    "ms": 2799
+  },
+  "ep.sh-tri-180.s1": {
+    "voice": "coach",
+    "ms": 2041
+  },
+  "ep.sh-tri-180.s2": {
+    "voice": "coach",
+    "ms": 2774
+  },
+  "ep.sh-tri-180.s3": {
+    "voice": "coach",
+    "ms": 1547
+  },
+  "ep.sh-tri-180.s4": {
+    "voice": "coach",
+    "ms": 7019
+  },
+  "ep.sh-tri-180.card": {
+    "voice": "coach",
+    "ms": 5837
+  },
+  "ep.sh-pyth.intro": {
+    "voice": "coach",
+    "ms": 5313
+  },
+  "ep.sh-pyth.s0": {
+    "voice": "coach",
+    "ms": 5947
+  },
+  "ep.sh-pyth.s1": {
+    "voice": "coach",
+    "ms": 2549
+  },
+  "ep.sh-pyth.s2": {
+    "voice": "coach",
+    "ms": 2674
+  },
+  "ep.sh-pyth.s3": {
+    "voice": "coach",
+    "ms": 6091
+  },
+  "ep.sh-pyth.card": {
+    "voice": "coach",
+    "ms": 5538
   }
 }

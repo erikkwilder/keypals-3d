@@ -160,6 +160,7 @@ export function propsFor(id: SetId): { left: THREE.Group; right: THREE.Group } {
     case 'garden': return { left: flowerPot(), right: wateringCan() };
     case 'cave': return { left: crystals(), right: blockStack() };
     case 'clockshop': return { left: blockStack(), right: brushJar() };
+    case 'peaks': return { left: crystals(), right: blockStack() };
   }
 }
 
@@ -175,6 +176,7 @@ const HERO: Record<SetId, [string, number, number][]> = {
   garden: [['flowerpot', 0.34, 0.2], ['can', 0.28, -0.8]],
   cave: [['', 0, 0], ['lantern', 0.36, -0.3]],
   clockshop: [['train', 0.22, 0.7], ['lantern', 0.36, -0.3]],
+  peaks: [['', 0, 0], ['lantern', 0.36, -0.3]],
 };
 /** The set's modelled things for the front corners, or null if they can't load (the simple ones stand in). */
 export async function heroProps(id: SetId): Promise<{ left: THREE.Group; right: THREE.Group } | null> {

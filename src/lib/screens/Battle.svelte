@@ -228,6 +228,8 @@
     await run(ev);
   }
   /** A skill card (a fraction to name, two to compare...): its own input checks in, the engine marks it. */
+  // (for checking a battle from the console: the card's question, and answering it)
+  if (import.meta.env.DEV) (window as unknown as { __battle: object }).__battle = { ui: () => ui, item: () => sel?.item ?? null, block: () => (blk?.fact ? String(answerOf(blk.fact)) : blk?.word ?? null), cards: () => cards.length, pick: (i: number) => { const c = cards[i]; if (c) pick(c); }, answer: (a: SkillAnswer) => submitItem(a) };
   async function submitItem(given: SkillAnswer) {
     const c = sel; if (!c?.item || ui !== 'answer') return;
     const think = performance.now() - shownAt;

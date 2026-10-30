@@ -22,8 +22,11 @@ export type Hue = 'a' | 'b' | 'c' | 'ghost';
 /** A counter with a shape of its own (the fraction episodes): a slice of a pie or pizza (piece `i` of
  *  `n`, from a whole of radius `r`, its x and y the slice's middle), a square of a chocolate bar
  *  (`w` wide), or a cupcake. */
-export type Shape = { k: 'wedge'; food: 'pie' | 'pizza'; n: number; i: number; r: number } | { k: 'chunk'; w: number } | { k: 'cupcake' };
-export type Dot = { id: string; x: number; y: number; c: Hue; /** crossed out: taken away, still shown */ out?: boolean; /** seconds to wait before moving */ d?: number; shape?: Shape };
+export type Shape = { k: 'wedge'; food: 'pie' | 'pizza'; n: number; i: number; r: number } | { k: 'chunk'; w: number } | { k: 'cupcake' }
+  /** a crystal tile (the shapes episodes): its corners round the counter's middle, in board units, its colour for the first lot, how thick */
+  | { k: 'tile'; pts: [number, number][]; tint?: 'teal' | 'rose' | 'gold' | 'violet' | 'sky' | 'mint' | 'pale'; h?: number };
+export type Dot = { id: string; x: number; y: number; c: Hue; /** crossed out: taken away, still shown */ out?: boolean; /** seconds to wait before moving */ d?: number; shape?: Shape;
+  /** turned this many degrees (anticlockwise, seen from above): a shape tile turning as it moves */ rot?: number };
 export type Tag = { id: string; x: number; y: number; text: string; c?: Hue | 'ink'; size?: number };
 export type Board = {
   /** the dot size: every dot is drawn in a square this big */
@@ -391,7 +394,11 @@ export function boundsOf(boards: Board[]): { x: number; y: number; w: number; h:
   const add = (ax: number, ay: number, bx: number, by: number) => { x0 = Math.min(x0, ax); y0 = Math.min(y0, ay); x1 = Math.max(x1, bx); y1 = Math.max(y1, by); };
   for (const b of boards) {
     const h = b.cell / 2;
-    for (const d of b.dots) add(d.x - h, d.y - h, d.x + h, d.y + h);
+    for (const d of b.dots) {
+      add(d.x - h, d.y - h, d.x + h, d.y + h);
+      // a shape tile: all of it (and room for the words at its corners)
+      if (d.shape?.k === 'tile') for (const [px, py] of d.shape.pts) add(d.x + px - 20, d.y + py - 20, d.x + px + 20, d.y + py + 20);
+    }
     for (const f of b.frames) add(f.x - 8, f.y - 8, f.x + FC * 5 + 8, f.y + FC * 2 + 8);
     for (const p of b.plates) add(p.x - p.r - 4, p.y - p.r, p.x + p.r + 4, p.y + p.r);
     for (const p of b.dishes ?? []) { const hw = p.kind === 'foil' ? (p.w ?? p.r * 2) / 2 + 8 : p.r + 8, hh = p.kind === 'foil' ? (p.h ?? p.r) / 2 + 8 : p.r + 8; add(p.x - hw, p.y - hh, p.x + hw, p.y + hh); }

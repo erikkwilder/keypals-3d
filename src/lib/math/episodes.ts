@@ -9,8 +9,9 @@ import { LESSON, LESSONS, askText, coverOf, hideAnswer, hintFor, lessonForFact, 
 import { factRung, groupFacts, MATH_REGION, STRAND } from './course';
 import { rungFor, STRAND_SKILL, TARGET, thetaOf, type AbilityHome } from './skills/ability';
 import { FRAC_LESSON, type EpQ } from './fracEpisodes';
+import { SHAPE_LESSON } from './shapes/episodes';
 
-export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'clockshop';
+export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'clockshop' | 'peaks';
 /** what the counters are in each place */
 export type TokenKind = 'cookie' | 'pearl' | 'berry' | 'block' | 'flower';
 
@@ -43,6 +44,9 @@ export const SETS: Record<SetId, {
   // measurement and time: the clockmaker's workshop high in a clock tower (math/measure/episodes.ts)
   clockshop: { name: "The Clockmaker's Workshop", backdrop: 'learn/ep/set-clockshop.webp', table: 'learn/ep/tex-workshop.webp', star: 'sunsnail', token: 'block',
     tray: { word: 'tile tray', color: 0xc48a52, rim: 0x86572b }, plate: { word: 'pan', color: 0xd8dde4, rim: 0x8a96a6 }, key: 0xffd8a0, sky: 0xffe8c8, ground: 0x6e4a2c, haze: 0xf2c690 },
+  // shapes and angles: the crystal workshop high in Shape Peaks (its things are crystal tiles and cubes)
+  peaks: { name: 'The Crystal Workshop', backdrop: 'learn/ep/set-peaks.webp', table: 'learn/ep/tex-peaks.webp', star: 'prismhorn', token: 'block',
+    tray: { word: 'box layer', color: 0xb9c6e8, rim: 0x6a78b5 }, plate: { word: 'plate', color: 0xf6f2ff, rim: 0x9b84e0 }, key: 0xffe4bf, sky: 0xe4e6ff, ground: 0x6a5a7a, haze: 0xe8dcf6 },
 };
 
 export type Episode = {
@@ -185,7 +189,7 @@ export type EpLesson = {
   /** what the counters are called in the prompts ("slices") */
   noun?: string;
 };
-const FRAC_COLOR = '#ef8a4b';
+const FRAC_COLOR = '#ef8a4b', SHAPE_COLOR = '#2fb3a0';
 const NOUN: Record<string, string> = { 'frac-one-piece': 'squares', 'frac-take-away': 'squares', 'frac-times': 'squares', 'frac-of-a-set': 'cupcakes' };
 /** How hard a trick's "your turn" questions should be for this child: their strand's ability, pitched to
  *  be easy (about 90% right: the idea is brand new), as a rung. Nothing for the fraction episodes (their
@@ -209,12 +213,13 @@ function pitchedTries(l: Lesson, rung?: number): Fact[] {
 /** The episode for a lesson id: a fact trick (learn.ts) or a fraction idea (fracEpisodes.ts); `rung`
  *  pitches a trick's own tries for the child (teachRung). */
 export function epLesson(id: string, rung?: number): EpLesson | null {
-  const f = FRAC_LESSON[id];
+  const f = FRAC_LESSON[id] ?? SHAPE_LESSON[id];
   if (f) {
     const all = [f.teach.q.ans, f.teach.wrong, f.teach.decoy], k = f.id.length % 3;
-    return { id, title: f.title, blurb: f.blurb, color: FRAC_COLOR, set: f.set, star: f.star, steps: f.steps, tries: f.tries,
+    const shape = !!SHAPE_LESSON[id];
+    return { id, title: f.title, blurb: f.blurb, color: shape ? SHAPE_COLOR : FRAC_COLOR, set: f.set, star: f.star, steps: f.steps, tries: f.tries,
       teach: { q: f.teach.q, wrong: f.teach.wrong, says: f.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: f.teach.fixed },
-      cover: null, art: f.art, noun: NOUN[id] ?? 'slices' };
+      cover: null, art: f.art, noun: NOUN[id] ?? (shape ? 'pieces' : 'slices') };
   }
   const l = LESSON[id];
   if (!l) return null;
@@ -225,7 +230,7 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
     teach: { q: q(e.teach.f), wrong: String(e.teach.wrong), says: e.teach.says, choices: fixChoices(e).map(String), fixed: `Oops! ${hintFor(l, e.teach.f)} Thank you!` },
     cover: coverOf(l), art: null };
 }
-export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!LESSON[id];
+export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!SHAPE_LESSON[id] || !!LESSON[id];
 
 /** The lessons in order, with their episode. */
 export const lessonWithEpisode = (l: Lesson) => ({ lesson: l, ep: episodeOf(l.id), set: setOf(l.id) });

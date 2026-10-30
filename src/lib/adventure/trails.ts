@@ -7,9 +7,12 @@
 //
 // Each trail point has a place on the wide map (desktop) and on the tall one (phones), in percent of the
 // picture; each trail can bend on its way (`wide`/`tall` bend points), drawn and walked the same.
+// A world with no plan here yet (a new one, before its trails are placed) walks a simple path through its
+// stops instead (simplePlan), so a new world never breaks the map.
 // Pure data and geometry: no screens here, and nothing from state.ts at run time (state.ts reads
-// `parallel` from here).
+// `parallel` from here, and tells it each world's stops: tellStops).
 import type { IslandId, WorldId } from './state';
+import { SPOTS } from './mapSpots';
 
 export type MapKind = 'wide' | 'tall';
 export type Pt = [number, number];
@@ -29,12 +32,13 @@ type Spot = { wide: Pt; tall: Pt };
 /** One island's points by their short name ('0'...'5' the stops, 'j' where the two routes meet, and the
  *  finds), and its trails: [from, to, wide bends, tall bends]. */
 type IslandPlan = { pts: Record<string, Spot>; edges: [string, string, Pt[]?, Pt[]?][] };
-type WorldPlan = { islands: Partial<Record<IslandId, IslandPlan>>; links?: [string, string, Pt[]?, Pt[]?][] };
+export type WorldPlan = { islands: Partial<Record<IslandId, IslandPlan>>; links?: [string, string, Pt[]?, Pt[]?][] };
 
 // ---------- the maps ----------
 // Placed by eye on the paintings: the stops on the round stone platforms where there is one, the second
 // route along a painted path or over the grass beside it, the finds on little corners of their own.
-const PLANS: Record<WorldId, WorldPlan> = {
+// (Partial: a world missing here walks simplePlan.)
+const PLANS: Partial<Record<WorldId, WorldPlan>> = {
   sky: {
     islands: {
       meadow: {
@@ -116,16 +120,89 @@ const PLANS: Record<WorldId, WorldPlan> = {
       },
     },
   },
+  // Clockwork Isle (map-clock-*.webp). Wide: the first route over the little bridge to the platform under the
+  // great balance scale, the second along the flower ledge past the jugs and up the stairs; the chest by the
+  // cuckoo-clock house, the Bonus Round by the train's viaduct, the hidden spot at the clockmaker's cottage.
+  // Tall: the first route up the stone path, the second round the left to the balance scale and over its bridge.
+  clockwork: {
+    islands: {
+      clockwork: {
+        pts: {
+          0: { wide: [15.4, 73.6], tall: [58.8, 90.4] }, 1: { wide: [32.1, 65.4], tall: [57.3, 81.0] }, 2: { wide: [47.1, 50.8], tall: [51.9, 63.8] },
+          3: { wide: [64.1, 35.5], tall: [64.4, 46.3] }, 4: { wide: [83.0, 45.0], tall: [31.5, 38.0] }, j: { wide: [79.3, 27.3], tall: [55.6, 27.9] }, 5: { wide: [87.3, 16.5], tall: [70.0, 13.8] },
+          chest: { wide: [8.5, 69.5], tall: [71.0, 86.5] }, bonus: { wide: [24.5, 57.5], tall: [36.5, 68.5] }, hidden: { wide: [55.5, 32.0], tall: [82.5, 43.0] },
+        },
+        edges: [
+          ['0', '1', [[24.0, 69.5]]], ['1', '2', [[35.0, 58.5], [40.0, 54.5]], [[56.5, 73.0]]], ['2', '3', [[52.0, 45.0], [57.0, 39.5]], [[49.0, 55.5], [53.5, 50.0]]], ['3', 'j', [[72.4, 30.5]], [[61.0, 37.0]]],
+          ['2', '4', [[55.5, 46.5], [61.0, 42.5], [68.5, 41.5], [76.0, 43.0]], [[43.5, 58.5], [38.5, 48.5]]], ['4', 'j', [[82.8, 37.0]], [[44.5, 40.5], [49.5, 39.5], [48.5, 34.0]]],
+          ['j', '5', [[83.0, 22.0]], [[49.5, 21.5], [55.0, 16.5]]],
+          ['0', 'chest'], ['1', 'bonus', [], [[47.5, 72.5]]], ['3', 'hidden'],
+        ],
+      },
+    },
+  },
+  // Shape Peaks (map-peaks-*.webp). Wide: the first route over the low bridge to the platform under the crystals
+  // and up its stairs, the second by the sundial and over the high bridge; the chest by the crystal meadow, the
+  // hidden spot among the crystals past stop 3. Tall: the first route up past the waterfall and over the long
+  // rope bridge, the second to the crystal triangle arch; the hidden spot through the stone doorway.
+  peaks: {
+    islands: {
+      peaks: {
+        pts: {
+          0: { wide: [15.3, 74.4], tall: [51.6, 81.3] }, 1: { wide: [32.8, 65.0], tall: [46.5, 57.5] }, 2: { wide: [49.6, 52.6], tall: [28.8, 49.2] },
+          3: { wide: [84.8, 46.4], tall: [52.3, 37.9] }, 4: { wide: [56.0, 44.0], tall: [33.5, 38.5] }, j: { wide: [78.8, 30.3], tall: [58.3, 21.7] }, 5: { wide: [84.8, 20.2], tall: [71.0, 15.2] },
+          chest: { wide: [6.5, 69.0], tall: [35.5, 78.0] }, bonus: { wide: [28.0, 57.5], tall: [67.0, 60.5] }, hidden: { wide: [92.5, 46.5], tall: [79.0, 43.0] },
+        },
+        edges: [
+          ['0', '1', [[26.0, 70.5]], [[57.0, 72.5], [57.5, 64.5]]], ['1', '2', [[40.5, 57.0]], [[37.5, 54.0]]], ['2', '3', [[58.0, 49.5], [66.0, 47.5], [76.0, 48.0]], [[38.0, 44.0], [45.0, 40.5]]],
+          ['3', 'j', [[83.5, 40.5]], [[62.0, 33.5], [70.0, 27.5]]], ['2', '4', [], [[31.0, 43.5]]], ['4', 'j', [[62.5, 42.5], [68.0, 38.0], [72.5, 34.5]], [[42.0, 30.0], [50.0, 24.5]]],
+          ['j', '5', [[80.5, 24.5]], [[67.0, 17.5]]],
+          ['0', 'chest'], ['1', 'bonus'], ['3', 'hidden'],
+        ],
+      },
+    },
+  },
 };
 
 const KIND_OF = (local: string): TrailKind => (local === 'chest' || local === 'bonus' || local === 'hidden' ? local : local === 'j' ? 'join' : 'stop');
 
+/** A world's stops, from state.ts (it tells this module once it has them: trails.ts imports nothing from
+ *  state.ts at run time). Only a world with no plan needs them. */
+type StopRef = { id: string; island: IslandId };
+let stopsOfWorld: (world: WorldId) => StopRef[] = () => [];
+export function tellStops(f: (world: WorldId) => StopRef[]) { stopsOfWorld = f; built.clear(); }
+
+/** A world with no plan of its own yet: a simple path through its stops in order, island after island, at
+ *  their places on the maps (mapSpots.ts), with no finds. A stop not placed there yet goes on a line
+ *  across the picture, so the map still works. */
+export function simplePlan(world: WorldId): WorldPlan {
+  const stops = stopsOfWorld(world), islands: Partial<Record<IslandId, IslandPlan>> = {}, links: [string, string][] = [];
+  const spread = (i: number): Spot => {
+    const t = stops.length > 1 ? i / (stops.length - 1) : 0.5;
+    return { wide: [15 + 70 * t, 75 - 55 * t], tall: [i % 2 ? 62 : 40, 88 - 76 * t] };
+  };
+  stops.forEach((s, i) => {
+    const ip = (islands[s.island] ??= { pts: {}, edges: [] });
+    const local = s.id.slice(s.island.length + 1), prev = stops[i - 1];
+    ip.pts[local] = { wide: SPOTS.wide[s.id] ?? spread(i).wide, tall: SPOTS.tall[s.id] ?? spread(i).tall };
+    if (prev?.island === s.island) ip.edges.push([prev.id.slice(s.island.length + 1), local]);
+    else if (prev) links.push([prev.id, s.id]);
+  });
+  return { islands, links };
+}
+
 const built = new Map<WorldId, Trails>();
-/** A world's trails (built once). */
+/** A world's trails (built once): its plan, or a simple path through its stops if it has none yet. */
 export function trailsOf(world: WorldId): Trails {
   const have = built.get(world);
   if (have) return have;
-  const plan = PLANS[world], points: TrailPoint[] = [], edges: TrailEdge[] = [];
+  const tr = buildTrails(world, PLANS[world] ?? simplePlan(world));
+  built.set(world, tr);
+  return tr;
+}
+/** A world's trails from a plan. */
+export function buildTrails(world: WorldId, plan: WorldPlan): Trails {
+  const points: TrailPoint[] = [], edges: TrailEdge[] = [];
   const edge = (a: string, b: string, w?: Pt[], t?: Pt[], hidden = false) => edges.push({ id: edges.length, a, b, bends: { wide: w ?? [], tall: t ?? [] }, ...(hidden ? { hidden } : {}) });
   for (const [island, ip] of Object.entries(plan.islands) as [IslandId, IslandPlan][]) {
     for (const [local, s] of Object.entries(ip.pts)) points.push({ id: `${island}-${local}`, island, kind: KIND_OF(local), at: { wide: s.wide, tall: s.tall } });
@@ -135,10 +212,9 @@ export function trailsOf(world: WorldId): Trails {
   const point = Object.fromEntries(points.map(p => [p.id, p]));
   const out: Record<string, TrailEdge[]> = Object.fromEntries(points.map(p => [p.id, []]));
   for (const e of edges) { out[e.a].push(e); out[e.b].push(e); }
-  const tr: Trails = { world, points, edges, point, out };
-  built.set(world, tr);
-  return tr;
+  return { world, points, edges, point, out };
 }
+/** the worlds with a plan placed by eye (any other walks simplePlan) */
 export const WORLDS_WITH_TRAILS = Object.keys(PLANS) as WorldId[];
 
 /** The two battles on parallel routes (stops 3 and 4 of an island): neither waits for the other, and the

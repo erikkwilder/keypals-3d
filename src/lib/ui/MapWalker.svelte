@@ -44,7 +44,10 @@
   let vw = $state(800), vh = $state(600);
   /** how much bigger than covering the screen: the Sky Islands (three islands) more, so the buddy is big
    *  enough on the map and there is somewhere to walk to */
-  const ZOOM = { sky: { wide: 1.4, tall: 1.3 }, falls: { wide: 1.12, tall: 1.2 }, caves: { wide: 1.12, tall: 1.2 }, market: { wide: 1.12, tall: 1.2 } } as const;
+  const ZOOM: Partial<Record<WorldId, Record<MapKind, number>>> = {
+    sky: { wide: 1.4, tall: 1.3 }, falls: { wide: 1.12, tall: 1.2 }, caves: { wide: 1.12, tall: 1.2 }, market: { wide: 1.12, tall: 1.2 },
+    clockwork: { wide: 1.12, tall: 1.2 }, peaks: { wide: 1.12, tall: 1.2 },
+  };
   // (a view not laid out yet has no size: never a scale of 0, or a step would be infinitely long)
   const scale = $derived(Math.max(0.05, Math.max(vw / size[0], vh / size[1]) * (ZOOM[world]?.[kind] ?? 1.15)));
   const mw = $derived(size[0] * scale), mh = $derived(size[1] * scale);
@@ -370,7 +373,7 @@
         {:else}<img class="spark" src="{base}icons/sparkle.webp" alt="" draggable="false" />{/if}
       </button>
     {/each}
-    {#each islandsOf(world) as isl (isl.id)}
+    {#each islandsOf(world).filter(i => tr.point[`${i.id}-0`]) as isl (isl.id)}
       {@const f = tr.point[`${isl.id}-0`].at[kind]}
       <span class="iname" style="left:{f[0]}%;top:{f[1] + (tall ? 4.2 : 7)}%">{isl.name}</span>
     {/each}

@@ -2,6 +2,7 @@
 import type { Answer, Item, Part, Pic } from './types';
 import { moneyText } from './decimals';
 import { measText } from './measure';
+import { figText } from '../shapes/fig';
 
 /** A picture in a few words: 3/4 pie, 46¢ in coins, 35 of 100 squares. */
 function picText(p: Pic): string {
@@ -44,7 +45,7 @@ export function nearMiss(it: Item, r: () => number): Answer {
 const blocksText = (b: { th?: number; h: number; t: number; o: number }) => [b.th ? `${b.th} thousands` : '', b.h ? `${b.h} hundreds` : '', b.t ? `${b.t} tens` : '', b.o ? `${b.o} ones` : ''].filter(Boolean).join(', ') || '0';
 /** Parts as plain text: "3/4 or 1/2", "2/5 + 1/5 = ?". A picture reads as its fraction. */
 export function partsText(ps: Part[]): string {
-  return ps.map(p => p.t === 'meas' ? measText(p.m) : p.t === 'text' ? p.s : p.t === 'num' ? String(p.n) : p.t === 'op' ? p.s : p.t === 'frac' ? `${p.n ?? '?'}/${p.d ?? '?'}` : p.t === 'pic' ? picText(p.pic) : p.t === 'money' ? moneyText(p.cents, p.dollars) : p.t === 'blocks' ? blocksText(p.b) : '?').join(' ');
+  return ps.map(p => p.t === 'meas' ? measText(p.m) : p.t === 'text' ? p.s : p.t === 'num' ? String(p.n) : p.t === 'op' ? p.s : p.t === 'frac' ? `${p.n ?? '?'}/${p.d ?? '?'}` : p.t === 'pic' ? picText(p.pic) : p.t === 'money' ? moneyText(p.cents, p.dollars) : p.t === 'blocks' ? blocksText(p.b) : p.t === 'fig' ? figText(p.fig) : '?').join(' ');
 }
 /** The question in a few words for lists (results, cards): the question line, or the ask when the line is
  *  only a picture. */

@@ -26,6 +26,7 @@
 // gets all of this for free: give its skills a grade, write their six rungs, register them.
 import type { Rng } from '../../engine/rng';
 import type { Op } from '../facts';
+import type { Fig } from '../shapes/fig';
 
 /** Every part of K-8 math. The first four are the fact strands we have; the rest are new areas. */
 export type AreaId = 'plus' | 'minus' | 'times' | 'share' | 'place' | 'fractions' | 'decimals' | 'measure' | 'shapes' | 'ratios' | 'integers' | 'algebra' | 'data';
@@ -57,7 +58,9 @@ export type Part =
   /** where the answer goes (a number blank) */
   | { t: 'blank' }
   /** a measuring picture (a clock, a ruler, a scale, a jug, squares, a box: skills/measure.ts) */
-  | { t: 'meas'; m: import('./measure').MeasPic };
+  | { t: 'meas'; m: import('./measure').MeasPic }
+  /** a shapes picture: crystal shapes, angles, solids, boxes (math/shapes/fig.ts) */
+  | { t: 'fig'; fig: Fig };
 
 export type Choice = { id: string; parts: Part[] };
 

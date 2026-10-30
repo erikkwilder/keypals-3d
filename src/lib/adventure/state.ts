@@ -22,16 +22,16 @@ import { grumpFor, type MapFoe, type MischiefKind, type Pool, type Subject } fro
 import { championPrize, type BuddyGear, type GearItem, type Wardrobe } from './gear';
 import type { RegionId } from '../engine/course';
 import { newStats, noteStats, type GhostStats, type RivalState } from './ghosts';
-import { parallel } from './trails';
+import { parallel, tellStops } from './trails';
 
 // ---------- the map ----------
-export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls' | 'caves' | 'market' | 'clockwork';
+export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls' | 'caves' | 'market' | 'clockwork' | 'peaks';
 export type NodeKind = 'battle' | 'practice' | 'champion';
 export type MapNode = { id: string; island: IslandId; kind: NodeKind; n: number };
 /** The worlds on the world map: the Sky Islands (the first three islands, any math or typing), and worlds
  *  of one kind of math (Fraction Falls: every battle card is a fraction). Each world's stops are in order
  *  on their own; finishing one world doesn't open another. */
-export type WorldId = 'sky' | 'falls' | 'caves' | 'market' | 'clockwork';
+export type WorldId = 'sky' | 'falls' | 'caves' | 'market' | 'clockwork' | 'peaks';
 export type Island = {
   id: IslandId; world: WorldId; name: string; element: Element; region: RegionId; champion: GlimmerId; blurb: string; odds: Partial<Record<Rarity, number>>;
   /** how tough its Grumbles are (and how many shells they give): 0 for the first island */
@@ -70,6 +70,12 @@ export const ISLANDS: Island[] = [
   { id: 'clockwork', world: 'clockwork', tier: 1, name: 'Clockwork Isle', element: 'sun', region: 'ridge', champion: 'cometcat', area: 'measure',
     natives: ['sunsnail', 'teakettledrake', 'pebbletort', 'rollodillo'], mischief: { kind: 'zap', name: 'The cuckoo clocks are ringing' },
     blurb: 'Cuckoo-clock houses, turning gears, a great balance scale and a clock tower at the top. Every battle card is time or measuring.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
+  // Shape Peaks: crystal mountains, a meadow of giant crystal shapes, a sundial ridge and a crystal palace
+  // at the top; its Grumbles shake crystals loose to fall like hail. (Its own Glimmers are on the way:
+  // adventure/shapesGlimmers.ts; until their models come, crystal-loving Glimmers from the islands live here.)
+  { id: 'peaks', world: 'peaks', tier: 1, name: 'Shape Peaks', element: 'frost', region: 'cliffs', champion: 'cometcat', area: 'shapes',
+    natives: ['prismhorn', 'frostowl', 'mittenyeti', 'frostjelly'], mischief: { kind: 'pebbles', name: 'Falling crystals are coming' },
+    blurb: 'Crystal mountains, a sundial ridge and a crystal palace at the top. Every battle card is about shapes and angles.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
 ];
 export const islandsOf = (w: WorldId) => ISLANDS.filter(i => i.world === w);
 export const ISLAND: Record<IslandId, Island> = Object.fromEntries(ISLANDS.map(i => [i.id, i])) as Record<IslandId, Island>;
@@ -77,6 +83,8 @@ const PATH: NodeKind[] = ['battle', 'battle', 'practice', 'battle', 'battle', 'c
 export const NODES: MapNode[] = ISLANDS.flatMap(isl => PATH.map((kind, n) => ({ id: `${isl.id}-${n}`, island: isl.id, kind, n })));
 export const NODE: Record<string, MapNode> = Object.fromEntries(NODES.map(n => [n.id, n]));
 export const nodesOf = (w: WorldId) => NODES.filter(n => ISLAND[n.island].world === w);
+// (a world with no trails placed yet walks a simple path through these: trails.ts simplePlan)
+tellStops(nodesOf);
 /** A world is open once there's something to battle with: the Sky Islands always; a math world once its
  *  area is started (a question of it answered in a trip, placement or battle). */
 export function worldOpen(p: Profile, w: WorldId): boolean {

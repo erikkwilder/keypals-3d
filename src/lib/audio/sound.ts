@@ -979,6 +979,8 @@ type Deck = { el: HTMLAudioElement; gain: GainNode; station: StationId; track: n
 let deck: Deck | null = null;
 let stationChoice: StationChoice = 'auto';
 let place: MusicPlace = 'menu';
+/** an Adventure world's own station (Shape Peaks: snow), played there on Auto */
+let placeStation: StationId | null = null;
 let where: RegionId | 'menu' = 'menu';
 let started = false;
 let fails = 0;
@@ -988,7 +990,7 @@ const listeners = new Set<(n: NowPlaying) => void>();
 
 /** The station that should be playing now (Auto follows what you're doing). */
 function currentStation(): StationId {
-  const id = stationChoice === 'auto' ? AUTO[place] : stationChoice;
+  const id = stationChoice === 'auto' ? (place === 'adventure' && placeStation ? placeStation : AUTO[place]) : stationChoice;
   // a station with no recordings (or recordings that won't load) plays the island tunes instead
   return id !== 'originals' && STATION[id]?.tracks.length && fails < 3 ? id : 'originals';
 }
@@ -1071,8 +1073,9 @@ function applyMusic() {
 
 /** Music for where you are: an island while you practise, 'menu' around the game, 'adventure' in
  *  Adventure. With a station picked it just keeps playing; on Auto it follows the place. */
-export function startMusic(region: RegionId | 'menu' | 'adventure') {
+export function startMusic(region: RegionId | 'menu' | 'adventure', station?: StationId | null) {
   place = region === 'menu' ? 'menu' : region === 'adventure' ? 'adventure' : 'focus';
+  placeStation = region === 'adventure' ? station ?? null : null;
   where = region === 'adventure' ? 'menu' : region;
   started = true;
   applyMusic();

@@ -260,6 +260,12 @@
             <button class="lchip" class:done={isLearned(m, l.id)} onclick={() => { sfx.click(); game.learnCheck = false; game.learnOverlay = l.id; }}>{l.title}{#if isLearned(m, l.id)} <Icon name="check" size={16} />{/if}</button>
           {/each}
         </div>
+      {:else if area === 'shapes'}
+        <!-- the shapes arcade game (its cabinet is in the Arcade too) and the calm Shape Builder toy -->
+        <button class="placement arcade" onclick={() => { sfx.click(); game.go('shifter'); }}>
+          <img src="{import.meta.env.BASE_URL}math/shapes/tile.webp" alt="" />
+          <span class="ptext"><b>Shape Shifter</b><small>Game: catch the crystal shapes that fit the rule.{(m.arcade?.['shape-shifter']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['shape-shifter'].best}` : ''}</small></span>
+        </button>
       {/if}
       {#if area === 'place'}
         <!-- the place value arcade game (its cabinet is in the Arcade too) -->

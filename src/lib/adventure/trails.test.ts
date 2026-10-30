@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { newProfile } from '../engine/profile';
 import { advOf, currentNode, islandsOf, NODE, NODES, nodeOpen, nodesOf, reachStop, notePractice, collectStop, type WorldId } from './state';
-import { findId, legLength, legPoints, parallel, stopOnTrails, trailsOf, WORLDS_WITH_TRAILS, type MapKind } from './trails';
+import { buildTrails, findId, legLength, legPoints, parallel, simplePlan, stopOnTrails, trailsOf, WORLDS_WITH_TRAILS, type MapKind } from './trails';
 import { ctxOf, locked, pickTrail, reachable, route, startPoint } from './walk';
 import { applyBonus, collectHidden, findDone, openChest, revealHidden, saveWalk } from './finds';
-import { WORLD_PIN } from './worlds';
+import { WORLD_PIN, WORLD_PINS } from './worlds';
 
 const KINDS: MapKind[] = ['wide', 'tall'];
 const sizeOf = (w: WorldId, k: MapKind) => WORLD_PIN[w].map!.size[k];
+/** every world with a map of its own (a plan placed by eye, or the simple path) */
+const OPEN = WORLD_PINS.filter(w => w.map).map(w => w.id as WorldId);
 /** a save with every stop of a world won and every hidden spot found */
 function allDone(world: WorldId) {
   const p = newProfile('Ava', 'dino'), a = advOf(p);
@@ -18,8 +20,8 @@ function allDone(world: WorldId) {
 
 describe('the trails on the Adventure maps', () => {
   it('every world that is open has trails, and every stop of it is on them', () => {
-    expect(WORLDS_WITH_TRAILS.sort()).toEqual(['caves', 'falls', 'market', 'sky']);
-    for (const w of WORLDS_WITH_TRAILS) {
+    expect([...WORLDS_WITH_TRAILS].sort()).toEqual(['caves', 'clockwork', 'falls', 'market', 'peaks', 'sky']);
+    for (const w of OPEN) {
       const tr = trailsOf(w);
       for (const n of nodesOf(w)) expect(tr.point[n.id]?.kind).toBe('stop');
       // and nothing on a map is off the picture
@@ -28,7 +30,7 @@ describe('the trails on the Adventure maps', () => {
     }
   });
   it('every stop and find can be reached from the start once everything is done', () => {
-    for (const w of WORLDS_WITH_TRAILS) for (const k of KINDS) {
+    for (const w of OPEN) for (const k of KINDS) {
       const p = allDone(w), c = ctxOf(w, k, sizeOf(w, k), advOf(p));
       const seen = reachable(c, nodesOf(w)[0].id);
       for (const pt of trailsOf(w).points) expect(seen.has(pt.id), `${w} ${k} ${pt.id}`).toBe(true);
@@ -70,6 +72,30 @@ describe('the trails on the Adventure maps', () => {
     expect(currentNode(a)!.id).toBe('meadow-3');
     a.nodes['meadow-3'] = 1;
     expect(nodeOpen(a, NODE['meadow-5'])).toBe(true);
+  });
+});
+
+describe('a world with no trails placed yet', () => {
+  it('walks a simple path through its stops, at their places on the maps', () => {
+    for (const w of OPEN) {
+      const tr = buildTrails(w, simplePlan(w)), stops = nodesOf(w);
+      expect(tr.points.map(p => p.id)).toEqual(stops.map(n => n.id));
+      expect(tr.edges).toHaveLength(stops.length - 1);
+      for (const k of KINDS) {
+        for (const e of tr.edges) expect(legLength(tr, e, k, sizeOf(w, k))).toBeGreaterThan(20);
+        const p = allDone(w), c = { ...ctxOf(w, k, sizeOf(w, k), advOf(p)), tr };
+        expect(reachable(c, stops[0].id).size).toBe(stops.length);
+      }
+    }
+    // the Sky Islands' three islands are joined end to end
+    const sky = buildTrails('sky', simplePlan('sky'));
+    expect(sky.edges.some(e => e.a === 'meadow-5' && e.b === 'treetops-0')).toBe(true);
+  });
+  it('a new player there can walk to the first stops, with a gate before the Champion', () => {
+    const p = newProfile('Ava', 'dino'), tr = buildTrails('peaks', simplePlan('peaks'));
+    const c = { ...ctxOf('peaks', 'wide', sizeOf('peaks', 'wide'), advOf(p)), tr };
+    expect(reachable(c, 'peaks-0').has('peaks-0')).toBe(true);
+    expect(locked(c, 'peaks-5')).toBe(true);
   });
 });
 
@@ -123,7 +149,7 @@ describe('walking the trails', () => {
 
 describe('older saves on the new trails', () => {
   it('every old stop id is a stop on the trails, and the progress reads the same', () => {
-    for (const n of NODES) expect(stopOnTrails(trailsOf(['sky', 'falls', 'caves', 'market'].find(w => nodesOf(w as WorldId).includes(n)) as WorldId).world, n.id)).toBe(n.id);
+    for (const n of NODES) expect(stopOnTrails(trailsOf(OPEN.find(w => nodesOf(w).includes(n))!).world, n.id)).toBe(n.id);
     // an older save part way through: battles won up to the old fourth stop of Treetop Hollow
     const p = newProfile('Ava', 'dino'), a = advOf(p);
     for (const id of ['meadow-0', 'meadow-1', 'meadow-2', 'meadow-3', 'meadow-4', 'meadow-5', 'treetops-0', 'treetops-1', 'treetops-2', 'treetops-3']) a.nodes[id] = 1;
