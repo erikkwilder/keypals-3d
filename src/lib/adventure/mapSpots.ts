@@ -19,6 +19,8 @@ export const SPOTS: Record<'wide' | 'tall', Record<string, [number, number]>> = 
     'jungle-0': [22.0, 71.0], 'jungle-1': [45.5, 50.5], 'jungle-2': [51.0, 43.0], 'jungle-3': [66.5, 38.3], 'jungle-4': [81.0, 30.0], 'jungle-5': [87.2, 18.5],
     // Below Zero Caves (map-frost-*.webp): the round ice platforms, the dock for the second route
     'frost-0': [18.0, 76.0], 'frost-1': [41.6, 66.0], 'frost-2': [57.0, 52.0], 'frost-3': [71.3, 35.3], 'frost-4': [59.8, 31.9], 'frost-5': [85.0, 23.6],
+    // the Chance Fair (map-fair-*.webp): the round stone platforms, from the balloon stand to the prize tent
+    'fair-0': [16.4, 73.0], 'fair-1': [35.7, 64.0], 'fair-2': [46.8, 52.7], 'fair-3': [66.4, 46.7], 'fair-4': [57.0, 37.0], 'fair-5': [88.6, 21.6],
   },
   tall: {
     'meadow-0': [46.1, 85.0], 'meadow-1': [56.3, 78.2], 'meadow-2': [47.2, 72.1], 'meadow-3': [55.2, 66.4], 'meadow-4': [67.5, 63.3], 'meadow-5': [48.8, 57.5],
@@ -31,5 +33,6 @@ export const SPOTS: Record<'wide' | 'tall', Record<string, [number, number]>> = 
     'peaks-0': [51.6, 81.3], 'peaks-1': [46.5, 57.5], 'peaks-2': [28.8, 49.2], 'peaks-3': [52.3, 37.9], 'peaks-4': [58.3, 21.7], 'peaks-5': [71.0, 15.2],
     'jungle-0': [50.0, 86.0], 'jungle-1': [61.0, 55.0], 'jungle-2': [69.0, 37.0], 'jungle-3': [42.0, 33.0], 'jungle-4': [56.0, 21.0], 'jungle-5': [70.0, 7.0],
     'frost-0': [56.0, 88.6], 'frost-1': [61.5, 66.3], 'frost-2': [62.5, 50.0], 'frost-3': [60.8, 30.1], 'frost-4': [44.0, 21.4], 'frost-5': [65.6, 13.4],
+    'fair-0': [52.0, 88.2], 'fair-1': [54.6, 65.4], 'fair-2': [48.7, 46.9], 'fair-3': [52.0, 29.8], 'fair-4': [75.0, 44.0], 'fair-5': [67.8, 16.5],
   },
 };

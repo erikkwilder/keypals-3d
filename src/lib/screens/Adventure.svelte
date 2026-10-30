@@ -6,7 +6,7 @@
   import CloseButton from '../ui/CloseButton.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { sfx, worldStation } from '../audio/sound';
+  import { sfx, setPlaceStation } from '../audio/sound';
   import { nextLesson } from '../engine/profile';
   import { mathOf, nextMathLesson } from '../math/progress';
   import { nextToLearn } from '../math/learn';
@@ -15,7 +15,7 @@
   import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, islandsOf, markSeen, nodesOf, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, worldOpen, type MapNode, type WorldId, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
   import { DuelScene } from '../three/duelScene';
-  import { WORLD_PIN, WORLD_PINS, lastWorld, mapOf, type WorldPin } from '../adventure/worlds';
+  import { WORLD_PIN, WORLD_PINS, lastWorld, mapOf, stationOf, type WorldPin } from '../adventure/worlds';
   import { nextSkillLesson } from '../math/skills/course';
   import { AREA } from '../math/skills/registry';
     import Header from '../ui/Header.svelte';
@@ -39,9 +39,6 @@
   const spots = $derived(SPOTS[kind]);
   // the world on show: the last one looked at (back from a battle lands on the same world)
   let world = $state<WorldId>(lastWorld.id !== 'sky' && !worldOpen(game.profile!, lastWorld.id) ? 'sky' : lastWorld.id);
-  // a world with its own music plays it here (and in its battles); leaving Adventure puts the usual back
-  $effect(() => { worldStation(WORLD_PIN[world]?.station ?? null); });
-  onDestroy(() => setTimeout(() => { if (game.screen !== 'battle' && game.screen !== 'adventure') worldStation(null); }, 0));
   let picker = $state(false);
   let locked = $state<WorldPin | null>(null);
   let wscroll: HTMLDivElement | undefined = $state();
@@ -119,6 +116,7 @@
     sfx.pop(); picker = false; open = null;
     if (id === world) return;
     world = id; lastWorld.id = id;
+    setPlaceStation(stationOf(id));
     reach(id);
     if (id !== 'sky' && !a.seen?.includes(`world-${id}`)) { game.say(`Welcome to ${w.name}! ${w.blurb}`); game.update(pp => markSeen(pp, `world-${id}`)); }
   }

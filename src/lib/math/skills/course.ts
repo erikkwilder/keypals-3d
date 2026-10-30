@@ -5,6 +5,7 @@ import type { RegionId } from '../../engine/course';
 import type { MathMove } from '../course';
 import type { MathProgress } from '../progress';
 import type { AreaId } from './types';
+import { DATA_EPISODES, DATA_PLACEMENT, DATA_REGIONS } from '../data/course';
 
 export type SkillKind = 'meet' | 'practice' | 'mix' | 'check' | 'placement';
 export type SkillLesson = {
@@ -282,6 +283,7 @@ export const SKILL_REGIONS: SkillRegion[] = [
   ...SHAPE_REGIONS,
   ...RATIO_REGIONS,
   ...INTEGER_REGIONS,
+  ...DATA_REGIONS,
 ];
 
 export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
@@ -289,6 +291,7 @@ export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
   ratios: { id: 'start-ratios', region: 'start', area: 'ratios', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...STALL_SKILLS, ...GROVE_SKILLS, ...CANOPY_SKILLS], learn: [], goal: 5, move: 'run', world: 'treetops', blurb: 'A quick mix of ratios and percents. Answer what you know and skip ahead!' },
   decimals: { id: 'start-decimals', region: 'start', area: 'decimals', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...COIN_SKILLS, ...CHOC_SKILLS, ...HOUSE_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of money and decimals. Answer what you know and skip ahead!' },
   measure: { id: 'start-measure', region: 'start', area: 'measure', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...TICK_SKILLS, ...MILL_M_SKILLS, ...YARD_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of clocks, rulers, scales, area and units. Answer what you know and skip ahead!' },
+  data: DATA_PLACEMENT,
   fractions: { id: 'start-fractions', region: 'start', area: 'fractions', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...PIE_SKILLS, ...BAKER_SKILLS, ...MILL_SKILLS], learn: [], goal: 6, move: 'run', world: 'village', blurb: 'A quick mix of fractions. Answer what you know and skip ahead!' },
   shapes: { id: 'start-shapes', region: 'start', area: 'shapes', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...MEADOW_SKILLS, ...RIDGE_SKILLS, ...TERRACE_SKILLS, ...SUMMIT_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of shapes and angles. Answer what you know and skip ahead!' },
   integers: { id: 'start-integers', region: 'start', area: 'integers', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...DOCK_SKILLS, ...GROTTO_SKILLS, ...FREEZE_SKILLS], learn: [], goal: 6, move: 'run', world: 'shores', blurb: 'A quick mix of negative numbers and the map. Answer what you know and skip ahead!' },
@@ -317,6 +320,8 @@ export const SKILL_EPISODES: Record<string, string> = {
   // negative numbers (the Ice Cave Chart Room, math/integers/episodes.ts)
   'in-plot': 'neg-map', 'in-real': 'neg-zero', 'in-opp': 'neg-opposites', 'in-compare': 'neg-compare', 'in-abs': 'neg-opposites', 'in-quad': 'neg-map',
   'in-dist': 'neg-map', 'in-add': 'neg-add', 'in-sub': 'neg-sub', 'in-mult': 'neg-times', 'in-rat': 'neg-add',
+  // data and chance (the fair booth: math/data/episodes.ts)
+  ...DATA_EPISODES,
 };
 export const SKILL_LESSONS: SkillLesson[] = SKILL_REGIONS.flatMap(r => r.lessons);
 export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS].map(l => [l!.id, l!]));
@@ -325,7 +330,7 @@ export const skillRegionsOf = (area: AreaId) => SKILL_REGIONS.filter(r => r.area
 export const isSkillLesson = (id: string) => !!SKILL_LESSON[id];
 /** How much longer a skill question takes than a fact: speeds, treasure and rides are scaled by it so a
  *  good fraction trip feels as fast as a good times-table trip. */
-export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5, measure: 2.8, shapes: 2.5, ratios: 2.5, integers: 2.5 };
+export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5, measure: 2.8, shapes: 2.5, ratios: 2.5, integers: 2.5, data: 2.5 };
 export const tempoOf = (area: AreaId) => TEMPO[area] ?? 2;
 
 // ---------- what's open ----------

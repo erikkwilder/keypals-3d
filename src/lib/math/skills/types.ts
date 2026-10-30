@@ -27,6 +27,7 @@
 import type { Rng } from '../../engine/rng';
 import type { Op } from '../facts';
 import type { Fig } from '../shapes/fig';
+import type { DataPic } from '../data/pics';
 
 /** Every part of K-8 math. The first four are the fact strands we have; the rest are new areas. */
 export type AreaId = 'plus' | 'minus' | 'times' | 'share' | 'place' | 'fractions' | 'decimals' | 'measure' | 'shapes' | 'ratios' | 'integers' | 'algebra' | 'data';
@@ -77,7 +78,9 @@ export type Part =
   /** a point on the coordinate plane, written (3, −2) */
   | { t: 'pt'; x: number; y: number }
   /** a negative-numbers picture (thermometer, sea level, number line, coordinate plane) */
-  | { t: 'ipic'; pic: IntPic };
+  | { t: 'ipic'; pic: IntPic }
+  /** a graph, plot, spinner or bag (Data and chance: math/data/pics.ts) */
+  | { t: 'data'; d: DataPic };
 
 export type Choice = { id: string; parts: Part[] };
 

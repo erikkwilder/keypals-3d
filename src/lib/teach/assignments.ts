@@ -11,6 +11,7 @@ import { mathOf } from '../math/progress';
 import { PLACEMENTS } from '../math/course';
 import { LESSONS as TRICKS } from '../math/learn';
 import { FRAC_LESSONS } from '../math/fracEpisodes';
+import { DATA_LESSONS } from '../math/data/episodes';
 import { AREA, SKILL, SKILLS } from '../math/skills/registry';
 import { SKILL_PLACEMENTS } from '../math/skills/course';
 import type { AreaId } from '../math/skills/types';
@@ -61,7 +62,7 @@ export const GOALS_FOR: Record<What, GoalType[]> = { skills: ['right', 'minutes'
 export const GOAL_DEFAULT: Record<GoalType, number> = { right: 30, minutes: 20, comfortable: 1, finish: 1 };
 
 // ---------- names, for screens and the gradebook ----------
-export const EPISODES = [...TRICKS.map(l => ({ id: l.id, title: l.title })), ...FRAC_LESSONS.map(l => ({ id: l.id, title: l.title }))];
+export const EPISODES = [...TRICKS.map(l => ({ id: l.id, title: l.title })), ...FRAC_LESSONS.map(l => ({ id: l.id, title: l.title })), ...DATA_LESSONS.map(l => ({ id: l.id, title: l.title }))];
 const EPISODE: Record<string, string> = Object.fromEntries(EPISODES.map(e => [e.id, e.title]));
 const TYPING: Record<string, string> = Object.fromEntries(ALL_LESSONS.map(l => [l.id, l.title]));
 /** The Show What You Know trip for each area that has one. */

@@ -18,11 +18,13 @@
   import GearButton from '../ui/GearButton.svelte';
   import { builderOf, builderOpen } from '../math/place/builder';
   import { treasureOf } from '../math/integers/treasure';
+  import { showdownOf } from '../math/data/showdown';
 
   const p = $derived(game.profile!);
   const save = $derived(arcadeOf(p));
   const builderBest = $derived(builderOf(p).best);
   const treasureBest = $derived(treasureOf(p).best);
+  const showdownBest = $derived(showdownOf(p).best);
   const shells = $derived(advView(p).shells);
   const today = dailyGame();
   const beaten = $derived(dailyBeaten(p, today));
@@ -67,12 +69,15 @@
     { id: 'smoothie', screen: 'smoothie', name: 'Smoothie Stand', part: 'Ratios and percents', color: '#ef5f8a', art: 'arcade/cab-smoothie.webp', say: 'Smoothies! Mix them just right!', line: () => 'Mix smoothies just right' },
     { id: 'treasure', screen: 'treasure', name: 'Treasure Grid', part: 'Negative numbers', color: '#2f9ed8', art: 'arcade/cab-treasure.webp', say: 'Treasure! Dig it up!',
       line: () => (treasureBest ? `Best score ${treasureBest}` : 'Dig on the map') },
+    { id: 'showdown', screen: 'showdown', name: 'Spinner Showdown', part: 'Data and chance', color: '#e2468f', art: 'arcade/cab-spinner.webp', say: 'Spin the big wheel!',
+      line: () => (showdownBest ? `Best ${showdownBest} tickets` : 'Graphs, spinners and chances') },
   ];
   function openCab(c: AreaCab) { unlockAudio(); sfx.click(); scene?.cheer(); c.before?.(); game.go(c.screen); }
   /** Glimmer Drop: just for fun, on its own screen (it spends play time); its cabinet is always last */
   function openDrop() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('drop'); }
-  /** the number key for the cabinet in this place (1 to 9, then 0 for the tenth; none after that) */
-  const keyOf = (place: number) => (place <= 9 ? String(place) : place === 10 ? '0' : '');
+  /** each cabinet's own key, by its place: 1 to 9, then 0, then along the top row of letters (D is today's challenge) */
+  const KEYS = '1234567890qwertyuiop';
+  const keyOf = (place: number) => KEYS[place - 1] ?? '';
   const DROP_PLACE = ARCADE_GAMES.length + AREA_CABS.length + 1;
   function hover(id: string | null, el?: HTMLElement) {
     if (!scene) return;
@@ -84,7 +89,7 @@
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'Escape') { back(); return; }
-    const n = e.key === '0' ? 10 : Number(e.key);
+    const n = KEYS.indexOf(e.key.toLowerCase()) + 1;
     if (n >= 1 && n <= ARCADE_GAMES.length) play(ARCADE_GAMES[n - 1].id);
     else if (n > ARCADE_GAMES.length && n <= ARCADE_GAMES.length + AREA_CABS.length) openCab(AREA_CABS[n - ARCADE_GAMES.length - 1]);
     else if (n === DROP_PLACE) openDrop();

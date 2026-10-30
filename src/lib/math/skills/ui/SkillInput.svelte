@@ -33,6 +33,13 @@
   registerInput('dnl', DoubleLine);
   registerInput('pctbar', PercentBar);
   registerInput('thermo', ThermoInput);
+  // Data and chance: drag a bar, tap dots onto a line plot, drag along the chance line
+  import BarDrag from '../../data/ui/BarDrag.svelte';
+  import DotTap from '../../data/ui/DotTap.svelte';
+  import ChanceLine from '../../data/ui/ChanceLine.svelte';
+  registerInput('bars', BarDrag);
+  registerInput('dots', DotTap);
+  registerInput('chance', ChanceLine);
 </script>
 
 <script lang="ts">

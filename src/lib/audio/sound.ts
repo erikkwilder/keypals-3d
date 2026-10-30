@@ -985,6 +985,11 @@ type Deck = { el: HTMLAudioElement; gain: GainNode; station: StationId; track: n
 let deck: Deck | null = null;
 let stationChoice: StationChoice = 'auto';
 let place: MusicPlace = 'menu';
+/** a place's own station on Auto, instead of the usual one for the place: an Adventure world's (worlds.ts
+ *  WORLD_PINS `station`: Clockwork Isle's Storybook, Shape Peaks' snow, Juice Jungle's and the Chance Fair's
+ *  World...) on its map and in its battles, or a game's own (Spinner Showdown). App.svelte sets it on every
+ *  screen change, Adventure when the world changes, a game for itself: setPlaceStation is the one way. */
+let placeStation: StationId | null = null;
 let where: RegionId | 'menu' = 'menu';
 let started = false;
 let fails = 0;
@@ -992,13 +997,9 @@ const orders: Partial<Record<StationId, { list: number[]; at: number }>> = {};
 export type NowPlaying = { station: StationId; choice: StationChoice; title?: string; artist?: string };
 const listeners = new Set<(n: NowPlaying) => void>();
 
-/** the Adventure world on screen's own station (worlds.ts WORLD_PINS `station`: Clockwork Isle's Storybook,
- *  Shape Peaks' snow, Juice Jungle's steel drums...), played there on Auto instead of the usual. Adventure
- *  and Battle set it from the world they show (worldStation); nothing else chooses a world's music. */
-let worldSt: StationId | null = null;
 /** The station that should be playing now (Auto follows what you're doing). */
 function currentStation(): StationId {
-  const id = stationChoice === 'auto' ? (place === 'adventure' && worldSt ? worldSt : AUTO[place]) : stationChoice;
+  const id = stationChoice === 'auto' ? (placeStation ?? AUTO[place]) : stationChoice;
   // a station with no recordings (or recordings that won't load) plays the island tunes instead
   return id !== 'originals' && STATION[id]?.tracks.length && fails < 3 ? id : 'originals';
 }
@@ -1079,6 +1080,13 @@ function applyMusic() {
   tell();
 }
 
+/** A place's own station while you're there, on Auto (the Chance Fair plays World: steel drums and
+ *  maracas); null goes back to the usual one for the place. */
+export function setPlaceStation(id: StationId | null) {
+  if (id === placeStation) return;
+  placeStation = id;
+  if (started) applyMusic();
+}
 /** Music for where you are: an island while you practise, 'menu' around the game, 'adventure' in
  *  Adventure. With a station picked it just keeps playing; on Auto it follows the place. */
 export function startMusic(region: RegionId | 'menu' | 'adventure') {
@@ -1086,12 +1094,6 @@ export function startMusic(region: RegionId | 'menu' | 'adventure') {
   where = region === 'adventure' ? 'menu' : region;
   started = true;
   applyMusic();
-}
-/** The Adventure world on screen has its own station (or null: the usual adventure music). Only on Auto. */
-export function worldStation(id: StationId | null) {
-  if (id === worldSt) return;
-  worldSt = id;
-  if (started && stationChoice === 'auto' && place === 'adventure') applyMusic();
 }
 /** Pick a station (or 'auto'); it crossfades straight away if music is playing. */
 export function setMusicStation(choice: StationChoice) {

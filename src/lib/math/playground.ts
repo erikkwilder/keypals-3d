@@ -6,6 +6,7 @@
 //   Market Stall     price your goods, then give shoppers their change: money (math/market/stall.ts)
 //   Smoothie Lab     mix fruit until the colour matches: ratios and percents (math/ratios/lab.ts)
 //   Star Sketch      plot the points of a picture on a coordinate grid: the map (math/integers/sketch.ts)
+//   Spin Lab         pick what comes up most, then spin and watch a bar graph grow: chance (math/data/lab.ts)
 // Rounds feed the same friendship, outfits, dances, stickers and daily minutes as every other game.
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
 import { buddyPal } from '../engine/profile';
@@ -16,7 +17,7 @@ import { mathOf } from './progress';
 import type { Rng } from '../engine/rng';
 import { hasEvidence, pitch, TARGET } from './skills/ability';
 
-export type PlayGame = 'line' | 'bonds' | 'build' | 'stall' | 'lab' | 'sketch';
+export type PlayGame = 'line' | 'bonds' | 'build' | 'stall' | 'lab' | 'sketch' | 'chance';
 export type PlayLevel = { n: number; title: string; hint: string };
 
 export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: string; levels: PlayLevel[] }[] = [
@@ -61,6 +62,13 @@ export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: str
     { n: 3, title: 'All four corners', hint: 'Minus goes left or down: (−3, 2) is 3 left and 2 up.' },
     { n: 4, title: 'Mirror pictures', hint: 'Flip over the y-axis: the first number changes sign.' },
     { n: 5, title: 'Lake reflections', hint: 'Flip over the x-axis: the second number changes sign.' },
+  ] },
+  { id: 'chance', name: 'Spin Lab', blurb: 'Pick what will come up most, then spin and watch the bar graph grow. No clock, no rush.', color: '#e85d9a', levels: [
+    { n: 1, title: 'Two colours', hint: 'The colour with more parts comes up more.' },
+    { n: 2, title: 'Three colours', hint: 'Count the parts of each colour.' },
+    { n: 3, title: 'Roll a die', hint: 'Every number is as likely. Watch them even out.' },
+    { n: 4, title: 'Two dice', hint: '7 has the most ways: 1 and 6, 2 and 5, 3 and 4...' },
+    { n: 5, title: 'Mixed up', hint: 'Lots of parts: count each colour.' },
   ] },
 ];
 export const PLAY_GAME = Object.fromEntries(PLAY_GAMES.map(g => [g.id, g])) as Record<PlayGame, (typeof PLAY_GAMES)[number]>;
@@ -132,6 +140,7 @@ const PLAY_SKILL: Record<PlayGame, { skill: string; level: number[] }> = {
   stall: { skill: 'dm-change', level: [1, 2, 3, 4, 5, 5] },
   lab: { skill: 'rt-ratio', level: [1, 2, 3, 4, 5, 5] },
   sketch: { skill: 'in-quad', level: [1, 2, 3, 4, 5, 5] },
+  chance: { skill: 'da-likely', level: [1, 2, 3, 4, 5, 5] },
 };
 /** The level the child's practice says they're ready for (pitched easy: 90%), once there is practice to
  *  go by (0 before). It opens levels the way a star does and never closes one. */

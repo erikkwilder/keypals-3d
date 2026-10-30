@@ -4,6 +4,7 @@
   "compasscrab": [425, 540, 300],
   "crystalbat": [370, 720, 340],
   "cupcakebear": [388, 520, 330],
+  "dicebun": [430, 540, 340],
   "eldertreeturtle": [640, 690, 256],
   "fireflyfawn": [400, 470, 300],
   "fruittoucan": [330, 470, 320],
@@ -18,5 +19,6 @@
   "prismpeacock": [430, 490, 250],
   "smoothiesloth": [385, 390, 300],
   "snowhog": [405, 455, 330],
-  "snowpineelk": [405, 410, 270]
+  "snowpineelk": [405, 410, 270],
+  "spinpeacock": [455, 470, 230]
 }

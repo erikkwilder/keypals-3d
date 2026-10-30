@@ -85,6 +85,7 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
       else if (t.id === 'shifter') game.go('shifter');
       else if (t.id === 'smoothie') game.go('smoothie');
       else if (t.id === 'treasure') game.go('treasure');
+      else if (t.id === 'showdown') game.go('showdown');
       else if (t.id === 'builder') { builderOpen.toy = false; builderOpen.from = 'map'; game.go('builder'); }
       else game.playArcade(t.id as ArcadeId);
       return;

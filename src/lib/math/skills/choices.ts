@@ -64,6 +64,15 @@ const WRONG_NUM: Record<string, (it: Item, v: number) => number[]> = {
     return [];
   },
 };
+// data and chance: the mistakes children make with a graph (counting pictures, not what the key says
+// each is worth), the mean (the total, or the biggest, instead of a fair share) and the median (the middle
+// of the list as it stands, before putting it in order)
+const dataIn = (it: Item) => { for (const p of it.prompt) if (p.t === 'data') return p.d; return null; };
+Object.assign(WRONG_NUM, {
+  'da-picgraph': (it: Item, v: number) => { const g = dataIn(it); return g?.kind === 'picgraph' && g.per > 1 ? [v / g.per, v + g.per, v - g.per] : []; },
+  'da-mean': (it: Item, v: number) => { const g = dataIn(it); const xs = g?.kind === 'list' ? g.values : g?.kind === 'towers' ? g.heights : []; return xs.length ? [xs.reduce((t, x) => t + x, 0), Math.max(...xs), v + 1] : []; },
+  'da-middle': (it: Item, v: number) => { const g = dataIn(it); return g?.kind === 'list' ? [g.values[Math.floor(g.values.length / 2)], Math.max(...g.values) - Math.min(...g.values), v + 1] : []; },
+});
 const genericNum = (v: number) => [v + 1, v - 1, v + 2, v * 2, v + 10];
 
 const fracPart = (f: F): Part[] => [{ t: 'frac', n: f.n, d: f.d }];

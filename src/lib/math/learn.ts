@@ -28,7 +28,8 @@ export type Shape = { k: 'wedge'; food: 'pie' | 'pizza'; n: number; i: number; r
   /** a fruit of the Juice Jungle (or a gold coin): the ratios episodes (three/fruitShapes.ts) */
   | { k: 'fruit'; f: import('../three/fruitShapes').FruitKind };
 export type Dot = { id: string; x: number; y: number; c: Hue; /** crossed out: taken away, still shown */ out?: boolean; /** seconds to wait before moving */ d?: number; shape?: Shape;
-  /** turned this many degrees (anticlockwise, seen from above): a shape tile turning as it moves */ rot?: number };
+  /** turned this many degrees (anticlockwise, seen from above): a shape tile turning as it moves */ rot?: number;
+  /** stacked this many counters up (a tower of blocks: Data and chance) */ up?: number };
 export type Tag = { id: string; x: number; y: number; text: string; c?: Hue | 'ink'; size?: number };
 export type Board = {
   /** the dot size: every dot is drawn in a square this big */
