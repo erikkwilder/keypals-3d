@@ -365,6 +365,7 @@
   .narrow .ask { font-size: 26px; }
   .narrow .box { min-width: 60px; min-height: 44px; font-size: 28px; }
   .narrow .msg { bottom: 268px; font-size: 15px; }
+  .narrow .pop { font-size: 32px; } .narrow .pop.big { font-size: 34px; }
   .narrow .hero { width: 120px; height: 100px; }
   .narrow .start h1, .narrow .done h1 { font-size: 30px; }
   .narrow .lead { font-size: 15px; }

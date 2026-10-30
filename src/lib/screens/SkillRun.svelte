@@ -343,7 +343,7 @@
           <div class="meetbuddy"><Critter friend={profile.buddy} size={110} mood="dance" /></div>
           <p class="blurb">{lesson.blurb}</p>
         {/if}
-        {#if introEp}<button class="watchl" onclick={() => { sfx.click(); game.learnOverlay = introEp; }}><img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" /><span><b>{isLearned(mathOf(profile), introEp) ? 'Watch the lesson again' : 'Watch the lesson first'}</b><small>{FRAC_LESSON[introEp].title}: {buddy.name} shows you how</small></span></button>{/if}
+        {#if introEp}<button class="watchl" onclick={() => { sfx.click(); game.learnOverlay = introEp; }}><img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" /><span><b>{isLearned(mathOf(profile), introEp) ? 'Watch the lesson again' : 'Watch the lesson first'}</b><small>{(FRAC_LESSON[introEp] ?? ALG_LESSON[introEp]).title}: {buddy.name} shows you how</small></span></button>{/if}
         {#if !calm}
           <div class="goals">{#each starAt as s, i}<div class="goal"><Stars n={i + 1} of={i + 1} size={20} /><span>score {s}</span></div>{/each}</div>
           <p class="howscore">Your score is right answers a minute. Quick, right answers move you up the speed steps. No clock, so take the time you need.</p>

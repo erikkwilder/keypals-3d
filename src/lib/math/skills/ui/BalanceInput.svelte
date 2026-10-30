@@ -51,7 +51,7 @@
     else if (e.key === '-') { e.preventDefault(); if (!alone) take(1); else share(); }
   }
   let vw = $state(1280);
-  const bw = $derived(Math.min(compact ? 360 : 470, vw - 40));
+  const bw = $derived(Math.min(compact ? 290 : 470, vw - 30));
 </script>
 
 <svelte:window onkeydown={key} bind:innerWidth={vw} />
@@ -89,7 +89,12 @@
   @keyframes nope { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
   .ok { display: flex; align-items: center; gap: 6px; border: 3px solid #3fbf7a; border-radius: 16px; padding: 8px 18px 8px 12px; background: linear-gradient(#7ee0a8, #3fbf7a); color: #fff; font: 600 20px var(--font-ui); box-shadow: 0 4px 0 #2f9a60; cursor: pointer; }
   .ok:disabled { filter: grayscale(.8); opacity: .6; cursor: default; }
-  .compact .say { font-size: 14px; }
-  .compact .ans { font-size: 24px; }
-  .compact .act { font-size: 15px; padding: 8px 12px; }
+  /* a phone: a smaller balance and one tight row, so the question above keeps its room */
+  .compact { gap: 5px; }
+  .compact .say { font-size: 13px; padding: 2px 10px; margin-top: -8px; }
+  .compact .acts { gap: 6px; flex-wrap: nowrap; }
+  .compact .ans { font-size: 22px; gap: 5px; }
+  .compact .box { min-width: 52px; min-height: 40px; font-size: 24px; }
+  .compact .act { font-size: 14px; padding: 8px 10px; border-radius: 14px; white-space: nowrap; }
+  .compact .ok { padding: 6px 12px 6px 8px; font-size: 17px; }
 </style>

@@ -38,8 +38,9 @@
   const L = $derived(leftTotal(z));
   const tilt = $derived(phase === 'weigh' ? tiltOf(L, sum) : 0);
   const lhs = $derived(`${Array(z.boxes).fill('□').join(' + ')}${z.left ? ` + ${z.left}` : ''}`);
-  let vw = $state(1280);
-  const bw = $derived(Math.min(560, vw - 40));
+  let vw = $state(1280), vh = $state(800);
+  // (a short screen gets a smaller balance, so the shelf stays in sight)
+  const bw = $derived(Math.max(260, Math.min(560, vw - 40, (vh - 400) / 0.66)));
 
   function add(v: number) {
     if (phase !== 'weigh' || right.length >= 14) return;
@@ -86,7 +87,7 @@
   }
 </script>
 
-<svelte:window onkeydown={onKey} bind:innerWidth={vw} />
+<svelte:window onkeydown={onKey} bind:innerWidth={vw} bind:innerHeight={vh} />
 
 <div class="sc">
   <div class="top"><span class="dots">{#each puzzles as _, k}<i class:done={k < i || (k === i && phase === 'done')} class:now={k === i}></i>{/each}</span></div>

@@ -449,7 +449,8 @@ export class EpisodeScene implements Controller {
     if (b.line && Math.abs(y - LY) < 20) return 0.04;
     return 0;
   }
-  private get deepPlates() { return this.set.token === 'pearl' || this.set.token === 'flower' || this.set.token === 'block'; }
+  // (the Star Lab's pans are shallow brass dishes, so the weights and boxes in them show)
+  private get deepPlates() { return this.setId !== 'lab' && (this.set.token === 'pearl' || this.set.token === 'flower' || this.set.token === 'block'); }
 
   /** Show a picture: everything moves, pops in or leaves to match it. */
   show(raw: Board, instant = false) {
@@ -654,13 +655,13 @@ export class EpisodeScene implements Controller {
     const geo = new THREE.LatheGeometry(prof.map(([a, b]) => new THREE.Vector2(a, b)), 40);
     geo.scale(1, 1, DEPTH);
     const g = new THREE.Group();
-    const m = new THREE.Mesh(geo, this.mat('plate', () => new THREE.MeshStandardMaterial({ color: c.color, roughness: 0.32, side: THREE.DoubleSide })));
+    const m = new THREE.Mesh(geo, this.mat('plate', () => new THREE.MeshStandardMaterial({ color: c.color, roughness: 0.32, metalness: this.setId === 'lab' ? 0.7 : 0, side: THREE.DoubleSide })));
     m.castShadow = true; m.receiveShadow = true;
     if (empty) { m.material = this.mat('plate-e', () => new THREE.MeshStandardMaterial({ color: c.color, roughness: 0.32, transparent: true, opacity: 0.55, side: THREE.DoubleSide })); }
     const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 0.985, Math.max(0.004, r * 0.035), 6, 40).rotateX(Math.PI / 2).scale(1, 1, DEPTH), this.mat('rim', () => new THREE.MeshStandardMaterial({ color: c.rim, roughness: 0.4 })));
     rim.position.y = h * 1.01;
     g.add(m, rim);
-    if (!deep && this.plateTex) {
+    if (!deep && this.plateTex && this.setId !== 'lab') {
       // the painted plate (blue vines round the rim) lying in the dish
       const top = new THREE.Mesh(new THREE.CircleGeometry(r * 0.99, 48).rotateX(-Math.PI / 2).scale(1, 1, DEPTH), this.mat('platetop', () => new THREE.MeshStandardMaterial({ map: this.plateTex, roughness: 0.25, transparent: empty, opacity: empty ? 0.6 : 1 })));
       top.position.y = h * 0.46; top.receiveShadow = true;

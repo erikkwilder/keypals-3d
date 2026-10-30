@@ -43,11 +43,11 @@ function boxTexture() {
   boxFace = new THREE.CanvasTexture(c); boxFace.colorSpace = THREE.SRGBColorSpace; boxFace.anisotropy = 4;
   return boxFace;
 }
-const BRASS: Record<'a' | 'b' | 'c', number> = { a: 0xd9a844, b: 0xe39a86, c: 0xffd45a };
+const BRASS: Record<'a' | 'b' | 'c', number> = { a: 0xd8981e, b: 0xd8705a, c: 0xffc93a };
 export function algShapeMats(s: Shape, hue: Hue, cache: Cache): THREE.Material {
   const h = hue === 'ghost' ? 'a' : hue;
   if (s.k === 'box') return cache(`alg-box-${h}`, () => new THREE.MeshPhysicalMaterial({ map: boxTexture(), color: h === 'c' ? 0xfff0c0 : 0xffffff, roughness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.2, emissive: h === 'c' ? 0xffb02a : 0x5a2fc4, emissiveIntensity: h === 'c' ? 0.35 : 0.12 }));
-  return cache(`alg-wt-${h}`, () => new THREE.MeshStandardMaterial({ color: BRASS[h], metalness: 0.75, roughness: 0.28, emissive: BRASS[h], emissiveIntensity: h === 'c' ? 0.3 : 0.06 }));
+  return cache(`alg-wt-${h}`, () => new THREE.MeshStandardMaterial({ color: BRASS[h], metalness: 0.6, roughness: 0.3, emissive: BRASS[h], emissiveIntensity: h === 'c' ? 0.35 : 0.14 }));
 }
 
 const brass = () => new THREE.MeshStandardMaterial({ color: 0xd8a640, metalness: 0.85, roughness: 0.3 });
@@ -82,7 +82,7 @@ export function makeBalance(a: THREE.Vector3, b: THREE.Vector3, r: number): THRE
   for (const p of [a, b]) {
     const ex = p.x - foot.x, end = new THREE.Vector3(ex, top, 0);
     const ball = new THREE.Mesh(new THREE.SphereGeometry(0.018, 14, 10), mat); ball.position.copy(end); g.add(ball);
-    const rimY = r * 0.42;
+    const rimY = r * 0.15;
     for (const ang of [Math.PI * 0.85, Math.PI * 0.15, -Math.PI / 2]) {
       const to = new THREE.Vector3(p.x - foot.x + Math.cos(ang) * r * 0.95, rimY, p.z - foot.z + Math.sin(ang) * r * 0.95 * 1.15);
       const dir = to.clone().sub(end), len = dir.length();

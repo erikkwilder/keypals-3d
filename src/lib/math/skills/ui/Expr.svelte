@@ -5,7 +5,8 @@
   type Props = { s: string; size?: number };
   let { s, size }: Props = $props();
   /** the expression in runs: letters, boxes, and everything else */
-  const runs = $derived(s.split(/([a-zA-Z]|□)/).filter(Boolean).map(t => ({ t, k: t === '□' ? 'box' : /^[a-zA-Z]$/.test(t) ? 'v' : 'n' })));
+  // (a whole word, like "slope", stays a word; one or two letters together are letters for numbers: ab)
+  const runs = $derived(s.split(/([a-zA-Z]+|□)/).filter(Boolean).map(t => ({ t, k: t === '□' ? 'box' : /^[a-zA-Z]{1,2}$/.test(t) ? 'v' : 'n' })));
 </script>
 
 <span class="ex" style:font-size={size ? `${size}px` : null}>{#each runs as r, i (i)}{#if r.k === 'v'}<i>{r.t}</i>{:else if r.k === 'box'}<b class="bx"></b>{:else}{r.t}{/if}{/each}</span>

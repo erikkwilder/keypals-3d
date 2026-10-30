@@ -540,7 +540,7 @@ export const alIneq: Skill = {
       const wrong = r >= 3 ? [rayId(FLIP[o], at), rayId(OPEN[o], at), rayId(FLIP[OPEN[o]], at)] : [rayId(FLIP[o], at), rayId(o, at + (at < max - 2 ? 2 : -2)), ...(r === 1 ? [rayId(FLIP[o], at + (at < max - 2 ? 2 : -2))] : [rayId(OPEN[o], at)])];
       const right = rayId(o, at);
       const cs = shuffle(rng, [right, ...wrong].filter((x, i, xs) => xs.indexOf(x) === i).map(id => ({ ...choiceFor(id, back && id === right), id: id === right ? 'right' : id })));
-      return { ...base, id: `al-ineq:read:${right}:${back ? 'b' : ''}:${min}`, ask: 'Which one does the line show?', prompt: [alg({ kind: 'ray', min, max, at, op: o })], input: 'choice', choices: cs, answer: { kind: 'choice', id: 'right' }, explain: `The line shows ${ineqText(o, at)}${back ? ` (the same as ${ineqText(o, at, 'x', true)})` : ''}: ${explainDraw(o, at)}` };
+      return { ...base, id: `al-ineq:read:${right}:${back ? 'b' : ''}:${min}`, ask: 'Which one does the line show?', prompt: [alg({ kind: 'ray', min, max, at, op: o })], input: 'choice', choices: cs, answer: { kind: 'choice', id: 'right' }, explain: `${explainDraw(o, at)}${back ? ` That's the same as ${ineqText(o, at, 'x', true)}.` : ''}` };
     }
     const spec: RaySpec = { min, max };
     if (sub === 'draw') {

@@ -308,8 +308,9 @@ export class BalanceScene {
     this.camera.lookAt(look.x, look.y - (this.tall ? 0.15 : 0.05), look.z);
     this.camera.updateProjectionMatrix();
     // on a phone the stack and the friend tuck in closer, in front
-    this.stackAt.set(this.tall ? 1.55 : 3.35, 0.36, this.tall ? 1.35 : 0.25);
-    this.palAt.set(this.tall ? -1.6 : -3.05, 0, this.tall ? 1.3 : 0.9);
+    // (on a phone they stand behind the beam, so they show above it and never cover its ends)
+    this.stackAt.set(this.tall ? 1.75 : 3.35, 0.36, this.tall ? -1.5 : 0.25);
+    this.palAt.set(this.tall ? -1.8 : -3.05, 0, this.tall ? -1.4 : 0.9);
     for (const n of ['ped', 'pedTop']) { const o = this.scene.getObjectByName(n); if (o) { o.position.x = this.stackAt.x; o.position.z = this.stackAt.z; } }
     this.stack.forEach((m, i) => m.position.set(this.stackAt.x, BOX / 2 + 0.03 + this.stackAt.y + i * BOX * 0.98 - 0.36, this.stackAt.z));
     for (const n of ['ped', 'pedTop']) { const o = this.scene.getObjectByName(n); if (o) o.scale.setScalar(this.tall ? 0.8 : 1); }
