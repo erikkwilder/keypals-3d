@@ -98,6 +98,8 @@
   const choices = lesson.teach.choices;
   const right = lesson.teach.q.ans;
   const PRAISE = ['Yes! You got it!', 'That\'s it!', 'Brilliant!', 'You did it!', 'Spot on!'];
+  /** a typed or written minus shown as a real minus sign: −4 */
+  const minusSign = (s: string) => s.replace(/(^|[\s(])-(?=\d)/g, '$1−');
 
   // ---------- the voice ----------
   /** The coach says a line (its words stay up); resolves when it's said. (A line cut off by another
@@ -213,6 +215,7 @@
   }
   function digit(d: string) {
     if ((phase !== 'turn' && phase !== 'check') || locked) return;
+    if (d === '-' && typed) return;
     if (typed.length >= ans.length) typed = '';
     typed += d;
     sfx.click();
@@ -236,7 +239,7 @@
       }, 1200);
     } else {
       misses++; shake++; sfx.miss(); s?.shrug();
-      bubble = misses === 1 ? `Not quite. ${q.input === 'frac' ? '' : 'Try the trick: '}${q.hidden}` : `Here's how: ${q.hint} Type ${ans}.`;
+      bubble = misses === 1 ? `Not quite. ${q.input === 'frac' ? '' : 'Try the trick: '}${q.hidden}` : `Here's how: ${q.hint} Type ${minusSign(ans)}.`;
       setTimeout(() => { if (!locked) { typed = ''; fn = ''; fd = ''; ff = 'n'; } }, 500);
     }
   }
@@ -285,7 +288,7 @@
       if (/^[0-9/]$/.test(e.key) || ['Backspace', 'Enter', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
     }
     if (phase === 'turn' || phase === 'check') {
-      if (/^[0-9]$/.test(e.key)) return mine(() => digit(e.key));
+      if (/^[0-9]$/.test(e.key) || (e.key === '-' && lesson.minus)) return mine(() => digit(e.key));
       if (e.key === 'Backspace') return mine(backspace);
     }
     if (phase === 'teach' && tsub === 'fix' && /^[1-3]$/.test(e.key)) return mine(() => pickFix(choices[+e.key - 1]));
@@ -368,7 +371,7 @@
     {#if shown.line}
       {#each ticks as n (n)}
         {#if every === 1 || n % every === 0 || n === shown.line.at}
-          <div class="pin" use:pin={() => sc!.tickPoint(n)}><span class="num" class:here={n === shown.line.at && task.kind !== 'hop'}>{#if shown.line.den && n % shown.line.den !== 0}<Frac n={n} d={shown.line.den} size={22} />{:else}{shown.line.den ? n / shown.line.den : n}{/if}</span></div>
+          <div class="pin" use:pin={() => sc!.tickPoint(n)}><span class="num" class:here={n === shown.line.at && task.kind !== 'hop'} class:neg={n < 0}>{#if shown.line.den && n % shown.line.den !== 0}<Frac n={n} d={shown.line.den} size={22} />{:else}{minusSign(String(shown.line.den ? n / shown.line.den : n))}{/if}</span></div>
         {/if}
       {/each}
       {#each shown.line.hops as hp, n (n)}
@@ -383,7 +386,7 @@
       {#key i}<div class="pin" use:pin={() => sc!.over()}><div class="eq">{#each eqParts as p}{#if p.lit}<span class="lit"><FracText text={p.t} size={narrow ? 26 : 34} /></span>{:else}<span><FracText text={p.t} size={narrow ? 22 : 30} /></span>{/if}{/each}</div></div>{/key}
     {/if}
     {#if phase === 'teach' && wrongOn}
-      {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:long={lesson.teach.q.text.length > 10 && !asks(lesson.teach.q)} class:isq={asks(lesson.teach.q)} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{#if asks(lesson.teach.q)}<small class="qt"><FracText text={lesson.teach.q.text} size={narrow ? 14 : 18} /></small>{:else}<FracText text={lesson.teach.q.text} size={narrow ? 22 : 30} /> = {/if}<span class="ans">{#if tsub === 'fixed'}<span class="lit"><FracText text={right} size={narrow ? 26 : 34} /></span>{:else}<s><FracText text={lesson.teach.wrong} size={narrow ? 22 : 30} /></s>?{/if}</span></div></div>{/key}
+      {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:long={lesson.teach.q.text.length > 10 && !asks(lesson.teach.q)} class:isq={asks(lesson.teach.q)} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{#if asks(lesson.teach.q)}<small class="qt"><FracText text={lesson.teach.q.text} size={narrow ? 14 : 18} /></small>{:else}<FracText text={lesson.teach.q.text} size={narrow ? 22 : 30} /> = {/if}<span class="ans">{#if tsub === 'fixed'}<span class="lit"><FracText text={minusSign(right)} size={narrow ? 26 : 34} /></span>{:else}<s><FracText text={minusSign(lesson.teach.wrong)} size={narrow ? 22 : 30} /></s>?{/if}</span></div></div>{/key}
     {/if}
     <!-- one speech bubble, by the buddy: its own words when it has some, else the story's -->
     {#if bubble || (line && phase !== 'load')}
@@ -428,7 +431,7 @@
       {#if tsub === 'fix'}
         <div class="fix">
           <span class="pill task">Tap the right answer</span>
-          <div class="choices">{#each choices as c, n}<button class="choice" onclick={() => pickFix(c)}><span class="kbd">{n + 1}</span><FracText text={c} size={30} /></button>{/each}</div>
+          <div class="choices">{#each choices as c, n}<button class="choice" onclick={() => pickFix(c)}><span class="kbd">{n + 1}</span><FracText text={minusSign(c)} size={30} /></button>{/each}</div>
         </div>
       {:else if tsub === 'fixed'}
         <div class="row"><span class="pill">You fixed it!</span><button class="btn btn-primary btn-big go" onclick={primary}>My turn! <span class="kbd">enter</span></button></div>
@@ -437,11 +440,11 @@
       {/if}
     {:else if phase === 'turn' || phase === 'check'}
       <div class="turn">
-        {#key shake}<div class="ask" class:shake={shake > 0}>{#if phase === 'turn'}<small>Your turn {k + 1} of 2</small>{:else}<small>Quick check</small>{/if}<span><FracText text={q.text} size={34} />{asks(q) ? '' : ' ='}</span>{#if q.input === 'frac'}<span class="fbox" class:good={locked}><Frac n={fn} d={fd} size={34} focus={locked ? null : ff} /></span>{:else}<span class="box" class:good={locked}>{typed || ' '}</span>{/if}</div>{/key}
+        {#key shake}<div class="ask" class:shake={shake > 0}>{#if phase === 'turn'}<small>Your turn {k + 1} of 2</small>{:else}<small>Quick check</small>{/if}<span><FracText text={q.text} size={34} />{asks(q) ? '' : ' ='}</span>{#if q.input === 'frac'}<span class="fbox" class:good={locked}><Frac n={fn} d={fd} size={34} focus={locked ? null : ff} /></span>{:else}<span class="box" class:good={locked}>{minusSign(typed) || ' '}</span>{/if}</div>{/key}
         {#if q.input === 'frac'}
           <FractionPad n={fn} d={fd} focus={ff} want={fracWant} disabled={locked} compact={narrow} onchange={(v) => { fn = v.n; fd = v.d; ff = v.focus; sfx.click(); }} onsubmit={answerFrac} />
         {:else}
-          <NumPad ondigit={digit} onback={backspace} compact={narrow} lit={null} />
+          <NumPad ondigit={digit} onback={backspace} compact={narrow} lit={null} extra={lesson.minus ? ['-'] : []} />
         {/if}
       </div>
     {/if}
@@ -505,6 +508,7 @@
   .t-a { color: #1f6fd1; } .t-b { color: #d63c7c; } .t-c { color: #c97f00; } .t-ink { color: #2a1f45; }
   .num { transform: translate(-50%, 0); font: 600 17px var(--font-ui); color: #5a3a14; text-shadow: 0 1px 0 #fff8e8, 0 0 6px rgba(255, 248, 230, .9); }
   .num.here { font-size: 24px; color: #5a3fd0; }
+  .num.neg { color: #1f5f9e; }
   .hlab { font: 600 17px var(--font-ui); color: #b8551a; background: #fff8e8; padding: 1px 9px; border-radius: 10px; box-shadow: 0 3px 8px rgba(80, 40, 10, .25); }
   .hlab.back { color: #5a3fd0; }
   .try { transform: translate(-50%, -100%); font: 700 16px var(--font-body); color: #4a3200; background: #fff3c4; padding: 6px 14px; border-radius: 999px; box-shadow: 0 0 0 3px #ffd75e, 0 6px 14px rgba(120, 70, 0, .3); animation: tryb 1.4s ease-in-out infinite; }

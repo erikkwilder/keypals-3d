@@ -8,6 +8,7 @@ import { MATH_LESSONS, STRAND } from './math/course';
 import { LESSONS } from './math/learn';
 import { FRAC_LESSONS } from './math/fracEpisodes';
 import { MARKET_LESSONS } from './math/market/episodes';
+import { NEG_LESSONS } from './math/integers/episodes';
 import { setOf, SETS } from './math/episodes';
 import { AREAS, areaOfOp } from './math/skills/registry';
 import { SKILL_LESSONS } from './math/skills/course';
@@ -61,6 +62,7 @@ const mathLearn: Thing[] = [
   }),
   ...FRAC_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: l.art, face: faceOf(l.star ?? SETS[l.set].star), areas: ['fractions'], kind: 'episode' })),
   ...MARKET_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: 'learn/market.webp', face: faceOf(l.star), areas: ['decimals'], kind: 'market' })),
+  ...NEG_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: l.art, face: faceOf(l.star ?? SETS[l.set].star), areas: ['integers'], kind: 'episode' })),
 ];
 const mathPractice: Thing[] = [
   ...live.map(a => ({ id: a.id, name: a.op ? STRAND[a.op].name : a.name, line: a.op ? STRAND[a.op].blurb : a.blurb, art: a.op ? STRAND[a.op].art : a.art, areas: [a.id], kind: 'trail' })),
