@@ -26,6 +26,8 @@
   import PizzaRush from './lib/screens/PizzaRush.svelte';
   import NumberBuilder from './lib/screens/NumberBuilder.svelte';
   import MarketDash from './lib/screens/MarketDash.svelte';
+  import ShapeShifter from './lib/screens/ShapeShifter.svelte';
+  import ShapeBuilder from './lib/screens/ShapeBuilder.svelte';
   import Glimmers from './lib/screens/Glimmers.svelte';
   import Eggs from './lib/screens/Eggs.svelte';
   import Learn from './lib/screens/Learn.svelte';
@@ -83,7 +85,7 @@
 
   // menu music on the screens around the lessons; Adventure's own on its screens and the Arcade's (Auto
   // plays an adventure there; a picked station just keeps playing)
-  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market']);
+  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'shifter', 'shapebuilder']);
   $effect(() => {
     const scr = game.screen;
     if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
@@ -133,6 +135,8 @@
   {:else if game.screen === 'pizza'}<PizzaRush />
   {:else if game.screen === 'builder'}<NumberBuilder />
   {:else if game.screen === 'market'}<MarketDash />
+  {:else if game.screen === 'shifter'}<ShapeShifter />
+  {:else if game.screen === 'shapebuilder'}<ShapeBuilder />
   {:else if game.screen === 'drop'}<GlimmerDrop />
   {:else if game.screen === 'arcade'}<Arcade />
   {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}

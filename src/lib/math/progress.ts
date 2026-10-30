@@ -63,7 +63,7 @@ export type MathProgress = {
   /** the arcade games (Pizza Rush, by game id): best score and stars, plays, today's challenge best */
   arcade?: Record<string, ArcadeRecord>;
 };
-export type ArcadeRecord = { best: number; stars: number; plays: number; bestCombo?: number; daily?: { key: string; best: number } };
+export type ArcadeRecord = { best: number; stars: number; plays: number; bestCombo?: number; daily?: { key: string; best: number }; /** a toy's builds done (Shape Builder) */ done?: string[] };
 
 export const newMathProgress = (): MathProgress => ({ home: 'typing', facts: {}, lessons: {}, history: [], totals: { trips: 0, facts: 0, ms: 0 } });
 

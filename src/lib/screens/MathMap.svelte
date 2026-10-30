@@ -244,6 +244,13 @@
           {/each}
         </div>
       {/if}
+      {#if area === 'shapes'}
+        <!-- the shapes arcade game (its cabinet is in the Arcade too) and the calm Shape Builder toy -->
+        <button class="placement arcade" onclick={() => { sfx.click(); game.go('shifter'); }}>
+          <img src="{import.meta.env.BASE_URL}math/shapes/tile.webp" alt="" />
+          <span class="ptext"><b>Shape Shifter</b><small>Game: catch the crystal shapes that fit the rule.{(m.arcade?.['shape-shifter']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['shape-shifter'].best}` : ''}</small></span>
+        </button>
+      {/if}
       {#if area === 'place'}
         <!-- the place value arcade game (its cabinet is in the Arcade too) -->
         <button class="placement arcade" onclick={() => { sfx.click(); import('../math/place/builder').then(b => { b.builderOpen.toy = false; b.builderOpen.from = 'map'; game.go('builder'); }); }}>

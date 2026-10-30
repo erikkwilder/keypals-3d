@@ -80,11 +80,13 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
     if (t.kind === 'arcade') {
       if (t.id === 'pizza') game.go('pizza');
       else if (t.id === 'market') game.go('market');
+      else if (t.id === 'shifter') game.go('shifter');
       else if (t.id === 'builder') { builderOpen.toy = false; builderOpen.from = 'map'; game.go('builder'); }
       else game.playArcade(t.id as ArcadeId);
       return;
     }
     if (t.id === 'blocks') { builderOpen.toy = true; builderOpen.from = 'map'; game.go('builder'); return; }
+    if (t.id === 'shapebuilder') { game.go('shapebuilder'); return; }
     game.playPick = t.id;
     game.go('playground');
     return;

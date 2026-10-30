@@ -75,8 +75,10 @@ const mathGames: Thing[] = [
   { id: 'pizza', name: 'Pizza Rush', line: 'Serve fraction pizzas to hungry Glimmers.', art: 'arcade/cab-pizza.webp', areas: ['fractions'], kind: 'arcade' },
   { id: 'builder', name: 'Number Builder', line: 'Build numbers with hundreds, tens and ones.', art: 'arcade/cab-builder.webp', areas: ['place'], kind: 'arcade' },
   { id: 'market', name: 'Market Dash', line: 'Pay and give change to Glimmer shoppers.', art: 'arcade/cab-market.webp', areas: ['decimals'], kind: 'arcade' },
+  { id: 'shifter', name: 'Shape Shifter', line: 'Catch the crystal shapes that fit the rule.', art: 'arcade/cab-shapes.webp', areas: ['shapes'], kind: 'arcade' },
   ...PLAY_GAMES.map(g => ({ id: g.id, name: g.name, line: g.blurb, art: PLAY_ART[g.id] ?? 'math/strand-playground.webp', areas: [PLAY_AREA[g.id] ?? 'plus'], kind: 'toy' })),
   { id: 'blocks', name: 'Block Table', line: 'Build anything with blocks. No questions, no clock.', art: 'math/play-blocks.webp', areas: ['place'], kind: 'toy' },
+  { id: 'shapebuilder', name: 'Shape Builder', line: 'Stretch glowing bands between pegs. No clock, no rush.', art: 'math/play-shapes.webp', areas: ['shapes'], kind: 'toy' },
 ];
 const mathWorlds: Thing[] = WORLD_PINS.map(w => ({
   id: w.id, name: w.name, line: w.blurb, art: w.map ? w.map.wide : 'game/worlds-wide.webp',
