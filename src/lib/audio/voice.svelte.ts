@@ -15,8 +15,9 @@ let captionTimer: ReturnType<typeof setTimeout> | undefined;
 const missing = new Set<string>();
 
 function allowed(line: Line) {
-  // only the coach speaks out loud; the Keypals' lines show as text (their voices were pulled)
-  return line.voice === 'coach' && game.settings.voice !== false;
+  // the coach and the buddies' Learn voices (kid-a, kid-b, kid-c) speak out loud; the Keypals' own old
+  // lines show as text (those voices were pulled)
+  return (line.voice === 'coach' || line.voice.startsWith('kid-')) && game.settings.voice !== false;
 }
 
 function stopAll() {

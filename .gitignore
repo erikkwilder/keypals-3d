@@ -25,3 +25,6 @@ deploy/site/.wrangler/
 # ~/Documents/keypals-private/music; public/music is a link to it for the dev server, and
 # deploy/site/deploy.sh copies it into the published site.
 public/music
+
+# the local voice model's raw takes (scripts/voice/generate.mjs makes them again from the same words)
+scripts/voice/raw/local/

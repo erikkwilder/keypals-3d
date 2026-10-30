@@ -121,7 +121,7 @@ export const DATA_LESSONS: FracLesson[] = [
       Q('How many pink blocks?', '6', 'num', 'Pink ones, one touch each: 1, 2, 3, 4, 5, 6.', 'Find the pink ones, then touch each one once as you count.', board({ dots: jumble([4, 6, 3], 'q') })),
       Q('How many blocks in all?', '9', 'num', 'Count each row and put them together: 3 + 2 + 4 = 9.', 'Count each row, then add the rows together.', board({ dots: sorted([3, 2, 4], ['a', 'b', 'c']), tags: rowTags(['a', 'b', 'c']) })),
     ],
-    teach: { q: Q('How many gold blocks?', '6', 'num', 'Touch each gold block once, so none get missed: 6.', '', board({ dots: jumble([3, 2, 6], 't') })), wrong: '5', says: 'I counted the gold ones really fast: 1, 2, 3, 4, 5. Five!', decoy: '7', fixed: 'One was hiding! Touch each one ONCE as you count, and none get missed: 6 gold blocks.' },
+    teach: { q: Q('How many gold blocks?', '6', 'num', 'Touch each gold block once, so none get missed: 6.', '', board({ dots: jumble([3, 2, 6], 't') })), wrong: '5', says: 'I counted the gold ones really fast. 1, 2, 3, 4, 5. Five!', decoy: '7', fixed: "Oops! One was hiding. I should touch each one once as I count. It's 6! Thank you!" },
   },
   {
     id: 'data-bars', title: 'Build a Bar Graph', blurb: 'Stack a block for every vote. The tops show how many; the gap shows how many more.', set: 'fair', skill: 'da-bars', art: 'learn/data/card-bars.webp',
@@ -137,7 +137,7 @@ export const DATA_LESSONS: FracLesson[] = [
       Q('How many more votes for blue than pink?', '4', 'num', 'Blue 6, pink 2. The gap between their tops: 6 − 2 = 4.', 'Look at the blue blocks higher than the pink top. Count them.', bars(6, 2, { title: true, axis: true })),
       Q('How many votes in all?', '8', 'num', 'Blue 3 and pink 5: 3 + 5 = 8.', 'Read both bars, then add them.', bars(3, 5, { title: true, axis: true })),
     ],
-    teach: { q: Q('How many more votes for blue than pink?', '2', 'num', 'The gap between the tops: 6 − 4 = 2.', '', bars(6, 4, { title: true, axis: true })), wrong: '10', says: 'Blue has 6 and pink has 4. 6 and 4 make 10!', decoy: '4', fixed: 'How many MORE is the gap between the tops, not both added up: 6 take away 4 is 2.' },
+    teach: { q: Q('How many more votes for blue than pink?', '2', 'num', 'The gap between the tops: 6 − 4 = 2.', '', bars(6, 4, { title: true, axis: true })), wrong: '10', says: 'Blue has 6 and pink has 4. 6 and 4 make 10!', decoy: '4', fixed: 'Oh, I see! How many more is the gap between the tops. 6 take away 4 is 2! Thank you!' },
   },
   {
     id: 'data-lineplot', title: 'Dots on a Line', blurb: 'One dot for each ribbon, over its length. Taller stacks mean more ribbons that long.', set: 'fair', skill: 'da-lineplot', art: 'learn/data/card-line.webp',
@@ -153,7 +153,7 @@ export const DATA_LESSONS: FracLesson[] = [
       Q('How many ribbons in all?', '6', 'num', 'One dot is one ribbon: 1 + 2 + 2 + 1 = 6.', 'Each dot is one ribbon. Count every dot.', plot([0, 1, 2, 2, 1])),
       Q('How much longer is the longest ribbon than the shortest?', '3/4', 'frac', 'Longest 1 (that is 4/4), shortest 1/4: 4/4 − 1/4 = 3/4.', 'Find the dots furthest left and right. Count the quarter jumps between them.', plot([0, 1, 2, 0, 1]), true),
     ],
-    teach: { q: Q('How many ribbons are 2/4 inch long?', '3', 'num', 'Count the dots above 2/4: 3 ribbons.', '', plot([0, 1, 3, 2, 0])), wrong: '2', says: '2/4? It has a 2 on top... so 2 ribbons!', decoy: '4', fixed: 'The fraction under the line is how LONG the ribbon is. Count the dots stacked above 2/4: 3 ribbons.' },
+    teach: { q: Q('How many ribbons are 2/4 inch long?', '3', 'num', 'Count the dots above 2/4: 3 ribbons.', '', plot([0, 1, 3, 2, 0])), wrong: '2', says: "2/4? It has a 2 on top, so it's 2 ribbons!", decoy: '4', fixed: 'Oh, I see! The number under the line is how long a ribbon is. There are 3 dots over 2/4, so 3 ribbons! Thank you!' },
   },
   {
     id: 'data-mean', title: 'Fair Share', blurb: 'The mean is a fair share: level the towers out, or add them up and share by how many.', set: 'fair', skill: 'da-mean', art: 'learn/data/card-mean.webp',
@@ -168,7 +168,7 @@ export const DATA_LESSONS: FracLesson[] = [
       Q('Level the towers. How tall is each one?', '3', 'num', '1 + 5 + 3 + 3 = 12, shared by 4 towers: 3 each.', 'Add them all up, then share by how many towers there are.', board({ dots: towers([1, 5, 3, 3], () => 'a'), tags: towerTags([1, 5, 3, 3]) })),
       Q('What is the mean of the towers?', '4', 'num', '7 + 2 + 3 = 12, shared by 3: 4.', 'Add them all up, then share by how many there are.', board({ dots: towers([7, 2, 3], () => 'a'), tags: towerTags([7, 2, 3]) })),
     ],
-    teach: { q: Q('What is the mean of the towers?', '4', 'num', '6 + 2 + 4 = 12, shared by 3 towers: 4 each.', '', board({ dots: towers([6, 2, 4], () => 'a'), tags: towerTags([6, 2, 4]) })), wrong: '6', says: 'The mean? The tallest tower has 6 blocks, so it\'s 6!', decoy: '12', fixed: 'The mean is a FAIR share, not the tallest. Add them: 6 + 2 + 4 = 12, then share by 3 towers: 4 each.' },
+    teach: { q: Q('What is the mean of the towers?', '4', 'num', '6 + 2 + 4 = 12, shared by 3 towers: 4 each.', '', board({ dots: towers([6, 2, 4], () => 'a'), tags: towerTags([6, 2, 4]) })), wrong: '6', says: 'The mean? The tallest tower has 6 blocks, so it\'s 6!', decoy: '12', fixed: "Oh, I see! The mean is a fair share. 6, 2 and 4 make 12. Shared between 3 towers, that's 4 each! Thank you!" },
   },
   {
     id: 'data-median', title: 'The Middle One', blurb: 'Line them up from smallest to biggest. The median is the one in the middle.', set: 'fair', skill: 'da-middle', art: 'learn/data/card-median.webp',
@@ -183,7 +183,7 @@ export const DATA_LESSONS: FracLesson[] = [
       Q('What is the median?', '4', 'num', 'In order: 2, 3, 4, 6, 7. The middle one is 4.', 'Put them in order, then cross one off each end until one is left.', board({ dots: towers([2, 7, 4, 6, 3], () => 'a'), tags: towerTags([2, 7, 4, 6, 3]) })),
       Q('What is the range?', '4', 'num', 'Tallest 6, shortest 2: 6 − 2 = 4.', 'Find the tallest and the shortest, then take one from the other.', board({ dots: towers([3, 6, 2, 5], () => 'a'), tags: towerTags([3, 6, 2, 5]) })),
     ],
-    teach: { q: Q('What is the median?', '4', 'num', 'In order: 2, 4, 6. Now the middle one is 4.', '', board({ dots: towers([6, 2, 4], () => 'a'), tags: towerTags([6, 2, 4]) })), wrong: '2', says: 'The middle tower is the one with 2 blocks, so the median is 2!', decoy: '6', fixed: 'Put them in ORDER first: 2, 4, 6. Now the middle one is 4.' },
+    teach: { q: Q('What is the median?', '4', 'num', 'In order: 2, 4, 6. Now the middle one is 4.', '', board({ dots: towers([6, 2, 4], () => 'a'), tags: towerTags([6, 2, 4]) })), wrong: '2', says: 'The middle tower has 2 blocks, so the median is 2!', decoy: '6', fixed: 'Oh, I see! Put them in order first. 2, 4, 6. The middle one is 4! Thank you!' },
   },
   {
     id: 'data-chance', title: 'Chance in a Bowl', blurb: 'The chance is the ways it can happen over all the ways: 3 gold of 8 blocks is 3/8.', set: 'fair', skill: 'da-chance', art: 'learn/data/card-chance.webp',
@@ -198,7 +198,7 @@ export const DATA_LESSONS: FracLesson[] = [
       Q('Close your eyes and pick one. What is the chance of gold?', '5/8', 'frac', '5 gold of 8 blocks in all: 5/8.', 'Count the gold ones for the top and all of them for the bottom.', bowl([3, 0, 5]), true),
       Q('Close your eyes and pick one. What is the chance of gold?', '1/6', 'frac', '1 gold of 6 blocks in all: 1/6.', 'Count the gold ones for the top and all of them for the bottom.', bowl([3, 2, 1]), true),
     ],
-    teach: { q: Q('What is the chance of gold?', '2/6', 'frac', '2 gold of 6 blocks: 2/6.', '', bowl([4, 0, 2]), true), wrong: '2/4', says: '2 gold and 4 blue... so it\'s 2/4!', decoy: '4/6', fixed: 'The bottom counts ALL the blocks in the bowl, the gold ones too: 2 of 6 is 2/6.' },
+    teach: { q: Q('What is the chance of gold?', '2/6', 'frac', '2 gold of 6 blocks: 2/6.', '', bowl([4, 0, 2]), true), wrong: '2/4', says: "2 gold and 4 blue, so it's 2/4!", decoy: '4/6', fixed: 'Oh, I see! The bottom counts all the blocks, gold ones too. 2 out of 6 is 2/6! Thank you!' },
   },
   {
     id: 'data-both', title: 'Two at Once', blurb: 'Every hat goes with every top: 2 hats and 3 tops make 2 × 3 = 6 outfits.', set: 'fair', skill: 'da-both', art: 'learn/data/card-both.webp',
@@ -213,7 +213,7 @@ export const DATA_LESSONS: FracLesson[] = [
       Q('How many different outfits?', '8', 'num', '2 hats, each with 4 tops: 2 × 4 = 8.', 'Every hat goes with every top: times the hats by the tops.', hats(2, 4)),
       Q('How many different outfits?', '9', 'num', '3 hats, each with 3 tops: 3 × 3 = 9.', 'Every hat goes with every top: times the hats by the tops.', hats(3, 3)),
     ],
-    teach: { q: Q('How many different outfits?', '12', 'num', 'Every hat goes with every top: 3 × 4 = 12.', '', hats(3, 4)), wrong: '7', says: '3 hats and 4 tops: 3 + 4 = 7 outfits!', decoy: '9', fixed: 'Every hat goes with EVERY top, so it is times, not plus: 3 × 4 = 12 outfits.' },
+    teach: { q: Q('How many different outfits?', '12', 'num', 'Every hat goes with every top: 3 × 4 = 12.', '', hats(3, 4)), wrong: '7', says: '3 hats and 4 tops. 3 + 4 is 7 outfits!', decoy: '9', fixed: "Oh, I see! Every hat goes with every top, so it's times. 3 × 4 is 12 outfits! Thank you!" },
   },
 ];
 export const DATA_LESSON: Record<string, FracLesson> = Object.fromEntries(DATA_LESSONS.map(l => [l.id, l]));

@@ -4,10 +4,12 @@
 //   node scripts/voice/check.mjs              levels and words for every clip
 //   node scripts/voice/check.mjs --levels     levels only (fast)
 //   node scripts/voice/check.mjs --only a,b   just these lines
+//   node scripts/voice/check.mjs --match '^ep\.'   just the lines whose ids match
 //
 // Levels: duration, loudness, true peak, full-scale samples, and the level of the first and last
 // 50 ms. Words: transcribes each clip with mlx_whisper (whisper-large-v3-turbo) and compares it
-// with the line's text; clips that differ are listed so they can be remade with
+// with the words the line says (its `said` form, else its text; numbers either way count the same);
+// clips that differ are listed so they can be remade with
 // `node scripts/voice/generate.mjs --only <id>` (add a new seed in line-overrides.json if the same
 // take comes back). Results are saved to scripts/voice/raw/check.json.
 
@@ -25,9 +27,10 @@ const args = process.argv.slice(2);
 const LEVELS_ONLY = args.includes('--levels');
 const onlyArg = args.includes('--only') ? args[args.indexOf('--only') + 1] : null;
 const ONLY = onlyArg ? new Set(onlyArg.split(',')) : null;
+const MATCH = args.includes('--match') ? new RegExp(args[args.indexOf('--match') + 1]) : null;
 
 const { ALL_LINES } = await import(pathToFileURL(join(ROOT, 'src', 'lib', 'content', 'voice.ts')).href);
-const lines = ALL_LINES.filter((l) => (!ONLY || ONLY.has(l.id)) && existsSync(join(OUT, `${l.id}.mp3`)));
+const lines = ALL_LINES.filter((l) => (!ONLY || ONLY.has(l.id)) && (!MATCH || MATCH.test(l.id)) && existsSync(join(OUT, `${l.id}.mp3`)));
 
 // ------------------------------------------------------------------ levels
 
@@ -90,10 +93,15 @@ for f in sys.argv[1:]:
     heard[f.split('/').pop().slice(0, -4)] = t;
   }
 
-  const NUM = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
-  // Compare letters only: no spaces (so "semi colon" = "semicolon"), digits as words, and
-  // stretched letters squashed ("Hellooo" = "Hello", "Mmm" = "Mm").
-  const norm = (s) => s.toLowerCase().replace(/[’']/g, '').replace(/\d+/g, (d) => NUM[+d] ?? d)
+  const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+  const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+  const words = (n) => n < 20 ? ONES[n] : n < 100 ? TENS[Math.floor(n / 10)] + (n % 10 ? ONES[n % 10] : '')
+    : n < 1000 ? ONES[Math.floor(n / 100)] + 'hundred' + (n % 100 ? words(n % 100) : '') : String(n);
+  // Compare letters only: no spaces (so "semi colon" = "semicolon"), numbers as words (a decimal digit by
+  // digit, "a hundred" as "one hundred", and no "and"), and stretched letters squashed ("Hellooo" = "Hello").
+  const norm = (s) => s.toLowerCase().replace(/[’']/g, '').replace(/−/g, ' minus ').replace(/%/g, ' percent')
+    .replace(/(\d+)\.(\d+)/g, (_, a, b) => `${words(+a)} point ${b.split('').map((d) => ONES[+d]).join(' ')}`)
+    .replace(/\d+/g, (d) => words(+d)).replace(/\ba hundred\b/g, 'one hundred').replace(/\band\b/g, '')
     .replace(/[^a-z]/g, '').replace(/(.)\1+/g, '$1');
   const lev = (a, b) => {
     const d = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -106,7 +114,7 @@ for f in sys.argv[1:]:
   const flagged = [];
   for (const l of lines) {
     const h = heard[l.id] ?? '';
-    const a = norm(l.text), b = norm(h);
+    const a = norm(l.said ?? l.text), b = norm(h);
     const sim = 1 - lev(a, b) / Math.max(a.length, b.length, 1);
     results[l.id].heard = h;
     results[l.id].match = +sim.toFixed(3);

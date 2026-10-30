@@ -1,5 +1,7 @@
 {
   "coach": {
+    "local": "coach",
+    "local_why": "Designed warm alto teacher (OmniVoice, \"female, middle-aged\"), cloned from scripts/voice/refs/coach.wav so every line is the same voice. Alto pitch and lively intonation like Matilda, made on this Mac at no cost. Runners-up in local_tts.py: coach-omni, coach-sarah (Kokoro).",
     "voice_id": "XrExE9yKIg1WjnnlVkGX",
     "name": "Matilda - Knowledgable, Professional",
     "source": "ElevenLabs premade voice",
@@ -11,6 +13,21 @@
       "use_speaker_boost": true,
       "speed": 0.92
     }
+  },
+  "kid-a": {
+    "local": "kid-a",
+    "local_why": "Calm boy (OmniVoice design \"male, child, high pitch\"; ~260-290 Hz): the steadiest, least squeaky child voice.",
+    "source": "designed voice, no real person: scripts/voice/refs/kid-a.wav"
+  },
+  "kid-b": {
+    "local": "kid-b",
+    "local_why": "Girl (OmniVoice design \"female, child, moderate pitch\"; ~340-380 Hz).",
+    "source": "designed voice, no real person: scripts/voice/refs/kid-b.wav"
+  },
+  "kid-c": {
+    "local": "kid-c",
+    "local_why": "Brighter boy (OmniVoice design \"male, child\"; ~305-350 Hz).",
+    "source": "designed voice, no real person: scripts/voice/refs/kid-c.wav"
   },
   "ada": {
     "voice_id": "MkTSSXNgnBULS6ek4pon",

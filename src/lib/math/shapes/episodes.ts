@@ -132,7 +132,7 @@ export const SHAPE_LESSONS: FracLesson[] = [
       Q('How many sides?', '8', 'num', 'Count the sides round once: 8. It\'s an octagon.', 'Count each side once, all the way round.', one('o', OCT, 'teal')),
       Q('How many corners?', '7', 'num', 'Round once: 7 corners, even the ones that point in.', 'Go round once. Count the corners that point in too.', one('w', ARROW, 'sky')),
     ],
-    teach: { q: Q('How many corners?', '5', 'num', 'Start at one corner and stop when you get back to it: 5.', '', one('q', poly(5, 105, 300, 172, 36), 'rose')), wrong: '6', says: '1, 2, 3, 4, 5, 6! I went all the way round... 6 corners!', decoy: '4', fixed: 'You counted the first corner twice! Stop when you get back to where you started: 5 corners.' },
+    teach: { q: Q('How many corners?', '5', 'num', 'Start at one corner and stop when you get back to it: 5.', '', one('q', poly(5, 105, 300, 172, 36), 'rose')), wrong: '6', says: '1, 2, 3, 4, 5, 6! I went all the way round. 6 corners!', decoy: '4', fixed: "Oops! I counted the first corner twice. I should stop when I get back to the start. It's 5 corners! Thank you!" },
   },
   {
     id: 'sh-halves', title: 'Equal Parts', blurb: 'Halves, thirds and quarters: every part exactly the same size.', set: 'peaks', skill: 'sh-parts', art: 'learn/shapes/card-halves.webp',
@@ -148,7 +148,7 @@ export const SHAPE_LESSONS: FracLesson[] = [
       Q('What fraction is gold?', '1/4', 'frac', '4 equal triangles, 1 gold: 1/4.', 'Count ALL the equal parts for the bottom.', cutPic(TRI4, [3], 'violet')),
       Q('What fraction is gold?', '2/4', 'frac', '4 equal parts, 2 gold: 2/4 (that\'s a half).', 'Count ALL the equal parts for the bottom, the gold ones for the top.', cutPic(DIAG4, [0, 2], 'teal')),
     ],
-    teach: { q: Q('What fraction is gold?', '1/4', 'frac', '4 equal parts, 1 gold: 1/4.', '', cutPic(DIAG4, [1], 'teal')), wrong: '1/3', says: '1 gold piece, and 3 that aren\'t... so 1/3!', decoy: '1/2', fixed: 'The bottom counts ALL the equal parts: 4. One is gold, so 1/4. Triangles can be quarters too!' },
+    teach: { q: Q('What fraction is gold?', '1/4', 'frac', '4 equal parts, 1 gold: 1/4.', '', cutPic(DIAG4, [1], 'teal')), wrong: '1/3', says: "1 gold piece, and 3 that aren't. So it's 1/3!", decoy: '1/2', fixed: "Oh, I see! The bottom counts all 4 equal parts. 1 is gold, so it's 1/4. Thank you!" },
   },
   {
     id: 'sh-angles', title: 'Right, Acute, Obtuse', blurb: 'Fit a square corner in: just right is a right angle, smaller is acute, wider is obtuse.', set: 'peaks', skill: 'sh-angle', art: 'learn/shapes/card-angles.webp',
@@ -164,7 +164,7 @@ export const SHAPE_LESSONS: FracLesson[] = [
       Q('How many acute angles?', '2', 'num', 'One corner is square; the other two are smaller: 2 acute angles.', 'Which corners are smaller than a square corner?', one('t', RTRI, 'violet')),
       Q('How many right angles?', '2', 'num', 'The two corners on the left are square: 2 right angles.', 'Try a square corner in each corner.', one('z', RTRAP, 'sky')),
     ],
-    teach: { q: Q('How many right angles?', '4', 'num', 'Every corner of a square is a right angle, even turned: 4.', '', one('d', DIAMOND, 'rose')), wrong: '0', says: 'It\'s standing on its point, so its corners aren\'t square any more: 0!', decoy: '2', fixed: 'Turning a shape doesn\'t change its angles! Every corner of a square is a right angle: 4.' },
+    teach: { q: Q('How many right angles?', '4', 'num', 'Every corner of a square is a right angle, even turned: 4.', '', one('d', DIAMOND, 'rose')), wrong: '0', says: "It's standing on its point, so its corners aren't square any more. It has 0!", decoy: '2', fixed: "Oh, I see! Turning a shape doesn't change its corners. A square always has 4 right angles. Thank you!" },
   },
   {
     id: 'sh-tri-area', title: 'Half a Rectangle', blurb: 'A triangle is half of a rectangle: base × height ÷ 2.', set: 'peaks', skill: 'sh-area', art: 'learn/shapes/card-area.webp',
@@ -181,7 +181,7 @@ export const SHAPE_LESSONS: FracLesson[] = [
       Q('What is the area of the triangle?', '9', 'num', '6 × 3 = 18, and half of it is 9.', 'Base × height, then halve it.', triPic(6, 3)),
       Q('What is the area of the triangle?', '20', 'num', '8 × 5 = 40, and half of it is 20.', 'Base × height, then halve it.', triPic(8, 5)),
     ],
-    teach: { q: Q('What is the area of the triangle?', '12', 'num', '6 × 4 = 24, and half of it is 12.', '', triPic(6, 4)), wrong: '24', says: '6 × 4 is 24, so the triangle is 24!', decoy: '10', fixed: 'That\'s the whole rectangle! The triangle is half of it: 24 ÷ 2 = 12.' },
+    teach: { q: Q('What is the area of the triangle?', '12', 'num', '6 × 4 = 24, and half of it is 12.', '', triPic(6, 4)), wrong: '24', says: '6 × 4 is 24, so the triangle is 24!', decoy: '10', fixed: "Oops! That's the whole rectangle. The triangle is half of it. Half of 24 is 12! Thank you!" },
   },
   {
     id: 'sh-boxes', title: 'Layers of Cubes', blurb: 'Fill one layer, then count the layers: length × width × height.', set: 'peaks', skill: 'sh-volume', art: 'learn/shapes/card-boxes.webp',
@@ -196,7 +196,7 @@ export const SHAPE_LESSONS: FracLesson[] = [
       Q('4 long, 3 wide, 2 layers. How many cubes?', '24', 'num', '4 × 3 = 12 in a layer, 2 layers: 24.', 'Length × width for a layer, then times the layers.', board({ dots: grid(4, 3, 'a'), tags: [tag('x', 470, 176, '× 2 layers', 'c', 30)] })),
       Q('5 long, 2 wide, 4 layers. How many cubes?', '40', 'num', '5 × 2 = 10 in a layer, 4 layers: 40.', 'Length × width for a layer, then times the layers.', board({ frames: [FRAMES[0]], dots: layer('a', 0, 'a'), tags: [tag('x', 450, 176, '× 4 layers', 'c', 30)] })),
     ],
-    teach: { q: Q('2 layers of 5 × 2. How many cubes?', '20', 'num', '10 in each layer, 2 layers: 20.', '', board({ frames: FRAMES, dots: [...layer('a', 0, 'a'), ...layer('b', 1, 'b')] })), wrong: '9', says: '5 + 2 + 2 is 9 cubes!', decoy: '10', fixed: 'It\'s times, not plus! 5 × 2 = 10 in a layer, and 2 layers make 20.' },
+    teach: { q: Q('2 layers of 5 × 2. How many cubes?', '20', 'num', '10 in each layer, 2 layers: 20.', '', board({ frames: FRAMES, dots: [...layer('a', 0, 'a'), ...layer('b', 1, 'b')] })), wrong: '9', says: '5 + 2 + 2 makes 9 cubes!', decoy: '10', fixed: "Oops! It's times, not plus. 5 × 2 is 10 in a layer, and 2 layers make 20! Thank you!" },
   },
   {
     id: 'sh-tri-180', title: 'Angles in a Triangle', blurb: 'Tear off a triangle\'s three corners: they make a straight line, 180°.', set: 'peaks', skill: 'sh-anglefacts', art: 'learn/shapes/card-angles.webp',
@@ -212,7 +212,7 @@ export const SHAPE_LESSONS: FracLesson[] = [
       Q('Two angles are 90° and 35°. What is the third?', '55', 'num', '90 + 35 = 125, and 180 − 125 = 55.', 'Add the two, then take that from 180.', triAngles('90°', '35°', '?')),
       Q('Two angles are 40° and 40°. What is the third?', '100', 'num', '40 + 40 = 80, and 180 − 80 = 100.', 'Add the two, then take that from 180.', triAngles('40°', '40°', '?')),
     ],
-    teach: { q: Q('Two angles are 80° and 60°. What is the third?', '40', 'num', '80 + 60 = 140, and 180 − 140 = 40.', '', triAngles('80°', '60°', '?')), wrong: '140', says: '80 + 60 is 140, so the third one is 140!', decoy: '220', fixed: 'All three together make 180°! 80 + 60 = 140, and 180 − 140 = 40°.' },
+    teach: { q: Q('Two angles are 80° and 60°. What is the third?', '40', 'num', '80 + 60 = 140, and 180 − 140 = 40.', '', triAngles('80°', '60°', '?')), wrong: '140', says: '80 + 60 is 140, so the third one is 140!', decoy: '220', fixed: 'Oops! All three angles make 180 together. 180 take away 140 is 40! Thank you!' },
   },
   {
     id: 'sh-pyth', title: 'Squares on the Sides', blurb: 'The squares on the two short sides of a right triangle fill the square on the long side.', set: 'peaks', skill: 'sh-pyth', art: 'learn/shapes/card-pyth.webp',
@@ -227,7 +227,7 @@ export const SHAPE_LESSONS: FracLesson[] = [
       Q('The short sides are 5 and 12. How long is the long side?', '13', 'num', '25 + 144 = 169, and 13 × 13 = 169.', 'Square each short side and add. What number times itself makes that?', pythPic('5', '12', '?')),
       Q('The short sides are 8 and 15. How long is the long side?', '17', 'num', '64 + 225 = 289, and 17 × 17 = 289.', 'Square each short side and add. What number times itself makes that?', pythPic('8', '15', '?')),
     ],
-    teach: { q: Q('The short sides are 3 and 4. How long is the long side?', '5', 'num', '9 + 16 = 25, and 5 × 5 = 25.', '', pythPic('3', '4', '?')), wrong: '7', says: '3 + 4 is 7, so the long side is 7!', decoy: '25', fixed: 'Add the SQUARES, not the sides: 9 + 16 = 25, and 5 × 5 = 25. The long side is 5.' },
+    teach: { q: Q('The short sides are 3 and 4. How long is the long side?', '5', 'num', '9 + 16 = 25, and 5 × 5 = 25.', '', pythPic('3', '4', '?')), wrong: '7', says: '3 + 4 is 7, so the long side is 7!', decoy: '25', fixed: "Oops! Add the squares, not the sides. 9 + 16 is 25, and 5 × 5 is 25. It's 5! Thank you!" },
   },
 ];
 export const SHAPE_LESSON: Record<string, FracLesson> = Object.fromEntries(SHAPE_LESSONS.map(l => [l.id, l]));

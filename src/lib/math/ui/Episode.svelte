@@ -13,6 +13,7 @@
   import { game } from '../../state/game.svelte';
   import { quietForLesson, sfx } from '../../audio/sound';
   import { hush, lineText, say } from '../../audio/voice.svelte';
+  import { buddyLine } from '../../content/voice';
   import { danceOf } from '../../engine/profile';
   import { advView, teamOf } from '../../adventure/state';
   import { FRIEND } from '../../art/cast';
@@ -27,6 +28,7 @@
   import Frac from '../skills/ui/Frac.svelte';
   import FractionPad from '../skills/ui/FractionPad.svelte';
   import CloseButton from '../../ui/CloseButton.svelte';
+  import SpeechDock from './SpeechDock.svelte';
   import Confetti from '../../ui/Confetti.svelte';
   import Icon from '../../ui/Icon.svelte';
 
@@ -48,6 +50,8 @@
   const cardWords = lineText(`ep.${lesson.id}.card`).replace(/^You won the .*? card! /, '');
   const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
   const CLEAR: Board = { cell: 48, dots: [], frames: [], plates: [], line: null, tags: [] };
+  /** room kept for the speech band (SpeechDock) under the top bar */
+  const DOCK_H = { wide: 92, narrow: 74 };
 
   let sc = $state<EpisodeScene | null>(null);
   let before: Controller | null = null;
@@ -66,9 +70,10 @@
   let hops = $state(0);
   let left = $state(0);
   let revealed = $state<Set<string>>(new Set());
-  /** the coach's words now, and the buddy's */
+  /** the coach's words now, and the buddy's; `who` spoke last (the speech band shows their words) */
   let line = $state('');
   let bubble = $state<string | null>(null);
+  let who = $state<'story' | 'buddy'>('story');
   let tsub = $state<'watch' | 'fix' | 'fixed'>('watch');
   let wrongOn = $state(false);
   let k = $state(0);
@@ -99,7 +104,8 @@
   const eqParts = $derived(step.eq.split(/(\[[^\]]+\])/).filter(Boolean).map(s => (s.startsWith('[') ? { lit: true, t: s.slice(1, -1) } : { lit: false, t: s })));
   const choices = lesson.teach.choices;
   const right = lesson.teach.q.ans;
-  const PRAISE = ['Yes! You got it!', 'That\'s it!', 'Brilliant!', 'You did it!', 'Spot on!'];
+  /** the buddy's words for a key (voice.ts BUDDY_WORDS), else what the lesson's data says */
+  const buddyWords = (key: string, fallback = '') => lineText(buddyLine(buddy, key)) || fallback;
   /** a typed or written minus shown as a real minus sign: −4 */
   const minusSign = (s: string) => s.replace(/(^|[\s(])-(?=\d)/g, '$1−');
 
@@ -107,11 +113,22 @@
   /** The coach says a line (its words stay up); resolves when it's said. (A line cut off by another
    *  never says it ended, so it also gives up after the time it could possibly take.) */
   async function speak(lineId: string) {
-    line = lineText(lineId);
+    line = lineText(lineId); who = 'story';
     const t0 = performance.now();
     await Promise.race([say(lineId, { important: true, caption: false }), sleep(2500 + line.length * 95)]);
     // voice off: the words stay up long enough to read before the story moves on
     if (game.settings.voice === false) await sleep(Math.max(0, Math.max(1600, line.length * 55) - (performance.now() - t0)));
+  }
+
+  /** The buddy says one of its lines (voice.ts BUDDY_WORDS) in its own voice, talking with its hands as it
+   *  does; `text` shows other words in its bubble than the recording's (a hint with this question's numbers). */
+  async function buddySay(key: string, text?: string) {
+    const words = text ?? buddyWords(key);
+    bubble = words; who = 'buddy';
+    sc?.talk(Math.max(1.4, words.length * 0.06));
+    const t0 = performance.now();
+    await Promise.race([say(buddyLine(buddy, key), { important: true, caption: false }), sleep(2500 + words.length * 95)]);
+    if (game.settings.voice === false) await sleep(Math.max(0, Math.max(1600, words.length * 55) - (performance.now() - t0)));
   }
 
   // ---------- the story ----------
@@ -172,8 +189,9 @@
     await speak('ep.teach');
     if (r !== run) return;
     s.shot('buddy');
-    bubble = lesson.teach.says; s.talk(2.6); s.present(2.4);
-    await sleep(2400);
+    // the buddy works it out loud (and gets it wrong)
+    s.present(2.4);
+    await buddySay(`${id}.try`, buddyWords(`${id}.try`, lesson.teach.says));
     if (r !== run) return;
     // proud of its answer (it's wrong)
     wrongOn = true; s.cheer(); sfx.pop();
@@ -182,15 +200,30 @@
     tsub = 'fix'; s.shot('wide'); s.palDo('act'); s.think(2.4);
     await speak('ep.fix');
   }
+  let fixTyped = '';
+  /** a key typed while fixing: picks the card whose answer it spells out */
+  function typeFix(k: string) {
+    const said = (c: string) => c.replace(/\s+/g, '').replace('−', '-');
+    let t = fixTyped + k;
+    if (!choices.some(c => said(c).startsWith(t))) t = k;
+    fixTyped = choices.some(c => said(c).startsWith(t)) ? t : '';
+    const hit = choices.find(c => said(c) === fixTyped && !choices.some(o => o !== c && said(o).startsWith(fixTyped) && said(o).length > fixTyped.length));
+    if (hit) { fixTyped = ''; pickFix(hit); }
+  }
   function pickFix(n: string) {
     if (tsub !== 'fix' || !sc) return;
     if (n === right) {
       ++run;
+      const r = run;
       tsub = 'fixed'; sfx.cheer();
       sc.gasp(); setTimeout(() => { if (!gone) sc?.oops(); }, 900); sc.palDo('happy'); sc.burst(sc.over(), 1.2);
-      bubble = lesson.teach.fixed;
-      setTimeout(() => { if (!gone) sc?.jump(); }, 2500);
-      void speak('ep.fixed');
+      // the buddy sees its mistake and thanks you, then the coach praises you
+      void (async () => {
+        await buddySay(`${id}.fixed`, buddyWords(`${id}.fixed`, lesson.teach.fixed));
+        if (r !== run || gone) return;
+        sc?.jump();
+        await speak('ep.fixed');
+      })();
     } else {
       shake++; sfx.miss(); sc.shrug(); void speak('ep.again');
     }
@@ -217,7 +250,7 @@
   }
   function digit(d: string) {
     if ((phase !== 'turn' && phase !== 'check') || locked) return;
-    if (d === '-' && typed) return;
+    if ((d === '-' && typed) || (d === '.' && typed.includes('.'))) return;
     if (typed.length >= ans.length) typed = '';
     typed += d;
     sfx.click();
@@ -230,18 +263,19 @@
     const s = sc;
     if (q.input === 'frac' ? fracRight(q, typed) : typed === ans) {
       locked = true;
-      bubble = PRAISE[(k + misses) % PRAISE.length];
+      // (the buddy's cheer is said in full before the next question)
+      const cheered = buddySay(`praise${(k + misses) % 5}`);
       sfx.star(k); s?.cheer(); s?.palDo('happy'); s?.burst(s.over(), 0.8);
-      setTimeout(() => {
+      void Promise.all([cheered, sleep(1200)]).then(() => {
         if (gone) return;
         locked = false; typed = ''; fn = ''; fd = ''; ff = 'n';
         if (phase === 'check') checked();
         else if (k < 1) startTurn(k + 1);
         else card();
-      }, 1200);
+      });
     } else {
       misses++; shake++; sfx.miss(); s?.shrug();
-      bubble = misses === 1 ? `Not quite. ${q.input === 'frac' ? '' : 'Try the trick: '}${q.hidden}` : `Here's how: ${q.hint} Type ${minusSign(ans)}.`;
+      void buddySay(misses === 1 ? 'miss' : 'show', misses === 1 ? `Not quite. ${q.input === 'frac' ? '' : 'Try the trick: '}${q.hidden}` : `Here's how: ${q.hint} Type ${minusSign(ans)}.`);
       setTimeout(() => { if (!locked) { typed = ''; fn = ''; fd = ''; ff = 'n'; } }, 500);
     }
   }
@@ -290,10 +324,11 @@
       if (/^[0-9/]$/.test(e.key) || ['Backspace', 'Enter', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
     }
     if (phase === 'turn' || phase === 'check') {
-      if (/^[0-9]$/.test(e.key) || (e.key === '-' && lesson.minus)) return mine(() => digit(e.key));
+      if (/^[0-9]$/.test(e.key) || (e.key === '-' && lesson.minus) || (e.key === '.' && lesson.point)) return mine(() => digit(e.key));
       if (e.key === 'Backspace') return mine(backspace);
     }
-    if (phase === 'teach' && tsub === 'fix' && /^[1-3]$/.test(e.key)) return mine(() => pickFix(choices[+e.key - 1]));
+    // fixing the buddy's answer: tap a card, or type the answer itself (no 1, 2, 3 keys: they'd be confused with the answers)
+    if (phase === 'teach' && tsub === 'fix' && /^[0-9/.\-]$/.test(e.key)) return mine(() => typeFix(e.key));
     if (e.key === 'Enter' || e.key === ' ') return mine(primary);
     if (e.key === 'Escape') return mine(leave);
   }
@@ -316,7 +351,8 @@
   // ---------- where the 3D picture goes on the page ----------
   function viewFor(): View {
     const H = h || 1;
-    const top = (narrow ? 58 : 72) / H;
+    // (the speech band sits under the top bar: the 3D work is framed below it)
+    const top = (narrow ? 58 + DOCK_H.narrow : 72 + DOCK_H.wide) / H;
     let bottom = 1 - (narrow ? 116 : 104) / H, right = 0.99;
     if (phase === 'turn' || phase === 'check') bottom = 1 - (narrow ? 352 : 228) / H;
     else if (phase === 'teach' && tsub !== 'watch') bottom = 1 - (narrow ? 196 : 150) / H;
@@ -338,7 +374,7 @@
       before = stage.swap(s); s.enter();
       if (import.meta.env.DEV) (window as unknown as { __ep: EpisodeScene }).__ep = s;
       // for checking the episodes: where the story is, the answers, and its own Enter and fix
-      if (import.meta.env.DEV) (window as unknown as { __epUi: object }).__epUi = { phase: () => phase, sub: () => tsub, done: () => stepDone, primary, fix: () => pickFix(right), solve: () => { typed = ans; answer(); } };
+      if (import.meta.env.DEV) (window as unknown as { __epUi: object }).__epUi = { phase: () => phase, sub: () => tsub, done: () => stepDone, step: () => i, primary, fix: () => pickFix(right), solve: () => { if (!locked) { typed = ans; answer(); } } };
       s.onChange = () => { hops = s.hopsDrawn; left = s.left; revealed = new Set(s.revealed); };
       s.setView(viewFor());
       sc = s;
@@ -398,10 +434,6 @@
     {#if phase === 'teach' && wrongOn && !narrow}
       {#key shake}<div class="pin" use:pin={() => sc!.over()}>{@render wrongEq()}</div>{/key}
     {/if}
-    <!-- one speech bubble, by the buddy: its own words when it has some, else the story's -->
-    {#if bubble || (line && phase !== 'load')}
-      {#key bubble ?? line}<div class="pin" use:pin={() => sc!.bubbleAt()}><div class="say" class:story={!bubble} class:oops={!!bubble && misses > 0 && !locked && (phase === 'turn' || phase === 'check')} class:good={!!bubble && locked}>{#if bubble}<b>{FRIEND[buddy].name}</b>{/if}<FracText text={bubble ?? line} size={20} inline /></div></div>{/key}
-    {/if}
   {/if}
 
   <!-- the top: close, progress, and the coach telling the story -->
@@ -416,9 +448,10 @@
     {/if}
     <div class="chip"><img src="{base}learn/tile.webp" alt="" /><span><small>{place.name}</small><b>{lesson.title}</b></span></div>
   </div>
-  <!-- while the buddy says its own words, the story's words stay as a subtitle -->
-  {#if bubble && line && phase !== 'load'}
-    {#key line}<div class="subtitle"><p>{line}</p></div>{/key}
+  <!-- the words being said, in one place that never moves: the story's, or the buddy's own -->
+  {#if phase !== 'load'}
+    <SpeechDock text={who === 'buddy' && bubble ? bubble : line} buddy={who === 'buddy' && bubble ? buddy : null} {narrow}
+      mood={who === 'buddy' && bubble && (phase === 'turn' || phase === 'check') ? (locked ? 'good' : misses > 0 ? 'oops' : null) : null} />
   {/if}
 
   <!-- the bottom: what to do now -->
@@ -443,7 +476,7 @@
       {#if tsub === 'fix'}
         <div class="fix">
           <span class="pill task">Tap the right answer</span>
-          <div class="choices">{#each choices as c, n}<button class="choice" onclick={() => pickFix(c)}><span class="kbd">{n + 1}</span><FracText text={minusSign(c)} size={30} /></button>{/each}</div>
+          <div class="choices">{#each choices as c}<button class="choice" onclick={() => pickFix(c)}><FracText text={minusSign(c)} size={30} /></button>{/each}</div>
         </div>
       {:else if tsub === 'fixed'}
         <div class="row"><span class="pill">You fixed it!</span><button class="btn btn-primary btn-big go" onclick={primary}>My turn! <span class="kbd">enter</span></button></div>
@@ -457,7 +490,7 @@
         {#if q.input === 'frac'}
           <FractionPad n={fn} d={fd} focus={ff} want={fracWant} disabled={locked} compact={narrow} onchange={(v) => { fn = v.n; fd = v.d; ff = v.focus; sfx.click(); }} onsubmit={answerFrac} />
         {:else}
-          <NumPad ondigit={digit} onback={backspace} compact={narrow} lit={null} extra={lesson.minus ? ['-'] : []} />
+          <NumPad ondigit={digit} onback={backspace} compact={narrow} lit={null} extra={lesson.minus ? ['-'] : lesson.point ? ['.'] : []} />
         {/if}
       </div>
     {/if}
@@ -552,12 +585,6 @@
   @keyframes eqpop { from { opacity: 0; scale: .6; } }
   .eq.fixed { box-shadow: 0 0 0 4px #7fe0b0, 0 0 34px rgba(80, 220, 150, .7), 0 12px 24px rgba(0, 60, 30, .3); }
   @keyframes eqin { from { opacity: 0; transform: translate(-50%, -60%) scale(.6); } }
-  .say { transform: translate(18px, -60%); white-space: normal; width: max-content; max-width: min(400px, 34vw); background: #fff; border-radius: 26px; padding: 12px 20px 14px; font: 600 22px/1.3 var(--font-ui); text-align: center; color: var(--ink); box-shadow: 0 0 0 3px #fff, 0 12px 26px -10px rgba(40, 20, 80, .55); animation: bub .35s cubic-bezier(.3, 1.4, .5, 1) both; }
-  .say b { display: block; font: 800 11px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sc); }
-  .say::before { content: ''; position: absolute; left: -12px; top: 50%; margin-top: -10px; border: 10px solid transparent; border-right-color: #fff; border-left: 0; }
-  .say.oops { box-shadow: 0 0 0 4px #ffc2d6, 0 12px 26px -10px rgba(40, 20, 80, .55); }
-  .say.good { box-shadow: 0 0 0 4px #9be7c4, 0 12px 26px -10px rgba(40, 20, 80, .55); }
-  @keyframes bub { from { opacity: 0; scale: .9; } }
 
   .top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 12px; padding: 12px 18px; z-index: 3; pointer-events: none; }
   .top > :global(*) { pointer-events: auto; }
@@ -570,9 +597,6 @@
   .chip img { width: 34px; height: 40px; object-fit: contain; }
   .chip small { display: block; font: 800 10px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sc); }
   .chip b { font: 600 17px/1.1 var(--font-ui); color: var(--ink); }
-  .say.story b { display: none; }
-  .subtitle { position: absolute; left: 50%; top: 66px; transform: translateX(-50%); z-index: 3; max-width: min(720px, 92vw); background: rgba(40, 24, 12, .62); backdrop-filter: blur(4px); border-radius: 14px; padding: 6px 16px; pointer-events: none; animation: bub .3s ease-out both; }
-  .subtitle p { margin: 0; font: 600 16px/1.35 var(--font-ui); color: #fff; text-align: center; }
 
   .bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 18px 18px; z-index: 3; display: flex; justify-content: center; pointer-events: none; }
   .bottom > :global(*) { pointer-events: auto; }
@@ -588,7 +612,6 @@
   .choice { position: relative; min-width: 110px; height: 84px; border: 0; border-radius: 24px; cursor: pointer; font: 600 40px var(--font-ui); color: var(--ink); background: linear-gradient(#fff, #fff4dc); box-shadow: 0 0 0 4px #ffd75e, 0 7px 0 #e0a51c, 0 14px 24px -8px rgba(90, 50, 0, .5); transition: transform .1s; }
   .choice:hover { transform: translateY(-3px); }
   .choice:active { transform: translateY(3px); }
-  .choice .kbd { position: absolute; left: 8px; top: 6px; background: #f4ecd8; color: #8a6a3a; border-color: #e6d6b0; }
   .turn { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(1000px, 100%); }
   .ask { display: flex; align-items: center; gap: 12px; font: 600 clamp(32px, 5vh, 48px)/1.1 var(--font-ui); color: var(--ink); background: rgba(255, 255, 255, .95); padding: 8px 22px; border-radius: 24px; box-shadow: 0 12px 28px -12px rgba(60, 30, 10, .6); }
   .ask small { font: 800 12px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sc); max-width: 70px; line-height: 1.2; }
@@ -624,8 +647,6 @@
   .narrow .chip { display: none; }
   .narrow .prog { gap: 4px; padding: 6px 10px; }
   .narrow .prog img { width: 16px; height: 16px; }
-  .narrow .subtitle { top: 54px; }
-  .narrow .subtitle p { font-size: 13px; }
   .narrow .bottom { padding: 0 10px 12px; }
   .narrow .pill { font-size: 15px; padding: 10px 16px; text-align: center; white-space: normal; }
   .narrow .go { font-size: 18px; padding: 12px 20px; }
@@ -635,13 +656,11 @@
   .narrow .ask { font-size: 32px; padding: 6px 16px; }
   /* (a question in words, not a sum: smaller, so it stays one or two lines under the work) */
   .narrow .ask.long { font-size: 22px; }
-  .narrow .say { font-size: 15px; max-width: min(58vw, calc(100vw - var(--px, 0) * 1px - 22px)); padding: 8px 12px 10px; transform: translate(10px, -40%); }
   .narrow .num { font-size: 13px; }
   .narrow .num.here { font-size: 18px; }
   .narrow .eq { font-size: 26px; padding: 4px 14px; }
   .narrow .eq .qt { font-size: 14px; }
   /* (fractions on a phone: the pie is right under the friends, so the bubble sits a little higher) */
-  .narrow.frac .say { transform: translate(10px, -74%); }
   .narrow .cardside { left: 0; right: 0; top: auto; bottom: 10px; translate: none; width: 100%; padding: 0 12px; gap: 8px; }
   .narrow .card { width: min(190px, 48vw); }
   .narrow .cin { gap: 2px; }

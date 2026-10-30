@@ -135,7 +135,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('What fraction is on the plate?', '5/8', 'frac', '8 equal slices, so 8 on the bottom. 5 on the plate: 5/8.', '8 equal slices, so 8 on the bottom. How many on the plate?', pieOnPlate(8, 5)),
       Q('What fraction is on the plate?', '3/4', 'frac', '4 equal slices, 3 on the plate: 3/4.', '4 equal slices: 4 on the bottom. How many on the plate?', pieOnPlate(4, 3)),
     ],
-    teach: { q: Q('What fraction is on the plate?', '1/4', 'frac', 'The bottom is ALL the equal parts: 4. One is on the plate: 1/4.', '', pieOnPlate(4, 1)), wrong: '1/3', says: '1 slice on the plate and 3 left in the dish... so 1/3!', decoy: '3/4', fixed: 'The bottom number counts ALL the equal parts, not just the ones left. 4 parts, 1 on the plate: 1/4.' },
+    teach: { q: Q('What fraction is on the plate?', '1/4', 'frac', 'The bottom is ALL the equal parts: 4. One is on the plate: 1/4.', '', pieOnPlate(4, 1)), wrong: '1/3', says: "1 slice on the plate, and 3 left in the dish. So it's 1/3!", decoy: '3/4', fixed: 'Oh, I see! The bottom number counts all 4 equal parts. 1 on the plate is 1/4. Thank you!' },
   },
   {
     id: 'frac-one-piece', title: 'One Piece', blurb: 'One of 4 equal pieces is 1/4. Three of them make 3/4.', set: 'workshop', skill: 'fr-unit', art: 'learn/frac/card-choc.webp',
@@ -149,7 +149,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('The gold pieces are...', '4/6', 'frac', '6 equal pieces, 4 of them gold: 4/6.', '6 equal pieces on the bottom. Count the gold ones for the top.', barPart(6, 4)),
       Q('The gold pieces are...', '3/8', 'frac', '8 equal pieces, 3 gold: 3/8.', '8 equal pieces on the bottom. How many gold?', barPart(8, 3)),
     ],
-    teach: { q: Q('One piece of a bar of 5 is...', '1/5', 'frac', 'The bar has 5 equal pieces, so one piece is 1/5.', '', barPart(5, 1)), wrong: '1/4', says: 'One piece, and 4 left... so one piece is 1/4!', decoy: '4/5', fixed: 'The bar is 5 equal pieces, so each one is 1/5. Count them all, not just the ones left!' },
+    teach: { q: Q('One piece of a bar of 5 is...', '1/5', 'frac', 'The bar has 5 equal pieces, so one piece is 1/5.', '', barPart(5, 1)), wrong: '1/4', says: 'One piece, and 4 left. So one piece is 1/4!', decoy: '4/5', fixed: 'Oh, I see! The bar has 5 equal pieces, so one piece is 1/5. Thank you!' },
   },
   {
     id: 'frac-of-a-set', title: 'Part of a Set', blurb: '2 of 6 cupcakes is 2/6. 1/3 of 12? Share 12 into 3 groups.', set: 'picnic', skill: 'fr-set', art: 'learn/frac/card-cupcakes.webp',
@@ -165,7 +165,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('1/3 of 9 = ?', '3', 'num', 'Share 9 onto 3 plates: 3 on each. So 1/3 of 9 is 3.', 'Share 9 onto 3 plates. How many on one plate?', shareOut(9, 3)),
       Q('1/4 of 8 = ?', '2', 'num', 'Share 8 onto 4 plates: 2 on each.', 'Share 8 onto 4 plates. How many on one?', shareOut(8, 4)),
     ],
-    teach: { q: Q('1/2 of 10 = ?', '5', 'num', 'Share 10 onto 2 plates: 5 on each.', '', shareOut(10, 2, 0)), wrong: '2', says: 'Half of 10? There are 2 plates... so 2!', decoy: '8', fixed: '1/2 of 10 means share 10 onto 2 plates: 5 on each. One plate is 5!' },
+    teach: { q: Q('1/2 of 10 = ?', '5', 'num', 'Share 10 onto 2 plates: 5 on each.', '', shareOut(10, 2, 0)), wrong: '2', says: "Half of 10? There are 2 plates, so it's 2!", decoy: '8', fixed: "Oh, I see! Share the 10 onto 2 plates. That's 5 on each, so half of 10 is 5! Thank you!" },
   },
   {
     id: 'frac-number-line', title: 'On the Line', blurb: 'Cut 0 to 1 into equal jumps, then count the jumps.', set: 'dock', skill: 'fr-line', art: 'learn/frac/card-line.webp',
@@ -180,7 +180,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('Where is the Glimmer?', '5/6', 'frac', '6 equal jumps from 0 to 1, and it made 5: 5/6.', 'Count the jumps from 0 to 1 for the bottom.', plankTo(6, 5)),
       Q('Where is the Glimmer?', '3/8', 'frac', '8 equal jumps, 3 made: 3/8.', 'Count the jumps from 0 to 1 for the bottom.', plankTo(8, 3)),
     ],
-    teach: { q: Q('Where is the Glimmer?', '2/3', 'frac', '0 to 1 is cut into 3 equal jumps, and it made 2: 2/3.', '', plankTo(3, 2)), wrong: '2/4', says: '2 hops, and I can see 4 little marks... 2/4!', decoy: '1/3', fixed: 'Count the jumps from 0 to 1, not the marks: 3 jumps. 2 of them: 2/3.' },
+    teach: { q: Q('Where is the Glimmer?', '2/3', 'frac', '0 to 1 is cut into 3 equal jumps, and it made 2: 2/3.', '', plankTo(3, 2)), wrong: '2/4', says: "2 hops, and I can see 4 little marks. So it's 2/4!", decoy: '1/3', fixed: 'Oh, I see! I count the jumps, not the marks. 0 to 1 is 3 jumps, so 2 jumps is 2/3. Thank you!' },
   },
   {
     id: 'frac-bigger', title: 'Which Is Bigger?', blurb: 'Same bottom: more is more. One piece each: fewer cuts make bigger pieces.', set: 'kitchen', skill: 'fr-compare', art: 'learn/frac/card-pie.webp',
@@ -198,7 +198,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('Which is bigger: 1/2 or 1/5?', '1/2', 'frac', 'One piece each: fewer cuts make bigger pieces. 1/2.', 'One piece each. Which pie was cut into fewer pieces?', twoPlates([1, 2], [1, 5])),
       Q('Which is bigger: 3/8 or 3/4?', '3/4', 'frac', 'Same tops: quarters are bigger than eighths, so 3/4.', 'Same number of pieces. Which pieces are bigger?', twoPlates([3, 8], [3, 4])),
     ],
-    teach: { q: Q('Which is bigger: 1/4 or 1/6?', '1/4', 'frac', 'Cut into 4, each piece is bigger than cut into 6. 1/4 is bigger.', '', twoPlates([1, 4], [1, 6])), wrong: '1/6', says: '6 is bigger than 4, so 1/6 is bigger!', decoy: 'the same', fixed: 'More cuts make SMALLER pieces! A pie cut into 4 has bigger slices than one cut into 6. 1/4 is bigger.' },
+    teach: { q: Q('Which is bigger: 1/4 or 1/6?', '1/4', 'frac', 'Cut into 4, each piece is bigger than cut into 6. 1/4 is bigger.', '', twoPlates([1, 4], [1, 6])), wrong: '1/6', says: '6 is bigger than 4, so 1/6 is bigger!', decoy: 'the same', fixed: 'Oh, I see! More cuts make smaller pieces. So 1/4 is bigger than 1/6. Thank you!' },
   },
   {
     id: 'frac-equal', title: 'Same Amount', blurb: 'Same pizza, more cuts: 1/2 = 2/4 = 4/8.', set: 'picnic', star: 'puddlepup', skill: 'fr-equal', art: 'learn/frac/card-pizza.webp',
@@ -213,7 +213,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('1/4 = ?/8', '2/8', 'frac', 'Cut each quarter in two: one quarter is 2 eighths. 2/8.', 'Cut each quarter in two. How many eighths?', twoPizzas(4, 1, 8, 2)),
       Q('2/3 = ?/6', '4/6', 'frac', 'Cut each third in two: 2 thirds is 4 sixths. 4/6.', 'Cut each third in two. How many sixths?', twoPizzas(3, 2, 6, 4)),
     ],
-    teach: { q: Q('1/3 = how many sixths?', '2/6', 'frac', 'Twice as many cuts: twice as many slices. 1/3 = 2/6.', '', twoPizzas(3, 1, 6, 2)), wrong: '1/6', says: 'Make the bottom 6, keep the top the same... 1/6!', decoy: '3/6', fixed: 'If the bottom doubles, the top doubles too: twice as many cuts makes twice as many slices. 1/3 = 2/6.' },
+    teach: { q: Q('1/3 = how many sixths?', '2/6', 'frac', 'Twice as many cuts: twice as many slices. 1/3 = 2/6.', '', twoPizzas(3, 1, 6, 2)), wrong: '1/6', says: "I make the bottom 6 and keep the top the same. That's 1/6!", decoy: '3/6', fixed: 'Oh, I see! Twice as many cuts make twice as many slices. 1/3 is the same as 2/6. Thank you!' },
   },
   {
     id: 'frac-add', title: 'Adding Slices', blurb: 'Add the tops, keep the bottom.', set: 'kitchen', skill: 'fr-add', art: 'learn/frac/card-pie.webp',
@@ -228,7 +228,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('3/8 + 4/8 = ?', '7/8', 'frac', 'Add the tops: 3 + 4 = 7. Still eighths: 7/8.', 'Add the tops. The bottom stays.', pieOnPlate(8, 7), true),
       Q('2/6 + 3/6 = ?', '5/6', 'frac', 'Add the tops: 2 + 3 = 5. Still sixths: 5/6.', 'Add the tops. The bottom stays.', pieOnPlate(6, 5), true),
     ],
-    teach: { q: Q('2/5 + 1/5 = ?', '3/5', 'frac', 'Add the tops: 2 + 1 = 3. They are still fifths: 3/5.', '', pieOnPlate(5, 3)), wrong: '3/10', says: '2 + 1 is 3, and 5 + 5 is 10... 3/10!', decoy: '2/5', fixed: 'Adding slices doesn\'t change their size! Add the tops, keep the bottom: 3/5.' },
+    teach: { q: Q('2/5 + 1/5 = ?', '3/5', 'frac', 'Add the tops: 2 + 1 = 3. They are still fifths: 3/5.', '', pieOnPlate(5, 3)), wrong: '3/10', says: "2 + 1 is 3, and 5 + 5 is 10. So it's 3/10!", decoy: '2/5', fixed: "Oh, I see! The slices stay the same size. Add the tops and keep the bottom. It's 3/5! Thank you!" },
   },
   {
     id: 'frac-take-away', title: 'Taking Away Slices', blurb: 'Take away the tops, keep the bottom.', set: 'workshop', skill: 'fr-sub', art: 'learn/frac/card-choc.webp',
@@ -242,7 +242,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('5/8 − 2/8 = ?', '3/8', 'frac', 'Take away the tops: 5 − 2 = 3. Still eighths: 3/8.', 'Take away the tops. The bottom stays.', barPart(8, 3), true),
       Q('3/4 − 1/4 = ?', '2/4', 'frac', 'Take away the tops: 3 − 1 = 2. Still quarters: 2/4.', 'Take away the tops. The bottom stays.', barPart(4, 2), true),
     ],
-    teach: { q: Q('7/8 − 3/8 = ?', '4/8', 'frac', '7 − 3 = 4, and they are still eighths: 4/8.', '', barPart(8, 4)), wrong: '4/5', says: '7 − 3 is 4, and 8 − 3 is 5... 4/5!', decoy: '3/8', fixed: 'Eating some squares doesn\'t change their size! Take away the tops, keep the bottom: 4/8.' },
+    teach: { q: Q('7/8 − 3/8 = ?', '4/8', 'frac', '7 − 3 = 4, and they are still eighths: 4/8.', '', barPart(8, 4)), wrong: '4/5', says: "7 − 3 is 4, and 8 − 3 is 5. So it's 4/5!", decoy: '3/8', fixed: "Oh, I see! The squares stay the same size. Take away the tops and keep the bottom. It's 4/8! Thank you!" },
   },
   {
     id: 'frac-mixed', title: 'Wholes and Bits', blurb: 'Every 4 quarters make a whole, so 9/4 = 2 1/4.', set: 'kitchen', skill: 'fr-mixed', art: 'learn/frac/card-pie.webp',
@@ -259,7 +259,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('11/4 = 2 and ?/4', '3', 'num', '8 quarters make 2 wholes, and 3 are left: 2 and 3/4.', '8 quarters make 2 wholes. How many are left over?', board({ dishes: [dish('a', 110, 175, 80), dish('b', 300, 175, 80), dish('c', 490, 175, 80)], dots: [...slices('a', 'pie', 4, 80, () => ({ x: 110, y: 175 }), () => 'a'), ...slices('b', 'pie', 4, 80, () => ({ x: 300, y: 175 }), () => 'a'), ...slices('c', 'pie', 4, 80, i => (i < 3 ? { x: 490, y: 175 } : null), () => 'c')] })),
       Q('5/4 = 1 and ?/4', '1', 'num', '4 quarters make 1 whole, and 1 is left: 1 and 1/4.', '4 quarters make a whole. How many are left over?', board({ dishes: [dish('a', 200, 175, 90), dish('b', 400, 175, 90)], dots: [...slices('a', 'pie', 4, 90, () => ({ x: 200, y: 175 }), () => 'a'), ...slices('b', 'pie', 4, 90, i => (i < 1 ? { x: 400, y: 175 } : null), () => 'c')] })),
     ],
-    teach: { q: Q('7/4 = how many whole pies?', '1', 'num', '4 quarters make 1 whole pie. 7 quarters is one whole pie and 3 quarters more.', '', board({ dishes: [dish('a', 200, 175, 90), dish('b', 400, 175, 90)], dots: [...slices('a', 'pie', 4, 90, () => ({ x: 200, y: 175 }), () => 'a'), ...slices('b', 'pie', 4, 90, i => (i < 3 ? { x: 400, y: 175 } : null), () => 'c')] })), wrong: '2', says: '7 quarters is nearly 8... so 2 whole pies!', decoy: '7', fixed: 'Only full dishes count as wholes! 4 quarters fill one pie, and the other 3 quarters don\'t fill a second. 1 whole pie and 3/4.' },
+    teach: { q: Q('7/4 = how many whole pies?', '1', 'num', '4 quarters make 1 whole pie. 7 quarters is one whole pie and 3 quarters more.', '', board({ dishes: [dish('a', 200, 175, 90), dish('b', 400, 175, 90)], dots: [...slices('a', 'pie', 4, 90, () => ({ x: 200, y: 175 }), () => 'a'), ...slices('b', 'pie', 4, 90, i => (i < 3 ? { x: 400, y: 175 } : null), () => 'c')] })), wrong: '2', says: "7 quarters is nearly 8. So it's 2 whole pies!", decoy: '7', fixed: "Oh, I see! Only full dishes count. 4 quarters fill one pie, and 3 quarters are left over. That's 1 whole pie! Thank you!" },
   },
   {
     id: 'frac-times', title: 'Lots of Pieces', blurb: '3 × 2/5 is three lots of two fifths: 6/5.', set: 'workshop', skill: 'fr-times', art: 'learn/frac/card-choc.webp',
@@ -276,7 +276,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('3 × 1/5 = ?', '3/5', 'frac', 'Three lots of 1 fifth is 3 fifths: 3/5.', 'How many fifths in three lots of one fifth?', barPart(5, 3), true),
       Q('2 × 2/6 = ?', '4/6', 'frac', 'Two lots of 2 sixths is 4 sixths: 4/6.', 'Two lots of 2 sixths: how many sixths?', barPart(6, 4), true),
     ],
-    teach: { q: Q('2 × 3/8 = ?', '6/8', 'frac', 'Two lots of 3 eighths is 6 eighths: 6/8.', '', barPart(8, 6)), wrong: '6/16', says: '2 × 3 is 6, and 2 × 8 is 16... 6/16!', decoy: '5/8', fixed: 'The pieces stay eighths! Only the number of pieces doubles: 6/8.' },
+    teach: { q: Q('2 × 3/8 = ?', '6/8', 'frac', 'Two lots of 3 eighths is 6 eighths: 6/8.', '', barPart(8, 6)), wrong: '6/16', says: "2 × 3 is 6, and 2 × 8 is 16. So it's 6/16!", decoy: '5/8', fixed: "Oh, I see! The pieces stay eighths. Only the number of pieces doubles. It's 6/8! Thank you!" },
   },
   {
     id: 'frac-unlike', title: 'Match the Bottoms', blurb: 'Different bottoms? Make them match first, then add.', set: 'picnic', star: 'puddlepup', skill: 'fr-unlike', art: 'learn/frac/card-pizza.webp',
@@ -291,7 +291,7 @@ export const FRAC_LESSONS: FracLesson[] = [
       Q('1/4 + 1/8 = ?', '3/8', 'frac', '1/4 is 2/8. 2/8 + 1/8 = 3/8.', 'Make the quarter into eighths first.', twoPizzas(4, 1, 8, 1), true),
       Q('1/2 + 1/6 = ?', '4/6', 'frac', '1/2 is 3/6. 3/6 + 1/6 = 4/6.', 'Make the half into sixths first.', twoPizzas(2, 1, 6, 1), true),
     ],
-    teach: { q: Q('1/3 + 1/6 = ?', '3/6', 'frac', '1/3 is 2/6. 2/6 + 1/6 = 3/6.', '', twoPizzas(3, 1, 6, 1)), wrong: '2/9', says: '1 + 1 is 2, and 3 + 6 is 9... 2/9!', decoy: '2/6', fixed: 'Thirds and sixths are different sizes! Make them match first: 1/3 is 2/6. Then 2/6 + 1/6 = 3/6.' },
+    teach: { q: Q('1/3 + 1/6 = ?', '3/6', 'frac', '1/3 is 2/6. 2/6 + 1/6 = 3/6.', '', twoPizzas(3, 1, 6, 1)), wrong: '2/9', says: "1 + 1 is 2, and 3 + 6 is 9. So it's 2/9!", decoy: '2/6', fixed: 'Oh, I see! Thirds and sixths are different sizes. 1/3 is 2/6, and 2/6 + 1/6 is 3/6! Thank you!' },
   },
 ];
 export const FRAC_LESSON: Record<string, FracLesson> = Object.fromEntries(FRAC_LESSONS.map(l => [l.id, l]));

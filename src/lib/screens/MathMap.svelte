@@ -31,7 +31,7 @@
   import { keyStage } from '../math/skills/progress';
   import type { AreaId } from '../math/skills/types';
   import { MARKET_LESSON, MARKET_LESSONS } from '../math/market/episodes';
-  import MarketEpisode from '../math/market/MarketEpisode.svelte';
+  import Episode from '../math/ui/Episode.svelte';
   import { MEASURE_LESSON, MEASURE_LESSONS } from '../math/measure/episodes';
   import MeasureEpisode from '../math/measure/MeasureEpisode.svelte';
 
@@ -130,7 +130,7 @@
 
 <svelte:window onkeydown={onKey} />
 
-{#if game.learnOverlay && MARKET_LESSON[game.learnOverlay]}<MarketEpisode lesson={MARKET_LESSON[game.learnOverlay]} onclose={() => (game.learnOverlay = null)} />{/if}
+{#if game.learnOverlay && MARKET_LESSON[game.learnOverlay]}{#key game.learnOverlay}<Episode id={game.learnOverlay} check={game.learnCheck} onclose={() => { game.learnOverlay = null; game.learnCheck = false; }} />{/key}{/if}
 {#if game.learnOverlay && MEASURE_LESSON[game.learnOverlay]}{#key game.learnOverlay}<MeasureEpisode lesson={MEASURE_LESSON[game.learnOverlay]} check={game.learnCheck} onclose={() => { game.learnOverlay = null; game.learnCheck = false; }} />{/key}{/if}
 
 <!-- one part of math on the other tabs (and its garden): Learn it, Games, World -->
@@ -144,7 +144,7 @@
   </div>
 {/snippet}
 
-<div class="screen map" class:behind={!!(game.learnOverlay && MEASURE_LESSON[game.learnOverlay])}>
+<div class="screen map" class:behind={!!(game.learnOverlay && (MEASURE_LESSON[game.learnOverlay] || MARKET_LESSON[game.learnOverlay]))}>
   <TopBar />
   <WaysBar subject={S} {way} onpick={pickWay}>
     {#snippet right()}<span class="pill stars" title="Math stars"><Stars n={1} of={1} size={20} /> <b>{stars}</b></span><button class="pill gardenpill" title="The Fact Garden: every fact you know, growing" onclick={() => { sfx.click(); game.go('garden'); }}><img src="{import.meta.env.BASE_URL}icons/garden.webp" alt="" /><span class="gw">Garden</span><b>{blooms}</b></button>{/snippet}

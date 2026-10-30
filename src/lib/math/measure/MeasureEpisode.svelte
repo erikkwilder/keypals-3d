@@ -26,6 +26,7 @@
   import { game } from '../../state/game.svelte';
   import { quietForLesson, sfx } from '../../audio/sound';
   import { hush, lineText, say } from '../../audio/voice.svelte';
+  import { buddyLine } from '../../content/voice';
   import { danceOf } from '../../engine/profile';
   import { advView } from '../../adventure/state';
   import { FRIEND } from '../../art/cast';
@@ -35,6 +36,7 @@
   import { fixChoices, parseTime, type MeasureLesson, type MQ, type MTask } from './episodes';
   import NumPad from '../ui/NumPad.svelte';
   import CloseButton from '../../ui/CloseButton.svelte';
+  import SpeechDock from '../ui/SpeechDock.svelte';
   import Confetti from '../../ui/Confetti.svelte';
   import Icon from '../../ui/Icon.svelte';
   import { mSfx } from './sounds';
@@ -68,6 +70,8 @@
   let eqOn = $state(false);
   let line = $state('');
   let bubble = $state<string | null>(null);
+  /** who spoke last: the speech band shows their words */
+  let who = $state<'story' | 'buddy'>('story');
   let tsub = $state<'watch' | 'fix' | 'fixed'>('watch');
   let wrongOn = $state(false);
   let k = $state(0);
@@ -92,16 +96,30 @@
   const eqParts = $derived(step.eq.split(/(\[[^\]]+\])/).filter(Boolean).map(s => (s.startsWith('[') ? { lit: true, t: s.slice(1, -1) } : { lit: false, t: s })));
   const choices = fixChoices(L);
   const right = L.teach.q.ans;
-  const PRAISE = ['Yes! You got it!', "That's it!", 'Brilliant!', 'You did it!', 'Spot on!'];
+  /** the buddy's words for a key (voice.ts BUDDY_WORDS), else what the lesson's data says */
+  const buddyWords = (key: string, fallback = '') => lineText(buddyLine(buddy, key)) || fallback;
+  /** room kept for the speech band (SpeechDock) under the top bar */
+  const DOCK_H = { wide: 92, narrow: 74 };
   /** a turn's choices: its own, or (a time) the right one and the buddy-style slips */
   const qChoices = $derived(q.choices ?? []);
 
   // ---------- the voice ----------
   async function speak(lineId: string) {
-    line = lineText(lineId);
+    line = lineText(lineId); who = 'story';
     const t0 = performance.now();
     await Promise.race([say(lineId, { important: true, caption: false }), sleep(2500 + line.length * 95)]);
     if (game.settings.voice === false) await sleep(Math.max(0, Math.max(1600, line.length * 55) - (performance.now() - t0)));
+  }
+
+  /** The buddy says one of its lines in its own voice, talking with its hands as it does; `text` shows
+   *  other words in its bubble than the recording's (a hint with this question's numbers). */
+  async function buddySay(key: string, text?: string) {
+    const words = text ?? buddyWords(key);
+    bubble = words; who = 'buddy';
+    sc?.talk(Math.max(1.4, words.length * 0.06));
+    const t0 = performance.now();
+    await Promise.race([say(buddyLine(buddy, key), { important: true, caption: false }), sleep(2500 + words.length * 95)]);
+    if (game.settings.voice === false) await sleep(Math.max(0, Math.max(1600, words.length * 55) - (performance.now() - t0)));
   }
 
   // ---------- the story ----------
@@ -159,8 +177,9 @@
     await speak('ep.teach');
     if (r !== run) return;
     s.shot('buddy');
-    bubble = L.teach.says; s.talk(2.6); s.present(2.4);
-    await sleep(2400);
+    // the buddy works it out loud (and gets it wrong)
+    s.present(2.4);
+    await buddySay(`${L.id}.try`, buddyWords(`${L.id}.try`, L.teach.says));
     if (r !== run) return;
     wrongOn = true; s.cheer(); sfx.pop();
     await sleep(1300);
@@ -171,12 +190,16 @@
   function pickFix(n: string) {
     if (tsub !== 'fix' || !sc) return;
     if (n === right) {
-      ++run;
+      const r = ++run;
       tsub = 'fixed'; sfx.cheer();
       sc.gasp(); setTimeout(() => { if (!gone) sc?.oops(); }, 900); sc.palDo('happy'); sc.burst(kit!.overPoint(), 1.2);
-      bubble = L.teach.fixed;
-      setTimeout(() => { if (!gone) sc?.jump(); }, 2500);
-      void speak('ep.fixed');
+      // the buddy sees its mistake and thanks you, then the coach praises you
+      void (async () => {
+        await buddySay(`${L.id}.fixed`, buddyWords(`${L.id}.fixed`, L.teach.fixed));
+        if (r !== run || gone) return;
+        sc?.jump();
+        await speak('ep.fixed');
+      })();
     } else {
       shake++; sfx.miss(); sc.shrug(); void speak('ep.again');
     }
@@ -221,19 +244,20 @@
     const s = sc;
     if (given === q.ans) {
       locked = true; typed = given;
-      bubble = PRAISE[(k + misses) % PRAISE.length];
+      // (the buddy's cheer is said in full before the next question)
+      const cheered = buddySay(`praise${(k + misses) % 5}`);
       sfx.star(k); mSfx.chime(); s?.cheer(); s?.palDo('happy'); s?.burst(kit!.overPoint(), 0.8);
       if (kit) kit.free = null;
-      setTimeout(() => {
+      void Promise.all([cheered, sleep(1300)]).then(() => {
         if (gone) return;
         locked = false; typed = '';
         if (phase === 'check') checked();
         else if (k < 1) startTurn(k + 1);
         else card();
-      }, 1300);
+      });
     } else {
       misses++; shake++; sfx.miss(); s?.shrug();
-      bubble = misses === 1 ? `Not quite. ${q.hidden}` : `Here's how: ${q.hint}`;
+      void buddySay(misses === 1 ? 'miss' : 'show', misses === 1 ? `Not quite. ${q.hidden}` : `Here's how: ${q.hint}`);
       setTimeout(() => { if (!locked) typed = ''; }, 500);
     }
   }
@@ -280,8 +304,7 @@
       if (/^[0-9]$/.test(e.key)) return mine(() => digit(e.key));
       if (e.key === 'Backspace') return mine(backspace);
     }
-    if ((phase === 'turn' || phase === 'check') && q.input === 'choice' && /^[1-4]$/.test(e.key)) return mine(() => { const c = qChoices[+e.key - 1]; if (c) answer(c); });
-    if (phase === 'teach' && tsub === 'fix' && /^[1-3]$/.test(e.key)) return mine(() => pickFix(choices[+e.key - 1]));
+    // choices are tapped (no 1, 2, 3 keys: they'd be confused with the answers)
     if (e.key === 'Enter' || e.key === ' ') return mine(primary);
     if (e.key === 'Escape') return mine(leave);
   }
@@ -304,7 +327,8 @@
   // ---------- where the 3D picture goes on the page ----------
   function viewFor(): View {
     const H = h || 1;
-    const top = (narrow ? 58 : 72) / H;
+    // (the speech band sits under the top bar: the 3D work is framed below it)
+    const top = (narrow ? 58 + DOCK_H.narrow : 72 + DOCK_H.wide) / H;
     let bottom = 1 - (narrow ? 116 : 104) / H, right = 0.99;
     if (phase === 'turn' || phase === 'check') bottom = 1 - (q.input === 'num' ? (narrow ? 352 : 228) : (narrow ? 170 : 150)) / H;
     else if (phase === 'teach' && tsub !== 'watch') bottom = 1 - (narrow ? 196 : 150) / H;
@@ -328,7 +352,7 @@
       before = stage.swap(ctl); s.enter();
       if (import.meta.env.DEV) (window as unknown as { __mep: { sc: EpisodeScene; kit: MeasureKit } }).__mep = { sc: s, kit: kt };
       // for checking the episodes: where the story is, its own Enter, the fix and the answer
-      if (import.meta.env.DEV) (window as unknown as { __epUi: object }).__epUi = { phase: () => phase, sub: () => tsub, done: () => stepDone, primary, fix: () => pickFix(right), solve: () => answer(q.ans), finish: () => kit?.finish() };
+      if (import.meta.env.DEV) (window as unknown as { __epUi: object }).__epUi = { phase: () => phase, sub: () => tsub, done: () => stepDone, step: () => i, primary, fix: () => pickFix(right), solve: () => { if (!locked) answer(q.ans); }, finish: () => kit?.finish() };
       s.show(CLEAR, true); s.fit(kt.bounds()); kt.refit();
       kt.onChange = () => { left = kt.left; pinsNow = kt.pins.map(p => ({ id: p.id, text: p.text, kind: p.kind })); };
       s.setView(viewFor());
@@ -375,9 +399,6 @@
     {#if phase === 'teach' && wrongOn && !narrow}
       {#key shake}<div class="pin" use:pin={() => kit!.overPoint()}>{@render wrongEq()}</div>{/key}
     {/if}
-    {#if bubble || (line && phase !== 'load')}
-      {#key bubble ?? line}<div class="pin" use:pin={() => sc!.bubbleAt()}><div class="say" class:story={!bubble} class:oops={!!bubble && misses > 0 && !locked && (phase === 'turn' || phase === 'check')} class:good={!!bubble && locked}>{#if bubble}<b>{FRIEND[buddy].name}</b>{/if}{bubble ?? line}</div></div>{/key}
-    {/if}
   {/if}
 
   <div class="top">
@@ -391,8 +412,10 @@
     {/if}
     <div class="chip"><img src="{base}learn/tile.webp" alt="" /><span><small>{place.name}</small><b>{L.title}</b></span></div>
   </div>
-  {#if bubble && line && phase !== 'load'}
-    {#key line}<div class="subtitle"><p>{line}</p></div>{/key}
+  <!-- the words being said, in one place that never moves: the story's, or the buddy's own -->
+  {#if phase !== 'load'}
+    <SpeechDock text={who === 'buddy' && bubble ? bubble : line} buddy={who === 'buddy' && bubble ? buddy : null} {narrow}
+      mood={who === 'buddy' && bubble && (phase === 'turn' || phase === 'check') ? (locked ? 'good' : misses > 0 ? 'oops' : null) : null} />
   {/if}
 
   <div class="bottom" bind:clientHeight={bottomH}>
@@ -416,7 +439,7 @@
       {#if tsub === 'fix'}
         <div class="fix">
           <span class="pill task">Tap the right answer</span>
-          <div class="choices">{#each choices as c, n}<button class="choice" onclick={() => pickFix(c)}><span class="kbd">{n + 1}</span>{c}</button>{/each}</div>
+          <div class="choices">{#each choices as c}<button class="choice" onclick={() => pickFix(c)}>{c}</button>{/each}</div>
         </div>
       {:else if tsub === 'fixed'}
         <div class="row"><span class="pill">You fixed it!</span><button class="btn btn-primary btn-big go" onclick={primary}>My turn! <span class="kbd">enter</span></button></div>
@@ -430,7 +453,7 @@
         {#if q.input === 'num'}
           <NumPad ondigit={digit} onback={backspace} compact={narrow} lit={null} />
         {:else if q.input === 'choice'}
-          <div class="choices">{#each qChoices as c, n}<button class="choice" class:good={locked && c === q.ans} onclick={() => answer(c)}><span class="kbd">{n + 1}</span>{c}</button>{/each}</div>
+          <div class="choices">{#each qChoices as c}<button class="choice" class:good={locked && c === q.ans} onclick={() => answer(c)}>{c}</button>{/each}</div>
         {:else}
           <button class="btn btn-primary btn-big go" disabled={locked} onclick={done}><Icon name="check" size={26} /> Done <span class="kbd">enter</span></button>
         {/if}
@@ -507,12 +530,6 @@
   @keyframes eqpop { from { opacity: 0; scale: .6; } }
   .eq.fixed { box-shadow: 0 0 0 4px #7fe0b0, 0 0 34px rgba(80, 220, 150, .7), 0 12px 24px rgba(0, 60, 30, .3); }
   @keyframes eqin { from { opacity: 0; transform: translate(-50%, -60%) scale(.6); } }
-  .say { transform: translate(18px, -60%); white-space: normal; width: max-content; max-width: min(400px, 34vw); background: #fff; border-radius: 26px; padding: 12px 20px 14px; font: 600 22px/1.3 var(--font-ui); text-align: center; color: var(--ink); box-shadow: 0 0 0 3px #fff, 0 12px 26px -10px rgba(40, 20, 80, .55); animation: bub .35s cubic-bezier(.3, 1.4, .5, 1) both; }
-  .say b { display: block; font: 800 11px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sc); }
-  .say::before { content: ''; position: absolute; left: -12px; top: 50%; margin-top: -10px; border: 10px solid transparent; border-right-color: #fff; border-left: 0; }
-  .say.oops { box-shadow: 0 0 0 4px #ffc2d6, 0 12px 26px -10px rgba(40, 20, 80, .55); }
-  .say.good { box-shadow: 0 0 0 4px #9be7c4, 0 12px 26px -10px rgba(40, 20, 80, .55); }
-  @keyframes bub { from { opacity: 0; scale: .9; } }
 
   .top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 12px; padding: 12px 18px; z-index: 3; pointer-events: none; }
   .top > :global(*) { pointer-events: auto; }
@@ -525,9 +542,6 @@
   .chip img { width: 34px; height: 40px; object-fit: contain; }
   .chip small { display: block; font: 800 10px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sc); }
   .chip b { font: 600 17px/1.1 var(--font-ui); color: var(--ink); }
-  .say.story b { display: none; }
-  .subtitle { position: absolute; left: 50%; top: 66px; transform: translateX(-50%); z-index: 3; max-width: min(720px, 92vw); background: rgba(40, 24, 12, .62); backdrop-filter: blur(4px); border-radius: 14px; padding: 6px 16px; pointer-events: none; animation: bub .3s ease-out both; }
-  .subtitle p { margin: 0; font: 600 16px/1.35 var(--font-ui); color: #fff; text-align: center; }
 
   .bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 18px 18px; z-index: 3; display: flex; justify-content: center; pointer-events: none; }
   .bottom > :global(*) { pointer-events: auto; }
@@ -543,7 +557,6 @@
   .choice { position: relative; min-width: 110px; height: 84px; border: 0; border-radius: 24px; cursor: pointer; font: 600 40px var(--font-ui); color: var(--ink); background: linear-gradient(#fff, #fff4dc); box-shadow: 0 0 0 4px #ffd75e, 0 7px 0 #e0a51c, 0 14px 24px -8px rgba(90, 50, 0, .5); transition: transform .1s; }
   .choice:hover { transform: translateY(-3px); }
   .choice:active { transform: translateY(3px); }
-  .choice .kbd { position: absolute; left: 8px; top: 6px; background: #f4ecd8; color: #8a6a3a; border-color: #e6d6b0; }
   .turn { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(1000px, 100%); }
   .ask { display: flex; align-items: center; gap: 12px; font: 600 clamp(32px, 5vh, 48px)/1.1 var(--font-ui); color: var(--ink); background: rgba(255, 255, 255, .95); padding: 8px 22px; border-radius: 24px; box-shadow: 0 12px 28px -12px rgba(60, 30, 10, .6); }
   .ask small { font: 800 12px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sc); max-width: 70px; line-height: 1.2; }
@@ -577,8 +590,6 @@
   .narrow .chip { display: none; }
   .narrow .prog { gap: 4px; padding: 6px 10px; }
   .narrow .prog img { width: 16px; height: 16px; }
-  .narrow .subtitle { top: 54px; }
-  .narrow .subtitle p { font-size: 13px; }
   .narrow .bottom { padding: 0 10px 12px; }
   .narrow .pill { font-size: 15px; padding: 10px 16px; text-align: center; white-space: normal; }
   .narrow .go { font-size: 18px; padding: 12px 20px; }
@@ -586,7 +597,6 @@
   .narrow .choice { min-width: 92px; height: 70px; font-size: 32px; }
   .narrow .choices { gap: 10px; }
   .narrow .ask { font-size: 32px; padding: 6px 16px; }
-  .narrow .say { font-size: 15px; max-width: min(58vw, calc(100vw - var(--px, 0) * 1px - 22px)); padding: 8px 12px 10px; transform: translate(10px, -40%); }
   .narrow .eq { font-size: 26px; padding: 4px 14px; }
   .narrow .eq .qt { font-size: 14px; }
   .narrow .cardside { left: 0; right: 0; top: auto; bottom: 10px; translate: none; width: 100%; padding: 0 12px; gap: 8px; }

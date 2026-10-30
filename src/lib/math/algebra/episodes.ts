@@ -137,7 +137,7 @@ export const ALG_LESSONS: AlgLesson[] = [
       Q('x + 5 = 9. What is x?', '4', 'Take 5 off both sides: x = 9 − 5 = 4.', 'Take 5 off both sides.', balance(1, 5, 9, 'x')),
       Q('x + 4 = 11. What is x?', '7', 'Take 4 off both sides: x = 11 − 4 = 7.', 'Take 4 off both sides.', balance(1, 4, 11, 'x')),
     ],
-    teach: { q: Q('□ + 2 = 7. What does the box weigh?', '5', 'Take 2 off both sides: 7 − 2 = 5.', '', balance(1, 2, 7)), wrong: '9', says: 'The box and 2 weigh 7... so the box weighs 9!', decoy: '2', fixed: 'Take the 2 off both sides, don\'t add it! 7 − 2 = 5. The box weighs 5.' },
+    teach: { q: Q('□ + 2 = 7. What does the box weigh?', '5', 'Take 2 off both sides: 7 − 2 = 5.', '', balance(1, 2, 7)), wrong: '9', says: 'The box and 2 weigh 7, so the box weighs 9!', decoy: '2', fixed: 'Oh, I see! Take the 2 off both sides. 7 take away 2 is 5. The box weighs 5! Thank you!' },
   },
   {
     id: 'alg-two-step', title: 'Two Steps', blurb: 'Two boxes and a weight: take off the weight, then share what\'s left between the boxes.', set: 'lab', skill: 'al-two', art: ART, noun: 'weights',
@@ -147,7 +147,7 @@ export const ALG_LESSONS: AlgLesson[] = [
       Q('3x + 1 = 10. What is x?', '3', 'Take 1 off both sides: 3x = 9. Share by 3: x = 3.', 'Take 1 off, then share between the 3 boxes.', balance(3, 1, 10, 'x')),
       Q('2x + 5 = 13. What is x?', '4', 'Take 5 off both sides: 2x = 8. Share by 2: x = 4.', 'Take 5 off, then share between the 2 boxes.', balance(2, 5, 13, 'x')),
     ],
-    teach: { q: Q('2x + 4 = 10. What is x?', '3', 'Take 4 off: 2x = 6. Then share by 2: x = 3.', '', balance(2, 4, 10, 'x')), wrong: '6', says: 'Take 4 off both sides: 2x = 6. So x is 6!', decoy: '7', fixed: 'Two boxes weigh 6, so share it between them: each box is 3!' },
+    teach: { q: Q('2x + 4 = 10. What is x?', '3', 'Take 4 off: 2x = 6. Then share by 2: x = 3.', '', balance(2, 4, 10, 'x')), wrong: '6', says: 'I take 4 off both sides. 2x = 6. So x is 6!', decoy: '7', fixed: 'Oh, I see! Two boxes weigh 6, so I share it between them. Each box is 3! Thank you!' },
   },
   {
     id: 'alg-order', title: 'Times Comes First', blurb: 'In 3 + 2 × 4, make the groups first, then add.', set: 'lab', skill: 'al-order', art: ART, noun: 'weights',
@@ -157,7 +157,7 @@ export const ALG_LESSONS: AlgLesson[] = [
       Q('2 + 4 × 3 = ?', '14', 'Times first: 4 × 3 = 12. Then 2 + 12 = 14.', 'Do the times first.', ep3[2]),
       Q('10 − 2 × 3 = ?', '4', 'Times first: 2 × 3 = 6. Then 10 − 6 = 4.', 'Do the times first.', ep3[2]),
     ],
-    teach: { q: Q('4 + 2 × 3 = ?', '10', 'Times first: 2 × 3 = 6, then 4 + 6 = 10.', '', ep3[2]), wrong: '18', says: '4 + 2 is 6, and 6 times 3 is 18!', decoy: '9', fixed: 'Times comes first! 2 × 3 = 6, then 4 + 6 = 10.' },
+    teach: { q: Q('4 + 2 × 3 = ?', '10', 'Times first: 2 × 3 = 6, then 4 + 6 = 10.', '', ep3[2]), wrong: '18', says: '4 + 2 is 6, and 6 times 3 is 18!', decoy: '9', fixed: 'Oops! Times comes first. 2 × 3 is 6, then 4 + 6 is 10! Thank you!' },
   },
   {
     id: 'alg-letters', title: 'Letters Are Boxes', blurb: 'A letter is a box with a number inside: 3n is three boxes of n.', set: 'lab', skill: 'al-eval', art: ART, noun: 'weights',
@@ -167,7 +167,7 @@ export const ALG_LESSONS: AlgLesson[] = [
       Q('4n, with n = 5. What is it?', '20', '4n is 4 × 5 = 20.', '4n means 4 × n.', ep4[2]),
       Q('n + 6, with n = 7. What is it?', '13', '7 + 6 = 13.', 'Put 7 where the n is.', ep4[2]),
     ],
-    teach: { q: Q('3n, with n = 5. What is it?', '15', '3n means 3 × n: 3 × 5 = 15.', '', ep4[2]), wrong: '35', says: '3n with n = 5... a 3 and a 5. So 35!', decoy: '8', fixed: '3n means 3 TIMES n: three boxes of 5. That\'s 15!' },
+    teach: { q: Q('3n, with n = 5. What is it?', '15', '3n means 3 × n: 3 × 5 = 15.', '', ep4[2]), wrong: '35', says: "3n, when n is 5? A 3 and a 5. So it's 35!", decoy: '8', fixed: 'Oh, I see! 3n means 3 times n. Three boxes of 5 make 15! Thank you!' },
   },
   {
     id: 'alg-gather', title: 'Share It Out', blurb: '3(x + 2): three groups of a box and two weights. Gather them: 3x + 6.', set: 'lab', skill: 'al-equal', art: ART, noun: 'boxes and weights',
@@ -177,7 +177,7 @@ export const ALG_LESSONS: AlgLesson[] = [
       Q('4(x + 1) = 4x + ?', '4', 'Four groups of 1 weight: 4 × 1 = 4.', 'Times the number inside by the number outside.', ep5[2]),
       Q('3(x + 5) = 3x + ?', '15', 'Three groups of 5: 3 × 5 = 15.', 'Times the number inside by the number outside.', ep5[2]),
     ],
-    teach: { q: Q('2(x + 4) = 2x + ?', '8', 'The 2 times everything inside: 2 × 4 = 8.', '', ep5[2]), wrong: '4', says: '2(x + 4)? That\'s 2x + 4!', decoy: '6', fixed: 'The 2 times EVERYTHING inside: 2 × x and 2 × 4. That\'s 2x + 8!' },
+    teach: { q: Q('2(x + 4) = 2x + ?', '8', 'The 2 times everything inside: 2 × 4 = 8.', '', ep5[2]), wrong: '4', says: '2(x + 4)? That\'s 2x + 4!', decoy: '6', fixed: "Oh, I see! The 2 times everything inside. 2 × x and 2 × 4. That's 2x + 8! Thank you!" },
   },
   {
     id: 'alg-pattern', title: 'Growing Patterns', blurb: 'Find the jump from one to the next, then keep going.', set: 'lab', skill: 'al-pattern', art: ART, noun: 'weights',
@@ -187,7 +187,7 @@ export const ALG_LESSONS: AlgLesson[] = [
       Q('2, 6, 10, 14, ... What comes next?', '18', 'The jump is +4: 14 + 4 = 18.', 'What is the jump each time?', ep6[2]),
       Q('5, 8, 11, ... What comes next?', '14', 'The jump is +3: 11 + 3 = 14.', 'What is the jump each time?', ep6[2]),
     ],
-    teach: { q: Q('1, 4, 7, 10, ... What comes next?', '13', 'The jump is +3 every time: 10 + 3 = 13.', '', ep6[2]), wrong: '11', says: '1, 4, 7, 10... and next comes 11!', decoy: '14', fixed: 'The jump is 3 every time, not 1! 10 + 3 = 13.' },
+    teach: { q: Q('1, 4, 7, 10, ... What comes next?', '13', 'The jump is +3 every time: 10 + 3 = 13.', '', ep6[2]), wrong: '11', says: '1, 4, 7, 10, and next comes 11!', decoy: '14', fixed: 'Oh, I see! The jump is 3 every time, not 1. 10 + 3 is 13! Thank you!' },
   },
   {
     id: 'alg-ineq', title: 'More Than', blurb: 'x > 3: every number bigger than 3 works, but not 3 itself.', set: 'lab', skill: 'al-ineq', art: ART, noun: 'numbers',
@@ -197,7 +197,7 @@ export const ALG_LESSONS: AlgLesson[] = [
       Q('x ≥ 4. The smallest whole number that works?', '4', '≥ means "or the same", so 4 works.', 'Does 4 itself work this time?', board({ line: line(4), tags: [overLine('t', 4, 'x ≥ 4', 'b', 26)] })),
       Q('x < 5. The biggest whole number that works?', '4', '5 isn\'t less than 5, so the biggest is 4.', 'Does 5 itself work?', board({ line: line(5), tags: [overLine('t', 5, 'x < 5', 'b', 26)] })),
     ],
-    teach: { q: Q('x > 5. The smallest whole number that works?', '6', '5 isn\'t more than 5. The first one that is: 6.', '', board({ line: line(5), tags: [overLine('t', 5, 'x > 5', 'b', 26)] })), wrong: '5', says: 'x > 5... so x can be 5!', decoy: '4', fixed: '5 isn\'t MORE than 5, it\'s the same. The smallest that works is 6!' },
+    teach: { q: Q('x > 5. The smallest whole number that works?', '6', '5 isn\'t more than 5. The first one that is: 6.', '', board({ line: line(5), tags: [overLine('t', 5, 'x > 5', 'b', 26)] })), wrong: '5', says: 'x > 5, so x can be 5!', decoy: '4', fixed: "Oh, I see! 5 isn't more than 5, it's the same. The smallest that works is 6! Thank you!" },
   },
 ];
 export const ALG_LESSON: Record<string, AlgLesson> = Object.fromEntries(ALG_LESSONS.map(l => [l.id, l]));

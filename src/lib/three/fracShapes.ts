@@ -11,6 +11,7 @@ import type { Hue, Shape } from '../math/learn';
 import { tileGeo, tileKey, tileMat } from './shapeTiles';
 import { fruitExtraMat, fruitGeo, fruitMats } from './fruitShapes';
 import { algShapeGeo, algShapeMats, isAlgShape } from './algebraProps';
+import { coinGeo, coinMats, type CoinTex } from './coinShapes';
 
 /** where slice i of n sits (its middle), from the middle of a whole of radius R (board units) */
 export function sliceAt(n: number, i: number, R: number) {
@@ -19,12 +20,13 @@ export function sliceAt(n: number, i: number, R: number) {
   return { dx: Math.cos(a) * d, dy: Math.sin(a) * d };
 }
 
-export const shapeKey = (s: Shape) => (s.k === 'wedge' ? `w:${s.food}:${s.n}:${s.i}:${s.r}` : s.k === 'chunk' ? `c:${s.w}` : s.k === 'tile' ? tileKey(s) : s.k === 'fruit' ? `f:${s.f}` : s.k === 'cupcake' ? 'cup' : s.k);
+export const shapeKey = (s: Shape) => (s.k === 'wedge' ? `w:${s.food}:${s.n}:${s.i}:${s.r}` : s.k === 'chunk' ? `c:${s.w}` : s.k === 'tile' ? tileKey(s) : s.k === 'fruit' ? `f:${s.f}` : s.k === 'cupcake' ? 'cup' : s.k === 'coin' ? `coin:${s.c}` : s.k);
 
 /** A shape's geometry in counter units: `main` carries the colour (two material groups for a wedge: its
  *  top and its sides), `extra` an undyed part (a cupcake's paper cup). */
 export function shapeGeo(s: Shape, RU: number, depth: number): { main: THREE.BufferGeometry; extra: THREE.BufferGeometry | null; height: number } {
   if (s.k === 'fruit') return fruitGeo(s.f);
+  if (s.k === 'coin') return coinGeo(s.c, RU, depth);
   if (s.k === 'wedge') return wedge(s.food, s.n, s.i, s.r, RU, depth);
   if (s.k === 'tile') return tileGeo(s, RU, depth);
   if (isAlgShape(s)) return algShapeGeo(s, RU, depth);
@@ -95,11 +97,12 @@ function cupcake() {
 const TINT: Record<'a' | 'b' | 'c', number> = { a: 0xffffff, b: 0xffc2d6, c: 0xffdc8a };
 const ICING: Record<'a' | 'b' | 'c', number> = { a: 0x62b0ff, b: 0xff9cc8, c: 0xffd75a };
 
-export type FracTex = { pie: THREE.Texture | null; pizza: THREE.Texture | null; choc: THREE.Texture | null };
+export type FracTex = { pie: THREE.Texture | null; pizza: THREE.Texture | null; choc: THREE.Texture | null; /** the Sky Market's coins and bill */ coins?: CoinTex };
 
 /** The materials for a shape in a hue: [top, sides] for a wedge, one for the rest. */
 export function shapeMats(s: Shape, hue: Hue, out: boolean, tex: FracTex, cache: (key: string, make: () => THREE.Material) => THREE.Material): THREE.Material | THREE.Material[] {
   if (s.k === 'fruit') return fruitMats(s.f, hue, out, cache);
+  if (s.k === 'coin') return coinMats(s.c, hue, out, tex.coins ?? {}, cache);
   const h = hue === 'ghost' ? 'a' : hue;
   if (s.k === 'tile') return tileMat(s, hue, out, cache);
   if (out) return cache('f-out', () => new THREE.MeshStandardMaterial({ color: 0xc9c1b4, roughness: 0.85, transparent: true, opacity: 0.5 }));

@@ -14,8 +14,9 @@ import { RATIO_COLOR, RATIO_LESSON, RATIO_NOUN } from './ratioEpisodes';
 import { NEG_LESSON } from './integers/episodes';
 import { DATA_COLOR, DATA_LESSON } from './data/episodes';
 import { ALG_LESSON } from './algebra/episodes';
+import { MARKET_LESSON } from './market/episodes';
 
-export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'clockshop' | 'peaks' | 'juice' | 'frost' | 'fair' | 'lab';
+export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'clockshop' | 'peaks' | 'juice' | 'frost' | 'fair' | 'lab' | 'market';
 /** what the counters are in each place */
 export type TokenKind = 'cookie' | 'pearl' | 'berry' | 'block' | 'flower';
 
@@ -63,6 +64,9 @@ export const SETS: Record<SetId, {
   // expressions and equations: the Comet Cat's workshop in the Star Lab (pans of a golden balance, brass weights, mystery boxes)
   lab: { name: 'The Star Lab', backdrop: 'learn/ep/set-lab.webp', table: 'learn/ep/tex-workshop.webp', star: 'cometcat', token: 'block',
     tray: { word: 'tray', color: 0x8a6fc9, rim: 0x5a3fa0 }, plate: { word: 'pan', color: 0xd9a441, rim: 0x8a5a1a }, key: 0xffe2b8, sky: 0xd8ccff, ground: 0x5a4a7a, haze: 0xd9cdf5 },
+  // decimals and money: a sweet and coin shop at the Sky Market (math/market/episodes.ts): real coins and chocolate
+  market: { name: 'The Sky Market', backdrop: 'learn/ep/set-market.webp', table: 'learn/ep/tex-juice.webp', star: 'rollodillo', token: 'block',
+    tray: { word: 'coin tray', color: 0xc99a62, rim: 0x8a6239 }, plate: { word: 'dish', color: 0xfdf7ee, rim: 0xd9a441 }, key: 0xffdcae, sky: 0xfff0d6, ground: 0x7a5236, haze: 0xf6d6a8 },
 };
 
 export type Episode = {
@@ -77,32 +81,32 @@ export type Episode = {
 const F = (a: number, b: number, op: Fact['op'] = 'x'): Fact => ({ a, b, op });
 
 export const EPISODES: Episode[] = [
-  { id: 'count-on', set: 'dock', teach: { f: F(6, 3, '+'), wrong: 8, says: '6 + 3? I count 6, 7, 8... so it\'s 8!' } },
-  { id: 'doubles', set: 'kitchen', teach: { f: F(7, 8, '+'), wrong: 14, says: '7 + 8 is a near double. 7 + 7 is 14... so it\'s 14!' } },
-  { id: 'make-ten', set: 'kitchen', teach: { f: F(5, 9, '+'), wrong: 15, says: '5 + 9? Plus 10 makes 15. Done: 15!' } },
-  { id: 'bridge-ten', set: 'kitchen', teach: { f: F(8, 6, '+'), wrong: 16, says: '8 + 6? Move 2 over to make 10, and 6 more is 16!' } },
-  { id: 'count-back', set: 'dock', teach: { f: F(9, 3, '-'), wrong: 7, says: '9 − 3? I count 9, 8, 7... so it\'s 7!' } },
-  { id: 'doubles-back', set: 'picnic', teach: { f: F(18, 9, '-'), wrong: 8, says: '18 − 9? 9 + 9 is 18... so it\'s 8!' } },
-  { id: 'ten-back', set: 'picnic', teach: { f: F(14, 9, '-'), wrong: 4, says: '14 − 9? Take away 10 first: 4. All done, 4!' } },
-  { id: 'think-plus', set: 'garden', teach: { f: F(12, 5, '-'), wrong: 2, says: '12 − 5? 5 and 5 is 10, then 2 more. So it\'s 2!' }, decoy: 6 },
-  { id: 'zero-one', set: 'picnic', teach: { f: F(9, 0), wrong: 9, says: '9 × 0? Nothing changes... so 9!' }, decoy: 1 },
-  { id: 'times-2', set: 'workshop', teach: { f: F(8, 2), wrong: 10, says: '8 × 2? That\'s 8 + 2... 10!' }, decoy: 18 },
-  { id: 'times-10', set: 'workshop', teach: { f: F(7, 10), wrong: 17, says: '7 × 10? Put a 1 on it... 17!' }, decoy: 71 },
-  { id: 'times-5', set: 'workshop', teach: { f: F(8, 5), wrong: 80, says: '8 × 5? 8 × 10 is 80... so 80!' }, decoy: 45 },
-  { id: 'times-4', set: 'garden', teach: { f: F(6, 4), wrong: 12, says: '6 × 4? Double 6 is 12. So 12!' }, decoy: 22 },
-  { id: 'times-3', set: 'garden', teach: { f: F(7, 3), wrong: 14, says: '7 × 3? Double 7 is 14... 14!' }, decoy: 24 },
-  { id: 'times-9', set: 'garden', teach: { f: F(6, 9), wrong: 59, says: '6 × 9? 6 × 10 is 60, take away 1: 59!' }, decoy: 56 },
-  { id: 'times-6', set: 'workshop', teach: { f: F(7, 6), wrong: 36, says: '7 × 6? 7 × 5 is 35, and 1 more: 36!' }, decoy: 49 },
-  { id: 'times-8', set: 'workshop', teach: { f: F(4, 8), wrong: 16, says: '4 × 8? Double is 8, double again is 16. Done: 16!' }, decoy: 36 },
-  { id: 'times-7', set: 'workshop', teach: { f: F(3, 7), wrong: 17, says: '3 × 7? 3 × 5 is 15, and 2 more: 17!' }, decoy: 24 },
-  { id: 'think-times', set: 'picnic', teach: { f: F(15, 5, '/'), wrong: 5, says: '15 shared into 5 plates? 5 each!' }, decoy: 4 },
+  { id: 'count-on', set: 'dock', teach: { f: F(6, 3, '+'), wrong: 8, says: "6 + 3? I start at 6. 6, 7, 8. So it's 8!" } },
+  { id: 'doubles', set: 'kitchen', teach: { f: F(7, 8, '+'), wrong: 14, says: "7 + 8 is a near double. 7 + 7 is 14, so it's 14!" } },
+  { id: 'make-ten', set: 'kitchen', teach: { f: F(5, 9, '+'), wrong: 15, says: "5 + 9? Plus 10 makes 15. Done, it's 15!" } },
+  { id: 'bridge-ten', set: 'kitchen', teach: { f: F(8, 6, '+'), wrong: 16, says: '8 + 6? I move 2 over to make 10, and 6 more is 16!' } },
+  { id: 'count-back', set: 'dock', teach: { f: F(9, 3, '-'), wrong: 7, says: "9 − 3? I count 9, 8, 7. So it's 7!" } },
+  { id: 'doubles-back', set: 'picnic', teach: { f: F(18, 9, '-'), wrong: 8, says: "18 − 9? 9 + 9 is 18, so it's 8!" } },
+  { id: 'ten-back', set: 'picnic', teach: { f: F(14, 9, '-'), wrong: 4, says: "14 − 9? I take away 10 first. That's 4. All done, it's 4!" } },
+  { id: 'think-plus', set: 'garden', teach: { f: F(12, 5, '-'), wrong: 2, says: "12 − 5? 5 and 5 make 10, then 2 more. So it's 2!" }, decoy: 6 },
+  { id: 'zero-one', set: 'picnic', teach: { f: F(9, 0), wrong: 9, says: "9 × 0? Nothing changes, so it's 9!" }, decoy: 1 },
+  { id: 'times-2', set: 'workshop', teach: { f: F(8, 2), wrong: 10, says: "8 × 2? That's 8 + 2, so 10!" }, decoy: 18 },
+  { id: 'times-10', set: 'workshop', teach: { f: F(7, 10), wrong: 17, says: '7 × 10? I put a 1 on it. 17!' }, decoy: 71 },
+  { id: 'times-5', set: 'workshop', teach: { f: F(8, 5), wrong: 80, says: "8 × 5? 8 × 10 is 80, so it's 80!" }, decoy: 45 },
+  { id: 'times-4', set: 'garden', teach: { f: F(6, 4), wrong: 12, says: "6 × 4? Double 6 is 12. So it's 12!" }, decoy: 22 },
+  { id: 'times-3', set: 'garden', teach: { f: F(7, 3), wrong: 14, says: "7 × 3? Double 7 is 14. So it's 14!" }, decoy: 24 },
+  { id: 'times-9', set: 'garden', teach: { f: F(6, 9), wrong: 59, says: "6 × 9? 6 × 10 is 60. Take away 1, and it's 59!" }, decoy: 56 },
+  { id: 'times-6', set: 'workshop', teach: { f: F(7, 6), wrong: 36, says: '7 × 6? 7 × 5 is 35, and 1 more is 36!' }, decoy: 49 },
+  { id: 'times-8', set: 'workshop', teach: { f: F(4, 8), wrong: 16, says: "4 × 8? Double is 8, and double again is 16. Done, it's 16!" }, decoy: 36 },
+  { id: 'times-7', set: 'workshop', teach: { f: F(3, 7), wrong: 17, says: '3 × 7? 3 × 5 is 15, and 2 more is 17!' }, decoy: 24 },
+  { id: 'think-times', set: 'picnic', teach: { f: F(15, 5, '/'), wrong: 5, says: '15 shared onto 5 plates? 5 each!' }, decoy: 4 },
   // place value (math/placeLessons.ts)
   { id: 'pv-make-ten', set: 'cave', teach: { f: { a: 10, b: 5, op: '+', text: '1 ten 5 ones' }, wrong: 6, says: '1 ten and 5 ones? 1 and 5 make 6!' }, decoy: 51 },
   { id: 'pv-tens-ones', set: 'cave', teach: { f: { a: 30, b: 4, op: '+', text: '3 tens 4 ones' }, wrong: 7, says: '3 tens and 4 ones? 3 and 4 make 7!' }, decoy: 43 },
-  { id: 'pv-big-numbers', set: 'cave', teach: { f: { a: 300, b: 5, op: '+', text: '3 hundreds 5 ones' }, wrong: 35, says: '3 hundreds and 5 ones? A 3 and a 5... 35!' }, decoy: 350 },
-  { id: 'pv-add-regroup', set: 'cave', teach: { f: F(38, 25, '+'), wrong: 513, says: '38 + 25? 8 + 5 is 13, and 3 + 2 is 5... 513!' }, decoy: 53 },
-  { id: 'pv-sub-regroup', set: 'cave', teach: { f: F(52, 27, '-'), wrong: 35, says: '52 − 27? 7 take away 2 is 5, and 5 take away 2 is 3... 35!' }, decoy: 15 },
-  { id: 'pv-rounding', set: 'cave', teach: { f: { a: 47, b: 10, op: '+', text: '47 → nearest 10', ans: 50 }, wrong: 40, says: '47 to the nearest ten? It starts with a 4... 40!' }, decoy: 45 },
+  { id: 'pv-big-numbers', set: 'cave', teach: { f: { a: 300, b: 5, op: '+', text: '3 hundreds 5 ones' }, wrong: 35, says: "3 hundreds and 5 ones? A 3 and a 5. So it's 35!" }, decoy: 350 },
+  { id: 'pv-add-regroup', set: 'cave', teach: { f: F(38, 25, '+'), wrong: 513, says: '38 + 25? 8 + 5 is 13, and 3 + 2 is 5. So I write 513!' }, decoy: 53 },
+  { id: 'pv-sub-regroup', set: 'cave', teach: { f: F(52, 27, '-'), wrong: 35, says: "52 − 27? 7 take away 2 is 5, and 5 take away 2 is 3. So it's 35!" }, decoy: 15 },
+  { id: 'pv-rounding', set: 'cave', teach: { f: { a: 47, b: 10, op: '+', text: '47 → nearest 10', ans: 50 }, wrong: 40, says: "47 to the nearest ten? It starts with a 4, so it's 40!" }, decoy: 45 },
 ];
 export const EPISODE: Record<string, Episode> = Object.fromEntries(EPISODES.map(e => [e.id, e]));
 export const episodeOf = (id: string): Episode => EPISODE[id] ?? { id, set: 'kitchen', teach: { f: LESSONS.find(l => l.id === id)!.tries[1], wrong: 0, says: '' } };
@@ -206,6 +210,8 @@ export type EpLesson = {
   noun?: string;
   /** answers can be negative: the pad has its minus key (negative numbers) */
   minus?: boolean;
+  /** answers can be decimals: the pad has its point key (decimals and money) */
+  point?: boolean;
 };
 const FRAC_COLOR = '#ef8a4b', SHAPE_COLOR = '#2fb3a0';
 const NOUN: Record<string, string> = { 'frac-one-piece': 'squares', 'frac-take-away': 'squares', 'frac-times': 'squares', 'frac-of-a-set': 'cupcakes' };
@@ -246,6 +252,14 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
       teach: { q: n.teach.q, wrong: n.teach.wrong, says: n.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: n.teach.fixed },
       cover: null, art: n.art, noun: 'coins', minus: true };
   }
+  const mk = MARKET_LESSON[id];
+  if (mk) {
+    // the Sky Market: real coins and chocolate on the counter, its card a painting
+    const all = [mk.teach.q.ans, mk.teach.wrong, mk.teach.decoy], k = mk.id.length % 3;
+    return { id, title: mk.title, blurb: mk.blurb, color: '#d9862b', set: mk.set, star: mk.star, steps: mk.steps, tries: mk.tries,
+      teach: { q: mk.teach.q, wrong: mk.teach.wrong, says: mk.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: mk.teach.fixed },
+      cover: null, art: mk.art, noun: mk.noun, point: mk.tries.some(q => q.ans.includes('.')) };
+  }
   const g = ALG_LESSON[id];
   if (g) {
     // the Star Lab: the counters are weights and boxes on a real table (not the close-up of a pie), its card a painting
@@ -263,7 +277,7 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
     teach: { q: q(e.teach.f), wrong: String(e.teach.wrong), says: e.teach.says, choices: fixChoices(e).map(String), fixed: `Oops! ${hintFor(l, e.teach.f)} Thank you!` },
     cover: coverOf(l), art: null };
 }
-export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!SHAPE_LESSON[id] || !!RATIO_LESSON[id] || !!LESSON[id] || !!NEG_LESSON[id] || !!DATA_LESSON[id] || !!ALG_LESSON[id];
+export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!SHAPE_LESSON[id] || !!RATIO_LESSON[id] || !!LESSON[id] || !!NEG_LESSON[id] || !!DATA_LESSON[id] || !!ALG_LESSON[id] || !!MARKET_LESSON[id];
 
 /** The lessons in order, with their episode. */
 export const lessonWithEpisode = (l: Lesson) => ({ lesson: l, ep: episodeOf(l.id), set: setOf(l.id) });

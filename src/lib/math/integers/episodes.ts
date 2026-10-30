@@ -54,7 +54,7 @@ export const NEG_LESSONS: NegLesson[] = [
       Q('A fish swims 5 meters below sea level. As a number?', '-5', 'Below sea level is below zero: −5.', 'Sea level is 0. Under the water is below zero.', plank(0)),
       Q('You owe 4 shells. As a number?', '-4', 'Owing is below zero: −4.', 'Owing means you have less than nothing.', plank(0)),
     ],
-    teach: { q: Q('It is 4 degrees below zero. As a number?', '-4', 'Below zero gets a minus sign: −4.', '', plank(-4, hops(0, -4))), wrong: '4', says: '4 degrees below zero? That is just 4!', decoy: '-5', fixed: 'Below zero needs a minus sign! 4 below zero is −4, four steps left of 0.' },
+    teach: { q: Q('It is 4 degrees below zero. As a number?', '-4', 'Below zero gets a minus sign: −4.', '', plank(-4, hops(0, -4))), wrong: '4', says: "4 degrees below zero? That's just 4!", decoy: '-5', fixed: 'Oh, I see! Below zero needs a minus sign. 4 below zero is −4! Thank you!' },
   },
   {
     id: 'neg-opposites', title: 'Opposites', blurb: 'Opposites are the same distance from 0 on different sides: 4 and −4. How far from 0 is |−4| = 4.', set: 'frost', skill: 'in-opp', art: 'learn/int/card-twins.webp',
@@ -70,7 +70,7 @@ export const NEG_LESSONS: NegLesson[] = [
       Q('How many steps is −5 from 0?', '5', 'Count the steps from −5 to 0: 5. Steps are never minus.', 'Count the hops back to 0.', plank(-5, hops(0, -5))),
       Q('What is the opposite of −2?', '2', 'The same distance on the other side: 2.', 'Go to the other side of 0, the same number of steps.', plank(-2, hops(0, -2))),
     ],
-    teach: { q: Q('What is the opposite of −6?', '6', 'The opposite of −6 is 6: the same 6 steps, on the other side of 0.', '', plank(-6, hops(0, -6))), wrong: '-6', says: 'The opposite of minus 6? It is minus 6, of course!', decoy: '7', fixed: 'Opposites are on different sides of 0! −6 is 6 steps left, so its opposite is 6 steps right: 6.' },
+    teach: { q: Q('What is the opposite of −6?', '6', 'The opposite of −6 is 6: the same 6 steps, on the other side of 0.', '', plank(-6, hops(0, -6))), wrong: '-6', says: "The opposite of −6? It's −6, of course!", decoy: '7', fixed: 'Oh, I see! Opposites are on different sides of 0. −6 is 6 steps left, so its opposite is 6! Thank you!' },
   },
   {
     id: 'neg-compare', title: 'Further Right Is Bigger', blurb: 'On the number line, the one further right is bigger: −2 is bigger than −5.', set: 'frost', skill: 'in-compare', art: 'learn/int/card-dive.webp',
@@ -85,7 +85,7 @@ export const NEG_LESSONS: NegLesson[] = [
       Q('Which is colder: −2 degrees or −6 degrees?', '-6', '−6 is further left: colder.', 'Colder means further left on the line.', plank(0)),
       Q('Which is smaller: 1 or −5?', '-5', 'Any minus number is smaller than a plus one: −5.', 'Below zero is smaller than above zero.', plank(0)),
     ],
-    teach: { q: Q('Which is bigger: −7 or −3?', '-3', '−3 is further right, so it is bigger.', '', plank(-3, [], [under('a', -3, '−3', 'c')])), wrong: '-7', says: '7 is more than 3, so minus 7 is bigger!', decoy: '7', fixed: '−7 is further LEFT. Further right is bigger, so −3 is bigger than −7!' },
+    teach: { q: Q('Which is bigger: −7 or −3?', '-3', '−3 is further right, so it is bigger.', '', plank(-3, [], [under('a', -3, '−3', 'c')])), wrong: '-7', says: '7 is more than 3, so −7 is bigger!', decoy: '7', fixed: 'Oh, I see! −7 is further left. Further right is bigger, so −3 is bigger! Thank you!' },
   },
   {
     id: 'neg-add', title: 'Adding Negatives', blurb: 'Adding hops right; adding a negative hops left. −3 + 5 = 2, and 4 + (−6) = −2.', set: 'frost', skill: 'in-add', art: 'learn/int/card-line.webp',
@@ -100,7 +100,7 @@ export const NEG_LESSONS: NegLesson[] = [
       Q('3 + (−5) = ?', '-2', 'Start at 3 and hop 5 left: −2.', 'Start at 3. Adding a negative hops left.', plank(3)),
       Q('−1 + (−4) = ?', '-5', 'Start at −1 and hop 4 left: −5.', 'Start at −1. Adding a negative hops left.', plank(-1)),
     ],
-    teach: { q: Q('−2 + (−3) = ?', '-5', 'Start at −2 and hop 3 left: −5.', '', plank(-2)), wrong: '5', says: 'Minus 2 plus minus 3? 2 and 3 make 5... so 5!', decoy: '-1', fixed: 'Adding a negative hops LEFT. From −2, three hops left lands on −5.' },
+    teach: { q: Q('−2 + (−3) = ?', '-5', 'Start at −2 and hop 3 left: −5.', '', plank(-2)), wrong: '5', says: "−2 + −3? 2 and 3 make 5, so it's 5!", decoy: '-1', fixed: 'Oh, I see! Adding a negative hops left. From −2, three hops left is −5! Thank you!' },
   },
   {
     id: 'neg-sub', title: 'Taking Away a Negative', blurb: 'Taking away hops left, even past 0. Taking away a negative turns round and hops right: 1 − (−4) = 5.', set: 'frost', skill: 'in-sub', art: 'learn/int/card-line.webp',
@@ -115,7 +115,7 @@ export const NEG_LESSONS: NegLesson[] = [
       Q('−2 − 3 = ?', '-5', 'Start at −2 and hop 3 left: −5.', 'Start at −2. Taking away hops left.', plank(-2)),
       Q('2 − (−3) = ?', '5', 'Taking away a negative is adding: 2 + 3 = 5.', 'Taking away a minus turns you round: hop right.', plank(2)),
     ],
-    teach: { q: Q('3 − (−2) = ?', '5', 'Taking away a negative is adding: 3 + 2 = 5.', '', plank(3)), wrong: '1', says: '3 take away 2 is 1. Easy!', decoy: '-5', fixed: 'It takes away MINUS 2. Taking away a negative is the same as adding: 3 + 2 = 5!' },
+    teach: { q: Q('3 − (−2) = ?', '5', 'Taking away a negative is adding: 3 + 2 = 5.', '', plank(3)), wrong: '1', says: '3 take away 2 is 1. Easy!', decoy: '-5', fixed: 'Oh, I see! It takes away −2. Taking away a negative is adding, so 3 + 2 is 5! Thank you!' },
   },
   {
     id: 'neg-times', title: 'Times With Negatives', blurb: 'Three jumps of −2 is −6. A minus in front turns the jumps round: −3 × (−2) = 6.', set: 'frost', skill: 'in-mult', art: 'learn/int/card-line.webp',
@@ -130,7 +130,7 @@ export const NEG_LESSONS: NegLesson[] = [
       Q('−2 × (−2) = ?', '4', 'Same signs make plus: 4.', 'A minus in front turns the jumps round.', plank(0)),
       Q('−6 ÷ 3 = ?', '-2', '3 × (−2) = −6, so −6 ÷ 3 = −2. Different signs make minus.', 'What times 3 makes −6?', plank(0)),
     ],
-    teach: { q: Q('−3 × 2 = ?', '-6', 'Different signs make minus: −6.', '', plank(0)), wrong: '6', says: 'Times makes things bigger, so it is 6!', decoy: '-5', fixed: 'Different signs make a MINUS answer. −3 × 2 = −6.' },
+    teach: { q: Q('−3 × 2 = ?', '-6', 'Different signs make minus: −6.', '', plank(0)), wrong: '6', says: "Times makes things bigger, so it's 6!", decoy: '-5', fixed: 'Oh, I see! Different signs make a minus answer. −3 × 2 is −6! Thank you!' },
   },
   {
     id: 'neg-map', title: 'The Four-Corner Map', blurb: 'Across first, then up or down. Minus goes left or down: (−3, 2) is 3 left and 2 up.', set: 'frost', skill: 'in-quad', art: 'learn/int/card-map.webp',
@@ -146,7 +146,7 @@ export const NEG_LESSONS: NegLesson[] = [
       Q('The gold coin is at (4, ?). What is the second number?', '-3', '3 down from the middle is −3: (4, −3).', 'Down from the middle is minus.', map([coin('a', 4, -3)])),
       Q('How many squares from (−3, 1) to (4, 1)?', '7', '3 to the middle, then 4 more: 7.', 'Count to the middle line, then on.', map([coin('a', -3, 1, 'a'), coin('b', 4, 1, 'b')])),
     ],
-    teach: { q: Q('The gold coin is at (?, 2). What is the first number?', '-3', '3 left of the middle is −3: (−3, 2).', '', map([coin('a', -3, 2)])), wrong: '3', says: 'It is 3 squares from the middle, so 3!', decoy: '2', fixed: 'It is 3 squares to the LEFT. Left of the middle is minus: (−3, 2).' },
+    teach: { q: Q('The gold coin is at (?, 2). What is the first number?', '-3', '3 left of the middle is −3: (−3, 2).', '', map([coin('a', -3, 2)])), wrong: '3', says: "It's 3 squares from the middle, so it's 3!", decoy: '2', fixed: "Oh, I see! It's 3 squares to the left. Left of the middle is minus, so it's −3! Thank you!" },
   },
 ];
 export const NEG_LESSON: Record<string, NegLesson> = Object.fromEntries(NEG_LESSONS.map(l => [l.id, l]));

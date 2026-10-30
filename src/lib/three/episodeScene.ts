@@ -18,6 +18,7 @@ import { Fx } from './fx';
 import { GlimmerModel } from './glimmerModel';
 import { propsFor, heroProps } from './episodeProps';
 import { loadTexture } from './assets';
+import { COIN_FILES, type CoinKind } from './coinShapes';
 import { FRIEND, type FriendId } from '../art/cast';
 import { sfx } from '../audio/sound';
 import { BW, FC, boundsOf, type Board, type Hue, type Shape, type Tag } from '../math/learn';
@@ -202,6 +203,13 @@ export class EpisodeScene implements Controller {
       sc.fracTex = { pie, pizza, choc };
       sc.close = true;
     }
+    // the Sky Market's coins and bill (decimals and money)
+    if (opts.setId === 'market') {
+      const kinds = Object.keys(COIN_FILES) as CoinKind[];
+      const tx = await Promise.all(kinds.map(k => loadTexture(COIN_FILES[k])));
+      for (const t of tx) if (t) { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; }
+      sc.fracTex = { ...sc.fracTex, coins: Object.fromEntries(kinds.map((k, i) => [k, tx[i]])) };
+    }
     await sc.build();
     return sc;
   }
@@ -240,18 +248,20 @@ export class EpisodeScene implements Controller {
     this.cloth.receiveShadow = true;
     this.cloth.renderOrder = 1;
     this.root.add(this.cloth);
-    // light: a warm key from the window side with soft shadows, sky and bounce, and a rim from behind
-    const hemi = new THREE.HemisphereLight(s.sky, s.ground, 0.55);
-    const key = new THREE.SpotLight(s.key, 170, 0, 0.4, 1, 1.6);
+    // light: a warm key from the window side with soft shadows, sky and bounce, and a rim from behind.
+    // About as much light on the buddy as on Home, in the closet and on the trips (sky about 1.4, a key
+    // about 2.5 where it stands): the key used to be four times that, which washed the buddy out.
+    const hemi = new THREE.HemisphereLight(s.sky, s.ground, 1.4);
+    const key = new THREE.SpotLight(s.key, 30, 0, 0.4, 1, 1.6);
     key.position.set(-2.6, 4.3, 2.4);
     key.target.position.set(0.1, TY, -0.25);
     key.castShadow = true;
     key.shadow.mapSize.set(stage.low ? 1024 : 2048, stage.low ? 1024 : 2048);
     key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02; key.shadow.radius = 4;
     Object.assign(key.shadow.camera, { near: 2, far: 12 });
-    const rim = new THREE.DirectionalLight(s.key, 1.5);
+    const rim = new THREE.DirectionalLight(s.key, 1.0);
     rim.position.set(1.5, 3, -4);
-    const fill = new THREE.DirectionalLight(s.sky, 0.55);
+    const fill = new THREE.DirectionalLight(s.sky, 0.45);
     fill.position.set(3, 2, 3);
     this.key = key;
     this.root.add(hemi, key, key.target, rim, fill);
@@ -281,7 +291,7 @@ export class EpisodeScene implements Controller {
     const me = this.me;
     me.root.position.copy(this.buddyAt);
     me.root.scale.multiplyScalar(BS);
-    me.play('idle', 0);
+    me.play('idle', 0, 0);
     me.root.traverse(o => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
     this.pal.root.traverse(o => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
     this.pal.fx = this.fx;
@@ -313,7 +323,7 @@ export class EpisodeScene implements Controller {
     this.hidden = sc.children.filter(o => o.visible && o !== this.root);
     for (const o of this.hidden) o.visible = false;
     this.before = { fog: sc.fog, bg: sc.background as THREE.Color | THREE.Texture | null, fov: stage.camera.fov, env: sc.environment, envK: sc.environmentIntensity };
-    sc.environment = this.env; sc.environmentIntensity = 0.55;
+    sc.environment = this.env; sc.environmentIntensity = 0.4;
     sc.fog = new THREE.Fog(this.set.haze, 14, 40);
     sc.background = new THREE.Color(this.set.haze);
     stage.camera.fov = 36; stage.camera.updateProjectionMatrix();
@@ -1260,10 +1270,12 @@ export class EpisodeScene implements Controller {
     const yaw = Math.atan2(face.x, face.z);
     const dy = Math.atan2(Math.sin(yaw - me.root.rotation.y), Math.cos(yaw - me.root.rotation.y));
     me.root.rotation.y += dy * Math.min(1, dt * 6);
-    if (t > this.busyUntil && me.currentName !== 'idle') me.play('idle', 0.4);
+    // a teacher's stance between moves: the idle's first pose held still (its own looking round and weight
+    // shifting looked restless at the table), with breathing and the gestures on top
+    if (t > this.busyUntil && me.currentName !== 'idle') me.play('idle', 0.4, 0);
     // a happy bounce
     const bk = (t - this.bounceAt) / 0.5;
-    me.root.position.y = this.buddyAt.y + (bk >= 0 && bk < 1 ? Math.abs(Math.sin(bk * Math.PI * 2)) * 0.07 * (1 - bk * 0.5) : 0);
+    me.root.position.y = this.buddyAt.y + (bk >= 0 && bk < 1 ? Math.abs(Math.sin(bk * Math.PI * 2)) * 0.07 * (1 - bk * 0.5) : 0) + Math.sin(t * 1.5) * this.H * 0.002;
     // the gestures and the looking turn bones on top of the clip; a clip that doesn't move a bone (the
     // idle leaves the head alone) would keep last frame's turn and add to it, so each frame starts from
     // the clip's own pose
@@ -1304,7 +1316,8 @@ export class EpisodeScene implements Controller {
     const B = this.me.bones, head = B.Head, spine = B.Spine2 ?? B.Spine1 ?? B.Spine;
     this.leanIn += ((this.armed ? 1 : 0.35) - this.leanIn) * Math.min(1, dt * 2);
     const busy = t < this.busyUntil;
-    if (spine && !busy) { spine.rotateX(0.02 * this.leanIn); spine.rotateZ(Math.sin(t * 1.1) * 0.03); spine.updateMatrixWorld(true); }
+    // a slow breath (about one every four seconds), and the lean in
+    if (spine && !busy) { spine.rotateX(0.02 * this.leanIn - Math.sin(t * 1.5) * 0.012); spine.updateMatrixWorld(true); }
     if (!head || busy) return;
     // it looks at the kid (the camera), glancing at the work while the kid works: down only a little, so
     // its face (eyes and mouth) always reads, never the top of its head
@@ -1386,7 +1399,13 @@ export class EpisodeScene implements Controller {
         const nk = Math.sin(((t - g.at) / g.for) * Math.PI * 2);
         if (B.Head) { B.Head.rotateX(0.18 * nk); B.Head.updateMatrixWorld(true); }
       } else if (g.kind === 'talk') {
-        if (B.Head) { B.Head.rotateX(Math.sin(t * 7.3) * 0.05 * k); B.Head.rotateZ(Math.sin(t * 3.1) * 0.06 * k); B.Head.updateMatrixWorld(true); }
+        // a small nod and tilt with the words, and one hand open in front, moving gently as it explains
+        if (B.Head) { B.Head.rotateX(Math.sin(t * 6.1) * 0.035 * k); B.Head.rotateZ(Math.sin(t * 2.3) * 0.04 * k); B.Head.updateMatrixWorld(true); }
+        const x = arm('Right'), chest = (B.Spine2 ?? B.Spine1 ?? B.Spine)?.getWorldPosition(new THREE.Vector3());
+        if (x.a && x.f && x.h && chest) {
+          const tgt = chest.addScaledVector(fwd, H * 0.2).addScaledVector(side, -H * 0.14).add(new THREE.Vector3(0, H * (-0.04 + Math.sin(t * 2.6) * 0.025), 0));
+          reach(x.a, x.f, x.h, tgt, new THREE.Vector3(0, -1, 0).addScaledVector(side, -0.6), k * 0.75);
+        }
       }
     }
   }
@@ -1608,6 +1627,7 @@ function clothTexture(id: SetId) {
     frost: ['#eaf4fb', '#9cc8e8', '#3f7fb8'],
     fair: ['#fff1f4', '#f27aa0', '#d9466f'],
     lab: ['#4a3a8c', '#6a58b8', '#e2b34a'],
+    market: ['#fff4e6', '#e0564a', '#b8332a'],
   };
   const [bg, line, edge] = C[id];
   return canvasTex(256, (g, s) => {

@@ -9,7 +9,7 @@
   type Group = { name: string; blurb: string; items: Item[] };
   const later = (ms: number, f: () => void) => setTimeout(f, ms);
   // the recorded ones (eggshell cracks, splashes, wooden blocks) load ahead so the first Play isn't late
-  preloadSfx('egg-crack-1', 'egg-crack-2', 'egg-crack-3', 'egg-crack-4', 'splash-1', 'splash-2', 'block-1', 'block-2', 'crane-creak');
+  preloadSfx('egg-crack-1', 'egg-crack-2', 'egg-crack-3', 'egg-crack-4', 'splash-1', 'splash-2', 'block-1', 'block-2');
 
   const GROUPS: Group[] = [
     {
@@ -92,8 +92,8 @@
         { say: 'Through a boost ring', like: 'an airy swell and "ting-ting-ting!" going up', play: () => sfx.ringPass() },
         { say: 'Turbo is ready', like: 'a bright "ding-DING!" with a shimmer', play: () => sfx.turboReady() },
         { say: 'Turbo!', like: 'a rocket "vwoooom" that climbs, then a bright chord', play: () => sfx.turbo() },
-        { say: 'Tower Stack: the crane brings a block', like: 'a quiet little wooden ratchet', play: () => sfx.creak() },
-        { say: 'A block drops', like: 'a light airy "fwip"', play: () => sfx.blockDrop() },
+        { say: 'Tower Stack: the crane brings a block', like: 'three soft wooden ticks', play: () => sfx.creak() },
+        { say: 'A block drops', like: 'a soft whoosh that falls away', play: () => sfx.blockDrop() },
         { say: 'A block lands (low, then high on the tower)', like: 'a real wooden "tok"', play: () => { sfx.thunk(0); later(500, () => sfx.thunk(20)); } },
         { say: 'A perfect landing', like: 'the "tok", a sparkle and a ding', play: () => { sfx.thunk(4); sfx.sparkle(); sfx.ding(3); } },
         { say: 'A block misses the top', like: 'a soft puff and a cartoon "boing"', play: () => sfx.blockSlip() },

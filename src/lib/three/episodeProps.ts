@@ -228,6 +228,7 @@ export function propsFor(id: SetId): { left: THREE.Group; right: THREE.Group } {
     case 'frost': return { left: crystals(), right: ropeCoil() };
     case 'fair': { const l = new THREE.Group(), sp = spinnerStand(); sp.position.set(-0.12, 0, -0.05); const jar = marbleJar(); jar.position.set(0.14, 0, 0.12); l.add(sp, jar); return { left: l, right: dicePair() }; }
     case 'lab': return { left: blockStack(), right: crystals() };
+    case 'market': return { left: marbleJar(), right: lemonade() };
   }
 }
 
@@ -248,6 +249,8 @@ const HERO: Record<SetId, [string, number, number][]> = {
   frost: [['lantern', 0.36, 0.4], ['boat', 0.3, -0.6]],
   fair: [['', 0, 0], ['', 0, 0]],
   lab: [['', 0, 0], ['lantern', 0.36, -0.3]],
+  // (a jar of sweets on the counter's left)
+  market: [['', 0, 0], ['lantern', 0.36, -0.3]],
 };
 /** The set's modelled things for the front corners, or null if they can't load (the simple ones stand in). */
 export async function heroProps(id: SetId): Promise<{ left: THREE.Group; right: THREE.Group } | null> {

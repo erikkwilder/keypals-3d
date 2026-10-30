@@ -1,22 +1,29 @@
 #!/usr/bin/env node
-// Makes the spoken voice lines with ElevenLabs.
+// Makes the spoken voice lines, with a local voice model on this Mac (scripts/voice/local_tts.py) or,
+// if asked, with ElevenLabs.
 //
-//   node scripts/voice/generate.mjs                 make every line whose mp3 is missing
+//   node scripts/voice/generate.mjs                 make every line that is missing or whose words changed
+//   node scripts/voice/generate.mjs --learn         the same, and also every Learn line not yet made locally
 //   node scripts/voice/generate.mjs --only id1,id2  remake these lines (even if they exist)
-//   node scripts/voice/generate.mjs --voice kip     limit to one voice (missing lines only, or all with --force)
-//   node scripts/voice/generate.mjs --force         remake everything
-//   node scripts/voice/generate.mjs --process-only  redo the trim/fade/level pass from scripts/voice/raw/ (no API calls)
-//   node scripts/voice/generate.mjs --dry-run       show what would be made and the credit estimate
+//   node scripts/voice/generate.mjs --voice kid-a   limit to one voice
+//   node scripts/voice/generate.mjs --match '^ep\.frac'   limit to ids matching a pattern
+//   node scripts/voice/generate.mjs --force         remake everything selected
+//   node scripts/voice/generate.mjs --engine elevenlabs   use ElevenLabs instead (costs credits; off by default)
+//   node scripts/voice/generate.mjs --process-only  redo the trim/fade/level pass from scripts/voice/raw/
+//   node scripts/voice/generate.mjs --dry-run       show what would be made
 //
-// Lines come from src/lib/content/voice.ts (ALL_LINES). Voices and their settings come from
-// scripts/voice/voices.json. Per-line fixes (another seed, spoken text that differs from the caption,
-// setting tweaks) go in scripts/voice/line-overrides.json.
+// Lines come from src/lib/content/voice.ts (ALL_LINES); the voice reads each line's `said` words (its
+// shown `text` when it has none). Voices come from scripts/voice/voices.json: `local` names a voice in
+// local_tts.py, `voice_id` and `settings` an ElevenLabs voice. Per-line fixes (another seed, other
+// spoken words, a slower `speed` for the local model) go in scripts/voice/line-overrides.json. scripts/voice/made.json remembers what each
+// clip was made from (engine, voice, words), so changed words are remade and nothing else is.
 //
-// Raw downloads land in scripts/voice/raw/<id>.mp3 (git-ignored). Processed clips go to
-// public/voice/<id>.mp3 and durations to src/lib/content/voice-manifest.json.
+// Raw takes land in scripts/voice/raw/ (local ones in raw/local/<id>__<hash>.wav). Processed clips go
+// to public/voice/<id>.mp3 and durations to src/lib/content/voice-manifest.json.
 //
-// Needs: Node 22+, ffmpeg on PATH or at /opt/homebrew/bin/ffmpeg, an ElevenLabs key in
-// ~/.keys/elevenlabs.key (or ELEVENLABS_API_KEY). No npm packages.
+// Needs: Node 22+, ffmpeg on PATH or at /opt/homebrew/bin/ffmpeg. Local: the venv and models in
+// ~/.cache/keypals-voice (see local_tts.py). ElevenLabs: a key in ~/.keys/elevenlabs.key (or
+// ELEVENLABS_API_KEY). No npm packages.
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, appendFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -67,10 +74,13 @@ const opt = (name) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 const FORCE = flag('--force');
+const ENGINE = opt('--engine') || 'local';
+const LEARN = flag('--learn');
 const DRY = flag('--dry-run');
 const PROCESS_ONLY = flag('--process-only');
 const ONLY = opt('--only') ? new Set(opt('--only').split(',').map((s) => s.trim()).filter(Boolean)) : null;
 const ONLY_VOICE = opt('--voice');
+const MATCH = opt('--match') ? new RegExp(opt('--match')) : null; // only ids matching this pattern
 
 // ------------------------------------------------------------------ inputs
 
@@ -91,6 +101,12 @@ async function loadLines() {
 const readJson = (p, fallback) => (existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : fallback);
 const VOICES = readJson(join(HERE, 'voices.json'));
 const OVERRIDES = readJson(join(HERE, 'line-overrides.json'), {});
+const MADE_PATH = join(HERE, 'made.json');
+const MADE = readJson(MADE_PATH, {});
+const LOCAL_RAW = join(RAW, 'local');
+const PYTHON = existsSync('/opt/homebrew/bin/python3') ? '/opt/homebrew/bin/python3' : 'python3';
+/** the Learn episode lines: the coach's (ep.*) and the buddies' (bv.*) */
+const isLearn = (id) => id.startsWith('ep.') || id.startsWith('bv.');
 
 function apiKey() {
   if (process.env.ELEVENLABS_API_KEY) return process.env.ELEVENLABS_API_KEY.trim();
@@ -102,6 +118,17 @@ function apiKey() {
 // A stable seed per line, so a rerun of the same text and settings gives the same take.
 const seedFor = (id) => createHash('sha1').update(id).digest().readUInt32BE(0) % 4000000000;
 
+/** The words the voice reads: a fix from line-overrides.json, else the line's spoken form, else its text. */
+const spoken = (line) => (OVERRIDES[line.id] || {}).text || line.said || line.text;
+/** What a clip is made from; a clip made from something else is remade. */
+function recipe(line) {
+  const v = VOICES[line.voice] || {};
+  const o = OVERRIDES[line.id] || {};
+  const who = ENGINE === 'local' ? v.local : v.voice_id;
+  const h = createHash('sha1').update([ENGINE, who, spoken(line), o.seed ?? '', JSON.stringify(o.settings || {})].join('|') + (o.speed != null ? `|${o.speed}` : '')).digest('hex').slice(0, 10);
+  return { engine: ENGINE, voice: who, h };
+}
+
 function requestFor(line) {
   const v = VOICES[line.voice];
   if (!v) throw new Error(`voices.json has no entry for voice "${line.voice}"`);
@@ -109,7 +136,7 @@ function requestFor(line) {
   return {
     voiceId: v.voice_id,
     body: {
-      text: o.text || line.text,
+      text: spoken(line),
       model_id: MODEL,
       voice_settings: { ...v.settings, ...(o.settings || {}) },
       seed: o.seed ?? seedFor(line.id),
@@ -156,6 +183,24 @@ async function tts(line) {
   }
 }
 
+// ------------------------------------------------------------------ the local model
+
+/** Make the raw takes for these lines in one run of local_tts.py (each model loads once). */
+function localTakes(lines) {
+  mkdirSync(LOCAL_RAW, { recursive: true });
+  const jobs = lines.map((l) => {
+    const v = VOICES[l.voice];
+    if (!v?.local) throw new Error(`voices.json: voice "${l.voice}" has no local voice`);
+    const o = OVERRIDES[l.id] || {};
+    return { id: `${l.id}__${recipe(l).h}`, text: spoken(l), voice: v.local, ...(o.seed != null ? { seed: o.seed } : {}), ...(o.speed != null ? { speed: o.speed } : {}) };
+  });
+  const jobsPath = join(LOCAL_RAW, 'jobs.json');
+  writeFileSync(jobsPath, JSON.stringify(jobs, null, 1));
+  const r = spawnSync(PYTHON, [join(HERE, 'local_tts.py'), '--in', jobsPath, '--out', LOCAL_RAW], { stdio: 'inherit' });
+  if (r.status !== 0) throw new Error('local_tts.py failed');
+}
+const localRaw = (line) => join(LOCAL_RAW, `${line.id}__${recipe(line).h}.wav`);
+
 // ------------------------------------------------------------------ audio helpers
 
 function decode(path) {
@@ -167,12 +212,14 @@ function decode(path) {
   return new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length));
 }
 
+// The local model speaks at 24 kHz: its clips are kept at 24 kHz, 48 kbps (half the size, nothing lost).
+const OUT_RATE = ENGINE === 'local' ? ['-ar', '24000', '-b:a', '48k'] : ['-b:a', '128k'];
 function encode(samples, path) {
   const input = Buffer.from(samples.buffer, samples.byteOffset, samples.byteLength);
   const r = spawnSync(
     FFMPEG,
     ['-v', 'error', '-y', '-f', 'f32le', '-ar', String(SR), '-ac', '1', '-i', 'pipe:0',
-      '-map_metadata', '-1', '-c:a', 'libmp3lame', '-b:a', '128k', path],
+      '-map_metadata', '-1', '-c:a', 'libmp3lame', ...OUT_RATE, path],
     { input, maxBuffer: 1 << 28 },
   );
   if (r.status !== 0) throw new Error(`ffmpeg encode failed for ${path}: ${r.stderr}`);
@@ -431,21 +478,27 @@ async function main() {
   const ids = new Set(lines.map((l) => l.id));
   if (ONLY) for (const id of ONLY) if (!ids.has(id)) throw new Error(`--only: unknown line id "${id}"`);
 
-  const selected = lines.filter((l) => (!ONLY || ONLY.has(l.id)) && (!ONLY_VOICE || l.voice === ONLY_VOICE));
+  // (a voice with no voice for this engine is left alone: the Keypals' own ElevenLabs lines, which the game no longer plays)
+  const canMake = (l) => !!(ENGINE === 'local' ? VOICES[l.voice]?.local : VOICES[l.voice]?.voice_id);
+  const selected = lines.filter((l) => (!ONLY || ONLY.has(l.id)) && (!ONLY_VOICE || l.voice === ONLY_VOICE) && (!MATCH || MATCH.test(l.id)) && canMake(l));
+  // stale: made before from other words or another voice (or, with --learn, a Learn line not made here yet)
+  const stale = (l) => (MADE[l.id] ? MADE[l.id].h !== recipe(l).h : LEARN && isLearn(l.id));
+  const rawOf = (l) => (ENGINE === 'local' ? localRaw(l) : join(RAW, `${l.id}.mp3`));
   const todo = PROCESS_ONLY
-    ? selected.filter((l) => existsSync(join(RAW, `${l.id}.mp3`)))
-    : selected.filter((l) => FORCE || ONLY || !existsSync(join(OUT, `${l.id}.mp3`)));
+    ? selected.filter((l) => existsSync(rawOf(l)))
+    : selected.filter((l) => FORCE || ONLY || !existsSync(join(OUT, `${l.id}.mp3`)) || stale(l));
 
-  const chars = todo.reduce((a, l) => a + requestFor(l).body.text.length, 0);
-  console.log(`${lines.length} lines; ${todo.length} to ${PROCESS_ONLY ? 'reprocess' : 'make'}` +
-    (PROCESS_ONLY ? '' : ` (${chars} characters, about ${Math.round(chars * CREDITS_PER_CHAR)} credits)`));
+  const chars = todo.reduce((a, l) => a + spoken(l).length, 0);
+  console.log(`${lines.length} lines; ${todo.length} to ${PROCESS_ONLY ? 'reprocess' : 'make'} with ${ENGINE}` +
+    (PROCESS_ONLY || ENGINE === 'local' ? '' : ` (${chars} characters, about ${Math.round(chars * CREDITS_PER_CHAR)} credits)`));
   if (DRY) {
-    for (const l of todo) console.log(`  ${l.id}  [${l.voice}]  ${requestFor(l).body.text}`);
+    for (const l of todo) console.log(`  ${l.id}  [${l.voice}]  ${spoken(l)}`);
     return;
   }
+  if (ENGINE === 'local' && todo.length && !PROCESS_ONLY) localTakes(todo);
 
   let spent = 0;
-  if (todo.length && !PROCESS_ONLY) {
+  if (ENGINE !== 'local' && todo.length && !PROCESS_ONLY) {
     const before = await remainingCredits();
     console.log(`credits remaining before: ${before.remaining} of ${before.limit}`);
     if (before.remaining < MIN_CREDITS) {
@@ -456,9 +509,9 @@ async function main() {
 
   const results = [];
   let done = 0;
-  await pool(todo, PROCESS_ONLY ? 1 : CONCURRENCY, async (line) => {
-    const rawPath = join(RAW, `${line.id}.mp3`);
-    if (!PROCESS_ONLY) {
+  await pool(todo, PROCESS_ONLY || ENGINE === 'local' ? 1 : CONCURRENCY, async (line) => {
+    const rawPath = rawOf(line);
+    if (!PROCESS_ONLY && ENGINE !== 'local') {
       const { buf, cost } = await tts(line);
       writeFileSync(rawPath, buf);
       spent += cost;
@@ -467,6 +520,8 @@ async function main() {
     const r = processClip(line.id, rawPath, join(OUT, `${line.id}.mp3`));
     r.voice = line.voice;
     results.push(r);
+    MADE[line.id] = recipe(line);
+    if (done % 20 === 19) writeFileSync(MADE_PATH, JSON.stringify(MADE, null, 1) + '\n');
     done++;
     console.log(`[${done}/${todo.length}] ${line.id.padEnd(22)} ${String(r.ms).padStart(5)}ms ` +
       `${r.lufs} LUFS  TP ${r.tp}  head ${r.head50Rms}dB tail ${r.tail50Rms}dB` +
@@ -478,6 +533,7 @@ async function main() {
   const report = readJson(reportPath, {});
   for (const r of results) report[r.id] = r;
   writeFileSync(reportPath, JSON.stringify(report, null, 1));
+  writeFileSync(MADE_PATH, JSON.stringify(Object.fromEntries(Object.entries(MADE).sort()), null, 1) + '\n');
 
   // Manifest: every line that has a processed file, in ALL_LINES order.
   const old = readJson(MANIFEST, {});
@@ -492,7 +548,7 @@ async function main() {
 
   const missing = lines.filter((l) => !manifest[l.id]).map((l) => l.id);
   const orphans = readdirSync(OUT).filter((f) => f.endsWith('.mp3') && !ids.has(f.slice(0, -4)));
-  console.log(`\nmanifest: ${Object.keys(manifest).length} clips` + (missing.length ? `, missing: ${missing.join(', ')}` : ''));
+  console.log(`\nmanifest: ${Object.keys(manifest).length} clips` + (missing.length ? `, ${missing.length} missing: ${missing.slice(0, 12).join(', ')}${missing.length > 12 ? ', ...' : ''}` : ''));
   if (orphans.length) console.log(`files with no line in voice.ts (not deleted): ${orphans.join(', ')}`);
 
   if (results.length) {

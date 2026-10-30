@@ -53,180 +53,24 @@
     "seed": 101,
     "why": "first take started at full level with no lead-in"
   },
-  "ep.count-on.s2": {
-    "text": "Hop 2: 8. So 6 plus 2 is 8!",
-    "why": "math signs read as words"
+  "bv.kid-c.doubles-back.fixed": {
+    "seed": 11,
+    "speed": 0.9,
+    "why": "the take ended while the last word was still sounding (2026-10-30)"
   },
-  "ep.doubles.s1": {
-    "text": "And 6 more, just like a mirror! 6 plus 6 is 12.",
-    "why": "math signs read as words"
+  "bv.kid-c.times-8.try": {
+    "seed": 11,
+    "speed": 0.9,
+    "why": "the take ended while the last word was still sounding (2026-10-30)"
   },
-  "ep.doubles.s2": {
-    "text": "Near doubles are one more. 6 plus 7 is the double, and 1 more...",
-    "why": "math signs read as words"
+  "bv.kid-b.times-2.try": {
+    "seed": 11,
+    "speed": 0.9,
+    "why": "the take ended while the last word was still sounding (2026-10-30)"
   },
-  "ep.make-ten.s3": {
-    "text": "Plus 9 is plus 10, then 1 back. 5 plus 10 is 15...",
-    "why": "math signs read as words"
-  },
-  "ep.make-ten.s4": {
-    "text": "...then hop 1 back: 14. So 5 plus 9 is 14!",
-    "why": "math signs read as words"
-  },
-  "ep.bridge-ten.s0": {
-    "text": "8 plus 5. 8 cookies in one tin, and 5 in the other.",
-    "why": "math signs read as words"
-  },
-  "ep.count-back.s2": {
-    "text": "Hop 2: 7. So 9 take away 2 is 7!",
-    "why": "math signs read as words"
-  },
-  "ep.doubles-back.s0": {
-    "text": "You know 7 plus 7 is 14.",
-    "why": "math signs read as words"
-  },
-  "ep.doubles-back.s1": {
-    "text": "Take one row away: 7 are left. 14 take away 7 is 7!",
-    "why": "math signs read as words"
-  },
-  "ep.doubles-back.s3": {
-    "text": "The ten goes, the 6 stay. 16 take away 10 is 6!",
-    "why": "math signs read as words"
-  },
-  "ep.ten-back.s2": {
-    "text": "Take away 9? Take away 10 first: 15 take away 10 is 5...",
-    "why": "math signs read as words"
-  },
-  "ep.ten-back.s3": {
-    "text": "...then give 1 back: 6. So 15 take away 9 is 6!",
-    "why": "math signs read as words"
-  },
-  "ep.think-plus.s0": {
-    "text": "13 take away 5? Turn it around: 5 plus what makes 13?",
-    "why": "math signs read as words"
-  },
-  "ep.think-plus.s3": {
-    "text": "So 13 take away 5 is 8!",
-    "why": "math signs read as words"
-  },
-  "ep.zero-one.s2": {
-    "text": "Times 0 means zero groups. 5 times 0: no groups of 5 at all...",
-    "why": "math signs read as words"
-  },
-  "ep.times-2.s0": {
-    "text": "6 times 2 means 2 groups of 6. Here is one group.",
-    "why": "math signs read as words"
-  },
-  "ep.times-2.s1": {
-    "text": "And the second group: it is a double! 6 plus 6 is 12.",
-    "why": "math signs read as words"
-  },
-  "ep.times-2.s2": {
-    "text": "Turn it round and it is the same: 2 times 6 is 12 too.",
-    "why": "math signs read as words"
-  },
-  "ep.times-10.s0": {
-    "text": "4 times 10 means 4 sticks of ten blocks.",
-    "why": "math signs read as words"
-  },
-  "ep.times-5.s0": {
-    "text": "6 times 10 is 60: 6 sticks of ten.",
-    "why": "math signs read as words"
-  },
-  "ep.times-5.s2": {
-    "text": "Half of 60 is 30. So 6 times 5 is 30!",
-    "why": "math signs read as words"
-  },
-  "ep.times-4.s0": {
-    "text": "3 times 4. Start with one row of 3.",
-    "why": "math signs read as words"
-  },
-  "ep.times-3.s0": {
-    "text": "6 times 3. Double 6 is 12.",
-    "why": "math signs read as words"
-  },
-  "ep.times-9.s0": {
-    "text": "4 times 9. First, 4 times 10 is 40.",
-    "why": "math signs read as words"
-  },
-  "ep.times-6.s0": {
-    "text": "4 times 6. First, 4 times 5 is 20.",
-    "why": "math signs read as words"
-  },
-  "ep.times-8.s0": {
-    "text": "3 times 8. Start with 3.",
-    "why": "math signs read as words"
-  },
-  "ep.times-7.s0": {
-    "text": "6 times 7. First, 6 times 5 is 30.",
-    "why": "math signs read as words"
-  },
-  "ep.times-7.s1": {
-    "text": "Then 6 times 2 is 12.",
-    "why": "math signs read as words"
-  },
-  "ep.think-times.s0": {
-    "text": "12 divided by 3 means share 12 into 3 groups.",
-    "why": "math signs read as words"
-  },
-  "ep.think-times.s3": {
-    "text": "Think times: 4 times 3 is 12, so 12 divided by 3 is 4.",
-    "why": "math signs read as words"
-  },
-  "ep.dec-tenths.s1": {
-    "seed": 101,
-    "text": "One piece is one tenth. We write it one over ten, or zero point one.",
-    "why": "first take started loud and read 'it' as 'at'"
-  },
-  "ep.dec-tenths.s2": {
-    "seed": 101,
-    "text": "Three pieces are three tenths: zero point three.",
-    "why": "first take read 0.3 as 'zeroed on three'"
-  },
-  "ep.dec-hundredths.s0": {
-    "seed": 101,
-    "text": "One hundred squares make one whole. One square is one over one hundred, or zero point zero one.",
-    "why": "first take said 'Hundred squares'"
-  },
-  "ep.dec-hundredths.s2": {
-    "seed": 101,
-    "text": "Three rows and five more squares: thirty-five hundredths, zero point three five.",
-    "why": "first take read 0.35 as 'zero thirty-five'"
-  },
-  "ep.alg-two-step.s0": {
-    "text": "Two x plus one equals seven. Two boxes and a weight on this side, seven weights on that side.",
-    "why": "math signs and letters read aloud in words"
-  },
-  "ep.alg-order.intro": {
-    "text": "The Comet Cat wrote three, plus two times four. Which part do we do first?",
-    "why": "math signs and letters read aloud in words"
-  },
-  "ep.alg-letters.intro": {
-    "text": "In the Star Lab, a letter is a box with a number inside. What is three n, when n is four?",
-    "why": "math signs and letters read aloud in words"
-  },
-  "ep.alg-letters.s0": {
-    "text": "Three n means three times n: three boxes, with n inside each one.",
-    "why": "math signs and letters read aloud in words"
-  },
-  "ep.alg-gather.intro": {
-    "text": "The Comet Cat packed three bags, each with a box and two weights. That's three lots of x plus two.",
-    "why": "math signs and letters read aloud in words"
-  },
-  "ep.alg-gather.s0": {
-    "text": "Three, bracket, x plus two: three groups, each a box and two weights.",
-    "why": "math signs and letters read aloud in words"
-  },
-  "ep.alg-gather.s2": {
-    "text": "Three boxes and six weights. So three lots of x plus two is three x plus six: the three times everything inside!",
-    "why": "math signs and letters read aloud in words"
-  },
-  "ep.alg-ineq.intro": {
-    "text": "The Comet Cat wants a number bigger than three. x is more than three. Which numbers work?",
-    "why": "math signs and letters read aloud in words"
-  },
-  "ep.alg-ineq.s0": {
-    "text": "x, greater than three, means x is more than three.",
-    "why": "math signs and letters read aloud in words"
+  "bv.kid-b.sh-halves.try": {
+    "seed": 11,
+    "speed": 0.9,
+    "why": "the take ended while the last word was still sounding (2026-10-30)"
   }
 }
