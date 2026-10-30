@@ -122,7 +122,7 @@
           {#if it.day && it.day !== shown[k - 1]?.day}
             {@const dayItems = shown.filter(x => x.day === it.day)}
             {@const dayDone = dayItems.every(x => x.done || x.skip)}
-            <li class="dayh" class:done={dayDone}><b>Day {it.day}</b><span>{dayItems.length} things · about {dayItems.reduce((t, x) => t + (x.kind === 'warmup' || x.kind === 'quick' ? 2 : 5), 0)} minutes</span>{#if dayDone}<img src="{base}icons/check.webp" alt="Done" />{/if}</li>
+            <li class="dayh" class:done={dayDone}><b>Day {it.day}</b><span>{dayItems.length} thing{dayItems.length === 1 ? '' : 's'} · about {dayItems.reduce((t, x) => t + (x.kind === 'warmup' || x.kind === 'quick' ? 2 : 5), 0)} minutes</span>{#if dayDone}<img src="{base}icons/check.webp" alt="Done" />{/if}</li>
           {/if}
           <li class:done={it.done} class:next={nx} class:known={!!it.skip}>
             <button class="row" onclick={() => go(s, it)} style:--kc={kindColor(it.kind)}>
