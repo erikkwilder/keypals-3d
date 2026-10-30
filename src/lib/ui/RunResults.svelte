@@ -22,7 +22,8 @@
   // rays, sparkles, the row of all ten, and what it's worth in shells), the medals and keepsakes in the
   // corner card, and the card with
   // the score ring, stars, four chips, friendship and the buttons. Each game brings its words and numbers
-  // and can add a block of its own (math shows every fact of the trip).
+  // and can add a block of its own (math shows every fact of the trip). The buttons are always in view:
+  // on a short screen the card's words scroll above them (on a phone the big three stay at the bottom).
   import { onDestroy, onMount, type Snippet } from 'svelte';
   import { Tween } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
@@ -95,6 +96,8 @@
   let gridW = $state(560);
   // phones: the buddy on top, then the card, then the rewards, one column that scrolls
   const narrow = $derived(heroW < 860);
+  // a short window (an older laptop, 1280 by 720): smaller prize, tiles and ring, so more of it fits
+  const short = $derived(!narrow && heroH < 820);
   const timers: ReturnType<typeof setTimeout>[] = [];
   const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
 
@@ -165,7 +168,7 @@
     if (scene && heroEl && rootEl) {
       const b = scene.screenBox(), r = heroEl.getBoundingClientRect(), box = rootEl.getBoundingClientRect();
       const hPx = Math.max(80, (b.bottom - b.top) * innerHeight);
-      const size = narrow ? Math.min(r.width * 0.36, r.height * 0.5) : Math.min(r.width * 0.38, Math.max(150, hPx * 0.78));
+      const size = narrow ? Math.min(r.width * 0.36, r.height * 0.5) : Math.min(r.width * 0.38, Math.max(150, hPx * 0.78), short ? r.height * 0.34 : Infinity);
       // to the right of the buddy, at head height, so its banner and prize row stay clear of the ride banner below
       let x = narrow ? r.right - size * 0.62 : b.x * innerWidth + hPx * 0.38 + size * 0.5;
       x = Math.min(r.right - size * 0.5 - 8, x);
@@ -174,9 +177,11 @@
       // banner under the buddy: on a short screen the prize gets smaller rather than overlap
       let sz = size;
       if (!narrow && bannerEl) {
-        const room = bannerEl.getBoundingClientRect().top - r.top - 8 - 150;
-        sz = Math.max(90, Math.min(size, room / 1.05));
-        y = Math.max(r.top + sz * 0.55 + 8, Math.min(y, bannerEl.getBoundingClientRect().top - sz * 0.5 - 150));
+        // (on a short screen the row of all ten gives way, so only the ribbon needs room under it)
+        const under = short ? 78 : 150;
+        const room = bannerEl.getBoundingClientRect().top - r.top - 8 - under;
+        sz = Math.max(short ? 72 : 90, Math.min(size, room / 1.05));
+        y = Math.max(r.top + sz * 0.55 + 8, Math.min(y, bannerEl.getBoundingClientRect().top - sz * 0.5 - under));
       }
       // in the screen's own space, which scrolls on a phone
       prizeBox = { x: x - box.left + rootEl.scrollLeft, y: y - box.top + rootEl.scrollTop, size: sz };
@@ -184,6 +189,17 @@
     prizeRaf = requestAnimationFrame(trackPrize);
   }
   const ringC = 2 * Math.PI * 64;
+  /** A box that scrolls: a soft fade along its bottom while there's more below (scroll bars are hidden on
+   *  a Mac until you scroll, so a cut-off row looked like the end). */
+  function moreBelow(node: HTMLElement) {
+    const check = () => node.classList.toggle('more-below', node.scrollTop + node.clientHeight < node.scrollHeight - 2);
+    const ro = new ResizeObserver(check);
+    ro.observe(node);
+    for (const c of node.children) ro.observe(c);
+    node.addEventListener('scroll', check, { passive: true });
+    check();
+    return { destroy() { ro.disconnect(); node.removeEventListener('scroll', check); } };
+  }
 
   /** The 3D view uses the hero area (it moves when a phone scrolls). */
   function updateView() {
@@ -276,12 +292,12 @@
   }
   const heroOutfit = $derived(wearing ?? (game.profile ? outfitOf(game.profile, buddy) : 'none'));
   const scoreHue = run.stars >= 3 ? 'gold' : run.stars === 2 ? 'mint' : run.stars === 1 ? 'sky' : 'lilac';
-  const big = $derived(narrow ? 'md' : 'lg');
+  const big = $derived(narrow || short ? 'md' : 'lg');
 </script>
 
 <svelte:window onkeydown={onKey} />
 
-<div class="screen results" class:narrow bind:this={rootEl} bind:clientHeight={heroH} bind:clientWidth={heroW} onscroll={updateView}>
+<div class="screen results" class:narrow class:short bind:this={rootEl} bind:clientHeight={heroH} bind:clientWidth={heroW} onscroll={updateView}>
 
   <div class="corner"><GearButton size={40} /></div>
 
@@ -316,7 +332,7 @@
   </div>
 
   {#if earned.length}
-    <div class="earned card" bind:this={earnedEl}>
+    <div class="earned card" bind:this={earnedEl} use:moreBelow>
       {#snippet tile(e: Earned, i: number)}
         <div class="item" class:shown={i < earnedShown}>
           {#if e.kind === 'outfit'}
@@ -362,6 +378,7 @@
   {/if}
 
   <div class="card panel" class:more={!!extra}>
+    <div class="pbody" use:moreBelow>
     <h1>{title}</h1>
     <p class="sub">{sub}</p>
     {@render badges?.()}
@@ -401,8 +418,8 @@
       </div>
     {/if}
 
-    <!-- a short window with a game's own block: the goal line gives way so the buttons stay in view -->
-    {#if goalText && showButtons && !(extra && !narrow && heroH < 1000)}<p class="goal">{goalText}</p>{/if}
+    {#if goalText && showButtons}<p class="goal">{goalText}</p>{/if}
+    </div>
 
     <div class="tiles" class:show={showButtons}>
       <NavTile size={big} tone="sky" kind="home" label="Home" hotkey={narrow ? undefined : 'esc'} onclick={onhome} />
@@ -570,8 +587,7 @@
   .rung.got { background: linear-gradient(135deg, var(--primary-hi), var(--primary)); box-shadow: none; }
   .rung.now { transform: scale(1.22); box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--primary-hi); }
 
-  .earned { position: absolute; left: 2.5%; bottom: 2.5%; width: 44%; max-height: 39%; overflow-y: auto; scrollbar-width: none; z-index: 6; padding: 12px 16px 14px; display: flex; flex-direction: column; animation: pop-in .45s cubic-bezier(.3, .8, .4, 1.3); }
-  .earned::-webkit-scrollbar { display: none; }
+  .earned { position: absolute; left: 2.5%; bottom: 2.5%; width: 44%; max-height: 39%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #d9cff0 transparent; z-index: 6; padding: 12px 16px 14px; display: flex; flex-direction: column; animation: pop-in .45s cubic-bezier(.3, .8, .4, 1.3); }
   .ehead { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 6px; }
   .egrid + .ehead { margin-top: 10px; }
   .ehead b { font: 600 22px var(--font-ui); }
@@ -602,7 +618,13 @@
   .obig { width: 200px; height: 200px; object-fit: contain; }
   .dart.bud { height: 250px; display: grid; place-items: end center; }
 
-  .panel { position: absolute; right: 3%; top: 0; bottom: 0; margin: auto 0; height: max-content; width: min(600px, 50vw); max-height: 95%; overflow-y: auto; z-index: 5; padding: 18px 24px 18px; text-align: center; animation: pop-in .45s cubic-bezier(.3, .8, .4, 1.3); }
+  .panel { position: absolute; right: 3%; top: 0; bottom: 0; margin: auto 0; height: max-content; width: min(600px, 50vw); max-height: 95%; display: flex; flex-direction: column; z-index: 5; padding: 18px 24px 18px; text-align: center; animation: pop-in .45s cubic-bezier(.3, .8, .4, 1.3); }
+  /* everything above the buttons: it scrolls when the window is short, the buttons never do */
+  .pbody { flex: 0 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #d9cff0 transparent; margin: 0 -10px; padding: 14px 10px 4px; margin-top: -14px; }
+  .panel .tiles { flex: none; }
+  .earned::after, .pbody::after { content: ''; flex: none; display: block; position: sticky; bottom: -14px; height: 34px; margin-top: -34px; pointer-events: none; background: linear-gradient(rgba(255, 255, 255, 0), #fff 80%); opacity: 0; transition: opacity .2s; }
+  .pbody::after { bottom: -4px; }
+  .earned:global(.more-below)::after, .pbody:global(.more-below)::after { opacity: 1; }
   h1 { font-size: clamp(30px, 4.6vh, 44px); }
   .sub { margin: 2px 0 6px; font: 700 15px var(--font-body); color: var(--muted); }
   .scorerow { display: flex; align-items: center; justify-content: center; gap: 22px; margin: 4px 0 10px; }
@@ -647,6 +669,36 @@
   .tiles.show { opacity: 1; transform: none; pointer-events: auto; }
   .opened { position: absolute; top: 18px; left: 0; right: 0; margin: 0 auto; width: max-content; z-index: 7; font: 600 24px var(--font-ui); background: var(--lemon); color: var(--ink); padding: 10px 20px; border-radius: 999px; box-shadow: var(--shadow); animation: pop-in .5s cubic-bezier(.3, .8, .4, 1.5); }
 
+  /* short windows (1280 by 720, 1366 by 768): a smaller card head, ring and buttons; the rows of all ten
+     treasures and the speed steps give way; the rewards card gets a little more room and scrolls */
+  .short .panel { padding: 12px 20px 12px; max-height: 96%; }
+  .short h1 { font-size: clamp(24px, 4vh, 34px); }
+  .short .sub { margin: 0 0 4px; font-size: 14px; }
+  .short .scorerow { margin: 0 0 6px; gap: 16px; }
+  .short .score, .short .panel.more .score { width: clamp(96px, 15vh, 130px); height: clamp(96px, 15vh, 130px); }
+  .short .num b, .short .panel.more .num b { font-size: clamp(36px, 5.6vh, 50px); }
+  .short .word { font-size: 24px; }
+  .short .chip { padding: 6px 4px 5px; }
+  .short .chip b { font-size: 19px; }
+  .short .ci { width: 28px; height: 28px; }
+  .short .xp { margin-top: 8px; }
+  .short .goal { margin-top: 8px; padding: 6px 12px; font-size: 13.5px; }
+  .short .tiles { margin-top: 10px; }
+  .short .tiles.small { margin-top: 8px; }
+  .short .tiles.small :global(.tile) { padding: 4px 4px 5px; }
+  .short .tiles.small :global(.tile .lbl) { font-size: 13.5px; }
+  .short .pladder { display: none; }
+  .short .pribbon { padding: 4px 16px 6px; }
+  .short .pribbon b { font-size: 20px; }
+  .short .hero { height: 52%; }
+  .short .earned { max-height: 43%; padding: 10px 14px 12px; }
+  .short .ehead { margin: 0 0 4px; }
+  .short .ehead b { font-size: 19px; }
+  .short .ridebanner { padding: 6px 18px 6px 6px; }
+  .short .rbicon { width: 44px; height: 44px; } .short .rbicon svg { width: 30px; height: 30px; }
+  .short .rbtext b { font-size: clamp(22px, 3.4vh, 30px); }
+  .short .ridepic { bottom: 80px; }
+
   /* phones and narrow windows: one column that scrolls, the buddy and prize on top, then the card, then the rewards */
   .narrow { overflow-y: auto; display: flex; flex-direction: column; }
   .narrow .hero { position: relative; order: 0; left: auto; top: auto; width: 100%; height: 42vh; flex: none; padding-bottom: 8px; }
@@ -661,6 +713,9 @@
   .narrow .pribbon b { font-size: 18px; }
   .narrow .pladder { display: none; }
   .narrow .panel { position: relative; order: 1; right: auto; top: auto; bottom: auto; margin: 0 10px 10px; width: auto; max-height: none; overflow: visible; flex: none; padding: 14px 12px; }
+  .narrow .pbody { overflow: visible; margin: 0; padding: 0; }
+  /* the big three stay at the bottom of the screen while the card is in view */
+  .narrow .tiles:not(.small) { position: sticky; bottom: 0; z-index: 2; margin: 10px -12px 0; padding: 10px 12px 12px; background: linear-gradient(rgba(255, 255, 255, 0), #fff 22%); border-radius: 0 0 22px 22px; }
   .narrow .earned { position: relative; order: 2; left: auto; bottom: auto; width: auto; max-height: none; overflow: visible; flex: none; margin: 0 10px 16px; }
   .narrow h1 { font-size: 28px; }
   .narrow .scorerow { gap: 12px; }

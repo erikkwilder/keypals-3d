@@ -129,6 +129,7 @@
             {#if g.id === today && !beaten}<span class="ribbon">Today!</span>{/if}
             <img class="art" src="{import.meta.env.BASE_URL}{g.art}" alt="" />
             <span class="plate">
+              <span class="part">Plus · Minus · Times · Share</span>
               <b>{g.name}</b>
               <span class="bs">{r?.plays ? `Best score ${fmt(r.best)}` : 'New! Give it a go'}</span>
               <Stars n={r?.stars ?? 0} of={3} size={compact ? 20 : 26} />
@@ -139,17 +140,17 @@
         <!-- Pizza Rush lives with the Fractions area (its own screen and records); its cabinet stands here too -->
         <button class="cab" style:--c="#e2452b" style:--d="{ARCADE_GAMES.length * 90}ms" onclick={openPizza} onpointerenter={(e) => hover('pizza', e.currentTarget)} onpointerleave={() => hover(null)}>
           <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-pizza.webp" alt="" />
-          <span class="plate"><b>Pizza Rush</b><span class="bs">Slice up fractions</span></span>
+          <span class="plate"><span class="part">Fractions</span><b>Pizza Rush</b><span class="bs">Slice up fractions</span></span>
           {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 1}</span>{/if}
         </button>
         <button class="cab" style:--c="#2d6fb8" style:--d="{(ARCADE_GAMES.length + 1) * 90}ms" onclick={openBuilder} onpointerenter={(e) => hover('builder', e.currentTarget)} onpointerleave={() => hover(null)}>
           <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-builder.webp" alt="" />
-          <span class="plate"><b>Number Builder</b><span class="bs">{builderBest ? `Best score ${builderBest}` : 'Build numbers with blocks'}</span></span>
+          <span class="plate"><span class="part">Place value</span><b>Number Builder</b><span class="bs">{builderBest ? `Best score ${builderBest}` : 'Build numbers with blocks'}</span></span>
           {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 2}</span>{/if}
         </button>
         <button class="cab" style:--c="#e6a817" style:--d="{(ARCADE_GAMES.length + 2) * 90}ms" onclick={openMarket} onpointerenter={(e) => hover('market', e.currentTarget)} onpointerleave={() => hover(null)}>
           <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-market.webp" alt="" />
-          <span class="plate"><b>Market Dash</b><span class="bs">Pay and make change</span></span>
+          <span class="plate"><span class="part">Decimals and money</span><b>Market Dash</b><span class="bs">Pay and make change</span></span>
           {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 3}</span>{/if}
         </button>
         <!-- Glimmer Drop: not practice, just for fun, so it uses play time (the same minutes as Adventure) -->
@@ -160,7 +161,7 @@
           {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 4}</span>{/if}
         </button>
       </div>
-      <p class="note">Arcade games count as practice: every answer helps your Fact Garden grow, and you earn shells and treasure. Glimmer Drop is just for fun and uses play time.</p>
+      <p class="note">Math games count as practice: every answer helps your Fact Garden grow, and you earn shells and treasure. Typing games are coming soon. Glimmer Drop is just for fun and uses play time.</p>
     </div>
   </div>
 </div>
@@ -181,7 +182,9 @@
   .bubble { position: absolute; left: 6%; bottom: 62%; background: #fff; padding: 12px 18px; border-radius: 20px; font: 600 19px/1.15 var(--font-ui); color: var(--ink); box-shadow: 0 10px 24px -12px rgba(40, 30, 90, .5); max-width: 220px; animation: pop-in .35s cubic-bezier(.3, .8, .4, 1.5); }
   .bubble::after { content: ''; position: absolute; left: 34px; bottom: -10px; border: 10px solid transparent; border-top-color: #fff; border-bottom: 0; }
 
-  .right { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; }
+  /* (safe: on a short screen the cabinets start at the top and scroll, instead of running up under the bar) */
+  .right { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; justify-content: safe flex-end; gap: 14px; padding-top: 12px; }
+  .right::-webkit-scrollbar { display: none; }
   .daily { align-self: center; display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 8px; border: 0; cursor: pointer; text-align: left; border-radius: 24px; min-width: min(560px, 100%);
     background: linear-gradient(135deg, #fff9e8, #ffe9b0); box-shadow: 0 0 0 4px #fff, 0 0 0 7px #ffc93d, 0 14px 28px -12px rgba(140, 90, 0, .55); transition: transform .15s; animation: pop-in .45s cubic-bezier(.3, .8, .4, 1.4); }
   .daily:hover { transform: translateY(-3px) rotate(-.5deg); }
@@ -204,6 +207,8 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--c, #7c5cf5) 55%, #fff), 0 10px 20px -10px rgba(40, 30, 90, .45); }
   .plate b { font: 600 clamp(17px, 1.6vw, 22px)/1.1 var(--font-ui); color: var(--ink); white-space: nowrap; }
   .bs { font: 700 13px var(--font-body); color: var(--muted); white-space: nowrap; }
+  /* which part of math a cabinet is, with the chip names the Math page uses */
+  .part { position: absolute; top: -11px; left: 50%; translate: -50% 0; max-width: 104%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 10.5px var(--font-body); color: #fff; background: var(--c, #7c5cf5); padding: 2px 8px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
   .kbd { position: absolute; top: 6px; left: 8px; z-index: 2; }
   .ribbon.fun { background: linear-gradient(#b48cff, #8a5ce8); box-shadow: 0 3px 0 #6a3fc4; top: 30%; font-size: 13px; }
   .pt { font: 800 11.5px var(--font-body); color: #6a3fc4; background: #f1eaff; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
@@ -212,6 +217,18 @@
   @keyframes rise-in { 0% { transform: translateY(40px) scale(.9); opacity: 0; } 100% { transform: none; opacity: 1; } }
   .note { margin: 0; align-self: center; text-align: center; font: 700 13.5px var(--font-body); color: #fff; text-shadow: 0 1px 4px rgba(40, 30, 60, .8); }
 
+  /* short laptop screens (1280x720, 1366x768): smaller cabinets, so both rows and today's challenge fit */
+  @media (max-height: 800px) {
+    .arcade:not(.compact) .stagebox { padding-top: 6px; padding-bottom: 10px; }
+    .arcade:not(.compact) .art { max-height: 20vh; margin-bottom: -14px; }
+    .arcade:not(.compact) .cabs { row-gap: 18px; }
+    .arcade:not(.compact) .daily { padding: 5px 8px 5px 6px; }
+    .arcade:not(.compact) .dicon { width: 46px; height: 46px; }
+    .arcade:not(.compact) .dtext b { font-size: 20px; }
+    .arcade:not(.compact) .dgo { height: 44px; }
+    .arcade:not(.compact) .plate { padding: 7px 6px 7px; gap: 2px; }
+    .arcade:not(.compact) .right { gap: 12px; }
+  }
   /* phones: the challenge, the cabinets two by two, and the buddy waving from the terrace at the bottom */
   .compact .top { padding: 8px 10px; gap: 8px; }
   .compact .sign { height: 44px; margin: -6px 0; }

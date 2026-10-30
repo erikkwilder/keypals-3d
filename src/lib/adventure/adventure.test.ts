@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newProfile, dayKey, buddyPal } from '../engine/profile';
 import { answerOf } from '../math/facts';
-import { newBattle, play, block, finale, deal, openFact, sparkFor, FINALE_AT, type Pool, type Foe } from './battle';
+import { newBattle, play, block, finale, deal, openFact, sparkFor, hitFor, FINALE_AT, type Pool, type Foe } from './battle';
 import { advOf, applyBattle, buy, currentNode, foeFor, hatch, mathPool, NODE, nodesOf, nodeOpen, notePractice, playLeft, reachStop, typingPool, collectStop, practiceDone, worldOpen, BATTLE_FRIENDSHIP } from './state';
 import { mathOf } from '../math/progress';
 import { noteSkillAnswers } from '../math/skills/progress';
@@ -42,6 +42,21 @@ describe('the Cheer Duel', () => {
     const ev = block(b, false, 1000);
     expect(ev.some(e => e.k === 'lost')).toBe(true);
   });
+  it('each counterattack that gets through in a row is bigger; blocking one calms it down', () => {
+    const b = newBattle({ pool, seed: 3, sparkMax: 99, role: 'speed', gear: null, team: [], foe: { ...foe(999), hit: 6 } });
+    const miss = () => { play(b, b.cards[0].id, { ok: false, value: 0, thinkMs: 1 }); return b.block!.hit; };
+    expect(miss()).toBe(6); block(b, false, 1000);
+    expect(miss()).toBe(9); block(b, false, 1000);
+    expect(miss()).toBe(14); block(b, true, 1000);
+    expect(miss()).toBe(6);
+    expect(b.spark).toBe(99 - 6 - 9);
+  });
+  it('a counterattack takes the same share of energy at any friendship level, a bit more on later islands', () => {
+    const share = (level: number, tier = 0) => hitFor({ champion: false, tier, level, subject: 'math' }) / sparkFor(level, 'speed');
+    expect(share(1)).toBeCloseTo(share(30), 1);
+    expect(share(10, 2)).toBeGreaterThanOrEqual(share(10, 0));
+    expect(hitFor({ champion: true, tier: 0, level: 10, subject: 'math' })).toBeLessThan(hitFor({ champion: false, tier: 0, level: 10, subject: 'math' }));
+  });
   it('Glimmer extras come after your number and never spoil an exact plan', () => {
     const b = newBattle({ pool, seed: 4, sparkMax: 20, role: 'steady', gear: null, team: [{ id: 'embernewt', level: 1 }], foe: foe(20) });
     const c = b.cards.find(x => x.fact)!;
@@ -60,6 +75,25 @@ describe('the Cheer Duel', () => {
     const ev = finale(b);
     expect(ev[0]).toMatchObject({ k: 'finale', value: 150 });
   });
+  it('shields from helpers and gear stop 2 counterattacks a battle at most, all together', () => {
+    const b = newBattle({ pool, seed: 5, sparkMax: 99, role: 'steady', gear: 'hover', team: [{ id: 'pinepango', level: 20, evolved: true }, { id: 'bubbleocto', level: 20, evolved: true }], foe: foe(9999), kit: ['bubble', 'skyset'] });
+    let skipped = 0, bubbles = 0;
+    for (let i = 0; i < 12; i++) {
+      const c = b.cards.find(x => x.fact)!;
+      const ev = play(b, c.id, right(c.fact!));
+      bubbles += ev.filter(e => e.k === 'bubble' || (e.k === 'gear' && e.item === 'bubble_wand')).length;
+      if (ev.some(e => e.k === 'mischief' && e.result === 'skip')) skipped++;
+      if (b.phase === 'block') block(b, true, 100);
+    }
+    expect(skipped).toBe(2);
+    // no bubble is blown that couldn't stop anything
+    expect(bubbles).toBe(0);
+    // a grown-up Pine Pangolin gives energy back when its curl blocks
+    const p2 = newBattle({ pool, seed: 5, sparkMax: 30, role: 'steady', gear: null, team: [{ id: 'pinepango', level: 1, evolved: true }], foe: foe(9999) });
+    p2.spark = 20;
+    const c = p2.cards.find(x => x.fact)!;
+    expect(play(p2, c.id, right(c.fact!)).find(e => e.k === 'heal')).toMatchObject({ what: 'Pine curl', value: 2 });
+  });
   it('open cards make the fact you choose (kept for later; off in battles for now)', () => {
     expect(openFact({ a: 6, op: 'x', max: 10 }, 4)).toEqual({ a: 6, b: 4 });
     const p = newProfile('Ava', 'dino');
@@ -72,7 +106,9 @@ describe('the Cheer Duel', () => {
     expect(m.subject === 'math' && m.facts.length).toBeGreaterThan(4);
     const t = typingPool(p);
     expect(t.subject === 'typing' && t.words.length).toBeGreaterThan(8);
-    expect(sparkFor(1, 'heart')).toBe(19);
+    // energy starts at 20 (30 with lots of friendship), and Big Heart adds 6
+    expect(sparkFor(1, 'heart')).toBe(26);
+    expect(sparkFor(30, 'speed')).toBe(30);
   });
 });
 
@@ -205,7 +241,7 @@ describe('Fraction Falls', () => {
     const pl = mathPool(p, 'fractions');
     expect(pl.subject === 'math' && pl.mix).toBe(1);
     expect(pl.subject === 'math' && pl.skills!.every(s => s.key.startsWith('fr-'))).toBe(true);
-    const b = newBattle({ pool: pl, seed: 4, sparkMax: 20, role: 'heart', gear: null, team: [], foe: foeFor(p, NODE['falls-0'], pl, 4) });
+    const b = newBattle({ pool: pl, seed: 4, sparkMax: 20, role: 'heart', gear: null, team: [], foe: { ...foeFor(p, NODE['falls-0'], pl, 4), hit: 3 } });
     expect(b.cards.every(c => c.item?.skill.startsWith('fr-'))).toBe(true);
   });
   it('its Grumbles send waterfall spray and live there; the Champion is the Thundercloud Lamb', () => {
@@ -231,7 +267,7 @@ describe('Counting Caves', () => {
     expect(worldOpen(p, 'caves')).toBe(true);
     const pl = mathPool(p, 'place');
     expect(pl.subject === 'math' && pl.skills!.every(s => s.key.startsWith('pv-'))).toBe(true);
-    const b = newBattle({ pool: pl, seed: 6, sparkMax: 20, role: 'heart', gear: null, team: [], foe: foeFor(p, NODE['caves-0'], pl, 6) });
+    const b = newBattle({ pool: pl, seed: 6, sparkMax: 20, role: 'heart', gear: null, team: [], foe: { ...foeFor(p, NODE['caves-0'], pl, 6), hit: 3 } });
     expect(b.cards.every(c => c.item?.skill.startsWith('pv-'))).toBe(true);
   });
   it('its Grumbles shake crystals loose and live there; the Champion is the Prism Hornback', () => {

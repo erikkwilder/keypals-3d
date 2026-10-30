@@ -10,6 +10,9 @@ import type { Island, TrailPoint } from './island';
 import { courseEggs } from '../fun/worldEggs';
 
 export type CourseMove = 'climb' | 'slide' | 'swim';
+/** How far before the end of each course its finish line is: the cliff's lip (the last bit walks back
+ *  over it), the sled run's arch, the foot of the swim steps (up them onto the dock). */
+export const LINE_BEFORE: Record<CourseMove, number> = { climb: 0.7, slide: 2.6, swim: 1.7 };
 const UP = new THREE.Vector3(0, 1, 0);
 
 /** A copy of a model scaled to a height, its base on y = 0. */
@@ -236,7 +239,7 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
     }
     root.add(summit);
     // the climb ends OVER metres of trail before the finish; those last metres walk back over the lip
-    const OVER = 0.7;
+    const OVER = LINE_BEFORE.climb;
     at = (s) => {
       const y = Math.max(0, Math.min(s, finishS - OVER) - RUN);
       const over = Math.max(0, Math.min(1, (s - finishS + OVER) / OVER));
@@ -369,7 +372,7 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
     const banner = new THREE.Mesh(keep(new THREE.BoxGeometry(0.12, 0.7, 5.8)), bannerMat);
     banner.position.y = 3.2; arch.add(banner);
     root.add(arch);
-    const place = () => { const f = at(finishS - 2.6); arch.position.copy(f.p); fin.position.set(f.p.x + 3, -(f.p.x + 3) * SLOPE, -3.2); };
+    const place = () => { const f = at(finishS - LINE_BEFORE.slide); arch.position.copy(f.p); fin.position.set(f.p.x + 3, -(f.p.x + 3) * SLOPE, -3.2); };
     root.userData.slopeY = (x: number) => -x * SLOPE;
     place();
     root.userData.place = place;
@@ -524,7 +527,7 @@ export async function buildCourse(move: CourseMove): Promise<Island> {
     };
     const place = () => {
       endDock.position.x = finishS + 2.2; fin.position.set(finishS + 1.4, 0.5, -1.2);
-      exitB = finishS - 0.3; exitA = exitB - STEPS * RUN;
+      exitA = finishS - LINE_BEFORE.swim; exitB = exitA + STEPS * RUN;
       steps.position.set(exitB, 0, STEP_Z);
       lanes();
     };

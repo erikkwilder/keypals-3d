@@ -19,7 +19,7 @@ import { VIBE } from '../adventure/vibes';
 import { COLOUR, colourSoon } from '../adventure/colours';
 type Slot = WearSlot;
 
-type Worn = { id: string; objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void; nz: { v: Nudge }; onNudge: (() => void)[] };
+type Worn = { id: string; objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void; nz: { v: Nudge }; onNudge: (() => void)[]; follow: (() => void)[] };
 type Rig = { worn: Partial<Record<Slot, Worn>>; t: number; tick: (dt: number) => void; want: Partial<Record<Slot, string | null>> };
 const rigs = new WeakMap<Character, Rig>();
 
@@ -260,7 +260,7 @@ function latheFromPicture(height: number, prof: [number, number][], aspect: numb
 // ---------- moving a piece (the Wardrobe's Move it) ----------
 /** Everything a builder needs: the buddy, its measurements, the piece, and its nudge (a box, so a new
  *  nudge reaches the piece without building it again; bone-held pieces register how to re-apply it). */
-type Ctx = { c: Character; f: Fit; id: string; nz: { v: Nudge }; onNudge: (() => void)[] };
+type Ctx = { c: Character; f: Fit; id: string; nz: { v: Nudge }; onNudge: (() => void)[]; /** groups that follow the skin, set each frame */ follow: (() => void)[] };
 type Built = { objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void };
 const _a = new THREE.Matrix4(), _b = new THREE.Matrix4();
 /** T(pivot + offset) · turn · size · T(−pivot): moved, turned (about up) and sized about its own attach
@@ -275,12 +275,72 @@ function nudgeMatrix(m: THREE.Matrix4, pivot: THREE.Vector3, n: Nudge, unit: num
 function boneHeld(x: Ctx, bone: string, pivot: THREE.Vector3): { g: THREE.Group; inner: THREE.Group } | null {
   const g = onBone(x.c, bone);
   if (!g) return null;
+  return { g, inner: nudged(x, g, pivot) };
+}
+function nudged(x: Ctx, g: THREE.Group, pivot: THREE.Vector3) {
   const inner = new THREE.Group();
   inner.matrixAutoUpdate = false;
   g.add(inner);
   const apply = () => { nudgeMatrix(inner.matrix, pivot, x.nz.v, x.f.H); inner.matrixWorldNeedsUpdate = true; };
   apply(); x.onNudge.push(apply);
-  return { g, inner };
+  return inner;
+}
+/** the bones a scarf or a necklace may follow (not the arms: a wave would swing it off the neck), and
+ *  the ones a cape or a backpack may (just the back) */
+const NECK_BONES = ['Spine01', 'Spine02', 'neck', 'Head'];
+const BACK_BONES = ['Spine', 'Spine01', 'Spine02', 'neck'];
+/** The bones that move the skin round a point (bind space), and how much each, from the buddy's own
+ *  skin weights there: what a piece lying on that spot has to follow so it moves just like the body
+ *  under it (a scarf with the neck as the head bobs, a cape with the back as it twists). */
+function skinNear(c: Character, at: THREE.Vector3, H: number, allow: string[]): { bone: THREE.Bone; inv: THREE.Matrix4; w: number }[] {
+  const acc = new Map<THREE.Bone, { inv: THREE.Matrix4; w: number }>(), v = new THREE.Vector3();
+  // a wider look when the point is inside the body (a scarf's middle is in the neck)
+  for (const r of [0.05, 0.08, 0.12, 0.18].map(k => k * H)) {
+    let n = 0;
+    acc.clear();
+    for (const m of skinned(c)) {
+      const pos = m.geometry.attributes.position, si = m.geometry.attributes.skinIndex, sw = m.geometry.attributes.skinWeight, bones = m.skeleton.bones;
+      for (let i = 0; i < pos.count; i++) {
+        const d = v.fromBufferAttribute(pos, i).applyMatrix4(m.bindMatrix).distanceTo(at);
+        if (d > r) continue;
+        n++;
+        const f = 1 - d / r;
+        for (let k = 0; k < 4; k++) {
+          const w = sw.getComponent(i, k), b = bones[si.getComponent(i, k)];
+          if (w <= 0 || !b || !allow.includes(b.name)) continue;
+          const e = acc.get(b) ?? { inv: m.skeleton.boneInverses[si.getComponent(i, k)], w: 0 };
+          e.w += w * f; acc.set(b, e);
+        }
+      }
+    }
+    if (n >= 24 && acc.size) break;
+  }
+  const out = [...acc.entries()].map(([bone, e]) => ({ bone, inv: e.inv, w: e.w })).sort((a, b) => b.w - a.w).slice(0, 3);
+  const tot = out.reduce((a, b) => a + b.w, 0);
+  return tot > 0 ? out.map(b => ({ ...b, w: b.w / tot })).filter(b => b.w > 0.04) : [];
+}
+/** A group that moves the way the skin at `at` moves (bind space): the bones there blended by their skin
+ *  weights, the same sum the skinning itself does, worked out each frame before the piece's own moves.
+ *  Its children are placed in bind space, nudged about `pivot`. Falls back to riding `fallback`. */
+function skinHeld(x: Ctx, at: THREE.Vector3, pivot: THREE.Vector3, allow: string[], fallback: string): { g: THREE.Group; inner: THREE.Group } | null {
+  const ws = skinNear(x.c, at, x.f.H, allow);
+  if (ws.length < 2) return boneHeld(x, ws[0]?.bone.name ?? fallback, pivot);
+  const g = new THREE.Group();
+  g.matrixAutoUpdate = false;
+  x.c.root.add(g);
+  const rootInv = new THREE.Matrix4(), sum = new THREE.Matrix4(), m = new THREE.Matrix4();
+  const follow = () => {
+    // (relative to the buddy's root: a scene moving the buddy after its update moves this with it)
+    rootInv.copy(x.c.root.matrixWorld).invert();
+    sum.elements.fill(0);
+    for (const b of ws) { m.multiplyMatrices(b.bone.matrixWorld, b.inv); for (let i = 0; i < 16; i++) sum.elements[i] += m.elements[i] * b.w; }
+    g.matrix.multiplyMatrices(rootInv, sum);
+    g.matrixWorldNeedsUpdate = true;
+  };
+  x.c.root.updateMatrixWorld(true);
+  follow();
+  x.follow.push(follow);
+  return { g, inner: nudged(x, g, pivot) };
 }
 /** A group in the buddy's own space for things that follow the hand each frame: call `at(p)` with the
  *  hand's place every frame and the nudge turns and sizes about it. */
@@ -295,9 +355,11 @@ function handHeld(x: Ctx): { g: THREE.Group; at: (p: THREE.Vector3) => void } {
 // ---------- the pieces ----------
 /** Where a cape, wings or a pack meet the back: just under the shoulders, at the back's surface. */
 const backPivot = (f: Fit) => new THREE.Vector3(f.back!.cx, f.back!.top - f.H * 0.06, f.back!.z);
+/** a piece on the back, moving with the back's own skin there */
+const backHeld = (x: Ctx) => skinHeld(x, backPivot(x.f), backPivot(x.f), BACK_BONES, 'Spine02');
 
 async function cape(x: Ctx): Promise<Built | null> {
-  const { f } = x, b = f.back, h = b && boneHeld(x, 'Spine02', backPivot(f));
+  const { f } = x, b = f.back, h = b && backHeld(x);
   if (!b || !h) return null;
   const mat = await painted('gear/tex-cape.webp', { cut: true });
   const W = Math.max(b.w * 2.1, f.H * 0.42), L = Math.max(f.H * 0.4, b.top - (f.minY + f.H * 0.22)), y0 = b.top + f.H * 0.01;
@@ -338,7 +400,7 @@ async function cape(x: Ctx): Promise<Built | null> {
 }
 
 async function wings(x: Ctx): Promise<Built | null> {
-  const { f } = x, b = f.back, h = b && boneHeld(x, 'Spine02', backPivot(f));
+  const { f } = x, b = f.back, h = b && backHeld(x);
   if (!b || !h) return null;
   const map = await loadTexture('gear/tex-wing.webp');
   if (!map) return null;
@@ -370,7 +432,7 @@ async function wings(x: Ctx): Promise<Built | null> {
 }
 
 async function rocketPack(x: Ctx): Promise<Built | null> {
-  const { f } = x, b = f.back, hb = b && boneHeld(x, 'Spine02', backPivot(f));
+  const { f } = x, b = f.back, hb = b && backHeld(x);
   if (!b || !hb) return null;
   const g = hb.inner;
   const [body, fin, flameMap, pack] = await Promise.all([painted('gear/tex-rocket.webp'), painted('gear/tex-fin.webp', { cut: true }), loadTexture('gear/tex-flame.webp'), painted('gear/tex-pack.webp', { cut: true })]);
@@ -817,7 +879,9 @@ async function libModel(x: Ctx): Promise<Built | null> {
     anchor.set(mid.x, mid.y, box.min.z);
   }
   if (!at || !width) return null;
-  const hb = boneHeld(x, bone, at);
+  // the neck and the back move with the skin right under the piece (the neck bends away from the chest
+  // when a buddy dances, so a scarf held by the chest alone slid off to one side); the face rides the head
+  const hb = lib.slot === 'neck' ? skinHeld(x, at, at, NECK_BONES, bone) : lib.slot === 'back' ? skinHeld(x, at, at, BACK_BONES, bone) : boneHeld(x, bone, at);
   if (!hb) return null;
   obj.position.copy(anchor).negate();
   const piece = new THREE.Group(); piece.add(obj);
@@ -960,7 +1024,10 @@ function rigOf(c: Character): Rig {
   if (r) return r;
   const rig: Rig = { worn: {}, t: Math.random() * 10, want: {}, tick: (dt: number) => {
     rig.t += dt;
-    for (const w of Object.values(rig.worn)) w?.tick?.(dt, rig.t);
+    const ws = Object.values(rig.worn);
+    // pieces that follow the skin: the bones' places this frame first (the moves just changed them)
+    if (ws.some(w => w?.follow.length)) { c.root.updateMatrixWorld(true); for (const w of ws) w?.follow.forEach(f => f()); }
+    for (const w of ws) w?.tick?.(dt, rig.t);
   } };
   c.tickers.add(rig.tick);
   rigs.set(c, rig);
@@ -993,14 +1060,14 @@ export async function wearGear(c: Character, slot: Slot, id: string | null, nudg
   if (cur) { takeOff(cur); delete rig.worn[slot]; }
   const build = id ? builderOf(id) : null;
   if (!id || !build) { delete rig.want[slot]; return; }
-  const x: Ctx = { c, f: fitOf(c), id, nz: { v: { ...NO_NUDGE, ...(nudge ?? {}) } }, onNudge: [] };
+  const x: Ctx = { c, f: fitOf(c), id, nz: { v: { ...NO_NUDGE, ...(nudge ?? {}) } }, onNudge: [], follow: [] };
   const built = await build(x).catch(e => { console.warn('gear', id, e); return null; });
   if (rig.want[slot] !== id) { if (built) takeOff(built); return; }
   delete rig.want[slot];
   if (built) {
     // tagged, so a tap on the buddy in the Wardrobe can tell what was touched (wornAt)
     for (const o of built.objs) o.userData.wear = { slot, id };
-    rig.worn[slot] = { id, ...built, nz: x.nz, onNudge: x.onNudge };
+    rig.worn[slot] = { id, ...built, nz: x.nz, onNudge: x.onNudge, follow: x.follow };
   }
 }
 /** What a ray hits first of what a buddy wears (the Wardrobe: tap a thing on the buddy to move it). The

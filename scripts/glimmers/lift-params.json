@@ -1,0 +1,85 @@
+{
+ "_note": "Applied 2026-10-29 to the original models (see lift.mjs). gamma: lightness lift; vib: vibrance; hue: [from, to, shift] in OKLCH degrees.",
+ "stormlamb": {
+  "gamma": 0.45,
+  "vib": 1.154
+ },
+ "rollodillo": {
+  "gamma": 0.457,
+  "vib": 0.0
+ },
+ "mittenyeti": {
+  "gamma": 0.55,
+  "vib": 0.0
+ },
+ "skywhale": {
+  "gamma": 0.885,
+  "vib": 0.511
+ },
+ "frostjelly": {
+  "gamma": 0.678,
+  "vib": 0.0
+ },
+ "mushmouse": {
+  "gamma": 0.652,
+  "vib": 0.0
+ },
+ "sparkmoth": {
+  "gamma": 1.0,
+  "vib": 1.2,
+  "hue": [
+   70,
+   110,
+   -12
+  ]
+ },
+ "bubbleocto": {
+  "gamma": 0.673,
+  "vib": 0.0
+ },
+ "sunsnail": {
+  "gamma": 0.684,
+  "vib": 1.2
+ },
+ "popcornpuff": {
+  "gamma": 0.674,
+  "vib": 0.837
+ },
+ "rainbootfrog": {
+  "gamma": 0.715,
+  "vib": 0.479,
+  "hue": [
+   55,
+   85,
+   12
+  ]
+ },
+ "frostowl": {
+  "gamma": 0.883,
+  "vib": 0.0
+ },
+ "teakettledrake": {
+  "gamma": 0.742,
+  "vib": 1.2
+ },
+ "geodemole": {
+  "gamma": 0.8,
+  "vib": 0.04
+ },
+ "prismhorn": {
+  "gamma": 0.893,
+  "vib": 0.0
+ },
+ "pebbletort": {
+  "gamma": 0.753,
+  "vib": 0.745
+ },
+ "pinepango": {
+  "gamma": 0.77,
+  "vib": 0.146
+ },
+ "cactuskit": {
+  "gamma": 0.869,
+  "vib": 0.047
+ }
+}

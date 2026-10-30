@@ -1,3 +1,8 @@
+<script lang="ts" module>
+  /** How long a wrong answer stays in its box (red, with a little shake) before the box clears itself. */
+  export const WRONG_MS = 700;
+</script>
+
 <script lang="ts">
   import Icon from '../../ui/Icon.svelte';
   import { sfx } from '../../audio/sound';

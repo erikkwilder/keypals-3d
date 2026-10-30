@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../../engine/rng';
 import { FRACTION_SKILLS, checkAnswer, sameValue } from './fractions';
-import { asChoices, choiceChance, CHOICE_RIGHT } from './choices';
+import { asChoices, choiceChance, choiceFor, rightFraction, typedAs, typedChoice, CHOICE_RIGHT } from './choices';
+import { PLACE_SKILLS } from './place';
+import { DECIMAL_SKILLS } from './decimals';
 import type { Part } from './types';
 
 const fracOf = (ps: Part[]) => { const p = ps[0]; return p.t === 'frac' ? { n: p.n!, d: p.d! } : null; };
@@ -59,6 +61,49 @@ describe('questions asked as choices', () => {
     for (const id of ['fr-line', 'fr-compare']) {
       const sk = FRACTION_SKILLS.find(s => s.id === id)!;
       expect(asChoices(sk.make(mulberry32(5), sk.subs[0].id, 1), mulberry32(1))).toBeNull();
+    }
+  });
+  it('number choices can be typed: the typed number picks its choice', () => {
+    const sk = FRACTION_SKILLS.find(s => s.id === 'fr-equal')!;
+    for (let seed = 1; seed <= 30; seed++) {
+      const ch = asChoices(sk.make(mulberry32(seed), sk.subs[0].id, 1), mulberry32(seed))!;
+      expect(typedAs(ch)).toBe('number');
+      for (const c of ch.choices!) {
+        const n = numOf(c.parts)!;
+        expect(choiceFor(ch, { kind: 'number', value: n })).toBe(c.id);
+        // typed in full it's picked (straight away unless another choice goes on from it, then on Enter)
+        const longer = ch.choices!.some(o => o !== c && String(numOf(o.parts)).startsWith(String(n)));
+        expect(typedChoice(ch, String(n))).toBe(longer ? 'wait' : 'pick');
+        expect(typedChoice(ch, String(n), true)).toBe('pick');
+      }
+      expect(choiceFor(ch, { kind: 'number', value: 999 })).toBeNull();
+    }
+  });
+  it('a typed number that no choice starts with is wrong straight away, a part of one waits', () => {
+    const it0 = { skill: 'x', key: 'x:1', id: 'q', ask: '', prompt: [], input: 'choice' as const, weight: 1, explain: '',
+      choices: [{ id: 'a', parts: [{ t: 'num' as const, n: 12 }] }, { id: 'b', parts: [{ t: 'num' as const, n: 15 }] }, { id: 'c', parts: [{ t: 'num' as const, n: 1 }] }],
+      answer: { kind: 'choice' as const, id: 'b' } };
+    expect(typedChoice(it0, '1')).toBe('wait');
+    expect(typedChoice(it0, '1', true)).toBe('pick');
+    expect(typedChoice(it0, '15')).toBe('pick');
+    expect(typedChoice(it0, '3')).toBe('wrong');
+    expect(typedChoice(it0, '16')).toBe('wrong');
+    expect(typedChoice(it0, '')).toBe('wait');
+  });
+  it('fraction choices take the fraction pad: the same fraction, else one worth the same', () => {
+    const add = FRACTION_SKILLS.find(s => s.id === 'fr-add')!;
+    const ch = asChoices(add.make(mulberry32(3), 'small', 1), mulberry32(9))!;
+    expect(typedAs(ch)).toBe('fraction');
+    const r = rightFraction(ch)!;
+    expect(choiceFor(ch, { kind: 'fraction', n: r.n, d: r.d })).toBe(CHOICE_RIGHT);
+    expect(choiceFor(ch, { kind: 'fraction', n: r.n * 3, d: r.d * 3 })).toBe(CHOICE_RIGHT);
+    expect(choiceFor(ch, { kind: 'fraction', n: 97, d: 98 })).toBeNull();
+  });
+  it('choices of words and signs (comparing) are only tapped', () => {
+    for (const sk of [...FRACTION_SKILLS, ...PLACE_SKILLS, ...DECIMAL_SKILLS]) {
+      if (sk.input !== 'choice') continue;
+      const it = sk.make(mulberry32(4), sk.subs[0].id, 1);
+      expect(typedAs(it), sk.id).toBeNull();
     }
   });
 });

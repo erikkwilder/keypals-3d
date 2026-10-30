@@ -2,9 +2,9 @@
   // A math trip in 3D: a fact at the top, your buddy on the island trail, a number pad at the bottom.
   // Type the answer (number row, number pad, the on-screen pad; French keyboards' digit keys too) and
   // it checks itself once there are as many digits as the answer has. Every answer moves the buddy one
-  // stretch along the trail; quick, right answers climb the rides. A new fact comes with its trick to
-  // copy; a miss shows the answer and its trick to type back, and the fact returns a few facts later.
-  // No countdown, no buzzer.
+  // stretch along the trail, so the last one reaches the finish line; quick, right answers climb the
+  // rides. A new fact comes with its trick to copy; a miss stays in the boxes in red for a moment, shows
+  // the answer and its trick to type back, and the fact returns a few facts later. No countdown, no buzzer.
   import MusicButton from '../ui/MusicButton.svelte';
   import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
@@ -23,7 +23,7 @@
   import { TripPicker, type Item } from '../math/picker';
   import { FactMeter, mathGoal, mathStars, tripStats, type FactResult } from '../math/meter';
   import { applyMathRun, mathOf } from '../math/progress';
-  import NumPad from '../math/ui/NumPad.svelte';
+  import NumPad, { WRONG_MS } from '../math/ui/NumPad.svelte';
   import DotPicture from '../math/ui/DotPicture.svelte';
   import Episode from '../math/ui/Episode.svelte';
   import { isLearned, isLearnStop, lessonForFact, lessonForStop } from '../math/learn';
@@ -50,12 +50,12 @@
   const goal = mathGoal(lesson.goal, grown, S.easy);
   const starAt = [Math.ceil(goal * 0.3), Math.ceil(goal * 0.6), goal];
   const buddy = FRIEND[profile.buddy];
-  // the trail: one stretch per fact, with room for a couple of misses brought back at the end
+  // the trail: one stretch per fact to the finish line (a miss brought back shares the way out a little finer)
   const STRETCH = STRIDE[moveOf(lesson)];
   // how the buddy travels on this trip, in the same words as a typing lesson's card
   const mv = moveOf(lesson);
   const MOVE_LINE = { run: 'Run the trail: every right answer is a stride. Quick, right answers ride a skateboard, a bike, even a rocket!', climb: 'Climb the cliff: every right answer pulls you higher. Quick answers climb faster!', swim: 'Swim across the bay: every right answer is a stroke. Quick answers swim like a dolphin!', slide: 'Sled down the mountain: every right answer is a push. Quick answers go full avalanche!' };
-  const stretches = picker.length + 2;
+  const stretches = picker.length;
 
   let phase = $state<'intro' | 'play' | 'paused' | 'done'>('intro');
   const replaying = game.quickStart;
@@ -63,6 +63,9 @@
   /** ask: answer it. learn: a new fact, its trick shown, copy the answer. fix: after a miss, type the answer shown. */
   let mode = $state<'ask' | 'learn' | 'fix'>('ask');
   let typed = $state('');
+  /** a wrong answer, still showing in red: it clears itself (or the next digit starts a new one) */
+  let bad = $state(false);
+  let badTimer: ReturnType<typeof setTimeout> | undefined;
   let feedback = $state<'right' | 'fast' | 'wrong' | null>(null);
   let shake = $state(0);
   let tier = $state(0);
@@ -123,10 +126,9 @@
 
   function nextFact() {
     const it = picker.next();
-    trip = picker.progress;
     if (!it) { finish(); return; }
     item = it;
-    typed = '';
+    typed = ''; unbad();
     feedback = null;
     firstDigitAt = null;
     shownAt = performance.now();
@@ -147,7 +149,8 @@
     const t = performance.now();
     lastInput = t;
     if (firstDigitAt === null) firstDigitAt = t;
-    if (typed.length >= digits) return;
+    // typing over a wrong answer starts a new one (and a full box has just been checked)
+    if (bad || typed.length >= digits) { unbad(); typed = ''; }
     typed += d;
     lit = d; later(110, () => (lit = null));
     sfx.click();
@@ -155,8 +158,15 @@
   }
   function back() {
     if (phase !== 'play' || !typed) return;
-    typed = typed.slice(0, -1);
+    if (bad) { unbad(); typed = ''; } else typed = typed.slice(0, -1);
   }
+  /** A wrong answer stays in the boxes, red, for a moment; then they clear for another go. */
+  function showWrong() {
+    bad = true;
+    clearTimeout(badTimer);
+    badTimer = setTimeout(() => { if (bad) { bad = false; typed = ''; } }, WRONG_MS);
+  }
+  function unbad() { bad = false; clearTimeout(badTimer); }
 
   function check(t: number) {
     if (!item || !fact) return;
@@ -177,7 +187,7 @@
         picker.answer(false);
         missThink = thinkMs;
         mode = 'fix';
-        typed = '';
+        showWrong();
         feedback = 'wrong';
         shake++;
         streak = 0;
@@ -194,16 +204,20 @@
       if (fix) meter.push(false, t - shownAt);
       stepOn(false, fix);
     } else {
-      typed = '';
+      showWrong();
       shake++;
       sfx.slip();
     }
   }
 
-  /** The answer is in: the buddy moves on, then the next fact (well under half a second later). */
+  /** The answer is in: the buddy moves on, then the next fact (well under half a second later). The last
+   *  one carries the buddy over the finish line straight away. */
   function stepOn(quick: boolean, fixed = false) {
     steps++;
-    scene?.key(true, steps);
+    // its share of the rest of the way, the way the buddy goes (a miss coming back makes the trip longer)
+    const left = picker.left;
+    trip = left ? trip + (1 - trip) / (left + 1) : 1;
+    scene?.key(true, steps, left);
     feedback = quick ? 'fast' : 'right';
     if (quick) scene?.hop();
     sfx.key(quick ? 'RI' : 'LI');
@@ -211,7 +225,8 @@
       streak++;
       if (streak === 5 || streak === 10 || streak === 15 || streak === 20) streakPop = { text: `${streak} in a row!`, n: (streakPop?.n ?? 0) + 1 };
     }
-    later(fixed ? 380 : 260, nextFact);
+    if (picker.done) finish();
+    else later(fixed ? 380 : 260, nextFact);
   }
 
   function onRide(ev: RideEvent) {
@@ -227,8 +242,9 @@
 
   function finish() {
     if (phase === 'done') return;
+    // (the last answer stays up, green, while the buddy dashes over the line)
     phase = 'done';
-    item = null;
+    trip = 1;
     const stats = tripStats(results);
     const finished = picker.done;
     const stars = mathStars(stats, goal, finished);
@@ -267,7 +283,7 @@
     if (e.key === 'Escape') { phase = 'paused'; napped = true; return; }
     if (e.repeat || e.isComposing) return;
     if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); back(); return; }
-    if (e.key === 'Enter' && typed) { e.preventDefault(); check(performance.now()); return; }
+    if (e.key === 'Enter' && typed && !bad) { e.preventDefault(); check(performance.now()); return; }
     const d = keyDigit(e);
     if (d !== null) { e.preventDefault(); digit(d); }
   }
@@ -318,7 +334,7 @@
   if (import.meta.env.DEV) (window as unknown as { __math: object }).__math = { answer: () => answer, mode: () => mode, phase: () => phase, fact: () => fact };
 
   onMount(() => {
-    RunScene.create({ buddy: profile.buddy, outfit: outfitOf(profile), dance: danceOf(profile), length: stretches, region: worldOf(lesson), move: moveOf(lesson), keyLen: STRETCH, pace: { window: 14, full: 4, stop: 9, lead: 0.6 } })
+    RunScene.create({ buddy: profile.buddy, outfit: outfitOf(profile), dance: danceOf(profile), length: stretches, region: worldOf(lesson), move: moveOf(lesson), keyLen: STRETCH, pace: { window: 14, full: 4, stop: 9, lead: 0.3 } })
       .then(sc => { scene = sc; stage.use(sc); updateView(); loading = false; })
       .catch(err => { console.error(err); loading = false; });
     game.quickStart = false;
@@ -337,6 +353,7 @@
     timers.forEach(clearTimeout);
     clearTimeout(bannerTimer);
     clearTimeout(bubbleTimer);
+    clearTimeout(badTimer);
   });
 </script>
 
@@ -375,7 +392,7 @@
             <span class="f">{fact.a}</span><span class="op">{sign}</span><span class="f">{fact.b}</span><span class="op">=</span>
             <span class="boxes">
               {#each Array(digits) as _, i}
-                <span class="box" class:cur={i === typed.length && !feedback?.startsWith('r') && feedback !== 'fast'} class:filled={i < typed.length}>{typed[i] ?? ''}</span>
+                <span class="box" class:cur={i === typed.length && !feedback?.startsWith('r') && feedback !== 'fast'} class:filled={i < typed.length} class:bad>{typed[i] ?? ''}</span>
               {/each}
             </span>
           </div>
@@ -523,6 +540,9 @@
   .box.cur { border-color: var(--primary); box-shadow: 0 0 0 5px #e7defe; animation: caret 1.1s ease-in-out infinite; }
   .box.filled { border-color: #cfc3ee; background: #fff; }
   .q.right .box, .q.fast .box { border-color: var(--mint); color: #0f6a48; }
+  /* a wrong answer: red, a little shake, then the boxes clear */
+  .box.bad { border-color: #ff8aa5; background: #fff0f3; color: #d6335c; box-shadow: 0 0 0 5px #ffe0e8; animation: nope .4s ease; }
+  @keyframes nope { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
   @keyframes caret { 50% { box-shadow: 0 0 0 9px #efe9ff; } }
   .streak { margin-top: 10px; font: 600 26px/1 var(--font-ui); color: #fff; text-shadow: 0 3px 0 var(--primary-edge), 0 0 18px rgba(124, 92, 245, .6); animation: streak 1.2s ease forwards; pointer-events: none; }
   @keyframes streak { 0% { transform: scale(.5); opacity: 0; } 20% { transform: scale(1.15); opacity: 1; } 70% { opacity: 1; } 100% { transform: translateY(-30px); opacity: 0; } }

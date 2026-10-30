@@ -34,6 +34,7 @@
     ['Streaks', s => s.id.startsWith('streak-')],
     ['Typing speed', s => s.id.startsWith('speed-')],
     ['Friendship', s => s.id.startsWith('runs-') || s.id.startsWith('level-')],
+    ['Secrets', s => s.id === 'secret-word'],
   ];
   const SECTIONS: [string, (s: StickerDef) => boolean][] = [...TESTS, ['More', s => !TESTS.some(([, t]) => t(s))]];
   // only the stickers still in the book (a few retired ones may sit in older saves)

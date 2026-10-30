@@ -11,7 +11,7 @@
   import { danceOf } from '../../engine/profile';
   import TileArt from '../../ui/TileArt.svelte';
   import { game } from '../../state/game.svelte';
-  import { sfx } from '../../audio/sound';
+  import { quietForLesson, sfx } from '../../audio/sound';
   import { advView, markSeen } from '../../adventure/state';
   import { FRIEND } from '../../art/cast';
   import { STRAND } from '../course';
@@ -141,7 +141,10 @@
     if (greeted) return;
     greeted = true; b.wave(); setTimeout(() => { if (!gone) explain(); }, 900);
   }
+  // the music hushes while the lesson plays (the buddy's lines and the sounds carry on)
+  let unquiet = () => {};
   onMount(() => {
+    unquiet = quietForLesson();
     addEventListener('keydown', onKey, true);
     if (!embedded) return;
     // over a trip: borrow the stage for the lesson's own buddy, and give it back after
@@ -156,6 +159,7 @@
   $effect(() => { const b = pal; if (b) tick().then(() => { if (!gone) greet(b); }); });
   onDestroy(() => {
     gone = true;
+    unquiet();
     removeEventListener('keydown', onKey, true);
     if (own) { if (stage.current() === own) stage.swap(before); own.dispose(); own = null; }
   });

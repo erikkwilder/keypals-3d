@@ -3,7 +3,7 @@
   // round on one of the islands with your 3D buddy hopping, cheering and dancing beside the numbers, and
   // the end card shows the stars, the friendship it earned and anything new for your team.
   import { game } from '../state/game.svelte';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { danceOf, outfitOf, palOf, type Profile } from '../engine/profile';
   import { stage } from '../three/stage';
   import { PlayScene } from '../three/playScene';
@@ -52,6 +52,14 @@
     oops() { scene?.oops(); },
   };
   function onResize() { requestAnimationFrame(fit); }
+  // a game picked on the Math page's Games tab starts straight away, at its next level
+  onMount(() => {
+    const g = game.playPick as PlayGame | null;
+    game.playPick = null;
+    if (g && PLAY_GAME[g]) start(g, playNextLevel(p, g));
+  });
+  /** back to the Math page, on its Games tab (the playground's toys are math games) */
+  function toMath() { sfx.click(); game.setHome('math'); game.way = { ...game.way, math: 'games' }; game.go('map'); }
   onDestroy(() => { if (scene && stage.current() === scene) stage.use(null); scene?.dispose(); });
 
   function start(g: PlayGame, level: number) {
@@ -70,7 +78,7 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if (e.key === 'Escape') { if (playing || done) { backToGames(); } else game.go('map'); }
+    if (e.key === 'Escape') { if (playing || done) { backToGames(); } else toMath(); }
     if (done && e.key === 'Enter') { e.preventDefault(); const n = done.level < 5 && playUnlocked(p, done.g, done.level + 1) ? done.level + 1 : done.level; start(done.g, n); }
   }
   const WHAT: Record<PlayGame, string> = {
@@ -93,7 +101,7 @@
     <h1>{playing ? PLAY_GAME[playing.g].name : 'Number Playground'}</h1>
     <div class="spacer"></div>
     {#if playing}<button class="btn ghost" onclick={backToGames}>Back to games</button>
-    {:else}<NavTile size="sm" tone="mint" kind="map" label="Math map" onclick={() => game.go('map')} />{/if}
+    {:else}<button class="btn ghost withimg" onclick={toMath}><img src="{import.meta.env.BASE_URL}icons/arcade.webp" alt="" />Math games</button>{/if}
     <MenuButton size={36} />
   </header>
 
@@ -191,6 +199,8 @@
   .bar h1 { font-size: 28px; margin: 0; }
   .spacer { flex: 1; }
   .ghost { background: var(--bg2); color: var(--ink); box-shadow: none; }
+  .withimg { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px 6px 6px; }
+  .withimg img { width: 32px; height: 32px; object-fit: contain; }
   .body { flex: 1; min-height: 0; padding: 18px 22px 28px; }
   .hello { display: flex; align-items: center; gap: 14px; justify-content: center; margin-bottom: 12px; }
   .hello p { margin: 0; font: 600 19px/1.35 var(--font-body); background: #fff; padding: 10px 16px; border-radius: 18px; box-shadow: var(--shadow-sm); max-width: 560px; }

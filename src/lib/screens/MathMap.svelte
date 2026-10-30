@@ -1,13 +1,13 @@
 <script lang="ts">
-  // Math home: the Times Trail. One region per table, each on one of the islands, four stops each:
-  // meet the table, practise, mix, and the checkpoint run (open from the start, to test out). The other
-  // areas of K-8 math (fractions first) sit beside the four fact strands with regions of their own.
+  // The Math page: the four ways to play math as big tabs (Learn, Practice, Games, Adventure, from
+  // subjects.ts) and the parts of math as chips under them (All, Plus, Minus, Times...), the same chips
+  // on every tab. Practice is the map: the Times Trail and the others, one region per table, each on one
+  // of the islands, four stops each: meet the table, practise, mix, and the checkpoint run (open from the
+  // start, to test out); the other areas of K-8 math (fractions first) have regions of their own. The
+  // other three tabs are pages of picture cards (ui/WayPane.svelte).
   import { onMount, tick } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { bookView, outfitOf, palOf, todayMs } from '../engine/profile';
-  import { DANCES } from '../engine/rewards';
-  import { levelFromXp, STICKERS } from '../engine/stickers';
-  import { MEDALS } from '../engine/achievements';
+  import { outfitOf } from '../engine/profile';
   import { rideName } from '../engine/rides';
   import { rideIcon } from '../art/vehicles';
   import { sfx } from '../audio/sound';
@@ -16,16 +16,17 @@
   import type { Op } from '../math/facts';
   import { ALL_GARDEN_IDS, mathMovedOn, mathOf, mathPassed, mathRegionOpen, mathStarsTotal, mathUnlocked, nextMathLesson, stageCounts } from '../math/progress';
   import { factId } from '../math/facts';
-  import NavTile from '../ui/NavTile.svelte';
-  import GearButton from '../ui/GearButton.svelte';
-  import FancyAntButton from '../ui/FancyAntButton.svelte';
+  import TopBar from '../ui/TopBar.svelte';
+  import WaysBar from '../ui/WaysBar.svelte';
+  import ChipRow from '../ui/ChipRow.svelte';
+  import WayPane from '../ui/WayPane.svelte';
+  import { SUBJECT, wayCount, WAY, linksFor, type WayId } from '../subjects';
+  import { placementFor, setChip, wayOf } from '../nav';
   import Critter from '../ui/Critter.svelte';
   import Stars from '../ui/Stars.svelte';
-  import Ring from '../ui/Ring.svelte';
   import Icon from '../ui/Icon.svelte';
-  import TileArt from '../ui/TileArt.svelte';
-  import { isLearnStop, isLearned, lessonForStop, LESSONS, type Lesson } from '../math/learn';
-  import { AREA, AREAS, SKILL } from '../math/skills/registry';
+  import { isLearnStop, isLearned, lessonForStop, type Lesson } from '../math/learn';
+  import { AREA, AREAS, SKILL, areaOfOp } from '../math/skills/registry';
   import { SKILL_LESSONS, SKILL_PLACEMENTS, nextSkillLesson, skillMovedOn, skillPassed, skillRegionOpen, skillRegionsOf, skillUnlocked, type SkillLesson, type SkillRegion } from '../math/skills/course';
   import { keyStage } from '../math/skills/progress';
   import type { AreaId } from '../math/skills/types';
@@ -41,6 +42,18 @@
   let area = $state<AreaId | null>(game.mathOp ? null : game.mathArea);
   const showing = $derived(op !== null || area !== null);
   const AREA_TABS = AREAS.filter(a => a.live && !a.op);
+  const S = SUBJECT.math;
+  // which way to play is showing (Practice unless picked), and the part of math (a chip: 'all', or an area)
+  let way = $state<WayId>(wayOf('math'));
+  const chip = $derived(op ? areaOfOp(op) : area ?? 'all');
+  function pickWay(w: WayId) { way = w; game.way = { ...game.way, math: w }; scroller?.scrollTo({ top: 0 }); }
+  function pickChip(id: string) {
+    setChip('math', id);
+    op = game.mathOp; area = game.mathArea;
+    scroller?.scrollTo({ top: 0 });
+  }
+  /** a part's card links: the same part on another tab */
+  function seeIn(w: WayId, id: string) { sfx.click(); pickChip(id); pickWay(w); }
   const SOON = AREAS.filter(a => !a.live);
   const skillRegions = $derived(area ? skillRegionsOf(area) : []);
   const skillPlacement = $derived(area ? SKILL_PLACEMENTS[area] : undefined);
@@ -57,20 +70,13 @@
   const next = $derived(nextMathLesson(m, op ?? m.strand ?? 'x'));
   const strandStars = (o: Op) => MATH_LESSONS.filter(l => l.op === o).reduce((a, l) => a + (m.lessons[l.id]?.stars ?? 0), 0);
   const strandDone = (o: Op) => regionsOf(o).filter(r => mathPassed(m, r.lessons.at(-1)!.id)).length;
-  const playStars = $derived(Object.values(m.play ?? {}).reduce((a, r) => a + (r?.stars ?? []).reduce((x, y) => x + (y ?? 0), 0), 0));
   const stars = $derived(mathStarsTotal(m));
-  const goalMs = $derived(p.settings.dailyGoalMin * 60000);
-  const today = $derived(todayMs(p));
   const blooms = $derived(stageCounts(m, ALL_GARDEN_IDS)[3]);
-  const dancesOpen = $derived(DANCES.filter(d => d.level <= levelFromXp(palOf(p).xp).level).length);
   const fresh = $derived(m.totals.trips === 0);
   // Learn: the lesson to watch before the next stop (if it's a new trick not learned yet)
-  const learnedCount = $derived(LESSONS.filter(l => isLearned(m, l.id)).length);
   const learnNext = $derived.by(() => { if (!op || !isLearnStop(next)) return null; const l = lessonForStop(next); return l && !isLearned(m, l.id) ? l : null; });
   function watch(l: Lesson) { sfx.click(); game.openLearn(l.id, 'map'); }
   let scroller: HTMLDivElement | undefined = $state();
-  let sw = $state(1280);
-  const tile = $derived(sw < 760 ? 'sm' : 'md');
 
   const KIND_ICON: Record<string, 'bulb' | 'target' | 'flag' | 'book'> = { meet: 'bulb', practice: 'target', mix: 'book', check: 'flag', rules: 'bulb' };
 
@@ -108,8 +114,8 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if ((e.key === 'Enter' || e.key === ' ') && op) { e.preventDefault(); start(next); }
-    else if ((e.key === 'Enter' || e.key === ' ') && area) { e.preventDefault(); startSkill(nextSkill); }
+    if ((e.key === 'Enter' || e.key === ' ') && op && way === 'practice') { e.preventDefault(); start(next); }
+    else if ((e.key === 'Enter' || e.key === ' ') && area && way === 'practice') { e.preventDefault(); startSkill(nextSkill); }
     if (e.key === 'Escape') { if (showing) pickStrand(null); else game.go('hub'); }
   }
   onMount(async () => {
@@ -124,101 +130,80 @@
 
 {#if game.learnOverlay && MARKET_LESSON[game.learnOverlay]}<MarketEpisode lesson={MARKET_LESSON[game.learnOverlay]} onclose={() => (game.learnOverlay = null)} />{/if}
 
-<div class="screen map" bind:clientWidth={sw}>
-  <header class="bar">
-    <NavTile size={tile} tone="sky" kind="home" label="Home" title="Home: pick Typing or Math" onclick={() => game.go('hub')} />
-    <h1 class="subj">Math</h1>
-    <div class="pill stars"><Stars n={1} of={1} size={20} /> <b>{stars}</b></div>
-    <div class="pill goal" title="Today's practice goal (typing and math together)">
-      <Ring value={Math.min(1, today / goalMs)} size={30} color="var(--mint)" />
-      <span><b>{Math.floor(today / 60000)}</b>/{p.settings.dailyGoalMin} min today</span>
-    </div>
-    <div class="spacer"></div>
-    <div class="navs">
-      <NavTile size={tile} tone="butter" label="Learn" title="Learn: your buddy shows you each trick" badge={learnedCount || ''} onclick={() => game.openLearn(null, 'map')}>
-        {#snippet art()}<img class="learnart" src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" style:height={tile === 'sm' ? '40px' : '64px'} />{/snippet}
-      </NavTile>
-      <NavTile size={tile} tone="mint" label="Garden" title="Fact Garden: every fact you know" badge={blooms || ''} onclick={() => game.go('garden')}>
-        {#snippet art()}<TileArt kind="garden" size={tile === 'sm' ? 40 : 62} />{/snippet}
-      </NavTile>
-      <NavTile size={tile} tone="lilac" label="Arcade" title="Arcade: quick score games on your facts" onclick={() => game.go('arcade')}>
-        {#snippet art()}<img class="learnart" src="{import.meta.env.BASE_URL}icons/arcade.webp" alt="" style:height={tile === 'sm' ? '40px' : '62px'} />{/snippet}
-      </NavTile>
-      <NavTile size={tile} tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
-        {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={tile === 'sm' ? 40 : 62} round />{/snippet}
-      </NavTile>
-      <NavTile size={tile} tone="lilac" kind="dances" label="Dances" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
-      <NavTile size={tile} tone="butter" kind="stickers" label="Stickers" badge={STICKERS.filter(s => bookView(p).stickers[s.id]).length || ''} onclick={() => game.openStickers('stickers')} />
-      <NavTile size={tile} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (bookView(p).medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
-    </div>
-    <span class="fa"><FancyAntButton variant="round" /></span>
-    <GearButton size={44} />
-  </header>
+<!-- one part of math on the other tabs (and its garden): Learn it, Games, World -->
+{#snippet partLinks(id: string, garden: boolean)}
+  {@const links = linksFor(S, id)}
+  <div class="links big">
+    {#each (['learn', 'games', 'adventure'] as const) as w (w)}
+      {#if links[w]}<button class="lk" style:--wc={WAY[w].color} style:--wt={WAY[w].tint} onclick={() => seeIn(w, id)}><img src="{import.meta.env.BASE_URL}{WAY[w].icon}" alt="" />{w === 'learn' ? 'Learn it' : w === 'games' ? 'Games' : 'World'}</button>{/if}
+    {/each}
+    {#if garden}<button class="lk" style:--wc="#2e9e6e" style:--wt="#e6f8ef" onclick={() => { sfx.click(); game.go('garden'); }}><img src="{import.meta.env.BASE_URL}icons/garden.webp" alt="" />Garden</button>{/if}
+  </div>
+{/snippet}
 
-  {#if showing}
-    <!-- the strands stay in reach: a row of picture tabs that never scrolls away -->
-    <nav class="sbar" aria-label="Which kind of math">
-      <button class="sall" onclick={() => pickStrand(null)} title="All of math"><Icon name="map" /><span>All math</span></button>
-      {#each STRANDS as st (st.op)}
-        <button class="stab" class:on={st.op === op} style:--sc={st.color} onclick={() => pickStrand(st.op)} aria-pressed={st.op === op}>
-          <img src="{import.meta.env.BASE_URL}{st.art}" alt="" /><span>{st.name}</span>
-        </button>
-      {/each}
-      {#each AREA_TABS as a (a.id)}
-        <button class="stab" class:on={a.id === area} style:--sc={a.color} onclick={() => pickArea(a.id)} aria-pressed={a.id === area}>
-          <img src="{import.meta.env.BASE_URL}{a.art}" alt="" /><span>{a.name}</span>
-        </button>
-      {/each}
-      <button class="stab" style:--sc="#f2a63a" onclick={() => { sfx.click(); game.go('playground'); }}>
-        <img src="{import.meta.env.BASE_URL}math/strand-playground.webp" alt="" /><span>Playground</span>
-      </button>
-    </nav>
-  {/if}
+<div class="screen map">
+  <TopBar />
+  <WaysBar subject={S} {way} onpick={pickWay}>
+    {#snippet right()}<span class="pill stars" title="Math stars"><Stars n={1} of={1} size={20} /> <b>{stars}</b></span>{/snippet}
+  </WaysBar>
+  {#if wayCount(S, way)}<ChipRow chips={S.chips} {chip} onpick={pickChip} label="Which kind of math" />{/if}
 
   <div class="scroller scroll" bind:this={scroller}>
-    {#if !showing}
+    {#if way !== 'practice'}
+      <WayPane subject={S} {way} {chip} />
+    {:else if !showing}
       <section class="choose">
         <h1>What kind of math?</h1>
         <div class="cards">
-          {#each STRANDS as st (st.op)}
-            {@const nx = nextMathLesson(m, st.op)}
-            <article class="scard" style:--sc={st.color}>
-              <button class="sart" onclick={() => pickStrand(st.op)} aria-label="Open {st.name}">
-                <img src="{import.meta.env.BASE_URL}{st.art}" alt="" />
-                <span class="sname2"><span class="sg">{opSign(st.op)}</span>{st.name}</span>
+          {#each S.chips as c (c.id)}
+            {@const ar = AREA[c.id as AreaId]}
+            {@const st = ar.op ? STRAND[ar.op] : null}
+            {@const links = linksFor(S, c.id)}
+            <article class="scard" style:--sc={ar.color}>
+              <button class="sart" onclick={() => (st ? pickStrand(st.op) : pickArea(ar.id))} aria-label="Open {st?.name ?? ar.name}">
+                <img src="{import.meta.env.BASE_URL}{st?.art ?? ar.art}" alt="" />
+                <span class="sname2"><span class="sg" class:sgt={!st}>{st ? opSign(st.op) : skillRegionsOf(ar.id)[0]?.chip ?? ''}</span>{st?.name ?? ar.name}</span>
+                <span class="chipname">{c.name}</span>
               </button>
               <div class="sinfo">
-                <p>{st.blurb}</p>
-                <div class="sstat"><span><Stars n={1} of={1} size={15} /><b>{strandStars(st.op)}</b> stars</span><span><b>{strandDone(st.op)}</b>/{regionsOf(st.op).length} islands</span></div>
-                <div class="sact"><button class="btn btn-primary" onclick={() => start(nx)}>Play: {nx.title}</button><button class="btn ghost" onclick={() => pickStrand(st.op)}>Map</button></div>
+                <p>{st?.blurb ?? ar.blurb}</p>
+                {#if st}
+                  {@const nx = nextMathLesson(m, st.op)}
+                  <div class="sstat"><span><Stars n={1} of={1} size={15} /><b>{strandStars(st.op)}</b> stars</span><span><b>{strandDone(st.op)}</b>/{regionsOf(st.op).length} islands</span></div>
+                  <div class="sact"><button class="btn btn-primary" onclick={() => start(nx)}>Play: {nx.title}</button><button class="btn ghost" onclick={() => pickStrand(st.op)}>Map</button></div>
+                {:else}
+                  {@const nx = nextSkillLesson(m, ar.id)}
+                  <div class="sstat"><span><Stars n={1} of={1} size={15} /><b>{areaStars(ar.id)}</b> stars</span><span><b>{areaDone(ar.id)}</b>/{skillRegionsOf(ar.id).length} islands</span><span>Grades {ar.grades}</span></div>
+                  <div class="sact"><button class="btn btn-primary" onclick={() => startSkill(nx)}>Play: {nx.title}</button><button class="btn ghost" onclick={() => pickArea(ar.id)}>Map</button></div>
+                {/if}
+                <!-- the same part on the other tabs: how the pieces of this kind of math fit together -->
+                <div class="links">
+                  {#each (['learn', 'games', 'adventure'] as const) as w (w)}
+                    {#if links[w]}<button class="lk" style:--wc={WAY[w].color} style:--wt={WAY[w].tint} onclick={() => seeIn(w, c.id)} title="{WAY[w].name}: {links[w]!.name}"><img src="{import.meta.env.BASE_URL}{WAY[w].icon}" alt="" />{w === 'learn' ? 'Learn it' : w === 'games' ? 'Games' : 'World'}</button>{/if}
+                  {/each}
+                </div>
               </div>
             </article>
           {/each}
-          {#each AREA_TABS as a (a.id)}
-            {@const nx = nextSkillLesson(m, a.id)}
-            <article class="scard" style:--sc={a.color}>
-              <button class="sart" onclick={() => pickArea(a.id)} aria-label="Open {a.name}">
-                <img src="{import.meta.env.BASE_URL}{a.art}" alt="" />
-                <span class="sname2"><span class="sg sgt">{skillRegionsOf(a.id)[0]?.chip ?? ''}</span>{a.name}</span>
-              </button>
-              <div class="sinfo">
-                <p>{a.blurb}</p>
-                <div class="sstat"><span><Stars n={1} of={1} size={15} /><b>{areaStars(a.id)}</b> stars</span><span><b>{areaDone(a.id)}</b>/{skillRegionsOf(a.id).length} islands</span><span>Grades {a.grades}</span></div>
-                <div class="sact"><button class="btn btn-primary" onclick={() => startSkill(nx)}>Play: {nx.title}</button><button class="btn ghost" onclick={() => pickArea(a.id)}>Map</button></div>
+        </div>
+        <!-- review: the quick mix that skips you ahead, and every fact you know growing in the garden -->
+        <h2 class="revh">Review</h2>
+        <div class="review">
+          <div class="rcard swyk">
+            <span class="pdisc"><Icon name="flag" /></span>
+            <div class="rtx"><b>Show What You Know</b><small>Know some already? A quick mix shows where to start and skips you ahead.</small>
+              <div class="rchips">
+                {#each S.chips as c (c.id)}
+                  {@const pl = placementFor(c.id)}
+                  {#if pl}<button class="rchip" style:--cc={c.color} onclick={() => { const a = AREA[c.id as AreaId]; if (a.op) start(pl as MathLesson); else startSkill(pl as SkillLesson); }}>{c.name}</button>{/if}
+                {/each}
               </div>
-            </article>
-          {/each}
-          <article class="scard" style:--sc="#f2a63a">
-            <button class="sart" onclick={() => { sfx.click(); game.go('playground'); }} aria-label="Open the Number Playground">
-              <img src="{import.meta.env.BASE_URL}math/strand-playground.webp" alt="" />
-              <span class="sname2"><span class="sg"><Icon name="star" size={28} /></span>Number Playground</span>
-            </button>
-            <div class="sinfo">
-              <p>Calm games with no clock: number lines, bubbles that make ten, and building with blocks.</p>
-              <div class="sstat"><span><Stars n={1} of={1} size={15} /><b>{playStars}</b> stars</span></div>
-              <div class="sact"><button class="btn btn-primary" onclick={() => { sfx.click(); game.go('playground'); }}>Play</button></div>
             </div>
-          </article>
+          </div>
+          <button class="rcard garden" onclick={() => { sfx.click(); game.go('garden'); }}>
+            <img src="{import.meta.env.BASE_URL}icons/garden.webp" alt="" />
+            <span class="rtx"><b>Fact Garden</b><small>Every fact you know, growing. {blooms} in bloom. Water the ones that need it.</small></span>
+          </button>
         </div>
         {#if SOON.length}
           <div class="soonrow"><b>Coming next</b>{#each SOON as a (a.id)}<span class="soonchip" style:--sc={a.color}>{a.name}<small>Grades {a.grades}</small></span>{/each}</div>
@@ -238,17 +223,18 @@
           <span class="ptext"><b>{skillPlacement.title}</b><small>Know some {ar.name.toLowerCase()} already? A quick mix shows where to start.</small></span>
         </button>
       {/if}
+      {@render partLinks(chip, false)}
       {#if area === 'fractions'}
         <!-- the fractions arcade game (an Arcade hub can list it too: screen 'pizza') -->
         <button class="placement arcade" onclick={() => { sfx.click(); game.go('pizza'); }}>
           <img src="{import.meta.env.BASE_URL}math/pizza/tile.webp" alt="" />
-          <span class="ptext"><b>Pizza Rush</b><small>Arcade: serve fraction pizzas to hungry Glimmers.{(m.arcade?.['pizza-rush']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['pizza-rush'].best}` : ''}</small></span>
+          <span class="ptext"><b>Pizza Rush</b><small>Game: serve fraction pizzas to hungry Glimmers.{(m.arcade?.['pizza-rush']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['pizza-rush'].best}` : ''}</small></span>
         </button>
       {:else if area === 'decimals'}
         <!-- the money arcade game (the Arcade hub has its cabinet too: screen 'market') -->
         <button class="placement arcade" onclick={() => { sfx.click(); game.go('market'); }}>
           <img src="{import.meta.env.BASE_URL}math/market/tile.webp" alt="" />
-          <span class="ptext"><b>Market Dash</b><small>Arcade: pay and give change to Glimmer shoppers.{(m.arcade?.['market-dash']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['market-dash'].best}` : ''}</small></span>
+          <span class="ptext"><b>Market Dash</b><small>Game: pay and give change to Glimmer shoppers.{(m.arcade?.['market-dash']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['market-dash'].best}` : ''}</small></span>
         </button>
         <!-- the money Learn episodes, at the sky market (open over the map: game.learnOverlay) -->
         <div class="learnrow">
@@ -262,7 +248,7 @@
         <!-- the place value arcade game (its cabinet is in the Arcade too) -->
         <button class="placement arcade" onclick={() => { sfx.click(); import('../math/place/builder').then(b => { b.builderOpen.toy = false; b.builderOpen.from = 'map'; game.go('builder'); }); }}>
           <img src="{import.meta.env.BASE_URL}math/place/ten.webp" alt="" />
-          <span class="ptext"><b>Number Builder</b><small>Arcade: build numbers with hundreds, tens and ones.{(m.arcade?.['number-builder']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['number-builder'].best}` : ''}</small></span>
+          <span class="ptext"><b>Number Builder</b><small>Game: build numbers with hundreds, tens and ones.{(m.arcade?.['number-builder']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['number-builder'].best}` : ''}</small></span>
         </button>
       {/if}
     </section>
@@ -312,6 +298,7 @@
         <span class="pdisc"><Icon name="flag" /></span>
         <span class="ptext"><b>{placement.title}</b><small>{fresh ? 'Know some already? A quick mix shows where to start.' : 'A quick mix of everything. Skips you ahead.'}</small></span>
       </button>
+      {@render partLinks(chip, true)}
     </section>
 
     {#each regions as r, ri (r.id)}
@@ -330,7 +317,7 @@
               {#if ll}
                 {@const got = isLearned(m, ll.id)}
                 <button class="learnchip" class:got onclick={() => watch(ll)} title="Watch the lesson: {ll.title}">
-                  <img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" />
+                  <img src="{import.meta.env.BASE_URL}icons/book.webp" alt="" />
                   <span><small>{#if got}<Icon name="check" size={13} /> Learned{:else}Learn it first{/if}</small><b>{ll.title}</b></span>
                 </button>
               {/if}
@@ -365,15 +352,15 @@
     <div class="endpad"></div>
   </div>
 
-  {#if area}
+  {#if area && way === 'practice'}
   <div class="go">
     <button class="btn btn-primary btn-big" onclick={() => startSkill(nextSkill)}>
       {areaFresh(area) ? 'Start' : 'Keep going'}: {nextSkill.title} <span class="kbd">enter</span>
     </button>
   </div>
-  {:else if op}
+  {:else if op && way === 'practice'}
   <div class="go">
-    {#if learnNext}<button class="btn btn-big learnfirst" onclick={() => watch(learnNext!)}><img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" />Learn it first</button>{/if}
+    {#if learnNext}<button class="btn btn-big learnfirst" onclick={() => watch(learnNext!)}><img src="{import.meta.env.BASE_URL}icons/book.webp" alt="" />Learn it first</button>{/if}
     <button class="btn btn-primary btn-big" onclick={() => start(next)}>
       {fresh ? 'Start' : 'Keep going'}: {next.title} <span class="kbd">enter</span>
     </button>
@@ -382,13 +369,6 @@
 </div>
 
 <style>
-  .sbar { flex: none; display: flex; gap: 8px; padding: 8px 16px; background: rgba(255, 255, 255, .9); border-bottom: var(--panel-border); overflow-x: auto; z-index: 4; scrollbar-width: none; }
-  .sbar::-webkit-scrollbar { display: none; }
-  .sall, .stab { flex: none; display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; border-radius: 16px; padding: 4px 12px 4px 4px; background: var(--bg2); font: 600 17px var(--font-ui); color: var(--ink2); transition: transform .12s, box-shadow .12s; }
-  .sall { padding: 8px 14px; }
-  .stab img { width: 74px; height: 44px; object-fit: cover; border-radius: 12px; }
-  .stab:hover, .sall:hover { transform: translateY(-2px); }
-  .stab.on { background: var(--sc); color: #fff; box-shadow: 0 4px 0 color-mix(in srgb, var(--sc) 70%, #000); }
   .choose { max-width: 1280px; margin: 0 auto; padding: 4px 0 30px; }
   .choose h1 { font-size: 34px; margin: 4px 0 14px; text-align: center; }
   .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
@@ -415,35 +395,33 @@
   .movenote { text-align: center; font: 600 15px var(--font-body); color: var(--muted); margin: 16px 0 0; }
   .mv { display: inline-flex; align-items: center; gap: 3px; font: 700 11px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 1px 7px 1px 3px; margin-top: 2px; }
   @media (max-width: 1000px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 640px) { .cards { grid-template-columns: 1fr; gap: 12px; } .choose h1 { font-size: 24px; margin-bottom: 8px; } .sname2 { font-size: 21px; } .sart { aspect-ratio: 16 / 7; } .stab img { width: 52px; height: 34px; } .stab { font-size: 14px; } .sbar { padding: 6px 8px; gap: 5px; } }
-  .strands { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; margin-bottom: 4px; }
-  .strands button { display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; padding: 8px 16px 8px 8px; border-radius: 999px; background: rgba(255, 255, 255, .85); box-shadow: var(--shadow-sm); font: 600 18px var(--font-ui); color: var(--ink2); transition: transform .12s; }
-  .strands button:hover { transform: translateY(-2px); }
-  .strands button.on { background: var(--sc); color: #fff; box-shadow: 0 4px 0 color-mix(in srgb, var(--sc) 70%, #000); }
-  .ssign { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 600 26px/1 var(--font-ui); background: var(--sc); color: #fff; }
-  .strands button.on .ssign { background: rgba(255, 255, 255, .25); }
-  .strands .pgbtn { --sc: #f2a63a; margin-left: auto; background: linear-gradient(135deg, #fff7e0, #ffe9f3); }
-  @media (max-width: 760px) { .strands { gap: 5px; } .strands button { padding: 5px 9px 5px 5px; font-size: 13px; gap: 4px; } .ssign { width: 26px; height: 26px; font-size: 20px; } }
-  .subj { font-size: 30px; margin: 0 4px; color: #d8641c; }
-  @media (max-width: 760px) { .subj { font-size: 22px; } }
+  @media (max-width: 640px) { .cards { grid-template-columns: 1fr; gap: 12px; } .choose h1 { font-size: 24px; margin-bottom: 8px; } .sname2 { font-size: 21px; } .sart { aspect-ratio: 16 / 7; } }
   .map { display: flex; flex-direction: column; background: linear-gradient(#cfe9fa, #eaf6ff 60%, #f3f9ff); }
-  .bar { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; padding: 10px 18px; background: rgba(255, 255, 255, .92); border-bottom: var(--panel-border); box-shadow: 0 6px 20px -16px rgba(60, 40, 110, .4); z-index: 5; }
-  .me { display: flex; align-items: center; gap: 8px; background: none; border: 0; cursor: pointer; padding: 0 8px 0 0; border-radius: 16px; }
-  .me:hover { background: var(--bg2); }
-  .nm { font: 600 22px var(--font-ui); }
-  .pill { display: flex; align-items: center; gap: 7px; background: var(--bg2); padding: 6px 12px; border-radius: 999px; font: 700 15px var(--font-body); color: var(--ink2); white-space: nowrap; }
-  .pill b { font: 600 20px var(--font-ui); color: var(--ink); }
-  .spacer { flex: 1; }
-  .navs { display: flex; gap: 10px; }
-  .fa { display: contents; }
-  /* laptops: seven tiles, the pills and the menu, music and gear buttons share one row */
-  @media (min-width: 761px) and (max-width: 1599px) {
-    .bar :global(.tile.md) { min-width: 88px; padding: 8px 8px; }
-    .navs { gap: 8px; }
-    .fa { display: none; }
-  }
-  @media (min-width: 761px) and (max-width: 1379px) { .pill.goal span { display: none; } }
-  .scroller { flex: 1; min-height: 0; padding: 18px 22px 120px; display: flex; flex-direction: column; gap: 22px; }
+  .pill { display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, .9); padding: 5px 12px; border-radius: 999px; font: 700 15px var(--font-body); color: var(--ink2); white-space: nowrap; }
+  .pill b { font: 600 19px var(--font-ui); color: var(--ink); }
+  .scroller { flex: 1; min-height: 0; padding: 8px 22px 120px; display: flex; flex-direction: column; gap: 22px; }
+  /* a part's links to the other tabs (Learn it, Games, World), on its card and on its map */
+  .links { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
+  .lk { display: inline-flex; align-items: center; gap: 5px; border: 0; cursor: pointer; padding: 3px 11px 3px 4px; border-radius: 999px; background: var(--wt); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--wc) 35%, #fff); font: 600 14.5px var(--font-ui); color: color-mix(in srgb, var(--wc) 70%, #000); transition: transform .12s; }
+  .lk:hover { transform: translateY(-2px); }
+  .lk img { width: 26px; height: 26px; object-fit: contain; }
+  .links.big { flex: 1 1 100%; gap: 8px; }
+  .links.big .lk { font-size: 16px; padding: 4px 14px 4px 5px; background: #fff; }
+  .links.big .lk img { width: 32px; height: 32px; }
+  .chipname { position: absolute; top: 10px; left: 10px; font: 800 12px var(--font-body); letter-spacing: .04em; color: #fff; background: var(--sc); padding: 3px 10px; border-radius: 999px; box-shadow: 0 2px 6px rgba(0, 0, 0, .25); }
+  .revh { margin: 26px 0 10px; font-size: 26px; text-align: center; }
+  .review { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; }
+  .rcard { display: flex; align-items: center; gap: 14px; text-align: left; background: #fff; border: 0; border-radius: 24px; padding: 14px 18px; box-shadow: 0 14px 30px -22px rgba(60, 40, 110, .55), 0 0 0 4px #fff; font: inherit; }
+  button.rcard { cursor: pointer; transition: transform .15s; }
+  button.rcard:hover { transform: translateY(-3px); }
+  .rcard.garden img { width: 76px; height: 76px; object-fit: contain; flex: none; }
+  .rtx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .rtx b { font: 600 22px var(--font-ui); color: var(--ink); }
+  .rtx small { font: 600 14.5px/1.35 var(--font-body); color: var(--muted); }
+  .rchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .rchip { border: 0; cursor: pointer; padding: 5px 12px; border-radius: 999px; background: color-mix(in srgb, var(--cc) 14%, #fff); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cc) 40%, #fff); font: 600 15px var(--font-ui); color: color-mix(in srgb, var(--cc) 75%, #000); }
+  .rchip:hover { background: var(--cc); color: #fff; }
+  @media (max-width: 900px) { .review { grid-template-columns: 1fr; } }
   .intro { flex: none; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
   .hello { flex: 1 1 320px; }
   .hello h1 { font-size: clamp(30px, 4vw, 42px); margin: 0; }
@@ -493,7 +471,6 @@
   .go { position: absolute; bottom: 22px; left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100vw - 32px); z-index: 6; display: flex; gap: 10px; justify-content: center; }
   .learnfirst { display: flex; align-items: center; gap: 8px; background: linear-gradient(#fffaf0, #ffe9b8); color: #6b4300; box-shadow: 0 5px 0 #e0b45c; }
   .learnfirst img { width: 34px; height: 40px; object-fit: contain; margin: -6px 0; }
-  .learnart { width: auto; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(60, 40, 10, .25)); }
   .learns { flex: 1; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; min-width: 0; }
   .learnchip { pointer-events: auto; display: flex; align-items: center; gap: 6px; border: 0; cursor: pointer; text-align: left; background: rgba(255, 249, 232, .96); border-radius: 16px; padding: 4px 12px 4px 4px; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); transition: transform .15s; }
   .learnchip:hover { transform: translateY(-2px); }
@@ -506,12 +483,8 @@
   .go .kbd { background: rgba(255, 255, 255, .25); border-color: rgba(255, 255, 255, .4); color: inherit; font-size: 11px; height: 22px; }
 
   @media (max-width: 760px) {
-    .bar { padding: 8px 12px; gap: 8px; }
-    .nm { font-size: 18px; }
-    .navs :global(.tile .lbl) { font-size: 12px; }
-    .navs { order: 10; width: 100%; justify-content: space-between; }
-    .navs :global(.tile) { flex: 1 1 0; min-width: 0; padding: 4px 2px 6px; }
-    .scroller { padding: 12px 12px 110px; gap: 16px; }
+    .scroller { padding: 6px 12px 110px; gap: 16px; }
+    .revh { font-size: 21px; margin-top: 18px; }
     .rname h2 { font-size: 19px; }
     .rname p { display: none; }
     .tbl { min-width: 42px; height: 42px; padding: 0 7px; font-size: 16px; border-radius: 12px; }
@@ -524,7 +497,6 @@
     .go .kbd { display: none; }
     .go .btn { font-size: 18px; padding: 12px 18px; white-space: normal; }
   }
-  @media (max-width: 760px) { .pill.goal span { display: none; } }
   @media (max-width: 760px) {
     /* phones: just the little easel (yellow ring: still to learn, green: learned) */
     .learnchip { padding: 4px; border-radius: 14px; }
@@ -535,17 +507,4 @@
     .go { gap: 6px; }
   }
 
-  /* phones: two header rows, as on the home page and the typing map: Home, the title, your stars and the gear
-     on top, then the picture tiles with their words (one row of eight ran off a 360 or 390 phone) */
-  @media (max-width: 760px) {
-    .bar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px 8px; }
-    .bar .pill.goal, .bar > :global(button.round) { display: none; }
-    .bar .pill.stars { padding: 4px 10px; }
-    .bar > :global(.tile) { flex: none; padding: 2px; }
-    .bar > :global(.tile .lbl) { display: none; }
-    .subj { font-size: 22px; margin: 0 0 0 2px; }
-    .navs { gap: 4px; }
-    .navs :global(.tile) { flex-direction: column; gap: 1px; padding: 4px 2px 5px; }
-    .navs :global(.tile .lbl) { font-size: 12.5px; white-space: nowrap; }
-  }
 </style>

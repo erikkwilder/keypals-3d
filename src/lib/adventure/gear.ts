@@ -42,7 +42,7 @@ export type GearItem = {
 
 export const ITEMS: GearItem[] = [
   // the Playground set: the first things to save up for
-  { id: 'bubble_wand', slot: 'hand', name: 'Bubble Wand', rarity: 'common', kind: 'bubble', set: 'playground', price: 90, text: 'Every 4th right answer blows a bubble that stops the next rain or zap.' },
+  { id: 'bubble_wand', slot: 'hand', name: 'Bubble Wand', rarity: 'common', kind: 'bubble', set: 'playground', price: 90, text: 'Every 4th right answer blows a bubble that stops the next rain or zap. 2 shields a battle at most.' },
   { id: 'hero_cape', slot: 'back', name: 'Hero Cape', rarity: 'uncommon', kind: 'cape', set: 'playground', price: 150, text: 'Rain and zaps you don\'t block only take half as much energy.' },
   { id: 'spring_shoes', slot: 'feet', name: 'Spring Shoes', rarity: 'common', kind: 'spring', set: 'playground', price: 80, text: 'Bouncy! 4 more energy in every battle.' },
   // the Sky set
@@ -58,7 +58,7 @@ export const ITEM: Record<string, GearItem> = Object.fromEntries(ITEMS.map(i => 
 
 export const SETS: Record<SetId, { name: string; kind: SetKind; text: string }> = {
   playground: { name: 'Playground set', kind: 'playset', text: 'Every 5th right answer gives 3 energy back.' },
-  sky: { name: 'Sky set', kind: 'skyset', text: 'The first rain or zap in a battle floats right past you.' },
+  sky: { name: 'Sky set', kind: 'skyset', text: 'A rain or zap in every battle floats right past you. 2 shields a battle at most.' },
   champion: { name: 'Champion set', kind: 'champset', text: 'Fast right answers give 1 energy back too.' },
 };
 export const SET_IDS = Object.keys(SETS) as SetId[];
@@ -194,7 +194,7 @@ export function startPerks(kit: KitKind[]): { item: string; what: string; did: s
   const out: { item: string; what: string; did: string }[] = [];
   if (kit.includes('spring')) out.push({ item: 'spring_shoes', what: 'Spring Shoes', did: '+4 energy' });
   if (kit.includes('wings')) out.push({ item: 'fairy_wings', what: 'Fairy Wings', did: '2 Finale stars' });
-  if (kit.includes('skyset')) out.push({ item: 'sky_kite', what: 'Sky set', did: 'first rain floats past' });
+  if (kit.includes('skyset')) out.push({ item: 'sky_kite', what: 'Sky set', did: 'a rain floats past' });
   return out;
 }
 /** The item picture for a gear power named in a battle event. */

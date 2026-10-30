@@ -2,8 +2,9 @@
   // A skill trip in 3D (fractions and every area after): the question at the top (numbers, fractions,
   // painted pictures), your buddy on the course, and the right input at the bottom: the number pad, the
   // fraction pad, big choices, a number line or a grid. It runs exactly like a facts trip: every answer
-  // moves the buddy on, quick right answers climb the speed steps, a new kind of question comes with its
-  // trick first, a miss shows the answer and its trick and comes back a few questions later. No clock.
+  // moves the buddy on (the last one over the finish line), quick right answers climb the speed steps, a
+  // new kind of question comes with its trick first, a miss shows in red for a moment, then the answer and
+  // its trick, and comes back a few questions later. No clock.
   import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
@@ -28,10 +29,11 @@
   import { SkillTripPicker, type SkillPick } from '../math/skills/picker';
   import { applySkillRun, type SkillResult } from '../math/skills/progress';
   import { answerParts, shortText } from '../math/skills/text';
-  import { asChoices, choiceChance, CHOICE_RIGHT } from '../math/skills/choices';
+  import { asChoices, choiceChance, typedAs, CHOICE_RIGHT } from '../math/skills/choices';
   import type { Answer } from '../math/skills/types';
   import SkillPrompt from '../math/skills/ui/SkillPrompt.svelte';
   import SkillInput from '../math/skills/ui/SkillInput.svelte';
+  import { WRONG_MS } from '../math/ui/NumPad.svelte';
   import RideLadder from '../ui/RideLadder.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -61,7 +63,8 @@
   const starAt = [Math.ceil(goal * 0.3), Math.ceil(goal * 0.6), goal];
   const buddy = FRIEND[profile.buddy];
   const STRETCH = STRIDE[lesson.move];
-  const stretches = picker.length + 2;
+  // one stretch per question to the finish line (a miss brought back shares the way out a little finer)
+  const stretches = picker.length;
   // the Meet card's example: the first new kind of question, gently
   // (a seeded source, never a constant one: generators draw again until two numbers differ)
   const example = lesson.learn[0] ? SKILL[lesson.learn[0]].make(mulberry32(37), SKILL[lesson.learn[0]].subs[Math.min(2, SKILL[lesson.learn[0]].subs.length - 1)].id, 1) : null;
@@ -74,7 +77,7 @@
   let mode = $state<'ask' | 'learn' | 'fix'>('ask');
   let feedback = $state<'right' | 'fast' | 'wrong' | null>(null);
   let marked = $state<{ id: string; ok: boolean } | null>(null);
-  let fill = $state<{ kind: 'number'; text: string } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null } | null>(null);
+  let fill = $state<{ kind: 'number'; text: string; bad?: boolean } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null; bad?: boolean } | null>(null);
   let shake = $state(0);
   let tier = $state(0), best = $state(0), progress = $state(0), trip = $state(0);
   let liveFpm = $state(0), liveAcc = $state(100), streak = $state(0);
@@ -105,12 +108,12 @@
   function begin() { phase = 'play'; startMusic(lesson.world); sfx.whoosh(); nextQ(); }
   function nextQ() {
     const pk = picker.next();
-    trip = picker.progress;
     if (!pk) { finish(); return; }
     const stage = m.skills?.[pk.item.key]?.stage ?? 0;
     const ch = mix() < choiceChance(stage, lesson.kind) ? asChoices(pk.item, mix) : null;
     choiced = !!ch;
     pick = ch ? { ...pk, item: ch } : pk; feedback = null; marked = null; firstAt = null; busy = false;
+    clearTimeout(markTimer);
     shownAt = performance.now(); meter.shown(shownAt);
     mode = pk.reason === 'new' ? 'learn' : 'ask';
     if (mode === 'learn') say(`New one! ${pk.item.trick?.name ?? SKILL[pk.item.skill].name}.`, 1800);
@@ -118,12 +121,14 @@
   function say(msg: string, ms = 1500) { bubble = msg; clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => (bubble = null), ms); }
   function first() { const t = performance.now(); lastInput = t; if (firstAt === null) firstAt = t; unlockAudio(); }
 
-  function answer(a: Answer) {
+  let markTimer: ReturnType<typeof setTimeout> | undefined;
+  /** An answer: true if it's right. A wrong one stays a moment (the input shows it red, then clears it). */
+  function answer(a: Answer): boolean | undefined {
     if (phase !== 'play' || !item || !skill || busy) return;
     const t = performance.now();
     // a question asked as choices: the right choice (its own check might look for a typed answer)
     const ok = choiced ? a.kind === 'choice' && a.id === CHOICE_RIGHT : skill.check(item, a);
-    if (a.kind === 'choice') marked = { id: a.id, ok };
+    if (a.kind === 'choice') { marked = { id: a.id, ok }; clearTimeout(markTimer); if (!ok) markTimer = setTimeout(() => { marked = null; }, WRONG_MS); }
     const base = { id: item.id, key: item.key, label: shortText(item) };
     if (mode === 'ask') {
       const thinkMs = (firstAt ?? t) - shownAt;
@@ -141,9 +146,7 @@
         mode = 'fix'; feedback = 'wrong'; shake++; streak = 0;
         sfx.miss(); scene?.key(false, steps);
         say(['Nearly! Have a look.', 'Not quite. Here it is.', "That's a tricky one!"][results.length % 3], 1600);
-        // a fresh try: clear what was typed, keep the choice marked a moment
-        later(700, () => { marked = null; });
-        fill = item.input === 'number' ? { kind: 'number', text: '' } : item.input === 'fraction' ? { kind: 'fraction', n: '', d: '', focus: 'n' } : null;
+        // a fresh try: what was typed (or the choice) shows red a moment, then clears
         firstAt = null;
       }
     } else if (ok) {
@@ -153,18 +156,22 @@
       stepOn(false, fix);
     } else {
       shake++; sfx.slip();
-      later(500, () => { marked = null; });
-      fill = item.input === 'number' ? { kind: 'number', text: '' } : item.input === 'fraction' ? { kind: 'fraction', n: '', d: '', focus: 'n' } : null;
     }
+    return ok;
   }
   function stepOn(quick: boolean, fixed = false) {
     busy = true; steps++;
-    scene?.key(true, steps);
+    // its share of the rest of the way, the way the buddy goes (a miss coming back makes the trip longer)
+    const left = picker.left;
+    trip = left ? trip + (1 - trip) / (left + 1) : 1;
+    scene?.key(true, steps, left);
     feedback = quick ? 'fast' : 'right';
     if (quick) scene?.hop();
     sfx.key(quick ? 'RI' : 'LI');
     if (!fixed && mode === 'ask') { streak++; if (streak === 5 || streak === 10 || streak === 15) streakPop = { text: `${streak} in a row!`, n: (streakPop?.n ?? 0) + 1 }; }
-    later(fixed ? 520 : 420, nextQ);
+    // the last answer carries the buddy over the finish line straight away
+    if (picker.done) finish();
+    else later(fixed ? 520 : 420, nextQ);
   }
   function onRide(ev: RideEvent) {
     tier = ev.tier; best = meter.best;
@@ -177,7 +184,8 @@
   let keepScene = false;
   function finish() {
     if (phase === 'done') return;
-    phase = 'done'; pick = null;
+    // (the last answer stays up, green, while the buddy dashes over the line)
+    phase = 'done'; trip = 1;
     const stats = tripStats(results);
     const finished = picker.done;
     const stars = mathStars(stats, goal, finished);
@@ -233,7 +241,7 @@
   if (import.meta.env.DEV) (window as unknown as { __skill: object }).__skill = { item: () => item, mode: () => mode, phase: () => phase, answer: (a: Answer) => answer(a), begin: () => begin() };
 
   onMount(() => {
-    RunScene.create({ buddy: profile.buddy, outfit: outfitOf(profile), dance: danceOf(profile), length: stretches, region: lesson.world, move: lesson.move, keyLen: STRETCH, pace: { window: 18, full: 6, stop: 12, lead: 0.6 } })
+    RunScene.create({ buddy: profile.buddy, outfit: outfitOf(profile), dance: danceOf(profile), length: stretches, region: lesson.world, move: lesson.move, keyLen: STRETCH, pace: { window: 18, full: 6, stop: 12, lead: 0.3 } })
       .then(sc => { scene = sc; stage.use(sc); updateView(); loading = false; })
       .catch(err => { console.error(err); loading = false; });
     game.quickStart = false;
@@ -246,7 +254,7 @@
   onDestroy(() => {
     if (!keepScene) stage.use(null);
     window.removeEventListener('keydown', onKey); window.removeEventListener('blur', onBlur);
-    cancelAnimationFrame(raf); timers.forEach(clearTimeout); clearTimeout(bannerTimer); clearTimeout(bubbleTimer);
+    cancelAnimationFrame(raf); timers.forEach(clearTimeout); clearTimeout(bannerTimer); clearTimeout(bubbleTimer); clearTimeout(markTimer);
   });
 </script>
 
@@ -289,7 +297,7 @@
         </div>
         <p>{mode === 'fix' ? item.explain : (item.trick?.say ?? item.explain)}</p>
         {#if mode === 'learn'}<p class="small">{item.explain}</p>{/if}
-        <div class="typeit">{item.input === 'choice' ? 'Tap the right one to go on' : 'Put in the answer to go on'}</div>
+        <div class="typeit">{item.input !== 'choice' ? 'Put in the answer to go on' : typedAs(item) ? 'Tap it or type it to go on' : 'Tap the right one to go on'}</div>
       </div>
     {/if}
 

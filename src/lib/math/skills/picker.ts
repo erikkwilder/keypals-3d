@@ -111,6 +111,20 @@ export class SkillTripPicker {
     return this.planned >= this.plan.length && (this.retries.length === 0 || this.served.length >= this.plan.length + MAX_EXTRA);
   }
   get progress(): number { return Math.min(1, this.planned / Math.max(1, this.plan.length)); }
+  /** How many more questions this trip asks after the one showing: the rest of the plan and the misses waiting
+   *  to come back (as many as the trip runs on for). It grows when a miss is to come back. */
+  get left(): number {
+    const ats = this.retries.map(r => r.at).sort((a, b) => a - b);
+    let pos = this.served.length, planned = this.planned, n = 0;
+    // next() without the questions: a waiting miss when its turn comes, else the plan, else the misses left
+    while (!(planned >= this.plan.length && (!ats.length || pos >= this.plan.length + MAX_EXTRA))) {
+      if (ats.length && ats[0] <= pos) ats.shift();
+      else if (planned < this.plan.length) planned++;
+      else ats.shift();
+      pos++; n++;
+    }
+    return n;
+  }
 
   next(): SkillPick | null {
     if (this.done) return (this.current = null);

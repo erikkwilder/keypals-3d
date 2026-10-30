@@ -91,6 +91,8 @@ const ALL_STICKERS: StickerDef[] = [
   S({ id: 'comeback', name: 'Never Give Up', desc: 'Shake off three slips and finish strong.', rarity: 'common', shape: 'heart', bg: 'waves', hue: 345, hue2: 200, pose: 'cheer', prop: 'heart', check: p => p.comebacks >= 1 }),
   S({ id: 'comeback-5', name: 'Bounce Back', desc: 'Make five comebacks.', rarity: 'rare', shape: 'heart', bg: 'waves', hue: 320, hue2: 52, pose: 'proud', prop: 'heart', number: '5', check: p => p.comebacks >= 5 }),
   S({ id: 'sleepy', name: 'Power Nap', desc: 'Take a break mid-lesson, then finish it.', rarity: 'common', shape: 'cloud', bg: 'stars', hue: 240, hue2: 268, pose: 'sleep', check: p => p.naps >= 1 }),
+  // the secret word: given the moment it's typed on a map (fun/secret.ts), never by a check after a game
+  S({ id: 'secret-word', name: 'Secret Word', desc: "Type the secret word on a map. Hint: it's the name of this game!", rarity: 'rare', shape: 'burst', bg: 'stars', hue: 280, hue2: 200, pose: 'wink', prop: 'key', check: () => false }),
 ];
 
 // Pared down (2026-10-28) from 55 to 35 a buddy: the ones that repeated another sticker, a medal or a

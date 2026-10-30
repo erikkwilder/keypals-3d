@@ -1,8 +1,10 @@
 <script lang="ts">
   // The menu that goes anywhere in the game, opened from the compass on every screen. It's also the
   // scorecard: every place has its own picture and a line of what you've done there, and the strip at
-  // the top adds up the big things. Three groups: Learn and practice, Play, My stuff; then Home, the
-  // player, Grown-ups, Settings and where your progress is saved.
+  // the top adds up the big things. Three groups, the same shape as Home: Subjects (each with its four
+  // ways to play: Learn, Practice, Games, Adventure, from subjects.ts), Play anywhere, and My stuff;
+  // then Home, the player, Grown-ups, Settings and where your progress is saved. It scrolls when the
+  // screen is short.
   import { onDestroy, onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { game } from '../state/game.svelte';
@@ -21,7 +23,8 @@
   import { CATALOG, ownsItem } from '../adventure/wardrobe';
   import { mathOf, mathStarsTotal, ALL_GARDEN_IDS, stageCounts } from '../math/progress';
   import { MATH_LESSONS } from '../math/course';
-  import { LESSONS as TRICKS } from '../math/learn';
+  import { ANYWHERE, SUBJECTS, WAYS, wayCount, type WayId } from '../subjects';
+  import { openAnywhere, openSubject, wayOf } from '../nav';
   import { arcadeOf, arcadeStars } from '../arcade/arcade';
   import { dropOf } from '../drop/save';
   import { FRIEND } from '../art/cast';
@@ -45,9 +48,10 @@
   const typingStars = $derived(totalStars(p));
   const mathStars = $derived(mathStarsTotal(m));
   const mathDone = $derived(Object.values(m.lessons).filter(r => r.stars > 0).length);
-  const tricks = $derived((m.learned ?? []).length);
   const blooms = $derived(stageCounts(m, ALL_GARDEN_IDS)[3]);
   const playStars = $derived(Object.values(m.play ?? {}).reduce((t, r) => t + (r?.stars ?? []).reduce((x, y) => x + (y ?? 0), 0), 0));
+  // the subject page showing now (to mark where you are)
+  const hereSubject = $derived(game.screen === 'map' ? game.homeGame : null);
   const arcStars = $derived(arcadeStars(p));
   const arcBest = $derived(Math.max(0, ...Object.values(arcadeOf(p)).map(r => r?.best ?? 0)));
   const found = $derived(Object.keys(a.glimmers).length);
@@ -69,22 +73,19 @@
   const allStars = $derived(typingStars + mathStars + playStars + arcStars);
 
   type Tile = { id: string; name: string; line: string; img?: string; buddy?: boolean; face?: string; hot?: boolean; go: () => void };
-  const learn = $derived<Tile[]>([
-    { id: 'typing', name: 'Typing', img: 'game/icon-typing.webp', line: `${typingStars} stars · ${typingDone}/${course.length} lessons`, go: () => { game.setHome('typing'); game.go('map'); } },
-    { id: 'math', name: 'Math', img: 'game/icon-math.webp', line: `${mathStars} stars · ${mathDone}/${MATH_LESSONS.length} trips`, go: () => { game.setHome('math'); game.mathOp = null; game.mathArea = null; game.go('map'); } },
-    { id: 'learn', name: 'Learn', img: 'icons/book.webp', line: `${tricks} of ${TRICKS.length} tricks learned`, go: () => game.openLearn(null, game.screen === 'learn' ? 'hub' : game.screen) },
-    { id: 'garden', name: 'Fact Garden', img: 'icons/garden.webp', line: `${blooms} flowers in bloom`, go: () => { game.setHome('math'); game.go('garden'); } },
-    { id: 'playground', name: 'Playground', img: 'icons/line.webp', line: playStars ? `${playStars} stars` : 'Number games, no clock', go: () => { game.setHome('math'); game.go('playground'); } },
-  ]);
-  const playTiles = $derived<Tile[]>([
-    { id: 'arcade', name: 'Arcade', img: 'icons/arcade.webp', line: arcBest ? `${arcStars} stars · best ${fmt(arcBest)}` : 'Quick score games', go: () => game.go('arcade') },
-    { id: 'adventure', name: 'Adventure', img: 'game/icon-grump.webp', line: `${found}/${GLIMMERS.length} Glimmers · ${world}`, go: () => game.go('adventure') },
-    { id: 'drop', name: 'Glimmer Drop', img: 'drop/tile.webp', line: drop.best ? `Best ${fmt(drop.best)} · uses play time` : 'Just for fun · uses play time', go: () => game.go('drop') },
-    ...(versus ? [
-      { id: 'duel', name: 'Family Duel', img: 'game/tile-duel.webp', line: duels.played ? `${duels.won} won of ${duels.played}` : 'Two players, one screen', go: () => { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); } },
-      { id: 'rivals', name: 'Rival Ghosts', img: 'game/tile-rivals.webp', line: league, go: () => game.go('rivals') },
-    ] : []),
-  ]);
+  // each subject: its stars and how far along, then its four ways as little picture links
+  const subjects = $derived(SUBJECTS.map(sj => ({
+    s: sj,
+    line: sj.id === 'typing' ? `${typingStars} stars · ${typingDone}/${course.length} lessons` : sj.id === 'math' ? `${mathStars} stars · ${mathDone}/${MATH_LESSONS.length} trips · ${blooms} in bloom` : '',
+  })));
+  function anyLine(id: string): string {
+    if (id === 'arcade') return arcBest ? `${arcStars} stars · best ${fmt(arcBest)}` : 'Every game in one place';
+    if (id === 'adventure') return `${found}/${GLIMMERS.length} Glimmers · ${world}`;
+    if (id === 'drop') return drop.best ? `Best ${fmt(drop.best)} · uses play time` : 'Just for fun · uses play time';
+    if (id === 'duel') return duels.played ? `${duels.won} won of ${duels.played}` : 'Two players, one screen';
+    return league;
+  }
+  const anywhere = $derived(ANYWHERE.filter(x => !x.versus || versus));
   const stuff = $derived<Tile[]>([
     { id: 'closet', name: 'Keypals and Wardrobe', buddy: true, line: `${buddies} buddies · ${owned} things to wear`, go: () => game.openCloset('outfits') },
     { id: 'shop', name: 'Shop', img: 'game/icon-shell.webp', line: `${fmt(a.shells)} shells to spend`, go: () => game.openShop() },
@@ -94,13 +95,9 @@
     { id: 'eggs', name: 'Eggs', img: `game/egg-${a.incubator.find(e => e)?.rarity ?? 'rare'}.webp`, line: eggsReady ? `${eggsReady} ready to hatch!` : eggsAll ? `${eggsAll} warming up` : 'Practice hatches eggs', hot: eggsReady > 0, go: () => game.go('eggs') },
     { id: 'team', name: 'Glimmers and Team', face: team[0] ? `game/glimmers/face/${team[0].id}${team[0].evolved ? '-evo' : ''}.webp` : 'game/glimmers/face/puddlepup.webp', line: team.length ? `${team.length} on your team · ${found} found` : `${found} found`, go: () => game.go('glimmers') },
   ]);
-  const groups = $derived([
-    { title: 'Learn and practice', tone: 'learn', tiles: learn },
-    { title: 'Play', tone: 'play', tiles: playTiles },
-    { title: 'My stuff', tone: 'stuff', tiles: stuff },
-  ]);
-
   function go(t: Tile) { sfx.click(); game.closeMenu(); t.go(); }
+  function goWay(id: string, w: WayId) { sfx.click(); game.closeMenu(); openSubject(id, w); }
+  function goAny(id: (typeof ANYWHERE)[number]['id']) { game.closeMenu(); openAnywhere(id); }
   function close() { sfx.click(); game.closeMenu(); }
   function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); } }
   onMount(() => { sfx.pop(); window.addEventListener('keydown', onKey, true); });
@@ -128,24 +125,54 @@
     </div>
 
     <div class="groups">
-      {#each groups as g (g.title)}
-        <section class="grp {g.tone}">
-          <h3>{g.title}</h3>
-          <div class="tiles">
-            {#each g.tiles as t (t.id)}
-              <button class="tile" class:here={game.screen === t.id || (t.id === 'closet' && game.screen === 'closet')} class:hot={t.hot} onclick={() => go(t)}>
-                <span class="pic">
-                  {#if t.buddy}<Critter friend={p.buddy} look={p.settings.look} accessory={outfitOf(p)} size={56} round />
-                  {:else if t.face}<img class="round" src="{base}{t.face}" alt="" />
-                  {:else}<img src="{base}{t.img}" alt="" />{/if}
-                </span>
-                <span class="txt"><b>{t.name}</b><small>{t.line}</small></span>
+      <section class="grp learn">
+        <h3>Subjects</h3>
+        <div class="tiles">
+          {#each subjects as x (x.s.id)}
+            <div class="subj" class:here={hereSubject === x.s.id}>
+              <button class="tile" onclick={() => goWay(x.s.id, wayOf(x.s.id))}>
+                <span class="pic"><img src="{base}{x.s.icon}" alt="" /></span>
+                <span class="txt"><b>{x.s.name}</b><small>{x.line}</small></span>
               </button>
-            {/each}
-          </div>
-          {#if g.tone === 'play'}<p class="note">{playText}. Practice earns more.</p>{/if}
-        </section>
-      {/each}
+              <div class="ways">
+                {#each WAYS as w (w.id)}
+                  {@const n = wayCount(x.s, w.id)}
+                  <button class="way" class:soon={!n} style:--wc={w.color} style:--wt={w.tint} onclick={() => goWay(x.s.id, w.id)} title="{x.s.name}: {w.name}{n ? '' : ', coming soon'}">
+                    <img src="{base}{w.icon}" alt="" /><span>{w.name}</span>
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/each}
+        </div>
+      </section>
+      <section class="grp play">
+        <h3>Play anywhere</h3>
+        <div class="tiles">
+          {#each anywhere as x (x.id)}
+            <button class="tile" class:here={game.screen === x.id} onclick={() => goAny(x.id)}>
+              <span class="pic"><img src="{base}{x.icon}" alt="" /></span>
+              <span class="txt"><b>{x.name}</b><small>{anyLine(x.id)}</small></span>
+            </button>
+          {/each}
+        </div>
+        <p class="note">{playText}. Practice earns more.</p>
+      </section>
+      <section class="grp stuff">
+        <h3>My stuff</h3>
+        <div class="tiles">
+          {#each stuff as t (t.id)}
+            <button class="tile" class:here={game.screen === t.id} class:hot={t.hot} onclick={() => go(t)}>
+              <span class="pic">
+                {#if t.buddy}<Critter friend={p.buddy} look={p.settings.look} accessory={outfitOf(p)} size={56} round />
+                {:else if t.face}<img class="round" src="{base}{t.face}" alt="" />
+                {:else}<img src="{base}{t.img}" alt="" />{/if}
+              </span>
+              <span class="txt"><b>{t.name}</b><small>{t.line}</small></span>
+            </button>
+          {/each}
+        </div>
+      </section>
     </div>
 
     <footer class="bottom">
@@ -161,7 +188,8 @@
 
 <style>
   .gm { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 14px; background: rgba(36, 24, 70, .45); backdrop-filter: blur(6px); }
-  .panel { width: min(1180px, 100%); max-height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px 20px 18px; border-radius: 28px;
+  /* a short screen scrolls the panel (a grid row has no height for max-height: 100% to use) */
+  .panel { width: min(1180px, 100%); max-height: calc(100dvh - 28px); overflow: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; padding: 16px 20px 18px; border-radius: 28px;
     background: linear-gradient(rgba(255, 255, 255, .97), rgba(250, 247, 255, .97)); box-shadow: 0 30px 70px -30px rgba(30, 10, 70, .7), 0 0 0 4px #fff; }
   .top { display: flex; align-items: center; gap: 12px; }
   .cmp { width: 56px; height: 56px; object-fit: contain; flex: none; filter: drop-shadow(0 4px 4px rgba(60, 30, 90, .25)); }
@@ -193,6 +221,13 @@
   .txt b { font: 600 19px/1.15 var(--font-ui); color: var(--ink); }
   .txt small { font: 700 13px/1.25 var(--font-body); color: var(--muted); }
   .note { margin: 2px 4px 0; font: 700 12.5px var(--font-body); color: var(--gt); }
+  .subj { display: flex; flex-direction: column; gap: 5px; padding: 4px; border-radius: 20px; background: rgba(255, 255, 255, .5); }
+  .subj.here { box-shadow: 0 0 0 3px var(--gt); }
+  .ways { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .way { display: flex; flex-direction: column; align-items: center; gap: 0; border: 0; cursor: pointer; padding: 4px 2px 5px; border-radius: 14px; background: var(--wt); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--wc) 30%, #fff); font: 600 13.5px var(--font-ui); color: color-mix(in srgb, var(--wc) 70%, #000); transition: transform .12s; }
+  .way:hover { transform: translateY(-2px); }
+  .way img { width: 34px; height: 34px; object-fit: contain; }
+  .way.soon { opacity: .7; }
 
   .bottom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 4px; border-top: 2px dashed #ece6f6; }
   .small { display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer; padding: 4px 12px 4px 4px; border-radius: 999px; background: var(--bg2); font: 600 16px var(--font-ui); color: var(--ink); }
@@ -200,6 +235,15 @@
   .small:hover { background: #ece6f9; }
   .save { margin-left: auto; min-width: 0; }
 
+  /* short laptop screens: smaller pictures and rows, so more fits before it scrolls */
+  @media (max-height: 800px) and (min-width: 901px) {
+    .panel { padding: 12px 16px 14px; gap: 8px; }
+    .cmp { width: 44px; height: 44px; } .tt h2 { font-size: 26px; }
+    .pic, .pic img { width: 44px; height: 44px; }
+    .tile { padding: 4px 10px 4px 4px; }
+    .txt b { font-size: 17px; }
+    .way img { width: 28px; height: 28px; }
+  }
   @media (max-width: 900px) {
     .gm { padding: 0; place-items: stretch; }
     .panel { border-radius: 0; padding: 12px 12px 16px; box-shadow: none; }
@@ -213,6 +257,9 @@
     .txt b { font-size: 16px; } .txt small { font-size: 12px; }
     .pic, .pic img { width: 48px; height: 48px; }
     .save { margin-left: 0; width: 100%; }
+    .grp.learn .tiles { grid-template-columns: 1fr; }
+    .subj .tile { flex-direction: row; text-align: left; padding: 6px 10px 6px 6px; }
+    .subj .txt { align-items: flex-start; }
     .small { font-size: 14px; }
   }
 </style>

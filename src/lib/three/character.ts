@@ -394,6 +394,17 @@ if (uPaint > 0.5) {
 #endif
 `;
 
+/** a soft round puff (the sneeze), drawn once */
+let puffTex: THREE.CanvasTexture | null = null;
+function puffTexture() {
+  if (puffTex) return puffTex;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g = cv.getContext('2d')!, gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(245,250,255,.75)'); gr.addColorStop(1, 'rgba(235,245,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return (puffTex = new THREE.CanvasTexture(cv));
+}
+
 /** Shared looks: smooth mode (older computers) has no real shadows, so each buddy gets a soft blob under its feet. */
 export const charLook = { blob: false };
 let blobParts: { geo: THREE.CircleGeometry; mat: THREE.MeshBasicMaterial } | null = null;
@@ -648,9 +659,118 @@ export class Character {
 
   private q = new THREE.Quaternion(); private q2 = new THREE.Quaternion(); private rootQ = new THREE.Quaternion(); private v = new THREE.Vector3();
 
+  // ---------- a tickle and a sneeze: the body's own bones, on top of whatever move is playing ----------
+  private act: { kind: 'tickle' | 'sneeze'; t: number; len: number; puffed?: boolean } | null = null;
+  /** bones turned for the tickle or sneeze last frame, with their turn before that (put back first) */
+  private posed: [THREE.Bone, THREE.Quaternion][] = [];
+  private lift = 0;
+  /** Squirm and giggle: shoulders up, a wiggle from side to side through the back, arms pulled in, the
+   *  head shaking, two little hops. Returns how long it takes (seconds). */
+  tickle(): number { this.act = { kind: 'tickle', t: 0, len: 1.6 }; return 1.6; }
+  /** "Ah... ah... ACHOO!": the head and chest tip back with two breaths in, then snap forward with a jolt
+   *  through the body and a little puff (timed to sfx.sneeze: the snap comes at 0.95 s). */
+  sneeze(): number { this.act = { kind: 'sneeze', t: 0, len: 2.2 }; return 2.2; }
+  /** a tickle or a sneeze is playing */
+  get acting() { return !!this.act; }
+  private _pq = new THREE.Quaternion(); private _wq = new THREE.Quaternion(); private _rq = new THREE.Quaternion(); private _ax = new THREE.Vector3();
+  /** Turn a bone through its joint about one of the buddy's own directions (x: to its left, y: up, z:
+   *  forward), on top of its pose this frame. Parents go first. */
+  private turnBone(name: string, axis: 'x' | 'y' | 'z', angle: number) {
+    const b = this.bones[name];
+    if (!b || !b.parent || Math.abs(angle) < 1e-4) return;
+    if (!this.posed.some(([x]) => x === b)) this.posed.push([b, b.quaternion.clone()]);
+    const parentQ = b.parent.getWorldQuaternion(this._pq);
+    this._ax.set(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0).applyQuaternion(this.root.getWorldQuaternion(this._rq));
+    // the turn in the world, carried into the bone's own space: parent⁻¹ · turn · parent
+    const w = this._wq.setFromAxisAngle(this._ax, angle);
+    b.quaternion.premultiply(parentQ.clone().invert().multiply(w).multiply(parentQ));
+    b.updateMatrixWorld(true);
+  }
+  private unpose() {
+    for (const [b, q] of this.posed) b.quaternion.copy(q);
+    this.posed.length = 0;
+    if (this.lift) { this.model.position.y -= this.lift; this.lift = 0; }
+  }
+  private pose(dt: number) {
+    const a = this.act!;
+    a.t += dt;
+    if (a.t >= a.len) { this.act = null; return; }
+    const t = a.t, k = t / a.len, H = FRIEND[this.id].height;
+    const ss = THREE.MathUtils.smoothstep, bump = (x: number, a0: number, a1: number) => (x < a0 || x > a1 ? 0 : Math.sin(((x - a0) / (a1 - a0)) * Math.PI));
+    this.model.updateMatrixWorld(true);
+    const T: [string, 'x' | 'y' | 'z', number][] = [];
+    let lift = 0;
+    if (a.kind === 'tickle') {
+      const env = ss(k, 0, 0.14) * (1 - ss(k, 0.78, 1));
+      const w = Math.sin(t * Math.PI * 2 * 3.4), w2 = Math.sin(t * Math.PI * 2 * 3.4 + 1.3), shake = Math.sin(t * Math.PI * 2 * 4.6);
+      T.push(
+        ['Spine', 'y', 0.12 * w * env], ['Spine', 'z', 0.06 * w2 * env],
+        ['Spine01', 'y', 0.16 * w * env], ['Spine01', 'x', 0.1 * env],
+        ['Spine02', 'y', 0.12 * w * env], ['Spine02', 'x', 0.1 * env], ['Spine02', 'z', 0.05 * w2 * env],
+        // shoulders up round the ears, arms pulled in with the hands up in front
+        ['LeftShoulder', 'z', (0.32 + 0.05 * w) * env], ['RightShoulder', 'z', -(0.32 + 0.05 * w) * env],
+        ['LeftArm', 'z', -0.25 * env], ['LeftArm', 'x', -0.35 * env], ['RightArm', 'z', 0.25 * env], ['RightArm', 'x', -0.35 * env],
+        ['LeftForeArm', 'x', -0.9 * env], ['RightForeArm', 'x', -0.9 * env],
+        // the head shakes and tips back a little, laughing
+        ['neck', 'y', 0.18 * shake * env], ['neck', 'x', -0.08 * env],
+        ['Head', 'y', 0.22 * shake * env], ['Head', 'z', 0.12 * Math.sin(t * Math.PI * 2 * 2.3) * env], ['Head', 'x', -0.1 * env],
+      );
+      lift = (bump(k, 0.08, 0.36) * 0.07 + bump(k, 0.46, 0.68) * 0.04) * H;
+    } else {
+      // two breaths in (the head and chest tip back a step each), a held moment, the snap forward, then
+      // back to standing with a little shake of the head
+      const back = 0.5 * ss(t, 0, 0.38) + 0.5 * ss(t, 0.42, 0.82) + 0.03 * Math.sin(t * 40) * ss(t, 0.78, 0.94);
+      const snap = ss(t, 0.93, 1.03), rel = 1 - ss(t, 1.25, 2.05), fwd = snap * rel, bk = back * (1 - snap);
+      T.push(
+        ['Spine01', 'x', -0.08 * bk + 0.18 * fwd], ['Spine02', 'x', -0.12 * bk + 0.22 * fwd],
+        ['LeftShoulder', 'z', 0.2 * bk], ['RightShoulder', 'z', -0.2 * bk],
+        ['LeftArm', 'z', 0.08 * bk], ['RightArm', 'z', -0.08 * bk], ['LeftArm', 'x', -0.28 * fwd], ['RightArm', 'x', -0.28 * fwd],
+        ['LeftForeArm', 'x', -0.35 * fwd], ['RightForeArm', 'x', -0.35 * fwd],
+        ['neck', 'x', -0.15 * bk + 0.25 * fwd], ['Head', 'x', -0.24 * bk + 0.36 * fwd],
+        ['Head', 'y', 0.16 * Math.sin(t * Math.PI * 2 * 5) * bump(t, 1.45, 2.05)],
+      );
+      // the jolt: a quick dip through the knees as it snaps
+      lift = -0.035 * H * bump(t, 0.95, 1.25);
+      if (!a.puffed && t >= 0.97) { a.puffed = true; this.puff(); }
+    }
+    for (const [n, ax, ang] of T) this.turnBone(n, ax, ang);
+    if (lift) { this.model.position.y += lift; this.lift = lift; }
+  }
+  /** The sneeze's little puff: soft white clouds bursting out in front of the face and fading. */
+  private puff() {
+    const head = this.bones.Head;
+    if (!head) return;
+    const H = FRIEND[this.id].height;
+    this.root.updateMatrixWorld(true);
+    const at = this.root.worldToLocal(head.getWorldPosition(new THREE.Vector3())).add(new THREE.Vector3(0, H * 0.02, H * 0.22));
+    const map = puffTexture();
+    const bits = Array.from({ length: 6 }, (_, i) => {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, opacity: 0.9 }));
+      sp.position.copy(at);
+      this.root.add(sp);
+      const a = (i / 6) * Math.PI * 2;
+      return { sp, v: new THREE.Vector3(Math.cos(a) * 0.35, Math.sin(a) * 0.25 + 0.05, 0.9 + Math.random() * 0.3).multiplyScalar(H) };
+    });
+    let age = 0;
+    const tick = (dt: number) => {
+      age += dt;
+      const k = age / 0.7;
+      for (const b of bits) {
+        b.sp.position.addScaledVector(b.v, dt * (1 - k * 0.8));
+        b.sp.scale.setScalar(H * (0.08 + 0.16 * Math.min(1, k * 1.6)));
+        b.sp.material.opacity = 0.9 * (1 - Math.max(0, k - 0.35) / 0.65);
+      }
+      if (k >= 1) { for (const b of bits) { b.sp.removeFromParent(); b.sp.material.dispose(); } this.tickers.delete(tick); }
+    };
+    this.tickers.add(tick);
+  }
+
   /** Advance the moves, then lay planted feet flat (turned only about the up axis, as in the bind pose). */
   update(dt: number) {
+    // last frame's tickle or sneeze comes off before the moves set this frame's pose, then goes on again
+    if (this.posed.length || this.lift) this.unpose();
     this.mixer.update(dt);
+    if (this.act) this.pose(dt);
     for (const f of this.tickers) f(dt);
     // the blob only on the ground (seated on a ride, the ride is underneath)
     this.blob.visible = charLook.blob && this.groundFeet;

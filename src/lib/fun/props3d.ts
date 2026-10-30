@@ -212,3 +212,33 @@ export async function cameo(id: string, height: number) {
   g.appearThen = 'idle';
   return g;
 }
+
+// ---------- a poof where a visitor pops in ----------
+export type Poof = { group: THREE.Group; fire(at: THREE.Vector3, size?: number): void; update(dt: number): void };
+/** A puff of little clouds and a few golden sparks bursting out round a spot and fading (a visitor's
+ *  entrance, so it never just appears out of nowhere). */
+export function poof(keep: Keep): Poof {
+  const group = new THREE.Group(); group.visible = false;
+  const bits = Array.from({ length: 12 }, (_, i) => {
+    const s = new THREE.Sprite(keep(new THREE.SpriteMaterial({ map: soft(), color: i % 3 ? 0xffffff : 0xffe58a, transparent: true, depthWrite: false, opacity: 0 })));
+    group.add(s);
+    return { s, v: new THREE.Vector3() };
+  });
+  let k = 1, size = 0.5;
+  return {
+    group,
+    fire(at, sz = 0.5) {
+      size = sz; k = 0; group.position.copy(at); group.visible = true;
+      bits.forEach((b, i) => { const a = (i / bits.length) * Math.PI * 2; b.v.set(Math.cos(a), 0.3 + Math.random() * 0.7, Math.sin(a)).multiplyScalar(sz * (1.4 + Math.random() * 0.6)); b.s.position.set(0, sz * 0.4, 0); });
+    },
+    update(dt) {
+      if (k >= 1) { group.visible = false; return; }
+      k = Math.min(1, k + dt / 0.75);
+      for (const b of bits) {
+        b.s.position.addScaledVector(b.v, dt * (1 - k));
+        b.s.scale.setScalar(size * (0.35 + 0.9 * k));
+        (b.s.material as THREE.SpriteMaterial).opacity = 0.95 * (1 - k * k);
+      }
+    },
+  };
+}

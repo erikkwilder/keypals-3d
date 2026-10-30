@@ -46,8 +46,11 @@ export const MISCHIEF: Record<Element, { kind: MischiefKind; name: string }> = {
   stone: { kind: 'pebbles', name: 'Pebbles are coming' }, leaf: { kind: 'gust', name: 'Wind is coming' },
 };
 
-/** `mischief`: the island's own weather, sent instead of the element's (Fraction Falls' spray) */
+/** `mischief`: the island's own weather, sent instead of the element's (Fraction Falls' spray). `hit`: what
+ *  its counterattack takes when it lands (sized to the buddy's energy by hitFor; 0 in a duel). */
 export type Foe = { glimmer: GlimmerId; rarity: Rarity; champion: boolean; element: Element; grump: number; max: number; hit: number; evolved?: boolean; mischief?: { kind: MischiefKind; name: string } };
+/** A Grumble as the map picks it (who, how grumpy, its weather): the battle sizes its hit. */
+export type MapFoe = Omit<Foe, 'hit'>;
 /** `evolved`: grown up, so its power works as if it were EVOLVE_BOOST levels higher, plus its own perk */
 export type Member = { id: GlimmerId; level: number; evolved?: boolean };
 /** `kit`: the hand, back and shoe gear's powers and any set bonus (gear.ts). `flat`: every right answer
@@ -74,7 +77,8 @@ export type BEvent =
   | { k: 'won'; perfect: boolean }
   | { k: 'lost' };
 
-export type Block = { kind: MischiefKind; name: string; hit: number; limitMs: number; fact?: Fact; word?: string };
+/** `half`: already halved (a Strong card's dazzle, Steady): a Hero Cape doesn't halve it again */
+export type Block = { kind: MischiefKind; name: string; hit: number; half?: boolean; limitMs: number; fact?: Fact; word?: string };
 export type Phase = 'pick' | 'block' | 'won' | 'lost';
 
 export type Battle = {
@@ -90,10 +94,14 @@ export type Battle = {
   frozen: boolean; dazzled: boolean;
   /** first mischiefs that do nothing (Pebble Shell, Hover) */
   free: { by: string; id?: GlimmerId }[];
+  /** shields given this battle, from helpers and gear together (SHIELDS_MAX at most) */
+  shields: number;
   used: { hide: boolean; retry: boolean; glow: boolean; aurora: boolean; secondwind: boolean; swap: boolean };
   /** times a twice-a-battle power has gone (an evolved Fern Fox, Spark Moth or Sky Whale gets two) */
   twice: { hide: number; glow: number; secondwind: number };
   rights: number; mischiefs: number; perfect: boolean;
+  /** counterattacks that got through in a row (each is bigger than the last; a block calms it down) */
+  bold: number;
   stats: { answers: number; right: number; fast: number; blocks: number; blocked: number; damage: number; cheer: number };
   /** facts answered (for the fact memory) */
   answered: { f: Fact; ok: boolean; thinkMs: number }[];
@@ -123,32 +131,53 @@ export function newBattle(s: Setup): Battle {
     subject: s.pool.subject, pool: s.pool, rng, fastMs: s.fastMs ?? 4000,
     spark: s.sparkMax, sparkMax: s.sparkMax, role: s.role, gear: s.gear, team: s.team.slice(0, 2), kit: s.kit ?? [], flat: s.flat ?? 0,
     foe: { ...s.foe }, cards: [], phase: 'pick', block: null,
-    streak: 0, finale: 0, turn: 0, nextId: 1, frozen: false, dazzled: false, free: [],
+    streak: 0, finale: 0, turn: 0, nextId: 1, frozen: false, dazzled: false, free: [], shields: 0,
     used: { hide: false, retry: false, glow: false, aurora: false, secondwind: false, swap: false },
     twice: { hide: 0, glow: 0, secondwind: 0 },
-    rights: 0, mischiefs: 0, perfect: false,
+    rights: 0, mischiefs: 0, perfect: false, bold: 0,
     stats: { answers: 0, right: 0, fast: 0, blocks: 0, blocked: 0, damage: 0, cheer: 0 },
     answered: [],
     skillAnswers: [],
     missed: [],
   };
-  // Pebble Shell blocks the first rain or zap, Pinecone Curl the first two; grown up, one more
+  // Pebble Shell blocks the first rain or zap, Pinecone Curl the first two; a grown-up Boulder Tortoise
+  // blocks two as well (a grown-up Pine Pangolin gives energy back instead: see the Grumble's turn)
   const shell = has(b, 'shell');
-  if (shell) for (let i = 0; i < powerBase(shell.id, 1) + (shell.evolved ? 1 : 0); i++) b.free.push({ by: GLIMMER[shell.id].power.name, id: shell.id });
+  if (shell) for (let i = 0; i < Math.max(powerBase(shell.id, 1), shell.evolved ? 2 : 0); i++) shield(b, { by: GLIMMER[shell.id].power.name, id: shell.id });
   // a Great Aurora Stag starts you off with two Finale stars
   if (evo(b, 'aurora')) b.finale = 2;
-  if (s.gear === 'hover') b.free.push({ by: 'Hover' });
+  if (s.gear === 'hover') shield(b, { by: 'Hover' });
   // gear that works from the start: Spring Shoes (more energy), Fairy Wings (Finale stars), the Sky set
   if (kit(b, 'spring')) { b.sparkMax += 4; b.spark += 4; }
   if (kit(b, 'wings')) b.finale = Math.max(b.finale, 2);
-  if (kit(b, 'skyset')) b.free.push({ by: 'Sky set' });
+  if (kit(b, 'skyset')) shield(b, { by: 'Sky set' });
   deal(b);
   return b;
 }
 const kit = (b: Battle, k: KitKind) => b.kit.includes(k);
+/** Shields from helpers and gear (a Pebble Shell, Hover, the Sky set, a bubble...) stop this many
+ *  counterattacks a battle at most, all together, so a pile of them never makes blocking unnecessary. */
+export const SHIELDS_MAX = 2;
+/** Give a shield for a coming counterattack, if there's room for one this battle. */
+function shield(b: Battle, s: { by: string; id?: GlimmerId }): boolean {
+  if (b.shields >= SHIELDS_MAX) return false;
+  b.shields++; b.free.push(s); return true;
+}
 
-/** Spark to start a battle with: grows with the buddy's friendship level. */
-export const sparkFor = (level: number, role: RoleId) => 12 + Math.min(18, Math.max(1, level)) + (role === 'heart' ? 6 : 0);
+/** Energy to start a battle with: a little more as the buddy's friendship grows (20 up to 30), and Big
+ *  Heart's 6 on top. */
+export const sparkFor = (level: number, role: RoleId) => 20 + Math.floor(Math.min(20, Math.max(1, level)) / 2) + (role === 'heart' ? 6 : 0);
+/** How hard counterattacks bite (tuned with battleBalance.test.ts: miss them all and you lose nearly
+ *  every battle, miss about half and you lose 2 to 4 in 10). `hits`: how many first-size hits empty your
+ *  energy. Typing battles are shorter (every word cheers), so each hit is bigger; a Champion's battle is
+ *  longer, so its hits are smaller but there are more of them. `bolder`: each one that gets through right
+ *  after another is this much bigger again (x1.5, x2.25...), so no pile of energy and shields makes
+ *  missing them safe; blocking one calms the Grumble down again. `tier`: each later island, a bit more. */
+export const COUNTER = { hits: { math: 4.8, mathChampion: 6, typing: 3.4, typingChampion: 4.2 }, bolder: 0.5, tier: 0.05 };
+export function hitFor(o: { champion: boolean; tier: number; level: number; subject: Subject }): number {
+  const n = COUNTER.hits[o.subject === 'typing' ? (o.champion ? 'typingChampion' : 'typing') : o.champion ? 'mathChampion' : 'math'];
+  return Math.ceil(sparkFor(o.level, 'speed') / (n * (1 - COUNTER.tier * Math.max(0, o.tier))));
+}
 
 /** How big a Grumble is: about seven good cards' worth (a Champion, about eleven), so there's room for a Finale. */
 export function grumpFor(pool: Pool, champion: boolean): number {
@@ -314,7 +343,7 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
     if (card.super) { b.dazzled = true; ev.push({ k: 'dazzle' }); }
     // gear: Rocket Sneakers fill an extra star on a fast answer; the Bubble Wand's bubble every 4th
     if (fast && kit(b, 'zoom') && b.finale < FINALE_AT) { b.finale++; ev.push({ k: 'gear', item: 'rocket_sneakers', what: 'Rocket Sneakers', did: '+1 Finale star' }); }
-    if (kit(b, 'bubble') && b.rights % 4 === 0) { b.free.push({ by: 'Bubble Wand' }); ev.push({ k: 'gear', item: 'bubble_wand', what: 'Bubble Wand', did: 'bubble shield!' }); }
+    if (kit(b, 'bubble') && b.rights % 4 === 0 && shield(b, { by: 'Bubble Wand' })) { ev.push({ k: 'gear', item: 'bubble_wand', what: 'Bubble Wand', did: 'bubble shield!' }); }
   } else {
     const fox = has(b, 'hide');
     if (fox && b.streak > 0 && again(b, 'hide', fox)) { b.used.hide = true; ev.push({ k: 'streakKept', id: fox.id }); }
@@ -368,7 +397,7 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
     if (k === 'blossom' && ok) heal('glimmer', 'Blossom', powerNum(1, lv(m), 8), m.id);
     if (k === 'freeze' && ok && b.streak > 0 && b.streak % (m.evolved ? 2 : 3) === 0 && !b.frozen) { b.frozen = true; ev.push({ k: 'freeze', id: m.id }); }
     // a shield every few right answers (grown up: one sooner)
-    if (k === 'bubbles' && ok && b.rights % Math.max(2, powerBase(m.id, 5) - (m.evolved ? 1 : 0)) === 0) { b.free.push({ by: GLIMMER[m.id].power.name, id: m.id }); ev.push({ k: 'bubble', id: m.id, what: GLIMMER[m.id].power.name }); }
+    if (k === 'bubbles' && ok && b.rights % Math.max(2, powerBase(m.id, 5) - (m.evolved ? 1 : 0)) === 0 && shield(b, { by: GLIMMER[m.id].power.name, id: m.id })) { ev.push({ k: 'bubble', id: m.id, what: GLIMMER[m.id].power.name }); }
     if (k === 'aurora' && ok && !b.used.aurora && b.rights >= 2) { b.used.aurora = true; b.finale = Math.max(b.finale, FINALE_AT); ev.push({ k: 'aurora' }); }
   }
   b.finale = Math.min(FINALE_AT, b.finale);
@@ -396,15 +425,24 @@ export function finale(b: Battle): BEvent[] {
 function grumbleTurn(b: Battle): BEvent[] {
   const m = b.foe.mischief ?? MISCHIEF[b.foe.element];
   b.mischiefs++;
-  let hit = b.foe.hit;
-  if (b.dazzled) { hit = Math.ceil(hit / 2); b.dazzled = false; }
+  const full = Math.round(b.foe.hit * Math.pow(1 + COUNTER.bolder, b.bold));
+  // halves don't pile up: a dazzled Grumble, Steady and the Hero Cape each make a hit half, never a quarter
+  let half = false;
+  if (b.dazzled) { half = true; b.dazzled = false; }
   if (b.frozen) { b.frozen = false; return [{ k: 'mischief', kind: m.kind, name: m.name, damage: 0, result: 'skip', why: 'frozen' }, ...nextTurn(b)]; }
   const free = b.free.shift();
-  if (free) return [{ k: 'mischief', kind: m.kind, name: m.name, damage: 0, result: 'skip', why: free.by, id: free.id }, ...nextTurn(b)];
-  if (b.role === 'steady' && b.mischiefs % 2 === 0) hit = Math.ceil(hit / 2);
+  if (free) {
+    const ev: BEvent[] = [{ k: 'mischief', kind: m.kind, name: m.name, damage: 0, result: 'skip', why: free.by, id: free.id }];
+    // a grown-up Pine Pangolin's curl gives 2 energy back each time it blocks
+    const pango = free.id ? b.team.find(t => t.id === free.id && t.evolved && GLIMMER[t.id].power.kind === 'shell' && powerBase(t.id, 1) >= 2) : undefined;
+    if (pango && b.spark < b.sparkMax) { const v = Math.min(2, b.sparkMax - b.spark); b.spark += v; ev.push({ k: 'heal', by: 'glimmer', what: 'Pine curl', value: v, id: pango.id }); }
+    return [...ev, ...nextTurn(b)];
+  }
+  if (b.role === 'steady' && b.mischiefs % 2 === 0) half = true;
+  const hit = half ? Math.ceil(full / 2) : full;
   const seal = has(b, 'coolhead');
   const limitMs = b.subject === 'math' ? 5000 + (seal ? powerNum(2, lv(seal), 8) * 1000 : 0) + (b.gear === 'shieldwall' ? 2000 : 0) : 0;
-  const block: Block = { kind: m.kind, name: m.name, hit, limitMs, ...blockPrompt(b) };
+  const block: Block = { kind: m.kind, name: m.name, hit, half, limitMs, ...blockPrompt(b) };
   if (b.subject === 'typing') block.limitMs = 2000 + 800 * (block.word?.length ?? 4) + (seal ? powerNum(2, lv(seal), 8) * 1000 : 0) + (b.gear === 'shieldwall' ? 2000 : 0);
   b.block = block;
   b.phase = 'block';
@@ -430,9 +468,10 @@ export function block(b: Battle, ok: boolean, ms: number): BEvent[] {
   // right and in time: blocked. Too late or wrong: it lands
   const result: 'full' | 'none' = ok && ms <= bl.limitMs ? 'full' : 'none';
   // the Hero Cape catches half of a hit that lands
-  const caped = result === 'none' && kit(b, 'cape');
+  const caped = result === 'none' && kit(b, 'cape') && !bl.half;
   const damage = result === 'full' ? 0 : caped ? Math.ceil(bl.hit / 2) : bl.hit;
   if (damage === 0) b.stats.blocked++;
+  b.bold = result === 'full' ? 0 : b.bold + 1;
   b.spark = Math.max(0, b.spark - damage);
   b.stats.damage += damage;
   b.block = null;

@@ -79,6 +79,14 @@ class Game {
     this.arcadeKey++;
     this.screen = 'arcadePlay';
   }
+  /** the subject pages (Typing, Math): which way to play shows, Learn, Practice, Games or Adventure */
+  way = $state<Record<string, import('../subjects').WayId>>({});
+  /** the typing page's part (a region), or null for all of typing */
+  typingArea = $state<import('../engine/course').RegionId | null>(null);
+  /** the Learn episode opened from a subject page is just its next-day quick check */
+  learnCheck = $state(false);
+  /** a Playground game to start straight away (picked on a subject page's Games) */
+  playPick = $state<string | null>(null);
   /** a Learn lesson opened over a math trip (the trip waits underneath) */
   learnOverlay = $state<string | null>(null);
   openLearn(id: string | null = null, back: Screen = this.screen === 'learn' ? this.learnBack : this.screen) {

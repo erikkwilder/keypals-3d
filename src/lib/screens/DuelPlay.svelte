@@ -33,6 +33,7 @@
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
   import Icon from '../ui/Icon.svelte';
+  import { dropHeld, holdAnswer, letGo } from '../ui/holdAnswer';
 
   type Props = { sides: [SideSetup, SideSetup]; glimmer: GlimmerId; mode: 'duel' | 'rival'; rival?: Rival | null; first?: 0 | 1; onagain: () => void; onexit: () => void };
   let { sides, glimmer, mode, rival = null, first = 0, onagain, onexit }: Props = $props();
@@ -60,6 +61,8 @@
   // answering
   let sel = $state<Card | null>(null);
   let typed = $state('');
+  /** the answer lines (held on screen a moment after the last digit) */
+  let eqEl: HTMLDivElement | undefined = $state(); let rainEqEl: HTMLDivElement | undefined = $state();
   /** a skill card's answer as it's typed (shown in the question's gap) */
   let skFill = $state<{ kind: 'number'; text: string } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null } | null>(null);
   let wordPos = $state(0); let wordErr = $state(0); let shakeKey = $state(0);
@@ -141,7 +144,7 @@
     }, 2300);
     if (first === 1) setTimeout(() => { if (!disposed) say(`${d.sides[1].name} goes first this time`, 'good'); }, 2500);
   });
-  onDestroy(() => { disposed = true; clearInterval(rainTimer); removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
+  onDestroy(() => { disposed = true; dropHeld(); clearInterval(rainTimer); removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
 
   function float(at: Spot, text: string, kind: string, img?: string, color?: string) {
     const pos = scene?.screenOf(at, 0.2) ?? { x: at.startsWith('p1') ? 0.75 : at === 'glimmer' ? 0.5 : 0.25, y: 0.35 };
@@ -182,7 +185,7 @@
     if (ui !== 'pick') return;
     closeTip('d-turns'); closeTip('r-ghost');
     sel = c; typed = ''; wordPos = 0; wordErr = 0;
-    ui = 'answer'; sfx.click();
+    ui = 'answer'; sfx.click(); letGo();
     shownAt = performance.now();
   }
   // (no going back once a card is turned over: that would be peeking)
@@ -201,10 +204,13 @@
     const think = performance.now() - shownAt;
     ui = 'busy';
     const side = d.turn;
+    const right = subject === 'math' ? !!f && Number(typed) === answerOf(f) : true;
+    // the whole answer, last digit too, stays where it was for a moment (the duel moves on as usual)
+    holdAnswer(eqEl, { text: typed, ok: right });
     const ev = subject === 'math'
-      ? duelPlay(d, c.id, { ok: !!f && Number(typed) === answerOf(f), value: Number(typed), thinkMs: think, fact: f ?? undefined })
+      ? duelPlay(d, c.id, { ok: right, value: Number(typed), thinkMs: think, fact: f ?? undefined })
       : duelPlay(d, c.id, { ok: true, value: Math.max(1, (c.word?.length ?? 1) - wordErr), thinkMs: think });
-    if (ev.length === 1 && ev[0].k === 'retry') { sfx.miss(); say('Second Chance: have another go!', 'good'); typed = ''; wordPos = 0; wordErr = 0; ui = 'answer'; shakeKey++; return; }
+    if (ev.length === 1 && ev[0].k === 'retry') { letGo(); sfx.miss(); say('Second Chance: have another go!', 'good'); typed = ''; wordPos = 0; wordErr = 0; ui = 'answer'; shakeKey++; return; }
     sel = null; typed = '';
     await run(ev, side);
   }
@@ -230,6 +236,7 @@
     ui = 'answer';
     for (const ch of mv.typed) { await sleep(sel?.word ? 160 : 300); if (disposed) return; typed += ch; if (sel?.word) wordPos++; sfx.click(); }
     await sleep(420);
+    holdAnswer(eqEl, { text: typed, ok: mv.answer.ok, ms: 300 });
     ui = 'busy'; ghosting = false;
     const side = d.turn;
     const ev = duelPlay(d, mv.cardId, mv.answer);
@@ -289,7 +296,7 @@
     const from = nameOf(1 - d.turn);
     rain = { fact: r.fact, word: r.word, limitMs: r.limitMs, from };
     rainTyped = ''; wordPos = 0; wordErr = 0;
-    ui = 'rain'; rainAt = performance.now(); rainLeft = 1;
+    ui = 'rain'; rainAt = performance.now(); rainLeft = 1; letGo();
     sfx.rainComing();
     clearInterval(rainTimer);
     if (cur(d).kind === 'ghost') {
@@ -313,6 +320,7 @@
     const ms = performance.now() - rainAt;
     const r = rain;
     const ok = ghostOk ?? (!timeout && (r.fact ? Number(rainTyped) === answerOf(r.fact) : wordErr === 0));
+    if (!timeout) holdAnswer(rainEqEl, { text: rainTyped, ok });
     if (r.fact && !ok && ghostOk === undefined) say(timeout ? `Too slow! ${factText(r.fact)} = ${answerOf(r.fact)}` : `${factText(r.fact)} = ${answerOf(r.fact)}`, 'miss');
     closeTip('d-block');
     rain = null; ui = 'busy';
@@ -478,10 +486,10 @@
           {#key shakeKey}<div class="iq" class:shake={shakeKey > 0}><SkillPrompt parts={it.prompt} fill={ghosting ? null : skFill} size={narrow ? 34 : 46} picSize={narrow ? 96 : 130} done={ghosting} onpick={(w) => { if (skFill?.kind === 'fraction') skFill = { ...skFill, focus: w }; }} />{#if ghosting}<span class="box">{typed || ' '}</span>{/if}</div>{/key}
           {#if !ghosting}{#key `${sel.id}-${shakeKey}`}<SkillInput item={it} compact={narrow} bind:fill={skFill} onanswer={submitItem} />{/key}{/if}
         {:else if sel.fact}
-          {#key shakeKey}<div class="eq" class:shake={shakeKey > 0}><span>{factText(sel.fact)} =</span><span class="box">{typed || ' '}</span></div>{/key}
+          {#key shakeKey}<div class="eq" class:shake={shakeKey > 0} bind:this={eqEl}><span>{factText(sel.fact)} =</span><span class="box">{typed || ' '}</span></div>{/key}
           {#if !ghosting}<NumPad ondigit={digit} onback={backspace} compact={narrow} />{/if}
         {:else}
-          {#key shakeKey}<div class="word" class:shake={shakeKey > 0}>{#each sel.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/key}
+          {#key shakeKey}<div class="word" class:shake={shakeKey > 0} bind:this={eqEl}>{#each sel.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/key}
           {#if !ghosting}<p class="ask">Type it! {wordErr ? `${wordErr} slip${wordErr === 1 ? '' : 's'}` : 'No slips so far'}</p>{/if}
         {/if}
       </div>
@@ -490,8 +498,8 @@
         <div class="ring" style:--k={rainLeft}><span>{Math.max(0, Math.ceil(rainLeft * rain.limitMs / 1000))}</span></div>
         <div class="bq">
           <p><b>{rain.from} sent a rain cloud!</b> {ghosting ? 'The ghost tries to block it:' : 'Answer fast to block it:'}</p>
-          {#if rain.fact}<div class="eq blockeq"><span>{factText(rain.fact)} =</span><span class="box">{rainTyped || ' '}</span></div>
-          {:else}<div class="word blockeq">{#each rain.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/if}
+          {#if rain.fact}<div class="eq blockeq" bind:this={rainEqEl}><span>{factText(rain.fact)} =</span><span class="box">{rainTyped || ' '}</span></div>
+          {:else}<div class="word blockeq" bind:this={rainEqEl}>{#each rain.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/if}
         </div>
         {#if rain.fact && !ghosting}<NumPad ondigit={digit} onback={backspace} compact={narrow} />{/if}
       </div>
@@ -723,7 +731,7 @@
   @keyframes flip { 0% { opacity: 0; transform: perspective(900px) rotateX(70deg) scale(.85); } 100% { opacity: 1; transform: none; } }
   .eq { display: flex; align-items: center; gap: 14px; font: 600 clamp(40px, 6vw, 64px)/1 var(--font-ui); color: var(--ink); }
   .eq.blockeq, .word.blockeq { font-size: clamp(54px, 8vw, 92px); }
-  .box { min-width: 1.6em; padding: 4px 14px; border-radius: 18px; background: #fff; box-shadow: inset 0 0 0 4px #a98cff, 0 0 0 6px #efe9ff; text-align: center; }
+  .box { min-width: 1.6em; min-height: 1.1em; padding: 4px 14px; border-radius: 18px; background: #fff; box-shadow: inset 0 0 0 4px #a98cff, 0 0 0 6px #efe9ff; text-align: center; }
   .shake { animation: shake .35s; }
   @keyframes shake { 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
   .ask { margin: 0; font: 600 20px var(--font-ui); color: var(--ink2); text-align: center; }

@@ -1,36 +1,39 @@
 <script lang="ts">
+  // The Typing page: the four ways to play typing as big tabs (Learn, Practice, Games, Adventure, from
+  // subjects.ts) with the islands as chips under them (Home row, Top row...). Practice is the map: each
+  // island's lessons on a trail. Learn is the lessons that bring new keys (the finger coach shows each
+  // reach first); Games and Adventure are pages of picture cards (ui/WayPane.svelte).
   import { onMount, tick } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { bookView, outfitOf, palOf } from '../engine/profile';
-  import { MEDALS } from '../engine/achievements';
+  import { outfitOf } from '../engine/profile';
   import { MOVE_WORD, REGIONS, lessonMove, lessonTitle, type Lesson } from '../engine/course';
-  import { isUnlocked, nextLesson, passed, regionUnlocked, todayMs, totalStars } from '../engine/profile';
+  import { isUnlocked, nextLesson, passed, regionUnlocked, totalStars } from '../engine/profile';
   import { rideName } from '../engine/rides';
-  import { DANCES, forBuddy } from '../engine/rewards';
-  import { levelFromXp, STICKERS } from '../engine/stickers';
   import { rideIcon } from '../art/vehicles';
   import { sfx } from '../audio/sound';
-  import NavTile from '../ui/NavTile.svelte';
-  import GearButton from '../ui/GearButton.svelte';
-  import FancyAntButton from '../ui/FancyAntButton.svelte';
+  import TopBar from '../ui/TopBar.svelte';
+  import WaysBar from '../ui/WaysBar.svelte';
+  import ChipRow from '../ui/ChipRow.svelte';
+  import WayPane from '../ui/WayPane.svelte';
+  import { SUBJECT, wayCount, type WayId } from '../subjects';
+  import { chipOf, setChip, wayOf } from '../nav';
 
   import Critter from '../ui/Critter.svelte';
   import Stars from '../ui/Stars.svelte';
-  import Ring from '../ui/Ring.svelte';
   import Icon from '../ui/Icon.svelte';
 
   const p = $derived(game.profile!);
   const look = $derived(p.settings.look);
   const next = $derived(nextLesson(p));
   const stars = $derived(totalStars(p));
-  const goalMs = $derived(p.settings.dailyGoalMin * 60000);
-  const today = $derived(todayMs(p));
-  const dancesOpen = $derived(forBuddy(DANCES, p.buddy).filter(d => d.level <= levelFromXp(palOf(p).xp).level).length);
   let scroller: HTMLDivElement | undefined = $state();
-  // phones get the small picture tiles in one row, as on the math map
-  let sw = $state(1280);
-  const tile = $derived(sw < 760 ? 'sm' : 'md');
-  // each region banner is a still view a little way into its journey
+  const S = SUBJECT.typing;
+  // which way to play is showing (Practice unless picked), and which island (a chip: 'all', or a region)
+  let way = $state<WayId>(wayOf('typing'));
+  let chip = $state(chipOf('typing'));
+  const regions = $derived(chip === 'all' ? REGIONS : REGIONS.filter(r => r.id === chip));
+  function pickWay(w: WayId) { way = w; game.way = { ...game.way, typing: w }; scroller?.scrollTo({ top: 0 }); }
+  function pickChip(id: string) { chip = id; setChip('typing', id); scroller?.scrollTo({ top: 0 }); }
 
   const PRACTICE_ICON: Record<string, 'book' | 'bulb' | 'target' | 'clock' | 'pencil'> = { story: 'book', facts: 'bulb', weak: 'target', sprint: 'clock', custom: 'pencil' };
 
@@ -67,42 +70,31 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(next); }
-    if (e.key === 'Escape') game.go('hub');
+    if ((e.key === 'Enter' || e.key === ' ') && way === 'practice') { e.preventDefault(); start(next); }
+    if (e.key === 'Escape') { if (chip !== 'all') pickChip('all'); else game.go('hub'); }
   }
   onMount(async () => {
     await tick();
-    const el = scroller?.querySelector(`[data-region="${next.region}"]`) as HTMLElement | null;
+    const el = chip === 'all' ? scroller?.querySelector(`[data-region="${next.region}"]`) as HTMLElement | null : null;
     if (el && scroller) scroller.scrollTo({ top: Math.max(0, el.offsetTop - scroller.offsetTop - 16), behavior: 'instant' as ScrollBehavior });
   });
 </script>
 
 <svelte:window onkeydown={onKey} />
 
-<div class="screen map" bind:clientWidth={sw}>
-  <header class="bar">
-    <NavTile size={tile} tone="sky" kind="home" label="Home" title="Home: pick Typing or Math" onclick={() => game.go('hub')} />
-    <h1 class="subj">Typing</h1>
-    <div class="pill stars"><Stars n={1} of={1} size={22} /> <b>{stars}</b></div>
-    <div class="pill goal" title="Today's practice goal">
-      <Ring value={Math.min(1, today / goalMs)} size={34} color="var(--mint)" />
-      <span><b>{Math.floor(today / 60000)}</b>/{p.settings.dailyGoalMin} min today</span>
-    </div>
-    <div class="spacer"></div>
-    <div class="navs">
-      <NavTile size={tile} tone="pink" label="Keypals" title="Keypals: pick your buddy and outfits" onclick={() => game.openCloset('outfits')}>
-        {#snippet art()}<Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={tile === 'sm' ? 40 : 62} round />{/snippet}
-      </NavTile>
-      <NavTile size={tile} tone="lilac" kind="dances" label="Dances" title="Dances: pick your finish-line dance" badge={dancesOpen || ''} onclick={() => game.openCloset('dances')} />
-      <NavTile size={tile} tone="butter" kind="stickers" label="Stickers" badge={STICKERS.filter(s => bookView(p).stickers[s.id]).length || ''} onclick={() => game.openStickers('stickers')} />
-      <NavTile size={tile} tone="sky" kind="medals" label="Medals" badge={MEDALS.filter(m => (bookView(p).medals[m.id] ?? 0) > 0).length || ''} onclick={() => game.openStickers('medals')} />
-    </div>
-    <FancyAntButton variant="round" />
-    <GearButton size={tile === 'sm' ? 40 : 46} />
-  </header>
+<div class="screen map">
+  <TopBar />
+  <WaysBar subject={S} {way} onpick={pickWay}>
+    {#snippet right()}<span class="pill stars" title="Typing stars"><Stars n={1} of={1} size={20} /> <b>{stars}</b></span>{/snippet}
+  </WaysBar>
+  {#if wayCount(S, way)}<ChipRow chips={S.chips} {chip} onpick={pickChip} label="Which island" />{/if}
 
   <div class="scroller scroll" bind:this={scroller}>
-    {#each REGIONS as r, ri (r.id)}
+    {#if way !== 'practice'}
+      <WayPane subject={S} {way} {chip} />
+    {:else}
+    {#each regions as r (r.id)}
+      {@const ri = REGIONS.indexOf(r)}
       {@const open = regionUnlocked(p, r.id)}
       {@const done = r.lessons.filter(l => passed(p, l.id)).length}
       <section class="region" class:locked={!open} data-region={r.id}>
@@ -142,28 +134,24 @@
         {#if !open}<div class="lockveil"><Icon name="lock" /> Finish {REGIONS[ri - 1]?.name} to open</div>{/if}
       </section>
     {/each}
+    {/if}
     <div class="endpad"></div>
   </div>
 
+  {#if way === 'practice'}
   <div class="go">
     <button class="btn btn-primary btn-big" onclick={() => start(next)}>
       {passed(p, 'village-1') ? 'Keep going' : 'Start your adventure'}: {lessonTitle(next, game.layout)} <span class="kbd">enter</span>
     </button>
   </div>
+  {/if}
 </div>
 
 <style>
   .map { display: flex; flex-direction: column; background: linear-gradient(#cfe9fa, #eaf6ff 60%, #f3f9ff); }
-  .bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 18px; background: rgba(255, 255, 255, .92); border-bottom: var(--panel-border); box-shadow: 0 6px 20px -16px rgba(60, 40, 110, .4); z-index: 5; }
-  .navs { display: flex; align-items: center; gap: 12px; }
-  .me { display: flex; align-items: center; gap: 8px; background: none; border: 0; cursor: pointer; padding: 0 8px 0 0; border-radius: 16px; }
-  .me:hover { background: var(--bg2); }
-  .nm { font: 600 22px var(--font-ui); }
-  .subj { font-size: 30px; margin: 0 4px; color: var(--primary-edge); }
-  .pill { display: flex; align-items: center; gap: 8px; background: var(--bg2); padding: 6px 12px; border-radius: 999px; font: 700 15px var(--font-body); color: var(--ink2); }
-  .pill b { font: 600 20px var(--font-ui); color: var(--ink); }
-  .spacer { flex: 1; }
-  .scroller { flex: 1; min-height: 0; padding: 18px 22px 120px; display: flex; flex-direction: column; gap: 22px; }
+  .pill { display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, .9); padding: 5px 12px; border-radius: 999px; font: 700 15px var(--font-body); color: var(--ink2); white-space: nowrap; }
+  .pill b { font: 600 19px var(--font-ui); color: var(--ink); }
+  .scroller { flex: 1; min-height: 0; padding: 8px 22px 120px; display: flex; flex-direction: column; gap: 22px; }
   .region { position: relative; flex: none; height: clamp(300px, 46vh, 420px); border-radius: 28px; overflow: hidden; box-shadow: var(--shadow); border: var(--panel-border); }
   .region .art { position: absolute; inset: 0; background: linear-gradient(#bfe3f7, #dff3d6) center / cover no-repeat; }
   .region.locked .art { filter: grayscale(.7) brightness(1.05); opacity: .7; }
@@ -196,22 +184,10 @@
   .go .kbd { background: rgba(255, 255, 255, .25); border-color: rgba(255, 255, 255, .4); color: inherit; font-size: 11px; height: 22px; }
   .plat { position: absolute; right: 6px; top: 2px; font: 800 13px/1 var(--font-body); color: #7c5cf5; text-shadow: 0 0 6px #fff, 0 0 2px #fff; }
 
-  /* phones: two header rows, as on the home page: Home, the title, your stars and the gear on top, then the
-     picture tiles with their words, sharing the width (one row of seven didn't fit a 360 or 390 phone) */
   @media (max-width: 760px) {
-    .bar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px 8px; }
-    .bar .pill.goal, .bar > :global(button.round) { display: none; }
-    .bar .pill.stars { padding: 4px 10px; }
-    .bar > :global(.tile) { flex: none; padding: 2px; }
-    .bar > :global(.tile .lbl) { display: none; }
-    .bar :global(.gear) { padding: 3px; }
-    .subj { font-size: 22px; margin: 0 0 0 2px; }
-    .navs { order: 10; width: 100%; gap: 4px; justify-content: space-between; }
-    .navs :global(.tile) { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 1px; padding: 4px 2px 5px; }
-    .navs :global(.tile .lbl) { font-size: 12.5px; white-space: nowrap; }
     /* the lesson stops: smaller, and the regions taller so the two rows of stops don't run into each other;
        only the climb, swim and sled stops keep their chip (the trail is the usual way) */
-    .scroller { padding: 12px 12px 110px; gap: 16px; }
+    .scroller { padding: 6px 12px 110px; gap: 16px; }
     .region { height: 480px; }
     .rhead h2 { font-size: 21px; }
     .node { width: 70px; }

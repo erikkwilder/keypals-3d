@@ -1,7 +1,9 @@
 // The lesson in 3D: your buddy travels the island trail as you type. Every right letter moves the goal
 // one step down the trail; the buddy chases it at a speed that follows your typing rate, so motion is
 // smooth (no step-per-key lurches) and never runs ahead of what you've typed. The ride changes with
-// your live score (walk, run, skateboard, bike, car, rocket). At the gate: a celebration dance, then
+// your live score (walk, run, skateboard, bike, car, rocket). The goal follows how much is done out of
+// the whole, so it reaches the finish line with the last letter (or answer) and never before; that
+// last one carries the buddy over the line in a short dash. At the gate: a celebration dance, then
 // the results show your buddy on the best ride of the run.
 import * as THREE from 'three';
 import { stage, type Controller } from './stage';
@@ -14,7 +16,7 @@ import { RIDES } from '../engine/rides';
 import type { FriendId } from '../art/cast';
 import type { RegionId } from '../engine/course';
 import { GATE_BEFORE, type Island, type TrailPoint } from './island';
-import { buildCourse, type CourseMove } from './courses';
+import { buildCourse, LINE_BEFORE, type CourseMove } from './courses';
 import { world } from '../fun/bus';
 
 export const STEP = 1.35; // metres of trail per letter
@@ -38,7 +40,8 @@ export function courseKeyLen(move: CourseMove, keys: number) {
   return (COURSE_M[move] * k) / Math.max(1, keys);
 }
 
-/** `keyLen`: metres of trail per key (the math game moves a longer way for each answer). */
+/** `length`: how many keys (answers) to the finish line. `keyLen`: metres of trail per key (the math game
+ *  moves a longer way for each answer). */
 /** `move`: how the buddy travels: the island trail (run), or a course of its own: up a cliff, down a
  *  snowy slope on a sled, or across a bay (the math strands). */
 type Opts = { buddy: FriendId; outfit: string; dance: string; length: number; ghostCps?: number; region?: RegionId; keyLen?: number; pace?: Pace; move?: 'run' | CourseMove };
@@ -78,6 +81,12 @@ export class RunScene implements Controller {
   private ghostStopT = 0;
   private gateK = 1;
   private danceEnd = 0;
+  /** keys (answers) in so far, and the metres the last one moved the goal */
+  private answered = 0;
+  private stepLen = 0;
+  /** the last answer's dash over the line: from where the buddy was (at its speed) to `to`, in `dur` s */
+  private dash: { from: number; to: number; v0: number; v1: number; t0: number; dur: number } | null = null;
+  private following = false;
   private camPos = new THREE.Vector3(); private camAim = new THREE.Vector3(); private camReady = false;
   private camOff = new THREE.Vector3(); private aimOff = new THREE.Vector3();
   private here: TrailPoint;
@@ -99,7 +108,10 @@ export class RunScene implements Controller {
     this.island = island;
     this.me = me;
     this.opts = opts;
-    this.finishS = RUNUP + opts.length * this.keyLen;
+    // the finish line comes after `length` keys; the buddy stops a little way past it (through the gate,
+    // over the cliff's lip, up the swim steps onto the dock)
+    this.finishS = RUNUP + opts.length * this.keyLen + this.lineBefore;
+    this.stepLen = this.keyLen;
     island.placeFinish(this.finishS);
     this.here = island.trail.at(this.pos);
     stage.scene.add(me.root);
@@ -147,14 +159,25 @@ export class RunScene implements Controller {
   }
 
   // ---------- typing ----------
-  /** A key was pressed: `typed` is how many letters are done now. */
-  key(ok: boolean, typed: number) {
+  /** How far before the stop the finish line is: the gate (the sled run's arch), the cliff's lip, the
+   *  foot of the swim steps. */
+  private get lineBefore() { return this.course ? LINE_BEFORE[this.course] : GATE_BEFORE; }
+  /** Where the finish line is along the way. */
+  get lineS() { return this.finishS - this.lineBefore; }
+
+  /** A key was pressed (an answer given): `done` is how many are in now, `left` how many are still to
+   *  come (a lesson's text knows; a math trip can grow when a miss comes back). The goal moves its share
+   *  of the rest of the way to the finish line, so the last one lands on it, and it never goes back. */
+  key(ok: boolean, done: number, left = this.opts.length - done) {
     const now = performance.now() / 1000;
     if (!this.startT) this.startT = now;
     if (ok) {
       this.keyTimes.push(now);
       this.lastKey = now;
-      this.goal = RUNUP + typed * this.keyLen;
+      const n = Math.max(1, done - this.answered), line = this.lineS;
+      this.answered = done;
+      const to = left <= 0 ? line : this.goal + ((line - this.goal) * n) / (n + left);
+      if (to > this.goal) { this.stepLen = (to - this.goal) / n; this.goal = Math.min(line, to); }
     } else {
       this.oopsUntil = now + 0.6;
       this.vel *= 0.8;
@@ -163,7 +186,32 @@ export class RunScene implements Controller {
   /** Space bar: a little hop on foot. */
   hop() { if (this.tier <= 1) this.hopUntil = performance.now() / 1000 + 0.35; }
   setTier(t: number) { this.tier = Math.max(0, Math.min(RIDES.length - 1, t)); }
-  finish() { this.goal = this.finishS; if (this.phase === 'run') this.phase = 'arrive'; }
+  /** The end: after the last key (the goal's on the line) a short dash over it; when time ran out first,
+   *  a run the rest of the way. */
+  finish() {
+    if (this.phase !== 'run') return;
+    this.phase = 'arrive';
+    const line = this.lineS;
+    if (this.goal >= line - 1e-3) {
+      // through the gate to the stop; over the lip or onto the swim steps, then walk the last bit
+      const to = this.course === 'climb' || this.course === 'swim' ? line + 0.02 : this.finishS;
+      const dist = to - this.pos;
+      if (dist > 0.05) {
+        const dur = Math.max(0.4, Math.min(0.8, 0.3 + (0.15 * dist) / Math.max(0.3, this.stepLen)));
+        this.dash = { from: this.pos, to, v0: Math.min(this.vel, (2 * dist) / dur), v1: to < this.finishS ? 1.2 : 0, t0: performance.now() / 1000, dur };
+      }
+    }
+    this.goal = this.finishS;
+  }
+  /** The dash: a smooth curve from where the buddy was, at the speed it had, to the end of the dash. */
+  private dashOn(now: number, dt: number) {
+    const d = this.dash!, k = Math.min(1, (now - d.t0) / d.dur), k2 = k * k, k3 = k2 * k;
+    const s = (2 * k3 - 3 * k2 + 1) * d.from + (k3 - 2 * k2 + k) * d.dur * d.v0 + (3 * k2 - 2 * k3) * d.to + (k3 - k2) * d.dur * d.v1;
+    const next = Math.min(d.to, Math.max(this.pos, s));
+    if (dt > 0) this.vel = (next - this.pos) / dt;
+    this.pos = next;
+    if (k >= 1) { this.pos = d.to; this.vel = d.v1; this.dash = null; }
+  }
 
   private rate(now: number) {
     const pc = this.pace;
@@ -240,22 +288,28 @@ export class RunScene implements Controller {
   // ---------- each frame ----------
   update(dt: number, t: number) {
     const now = performance.now() / 1000, me = this.me;
-    if (this.phase === 'run' || this.phase === 'arrive') {
+    if (this.dash && this.phase === 'arrive') this.dashOn(now, dt);
+    else if (this.phase === 'run' || this.phase === 'arrive') {
       const rate = this.paused ? 0 : this.rate(now);
       const lag = this.goal - this.pos;
-      let want = rate * this.keyLen + Math.max(0, lag - this.keyLen * this.pace.lead) * 0.9;
+      let want = rate * this.stepLen + Math.max(0, lag - this.stepLen * this.pace.lead) * 0.9;
       if (lag < 0.03) want = 0;
-      // the last stretch: catch up quickly if fast typing left the buddy behind, through the gate, and
-      // stop past it (never creep)
+      // the last stretch (over the lip, up the swim steps, or the rest of the way when time ran out):
+      // catch up quickly if fast typing left the buddy behind, and stop at the end (never creep)
       if (this.phase === 'arrive') want = lag <= 0.001 ? 0 : Math.max(0.9, Math.min(lag * 1.8, Math.max(this.vel, 3, Math.min(14, lag))));
-      const accel = want > this.vel ? (this.phase === 'arrive' ? 6 : 3.5) : 5;
+      // a math trip's long strides (9 m on the run) need a quicker buddy to keep up with a quick player
+      const quick = Math.max(1, this.stepLen / 4.5);
+      const accel = (want > this.vel ? (this.phase === 'arrive' ? 6 : 3.5) : 5) * quick;
       this.vel += Math.max(-accel * dt, Math.min(accel * dt, want - this.vel));
-      this.vel = Math.max(0, Math.min(this.vel, this.phase === 'arrive' ? 14 : 9));
+      this.vel = Math.max(0, Math.min(this.vel, (this.phase === 'arrive' ? 14 : 9) * quick));
       // walking up the swim steps, not shooting up them
       if (this.course === 'swim' && this.pos > this.swimExit()[0] - 0.4) this.vel = Math.min(this.vel, 1.5);
       this.pos = Math.min(this.goal, this.pos + this.vel * dt);
-      if (this.phase === 'arrive' && !this.crossed && this.pos >= this.finishS - GATE_BEFORE + 0.4) { this.crossed = true; this.onCrossed?.(); }
-      if (this.phase === 'arrive' && this.goal - this.pos < 0.06) { this.pos = this.goal; this.vel = 0; this.arrive(); }
+    }
+    if (this.phase === 'arrive') {
+      // over the line: just past the gate, or at the lip, or touching the swim steps
+      if (!this.crossed && this.pos >= this.lineS + (this.course === 'climb' || this.course === 'swim' ? 0 : 0.4)) { this.crossed = true; this.onCrossed?.(); }
+      if (!this.dash && this.goal - this.pos < 0.06) { this.pos = this.goal; this.vel = 0; this.arrive(); }
     }
     const f = (this.here = this.island.trail.at(this.pos));
     const rideTier = this.phase === 'dance' ? 0 : this.tier;
@@ -508,14 +562,18 @@ export class RunScene implements Controller {
     aim.addScaledVector(right, -ndcX * d * tanH * cam.aspect).y -= ndcY * d * tanH;
     // the results card arrives quickly: the camera settles on its new framing just as fast
     const k = 1 - Math.exp(-dt * (this.phase === 'run' ? 4 : this.phase === 'results' ? 6 : 2.2));
-    if (this.course) {
-      // on a course the buddy can go fast (a sled at top speed): the camera keeps up exactly and only its
-      // framing around the buddy eases, or on a narrow phone screen the buddy slides out of the picture
+    if (this.course || this.phase === 'arrive') {
+      // on a course the buddy can go fast (a sled at top speed), and the last answer's dash is fast
+      // anywhere: the camera keeps up exactly and only its framing around the buddy eases, or the buddy
+      // slides out of the picture
       const offPos = wantPos.clone().sub(centre), offAim = aim.clone().sub(centre);
       if (!this.camReady) { this.camOff.copy(offPos); this.aimOff.copy(offAim); this.camReady = true; }
+      else if (!this.following) { this.camOff.copy(this.camPos).sub(centre); this.aimOff.copy(this.camAim).sub(centre); }
+      this.following = true;
       this.camOff.lerp(offPos, k); this.aimOff.lerp(offAim, k);
       this.camPos.copy(centre).add(this.camOff); this.camAim.copy(centre).add(this.aimOff);
     } else {
+      this.following = false;
       if (!this.camReady) { this.camPos.copy(wantPos); this.camAim.copy(aim); this.camReady = true; }
       this.camPos.lerp(wantPos, k); this.camAim.lerp(aim, k);
     }

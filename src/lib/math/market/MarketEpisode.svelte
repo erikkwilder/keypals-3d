@@ -5,7 +5,7 @@
   // of your own, and you win the card. It saves the trick like any episode (learn.ts finishLesson).
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../../state/game.svelte';
-  import { sfx } from '../../audio/sound';
+  import { quietForLesson, sfx } from '../../audio/sound';
   import { say, hush } from '../../audio/voice.svelte';
   import { outfitOf } from '../../engine/profile';
   import { finishLesson } from '../learn';
@@ -48,8 +48,10 @@
 
   /** The coach says a line (it stays up as text too). */
   function speak(id: string, text: string) { line = text; say(id, { important: true, caption: false }).catch(() => {}); }
-  onMount(() => { speak(`ep.${L.id}.intro`, L.intro); fit(); addEventListener('resize', fit); });
-  onDestroy(() => { hush(); removeEventListener('resize', fit); });
+  // the music hushes while the lesson plays (the coach's voice and the sounds carry on)
+  let unquiet = () => {};
+  onMount(() => { unquiet = quietForLesson(); speak(`ep.${L.id}.intro`, L.intro); fit(); addEventListener('resize', fit); });
+  onDestroy(() => { hush(); unquiet(); removeEventListener('resize', fit); });
   function fit() { wide = innerWidth > 760; }
 
   function next() {

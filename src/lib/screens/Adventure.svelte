@@ -11,7 +11,7 @@
   import { mathOf, nextMathLesson } from '../math/progress';
   import { nextToLearn } from '../math/learn';
   import { FRIEND } from '../art/cast';
-  import { GLIMMER, GLIMMERS, RARITY, glimmersOf, type GlimmerId, type Rarity } from '../adventure/glimmers';
+  import { GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, type GlimmerId, type Rarity } from '../adventure/glimmers';
   import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, islandsOf, markSeen, nodesOf, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, worldOpen, type MapNode, type WorldId, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
   import { DuelScene } from '../three/duelScene';
@@ -45,7 +45,6 @@
   const cur = $derived(currentNode(a, world));
   let open = $state<MapNode | null>(null);
   let burst = $state(0);
-  let chances = $state(false);
   const play = $derived(playLeft(p));
   const ready = $derived(a.incubator.filter(e => e && e.have >= e.need).length);
   const eggs = $derived(a.incubator.filter(e => !!e).length + a.nest.length);
@@ -133,7 +132,7 @@
   function tap(n: MapNode) {
     if (!nodeOpen(a, n)) { sfx.nope(); game.say('Finish the stops before this one first.'); return; }
     if (mapTip) { mapTip = false; game.update(pp => markSeen(pp, 'map1')); }
-    open = n; chances = false; sfx.pop();
+    open = n; oddsOpen = null; sfx.pop();
   }
   function setSubject(s: 'math' | 'typing') { game.update(pp => { advOf(pp).subject = s; }); sfx.click(); }
   function fight(n: MapNode) {
@@ -154,7 +153,14 @@
   }
   const kindName = { battle: 'Battle', practice: 'Practice stop', champion: 'Champion' };
   const pathD = $derived(nodes.map((n, i) => `${i ? 'L' : 'M'}${spots[n.id][0]} ${spots[n.id][1]}`).join(' '));
-  const HOW_OFTEN: [string, Rarity][] = [['Often', 'common'], ['Sometimes', 'uncommon'], ['Not often', 'rare'], ['Hardly ever', 'epic'], ['Once in a blue moon', 'mythic']];
+  // the chances card on a battle stop: every kind, in order, with its chance (0% too), so nothing is hidden
+  let oddsOpen = $state<Rarity | null>(null);
+  const pctText = (n: number) => `${n >= 1 ? Math.round(n * 10) / 10 : n}%`;
+  function oddsNote(r: Rarity, n: number): string {
+    if (!n) return r === 'legendary' ? 'Not in battles here. Only from a Champion, or an egg.' : 'Not in battles here.';
+    if (n < 1) return `About 1 in ${Math.round(100 / n)} wins.`;
+    return n >= 50 ? 'Most of the time.' : n >= 20 ? 'Quite often.' : n >= 8 ? 'Sometimes.' : 'Not often.';
+  }
 </script>
 
 <div class="screen adv" class:tall>
@@ -249,14 +255,26 @@
             <div class="champ"><GlimmerCard id={isl.champion} width={112} locked={!owns(a, isl.champion)} /><p><b>{owns(a, isl.champion) ? GLIMMER[isl.champion].name : `A ${RARITY[GLIMMER[isl.champion].rarity].name} Glimmer`}</b> is the grumpiest one on {isl.name}, under the biggest storm cloud. Cheer it up and it joins your team. You also get a special egg{isl.world === 'sky' && isl.id !== 'bay' ? ', and the next island opens' : ''}.</p></div>
           {:else}
             <p>{cleared(a, n.id) ? 'You won here! Play again to meet more Glimmers.' : 'A grumpy Glimmer is waiting here. Cheer it up with your answers and it joins your team!'}</p>
-            <h3>Who might it be?</h3>
-            <div class="who">
-              {#each HOW_OFTEN.filter(([, r]) => isl.odds[r]) as [word, r]}
-                <div class="whorow"><span class="ww" style:--c={RARITY[r].color}>{word}</span>{#each glimmersOf(r).filter(g => !g.champion) as g}<GlimmerCard id={g.id} width={50} locked={!owns(a, g.id)} />{/each}</div>
-              {/each}
+            <div class="odds">
+              <h3>Who you might meet here</h3>
+              <p class="oddsnote">Win a battle here and a Glimmer comes to you. These are the chances of each kind.</p>
+              <div class="oddrow">
+                {#each RARITIES as r}
+                  {@const pc = isl.odds[r] ?? 0}
+                  <button class="odd" class:none={!pc} class:on={oddsOpen === r} style:--c={RARITY[r].color} onclick={() => { oddsOpen = oddsOpen === r ? null : r; sfx.pop(); }} aria-label="{RARITY[r].name}: {pctText(pc)}">
+                    <img src="{base}game/egg-{r}.webp" alt="" /><b>{pctText(pc)}</b><span>{RARITY[r].name}</span>
+                  </button>
+                {/each}
+              </div>
+              {#if oddsOpen}
+                {@const r = oddsOpen}
+                {@const pc = isl.odds[r] ?? 0}
+                <div class="oddwho" style:--c={RARITY[r].color}><p><b>{RARITY[r].name}: {pctText(pc)}.</b> {oddsNote(r, pc)}</p>{#if pc}<span class="ofaces">{#each glimmersOf(r).filter(g => !g.champion) as g}<GlimmerCard id={g.id} width={40} locked={!owns(a, g.id)} />{/each}</span>{/if}</div>
+              {:else}
+                <p class="oddtip">{!isl.odds.legendary ? 'Legendary is 0% here: those only come from a Champion, or an egg. ' : ''}Tap an egg to see who it could be.</p>
+              {/if}
+              <p class="eggline">You might win an egg too: after about 3 in 10 wins, and always after a Perfect Cheer. An egg can hatch any kind, even Legendary.</p>
             </div>
-            <button class="linky" onclick={() => (chances = !chances)}>{chances ? 'Hide' : 'Show'} the exact chances (for grown-ups)</button>
-            {#if chances}<p class="muted small">{HOW_OFTEN.filter(([, r]) => isl.odds[r]).map(([, r]) => `${RARITY[r].name} ${isl.odds[r]}%`).join(' · ')}. An egg after 3 in 10 wins, and always after a Perfect Cheer.</p>{/if}
           {/if}
           <div class="teamline"><span>Your team</span>{#each team as t}<span class="tm"><img src="{base}game/glimmers/face/{t}{a.glimmers[t]?.evolved ? '-evo' : ''}.webp" alt="" />{GLIMMER[t].name}</span>{:else}<em>No Glimmers yet: win this battle for your first!</em>{/each}{#if met > 0}<button class="linky" onclick={() => game.go('glimmers')}>Change team</button>{/if}</div>
           {#if isl.area}<p class="areanote">Every card here is a fraction. Watch out for the waterfall spray!</p>
@@ -419,10 +437,23 @@
   .small { font-size: 13px !important; }
   .big { font-size: 22px; padding: 12px 22px; }
   .champ { display: flex; gap: 14px; align-items: center; }
-  .who { display: flex; flex-direction: column; gap: 4px; }
-  .whorow { display: flex; align-items: center; gap: 4px; }
-  .ww { width: 120px; flex: none; font: 600 15px var(--font-ui); color: var(--ink); display: flex; align-items: center; gap: 6px; }
-  .ww::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 6px var(--c); }
+  /* the chances card: every kind of Glimmer in order, its egg and its chance (0% too); tap one for who */
+  .odds { display: flex; flex-direction: column; gap: 6px; background: #faf8fe; border-radius: 18px; padding: 10px 12px; box-shadow: inset 0 0 0 2px #ece6f6; }
+  .odds h3 { margin: 0; font-size: 20px; }
+  .sheet .oddsnote { font-size: 15px; line-height: 1.3; }
+  .oddrow { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+  .odd { display: flex; flex-direction: column; align-items: center; gap: 1px; border: 0; cursor: pointer; font: inherit; background: #fff; border-radius: 14px; padding: 6px 2px 5px; box-shadow: inset 0 -4px 0 var(--c), 0 2px 6px -3px rgba(40, 20, 80, .3); transition: transform .12s; }
+  .odd:hover { transform: translateY(-2px); }
+  .odd.on { box-shadow: 0 0 0 3px var(--c), inset 0 -4px 0 var(--c); }
+  .odd img { width: 30px; height: 38px; object-fit: contain; }
+  .odd b { font: 600 19px/1.1 var(--font-ui); color: var(--ink); }
+  .odd span { font: 700 11px/1.1 var(--font-body); color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .odd.none { background: #f1eff5; box-shadow: inset 0 -4px 0 #d7d2e2; }
+  .odd.none img { filter: grayscale(.85) opacity(.5); }
+  .odd.none b { color: #9a93ad; }
+  .oddwho { display: flex; flex-direction: column; gap: 4px; background: #fff; border-radius: 12px; padding: 6px 10px; box-shadow: inset 4px 0 0 var(--c); }
+  .sheet .oddwho p, .sheet .oddtip, .sheet .eggline { font-size: 14px; line-height: 1.3; }
+  .ofaces { display: flex; flex-wrap: wrap; gap: 3px; }
   .linky { align-self: flex-start; border: 0; background: none; padding: 0; font: 700 13px var(--font-body); color: var(--muted); text-decoration: underline; cursor: pointer; }
   .teamline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 700 14px var(--font-body); color: var(--ink2); background: #f6f2ff; border-radius: 14px; padding: 6px 10px; }
   .teamline .tm { display: flex; align-items: center; gap: 4px; font: 600 15px var(--font-ui); color: var(--ink); }
@@ -456,7 +487,8 @@
   .tall .dock :global(.tile .pic) { width: 46px !important; height: 46px !important; }
   .tall .faces img { width: 34px; height: 34px; }
   .tall .faces img + img { margin-left: -12px; }
-  .tall .ww { width: 92px; font-size: 13px; }
+  .tall .oddrow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tall .odd img { width: 26px; height: 32px; } .tall .odd span { font-size: 12px; }
   .tall .introcard { grid-template-columns: 1fr; }
   .tall .pic { min-height: 210px; }
   .tall .it { padding: 16px 18px; } .tall .it h2 { font-size: 24px; } .tall .it p { font-size: 16px; }

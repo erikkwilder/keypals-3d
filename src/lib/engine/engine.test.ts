@@ -320,7 +320,7 @@ describe('six rides', () => {
       expect(MEDALS.some(m => m.id === `ride-${r.id}`), r.id).toBe(false);
     }
     expect(MEDALS).toHaveLength(9);
-    expect(STICKERS).toHaveLength(38);
+    expect(STICKERS).toHaveLength(39);
     expect(RIDE_SCORE.kids).toHaveLength(RIDES.length);
     expect(RIDE_SCORE.grown).toHaveLength(RIDES.length);
   });

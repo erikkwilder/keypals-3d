@@ -4,7 +4,7 @@
 // answer is still how a skill grows all the way to a bloom, so choices come up less as a skill grows, and
 // never in a checkpoint or placement.
 import type { Rng } from '../../engine/rng';
-import type { FracPic, Item, Part } from './types';
+import type { Answer, Choice, FracPic, Item, Part } from './types';
 import type { SkillLesson } from './course';
 import { sameValue } from './fractions';
 
@@ -108,4 +108,48 @@ export function asChoices(it: Item, rng: Rng, count = 4): Item | null {
 export function choiceChance(stage: number, kind: SkillLesson['kind']): number {
   if (kind === 'check' || kind === 'placement') return 0;
   return stage <= 1 ? 0.35 : stage === 2 ? 0.15 : 0.05;
+}
+
+// ---- typing a choice ----
+// Choices that are all numbers (or all fractions) can be typed as well as tapped: the number pad (or the
+// fraction pad) stays under them, and a typed answer picks the choice it matches.
+const numIn = (c: Choice): number | null => { const p = c.parts.length === 1 ? c.parts[0] : null; return p && p.t === 'num' ? p.n : null; };
+const fracIn = (c: Choice): F | null => { const p = c.parts.length === 1 ? c.parts[0] : null; return p && p.t === 'frac' && p.n !== null && p.d !== null ? { n: p.n, d: p.d } : null; };
+
+/** How a question asked as choices can be typed too: 'number', 'fraction', or not at all (words, signs,
+ *  pictures: those are tapped). */
+export function typedAs(it: Item): 'number' | 'fraction' | null {
+  const cs = it.input === 'choice' ? it.choices ?? [] : [];
+  if (!cs.length) return null;
+  if (cs.every(c => numIn(c) !== null)) return 'number';
+  if (cs.every(c => fracIn(c) !== null)) return 'fraction';
+  return null;
+}
+
+/** The right choice as a fraction (the fraction pad uses its digits to know when a box is finished). */
+export function rightFraction(it: Item): F | null {
+  const id = it.answer.kind === 'choice' ? it.answer.id : null;
+  const c = it.choices?.find(x => x.id === id);
+  return c ? fracIn(c) : null;
+}
+
+/** The choice a typed answer means: the same number, or the same fraction (else one worth the same). */
+export function choiceFor(it: Item, a: Answer): string | null {
+  const cs = it.choices ?? [];
+  if (a.kind === 'number') return cs.find(c => numIn(c) === a.value)?.id ?? null;
+  if (a.kind === 'fraction') {
+    const fs = cs.map(c => ({ id: c.id, f: fracIn(c) }));
+    return (fs.find(x => x.f && x.f.n === a.n && x.f.d === a.d) ?? fs.find(x => x.f && sameValue(x.f, a)))?.id ?? null;
+  }
+  return null;
+}
+
+/** Typing a choice's number: 'pick' once it's a whole choice and no other choice goes on from it (or on
+ *  Enter), 'wrong' once no choice starts that way (or on Enter), else 'wait' for the next digit. */
+export function typedChoice(it: Item, text: string, enter = false): 'pick' | 'wrong' | 'wait' {
+  if (!text) return 'wait';
+  const ss = (it.choices ?? []).map(c => String(numIn(c)));
+  const whole = ss.includes(text), more = ss.some(s => s !== text && s.startsWith(text));
+  if (more && !enter) return 'wait';
+  return whole ? 'pick' : 'wrong';
 }

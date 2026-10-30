@@ -35,8 +35,11 @@
   const due = $derived(dueId ? epLesson(dueId) : null);
   let tall = $state(false);
   const open = $derived(game.learnId && isEpisode(game.learnId) ? game.learnId : null);
-  /** the open episode is just its next-day quick check */
-  let checking = $state(false);
+  /** the open episode is just its next-day quick check (a subject page can open one that way) */
+  let checking = $state(game.learnCheck);
+  game.learnCheck = false;
+  /** opened straight onto an episode (from the Math page's Learn tab): closing it goes back there */
+  const direct = !!game.learnId;
   // the 3D buddy, for the list and the lessons
   let scene = $state<LearnScene | null>(null);
   let spotEl: HTMLDivElement | undefined = $state();
@@ -46,7 +49,7 @@
 
   function watch(l: { id: string }) { sfx.click(); checking = false; game.learnId = l.id; }
   function quickCheck(l: { id: string }) { sfx.click(); checking = true; game.learnId = l.id; }
-  function close() { game.learnId = null; checking = false; }
+  function close() { game.learnId = null; checking = false; if (direct) game.go(game.learnBack === 'learn' ? 'map' : game.learnBack); }
   /** the first stop that uses this trick, to practise it right after (a fraction idea: the fractions
    *  stop that meets its skill; a place value lesson names its own practice lesson) */
   function practiceStop(id: string) {

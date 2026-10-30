@@ -208,11 +208,17 @@
   <div class="nests">
     {#each a.incubator as e, i}
       <div class="slot" class:ready={e && e.have >= e.need} class:cracking={cracking === i}>
-        <img class="nimg" src="{base}game/nest.webp" alt="" />
-        {#if e}
-          <div class="eggw">
+        <!-- the egg sits down in the bowl: the nest, a soft shadow, the egg, then the nest's front rim
+             again over the egg's bottom -->
+        <div class="nestbox">
+          <img class="nimg" src="{base}game/nest.webp" alt="" />
+          {#if e}
+            <i class="eshadow" class:gone={cracking === i}></i>
             <img class="egg r-{e.rarity}" class:gone={cracking === i} src="{base}game/egg-{e.rarity}.webp" alt="{RARITY[e.rarity].name} egg" />
-          </div>
+            <img class="nfront" src="{base}game/nest.webp" alt="" aria-hidden="true" />
+          {/if}
+        </div>
+        {#if e}
           <div class="lab">
             <b style:color={e.rarity === 'common' ? null : RARITY[e.rarity].color}>{RARITY[e.rarity].name} egg</b>
             {#if e.have >= e.need}<button class="btn btn-primary hatch" onclick={() => doHatch(i)} disabled={cracking >= 0}>Hatch!</button>
@@ -287,13 +293,20 @@
   .stagebox { flex: 1; min-height: 160px; }
   .nests { display: flex; gap: 18px; justify-content: center; padding: 0 16px; flex-wrap: wrap; }
   .slot { position: relative; width: 230px; display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, .9); border-radius: 26px; padding: 10px 10px 14px; box-shadow: 0 14px 30px -16px rgba(40, 20, 80, .55); }
-  .nimg { width: 190px; margin-top: 70px; }
-  .eggw { position: absolute; top: 14px; left: 0; right: 0; margin: 0 auto; width: 108px; display: grid; place-items: center; }
-  .egg { width: 100%; height: 118px; object-fit: contain; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .3)); }
+  /* the nest picture is seen from above: its bowl's opening is an oval, and the egg stands in it with its
+     bottom below the front rim (the rim is drawn again over it, cut along the oval's front edge) */
+  .nestbox { position: relative; width: 190px; margin-top: 34px; }
+  .nimg { display: block; width: 100%; }
+  .nfront { position: absolute; inset: 0; width: 100%; pointer-events: none; clip-path: polygon(0.0% 37.6%, 21.5% 37.6%, 21.7% 40.2%, 22.5% 42.8%, 23.7% 45.3%, 25.4% 47.6%, 27.5% 49.8%, 30.0% 51.8%, 32.8% 53.5%, 36.0% 54.9%, 39.4% 56.1%, 43.0% 56.9%, 46.7% 57.4%, 50.5% 57.6%, 54.2% 57.4%, 58.0% 56.9%, 61.6% 56.1%, 65.0% 54.9%, 68.1% 53.5%, 71.0% 51.8%, 73.5% 49.8%, 75.6% 47.6%, 77.2% 45.3%, 78.5% 42.8%, 79.2% 40.2%, 79.4% 37.6%, 100.0% 37.6%, 100.0% 100.0%, 0.0% 100.0%); }
+  .egg { position: absolute; left: 26.4%; bottom: 30%; width: 48%; transform-origin: 50% 94%; filter: drop-shadow(0 4px 5px rgba(60, 30, 0, .3)); }
+  .eshadow { position: absolute; left: 50.5%; top: 55%; width: 46%; height: 13%; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(70, 35, 0, .55), rgba(70, 35, 0, .25) 60%, rgba(70, 35, 0, 0)); pointer-events: none; }
   .ready .egg { animation: wobble .7s ease-in-out infinite; }
+  .ready .eshadow { animation: shwob .7s ease-in-out infinite; }
   .ready { box-shadow: 0 0 0 4px #ffd36b, 0 0 30px #ffd36b; }
-  .egg.gone { opacity: 0; transition: opacity .2s; }
+  .egg.gone, .eshadow.gone { opacity: 0; transition: opacity .2s; }
+  /* rocking in the nest: it tips about its bottom, and its shadow slides a little the other way */
   @keyframes wobble { 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
+  @keyframes shwob { 25% { transform: translate(-46%, -50%) scaleX(.94); } 75% { transform: translate(-54%, -50%) scaleX(.94); } }
   /* the hatch moment, over the stage */
   .hatchmoment { position: fixed; inset: 0; z-index: 19; pointer-events: none; }
   .hdim { position: absolute; inset: 0; background: radial-gradient(circle at 50% 40%, transparent 20%, rgba(25, 15, 50, .45) 75%); opacity: 0; transition: opacity .5s; }
@@ -343,8 +356,7 @@
   .msg h2 { margin: 0; font-size: 24px; } .msg p { margin: 4px 0; font-weight: 600; color: var(--ink2); } .msg small { color: var(--muted); font-weight: 700; }
   @media (max-width: 760px) {
     .slot { width: 30%; min-width: 104px; padding: 6px 4px 10px; border-radius: 18px; }
-    .nimg { width: 100%; margin-top: 46px; }
-    .eggw, .egg { width: 64px; }
+    .nestbox { width: 100%; margin-top: 22px; }
     .lab b { font-size: 13px; text-align: center; } .lab span { font-size: 11px; text-align: center; }
     .nests { gap: 6px; padding: 0 6px; }
     .hatch { font-size: 15px; padding: 6px 10px; }

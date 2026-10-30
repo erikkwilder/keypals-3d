@@ -5,12 +5,12 @@
   import { sfx } from '../audio/sound';
 
   type Props = {
-    label: string; kind?: ArtKind; art?: Snippet; size?: 'lg' | 'md' | 'sm';
+    label: string; kind?: ArtKind; art?: Snippet; size?: 'lg' | 'md' | 'sm' | 'bar';
     tone?: 'mint' | 'butter' | 'sky' | 'lilac' | 'pink' | 'plain'; badge?: string | number; hotkey?: string;
     title?: string; onclick: () => void;
   };
   let { label, kind, art, size = 'md', tone = 'plain', badge, hotkey, title, onclick }: Props = $props();
-  const px = $derived(size === 'lg' ? 92 : size === 'md' ? 62 : 40);
+  const px = $derived(size === 'lg' ? 92 : size === 'md' ? 62 : size === 'bar' ? 38 : 40);
 </script>
 
 <button class="tile {size} {tone}" {title} aria-label={title ?? label} onclick={() => { sfx.click(); onclick(); }}>
@@ -50,6 +50,10 @@
   .md { min-width: 112px; padding: 10px 14px 10px; border-radius: 22px; }
   .sm { flex-direction: row; gap: 8px; padding: 6px 14px 6px 8px; border-radius: 18px; }
   .sm .lbl { font-size: 16px; }
+  /* the top bar's tiles: a small picture over its word, so five fit beside the compass on a laptop */
+  .bar { gap: 1px; min-width: 70px; padding: 4px 8px 5px; border-radius: 18px; border-width: 2px; box-shadow: inset 0 3px 0 rgba(255, 255, 255, .95), inset 0 -8px 14px -12px var(--edge-d), 0 4px 0 var(--edge-d), 0 10px 18px -12px rgba(70, 40, 130, .4); }
+  .bar .lbl { font-size: 13.5px; }
+  .bar:hover { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .95), 0 6px 0 var(--edge-d), 0 14px 22px -12px rgba(70, 40, 130, .45); }
   .kbd { position: absolute; top: 8px; right: 10px; font-size: 11px; }
   .badge { position: absolute; top: -8px; right: -6px; min-width: 26px; padding: 3px 8px; border-radius: 999px; background: var(--primary); color: #fff; font: 800 13px var(--font-body); box-shadow: 0 2px 0 rgba(60, 30, 140, .3); }
   .mint { --edge: #bfeedb; --edge-d: #8fd9b8; --bg: #e6fbf1; }

@@ -11,7 +11,7 @@
   import { stage, type Controller } from '../../three/stage';
   import { EpisodeScene, type View } from '../../three/episodeScene';
   import { game } from '../../state/game.svelte';
-  import { sfx } from '../../audio/sound';
+  import { quietForLesson, sfx } from '../../audio/sound';
   import { hush, lineText, say } from '../../audio/voice.svelte';
   import { danceOf } from '../../engine/profile';
   import { advView, teamOf } from '../../adventure/state';
@@ -317,7 +317,10 @@
   }
   $effect(() => { void phase; void tsub; void w; void h; void narrow; sc?.setView(viewFor()); });
 
+  // the music hushes while the lesson plays (the coach's voice and the sounds carry on)
+  let unquiet = () => {};
   onMount(() => {
+    unquiet = quietForLesson();
     addEventListener('keydown', onKey, true);
     const own = advView(game.profile!).glimmers[starId];
     void EpisodeScene.create({ setId: lesson.set, buddy, star: starId, evolved: !!own?.evolved, frac: !lesson.cover }).then(async s => {
@@ -333,7 +336,7 @@
   });
   onDestroy(() => {
     gone = true; run++;
-    hush();
+    hush(); unquiet();
     removeEventListener('keydown', onKey, true);
     if (sc) { const s = sc; sc = null; if (stage.current() === s) stage.swap(before); s.dispose(); }
   });

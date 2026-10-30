@@ -15,6 +15,10 @@ let sfxBus: GainNode | null = null;
 let enabled = true;
 let musicOn = true;
 let volume = 0.8;
+/** lessons playing now: each holds the music quiet until it closes (quietForLesson) */
+let hushes = 0;
+/** how loud the music channel should be now */
+const musicLevel = () => (musicOn && enabled && hushes === 0 ? 0.32 : 0);
 
 function ac(): AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -29,7 +33,7 @@ function ac(): AudioContext | null {
     sfxBus.gain.value = 0.9;
     sfxBus.connect(master);
     musicBus = ctx.createGain();
-    musicBus.gain.value = musicOn ? 0.32 : 0;
+    musicBus.gain.value = musicLevel();
     musicBus.connect(master);
     synthBus = ctx.createGain();
     synthBus.gain.value = 1;
@@ -44,9 +48,32 @@ export function configureSound(o: { sound: boolean; music: boolean; volume: numb
   musicOn = o.music;
   volume = o.volume;
   if (master) master.gain.value = enabled ? volume : 0;
-  if (musicBus && ctx) musicBus.gain.setTargetAtTime(musicOn && enabled ? 0.32 : 0, ctx.currentTime, 0.2);
+  if (musicBus && ctx) { const g = musicBus.gain; g.cancelScheduledValues(ctx.currentTime); g.setTargetAtTime(musicLevel(), ctx.currentTime, 0.2); }
   // a recording that can't be heard stops downloading; it carries on where it was when music is back
   if (deck) { if (musicOn && enabled) playDeck(deck); else deck.el.pause(); }
+}
+
+/**
+ * Quiet the music for a lesson (a Learn episode or a money lesson): it fades out over half a second and
+ * fades back in when the lesson lets go, if it was playing before. Voice lines and sound effects carry on.
+ * Holds can overlap (a lesson inside another); the music comes back when the last one lets go. Returns
+ * the letting go (safe to call twice).
+ */
+export function quietForLesson(): () => void {
+  hushes++;
+  fadeMusicTo(musicLevel(), 0.5);
+  let held = true;
+  return () => {
+    if (!held) return;
+    held = false;
+    hushes = Math.max(0, hushes - 1);
+    fadeMusicTo(musicLevel(), 0.6);
+  };
+}
+function fadeMusicTo(level: number, s: number) {
+  if (!musicBus || !ctx) return;
+  const g = musicBus.gain, now = ctx.currentTime;
+  g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(level, now + s);
 }
 
 /** Browsers only allow audio after a key press or click; call this from one. */
@@ -1100,6 +1127,8 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
     start: startMusic, style: setMusicStyle, energy: musicEnergy, station: setMusicStation, now: musicNow, skip: skipTrack,
     deck: () => (deck ? { src: deck.el.src.split('/').pop(), paused: deck.el.paused, time: Math.round(deck.el.currentTime * 10) / 10, gain: deck.gain.gain.value, station: deck.station } : null),
     synth: () => ({ on: !!musicTimer, gain: synthBus?.gain.value }),
+    /** the music channel's level now, and how many lessons are holding it quiet */
+    bus: () => ({ gain: musicBus ? Math.round(musicBus.gain.value * 1000) / 1000 : null, hushes }),
     endSoon: () => { if (deck && deck.el.duration) deck.el.currentTime = deck.el.duration - 1.5; },
     state: () => ctx?.state ?? 'none',
     /** how loud the game's output is right now (RMS), to check something is really playing */

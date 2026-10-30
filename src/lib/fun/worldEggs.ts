@@ -10,12 +10,23 @@
 // cliff (1 in 3); a snowman at the bottom of the sled run, in a different hat every time; Snowdrop Seal
 // belly-sliding beside you (1 in 3); fish leaping out of the bay; Puddle Pup paddling by the lane
 // (1 in 3); and the shooting star at the finish.
+// A visitor never just appears beside you: it pops in with a poof and a little bubble says who it is and
+// that it came to say hi (the Spark Moth, Snowdrop Seal and Puddle Pup); Pebble, the Sky Whale and the
+// flying saucer get a bubble too, so nobody wonders what they're doing there.
 import * as THREE from 'three';
 import { preloadSfx, sfx } from '../audio/sound';
 import { stage } from '../three/stage';
 import { chance, recall, remember, season } from './luck';
-import { world } from './bus';
-import { cameo, fish, pumpkinPatch, saucer, shootingStar, snowman, soft, tinyDoor, type Keep, type Leaper, type Saucer } from './props3d';
+import { funEvent, world } from './bus';
+import { cameo, fish, poof, pumpkinPatch, saucer, shootingStar, snowman, soft, tinyDoor, type Keep, type Leaper, type Saucer } from './props3d';
+
+/** A visitor's bubble, over where it is on the screen (FunLayer shows it). */
+function hello(text: string, at: THREE.Vector3) {
+  const v = at.clone().project(stage.camera);
+  const on = v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1;
+  funEvent('visitor', { text, x: on ? ((v.x + 1) / 2) * innerWidth : innerWidth / 2, y: on ? ((1 - v.y) / 2) * innerHeight : innerHeight * 0.3 });
+}
+const up = (p: THREE.Vector3, h: number) => p.clone().add(new THREE.Vector3(0, h, 0));
 
 type TP = { p: THREE.Vector3; t: THREE.Vector3; n: THREE.Vector3 };
 /** A spot far off in the sky that shows at (x, y) on the screen (-1..1 each way), `dist` metres away:
@@ -70,7 +81,7 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
   const group = new THREE.Group(); group.visible = false; o.root.add(group);
   const keep: Keep = x => x; // the island is kept for the whole game: nothing here is thrown away
   const ground = (p: THREE.Vector3) => p.setY(o.height(p.x, p.z));
-  let finishS = 60, startT = -1;
+  let finishS = 60, startT = -1, startS = 0;
   const star = finishStar(group, keep);
   // Pebble's big walk: a few metres further along the trail every lesson, until one day he makes it
   let pebble: GM | null = null, pebbleS = 6, pebbleMade = false, pebbleSaid = false;
@@ -78,11 +89,13 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
   // the rest is rolled each lesson
   let whale: GM | null = null, moth: GM | null = null, ufo: Saucer | null = null;
   let roll = { whale: false, moth: false, ufo: false };
+  const puff = poof(keep); group.add(puff.group);
+  let whaleSaid = false;
   let mothT = -1, ufoT = -1, ufoFrom = new THREE.Vector3(), ufoAt = new THREE.Vector3();
   let pumpkins: THREE.Object3D[] | null = null, snow: ReturnType<typeof snowfall> | null = null;
 
   function visit(s: number) {
-    finishS = s; startT = -1; mothT = -1; ufoT = -1; pebbleSaid = false; lastS = 0;
+    finishS = s; startT = -1; mothT = -1; ufoT = -1; pebbleSaid = false; lastS = 0; whaleSaid = false;
     // Pebble: on from where he got to last time (back to the start once he's made it)
     const walked = recall<number>('pebbleWalk', 0);
     pebbleMade = 6 + walked >= finishS - 5;
@@ -121,10 +134,12 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
   function update(dt: number, t: number, focus: THREE.Vector3) {
     group.visible = world.run;
     if (!world.run) return;
-    if (startT < 0) startT = t;
-    const since = t - startT;
     // where you are along the trail (once a frame), for the things that keep you company
-    const here = o.trail.at(nearS(focus));
+    const hereS = nearS(focus), here = o.trail.at(hereS);
+    if (startT < 0) { startT = t; startS = hereS; }
+    const since = t - startT;
+    // visitors wait until you're on your way (not while the lesson's coach is still showing the keys)
+    const going = hereS - startS > 1.5;
     const fin = o.trail.at(finishS);
     star.update(dt, focus, fin);
     if (pebble) {
@@ -133,7 +148,13 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
       const f = o.trail.at(pebbleS);
       pebble.root.position.copy(ground(f.p.clone().addScaledVector(f.n, -1.5)));
       pebble.face = pebble.root.position.clone().add(pebbleMade ? f.n.clone().multiplyScalar(3) : f.t);
-      if (!pebbleSaid && focus.distanceTo(pebble.root.position) < 2.6) { pebbleSaid = true; pebble.play(pebbleMade ? 'happy' : 'hop'); if (pebbleMade) sfx.cheer(); }
+      if (!pebbleSaid && focus.distanceTo(pebble.root.position) < 2.6) {
+        pebbleSaid = true; pebble.play(pebbleMade ? 'happy' : 'hop'); if (pebbleMade) sfx.cheer();
+        // the first couple of times, who he is and what he's doing; and the day he makes it
+        const met = recall<number>('pebbleMet', 0);
+        if (pebbleMade) hello('Pebble Tortoise made it to the end of the trail! Hooray, Pebble!', up(pebble.root.position, 0.7));
+        else if (met < 2) { remember('pebbleMet', met + 1); hello("That's Pebble Tortoise. He's walking the whole trail, a little further every lesson!", up(pebble.root.position, 0.7)); }
+      }
       pebble.update(dt, t);
     }
     if (whale) {
@@ -145,11 +166,13 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
         whale.root.position.copy(skyPoint(x, y, 75));
         whale.face = skyPoint(x - 0.2, y, 75);
         whale.update(dt, t);
+        if (!whaleSaid && going && x < 0.75 && x > -0.5) { whaleSaid = true; hello('Look up! A Sky Whale from Adventure is drifting by.', skyPoint(x, y + 0.12, 75)); }
       }
     }
     if (moth) {
       const fs = focus;
-      if (roll.moth && mothT < 0 && since > 8) mothT = 0;
+      const arrive = roll.moth && mothT < 0 && since > 8 && going;
+      if (arrive) mothT = 0;
       moth.root.visible = roll.moth && mothT >= 0 && mothT < 16;
       if (moth.root.visible) {
         mothT += dt;
@@ -158,12 +181,14 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
         const f = here;
         moth.root.position.copy(fs).addScaledVector(f.n, -0.9 + Math.sin(a) * 0.35).addScaledVector(f.t, 1.4 + Math.cos(a) * 0.6).add(new THREE.Vector3(0, 0.45 + Math.sin(a * 2) * 0.18 + away, 0));
         moth.face = fs.clone().add(new THREE.Vector3(0, 1, 0));
+        // it pops in with a poof and says who it is
+        if (arrive) { moth.play('appear'); puff.fire(moth.root.position, 0.45); sfx.pop(); hello('A visitor! Spark Moth from Adventure flew over to cheer you on.', up(moth.root.position, 0.55)); }
         moth.update(dt, t);
       }
     }
     if (ufo) {
       const u = ufo;
-      if (roll.ufo && ufoT < 0 && since > 12) {
+      if (roll.ufo && ufoT < 0 && since > 12 && going) {
         ufoT = 0;
         ufoAt.copy(skyPoint(0.4, 0.62, 38));
         ufoFrom.copy(skyPoint(1.4, 1.1, 70));
@@ -171,8 +196,10 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
         sfx.ufo();
       }
       if (ufoT >= 0 && u.group.visible) {
+        const said = ufoT >= 3;
         ufoT += dt;
         const k = ufoT;
+        if (!said && k >= 3) hello('A little flying saucer stopped by to take a look!', up(ufoAt, 2.4));
         if (k < 3) u.group.position.lerpVectors(ufoFrom, ufoAt, 1 - (1 - k / 3) ** 3);
         else if (k < 6) u.group.position.copy(ufoAt).add(new THREE.Vector3(Math.sin(k * 3) * 0.3, Math.sin(k * 2) * 0.4, 0));
         else u.group.position.lerpVectors(ufoAt, skyPoint(-1.6, 1.3, 80), Math.min(1, ((k - 6) / 1.6) ** 2));
@@ -183,6 +210,7 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
       }
     }
     snow?.update(dt, t, focus);
+    puff.update(dt);
   }
   if (import.meta.env.DEV) (window as unknown as { __trailEggs: unknown }).__trailEggs = () => ({ roll, run: world.run, group: group.visible, parent: !!group.parent?.parent, pebble: pebble && [pebble.root.visible, pebble.root.getWorldPosition(new THREE.Vector3()).toArray().map(Math.round), pebbleS], whale: whale && [whale.root.visible, whale.root.getWorldPosition(new THREE.Vector3()).toArray().map(Math.round), whale.root.getWorldPosition(new THREE.Vector3()).project(stage.camera).toArray().map(v => Math.round(v * 100) / 100)], cam: stage.camera.position.toArray().map(Math.round), fov: stage.camera.fov, ufo: ufo && [ufo.group.visible, ufoT] });
   return { visit, update };
@@ -202,10 +230,15 @@ export function courseEggs(move: 'climb' | 'slide' | 'swim', c: CourseCtx) {
   const star = finishStar(group, c.keep);
   star.arm();
   const models: GM[] = [];
-  const cam = (id: string, h: number) => cameo(id, h).then(g => { models.push(g); group.add(g.root); return g; });
+  const cam = (id: string, h: number) => cameo(id, h).then(g => { g.root.visible = false; models.push(g); group.add(g.root); return g; });
   let door: THREE.Object3D | null = null, moth: GM | null = null, man: Awaited<ReturnType<typeof snowman>> | null = null;
   let seal: GM | null = null, pup: GM | null = null, leaper: Leaper | null = null;
   let sealOn = false, pupOn = false, mothOn = false, sealSaid = false, pupSaid = false, nextLeap = 2.5 + rand() * 3;
+  // each visitor pops in once, with a poof and a bubble saying who it is
+  const puff = poof(c.keep); group.add(puff.group);
+  let startT = -1, mothIn = false, sealIn = false, pupIn = false;
+  const startAt = new THREE.Vector3();
+  const arrive = (g: GM, text: string, size: number) => { g.root.visible = true; g.play('appear'); puff.fire(g.root.position, size); sfx.pop(); hello(text, up(g.root.position, size + 0.3)); };
   if (move === 'climb') {
     void tinyDoor(c.keep).then(d => { door = d; if (d) { group.add(d); place(); } });
     mothOn = chance(1 / 3);
@@ -235,17 +268,22 @@ export function courseEggs(move: 'climb' | 'slide' | 'swim', c: CourseCtx) {
   }
   function update(dt: number, t: number, focus: THREE.Vector3) {
     const fs = c.finishS(), fin = c.at(fs);
+    if (startT < 0) { startT = t; startAt.copy(focus); }
     star.update(dt, focus, fin);
+    puff.update(dt);
     if (moth) {
+      // a few seconds into the climb it flutters in beside you
       const a = t * 1.7;
       moth.root.position.copy(focus).add(new THREE.Vector3(1.0 + Math.cos(a) * 0.5, 0.5 + Math.sin(a * 2) * 0.3, 0.55));
       moth.face = focus.clone();
+      if (!mothIn) { moth.root.visible = false; if (t - startT > 4 && focus.distanceTo(startAt) > 1) { mothIn = true; arrive(moth, 'A visitor! Spark Moth from Adventure flew over to climb with you.', 0.4); } }
     }
     if (man) man.update(t, focus);
     if (seal && c.slopeY) {
       // belly-sliding a little ahead of you, racing you to the bottom, then a happy flop at the end
       const ahead = focus.x > fs * 0.2;
       seal.root.visible = ahead;
+      if (ahead && !sealIn) { sealIn = true; seal.root.position.set(Math.min(fs + 1.6, focus.x + 1.8), c.slopeY(Math.min(focus.x + 1.8, fs + 0.2)) + 0.03, -1.45); arrive(seal, 'A visitor! Snowdrop Seal slid over to race you down the hill.', 0.45); }
       const x = Math.min(fs + 1.6, focus.x + 1.8 + Math.sin(t * 0.7) * 0.5);
       seal.root.position.set(x, c.slopeY(Math.min(x, fs + 0.2)) + 0.03, -1.45);
       const done = x >= fs + 1.5;
@@ -256,9 +294,11 @@ export function courseEggs(move: 'climb' | 'slide' | 'swim', c: CourseCtx) {
       const px = fs * 0.55;
       pup.root.position.set(px + Math.sin(t * 0.5) * 0.6, -0.16 + Math.sin(t * 2.2) * 0.05, -3.1);
       pup.face = focus.clone().setY(pup.root.position.y);
+      // out of sight until you swim near, then it pops up out of the water to say hi
+      if (!pupIn) { pup.root.visible = false; if (Math.abs(focus.x - px) < 6.5) { pupIn = true; arrive(pup, 'A visitor! Puddle Pup paddled over to say hi.', 0.45); } }
       if (!pupSaid && Math.abs(focus.x - px) < 2.5) { pupSaid = true; pup.play('happy'); sfx.splashSmall(); }
     }
-    for (const m of models) m.update(dt, t);
+    for (const m of models) if (m.root.visible) m.update(dt, t);
     if (leaper) {
       const busy = leaper.update(dt);
       nextLeap -= dt;

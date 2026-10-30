@@ -46,6 +46,16 @@ const WIGGLE_BODY = `
   transformed = p;
   vSPos = p / uUnit; vSNrm = objectNormal;
 `;
+// The island light (a sun, and a sky light whose ground half is grass green) leaves every model about a
+// tenth darker than its painting, and greens the undersides of yellow ones. Like the buddies (character.ts
+// liftColours), a Glimmer's paint is lifted a little: a vibrance boost that gives dull colours the most and
+// leaves already-vivid ones nearly alone, and a touch of brightness.
+const LIFT = `
+  { vec3 c = diffuseColor.rgb; float mx = max(c.r, max(c.g, c.b)), sat = mx > 0.0 ? (mx - min(c.r, min(c.g, c.b))) / mx : 0.0;
+    float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    diffuseColor.rgb = max(vec3(0.0), mix(vec3(l), c, 1.0 + 0.3 * (1.0 - sat) * (1.0 - sat) * smoothstep(0.03, 0.12, sat))) * 1.05; }
+`;
+const FILL = 0.12;
 // an evolved Glimmer's markings: the painted pattern seen from three sides and blended by the surface's
 // facing (so it wraps round any model with no seams), pulsing up the body; plus a rim of its colour
 const SHINE = `
@@ -143,11 +153,15 @@ export class GlimmerModel {
       const fix = (mat: THREE.Material) => {
         const c = mat.clone() as THREE.MeshStandardMaterial;
         if ('roughness' in c) { c.roughness = Math.max(0.35, c.roughness ?? 0.6); c.metalness = Math.min(0.1, c.metalness ?? 0); }
+        // a little of its own colour in the shade, so undersides and backs keep their paint (the sky
+        // light's green ground half turned yellow wings olive and grey wool slate)
+        if (c.map && 'emissive' in c) { c.emissiveMap = c.map; c.emissive.setScalar(FILL); }
         c.onBeforeCompile = (sh) => {
           Object.assign(sh.uniforms, u, this.look);
           sh.vertexShader = WIGGLE + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIGGLE_BODY);
           // grumpy: drained of colour, a little dark and blue; a white flash when cheer lands
-          sh.fragmentShader = 'uniform float uGrey; uniform float uFlash; uniform float uT; uniform float uShine; uniform sampler2D uShineMap; uniform vec3 uShineCol;\nvarying vec3 vSPos; varying vec3 vSNrm;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+          sh.fragmentShader = 'uniform float uGrey; uniform float uFlash; uniform float uT; uniform float uShine; uniform sampler2D uShineMap; uniform vec3 uShineCol;\nvarying vec3 vSPos; varying vec3 vSNrm;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+            ${LIFT}`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
             ${SHINE}
             float lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
             gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(lum) * vec3(0.72, 0.76, 0.86), uGrey);

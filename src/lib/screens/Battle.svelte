@@ -1,8 +1,10 @@
 <script lang="ts">
   // The Cheer Duel. Spark over your buddy, Grump over the Grumble, three power cards at the bottom. Pick a
   // card, answer it, and the number you make cheers the Grumble up (land exactly on zero for a Perfect
-  // Cheer). Then block its mischief with a quick one. Five right in a row lights the Finale. When it's
-  // cheered right up, the cloud bursts and the Glimmer inside is revealed, with its rarity.
+  // Cheer). Then it hits back: answer a quick one before the ring runs out to put your shield up and block
+  // it. Each one that gets through takes energy (and the next is bigger), and at zero your buddy needs a
+  // rest. Five right in a row lights the Finale. When it's cheered right up, the cloud bursts and the
+  // Glimmer inside is revealed, with its rarity.
   import MusicButton from '../ui/MusicButton.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { Tween } from 'svelte/motion';
@@ -20,7 +22,7 @@
   import { trickOf } from '../math/course';
   import { BUDDY_ROLE, ELEMENT, EVOLVE_BOOST, EVOLVED, GEAR, GLIMMER, RARITY, ROLE, glimmerName, rarityRank, type Element, type GlimmerId } from '../adventure/glimmers';
   import { canEvolve } from '../adventure/evolve';
-  import { newBattle, play, block as doBlock, finale as doFinale, swap as doSwap, openFact, sparkFor, useGlow, glowLeft, FINALE_AT, type Battle, type BEvent, type Card } from '../adventure/battle';
+  import { newBattle, play, block as doBlock, finale as doFinale, swap as doSwap, openFact, sparkFor, hitFor, useGlow, glowLeft, FINALE_AT, type Battle, type BEvent, type Card, type Foe } from '../adventure/battle';
   import { advOf, advView, applyBattle, foeFor, ISLAND, markSeen, mathPool, NODE, teamOf, typingPool, type BattleOutcome } from '../adventure/state';
   import { learnedTrick } from '../math/learn';
   import { ITEM, SLOT_NAME, SLOTS, battleWornOf, kitOf, startPerks } from '../adventure/gear';
@@ -35,6 +37,7 @@
   import GlimmerCard from '../ui/GlimmerCard.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
+  import { dropHeld, holdAnswer, letGo } from '../ui/holdAnswer';
 
   const base = import.meta.env.BASE_URL;
   const p0 = game.profile!;
@@ -45,7 +48,6 @@
   const subject = island.area ? 'math' : adv.subject;
   const pool = subject === 'math' ? mathPool(p0, island.area) : typingPool(p0);
   const seed = (Date.now() % 1e9) | 0;
-  const foe = foeFor(p0, node, pool, seed);
   const team = teamOf(adv);
   const role = BUDDY_ROLE[p0.buddy] ?? 'heart';
   const outfit = outfitOf(p0);
@@ -53,6 +55,8 @@
   const level = levelFromXp(buddyPal(p0).xp).level;
   // hand, back and shoe gear: its powers (and any set bonus) and the pieces for the 3D buddy
   const kit = kitOf(adv, p0.buddy), worn = battleWornOf(adv, p0.buddy);
+  // the Grumble here, and how hard its counterattacks bite: a share of the energy the buddy starts with
+  const foe: Foe = { ...foeFor(p0, node, pool, seed), hit: hitFor({ champion: node.kind === 'champion', tier: island.tier, level, subject }) };
   const b: Battle = newBattle({ pool, seed, sparkMax: sparkFor(level, role), role, gear: gear?.kind ?? null, team, foe, fastMs: p0.math?.fastMs, kit });
   const t0 = performance.now();
   const champion = node.kind === 'champion';
@@ -64,6 +68,9 @@
   let finaleN = $state(b.finale);
   let streak = $state(0);
   const spark = new Tween(b.spark, { duration: 500, easing: cubicOut });
+  // the energy just lost stays on the bar a moment (a lighter strip) before it drains away
+  const sparkLag = new Tween(b.spark, { duration: 800, delay: 450, easing: cubicOut });
+  let barHurt = $state(false);
   const grump = new Tween(b.foe.grump, { duration: 650, easing: cubicOut });
   let sparkNow = $state(b.spark);
   let grumpNow = $state(b.foe.grump);
@@ -82,7 +89,7 @@
   /** a skill card's answer as it's typed (shown in the question's gap) */
   let skFill = $state<{ kind: 'number'; text: string } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null } | null>(null);
   // blocking
-  let blk = $state<{ name: string; fact?: Fact; word?: string; limitMs: number } | null>(null);
+  let blk = $state<{ name: string; fact?: Fact; word?: string; limitMs: number; hit: number; bold: boolean } | null>(null);
   let blockAt = 0; let blockLeft = $state(1); let blockTimer = 0;
 
   // floating numbers and messages
@@ -97,6 +104,8 @@
   // the joined card shrinks on short screens so the title, card, prizes and buttons all fit
   const revealW = $derived(Math.round(Math.max(130, Math.min(narrow ? 160 : 210, (vh - (narrow ? 560 : 620)) * 0.62))));
   let stageEl: HTMLDivElement | undefined = $state();
+  /** the answer lines (held on screen a moment after the last digit) */
+  let eqEl: HTMLDivElement | undefined = $state(); let blockEqEl: HTMLDivElement | undefined = $state();
   let raf = 0;
 
   // tips for a first-time player (shown once each)
@@ -104,9 +113,10 @@
   const firstBattle = !seen.has('battle1');
   let coach = $state<{ text: string; at: string | null; button?: string; id: string } | null>(null);
   let help = $state(false);
-  function tip(id: string, text: string, at: string | null, button?: string) {
-    if (seen.has(id)) return;
+  function tip(id: string, text: string, at: string | null, button?: string): boolean {
+    if (seen.has(id)) return false;
     seen.add(id); coach = { id, text, at, button };
+    return true;
   }
   function closeTip(id?: string) { if (!id || coach?.id === id) coach = null; }
   const foeName = glimmerName(foe.glimmer, foe.evolved);
@@ -151,15 +161,15 @@
       if (firstBattle) tip('t-cards', b.cards.some(c => c.item) ? 'Tap a card and answer it. Every right answer cheers it up, and harder cards cheer more (see the number on each)!' : 'Tap a card, then type the answer. Every right answer cheers it up, and bigger answers cheer more!', '.cards');
     }, champion ? 2800 : 2300);
   });
-  onDestroy(() => { disposed = true; cancelAnimationFrame(raf); clearInterval(blockTimer); removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
+  onDestroy(() => { disposed = true; dropHeld(); cancelAnimationFrame(raf); clearInterval(blockTimer); removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
 
   function sync() {
     cards = b.cards.slice(); finaleN = b.finale; streak = b.streak;
     sparkNow = b.spark; grumpNow = b.foe.grump;
-    spark.target = b.spark; grump.target = b.foe.grump;
+    spark.target = b.spark; sparkLag.target = b.spark; grump.target = b.foe.grump;
     scene?.setGrump(b.foe.grump / b.foe.max);
   }
-  function float(which: 'buddy' | 'foe' | 'team0' | 'team1', text: string, kind: string, img?: string) {
+  function float(which: 'buddy' | 'foe' | 'team0' | 'team1' | 'shield', text: string, kind: string, img?: string) {
     const pos = scene?.screenOf(which, 0.2) ?? { x: which === 'buddy' ? 0.3 : 0.7, y: 0.3 };
     // a helper's badge stays on screen even when its Glimmer stands at the very edge
     const edge = Math.min(0.4, 105 / Math.max(1, innerWidth));
@@ -168,7 +178,7 @@
     const stack = kind === 'helper' ? floats.filter(q => q.kind === 'helper').length : 0;
     const f = { id: fid++, x, y: kind === 'helper' ? Math.max(0.2, pos.y) + stack * 0.075 : pos.y, text, kind, img };
     floats = [...floats, f];
-    setTimeout(() => (floats = floats.filter(x => x.id !== f.id)), kind === 'helper' ? 2200 : 1500);
+    setTimeout(() => (floats = floats.filter(x => x.id !== f.id)), kind === 'helper' ? 2200 : kind === 'blocked' ? 1400 : 1500);
   }
   /** A helper's badge: who helped, with what, and what it did. */
   function helped(id: string | undefined, what: string, did: string, pic?: string) {
@@ -187,7 +197,7 @@
     if (ui !== 'pick') return;
     closeTip('t-cards'); closeTip('strong');
     sel = c; choice = null; typed = ''; wordPos = 0; wordErr = 0; glowText = '';
-    ui = 'answer'; sfx.click();
+    ui = 'answer'; sfx.click(); letGo();
     shownAt = performance.now();
   }
   function back() { if (ui === 'answer') { sel = null; ui = 'pick'; } }
@@ -207,10 +217,13 @@
     const f = fact(c);
     const think = performance.now() - shownAt;
     ui = 'busy';
+    const right = subject === 'math' ? !!f && Number(typed) === answerOf(f) : true;
+    // the whole answer, last digit too, stays where it was for a moment (the game moves on as usual)
+    holdAnswer(eqEl, { text: typed, ok: right });
     const ev = subject === 'math'
-      ? play(b, c.id, { ok: !!f && Number(typed) === answerOf(f), value: Number(typed), thinkMs: think, fact: f ?? undefined })
+      ? play(b, c.id, { ok: right, value: Number(typed), thinkMs: think, fact: f ?? undefined })
       : play(b, c.id, { ok: true, value: Math.max(1, (c.word?.length ?? 1) - wordErr), thinkMs: think });
-    if (ev.length === 1 && ev[0].k === 'retry') { sfx.miss(); say(`${GEAR[outfit]?.name ?? 'Second Chance'}: have another go!`, 'good'); typed = ''; wordPos = 0; wordErr = 0; ui = 'answer'; shakeKey++; return; }
+    if (ev.length === 1 && ev[0].k === 'retry') { letGo(); sfx.miss(); say(`${GEAR[outfit]?.name ?? 'Second Chance'}: have another go!`, 'good'); typed = ''; wordPos = 0; wordErr = 0; ui = 'answer'; shakeKey++; return; }
     sel = null; typed = '';
     await run(ev);
   }
@@ -319,8 +332,15 @@
         } else {
           if (e.kind === 'zap') sfx.zap(); else sfx.whoosh();
           await scene?.mischief(e.kind, e.result);
-          if (e.damage === 0) { sfx.shield(true); float('buddy', 'Blocked!', 'block'); }
-          else { if (e.result === 'half') sfx.shield(false); sfx.rainHit(); float('buddy', `−${e.damage}`, 'hurt'); }
+          if (e.damage === 0) {
+            // it bangs into the shield (a clang), then boings back at the Grumble
+            sfx.thunk(14); sfx.shield(true); setTimeout(() => { if (!disposed) sfx.boink(); }, 160);
+            float('shield', 'Blocked!', 'blocked');
+          } else {
+            if (e.result === 'half') sfx.shield(false);
+            sfx.rainHit(); float('buddy', `−${e.damage}`, 'hurt');
+            barHurt = false; requestAnimationFrame(() => (barHurt = true)); setTimeout(() => (barHurt = false), 900);
+          }
           sync();
         }
       } else if (e.k === 'secondwind') { scene?.heal(team.findIndex(m => GLIMMER[m.id].power.kind === 'secondwind')); sfx.heal(); say('Sky Whale gives you energy back!', 'super'); float('buddy', `+${e.value} energy`, 'heal'); sync(); }
@@ -330,9 +350,9 @@
     sync();
     if (b.phase === 'block') startBlock();
     else if (b.phase === 'pick') {
-      ui = 'pick'; swapOk = role === 'trick' && !b.used.swap;
+      ui = 'pick'; swapOk = role === 'trick' && !b.used.swap; letGo();
       if (firstBattle && b.stats.right >= 1) tip('t-grumpy', 'See its Grumpy bar go down? Get it all the way to 0 and it will be happy again.', '.bar.grump', 'Got it');
-      if (firstBattle && b.stats.blocks >= 1 && seen.has('t-grumpy') && coach === null) tip('t-energy', 'This is your energy. Rain and zaps take some when you don\'t block them. If it runs out, you can try again.', '.bar.spark', 'Got it');
+      if (b.stats.blocks >= 1 && seen.has('t-grumpy') && coach === null) tip('t-energy2', 'This is your energy. Rain and zaps you don\'t block take some, and each one in a row hits harder. If it runs out, your buddy needs a rest.', '.bar.spark', 'Got it');
       if (b.finale >= FINALE_AT) tip('t-finale', 'Five right in a row! Tap Finale for your buddy\'s big move. It cheers up a lot!', '.finalebig');
       else if (coach === null && cards.some(c => c.super)) tip('strong', 'Cards marked Strong are extra strong against this Glimmer: they also calm its next rain and fill a Finale star.', '.card.super', 'Got it');
       else if (coach === null && canPerfect && b.stats.right >= 2) tip('perfect', `Bonus: answer exactly ${grumpNow} for a Perfect Cheer! You get extra shells and an egg.`, '.bar.grump', 'Got it');
@@ -342,14 +362,16 @@
 
   function startBlock() {
     const bl = b.block!;
-    blk = { name: bl.name, fact: bl.fact, word: bl.word, limitMs: bl.limitMs };
-    if (firstBattle) tip('t-block', `Uh oh, ${bl.name.toLowerCase()}! Answer this one before the timer runs out to block it.`, '.blockbox');
+    blk = { name: bl.name, fact: bl.fact, word: bl.word, limitMs: bl.limitMs, hit: kit.includes('cape') && !bl.half ? Math.ceil(bl.hit / 2) : bl.hit, bold: b.bold > 0 };
+    letGo();
+    // the very first one a player meets says what a miss costs, and the ring waits while they read it
+    const told = tip('t-counter', 'Miss it and you lose energy. Answer before the ring runs out!', '.blockbox');
     blockTyped = ''; wordPos = 0; wordErr = 0;
-    ui = 'block'; blockAt = performance.now(); blockLeft = 1;
+    ui = 'block'; blockAt = performance.now() + (told ? 2500 : 0); blockLeft = 1;
     scene?.windup(); sfx.rainComing();
     clearInterval(blockTimer);
     blockTimer = window.setInterval(() => {
-      const k = (performance.now() - blockAt) / bl.limitMs;
+      const k = Math.max(0, performance.now() - blockAt) / bl.limitMs;
       blockLeft = Math.max(0, 1 - k);
       // out of time: it lands
       if (k >= 1) submitBlock(true);
@@ -358,10 +380,11 @@
   async function submitBlock(timeout = false) {
     if (ui !== 'block' || !blk) return;
     clearInterval(blockTimer);
-    const ms = performance.now() - blockAt;
+    const ms = Math.max(0, performance.now() - blockAt);
     const ok = !timeout && (subject === 'math' ? !!blk.fact && Number(blockTyped) === answerOf(blk.fact) : wordErr === 0);
+    if (!timeout) holdAnswer(blockEqEl, { text: blockTyped, ok });
     if (subject === 'math' && blk.fact && !ok) say(timeout ? `Too slow! ${factText(blk.fact)} = ${answerOf(blk.fact)}` : `${factText(blk.fact)} = ${answerOf(blk.fact)}`, 'miss');
-    closeTip('t-block');
+    closeTip('t-counter');
     blk = null; ui = 'busy';
     await run(doBlock(b, ok, ms));
   }
@@ -386,7 +409,7 @@
     setTimeout(() => (step = 2), 2600);
   }
   function lost() {
-    ui = 'lost'; coach = null;
+    ui = 'lost'; coach = null; letGo();
     game.update(pp => markSeen(pp, 'battle1', ...seen));
     scene?.lose(); sfx.tryAgain();
     game.update(pp => { out = applyBattle(pp, { node: node.id, subject, won: false, perfect: false, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, skillAnswers: b.skillAnswers, team: team.map(t => t.id), crystal: false, treasureNose: false, at: Date.now(), seed }); });
@@ -400,6 +423,9 @@
   const RARE_WORDS: Record<string, string> = { common: 'Easy to find', uncommon: 'A bit harder to find', rare: 'Hard to find!', epic: 'Very hard to find!', legendary: 'One of a kind!', mythic: 'The rarest of all!' };
   const grumpPct = $derived((grump.current / Math.max(1, b.foe.max)) * 100);
   const sparkPct = $derived((spark.current / Math.max(1, b.sparkMax)) * 100);
+  const sparkLagPct = $derived((Math.max(spark.current, sparkLag.current) / Math.max(1, b.sparkMax)) * 100);
+  // under a third: the bar pulses red (it can really run out now)
+  const lowSpark = $derived(sparkNow > 0 && sparkNow / Math.max(1, b.sparkMax) < 0.3 && ui !== 'won');
   const strongEl = $derived(Object.entries(ELEMENT).find(([, v]) => v.beats === b.foe.element)?.[0] as Element);
 </script>
 
@@ -414,9 +440,9 @@
   </div>
 
   <!-- your energy over your buddy, its grumpy bar over it (on phones both sit at the top) -->
-  <button class="bar spark" style:left={narrow ? '10px' : `${budPos.x * 100}%`} style:top={narrow ? '62px' : `${budPos.y * 100}%`} onclick={() => show({ kind: 'energy' })}>
+  <button class="bar spark" class:low={lowSpark} class:hurt={barHurt} style:left={narrow ? '10px' : `${budPos.x * 100}%`} style:top={narrow ? '62px' : `${budPos.y * 100}%`} onclick={() => show({ kind: 'energy' })}>
     <img class="bi" src="{base}game/icon-spark.webp" alt="" />
-    <div class="bt"><span class="lab">Your energy</span><div class="track"><div class="fill" style:width="{sparkPct}%"></div></div><span class="num"><b>{sparkNow}</b> / {b.sparkMax}</span></div>
+    <div class="bt"><span class="lab">{lowSpark ? 'Low energy!' : 'Your energy'}</span><div class="track"><div class="fill lag" style:width="{sparkLagPct}%"></div><div class="fill" style:width="{sparkPct}%"></div></div><span class="num"><b>{sparkNow}</b> / {b.sparkMax}</span></div>
   </button>
   <button class="bar grump" class:champ={champion} style:left={narrow ? 'auto' : `${foePos.x * 100}%`} style:right={narrow ? '10px' : 'auto'} style:top={narrow ? '62px' : `${Math.max(0.2, foePos.y) * 100}%`} onclick={() => show({ kind: 'grumpy' })}>
     <img class="bi" src="{base}game/icon-grump.webp" alt="" />
@@ -470,25 +496,29 @@
         {:else if subject === 'math'}
           {@const f = fact(sel)!}
           {@const tk = learnedTrick(mathOfLearn(game.profile!), f)}
-          {#key shakeKey}<div class="eq" class:shake={shakeKey > 0}><span>{factText(f)} =</span><span class="box">{typed || ' '}</span></div>{/key}
+          {#key shakeKey}<div class="eq" class:shake={shakeKey > 0} bind:this={eqEl}><span>{factText(f)} =</span><span class="box">{typed || ' '}</span></div>{/key}
           {#if glowOk && !glowText}<button class="glowbtn" onclick={askGlow}><Icon name="bulb" size={20} /> Hint from {myName('sparkmoth')}</button>{/if}
           {#if glowText}<p class="glow"><Icon name="bulb" size={20} /> {glowText}</p>{/if}
           <!-- a trick learned in a Learn lesson: a hint in its own words, the answer left for you -->
           {#if tk && !glowText}{#if trickOpen === sel.id}<p class="glow"><Icon name="bulb" size={20} /> {tk.say}</p>{:else}<button class="glowbtn" onclick={() => { trickOpen = sel!.id; sfx.pop(); }}><Icon name="bulb" size={20} /> Trick: {tk.name}</button>{/if}{/if}
           <NumPad ondigit={digit} onback={backspace} compact={narrow} />
         {:else}
-          {#key shakeKey}<div class="word" class:shake={shakeKey > 0}>{#each sel.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/key}
+          {#key shakeKey}<div class="word" class:shake={shakeKey > 0} bind:this={eqEl}>{#each sel.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/key}
           <p class="ask">Type it! {wordErr ? `${wordErr} slip${wordErr === 1 ? '' : 's'}` : 'No slips so far'}</p>
         {/if}
         <button class="backbtn" onclick={back}>Pick a different card</button>
       </div>
     {:else if ui === 'block' && blk}
-      <div class="blockbox">
-        <div class="ring" style:--k={blockLeft}><span>{Math.max(0, Math.ceil(blockLeft * blk.limitMs / 1000))}</span></div>
+      <!-- it hits back: the shield, with the time left drawn as a ring round it, and the quick one to answer -->
+      <div class="blockbox" class:bold={blk.bold}>
+        <div class="bhead">
+          <div class="shieldring" class:hurry={blockLeft < 0.34} style:--k={blockLeft}><img src="{base}icons/shield.webp" alt="" /></div>
+          <div class="btxt"><small>{blk.name}!</small><b>Block it!</b><span>Answer quick to put your shield up</span></div>
+        </div>
         <div class="bq">
-          <p><b>{blk.name}!</b> Answer fast to block it:</p>
-          {#if blk.fact}<div class="eq blockeq"><span>{factText(blk.fact)} =</span><span class="box">{blockTyped || ' '}</span></div>
-          {:else}<div class="word blockeq">{#each blk.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/if}
+          {#if blk.fact}<div class="eq blockeq" bind:this={blockEqEl}><span>{factText(blk.fact)} =</span><span class="box">{blockTyped || ' '}</span></div>
+          {:else}<div class="word blockeq" bind:this={blockEqEl}>{#each blk.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/if}
+          <p class="stake"><img src="{base}game/icon-spark.webp" alt="" />{blk.bold ? 'It\'s getting stronger! ' : ''}Miss it and lose {blk.hit} energy</p>
         </div>
         {#if subject === 'math'}<NumPad ondigit={digit} onback={backspace} compact={narrow} />{/if}
       </div>
@@ -533,8 +563,9 @@
   {/if}
   {#if ui === 'lost'}
     <div class="lostbox card">
-      <h2>Out of energy!</h2>
-      <p>{foeName} is still grumpy. Tip: when rain or a zap is coming, answer the quick one fast to block it.</p>
+      <Critter friend={p0.buddy} size={narrow ? 84 : 110} mood="sleep" />
+      <h2>{FRIEND[p0.buddy].name} needs a rest</h2>
+      <p>Try again! When it hits back, answer the quick one fast to put your shield up. You keep everything you've won.</p>
       <div class="rbtns in"><button class="btn" onclick={toMap}>Back to the map</button><button class="btn btn-primary" onclick={again}>Try again</button></div>
     </div>
   {/if}
@@ -565,8 +596,8 @@
         <div class="hrows">
           <div class="hr"><div class="mini"><span class="mbar"><img src="{base}game/icon-grump.webp" alt="" /><i><em style:width="35%"></em></i></span></div><p><b>Cheer it up!</b> Get its grumps to 0 and it joins you.</p></div>
           <div class="hr"><div class="mini"><span class="mcard el-sun"><img src="{base}game/icon-sun.webp" alt="" />3 + 4</span></div><p><b>Tap a card</b> and type the answer. Bigger answers cheer more.</p></div>
-          <div class="hr"><div class="mini"><span class="mblock"><span class="mring">4</span>2 + 2 =</span></div><p><b>Rain coming?</b> Answer the quick one before the timer ends.</p></div>
-          <div class="hr"><div class="mini"><span class="mbar"><img src="{base}game/icon-spark.webp" alt="" /><i><em class="en" style:width="70%"></em></i></span></div><p><b>Your energy:</b> don't let it run out!</p></div>
+          <div class="hr"><div class="mini"><span class="mblock"><span class="mring"><img src="{base}icons/shield.webp" alt="" /></span>2 + 2 =</span></div><p><b>Block it!</b> When it hits back, answer the quick one before the ring runs out.</p></div>
+          <div class="hr"><div class="mini"><span class="mbar"><img src="{base}game/icon-spark.webp" alt="" /><i><em class="en" style:width="70%"></em></i></span></div><p><b>Your energy:</b> each one you don't block takes some. Don't run out!</p></div>
           <div class="hr"><div class="mini"><span class="mstars">{#each Array(5) as _}<img src="{base}game/icon-star.webp" alt="" />{/each}</span></div><p><b>5 right in a row</b> = your buddy's Finale.</p></div>
           <div class="hr"><div class="mini"><span class="mcard el-tide"><img src="{base}game/icon-tide.webp" alt="" />6 + 2<em><Icon name="bolt" size={11} /> Strong</em></span></div><p><b>Strong cards</b> also calm its next rain.</p></div>
         </div>
@@ -600,7 +631,7 @@
           <div><h3>{foeName} is grumpy</h3><p>Every right answer takes some grumps away. At 0 it's happy again and joins you!</p></div>
         {:else if i.kind === 'energy'}
           <img class="ibig" src="{base}game/icon-spark.webp" alt="" />
-          <div><h3>Your energy</h3><p>Rain and zaps take some away when you don't block them. If it runs out, you can try again.</p></div>
+          <div><h3>Your energy</h3><p>Rain and zaps you don't block take some away, and each one in a row hits harder. Block one and it calms down. Shields from helpers and gear stop 2 a battle at most. If it runs out, your buddy needs a rest and you can try again.</p></div>
         {:else if i.kind === 'finale'}
           <img class="ibig" src="{base}game/icon-finale.webp" alt="" />
           <div><h3>The Finale</h3><p>Get 5 right in a row to fill the stars. Then tap Finale for {FRIEND[p0.buddy].name}'s big dance. It takes away lots of grumps!</p></div>
@@ -659,9 +690,19 @@
   .bt .lab { font: 600 15px var(--font-ui); color: var(--ink); line-height: 1; white-space: nowrap; }
   .bt .num { font: 700 12px var(--font-body); color: var(--muted); line-height: 1; }
   .bt .num b { font: 600 17px var(--font-ui); color: var(--ink); }
-  .track { height: 12px; border-radius: 999px; background: #e6e2f2; overflow: hidden; box-shadow: inset 0 2px 3px rgba(40, 20, 80, .18); }
-  .fill { height: 100%; border-radius: 999px; }
+  .track { position: relative; height: 12px; border-radius: 999px; background: #e6e2f2; overflow: hidden; box-shadow: inset 0 2px 3px rgba(40, 20, 80, .18); }
+  .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
   .spark .fill { background: linear-gradient(90deg, #ff5e3a, #ffb52e, #ffe066); box-shadow: 0 0 10px #ffb52e; }
+  /* the energy just lost, a lighter strip that drains a moment later */
+  .spark .fill.lag { background: #ff9aa6; box-shadow: none; }
+  /* low energy: the bar pulses red */
+  .bar.spark.low { animation: lowpulse 1s ease-in-out infinite; }
+  .bar.spark.low .fill:not(.lag) { background: linear-gradient(90deg, #e8243c, #ff6b6b); box-shadow: 0 0 10px #ff6b6b; }
+  .bar.spark.low .lab { color: #c22b48; }
+  @keyframes lowpulse { 50% { box-shadow: 0 0 0 4px #ff5f6d, 0 0 28px #ff5f6d, 0 10px 24px -10px rgba(30, 20, 70, .55); } }
+  /* a hit just landed: the bar shakes */
+  .bar.spark.hurt { animation: barhit .5s; } .bar.spark.low.hurt { animation: barhit .5s, lowpulse 1s ease-in-out infinite; }
+  @keyframes barhit { 15% { translate: -7px 0; background: #ffe3e6; } 35% { translate: 7px 0; } 55% { translate: -5px 0; } 75% { translate: 3px 0; } }
   .grump .fill { background: linear-gradient(90deg, #7a5cf5, #a98cff, #c9b8ff); box-shadow: 0 0 10px #a98cff; }
   .grump.champ { background: linear-gradient(#fff8e0, #ffeec2); box-shadow: 0 0 0 3px #ffd36b, 0 10px 24px -10px rgba(120, 80, 0, .5); }
 
@@ -691,6 +732,9 @@
   .float.helper img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: center 35%; }
   @keyframes badge { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 12% { opacity: 1; transform: translate(-50%, -110%) scale(1.05); } 20% { transform: translate(-50%, -110%) scale(1); } 85% { opacity: 1; transform: translate(-50%, -125%); } 100% { opacity: 0; transform: translate(-50%, -140%); } } .float.heal { font-size: 22px; color: #5be38d; } .float.hurt { color: #ff5f6d; font-size: 32px; } .float.block { color: #7fe0ff; font-size: 26px; }
   .float.finale { font-size: 52px; color: #ff7ab8; }
+  .float.blocked { font-size: 50px; color: #fff; -webkit-text-stroke: 3px #2f7fe0; paint-order: stroke; text-shadow: 0 5px 0 #1c4fa8, 0 0 26px #9fe6ff; animation: blockedpop 1.4s cubic-bezier(.2, 1.3, .4, 1) forwards; }
+  .narrow .float.blocked { font-size: 36px; }
+  @keyframes blockedpop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.3) rotate(-8deg); } 14% { opacity: 1; transform: translate(-50%, -80%) scale(1.15) rotate(3deg); } 26% { transform: translate(-50%, -80%) scale(1) rotate(0); } 80% { opacity: 1; transform: translate(-50%, -95%); } 100% { opacity: 0; transform: translate(-50%, -120%); } }
   @keyframes rise { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 30% { transform: translate(-50%, -70%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -190%) scale(.95); } }
   .toast { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); z-index: 9; background: rgba(255, 255, 255, .95); color: var(--ink); font: 600 19px var(--font-ui); padding: 10px 20px; border-radius: 999px; box-shadow: 0 10px 30px -12px rgba(40, 20, 80, .6); animation: drop .35s cubic-bezier(.3, .8, .4, 1.4); white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; }
   .toast.super { background: linear-gradient(90deg, #fff4c2, #ffffff); box-shadow: 0 0 0 3px #ffd36b, 0 10px 30px -12px rgba(120, 80, 0, .6); }
@@ -748,7 +792,7 @@
   .answer, .blockbox { width: min(1000px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; background: rgba(255, 255, 255, .9); border-radius: 28px; padding: 14px 16px; box-shadow: 0 16px 40px -18px rgba(30, 20, 70, .6); animation: cardin .35s cubic-bezier(.2, 1.3, .4, 1) both; }
   .eq { display: flex; align-items: center; gap: 14px; font: 600 clamp(40px, 6vw, 64px)/1 var(--font-ui); color: var(--ink); }
   .eq.blockeq, .word.blockeq { font-size: clamp(54px, 8vw, 92px); }
-  .box { min-width: 1.6em; padding: 4px 14px; border-radius: 18px; background: #fff; box-shadow: inset 0 0 0 4px #a98cff, 0 0 0 6px #efe9ff; text-align: center; }
+  .box { min-width: 1.6em; min-height: 1.1em; padding: 4px 14px; border-radius: 18px; background: #fff; box-shadow: inset 0 0 0 4px #a98cff, 0 0 0 6px #efe9ff; text-align: center; }
   .shake { animation: shake .35s; }
   @keyframes shake { 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
   .ask { margin: 0; font: 600 20px var(--font-ui); color: var(--ink2); text-align: center; }
@@ -764,11 +808,21 @@
   .backbtn { border: 0; background: none; font: 700 14px var(--font-body); color: var(--muted); cursor: pointer; text-decoration: underline; }
   .glowbtn { display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 999px; padding: 6px 14px; background: linear-gradient(90deg, #fff4c2, #ffe066); font: 700 14px var(--font-body); color: #7a5200; cursor: pointer; }
   .glow { margin: 0; max-width: 640px; text-align: center; font: 700 16px/1.35 var(--font-body); color: #7a5200; background: #fff8dc; border-radius: 14px; padding: 8px 14px; }
-  .blockbox { flex-direction: row; flex-wrap: wrap; justify-content: center; background: linear-gradient(#fff5f6, #ffffff); box-shadow: 0 0 0 4px #ff9aa8, 0 16px 40px -18px rgba(120, 20, 50, .6); }
-  .ring { width: 74px; height: 74px; border-radius: 50%; background: conic-gradient(#ff5f6d calc(var(--k) * 360deg), #f1e6ea 0); display: grid; place-items: center; flex: none; }
-  .ring span { width: 56px; height: 56px; border-radius: 50%; background: #fff; display: grid; place-items: center; font: 600 28px var(--font-ui); color: #c22b48; }
+  /* the counterattack: a blue "Block it!" banner with the shield, its ring the time left */
+  .blockbox { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 26px; row-gap: 8px; background: linear-gradient(#eef7ff, #ffffff 70%); box-shadow: 0 0 0 4px #7cc4ff, 0 16px 40px -18px rgba(20, 60, 140, .6); }
+  .blockbox.bold { box-shadow: 0 0 0 4px #ff9aa8, 0 16px 40px -18px rgba(120, 20, 50, .6); }
+  .bhead { display: flex; align-items: center; gap: 12px; }
+  .shieldring { --rc: #3f9cff; width: 96px; height: 96px; flex: none; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--rc) calc(var(--k) * 360deg), #dfe8f4 0); box-shadow: 0 6px 14px -6px rgba(20, 60, 140, .5); animation: shieldin .45s cubic-bezier(.2, 1.5, .4, 1) both; }
+  .shieldring.hurry { --rc: #ff5f6d; }
+  .shieldring img { width: 78px; height: 78px; padding: 4px; border-radius: 50%; background: #fff; object-fit: contain; }
+  @keyframes shieldin { from { transform: scale(.3) rotate(-25deg); opacity: 0; } }
+  .btxt { display: flex; flex-direction: column; line-height: 1.05; }
+  .btxt small { font: 800 13px var(--font-body); letter-spacing: .04em; text-transform: uppercase; color: #5b6b8a; }
+  .btxt b { font: 600 clamp(34px, 4.4vw, 46px)/1 var(--font-ui); color: #1f5fc8; }
+  .btxt span { font: 600 18px/1.2 var(--font-ui); color: #2a3a5c; }
   .bq { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .bq p { margin: 0; font: 600 20px var(--font-ui); color: #8a1f38; }
+  .stake { display: flex; align-items: center; gap: 4px; margin: 0; font: 700 15px var(--font-body); color: #8a1f38; background: #fff0f2; border-radius: 999px; padding: 3px 12px 3px 4px; }
+  .stake img { width: 22px; height: 22px; object-fit: contain; }
   .blockbox :global(.pad) { flex-basis: 100%; }
 
   .reveal { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 20px; background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .25), rgba(30, 20, 60, .55) 70%); }
@@ -825,8 +879,9 @@
   .mcard img { width: 34px; height: 34px; object-fit: contain; }
   .mcard em { display: inline-flex; align-items: center; gap: 2px; position: absolute; right: -6px; top: -10px; font: 800 9px var(--font-body); font-style: normal; background: #fff; color: #d16a00; padding: 2px 5px; border-radius: 999px; box-shadow: var(--shadow-sm); }
   .mcard.el-sun { background: linear-gradient(160deg, #fff6c4, #ffd36b); } .mcard.el-tide { background: linear-gradient(160deg, #e2f4ff, #8fd0ff); }
-  .mblock { display: flex; align-items: center; gap: 6px; font: 600 22px var(--font-ui); background: #fff5f6; border-radius: 14px; padding: 4px 10px 4px 4px; box-shadow: 0 0 0 2px #ff9aa8; }
-  .mring { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; color: #c22b48; background: #fff; box-shadow: 0 0 0 3px #ff5f6d; }
+  .mblock { display: flex; align-items: center; gap: 6px; font: 600 22px var(--font-ui); background: #eef7ff; border-radius: 14px; padding: 4px 10px 4px 4px; box-shadow: 0 0 0 2px #7cc4ff; }
+  .mring { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #fff; box-shadow: 0 0 0 3px #3f9cff; }
+  .mring img { width: 26px; height: 26px; object-fit: contain; }
   .mstars { display: flex; gap: 1px; background: rgba(30, 22, 60, .78); padding: 4px 6px; border-radius: 999px; }
   .mstars img { width: 22px; height: 22px; object-fit: contain; }
   .hteam { display: flex; flex-direction: column; gap: 6px; }
@@ -847,7 +902,8 @@
   .island-done { display: flex; align-items: center; gap: 8px; position: relative; font: 600 22px var(--font-ui); color: #fff; background: linear-gradient(90deg, #ff7ab8, #ffb44d, #4fd17a, #3fa2ff); padding: 8px 20px; border-radius: 999px; box-shadow: 0 0 0 3px #fff; }
   .rbtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .lostbox { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; padding: 22px 26px; text-align: center; max-width: 92vw; width: 460px; }
-  .lostbox h2 { margin: 0 0 6px; } .lostbox p { margin: 0 0 14px; font-weight: 600; color: var(--ink2); }
+  .lostbox { display: flex; flex-direction: column; align-items: center; }
+  .lostbox h2 { margin: 4px 0 6px; } .lostbox p { margin: 0 0 14px; font-weight: 600; color: var(--ink2); }
 
   .narrow .top { padding: 8px 10px 0; }
   .narrow .where b { font-size: 15px; }
@@ -874,6 +930,10 @@
   .narrow .meter img { width: 26px; height: 26px; }
   .narrow .finale { font-size: 16px; }
   .narrow .answer, .narrow .blockbox { padding: 10px; border-radius: 22px; }
+  .narrow .shieldring { width: 70px; height: 70px; } .narrow .shieldring img { width: 56px; height: 56px; }
+  .narrow .btxt span { font-size: 14px; } .narrow .btxt b { font-size: 30px; }
+  .narrow .blockbox { column-gap: 12px; }
+  .narrow .stake { font-size: 13px; }
   .narrow .chips button { width: 46px; height: 46px; font-size: 22px; }
   .narrow .hint { font-size: 12px; }
 </style>

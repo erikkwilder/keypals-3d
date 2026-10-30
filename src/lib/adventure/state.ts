@@ -17,7 +17,7 @@ import { nextSkillLesson } from '../math/skills/course';
 import { noteSkillAnswers } from '../math/skills/progress';
 import type { AreaId } from '../math/skills/types';
 import { EVOLVE_BOOST, GLIMMER, GLIMMERS, RARITIES, RARITY, glimmersOf, powerBase, powerNum, rarityRank, type Element, type GlimmerId, type Rarity } from './glimmers';
-import { grumpFor, type Foe, type MischiefKind, type Pool, type Subject } from './battle';
+import { grumpFor, type MapFoe, type MischiefKind, type Pool, type Subject } from './battle';
 import { championPrize, type BuddyGear, type GearItem, type Wardrobe } from './gear';
 import type { RegionId } from '../engine/course';
 import { newStats, noteStats, type GhostStats, type RivalState } from './ghosts';
@@ -282,22 +282,23 @@ function species(rng: Rng, a: Adventure, r: Rarity, notChampions = true, island?
   const from = newOnes.length && rng() < 0.65 ? newOnes : list;
   return from[Math.floor(rng() * from.length)].id;
 }
-/** The Grumble at a map stop: a Champion, or a Glimmer rolled by the island's odds. */
-export function foeFor(p: Profile, node: MapNode, pool: Pool, seed: number): Foe {
+/** The Grumble at a map stop: a Champion, or a Glimmer rolled by the island's odds. (How hard it hits
+ *  back is the battle's to say: hitFor in battle.ts.) */
+export function foeFor(p: Profile, node: MapNode, pool: Pool, seed: number): MapFoe {
   const a = advOf(p), isl = ISLAND[node.island], rng = mulberry32(seed);
   const islandN = isl.tier, weather = isl.mischief ? { mischief: isl.mischief } : {};
   if (node.kind === 'champion') {
     const g = GLIMMER[isl.champion];
     const max = grumpFor(pool, true);
     // the third island's Champion has grown up: it comes evolved, glowing, for a bigger finale
-    return { glimmer: g.id, rarity: g.rarity, champion: true, element: g.element, grump: max, max, hit: 4 + islandN, evolved: islandN >= 2, ...weather };
+    return { glimmer: g.id, rarity: g.rarity, champion: true, element: g.element, grump: max, max, evolved: islandN >= 2, ...weather };
   }
   const r = roll(rng, isl.odds);
   // the very first battle is always Puddle Pup (the one in the story)
   const id = !a.battles && node.id === 'meadow-0' && !owns(a, 'puddlepup') ? 'puddlepup' : r === 'legendary' ? 'lanternfox' : species(rng, a, r, true, isl.id);
   const g = GLIMMER[id];
   const max = grumpFor(pool, false);
-  return { glimmer: id, rarity: g.rarity, champion: false, element: g.element, grump: max, max, hit: 2 + islandN, ...weather };
+  return { glimmer: id, rarity: g.rarity, champion: false, element: g.element, grump: max, max, ...weather };
 }
 
 // ---------- eggs ----------
@@ -398,7 +399,7 @@ export function buy(p: Profile, id: string, target?: GlimmerId): { ok: boolean; 
  *  earns the stars, medals, shells and eggs. */
 export const BATTLE_FRIENDSHIP = { win: 80, perfect: 20, champion: 120, tried: 25 };
 export type BattleRun = {
-  node: string; subject: Subject; won: boolean; perfect: boolean; foe: Foe; ms: number;
+  node: string; subject: Subject; won: boolean; perfect: boolean; foe: MapFoe; ms: number;
   answers: number; right: number; answered: { f: Fact; ok: boolean; thinkMs: number }[];
   /** skill questions answered (fractions...), for the skill memory */
   skillAnswers?: { key: string; ok: boolean; thinkMs: number }[];
