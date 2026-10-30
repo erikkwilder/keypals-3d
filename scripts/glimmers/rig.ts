@@ -39,12 +39,13 @@ const grid = new THREE.GridHelper(3, 30, 0x99aabb, 0xccd8e2); scene.add(grid, do
 const cam = new THREE.PerspectiveCamera(35, 1, 0.01, 50);
 cam.position.set(1.6, 1.0, 2.2);
 const ctl = new OrbitControls(cam, r.domElement); ctl.target.set(0, 0.45, 0); ctl.update();
+Object.assign(window, { __rigCam: { cam, ctl } }); // (for checking from a script)
 const size = () => { const w = view.clientWidth, h = view.clientHeight; r.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); };
 addEventListener('resize', size); size();
 
 // ---- the points, as a list of slots ----
 type Slot = { key: string; label: string; color: number; get(): V3 | undefined; set(p: V3): void };
-const COL = { trunk: 0xff4f6d, tail: 0xffa31a, foot: 0x2e9cff, hand: 0x22c4a6, wing: 0xa45cff, fin: 0x3a6dff, ear: 0xff66cc, tent: 0x1fb85a };
+const COL = { trunk: 0xff4f6d, tail: 0xffa31a, foot: 0x2e9cff, hand: 0x22c4a6, wing: 0xa45cff, fin: 0x3a6dff, ear: 0xff66cc, tent: 0x1fb85a, eye: 0x00e5ff };
 function slots(): Slot[] {
   const out: Slot[] = [];
   const one = (key: 'head' | 'chest' | 'hips', label: string) => out.push({ key, label, color: COL.trunk, get: () => lm[key], set: p => { lm[key] = p; } });
@@ -56,6 +57,7 @@ function slots(): Slot[] {
   for (const [k, name, color] of [['wings', 'Wing', COL.wing], ['fins', 'Fin', COL.fin], ['ears', 'Ear', COL.ear]] as const) {
     lm[k]?.forEach((_, i, a) => [0, 1].forEach(j => out.push({ key: `${k}.${i}.${j}`, label: `${name} ${a.length === 2 ? (i ? '+x' : '-x') : i + 1} ${j ? 'tip' : k === 'ears' ? 'base' : 'root'}`, color, get: () => lm[k]?.[i]?.[j], set: p => { lm[k]![i][j] = p; } })));
   }
+  lm.eyes?.forEach((_, i, a) => out.push({ key: `eyes.${i}`, label: a.length === 2 ? `Eye ${i ? '+x' : '-x'}` : 'Eye', color: COL.eye, get: () => lm.eyes?.[i], set: p => { lm.eyes![i] = p; } }));
   lm.tentacles?.forEach((t, i) => t.forEach((_, j) => out.push({ key: `tent.${i}.${j}`, label: `Tentacle ${i + 1} ${j === 0 ? 'root' : j === t.length - 1 ? 'tip' : 'middle'}`, color: COL.tent, get: () => lm.tentacles?.[i]?.[j], set: p => { lm.tentacles![i][j] = p; } })));
   return out;
 }
@@ -154,7 +156,8 @@ r.domElement.addEventListener('pointerup', e => {
   if (!hits.length) return;
   // in through the first face, out through the next one facing away
   const a = hits[0].point, out = hits.slice(1).find(h => h.face && h.face.normal.dot(ray.ray.direction) > 0);
-  const p = out ? a.clone().lerp(out.point, 0.5) : a;
+  // (an eye goes on the skin, where it's clicked)
+  const p = out && !pick.startsWith('eyes') ? a.clone().lerp(out.point, 0.5) : a;
   const s = slots().find(x => x.key === pick);
   if (!s) return;
   s.set([+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)]);
@@ -199,6 +202,8 @@ async function boot() {
     ['+ Ears', () => { const h = hd(); lm.ears = [-1, 1].map(s => [[h.x + s * 0.1 * H(), h.y + 0.12 * H(), h.z], [h.x + s * 0.15 * H(), h.y + 0.25 * H(), h.z]] as [V3, V3]); }],
     ['+ One ear', () => { const h = hd(); (lm.ears ??= []).push([[h.x, h.y + 0.15 * H(), h.z], [h.x, h.y + 0.3 * H(), h.z]]); }],
     ['- Ears', () => { delete lm.ears; }],
+    ['+ Eyes', () => { const h = hd(); lm.eyes = [-1, 1].map(s => [h.x + s * 0.08 * H(), h.y, h.z + 0.15 * H()] as V3); }],
+    ['- Eyes', () => { delete lm.eyes; }],
     ['+ Tentacle', () => { const hp = lm.hips ?? [0, H() * 0.4, 0]; (lm.tentacles ??= []).push([[hp[0], hp[1] - 0.03 * H(), hp[2] + 0.1 * H()], [hp[0], hp[1] * 0.5, hp[2] + 0.2 * H()], [hp[0], 0.03 * H(), hp[2] + 0.3 * H()]]); }],
     ['- Tentacle', () => { lm.tentacles?.pop(); if (!lm.tentacles?.length) delete lm.tentacles; }],
   ];

@@ -160,6 +160,57 @@ describe('the 30 Glimmers', () => {
     }
     if (process.env.RIG_REPORT) console.log(report.join('\n'));
   }, 120_000);
+
+  // The eyes keep their shape (Erik: the Frost Owl's right eye warped as it moved; most Glimmers' eyes
+  // stretched or squashed in some move, up to half their size). Each eye's points (round its meta.json
+  // "eyes" landmark) are measured from the eye's middle in every move, against at rest: turning and
+  // sliding don't count, and a whole head squashing as it chomps is a few in 100.
+  it('keeps every eye round as it moves', () => {
+    const bad: string[] = [];
+    for (const g of GLIMMERS) {
+      const lm = meta[g.id].rig!;
+      expect(lm.eyes?.length, `${g.id} has its eyes marked`).toBeGreaterThan(0);
+      const { pos } = glbPoints(`public/models/glimmers/${g.id}.glb`);
+      const c = cloudOf(pos), rig = buildRig(lm, c), H = c.height, wts = skinWeights(rig, pos);
+      fitFreedom(rig, pos, wts);
+      const { bones, inverses } = makeBones(rig), n = pos.length / 3;
+      const eyes = lm.eyes!.map(e => {
+        const at = new THREE.Vector3(...e), ids: number[] = [];
+        for (let i = 0; i < n; i++) if (Math.hypot(pos[i * 3] - at.x, pos[i * 3 + 1] - at.y, pos[i * 3 + 2] - at.z) < H * 0.05) ids.push(i);
+        return ids;
+      }).filter(ids => ids.length >= 6);
+      const mats = bones.map(() => new THREE.Matrix4()), v = new THREE.Vector3(), tmp = new THREE.Vector3();
+      const skinned = (i: number, out: THREE.Vector3) => {
+        v.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]); out.set(0, 0, 0);
+        for (let k = 0; k < 4; k++) { const w = wts.weight[i * 4 + k]; if (w) out.addScaledVector(tmp.copy(v).applyMatrix4(mats[wts.index[i * 4 + k]]), w); }
+        return out;
+      };
+      let worst = 0, where = '';
+      for (const mv of [...BASES.map(b => ({ b, a: null as null | (typeof ACTS)[number] })), ...ACTS.map(a => ({ b: 'idle' as const, a }))]) {
+        const an = new Animator(rig, bones, 3, false);
+        an.setBase(mv.b);
+        let t = 0;
+        for (let i = 0; i < 30; i++) an.update(1 / 30, (t += 1 / 30));
+        if (mv.a) an.play(mv.a);
+        const len = mv.a ? ACT_LEN[mv.a] : 2.4;
+        for (let s = 0; s < 5; s++) {
+          for (let i = 0; i < Math.round((len / 5) * 30); i++) an.update(1 / 30, (t += 1 / 30));
+          bones[0].updateMatrixWorld(true);
+          bones.forEach((b, i) => mats[i].multiplyMatrices(b.matrixWorld, inverses[i]));
+          for (const ids of eyes) {
+            const rest = ids.map(i => new THREE.Vector3(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2])), now = ids.map(i => skinned(i, new THREE.Vector3()));
+            const c0 = rest.reduce((a, q) => a.add(q), new THREE.Vector3()).divideScalar(rest.length), c1 = now.reduce((a, q) => a.add(q), new THREE.Vector3()).divideScalar(now.length);
+            for (let k = 0; k < ids.length; k++) {
+              const d = Math.abs(now[k].distanceTo(c1) - rest[k].distanceTo(c0)) / (H * 0.05);
+              if (d > worst) { worst = d; where = mv.a ?? mv.b; }
+            }
+          }
+        }
+      }
+      if (worst > 0.08) bad.push(`${g.id}: an eye changes shape by ${(worst * 100).toFixed(0)}% (${where})`);
+    }
+    expect(bad).toEqual([]);
+  }, 120_000);
 });
 
 function dist(a: Float32Array, i: number, b: Float32Array, j: number) {
