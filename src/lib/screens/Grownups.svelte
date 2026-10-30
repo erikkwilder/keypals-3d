@@ -1,5 +1,9 @@
 <script lang="ts">
+  // Grown-ups (behind the grown-up check): a plain list of sections, each its own page (← Grown-ups |
+  // Time and goals): Players and saving, Time and goals, Progress reports, Classes, Ideas and help, About,
+  // and Admin (only for the admin). Back from a section comes back to the list.
   import { game } from '../state/game.svelte';
+  import { sfx } from '../audio/sound';
   import { outfitOf } from '../engine/profile';
   import { ALL_LESSONS } from '../engine/course';
   import { dayKey, migrate, totalStars, type Profile } from '../engine/profile';
@@ -15,6 +19,7 @@
   // daily limits for the free-time places (path/rules.ts)
   import { FREE_PLACES, KEEPS, KEEP_TEXT, LIMITS, LIMIT_NAME, PLACE_NAME, homeRules, setHomeRules, usedMs, type FreePlace, type Keep, type Limit } from '../path/rules';
   import { gradeName } from '../path/units';
+  import { GU_NAME } from '../nav';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, addFromAccount, addAllFromAccount, grownupOpen, showCode } from '../state/cloud.svelte';
@@ -29,6 +34,20 @@
   import CodeCard from '../ui/CodeCard.svelte';
   import AdminPanel from '../ui/AdminPanel.svelte';
   import ClassGrownups from '../ui/ClassGrownups.svelte';
+
+  // the sections: each its own page (game.guSection; null: the list)
+  const sec = $derived(game.guSection);
+  type Sec = { id: string; name: string; line: string; icon: string; go?: () => void };
+  const SECTIONS = $derived<Sec[]>([
+    { id: 'players', name: GU_NAME.players, line: 'Saving online, save codes and a progress file', icon: 'icons/cloud-save.webp' },
+    { id: 'time', name: GU_NAME.time, line: 'Daily goal, My path, free-time limits, Adventure play time, My Words', icon: 'icons/clock.webp' },
+    { id: 'progress', name: GU_NAME.progress, line: 'Minutes, stars, speed, every key, and math skills by grade', icon: 'icons/chart.webp' },
+    { id: 'classes', name: GU_NAME.classes, line: 'Teachers: your classes. Families: join a class', icon: 'icons/coach.webp' },
+    { id: 'ideas', name: 'Ideas and help', line: 'Suggest a game, vote on ideas, or tell us about a problem', icon: 'icons/bulb.webp', go: () => game.openIdeas() },
+    { id: 'about', name: 'About Keypals', line: 'Who makes it, how it is made, and how to get in touch', icon: 'brand/ant-mark.png', go: () => game.openAbout() },
+    ...(cloud.account?.admin ? [{ id: 'admin', name: GU_NAME.admin, line: 'Only you see this', icon: 'icons/gem.webp' }] : []),
+  ]);
+  function openSec(x: Sec) { sfx.click(); if (x.go) { x.go(); return; } game.guSection = x.id; game.go('grownups'); }
 
   let saveMsg = $state<string | null>(null);
   async function act(fn: () => Promise<unknown>, done?: string) {
@@ -133,11 +152,23 @@
 </script>
 
 <div class="screen gu">
-  <Header title="Grown-ups" back={() => game.go(game.profile ? game.home : 'players')} />
+  <Header back={game.profile ? undefined : () => game.go('players')} />
   {#if !unlocked}
     <GrownupGate onpass={() => (unlocked = true)} />
   {:else}
     <div class="body scroll">
+      {#if !sec}
+        <nav class="seclist" aria-label="Grown-ups">
+          {#each SECTIONS as x (x.id)}
+            <button class="secrow" onclick={() => openSec(x)}>
+              <img src="{import.meta.env.BASE_URL}{x.icon}" alt="" />
+              <span><b>{x.name}</b><small>{x.line}</small></span>
+              <img class="chev" src="{import.meta.env.BASE_URL}icons/right.webp" alt="" />
+            </button>
+          {/each}
+        </nav>
+      {/if}
+      {#if sec && sec !== 'admin'}
       <div class="who">
         {#each game.save.profiles as pr (pr.id)}
           <button class="pp" class:on={pr.id === selected} onclick={() => (selected = pr.id)}>
@@ -145,7 +176,9 @@
           </button>
         {/each}
       </div>
-      {#if p}
+      {/if}
+      {#if p && sec && sec !== 'admin'}
+        {#if sec === 'players'}
         <!-- first on the page: where progress is kept, signing in, save codes (the save chips open straight here) -->
         <div class="card pane acct" bind:this={acctEl} class:flash={flashAcct}>
           <h3>Saving online</h3>
@@ -213,6 +246,8 @@
             <input type="file" accept="application/json,.json" bind:this={fileInput} onchange={importSave} hidden />
           </div>
         </div>
+        {/if}
+        {#if sec === 'progress'}
         <div class="cards">
           <div class="stat card"><b>{fmtMin(p.totals.ms)}</b><span>practiced</span></div>
           <div class="stat card"><b>{passedCount}/{ALL_LESSONS.length}</b><span>lessons passed</span></div>
@@ -221,16 +256,17 @@
           <div class="stat card"><b>{Math.round(avgAcc * 100)}%</b><span>accuracy (last 30)</span></div>
           <div class="stat card"><b>{RIDES[p.rideBest].name}</b><span>best ride</span></div>
         </div>
-        <div class="card tryall">
-          <img class="ti" src="{import.meta.env.BASE_URL}icons/bulb.webp" alt="" />
-          <div><h3>Ideas and help</h3><p class="muted">Suggest a new game or something to make better, vote on other families' ideas, or tell us about a problem.</p></div>
-          <button class="btn btn-primary" onclick={() => game.openIdeas()}>Ideas and help</button>
-        </div>
+        {/if}
+        {#if sec === 'progress'}
         <div class="card tryall">
           <div><h3>Math skills by grade</h3><p class="muted">Every math skill from kindergarten to 8th grade, with its school standard and where {p.name} is on each: not started, growing or solid.</p></div>
           <button class="btn btn-primary" onclick={() => { game.skillsFor = p!.id; game.go('skills'); }}>See skills</button>
         </div>
+        {/if}
+        {#if sec === 'classes'}
         <ClassGrownups {p} /><!-- classes: teachers, linking to a class, world boards -->
+        {/if}
+        {#if sec === 'time'}
         <!-- time and goals (moved here from Settings: the grown-ups choose them, the player just plays) -->
         <div class="card pane goals">
           <h3>Time and goals for {p.name}</h3>
@@ -272,6 +308,8 @@
             </div>
           </div>
         </div>
+        {/if}
+        {#if sec === 'time'}
         <div class="card pane advset">
           <h3>Adventure: play time</h3>
           <p class="muted small">Adventure is the battle mode. Every move in a battle is still a math answer or a typed word, and practice is where the eggs hatch. Choose how play time works for {p.name}.</p>
@@ -296,6 +334,8 @@
           </div>
           <p class="playline">Today: <b>{fmtMin(practiceToday)}</b> practice{#if adv?.day.key === dayKey(Date.now())}, <b>{fmtMin(adv.day.ms)}</b> Adventure: <b>{adv.day.answers}</b> answers in battles, <b>{adv.day.answers ? Math.round((adv.day.right / adv.day.answers) * 100) : 0}%</b> right{:else}, no Adventure yet{/if}.</p>
         </div>
+        {/if}
+        {#if sec === 'progress'}
         <div class="two">
           <div class="card pane">
             <h3>Minutes per day</h3>
@@ -313,6 +353,8 @@
             {:else}<p class="muted">A few more runs and a chart shows up here.</p>{/if}
           </div>
         </div>
+        {/if}
+        {#if sec === 'progress'}
         <div class="card pane">
           <h3>Key by key</h3>
           <p class="muted small">Green keys are mastered; warm keys need practice. "Tricky Keys" on the Open Road drills them.</p>
@@ -322,12 +364,15 @@
             {/each}
           </div>
         </div>
+        {/if}
+        {#if sec === 'time'}
         <div class="card pane">
           <h3>My Words</h3>
           <p class="muted small">Paste a spelling list or any text. It becomes the "My Words" lesson on the Open Road (opens after Bottom Row Burrows).</p>
           <textarea bind:value={words} rows="5" placeholder="because, friend, beautiful, enough..."></textarea>
           <button class="btn btn-primary" onclick={saveWords}>Save word list</button>
         </div>
+        {/if}
       {/if}
       {#if printing?.cloud}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -340,7 +385,7 @@
           </div>
         </div>
       {/if}
-      {#if cloud.account?.admin}
+      {#if cloud.account?.admin && sec === 'admin'}
         <div class="card pane adminpane">
           <h3>Admin</h3>
           <p class="muted small">Only you see this ({cloud.account.email}).</p>
@@ -351,20 +396,20 @@
           <AdminPanel />
         </div>
       {/if}
-      <div class="card pane about">
-        <h3>About {GAME_NAME}</h3>
-        <p>Free, made by {STUDIO}. No ads, no tracking. The code is source-available (PolyForm Strict 1.0.0: read it, run it, help improve it); the art, characters, voices and music are all rights reserved.</p>
-        <div class="row">
-          <button class="btn btn-primary" onclick={() => game.openAbout()}>About Keypals</button>
-          <button class="btn" onclick={() => openExternal(STUDIO_URL)}>More games at fancyant.com</button>
-          {#if SOURCE_PUBLIC}<button class="btn" onclick={() => openExternal(SOURCE_URL)}>Source code</button>{/if}
-        </div>
-      </div>
     </div>
   {/if}
 </div>
 
 <style>
+  /* the list of sections */
+  .seclist { display: flex; flex-direction: column; gap: 10px; max-width: 760px; width: 100%; margin: 0 auto; }
+  .secrow { display: flex; align-items: center; gap: 14px; border: 0; cursor: pointer; text-align: left; padding: 12px 16px; border-radius: 20px; background: #fff; box-shadow: 0 0 0 2px #ece6f6, 0 8px 18px -14px rgba(60, 40, 110, .5); font: inherit; }
+  .secrow:hover { box-shadow: 0 0 0 2px #c9b8ff, 0 8px 18px -14px rgba(60, 40, 110, .5); }
+  .secrow > img { width: 46px; height: 46px; object-fit: contain; flex: none; }
+  .secrow span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .secrow b { font: 600 20px var(--font-ui); color: var(--ink); }
+  .secrow small { font: 700 14px/1.3 var(--font-body); color: var(--muted); }
+  .secrow .chev { width: 26px; height: 26px; opacity: .6; }
   .tryall { display: flex; align-items: center; gap: 16px; padding: 14px 18px; margin: 12px 0; }
   .tryall h3 { margin: 0 0 2px; }
   .tryall .ti { width: 52px; height: 52px; object-fit: contain; flex: none; }

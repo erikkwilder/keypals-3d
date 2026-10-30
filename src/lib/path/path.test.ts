@@ -291,7 +291,8 @@ describe('free-time limits', () => {
     setHomeRules(p, { limits: { island: '10', garden: '20' } });
     const r = rulesFor(p, [], MON);
     expect(placeOf('island', 'outfits')).toBe('island');
-    expect(placeOf('closet', 'dances')).toBe('dances');
+    expect(placeOf('dances', 'outfits')).toBe('dances');
+    expect(placeOf('closet', 'outfits')).toBe('closet');
     expect(placeOf('shop', 'outfits')).toBe('closet');
     expect(placeOf('map', 'outfits')).toBeNull();
     addUsed(p, 'island', 6 * 60000, MON);
@@ -320,7 +321,7 @@ describe('free-time limits', () => {
     expect(rulesFor(p, [{ limits: { dances: 'earned' } }], MON).limits.dances).toBe('earned');
     expect(rulesFor(p, [{ limits: { dances: '10' } }], MON).limits.dances).toBe('10');
     addUsed(p, 'dances', 17 * 60000, MON);
-    expect(doorFor('closet', 'dances', p, rulesFor(p, [{ limits: { dances: 'earned' } }], MON), MON)).toEqual({ kind: 'time', place: 'dances', earned: true });
+    expect(doorFor('dances', 'dances', p, rulesFor(p, [{ limits: { dances: 'earned' } }], MON), MON)).toEqual({ kind: 'time', place: 'dances', earned: true });
   });
 });
 

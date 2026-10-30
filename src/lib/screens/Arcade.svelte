@@ -1,7 +1,9 @@
 <script lang="ts">
-  // The Arcade: a painted plaza on a sky island, the 3D buddy waving you in, and the game cabinets, each
-  // with your best score and stars. Today's challenge sits on a banner: one game a day, the same course
-  // for everyone in the family, and bonus shells for beating its goal. Arcade rounds count as practice:
+  // The Arcade (a place: ← Home | Arcade): a painted plaza on a sky island, the 3D buddy waving you in,
+  // Today's challenge (the one big button: one game a day, the same course for everyone in the family, and
+  // bonus shells for beating its goal), then the cabinets under small headings: Typing, Math (each labelled
+  // by its topic), Play together (Family Duel, Rival Ghosts) and Just for fun (Glimmer Drop). Every game's
+  // Pause card and end card come back here. Arcade rounds count as practice:
   // every answer feeds the fact memory, and they earn stars, shells and treasure (not lessons). Glimmer
   // Drop stands here too: just for fun, played with the same play time as Adventure.
   import { onDestroy, onMount } from 'svelte';
@@ -15,7 +17,8 @@
   import { sfx, unlockAudio } from '../audio/sound';
   import Stars from '../ui/Stars.svelte';
   import Icon from '../ui/Icon.svelte';
-  import GearButton from '../ui/GearButton.svelte';
+  import Bar from '../ui/Bar.svelte';
+  import { openAnywhere } from '../nav';
   import { builderOf, builderOpen } from '../math/place/builder';
   import { treasureOf } from '../math/integers/treasure';
   import { showdownOf } from '../math/data/showdown';
@@ -38,8 +41,7 @@
   const drop = $derived(dropOf(p));
   const time = $derived(playLeft(p));
   const playText = $derived(!time.open ? 'Play time is used up today' : time.left === null ? 'Uses play time' : `${Math.max(0, Math.floor(time.left))} min of play time left`);
-  /** back to wherever the Arcade was opened from: Home or the math map */
-  const back = () => game.go(game.home);
+  const versus = $derived(advView(p).settings.versus !== false);
 
   let scene: PlazaScene | null = null;
   let spotEl: HTMLDivElement | undefined = $state();
@@ -106,7 +108,7 @@
   ];
   /** an area cabinet's plate: the best score once played (and its stars, like the fact games'), else what you do */
   const best = (c: AreaCab, r: Rec) => (!r.plays ? c.line : c.unit ? `Best ${fmt(r.best)} ${c.unit}` : `Best score ${fmt(r.best)}`);
-  function openCab(c: AreaCab) { unlockAudio(); sfx.click(); scene?.cheer(); c.before?.(); game.gameFrom = 'arcade'; game.go(c.screen); }
+  function openCab(c: AreaCab) { unlockAudio(); sfx.click(); scene?.cheer(); c.before?.(); game.go(c.screen); }
   /** Glimmer Drop: just for fun, on its own screen (it spends play time); its cabinet is always last */
   function openDrop() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('drop'); }
   /** each cabinet's own key, by its place: 1 to 9, then 0, then along the top row of letters (D is today's challenge) */
@@ -122,7 +124,6 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'Escape') { back(); return; }
     const n = KEYS.indexOf(e.key.toLowerCase()) + 1;
     if (n >= 1 && n <= ARCADE_GAMES.length) play(ARCADE_GAMES[n - 1].id);
     else if (n > ARCADE_GAMES.length && n <= ARCADE_GAMES.length + AREA_CABS.length) openCab(AREA_CABS[n - ARCADE_GAMES.length - 1]);
@@ -147,14 +148,7 @@
   <!-- the painted plaza shows from the 3D stage behind; until it's ready, the same painting here -->
   <div class="paint" style:background-image="url({import.meta.env.BASE_URL}arcade/bg-plaza.webp)"></div>
 
-  <header class="top">
-    <button class="btn btn-icon" aria-label="Back" onclick={() => { sfx.click(); back(); }}><Icon name="back" /></button>
-    <img class="sign" src="{import.meta.env.BASE_URL}arcade/sign.webp" alt="Arcade" />
-    <div class="rt">
-      {#if w >= 430}<span class="wallet"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><b>{fmt(shells)}</b>{#if !compact} shells{/if}</span>{/if}
-      <GearButton size={compact ? 30 : 38} />
-    </div>
-  </header>
+  <Bar />
 
   <div class="stagebox" onscroll={place}>
     <div class="buddycol">
@@ -173,6 +167,9 @@
         <span class="dgo">{#if beaten}<Icon name="check" size={30} />{:else}Play{/if}</span>
       </button>
 
+      <h2 class="ch">Typing</h2>
+      <p class="soon">Typing games are on the way. For now, Speed Sprint on the Open Road is a race against the clock.</p>
+      <h2 class="ch">Math</h2>
       <div class="cabs">
         {#each ARCADE_GAMES as g, i (g.id)}
           {@const r = save[g.id]}
@@ -197,15 +194,29 @@
             {#if !compact && keyOf(ARCADE_GAMES.length + k + 1)}<span class="kbd">{keyOf(ARCADE_GAMES.length + k + 1)}</span>{/if}
           </button>
         {/each}
+      </div>
+      {#if versus}
+        <h2 class="ch">Play together</h2>
+        <div class="cabs pair">
+          <button class="cab duo" style:--c="#2f9ed8" style:--d="0ms" onclick={() => openAnywhere('duel')}>
+            <img class="art tile" src="{import.meta.env.BASE_URL}game/intro-duel.webp" alt="" />
+            <span class="plate"><b>Family Duel</b><span class="bs">Two players, one screen</span></span>
+          </button>
+          <button class="cab duo" style:--c="#e2468f" style:--d="90ms" onclick={() => openAnywhere('rivals')}>
+            <img class="art tile" src="{import.meta.env.BASE_URL}game/intro-rivals.webp" alt="" />
+            <span class="plate"><b>Rival Ghosts</b><span class="bs">Race a ghost, climb the leagues</span></span>
+          </button>
+        </div>
+      {/if}
+      <h2 class="ch">Just for fun</h2>
+      <div class="cabs">
         <!-- Glimmer Drop: not practice, just for fun, so it uses play time (the same minutes as Adventure) -->
         <button class="cab fun" style:--c="#9a6cf0" style:--d="{(DROP_PLACE - 1) * 90}ms" onclick={openDrop} onpointerenter={(e) => hover('drop', e.currentTarget)} onpointerleave={() => hover(null)}>
-          <span class="ribbon fun">Just for fun</span>
           <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-drop.webp" alt="" />
           <span class="plate"><b>Glimmer Drop</b><span class="bs">{drop.best ? `Best score ${fmt(drop.best)}` : 'New! Give it a go'}</span><span class="pt" class:out={!time.open}>{playText}</span></span>
           {#if !compact && keyOf(DROP_PLACE)}<span class="kbd">{keyOf(DROP_PLACE)}</span>{/if}
         </button>
       </div>
-      <p class="note">Math games count as practice: every answer helps your Fact Garden grow, and you earn shells and treasure. Typing games are coming soon. Glimmer Drop is just for fun and uses play time.</p>
     </div>
   </div>
 </div>
@@ -229,6 +240,11 @@
   /* (safe: on a short screen the cabinets start at the top and scroll, instead of running up under the bar) */
   .right { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; justify-content: safe flex-end; gap: 14px; padding-top: 12px; }
   .right::-webkit-scrollbar { display: none; }
+  /* the small headings over each group of cabinets */
+  .ch { align-self: flex-start; margin: 6px 0 -4px; padding: 3px 14px; border-radius: 999px; background: rgba(255, 255, 255, .92); font: 600 19px var(--font-ui); color: var(--ink); box-shadow: 0 4px 12px -6px rgba(40, 30, 90, .45); }
+  .soon { align-self: flex-start; margin: 0; padding: 6px 14px; border-radius: 14px; background: rgba(255, 255, 255, .85); font: 700 14px var(--font-body); color: var(--muted); }
+  .cabs.pair { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .duo .art.tile { aspect-ratio: 1.3; object-fit: cover; border-radius: 22px; margin-bottom: -14px; box-shadow: 0 0 0 4px #fff; }
   .daily { align-self: center; display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 8px; border: 0; cursor: pointer; text-align: left; border-radius: 24px; min-width: min(560px, 100%);
     background: linear-gradient(135deg, #fff9e8, #ffe9b0); box-shadow: 0 0 0 4px #fff, 0 0 0 7px #ffc93d, 0 14px 28px -12px rgba(140, 90, 0, .55); transition: transform .15s; animation: pop-in .45s cubic-bezier(.3, .8, .4, 1.4); }
   .daily:hover { transform: translateY(-3px) rotate(-.5deg); }

@@ -39,7 +39,7 @@
 </script>
 
 <div class="screen report">
-  <Header title="Math skills" sub="{p.name}: {counts.solid} solid, {counts.growing} growing" back={() => { game.skillsFor = who; game.go('grownups'); }} />
+  <Header back={() => { game.skillsFor = who; game.back(); }} />
   <div class="body scroll">
     <p class="intro">Every math skill in Keypals from kindergarten to 8th grade, with its school standard, and where {p.name} is on each. <b>Solid</b> means answered right and quickly on different days; <b>growing</b> means started. <b>Working at</b> is how hard {p.name}'s questions are right now: the game aims for about 8 in 10 right, and moves up a step as {p.name} grows (or back down for a while if it's too hard).</p>
     {#each AREAS as a (a.id)}

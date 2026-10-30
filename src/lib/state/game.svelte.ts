@@ -4,12 +4,16 @@ import { OLD_SAVE_KEYS, SAVE_KEY } from '../config';
 import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type SaveFile, type Settings } from '../engine/profile';
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
+import { CTX_FIELDS, isAbove, isActivity, parentOf, samePlace, type Place } from './where';
 
 export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market' | 'ideas' | 'teach' | 'classLogin' | 'boards' | 'clockrush' | 'bench' | 'shifter' | 'shapebuilder'
-  | 'glimmerBook' | 'smoothie' | 'treasure' | 'showdown' | 'balance' // the 100-Glimmer ladder's book (screens/GlimmerBook.svelte)
+  | 'smoothie' | 'treasure' | 'showdown' | 'balance'
   | 'island' // My Sky Island (screens/SkyIsland.svelte)
   | 'mystuff' | 'about' // everything that's yours in one place (screens/MyStuff.svelte), and About Keypals (screens/About.svelte)
-  | 'path'; // My path: each subject's units, what's done and what's next (screens/MyPath.svelte)
+  | 'path' // My path: each subject's units, what's done and what's next (screens/MyPath.svelte)
+  // the one way around (state/where.ts): a subject's page, one topic of it, one way of a topic (Learn, Play),
+  // and My stuff's own pages (the closet is the Wardrobe; Glimmers holds the Glimmer Book as its All 100 tab)
+  | 'subject' | 'topic' | 'way' | 'keypals' | 'dances' | 'progress';
 
 function load(): SaveFile {
   try {
@@ -38,9 +42,6 @@ export type LastRun = RunOutcome & {
   ghost?: { beat: boolean; by: number; finished: boolean };
 };
 
-/** the places My stuff opens (their Back returns to My stuff) */
-const STUFF_PLACES = new Set<Screen>(['mystuff', 'closet', 'shop', 'stickers', 'glimmers', 'glimmerBook', 'eggs', 'garden', 'island']);
-
 class Game {
   save = $state<SaveFile>(load());
   screen = $state<Screen>('title');
@@ -61,30 +62,27 @@ class Game {
   stickerTab = $state<'stickers' | 'medals' | 'rides'>('stickers');
   /** which tab Keypals opens on (outfits and gear are both the Wardrobe now) */
   closetTab = $state<'outfits' | 'dances' | 'gear'>('outfits');
-  /** the Shop: where its back button goes, and a slot to show first */
-  shopBack = $state<Screen>('hub');
+  /** the Shop: a slot to show first */
   shopSlot = $state<string | null>(null);
   /** Adventure: the map stop being battled, and a fresh key so "battle again" starts a new one */
   battleNode = $state<string | null>(null);
   battleKey = $state(0);
   /** the Glimmer to show first on the Glimmers screen (a new one to put on the team) */
   glimmerSel = $state<string | null>(null);
-  /** the Glimmer Book: where Back goes */
-  bookBack = $state<Screen>('glimmers');
-  openBook() { if (this.screen !== 'glimmerBook') this.bookBack = this.screen; this.arrive('glimmerBook'); }
+  /** Glimmers: your team, or all 100 (the Glimmer Book); every Glimmer Book link opens All 100 */
+  glimmerTab = $state<'team' | 'all'>('team');
+  openBook() { this.glimmerTab = 'all'; this.visit('glimmers'); }
   /** Family Duel or Rival Ghosts, and the rival picked (the duel screen rebuilds when duelKey bumps) */
   duelMode = $state<'duel' | 'rival'>('duel');
   duelRival = $state<import('../adventure/ghosts').Rival | null>(null);
   duelKey = $state(0);
-  /** Learn: the lesson open on the Learn screen (null: the list of tricks), and where Back goes */
+  /** Learn: the episode playing on the Learn screen */
   learnId = $state<string | null>(null);
-  learnBack = $state<Screen>('map');
   /** the Arcade: the game being played, today's challenge or a free round, and a key so "play again" starts fresh */
   arcadeGame = $state<import('../arcade/arcade').ArcadeId>('slalom');
   arcadeDaily = $state(false);
   arcadeKey = $state(0);
   playArcade(id: import('../arcade/arcade').ArcadeId, daily = false) {
-    if (this.screen !== 'arcadePlay') this.cameFrom = this.screen;
     this.arcadeGame = id;
     this.arcadeDaily = daily;
     this.arcadeKey++;
@@ -92,20 +90,26 @@ class Game {
   }
   /** the subject pages (Typing, Math): which way to play shows, Learn, Practice, Games or Adventure */
   way = $state<Record<string, import('../subjects').WayId>>({});
+  /** the subject page showing (Typing, Math), the topic (a kind of math, a typing island) and, on a way
+   *  page, which way (Learn or Play) */
+  subject = $state<string>('math');
+  topic = $state<string | null>(null);
+  wayId = $state<import('../subjects').WayId>('learn');
+  /** Grown-ups: the section open (null: the list of sections) */
+  guSection = $state<string | null>(null);
+  /** Grown-ups: the list of sections, or one section (Back comes back to where it was opened from) */
+  openGrownups(section: string | null = null) { this.guSection = section; this.visit('grownups'); }
   /** the typing page's part (a region), or null for all of typing */
   typingArea = $state<import('../engine/course').RegionId | null>(null);
   /** the Learn episode opened from a subject page is just its next-day quick check */
   learnCheck = $state(false);
-  /** where a math area's own arcade game (Pizza Rush, Clock Rush...) was opened from: the Arcade sets it, and
-   *  the game reads it once as it opens (Back goes to the Arcade, else to the area's map) */
-  gameFrom = $state<'arcade' | 'map'>('map');
   /** a Playground game to start straight away (picked on a subject page's Games) */
   playPick = $state<string | null>(null);
   /** a Learn lesson opened over a math trip (the trip waits underneath) */
   learnOverlay = $state<string | null>(null);
-  openLearn(id: string | null = null, back: Screen = this.screen === 'learn' ? this.learnBack : this.screen) {
+  /** a Learn episode (an activity: its Pause card goes back to where it was started from) */
+  openLearn(id: string) {
     this.learnId = id;
-    this.learnBack = back;
     this.arrive('learn');
   }
 
@@ -127,27 +131,66 @@ class Game {
     }
   }
 
+  // ---- where you are, and the way back (state/where.ts has the map of levels) ----
+  /** where the activity on screen was started from: its Pause card's "Back to" and its end card go there */
+  from = $state<Place | null>(null);
+  /** cross-links: a place opened from somewhere that isn't above it goes back there (newest last) */
+  returns: { at: Place; to: Place }[] = [];
+
+  /** Where you are now: the screen and what it shows. */
+  here(screen: Screen = this.screen): Place {
+    const ctx: Record<string, string | null> = {};
+    const self = this as unknown as Record<string, unknown>;
+    for (const k of CTX_FIELDS[screen] ?? []) ctx[k] = (self[k] as string | null | undefined) ?? null;
+    return { screen, ctx };
+  }
+  /** Go to a screen, as a step up or down the levels (a tile on a page, the Menu, Back). */
   go(screen: Screen) {
-    // the sticker book, closet and settings go back to wherever they were opened from
     if (screen === 'hub' || screen === 'map') this.home = screen;
-    // (coming back to My stuff from one of its own places keeps where My stuff itself goes back to)
-    if (screen === 'mystuff' && !STUFF_PLACES.has(this.screen)) this.stuffBack = this.screen;
-    if (screen !== this.screen) this.cameFrom = this.screen;
     this.arrive(screen);
   }
-  /** opened from My stuff: its places (the closet, shop, sticker book, Glimmers, the Glimmer Book, eggs, the
-   *  garden, the island) go back to My stuff; leaving them for anywhere else forgets it */
-  fromStuff = $state(false);
-  private arrive(next: Screen) {
-    if (this.screen === 'mystuff' && next !== 'mystuff') this.fromStuff = true;
-    else if (next === 'mystuff' || !STUFF_PLACES.has(next)) this.fromStuff = false;
-    this.screen = next;
+  /** Go somewhere by a cross-link (the bar's My stuff, a Glimmers link on Adventure, the Wardrobe's Shop):
+   *  Back from there comes back here. A place above this one, or below it, is just a step. */
+  visit(screen: Screen) {
+    const from = this.here();
+    const to = this.here(screen);
+    if (samePlace(from, to)) return;
+    const step = isAbove(to, from, this.from) || isAbove(from, to, this.from) || parentOf(to, this.from) === null;
+    this.arrive(screen);
+    if (!step) this.returns.push({ at: this.here(), to: from });
   }
-  /** Back from one of My stuff's places: to My stuff when it was opened from there, else `otherwise` */
-  backFromStuff(otherwise: () => void) { if (this.fromStuff) this.go('mystuff'); else otherwise(); }
-  /** the screen before this one: an arcade game opened from the Arcade offers the way back there first */
-  cameFrom: Screen = 'title';
-  /** where "back" goes from the sticker book, closet and settings: Home or a subject's map */
+  /** Go to a place (a screen and what it shows). */
+  goPlace(pl: Place) {
+    const self = this as unknown as Record<string, unknown>;
+    for (const [k, v] of Object.entries(pl.ctx)) self[k] = v;
+    this.arrive(pl.screen);
+  }
+  /** Back: to where a cross-link came from, else up one level. Esc does the same. Home has no Back. */
+  back() {
+    const h = this.here();
+    const top = this.returns.at(-1);
+    if (top && samePlace(top.at, h)) { this.returns.pop(); this.goPlace(top.to); return; }
+    const up = parentOf(h, this.from);
+    if (up) this.goPlace(up);
+  }
+  /** The place Back goes to from here (null on Home). */
+  backTo(): Place | null {
+    const h = this.here();
+    const top = this.returns.at(-1);
+    if (top && samePlace(top.at, h)) return top.to;
+    return parentOf(h, this.from);
+  }
+  /** Leave an activity: back to where it was started from. */
+  leaveActivity() { this.goPlace(this.from ?? { screen: 'hub', ctx: {} }); }
+  private arrive(next: Screen) {
+    const was = this.here();
+    if (isActivity(next) && !isActivity(this.screen)) this.from = was;
+    this.screen = next;
+    // the cross-links still on the way back from here (each one's place is here or above it)
+    const now = this.here();
+    this.returns = this.returns.filter(r => isAbove(r.at, now, this.from));
+  }
+  /** the old "home" for a subject's map (the typing or math map last shown) */
   home = $state<'hub' | 'map'>('hub');
 
   openSheet(mode: 'settings' | 'setup' = 'settings', onClose?: () => void) {
@@ -166,39 +209,41 @@ class Game {
   musicOpen = $state(false);
   openMusic() { this.musicOpen = true; }
   closeMusic() { this.musicOpen = false; }
-  /** Ideas and help: which part opens first, and where Back goes */
+  /** Ideas and help: which part opens first (Back comes back to where it was opened from) */
   ideasTab = $state<'board' | 'suggest' | 'problem'>('board');
-  ideasBack = $state<Screen>('hub');
-  /** My stuff and About: where Back goes */
-  stuffBack = $state<Screen>('hub');
-  aboutBack = $state<Screen>('hub');
-  openAbout() { if (this.screen !== 'about') this.aboutBack = this.screen; this.arrive('about'); }
+  /** the screen Ideas and help was opened over (a problem report says which screen it was) */
+  ideasFrom: Screen = 'hub';
+  openAbout() { this.visit('about'); }
   openIdeas(tab: 'board' | 'suggest' | 'problem' = 'board') {
-    if (this.screen !== 'ideas') this.ideasBack = this.screen;
+    if (this.screen !== 'ideas') this.ideasFrom = this.screen;
     this.ideasTab = tab;
-    this.arrive('ideas');
+    this.visit('ideas');
   }
-  /** the menu that goes anywhere in the game (and shows everything you've earned) */
+  /** the menu that goes anywhere in the game (the compass) */
   menuOpen = $state(false);
+  /** an activity's Pause card: open, and how to keep going */
+  pause = $state<{ resume: () => void } | null>(null);
+  openPause(resume: () => void = () => {}) { this.pause = { resume }; }
+  closePause(keepGoing = true) { const p = this.pause; this.pause = null; if (keepGoing) p?.resume(); }
   openMenu() { this.menuOpen = true; }
   closeMenu() { this.menuOpen = false; }
   /** something is open on top of the screen and owns the keyboard */
-  get modalOpen() { return this.sheet !== null || this.settingsOpen || this.musicOpen || this.menuOpen || this.chartLesson !== null || this.learnOverlay !== null; }
+  get modalOpen() { return this.sheet !== null || this.settingsOpen || this.musicOpen || this.menuOpen || this.pause !== null || this.chartLesson !== null || this.learnOverlay !== null; }
   openChart(id: string) { this.chartLesson = id; }
   closeChart() { this.chartLesson = null; }
   openStickers(tab: 'stickers' | 'medals' | 'rides' = 'stickers') {
     this.stickerTab = tab;
-    this.arrive('stickers');
+    this.visit('stickers');
   }
+  /** the Wardrobe (outfits, gear) or Dances: their own pages in My stuff */
   openCloset(tab: 'outfits' | 'dances' | 'gear' = 'outfits') {
     this.closetTab = tab;
-    this.arrive('closet');
+    this.visit(tab === 'dances' ? 'dances' : 'closet');
   }
-  /** The Shop (one for the whole game: Home, the Adventure map and the Wardrobe open it). */
+  /** The Shop (one for the whole game: My stuff, the shells card and the Wardrobe open it). */
   openShop(slot: string | null = null) {
-    if (this.screen !== 'shop') this.shopBack = this.screen;
     this.shopSlot = slot;
-    this.arrive('shop');
+    this.visit('shop');
   }
 
   say(msg: string, ms = 2600) {

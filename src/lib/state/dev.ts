@@ -48,7 +48,7 @@ export function devBoot() {
   if (key === 'closet') { ensure(); game.go('closet'); }
   if (key === 'dances') { ensure(); game.openCloset('dances'); }
   if (key === 'settings') { ensure(); game.go('settings'); }
-  if (key === 'grownups') { ensure(); game.go('grownups'); }
+  if (key === 'grownups') { ensure(); game.openGrownups(val || null); }
   if (key === 'new') game.go('newPlayer');
   // the math game: #math (math home), #mathrun=twins-2, #garden
   if (key === 'math') { ensure(); game.setHome('math'); game.go('map'); }
@@ -81,7 +81,7 @@ export function devBoot() {
   if (key === 'showdown') { ensure(); game.go('showdown'); }
   // Balance Beam, the expressions and equations arcade game: #balance; a Star Lab episode: #alg-learn=alg-balance
   if (key === 'balance') { ensure(); game.go('balance'); }
-  if (key === 'alg-learn') { ensure(); game.mathArea = 'algebra'; game.mathOp = null; game.openLearn(val || 'alg-balance', 'map'); }
+  if (key === 'alg-learn') { ensure(); game.mathArea = 'algebra'; game.mathOp = null; game.openLearn(val || 'alg-balance'); }
   // a money Learn episode over the Decimals and money map: #market-learn=dec-coins
   if (key === 'market-learn') { ensure(); game.mathArea = 'decimals'; game.mathOp = null; game.go('map'); game.learnOverlay = val || 'dec-coins'; }
   // negative numbers: Treasure Grid, the arcade game (#treasure), Star Sketch, the Playground toy (#sketch),
@@ -97,7 +97,7 @@ export function devBoot() {
   // the Arcade: #arcade (the plaza), #arcade=slalom|catch|tower (straight into a round), #arcade=daily
   if (key === 'arcade') { ensure(); game.setHome('math'); if (val === 'daily') import('../arcade/arcade').then(a => game.playArcade(a.dailyGame(), true)); else if (val) game.playArcade(val as 'slalom' | 'catch' | 'tower'); else game.go('arcade'); }
   // Learn: #learn (the list of tricks) or #learn=make-ten (that lesson)
-  if (key === 'learn') { ensure(); game.openLearn(val || null, 'map'); }
+  if (key === 'learn') { ensure(); if (val) game.openLearn(val); else void import('../nav').then(n => n.openWay('math', null, 'learn')); }
   // evolutions: #evolve=puddlepup (level 5, ready to evolve), #evolved=puddlepup,sparkmoth (grown up, on the team)
   if (key === 'evolve' || key === 'evolved') {
     ensure();

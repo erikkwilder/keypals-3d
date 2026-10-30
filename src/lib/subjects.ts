@@ -29,7 +29,7 @@ export type Way = { id: WayId; name: string; line: string; icon: string; color: 
 export const WAYS: Way[] = [
   { id: 'learn', name: 'Learn', line: 'Watch and try', icon: 'icons/book.webp', color: '#f0a92e', dark: '#a86a00', tint: '#fff6df' },
   { id: 'practice', name: 'Practice', line: 'Trips for stars and eggs', icon: 'icons/map.webp', color: '#4a8de8', dark: '#2459a8', tint: '#e8f2ff' },
-  { id: 'games', name: 'Games', line: 'Arcade games and toys', icon: 'icons/arcade.webp', color: '#e2468f', dark: '#a8246a', tint: '#ffedf5' },
+  { id: 'games', name: 'Play', line: 'Games and toys', icon: 'icons/arcade.webp', color: '#e2468f', dark: '#a8246a', tint: '#ffedf5' },
   { id: 'adventure', name: 'Adventure', line: 'Worlds and battles', icon: 'game/icon-grump.webp', color: '#2e9e6e', dark: '#17704a', tint: '#e6f8ef' },
 ];
 export const WAY = Object.fromEntries(WAYS.map(w => [w.id, w])) as Record<WayId, Way>;

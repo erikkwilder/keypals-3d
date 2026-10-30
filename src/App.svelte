@@ -55,7 +55,6 @@
   import MyStuff from './lib/screens/MyStuff.svelte';
   import About from './lib/screens/About.svelte';
   // the 100-Glimmer ladder: its book, and the special eggs' moments (looked for on the calm screens)
-  import GlimmerBook from './lib/screens/GlimmerBook.svelte';
   import LadderMoment from './lib/ui/LadderMoment.svelte';
   import { CALM_SCREENS, lookForEggs } from './lib/adventure/ladderMoment.svelte';
   import { installProblemReports } from './lib/state/reports';
@@ -70,6 +69,14 @@
   });
   // My path, and the doors grown-ups and teachers can close (the free-time places' daily time, the path first)
   import MyPath from './lib/screens/MyPath.svelte';
+  // the one way around (state/where.ts): a subject's page, a topic, a way of a topic, My stuff's pages, and
+  // the one Pause card every activity opens
+  import Subject from './lib/screens/Subject.svelte';
+  import Topic from './lib/screens/Topic.svelte';
+  import WayPage from './lib/screens/WayPage.svelte';
+  import Progress from './lib/screens/Progress.svelte';
+  import PauseCard from './lib/ui/PauseCard.svelte';
+  import GlimmerBook from './lib/screens/GlimmerBook.svelte'; // Glimmers' All 100 tab
   import Door from './lib/path/Door.svelte';
   import { doorFor } from './lib/path/rules';
   import { freeClock, playerRules, watchFree } from './lib/path/player.svelte';
@@ -78,7 +85,7 @@
   // a class player's class rules (and class work) as soon as the server answers, whatever screen is open
   $effect(() => { const on = cloud.online, id = game.profile?.id; if (on && id) untrack(() => void loadClasses(game.profile)); });
   // (a Learn episode opened over a subject page, as the market's and the clockmaker's are, is Learn)
-  const door = $derived(game.profile ? doorFor(game.screen === 'map' && game.learnOverlay ? 'learn' : game.screen, game.closetTab, game.profile, playerRules(game.profile), Date.now(), freeClock.running) : null);
+  const door = $derived(game.profile ? doorFor((game.screen === 'map' || game.screen === 'way') && game.learnOverlay ? 'learn' : game.screen, game.closetTab, game.profile, playerRules(game.profile), Date.now(), freeClock.running) : null);
   // minutes count while a free-time place is open (not while its door is shut)
   $effect(() => { const s = game.screen, t = game.closetTab, id = game.profile?.id ?? null, shut = !!door; untrack(() => watchFree(shut ? 'hub' : s, t, id)); });
   import Teach from './lib/screens/Teach.svelte';
@@ -118,7 +125,7 @@
 
   // menu music on the screens around the lessons; Adventure's own on its screens and the Arcade's (Auto
   // plays an adventure there; a picked station just keeps playing)
-  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'glimmerBook', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'shifter', 'shapebuilder', 'smoothie', 'treasure', 'showdown', 'balance']);
+  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'shifter', 'shapebuilder', 'smoothie', 'treasure', 'showdown', 'balance']);
   $effect(() => {
     const scr = game.screen;
     if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
@@ -148,12 +155,18 @@
   {:else if game.screen === 'players'}<Players />
   {:else if game.screen === 'newPlayer'}<NewPlayer />
   {:else if game.screen === 'hub'}<Hub />
-  {:else if game.screen === 'map'}{#if game.homeGame === 'math'}<MathMap />{:else}<MapScreen />{/if}
+  {:else if game.screen === 'map'}{#key `${game.subject}:${game.topic}`}{#if game.subject === 'typing'}<MapScreen />{:else}<MathMap />{/if}{/key}
   {:else if game.screen === 'run'}{#key game.runKey}<Run />{/key}
   {:else if game.screen === 'results'}<Results />
   {:else if game.screen === 'stickers'}<Stickers />
-  {:else if game.screen === 'closet'}<Closet />
+  {:else if game.screen === 'closet'}{#key 'wardrobe'}<Closet mode="wardrobe" />{/key}
+  {:else if game.screen === 'keypals'}{#key 'keypals'}<Closet mode="keypals" />{/key}
+  {:else if game.screen === 'dances'}{#key 'dances'}<Closet mode="dances" />{/key}
   {:else if game.screen === 'shop'}<Shop />
+  {:else if game.screen === 'subject'}{#key game.subject}<Subject />{/key}
+  {:else if game.screen === 'topic'}{#key `${game.subject}:${game.topic}`}<Topic />{/key}
+  {:else if game.screen === 'way'}{#key `${game.subject}:${game.topic}:${game.wayId}`}<WayPage />{/key}
+  {:else if game.screen === 'progress'}<Progress />
   {:else if game.screen === 'settings'}<SettingsScreen />
   {:else if game.screen === 'grownups'}<Grownups />
   {:else if game.screen === 'mathRun'}{#key game.runKey}<MathRun />{/key}
@@ -165,7 +178,7 @@
   {:else if game.screen === 'playground'}<Playground />
   {:else if game.screen === 'adventure'}<Adventure />
   {:else if game.screen === 'battle'}{#key game.battleKey}<Battle />{/key}
-  {:else if game.screen === 'glimmers'}<Glimmers />
+  {:else if game.screen === 'glimmers'}{#if game.glimmerTab === 'all'}<GlimmerBook />{:else}<Glimmers />{/if}
   {:else if game.screen === 'eggs'}<Eggs />
   {:else if game.screen === 'learn'}<Learn />
   {:else if game.screen === 'duel'}{#key game.duelKey}<Duel />{/key}
@@ -191,7 +204,6 @@
   {:else if game.screen === 'teach'}<Teach />
   {:else if game.screen === 'classLogin'}<ClassLogin />
   {:else if game.screen === 'boards'}<Boards />
-  {:else if game.screen === 'glimmerBook'}<GlimmerBook />
   {:else if game.screen === 'path'}<MyPath />
   {/if}
   <LadderMoment />
@@ -201,6 +213,7 @@
   {#if game.sheet}<QuickSettings />{/if}
   {#if game.musicOpen}<MusicPicker />{/if}
   {#if game.menuOpen && game.profile}<GlobalMenu />{/if}
+  {#if game.pause}<PauseCard />{/if}
   <FunLayer />
   {#if game.toast}<div class="toast">{game.toast}</div>{/if}
 </main>

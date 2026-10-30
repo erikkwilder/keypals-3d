@@ -50,7 +50,7 @@
 </script>
 
 <div class="rv" style:background-image="url({backdrop})">
-  <Header title="Rival Ghosts" sub="Battle someone's ghost: it plays just like them" back={() => game.go('adventure')} />
+  <Header />
   <div class="body">
     <div class="season card" style:--lc={league.color}>
       <img class="badge" src="{base}game/league-{s.league}.webp" alt="" />

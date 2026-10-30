@@ -9,12 +9,11 @@
   import Header from '../ui/Header.svelte';
 
   const base = import.meta.env.BASE_URL;
-  const back = () => game.go(game.aboutBack === 'about' ? 'hub' : game.aboutBack);
   const MAIL = 'hello@keypals.org';
 </script>
 
 <div class="screen about">
-  <Header title="About Keypals" {back} gear={!!game.profile} />
+  <Header />
   <div class="body scroll">
     <div class="hero" style:background-image="url({base}about/header.webp)" role="img" aria-label="Dino painting a picture in a little workshop on a sky island, with two Glimmers helping"></div>
 

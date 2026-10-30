@@ -53,7 +53,7 @@
   <ClassEntry /><!-- classes: "I'm in a class" and "For teachers" -->
   <div class="foot">
     <button class="btn btn-ghost" onclick={() => game.go('title')}>Back</button>
-    <button class="btn btn-ghost" onclick={() => game.go('grownups')}>Grown-ups</button>
+    <button class="btn btn-ghost" onclick={() => game.openGrownups()}>Grown-ups</button>
     <!-- signing in, easy to find, and easy to see once it's done -->
     {#if cloud.online && cloud.account}
       <button class="btn btn-ghost acct on" onclick={goSaveOnline} title="Saving online: see or change it"><img src="{import.meta.env.BASE_URL}icons/cloud-save.webp" alt="" />Signed in as {cloud.account.name?.split(' ')[0] ?? cloud.account.email}</button>

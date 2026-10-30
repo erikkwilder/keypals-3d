@@ -94,7 +94,7 @@
   {#key key}<DuelPlay {sides} {glimmer} {mode} {rival} {first} onagain={again} onexit={exit} />{/key}
 {:else}
   <div class="setup" style:background-image="url({backdrop})">
-    <Header title="Family Duel" sub="Take turns on one screen" back={() => game.go('adventure')} />
+    <Header />
     <div class="body">
       <div class="intro card">
         <img src="{base}game/intro-duel.webp" alt="" />

@@ -51,7 +51,7 @@
     const reply = wantReply && email.trim() ? email.trim() : undefined;
     try {
       if (tab === 'suggest') await call('/ideas', { method: 'POST', body: JSON.stringify({ kind, text, email: reply }) });
-      else await call('/problems', { method: 'POST', body: JSON.stringify({ text, email: reply, screen: game.ideasBack, version: __APP_VERSION__, browser: browserName(navigator.userAgent), size: `${window.innerWidth}x${window.innerHeight}` }) });
+      else await call('/problems', { method: 'POST', body: JSON.stringify({ text, email: reply, screen: game.ideasFrom, version: __APP_VERSION__, browser: browserName(navigator.userAgent), size: `${window.innerWidth}x${window.innerHeight}` }) });
       sent = tab; text = ''; email = ''; wantReply = false; sfx.complete();
     } catch (e) { formMsg = (e as Error).message; sfx.nope(); }
     finally { busy = false; }
@@ -59,7 +59,7 @@
 </script>
 
 <div class="screen ideas">
-  <Header title="Ideas and help" back={() => game.go(game.ideasBack === 'ideas' ? 'hub' : game.ideasBack)} />
+  <Header />
   <div class="body scroll">
     <div class="tabs" role="tablist">
       <button role="tab" aria-selected={tab === 'board'} class:on={tab === 'board'} onclick={() => pick('board')}><img src="{base}icons/bulb.webp" alt="" />Ideas board</button>

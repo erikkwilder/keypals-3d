@@ -1,13 +1,11 @@
 <script lang="ts">
-  // My stuff: everything that's yours in one place. Big picture tiles for what you've collected (your
-  // buddies and wardrobe with the Shop, dances, stickers, medals, Glimmers and their book, eggs, the Fact
-  // Garden, My Sky Island), each with a live count, and then My progress: how each subject is going in
-  // plain words (stars, what you're working on, how far along) and the minutes played this week.
-  // Opened from the top bar and the compass menu; Back goes where it was opened from.
+  // My stuff: everything that's yours, as one grid of sections with live counts. Each section is its own
+  // page (← My stuff | Dances): Keypals (your buddies, friendship, who plays), Wardrobe, Shop, Dances, the
+  // Sticker book (stickers and medals), Glimmers (My team and All 100), Eggs, the Fact Garden and My
+  // progress. Opened from the top bar's chest on every screen; Back goes where it was opened from.
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
-  import { ALL_LESSONS, REGION, lessonTitle } from '../engine/course';
-  import { bookView, dayKey, nextLesson, outfitOf, palOf, passed, totalStars } from '../engine/profile';
+  import { bookView, palOf, totalStars } from '../engine/profile';
   import { STICKERS, levelFromXp } from '../engine/stickers';
   import { MEDALS } from '../engine/achievements';
   import { DANCES, forBuddy } from '../engine/rewards';
@@ -15,17 +13,10 @@
   import { GLIMMER_TOTAL } from '../adventure/glimmers';
   import { advView, teamOf } from '../adventure/state';
   import { CATALOG, ownsItem } from '../adventure/wardrobe';
-  import { mathOf, mathStarsTotal, nextMathLesson, stageCounts, ALL_GARDEN_IDS } from '../math/progress';
-  import { MATH_LESSONS, MATH_REGION, STRAND } from '../math/course';
-  import { AREAS } from '../math/skills/registry';
-  import { SKILL_LESSONS } from '../math/skills/course';
-  import { islandLine } from '../island/save';
+  import { mathOf, mathStarsTotal, stageCounts, ALL_GARDEN_IDS } from '../math/progress';
   import { FRIEND } from '../art/cast';
-  import { openSubject } from '../nav';
   import Header from '../ui/Header.svelte';
-  import Critter from '../ui/Critter.svelte';
-  import Ring from '../ui/Ring.svelte';
-  import Icon from '../ui/Icon.svelte';
+  import { STUFF_GO } from '../nav';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -34,7 +25,6 @@
   const lvl = $derived(levelFromXp(palOf(p).xp));
   const book = $derived(bookView(p));
   const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
-  const back = () => game.go(game.stuffBack === 'mystuff' ? 'hub' : game.stuffBack);
 
   // ---------- what you've collected ----------
   const buddies = $derived(teamBuddies(p).length);
@@ -42,7 +32,6 @@
   const dances = $derived(forBuddy(DANCES, p.buddy).filter(d => d.level <= lvl.level).length);
   const stickers = $derived(STICKERS.filter(s => book.stickers[s.id]).length);
   const medals = $derived(MEDALS.filter(md => (book.medals[md.id] ?? 0) > 0).length);
-  const medalWins = $derived(MEDALS.reduce((t, md) => t + (book.medals[md.id] ?? 0), 0));
   const found = $derived(Object.keys(a.glimmers).length);
   const team = $derived(teamOf(a));
   const eggsReady = $derived(a.incubator.filter(e => e && e.have >= e.need).length);
@@ -50,50 +39,24 @@
   const blooms = $derived(stageCounts(m, ALL_GARDEN_IDS)[3]);
   const growing = $derived.by(() => { const c = stageCounts(m, ALL_GARDEN_IDS); return c[1] + c[2]; });
 
-  type Tile = { id: string; name: string; count: string; line: string; img: string; bg?: string; tone: string; hot?: boolean; go: () => void; extra?: { label: string; go: () => void } };
+  type Tile = { id: string; name: string; count: string; line: string; img: string; bg?: string; tone: string; hot?: boolean; buddy?: boolean; go: () => void };
   const tiles = $derived<Tile[]>([
-    { id: 'closet', name: 'Keypals and Wardrobe', count: `${owned}`, line: `things to wear · ${buddies} ${buddies === 1 ? 'buddy' : 'buddies'}`, img: '', bg: 'game/intro-keypals.webp', tone: '#e2468f', go: () => game.openCloset('outfits'), extra: { label: 'Shop', go: () => game.openShop() } },
-    { id: 'dances', name: 'Dances', count: `${dances}`, line: `open for ${FRIEND[p.buddy].name}`, img: 'game/icon-dances.webp', tone: '#7c5cf5', go: () => game.openCloset('dances') },
-    { id: 'stickers', name: 'Stickers', count: `${stickers}`, line: `of ${STICKERS.length} found`, img: 'game/icon-stickers.webp', bg: 'game/intro-stickers.webp', tone: '#e6a817', go: () => game.openStickers('stickers') },
-    { id: 'medals', name: 'Medals', count: `${medals}`, line: `of ${MEDALS.length} kinds · ${fmt(medalWins)} won`, img: 'game/icon-medals.webp', tone: '#2f63bd', go: () => game.openStickers('medals') },
-    { id: 'glimmers', name: 'Glimmers', count: `${found}`, line: `of ${GLIMMER_TOTAL} met${team.length ? ` · ${team.length} on your team` : ''}`, img: '', bg: 'game/intro-glimmers.webp', tone: '#2e9e6e', go: () => game.go('glimmers'), extra: { label: 'Glimmer Book', go: () => game.openBook() } },
-    { id: 'eggs', name: 'Eggs', count: `${eggsAll}`, line: eggsReady ? `${eggsReady} ready to hatch!` : eggsAll ? 'warming up' : 'practice hatches eggs', img: `game/egg-${a.incubator.find(e => e)?.rarity ?? 'rare'}.webp`, tone: '#b4561a', hot: eggsReady > 0, go: () => game.go('eggs') },
-    { id: 'garden', name: 'Fact Garden', count: `${blooms}`, line: `in bloom · ${growing} growing`, img: 'icons/garden.webp', tone: '#1f7a50', go: () => game.go('garden') },
-    { id: 'island', name: 'My Sky Island', count: '', line: islandLine(p), img: '', bg: 'island/card.webp', tone: '#13786c', go: () => game.go('island') },
+    { id: 'keypals', name: 'Keypals', count: `${buddies}`, line: `${buddies === 1 ? 'buddy' : 'buddies'} · Friendship ${lvl.level} with ${FRIEND[p.buddy].name}`, img: '', bg: 'game/intro-keypals.webp', tone: '#e2468f', go: STUFF_GO.keypals },
+    { id: 'closet', name: 'Wardrobe', count: `${owned}`, line: 'things to wear', img: 'icons/outfits.webp', tone: '#c2417f', go: STUFF_GO.closet },
+    { id: 'shop', name: 'Shop', count: fmt(a.shells), line: 'shells to spend', img: 'game/icon-shell.webp', tone: '#2e9e6e', go: STUFF_GO.shop },
+    { id: 'dances', name: 'Dances', count: `${dances}`, line: `open for ${FRIEND[p.buddy].name}`, img: 'game/icon-dances.webp', tone: '#7c5cf5', go: STUFF_GO.dances },
+    { id: 'stickers', name: 'Sticker book', count: `${stickers}`, line: `stickers · ${medals} kinds of medal`, img: 'game/icon-stickers.webp', bg: 'game/intro-stickers.webp', tone: '#e6a817', go: STUFF_GO.stickers },
+    { id: 'glimmers', name: 'Glimmers', count: `${found}`, line: `of ${GLIMMER_TOTAL} met${team.length ? ` · ${team.length} on your team` : ''}`, img: '', bg: 'game/intro-glimmers.webp', tone: '#2e9e6e', go: STUFF_GO.glimmers },
+    { id: 'eggs', name: 'Eggs', count: `${eggsAll}`, line: eggsReady ? `${eggsReady} ready to hatch!` : eggsAll ? 'warming up' : 'practice hatches eggs', img: `game/egg-${a.incubator.find(e => e)?.rarity ?? 'rare'}.webp`, tone: '#b4561a', hot: eggsReady > 0, go: STUFF_GO.eggs },
+    { id: 'garden', name: 'Fact Garden', count: `${blooms}`, line: `in bloom · ${growing} growing`, img: 'icons/garden.webp', tone: '#1f7a50', go: STUFF_GO.garden },
+    { id: 'progress', name: 'My progress', count: fmt(totalStars(p) + mathStarsTotal(m)), line: 'stars, and how each subject is going', img: 'icons/chart.webp', tone: '#5b3fd0', go: STUFF_GO.progress },
   ]);
   function go(f: () => void) { sfx.click(); f(); }
-
-  // ---------- my progress ----------
-  const course = ALL_LESSONS.filter(l => !l.practice);
-  const typingDone = $derived(course.filter(l => passed(p, l.id)).length);
-  const typingNext = $derived(nextLesson(p));
-  const recent = $derived(p.history.slice(-10));
-  const wpm = $derived(recent.length ? Math.round(recent.reduce((t, h) => t + h.wpm, 0) / recent.length) : 0);
-  const acc = $derived(recent.length ? Math.round((recent.reduce((t, h) => t + h.acc, 0) / recent.length) * 100) : 0);
-  const mathNext = $derived(nextMathLesson(m));
-  const live = AREAS.filter(x => x.live);
-  /** kinds of math with at least one trip played */
-  const started = $derived(live.filter(x => x.op ? MATH_LESSONS.some(l => l.op === x.op && m.lessons[l.id]) : SKILL_LESSONS.some(l => l.area === x.id && m.lessons[l.id])).length);
-  const trips = $derived(Object.values(m.lessons).filter(r => r.stars > 0).length);
-  const week = $derived(Array.from({ length: 7 }, (_, i) => { const t = Date.now() - (6 - i) * 86400000; return { key: dayKey(t), day: new Date(t).toLocaleDateString(undefined, { weekday: 'narrow' }), min: Math.floor((p.days[dayKey(t)]?.ms ?? 0) / 60000), today: i === 6 }; }));
-  const weekMin = $derived(week.reduce((t, d) => t + d.min, 0));
-  const goalDays = $derived(week.filter(d => d.min >= p.settings.dailyGoalMin || p.days[d.key]?.goal).length);
-  const maxMin = $derived(Math.max(p.settings.dailyGoalMin, ...week.map(d => d.min)));
-  /** how typing is going, in words */
-  const typingWords = $derived(!typingDone ? 'Just starting: the home row comes first.' : typingDone === course.length ? 'Every typing lesson passed!' : wpm >= 30 ? 'Speedy fingers!' : wpm >= 15 ? 'Getting quicker every week.' : 'Finding the keys, finger by finger.');
-  const mathWords = $derived(!trips ? 'Just starting: pick a kind of math to try.' : started >= 6 ? `Exploring ${started} kinds of math!` : blooms >= 50 ? 'Lots of facts in bloom.' : 'Growing facts one trip at a time.');
-  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 </script>
 
 <div class="screen stuff">
-  <Header title="My stuff" sub="Everything you've collected, and how you're doing" {back} />
+  <Header />
   <div class="body scroll">
-    <div class="me">
-      <Critter friend={p.buddy} look={p.settings.look} accessory={outfitOf(p)} size={78} round />
-      <div><h2>{p.name} and {FRIEND[p.buddy].name}</h2><span><Icon name="heart" size={18} /> Friendship {lvl.level} · <img src="{base}game/icon-shell.webp" alt="" /> {fmt(a.shells)} shells</span></div>
-      <button class="btn jump" onclick={() => { sfx.click(); scrollTo('progress'); }}><img src="{base}icons/chart.webp" alt="" />My progress</button>
-    </div>
-
     <div class="tiles">
       {#each tiles as t (t.id)}
         <div class="tile" class:hot={t.hot} style:--tc={t.tone}>
@@ -107,53 +70,11 @@
               <span class="cnt">{#if t.count}<em>{t.count}</em>{/if}<small>{t.line}</small></span>
             </span>
           </button>
-          {#if t.extra}{@const ex = t.extra}<button class="extra" onclick={() => go(ex.go)}>{ex.label}</button>{/if}
         </div>
       {/each}
-      <button class="tile progtile" style:--tc="#5b3fd0" onclick={() => { sfx.click(); scrollTo('progress'); }}>
-        <span class="art"><img class="pic" src="{base}icons/chart.webp" alt="" /></span>
-        <span class="txt"><b>My progress</b><span class="cnt"><em>{fmt(totalStars(p) + mathStarsTotal(m))}</em><small>stars · {weekMin} min this week</small></span></span>
-      </button>
     </div>
 
-    <section class="progress" id="progress">
-      <h2>My progress</h2>
-      <div class="subjects">
-        <article class="subj" style:--sc="#7c5cf5">
-          <header><img src="{base}game/icon-typing.webp" alt="" /><h3>Typing</h3><span class="st"><img src="{base}game/icon-star.webp" alt="" />{fmt(totalStars(p))}</span></header>
-          <p class="words">{typingWords}</p>
-          <div class="bar"><i style:width="{(typingDone / course.length) * 100}%"></i></div>
-          <ul>
-            <li><b>{typingDone}</b> of {course.length} lessons passed</li>
-            <li>Working on <b>{REGION[typingNext.region].name}</b>: {lessonTitle(typingNext, game.layout)}</li>
-            {#if recent.length}<li>About <b>{wpm}</b> words a minute, <b>{acc}%</b> of keys right</li>{/if}
-          </ul>
-          <button class="btn" onclick={() => { sfx.click(); openSubject('typing', 'practice'); }}>Typing map</button>
-        </article>
-        <article class="subj" style:--sc="#ef7d2b">
-          <header><img src="{base}game/icon-math.webp" alt="" /><h3>Math</h3><span class="st"><img src="{base}game/icon-star.webp" alt="" />{fmt(mathStarsTotal(m))}</span></header>
-          <p class="words">{mathWords}</p>
-          <div class="bar"><i style:width="{(started / live.length) * 100}%"></i></div>
-          <ul>
-            <li><b>{started}</b> of {live.length} kinds of math started, <b>{trips}</b> trips with stars</li>
-            <li>Working on <b>{STRAND[mathNext.op].name}</b>{mathNext.region === 'start' ? '' : `, ${MATH_REGION[mathNext.region].name}`}</li>
-            <li><b>{blooms}</b> facts in bloom in the Fact Garden</li>
-          </ul>
-          <button class="btn" onclick={() => { sfx.click(); openSubject('math', 'practice'); }}>Math page</button>
-        </article>
-        <article class="subj week" style:--sc="#2e9e6e">
-          <header><Ring value={Math.min(1, goalDays / 7)} size={40} width={6} color="var(--mint)" /><h3>This week</h3><span class="st">{weekMin} min</span></header>
-          <p class="words">{goalDays ? `You hit your goal on ${goalDays} ${goalDays === 1 ? 'day' : 'days'} this week.` : `Your goal is ${p.settings.dailyGoalMin} minutes a day.`}</p>
-          <div class="days">
-            {#each week as d (d.key)}
-              <div class="dcol" class:today={d.today}><span class="b" class:goal={d.min >= p.settings.dailyGoalMin} style:height="{Math.max(4, (d.min / maxMin) * 100)}%"></span><small>{d.day}</small></div>
-            {/each}
-          </div>
-          <p class="note">Minutes from lessons, trips, Learn and games. Green days hit the goal.</p>
-        </article>
       </div>
-    </section>
-  </div>
 </div>
 
 <style>

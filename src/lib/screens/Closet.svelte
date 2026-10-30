@@ -1,6 +1,10 @@
 <script lang="ts">
-  // Keypals and the Island Shop: one place with two sides, the same buddy on the turntable and the same
-  // row of spots on the buddy (head, face, neck, back, hand, feet, vibes, colour).
+  // Four of My stuff's pages, each showing only its own thing (`mode`), on the same turntable buddy:
+  // - Keypals: your buddies in a row (the only page with the row), friendship, and who plays.
+  // - Wardrobe: what you have, on the buddy playing now (a small "Change buddy" goes to Keypals).
+  // - Shop: everything there is, to try on and buy, and the eggs and treats.
+  // - Dances: the dances for the buddy playing now (and a small "Change buddy").
+  // Below is how the old two sides worked; the pages are those sides, one at a time:
   // - My things: what you have. Put it on, take it off, move it ("Move it" nudges it into place on this
   //   buddy), and the finish-line dances. Everything you have is yours, so any buddy can wear it, and each
   //   buddy keeps its own look. Dances unlock as each buddy's own friendship grows.
@@ -38,9 +42,12 @@
   import { islandView } from '../island/save';
 
   type Side = 'mine' | 'shop';
+  type Mode = 'keypals' | 'wardrobe' | 'shop' | 'dances';
   /** a spot on the buddy, or (on one side only) everything, the dances or the eggs */
   type Cat = WearSlot | 'all' | 'dances' | 'eggs';
-  let { start = 'mine' }: { start?: Side } = $props();
+  let { mode = 'wardrobe' }: { mode?: Mode } = $props();
+  // svelte-ignore state_referenced_locally
+  const start: Side = mode === 'shop' ? 'shop' : 'mine';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -48,7 +55,7 @@
   let side = $state<Side>(start);
   let who = $state<FriendId>(game.profile!.buddy);
   // svelte-ignore state_referenced_locally
-  let cat = $state<Cat>(start === 'shop' ? ((game.shopSlot as WearSlot | null) ?? 'all') : game.closetTab === 'dances' ? 'dances' : 'head');
+  let cat = $state<Cat>(start === 'shop' ? ((game.shopSlot as WearSlot | null) ?? 'all') : mode === 'dances' ? 'dances' : 'head');
   const isSlot = (c: Cat): c is WearSlot => (WEAR_SLOTS as string[]).includes(c);
   const pal = $derived(palOf(p, who));
   const lvl = $derived(levelFromXp(pal.xp));
@@ -62,10 +69,10 @@
   // a few dances bump into some buddies' heads or hats: those buddies don't get them
   const DANCES = $derived(forBuddy(ALL_DANCES, who));
   const dancesOpen = $derived(DANCES.filter(d => !locked(d)).length);
-  const ownedCount = $derived(CATALOG.filter(c => ownsItem(p, c.id)).length);
+  const teamCount = $derived(BUDDIES.filter(b => onTeam(p, b.id)).length);
   const onSlot = (sl: WearSlot) => wornIn(p, who, sl);
   // the row of spots: the Shop starts with everything and ends with the eggs; My things ends with the dances
-  const rail = $derived<Cat[]>(side === 'shop' ? ['all', ...WEAR_SLOTS, 'eggs'] : [...WEAR_SLOTS, 'dances']);
+  const rail = $derived<Cat[]>(side === 'shop' ? ['all', ...WEAR_SLOTS, 'eggs'] : [...WEAR_SLOTS]);
   const CAT_NAME: Record<Cat, string> = { ...SLOT_NAME, all: 'All', dances: 'Dances', eggs: 'Eggs' };
   /** the picture on a spot's button: what's on it, or (faded) the first thing that goes there */
   const slotPic = (s: WearSlot) => { const id = onSlot(s); return id ? { src: CAT[id]?.icon, on: true } : { src: CATALOG.find(c => c.slot === s)?.icon, on: false }; };
@@ -123,16 +130,6 @@
   function makeBuddy() { if (!joined) return; game.update(pp => { pp.buddy = who; }); burst++; sfx.equip(); scene?.dance(who, pal.dance); }
 
   // ---------- the two sides, and the spots ----------
-  let lastMine: Cat = 'head';
-  function setSide(s: Side) {
-    if (s === side) return;
-    leaveMove(() => {
-      if (s === 'shop') { lastMine = cat; if (cat === 'dances') cat = 'all'; }
-      else { dropTryOn(); if (cat === 'all' || cat === 'eggs') cat = lastMine === 'dances' || isSlot(lastMine) ? lastMine : 'head'; }
-      side = s;
-      sfx.pop(); relayout();
-    });
-  }
   function setCat(c: Cat) {
     if (c === cat) return;
     cat = c;
@@ -351,18 +348,17 @@
   function hold(d: Partial<Nudge>) { nudge(d); clearInterval(holdTimer); holdTimer = window.setInterval(() => nudge(d), 90); }
   function release() { clearInterval(holdTimer); }
 
-  function back() {
-    leaveMove(() => game.backFromStuff(() => { if (game.screen === 'shop') game.go(game.shopBack); else game.go(game.home); }));
-  }
+  /** Back (and Esc): finish a move first (keep it or put it back), then up a level or back where you came from */
+  function back() { leaveMove(() => game.back()); }
+  function changeBuddy() { sfx.click(); leaveMove(() => game.visit('keypals')); }
 
   onMount(() => { shortQ?.addEventListener('change', onShort); show(who); addEventListener('resize', onResize); addEventListener('pointerup', release); stageEl?.addEventListener('pointerdown', stageDown); stageEl?.addEventListener('pointerup', stageUp); });
   onDestroy(() => { shortQ?.removeEventListener('change', onShort); disposed = true; clearInterval(holdTimer); removeEventListener('resize', onResize); removeEventListener('pointerup', release); stageEl?.removeEventListener('pointerdown', stageDown); stageEl?.removeEventListener('pointerup', stageUp); if (scene && stage.current() === scene) stage.use(null); });
 </script>
 
 <div class="screen closet" class:shopside={side === 'shop'}>
-  <Header title={side === 'shop' ? 'Island Shop' : 'Keypals'} sub={side === 'shop' ? 'Try things on, then buy them' : 'Your buddies and everything you have'} {back}>
-    {#snippet right()}<span class="wallet"><img src="{base}game/icon-shell.webp" alt="" /><b>{adv.shells}</b> shells</span>{/snippet}
-  </Header>
+  <Header {back} />
+  {#if mode === 'keypals'}
   <div class="crew">
     {#each BUDDIES as f (f.id)}
       {@const mine = onTeam(p, f.id)}
@@ -374,8 +370,14 @@
       </button>
     {/each}
   </div>
-  <div class="body">
+  {/if}
+  <div class="body" class:kp={mode === 'keypals'}>
     <div class="left">
+      {#if mode !== 'keypals'}
+        <!-- the buddy this page is for: the one playing now (Keypals picks who plays) -->
+        <div class="wholine"><b>{FRIEND[who].name}</b>{#if mode !== 'shop'}<button class="linky" onclick={changeBuddy}>Change buddy</button>{/if}</div>
+      {/if}
+      {#if mode === 'keypals'}
       <div class="who card">
         <div class="whotop">
           <h2>{FRIEND[who].name}</h2>
@@ -392,6 +394,7 @@
           <div class="xp"><div class="bar"><i style:width="{join.share * 100}%"></i></div><span class="muted">{join.text}</span></div>
         {/if}
       </div>
+      {/if}
       <div class="stagebox" bind:this={stageEl}>
         <Confetti {burst} count={50} x={50} y={45} />
         <Turntable scene={() => scene} el={stageEl} top />
@@ -456,12 +459,15 @@
           <p class="mvnote">Just for {FRIEND[who].name}: every other buddy keeps its own fit.</p>
         </div>
       {:else}
-        <div class="sides" role="tablist">
-          <button role="tab" aria-selected={side === 'mine'} class:on={side === 'mine'} onclick={() => setSide('mine')}><TileArt kind="outfits" size={40} /><span>My things</span><em>{ownedCount}</em></button>
-          <button role="tab" aria-selected={side === 'shop'} class:on={side === 'shop'} class="shopbtn" onclick={() => setSide('shop')}><img src="{base}game/icon-shell.webp" alt="" /><span>Shop</span></button>
-        </div>
+        {#if mode === 'keypals'}
+          <div class="card kpnote">
+            <p><b>{teamCount} of {BUDDIES.length} buddies</b> on your team. Tap a buddy above to see them; <b>Play with</b> picks who plays.</p>
+            <p class="muted">What they wear is in the Wardrobe; their dances are in Dances.</p>
+          </div>
+        {:else}
         <p class="sidehead">{side === 'shop' ? 'Try on anything. Buy it to keep it and move it.' : cat === 'dances' ? `Pick the dance ${FRIEND[who].name} does at the finish line.` : 'Put your things on, take them off, and move them.'}</p>
-        {#if joined || side === 'shop'}
+        {/if}
+        {#if mode !== 'keypals' && mode !== 'dances' && (joined || side === 'shop')}
           <div class="rail" class:wide={rail.length > 9}>
             {#each rail as r (r)}
               {@const soon = r === 'colour' && colourSoon(who)}
@@ -482,7 +488,9 @@
             {/each}
           </div>
         {/if}
-        {#if !joined && side === 'mine'}
+        {#if mode === 'keypals'}
+          <!-- (Keypals shows the buddies and who plays: what they wear and dance is on their own pages) -->
+        {:else if !joined && side === 'mine'}
           <div class="card soon"><p>When {FRIEND[who].name} joins your team, they start their own friendship and dances, and they can wear everything you have.</p></div>
         {:else if !joined && cat !== 'eggs'}
           <div class="card soon"><p>{FRIEND[who].name} isn't on your team yet. Pick a buddy on your team to try things on.</p></div>
@@ -521,7 +529,7 @@
                   {#if wearing}<em class="gst on"><Icon name="check" size={14} /> Wearing</em>{:else}<em class="gst">Tap to wear</em>{/if}
                 </button>
               {/each}
-              <button class="gtile more" onclick={() => setSide('shop')}>
+              <button class="gtile more" onclick={() => leaveMove(() => game.openShop(sl))}>
                 <img src="{base}game/icon-shell.webp" alt="" />
                 <b>{mineFor.length ? 'Get more' : `No ${CAT_NAME[sl].toLowerCase()} things yet`}</b>
                 <em class="gst buy">Go to the Shop</em>
@@ -646,6 +654,12 @@
 
 <style>
   .closet { display: flex; flex-direction: column; background: transparent; }
+  /* the buddy a page is for, and the small "Change buddy" (Keypals has the row of buddies) */
+  .wholine { display: flex; align-items: baseline; gap: 12px; padding: 2px 6px; }
+  .wholine b { font: 600 26px var(--font-ui); color: var(--ink); }
+  .linky { border: 0; background: none; padding: 0; cursor: pointer; font: 800 15px var(--font-body); color: var(--primary-edge); text-decoration: underline; text-underline-offset: 3px; }
+  .kpnote { padding: 14px 18px; display: flex; flex-direction: column; gap: 6px; }
+  .kpnote p { margin: 0; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }
   .wallet { display: inline-flex; align-items: center; gap: 6px; font: 600 18px var(--font-ui); color: var(--ink); background: #fff8e6; padding: 4px 14px 4px 6px; border-radius: 999px; box-shadow: inset 0 0 0 2px #ffe3a0; }
   .wallet img { width: 28px; height: 28px; object-fit: contain; }
   .crew { display: flex; gap: 8px; padding: 8px 20px; overflow-x: auto; background: rgba(255, 255, 255, .85); border-bottom: var(--panel-border); flex: none; }

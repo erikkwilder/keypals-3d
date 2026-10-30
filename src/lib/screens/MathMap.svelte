@@ -1,10 +1,9 @@
 <script lang="ts">
-  // The Math page: the four ways to play math as big tabs (Learn, Practice, Games, Adventure, from
-  // subjects.ts) and the parts of math as chips under them (All, Plus, Minus, Times...), the same chips
-  // on every tab. Practice is the map: the Times Trail and the others, one region per table, each on one
-  // of the islands, four stops each: meet the table, practise, mix, and the checkpoint run (open from the
-  // start, to test out); the other areas of K-8 math (fractions first) have regions of their own. The
-  // other three tabs are pages of picture cards (ui/WayPane.svelte).
+  // A math topic's Practice: its islands map (Math › Fractions › Practice). The Times Trail and the other
+  // fact strands have one region per table, each on one of the islands, four stops each: meet the table,
+  // practise, mix, and the checkpoint run; the other areas of K-8 math have regions of their own. One big
+  // button at the bottom starts the next stop. The topic's other ways (Learn, Play, Adventure), Show What
+  // You Know and its garden bed are on the topic's page (screens/Topic.svelte), not repeated here.
   import { onMount, tick } from 'svelte';
   import { game } from '../state/game.svelte';
   import { outfitOf } from '../engine/profile';
@@ -16,12 +15,9 @@
   import type { Op } from '../math/facts';
   import { ALL_GARDEN_IDS, mathMovedOn, mathOf, mathPassed, mathRegionOpen, mathStarsTotal, mathUnlocked, nextMathLesson, stageCounts } from '../math/progress';
   import { factId } from '../math/facts';
-  import TopBar from '../ui/TopBar.svelte';
-  import WaysBar from '../ui/WaysBar.svelte';
-  import ChipRow from '../ui/ChipRow.svelte';
-  import WayPane from '../ui/WayPane.svelte';
+  import Bar from '../ui/Bar.svelte';
   import { SUBJECT, wayCount, WAY, linksFor, type WayId } from '../subjects';
-  import { placementFor, setChip, wayOf } from '../nav';
+  import { openSubjectPage, placementFor, setChip, wayOf } from '../nav';
   import Critter from '../ui/Critter.svelte';
   import Stars from '../ui/Stars.svelte';
   import Icon from '../ui/Icon.svelte';
@@ -77,7 +73,7 @@
   const fresh = $derived(m.totals.trips === 0);
   // Learn: the lesson to watch before the next stop (if it's a new trick not learned yet)
   const learnNext = $derived.by(() => { if (!op || !isLearnStop(next)) return null; const l = lessonForStop(next); return l && !isLearned(m, l.id) ? l : null; });
-  function watch(l: Lesson) { sfx.click(); game.openLearn(l.id, 'map'); }
+  function watch(l: Lesson) { sfx.click(); game.openLearn(l.id); }
   let scroller: HTMLDivElement | undefined = $state();
 
   const KIND_ICON: Record<string, 'bulb' | 'target' | 'flag' | 'book'> = { meet: 'bulb', practice: 'target', mix: 'book', check: 'flag', rules: 'bulb' };
@@ -118,9 +114,10 @@
     if (game.modalOpen) return;
     if ((e.key === 'Enter' || e.key === ' ') && op && way === 'practice') { e.preventDefault(); start(next); }
     else if ((e.key === 'Enter' || e.key === ' ') && area && way === 'practice') { e.preventDefault(); startSkill(nextSkill); }
-    if (e.key === 'Escape') { if (showing) pickStrand(null); else game.go('hub'); }
   }
   onMount(async () => {
+    // (the map is always one topic's: with none picked, the Math page instead)
+    if (!showing) { openSubjectPage('math'); return; }
     await tick();
     const nx = area ? nextSkill : next;
     const reg = nx.region === 'start' ? null : scroller?.querySelector(`[data-region="${nx.region}"]`) as HTMLElement | null;
@@ -133,174 +130,12 @@
 {#if game.learnOverlay && MARKET_LESSON[game.learnOverlay]}{#key game.learnOverlay}<Episode id={game.learnOverlay} check={game.learnCheck} onclose={() => { game.learnOverlay = null; game.learnCheck = false; }} />{/key}{/if}
 {#if game.learnOverlay && MEASURE_LESSON[game.learnOverlay]}{#key game.learnOverlay}<MeasureEpisode lesson={MEASURE_LESSON[game.learnOverlay]} check={game.learnCheck} onclose={() => { game.learnOverlay = null; game.learnCheck = false; }} />{/key}{/if}
 
-<!-- one part of math on the other tabs (and its garden): Learn it, Games, World -->
-{#snippet partLinks(id: string, garden: boolean)}
-  {@const links = linksFor(S, id)}
-  <div class="links big">
-    {#each (['learn', 'games', 'adventure'] as const) as w (w)}
-      {#if links[w]}<button class="lk" style:--wc={WAY[w].color} style:--wt={WAY[w].tint} onclick={() => seeIn(w, id)}><img src="{import.meta.env.BASE_URL}{WAY[w].icon}" alt="" />{w === 'learn' ? 'Learn it' : w === 'games' ? 'Games' : 'World'}</button>{/if}
-    {/each}
-    {#if garden}<button class="lk" style:--wc="#2e9e6e" style:--wt="#e6f8ef" onclick={() => { sfx.click(); game.go('garden'); }}><img src="{import.meta.env.BASE_URL}icons/garden.webp" alt="" />Garden</button>{/if}
-  </div>
-{/snippet}
-
 <div class="screen map" class:behind={!!(game.learnOverlay && (MEASURE_LESSON[game.learnOverlay] || MARKET_LESSON[game.learnOverlay]))}>
-  <TopBar />
-  <WaysBar subject={S} {way} onpick={pickWay}>
-    {#snippet right()}<span class="pill stars" title="Math stars"><Stars n={1} of={1} size={20} /> <b>{stars}</b></span><button class="pill gardenpill" title="The Fact Garden: every fact you know, growing" onclick={() => { sfx.click(); game.go('garden'); }}><img src="{import.meta.env.BASE_URL}icons/garden.webp" alt="" /><span class="gw">Garden</span><b>{blooms}</b></button>{/snippet}
-  </WaysBar>
-  {#if wayCount(S, way)}<ChipRow chips={S.chips} {chip} onpick={pickChip} label="Which kind of math" />{/if}
+  <Bar />
 
   <div class="scroller scroll" bind:this={scroller}>
-    {#if way !== 'practice'}
-      <WayPane subject={S} {way} {chip} />
-    {:else if !showing}
-      <section class="choose">
-        <h1>What kind of math?</h1>
-        <div class="cards">
-          {#each S.chips as c (c.id)}
-            {@const ar = AREA[c.id as AreaId]}
-            {@const st = ar.op ? STRAND[ar.op] : null}
-            {@const links = linksFor(S, c.id)}
-            <article class="scard" style:--sc={ar.color}>
-              <button class="sart" onclick={() => (st ? pickStrand(st.op) : pickArea(ar.id))} aria-label="Open {st?.name ?? ar.name}">
-                <img src="{import.meta.env.BASE_URL}{st?.art ?? ar.art}" alt="" />
-                <span class="sname2"><span class="sg" class:sgt={!st}>{st ? opSign(st.op) : skillRegionsOf(ar.id)[0]?.chip ?? ''}</span>{st?.name ?? ar.name}</span>
-                <span class="chipname">{c.name}</span>
-              </button>
-              <div class="sinfo">
-                <p>{st?.blurb ?? ar.blurb}</p>
-                {#if st}
-                  {@const nx = nextMathLesson(m, st.op)}
-                  <div class="sstat"><span><Stars n={1} of={1} size={15} /><b>{strandStars(st.op)}</b> stars</span><span><b>{strandDone(st.op)}</b>/{regionsOf(st.op).length} islands</span></div>
-                  <div class="sact"><button class="btn btn-primary" onclick={() => start(nx)}>Play: {nx.title}</button><button class="btn ghost" onclick={() => pickStrand(st.op)}>Map</button></div>
-                {:else}
-                  {@const nx = nextSkillLesson(m, ar.id)}
-                  <div class="sstat"><span><Stars n={1} of={1} size={15} /><b>{areaStars(ar.id)}</b> stars</span><span><b>{areaDone(ar.id)}</b>/{skillRegionsOf(ar.id).length} islands</span><span>Grades {ar.grades}</span></div>
-                  <div class="sact"><button class="btn btn-primary" onclick={() => startSkill(nx)}>Play: {nx.title}</button><button class="btn ghost" onclick={() => pickArea(ar.id)}>Map</button></div>
-                {/if}
-                <!-- the same part on the other tabs: how the pieces of this kind of math fit together -->
-                <div class="links">
-                  {#each (['learn', 'games', 'adventure'] as const) as w (w)}
-                    {#if links[w]}<button class="lk" style:--wc={WAY[w].color} style:--wt={WAY[w].tint} onclick={() => seeIn(w, c.id)} title="{WAY[w].name}: {links[w]!.name}"><img src="{import.meta.env.BASE_URL}{WAY[w].icon}" alt="" />{w === 'learn' ? 'Learn it' : w === 'games' ? 'Games' : 'World'}</button>{/if}
-                  {/each}
-                </div>
-              </div>
-            </article>
-          {/each}
-        </div>
-        <!-- review: the quick mix that skips you ahead, and every fact you know growing in the garden -->
-        <h2 class="revh">Review</h2>
-        <div class="review">
-          <div class="rcard swyk">
-            <span class="pdisc"><Icon name="flag" /></span>
-            <div class="rtx"><b>Show What You Know</b><small>Know some already? A quick mix shows where to start and skips you ahead.</small>
-              <div class="rchips">
-                {#each S.chips as c (c.id)}
-                  {@const pl = placementFor(c.id)}
-                  {#if pl}<button class="rchip" style:--cc={c.color} onclick={() => { const a = AREA[c.id as AreaId]; if (a.op) start(pl as MathLesson); else startSkill(pl as SkillLesson); }}>{c.name}</button>{/if}
-                {/each}
-              </div>
-            </div>
-          </div>
-          <button class="rcard garden" onclick={() => { sfx.click(); game.go('garden'); }}>
-            <img src="{import.meta.env.BASE_URL}icons/garden.webp" alt="" />
-            <span class="rtx"><b>Fact Garden</b><small>Every fact you know, growing. {blooms} in bloom. Water the ones that need it.</small></span>
-          </button>
-        </div>
-        {#if SOON.length}
-          <div class="soonrow"><b>Coming next</b>{#each SOON as a (a.id)}<span class="soonchip" style:--sc={a.color}>{a.name}<small>Grades {a.grades}</small></span>{/each}</div>
-        {/if}
-        <p class="movenote">Every kind of math has all four ways to move: run the trail, climb the cliff, swim the bay and sled the slope.</p>
-      </section>
-    {:else if area}
+    {#if area}
     {@const ar = AREA[area]}
-    <section class="intro">
-      <div class="hello">
-        <h1 style:color={ar.color}>{ar.name}</h1>
-        <p>{ar.blurb}</p>
-      </div>
-      {#if skillPlacement}
-        <button class="placement" class:done={skillPassed(m, skillPlacement.id) || (m.lessons[skillPlacement.id]?.finishes ?? 0) > 0} onclick={() => startSkill(skillPlacement!)}>
-          <span class="pdisc"><Icon name="flag" /></span>
-          <span class="ptext"><b>{skillPlacement.title}</b><small>Know some {ar.name.toLowerCase()} already? A quick mix shows where to start.</small></span>
-        </button>
-      {/if}
-      {@render partLinks(chip, false)}
-      {#if area === 'fractions'}
-        <!-- the fractions arcade game (an Arcade hub can list it too: screen 'pizza') -->
-        <button class="placement arcade" onclick={() => { sfx.click(); game.go('pizza'); }}>
-          <img src="{import.meta.env.BASE_URL}math/pizza/tile.webp" alt="" />
-          <span class="ptext"><b>Pizza Rush</b><small>Game: serve fraction pizzas to hungry Glimmers.{(m.arcade?.['pizza-rush']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['pizza-rush'].best}` : ''}</small></span>
-        </button>
-      {:else if area === 'decimals'}
-        <!-- the money arcade game (the Arcade hub has its cabinet too: screen 'market') -->
-        <button class="placement arcade" onclick={() => { sfx.click(); game.go('market'); }}>
-          <img src="{import.meta.env.BASE_URL}math/market/tile.webp" alt="" />
-          <span class="ptext"><b>Market Dash</b><small>Game: pay and give change to Glimmer shoppers.{(m.arcade?.['market-dash']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['market-dash'].best}` : ''}</small></span>
-        </button>
-        <!-- the money Learn episodes, at the sky market (open over the map: game.learnOverlay) -->
-        <div class="learnrow">
-          <span class="lrh"><Icon name="book" size={20} /> Learn it</span>
-          {#each MARKET_LESSONS as l (l.id)}
-            <button class="lchip" class:done={isLearned(m, l.id)} onclick={() => { sfx.click(); game.learnOverlay = l.id; }}>{l.title}{#if isLearned(m, l.id)} <Icon name="check" size={16} />{/if}</button>
-          {/each}
-        </div>
-      {/if}
-      {#if area === 'measure'}
-        <!-- the measuring arcade game (its cabinet is in the Arcade too: screen 'clockrush') and the measuring bench -->
-        <button class="placement arcade" onclick={() => { sfx.click(); game.go('clockrush'); }}>
-          <img src="{import.meta.env.BASE_URL}math/measure/tile.webp" alt="" />
-          <span class="ptext"><b>Clock Rush</b><small>Game: set the clocks before they tick past.{(m.arcade?.['clock-rush']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['clock-rush'].best}` : ''}</small></span>
-        </button>
-        <!-- the measuring Learn episodes, in the clockmaker's workshop (open over the map: game.learnOverlay) -->
-        <div class="learnrow">
-          <span class="lrh"><Icon name="book" size={20} /> Learn it</span>
-          {#each MEASURE_LESSONS as l (l.id)}
-            <button class="lchip" class:done={isLearned(m, l.id)} onclick={() => { sfx.click(); game.learnCheck = false; game.learnOverlay = l.id; }}>{l.title}{#if isLearned(m, l.id)} <Icon name="check" size={16} />{/if}</button>
-          {/each}
-        </div>
-      {:else if area === 'shapes'}
-        <!-- the shapes arcade game (its cabinet is in the Arcade too) and the calm Shape Builder toy -->
-        <button class="placement arcade" onclick={() => { sfx.click(); game.go('shifter'); }}>
-          <img src="{import.meta.env.BASE_URL}math/shapes/tile.webp" alt="" />
-          <span class="ptext"><b>Shape Shifter</b><small>Game: catch the crystal shapes that fit the rule.{(m.arcade?.['shape-shifter']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['shape-shifter'].best}` : ''}</small></span>
-        </button>
-      {:else if area === 'ratios'}
-        <!-- the ratios arcade game (its cabinet is in the Arcade too: screen 'smoothie') -->
-        <button class="placement arcade" onclick={() => { sfx.click(); game.go('smoothie'); }}>
-          <img src="{import.meta.env.BASE_URL}math/ratios/tile.webp" alt="" />
-          <span class="ptext"><b>Smoothie Stand</b><small>Game: mix smoothies by the recipe for Glimmer customers.{(m.arcade?.['smoothie-stand']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['smoothie-stand'].best}` : ''}</small></span>
-        </button>
-      {:else if area === 'integers'}
-        <!-- the negative numbers arcade game (its cabinet is in the Arcade too: screen 'treasure') -->
-        <button class="placement arcade" onclick={() => { sfx.click(); game.go('treasure'); }}>
-          <img src="{import.meta.env.BASE_URL}math/integers/tile.webp" alt="" />
-          <span class="ptext"><b>Treasure Grid</b><small>Game: dig for treasure on the map before the tide comes in.{(m.arcade?.['treasure-grid']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['treasure-grid'].best}` : ''}</small></span>
-        </button>
-      {:else if area === 'algebra'}
-        <!-- the equations arcade game (its cabinet is in the Arcade too: screen 'balance') -->
-        <button class="placement arcade" onclick={() => { sfx.click(); game.go('balance'); }}>
-          <img src="{import.meta.env.BASE_URL}math/algebra/tile.webp" alt="" />
-          <span class="ptext"><b>Balance Beam</b><small>Game: say what the mystery boxes weigh before the seesaw tips.{(m.arcade?.['balance-beam']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['balance-beam'].best}` : ''}</small></span>
-        </button>
-      {/if}
-      {#if area === 'place'}
-        <!-- the place value arcade game (its cabinet is in the Arcade too) -->
-        <button class="placement arcade" onclick={() => { sfx.click(); import('../math/place/builder').then(b => { b.builderOpen.toy = false; b.builderOpen.from = 'map'; game.go('builder'); }); }}>
-          <img src="{import.meta.env.BASE_URL}math/place/ten.webp" alt="" />
-          <span class="ptext"><b>Number Builder</b><small>Game: build numbers with hundreds, tens and ones.{(m.arcade?.['number-builder']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['number-builder'].best}` : ''}</small></span>
-        </button>
-      {/if}
-      {#if area === 'data'}
-        <!-- the data and chance arcade game (its cabinet is in the Arcade too: screen 'showdown') -->
-        <button class="placement arcade" onclick={() => { sfx.click(); game.go('showdown'); }}>
-          <img src="{import.meta.env.BASE_URL}math/data/tile.webp" alt="" />
-          <span class="ptext"><b>Spinner Showdown</b><small>Game: spin the big wheel and win tickets with graphs and chances.{(m.arcade?.['spinner-showdown']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['spinner-showdown'].best}` : ''}</small></span>
-        </button>
-      {/if}
-    </section>
-
     {#each skillRegions as r, ri (r.id)}
       {@const open = skillRegionOpen(m, r.id)}
       {@const done = r.lessons.filter(l => skillMovedOn(m, l)).length}
@@ -337,18 +172,6 @@
       </section>
     {/each}
     {:else}
-    <section class="intro">
-      <div class="hello">
-        <h1 style:color={strand.color}>{strand.name}</h1>
-        <p>{strand.blurb}</p>
-      </div>
-      <button class="placement" class:done={mathPassed(m, placement.id) || (m.lessons[placement.id]?.finishes ?? 0) > 0} onclick={() => start(placement)}>
-        <span class="pdisc"><Icon name="flag" /></span>
-        <span class="ptext"><b>{placement.title}</b><small>{fresh ? 'Know some already? A quick mix shows where to start.' : 'A quick mix of everything. Skips you ahead.'}</small></span>
-      </button>
-      {@render partLinks(chip, true)}
-    </section>
-
     {#each regions as r, ri (r.id)}
       {@const open = mathRegionOpen(m, r.id)}
       {@const done = r.lessons.filter(l => mathMovedOn(m, l)).length}
@@ -358,18 +181,6 @@
           <div class="rname">
             <span class="tbl" style:background={strand.color}>{r.chip}</span>
             <div><h2>{r.name}</h2><p>{r.blurb}</p></div>
-          </div>
-          <div class="learns">
-            {#each r.lessons.filter(isLearnStop) as st (st.id)}
-              {@const ll = lessonForStop(st)}
-              {#if ll}
-                {@const got = isLearned(m, ll.id)}
-                <button class="learnchip" class:got onclick={() => watch(ll)} title="Watch the lesson: {ll.title}">
-                  <img src="{import.meta.env.BASE_URL}icons/book.webp" alt="" />
-                  <span><small>{#if got}<Icon name="check" size={13} /> Learned{:else}Learn it first{/if}</small><b>{ll.title}</b></span>
-                </button>
-              {/if}
-            {/each}
           </div>
           <div class="count" title="Facts in bloom">{bloomed(r)}/{regionFacts(r).length} <Icon name="bloom" size={17} /></div>
         </div>

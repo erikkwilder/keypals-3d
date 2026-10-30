@@ -205,5 +205,5 @@ export function shareWork(c: ClassSummary, a: Assignment) {
 
 // ---------- getting here ----------
 /** Where the teacher area's Back button goes (the screen it was opened from). */
-export const teachBack = $state({ to: 'title' as Screen });
-export function openTeach(from: Screen) { teachBack.to = from; game.go('teach'); }
+/** For teachers (Back comes back to where it was opened from: Grown-ups, the player list, the Menu) */
+export function openTeach(_from?: Screen) { game.visit('teach'); }

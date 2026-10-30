@@ -17,9 +17,7 @@
   import { iconUrl } from '../art/icons';
   import CloseButton from '../ui/CloseButton.svelte';
   import Critter from '../ui/Critter.svelte';
-  import NavTile from '../ui/NavTile.svelte';
-  import MenuButton from '../ui/MenuButton.svelte';
-  import HelpButton from '../ui/HelpButton.svelte';
+  import Bar from '../ui/Bar.svelte';
   import { mulberry32 } from '../engine/rng';
   import { AREA, AREAS, SKILL, skillsOf, splitKey } from '../math/skills/registry';
   import { makeAt, pitch, TARGET } from '../math/skills/ability';
@@ -338,7 +336,7 @@
     const d = KEYDIR[e.code], tag = (e.target as HTMLElement | null)?.tagName;
     if (d && !game.modalOpen && tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') { e.preventDefault(); keysHeld.add(d); startDrive(); return; }
     if (e.key !== 'Escape' || game.modalOpen) return;
-    if (help) help = false; else if (picked || pickedKey) unpick(); else if (bed !== null) goBed(null); else game.backFromStuff(() => game.go(game.home));
+    if (help) help = false; else if (picked || pickedKey) unpick(); else if (bed !== null) goBed(null); else game.back();
   }
   const skillGrowing = ALL_KEYS.some(k => (skillMem(mathOf(game.profile!))[k]?.stage ?? 0) > 0);
   let say = $state(grewIds.length && !firstVisit ? `${grewIds.length} ${grewIds.length === 1 ? 'fact grew' : 'facts grew'} since you last looked!`
@@ -352,19 +350,11 @@
 <svelte:window onkeydown={onKey} onkeyup={keyUp} onblur={() => { keysHeld.clear(); padHeld.clear(); }} />
 
 <div class="screen garden" class:narrow>
-  <header class="bar">
-    {#if game.fromStuff}<NavTile size="sm" tone="sky" kind="home" label="My stuff" onclick={() => game.go('mystuff')} />{:else}<NavTile size="sm" tone="sky" kind="home" label="Home" onclick={() => game.go('hub')} />{/if}
-    <h1>Fact Garden</h1>
-    <div class="tally" aria-label="Garden totals">
-      <span title="In bloom"><img src={STAGE_PIC[3]} alt="" /><b>{counts[3]}</b><small>bloom</small></span>
-      <span title="Buds"><img src={STAGE_PIC[2]} alt="" /><b>{counts[2]}</b><small>bud</small></span>
-      <span title="Sprouts"><img src={STAGE_PIC[1]} alt="" /><b>{counts[1]}</b><small>sprout</small></span>
-    </div>
-    <button class="helpbtn" onclick={() => { help = !help; sfx.pop(); }} aria-label="How the garden works">?</button>
-    <MenuButton size={narrow ? 28 : 36} /><HelpButton size={narrow ? 28 : 36} />
-  </header>
+  <!-- the one top bar, with the garden's totals under its name; Esc closes a plant or a bed first -->
+  <Bar esc={false} trail="{counts[3]} in bloom · {counts[2]} buds · {counts[1]} sprouts" />
 
   <div class="main">
+    <button class="helpbtn" onclick={() => { help = !help; sfx.pop(); }} aria-label="How the garden works" title="How the garden works">?</button>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="view" bind:this={viewEl} style:--tabs-h="{tabsH}px" onpointerdown={pdown} onpointermove={pmove} onpointerup={pup} onpointercancel={(e) => ptrs.delete(e.pointerId)} oncontextmenu={(e) => e.preventDefault()}>
@@ -509,7 +499,8 @@
   .tally small { font: 700 12px var(--font-body); color: var(--muted); }
   .helpbtn { width: 42px; height: 42px; border-radius: 50%; border: 0; background: #fff; font: 600 24px/1 var(--font-ui); color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); display: none; }
 
-  .main { flex: 1; min-height: 0; display: flex; pointer-events: none; }
+  .main { position: relative; flex: 1; min-height: 0; display: flex; pointer-events: none; }
+  .main > .helpbtn { position: absolute; right: 12px; top: 10px; z-index: 5; pointer-events: auto; }
   .main > * { pointer-events: auto; }
   /* the 3D garden shows through this box; things float over it */
   .view { position: relative; flex: 1; min-width: 0; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
