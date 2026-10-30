@@ -44,7 +44,7 @@
   let vw = $state(800), vh = $state(600);
   /** how much bigger than covering the screen: the Sky Islands (three islands) more, so the buddy is big
    *  enough on the map and there is somewhere to walk to */
-  const ZOOM = { sky: { wide: 1.4, tall: 1.3 }, falls: { wide: 1.12, tall: 1.2 }, caves: { wide: 1.12, tall: 1.2 }, market: { wide: 1.12, tall: 1.2 } } as const;
+  const ZOOM = { sky: { wide: 1.4, tall: 1.3 }, falls: { wide: 1.12, tall: 1.2 }, caves: { wide: 1.12, tall: 1.2 }, market: { wide: 1.12, tall: 1.2 }, jungle: { wide: 1.12, tall: 1.2 } } as const;
   // (a view not laid out yet has no size: never a scale of 0, or a step would be infinitely long)
   const scale = $derived(Math.max(0.05, Math.max(vw / size[0], vh / size[1]) * (ZOOM[world]?.[kind] ?? 1.15)));
   const mw = $derived(size[0] * scale), mh = $derived(size[1] * scale);

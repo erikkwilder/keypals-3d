@@ -4,6 +4,7 @@
 // next. Each open world has its own painted map, wide (desktop) and tall (phones).
 import type { AreaId } from '../math/skills/types';
 import type { WorldId } from './state';
+import type { StationId } from '../audio/stations';
 
 export type WorldMap = { wide: string; tall: string; size: { wide: readonly [number, number]; tall: readonly [number, number] } };
 export type WorldPin = {
@@ -17,6 +18,8 @@ export type WorldPin = {
   map?: WorldMap;
   /** a math world's area (it opens once the area is started) */
   area?: AreaId;
+  /** the music station it plays (when the music is on Auto) */
+  station?: StationId;
 };
 
 export const WORLD_PINS: WorldPin[] = [
@@ -34,6 +37,11 @@ export const WORLD_PINS: WorldPin[] = [
   { id: 'stars', name: 'Star Lab', blurb: 'Expressions and equations.', at: [88, 57], area: 'algebra' },
   { id: 'frost', name: 'Below Zero Caves', blurb: 'Negative numbers, under the ice.', at: [37, 87], area: 'integers' },
   { id: 'fair', name: 'Chance Fair', blurb: 'Graphs, chance and data.', at: [73, 86], area: 'data' },
+  // Juice Jungle (ratios and percents): painted onto the clouds at the bottom right; steel drums and
+  // maracas from the World station
+  { id: 'jungle', name: 'Juice Jungle', blurb: 'Fruit trees and juice waterfalls. Every battle card is ratios or percents.', at: [93.5, 69], area: 'ratios',
+    art: { src: 'game/world-jungle.webp', at: [94.2, 83], w: 10.5 }, station: 'world',
+    map: { wide: 'game/map-jungle-wide.webp', tall: 'game/map-jungle-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
 ];
 export const WORLD_PIN = Object.fromEntries(WORLD_PINS.map(w => [w.id, w])) as Record<string, WorldPin>;
 export const mapOf = (w: WorldId) => WORLD_PIN[w].map!;

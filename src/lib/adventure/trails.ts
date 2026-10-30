@@ -116,6 +116,25 @@ const PLANS: Record<WorldId, WorldPlan> = {
       },
     },
   },
+  // Juice Jungle: from the smoothie hut over the bridge to the juice fountain; one way on by the platform
+  // over the pink waterfall, the other up past the mango tree; they meet on the platform under the mango
+  // treehouse. The chest by the hut, a Bonus Round in the orange trees, something behind the waterfall.
+  jungle: {
+    islands: {
+      jungle: {
+        pts: {
+          0: { wide: [22.0, 71.0], tall: [50.0, 86.0] }, 1: { wide: [45.5, 50.5], tall: [61.0, 55.0] }, 2: { wide: [51.0, 43.0], tall: [69.0, 37.0] },
+          3: { wide: [66.5, 38.3], tall: [42.0, 33.0] }, 4: { wide: [63.0, 29.0], tall: [73.0, 27.0] }, j: { wide: [81.0, 30.0], tall: [56.0, 21.0] }, 5: { wide: [87.2, 18.5], tall: [70.0, 7.0] },
+          chest: { wide: [10.0, 72.0], tall: [33.0, 80.0] }, bonus: { wide: [37.0, 46.0], tall: [82.0, 57.0] }, hidden: { wide: [77.5, 47.0], tall: [27.0, 45.0] },
+        },
+        edges: [
+          ['0', '1', [[31.0, 64.0], [38.0, 57.0]], [[55.0, 76.0], [56.0, 66.0]]], ['1', '2'], ['2', '3', [[57.0, 42.0], [62.0, 40.0]], [[52.0, 40.0]]], ['3', 'j', [[74.0, 33.0]], [[48.0, 27.0]]],
+          ['2', '4', [[56.0, 33.0]], [[73.0, 32.0]]], ['4', 'j', [[72.0, 28.0]], [[64.0, 24.0]]], ['j', '5', [[84.0, 24.0]], [[48.0, 14.0], [57.0, 9.0]]],
+          ['0', 'chest'], ['1', 'bonus'], ['3', 'hidden'],
+        ],
+      },
+    },
+  },
 };
 
 const KIND_OF = (local: string): TrailKind => (local === 'chest' || local === 'bonus' || local === 'hidden' ? local : local === 'j' ? 'join' : 'stop');

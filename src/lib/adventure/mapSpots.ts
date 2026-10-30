@@ -11,6 +11,8 @@ export const SPOTS: Record<'wide' | 'tall', Record<string, [number, number]>> = 
     'caves-0': [22.5, 70.5], 'caves-1': [34.6, 58.0], 'caves-2': [49.7, 47.8], 'caves-3': [63.8, 38.6], 'caves-4': [80.0, 30.0], 'caves-5': [87.0, 18.0],
     // Market Isle (map-market-*.webp): the round stone platforms, from the fruit stalls to the golden hall
     'market-0': [19.0, 68.5], 'market-1': [34.8, 58.6], 'market-2': [47.5, 42.5], 'market-3': [64.2, 37.5], 'market-4': [79.3, 31.0], 'market-5': [87.0, 15.8],
+    // Juice Jungle (map-jungle-*.webp): the round stone platforms, the juice fountain, the mango treehouse at the top
+    'jungle-0': [22.0, 71.0], 'jungle-1': [45.5, 50.5], 'jungle-2': [51.0, 43.0], 'jungle-3': [66.5, 38.3], 'jungle-4': [81.0, 30.0], 'jungle-5': [87.2, 18.5],
   },
   tall: {
     'meadow-0': [46.1, 85.0], 'meadow-1': [56.3, 78.2], 'meadow-2': [47.2, 72.1], 'meadow-3': [55.2, 66.4], 'meadow-4': [67.5, 63.3], 'meadow-5': [48.8, 57.5],
@@ -19,5 +21,6 @@ export const SPOTS: Record<'wide' | 'tall', Record<string, [number, number]>> = 
     'falls-0': [43.6, 78.6], 'falls-1': [61.3, 59.9], 'falls-2': [47.9, 43.1], 'falls-3': [72.8, 31.9], 'falls-4': [53.7, 23.3], 'falls-5': [71.3, 11.1],
     'caves-0': [48.0, 81.6], 'caves-1': [70.0, 60.0], 'caves-2': [45.0, 44.4], 'caves-3': [70.0, 34.0], 'caves-4': [47.5, 21.7], 'caves-5': [73.5, 13.0],
     'market-0': [45.0, 87.5], 'market-1': [59.3, 72.0], 'market-2': [55.3, 53.2], 'market-3': [68.7, 33.2], 'market-4': [55.5, 18.2], 'market-5': [71.0, 6.4],
+    'jungle-0': [50.0, 86.0], 'jungle-1': [61.0, 55.0], 'jungle-2': [69.0, 37.0], 'jungle-3': [42.0, 33.0], 'jungle-4': [56.0, 21.0], 'jungle-5': [70.0, 7.0],
   },
 };
