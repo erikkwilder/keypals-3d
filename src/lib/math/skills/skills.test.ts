@@ -16,9 +16,9 @@ const DAY = 86_400_000;
 describe('skills registry', () => {
   it('lists every K-8 area, the four fact strands, fractions and decimals live', () => {
     expect(AREAS.length).toBe(13);
-    expect(AREAS.filter(a => a.live).map(a => a.id)).toEqual(['plus', 'minus', 'times', 'share', 'fractions', 'place', 'decimals']);
+    expect(AREAS.filter(a => a.live).map(a => a.id)).toEqual(['plus', 'minus', 'times', 'share', 'fractions', 'place', 'decimals', 'data']);
     expect(skillsOf('fractions').map(s => s.id)).toEqual(['fr-name', 'fr-unit', 'fr-set', 'fr-line', 'fr-compare', 'fr-equal', 'fr-add', 'fr-sub', 'fr-mixed', 'fr-times', 'fr-unlike']);
-    for (const s of SKILLS) { expect(s.standard).toMatch(/^\d\.[A-Z]+\./); expect(s.subs.length).toBeGreaterThan(0); }
+    for (const s of SKILLS) { expect(s.standard).toMatch(/^[K\d]\.[A-Z]+\./); expect(s.subs.length).toBeGreaterThan(0); }
   });
   it('wraps the facts as skills without changing them', () => {
     const it = SKILL['mult-facts'].make(mulberry32(3), 'x7', 2);

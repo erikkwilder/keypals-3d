@@ -26,6 +26,7 @@
 // gets all of this for free: give its skills a grade, write their six rungs, register them.
 import type { Rng } from '../../engine/rng';
 import type { Op } from '../facts';
+import type { DataPic } from '../data/pics';
 
 /** Every part of K-8 math. The first four are the fact strands we have; the rest are new areas. */
 export type AreaId = 'plus' | 'minus' | 'times' | 'share' | 'place' | 'fractions' | 'decimals' | 'measure' | 'shapes' | 'ratios' | 'integers' | 'algebra' | 'data';
@@ -55,7 +56,9 @@ export type Part =
   /** an amount of money: 35¢, or $1.35 from a dollar up (or when `dollars`) */
   | { t: 'money'; cents: number; dollars?: boolean }
   /** where the answer goes (a number blank) */
-  | { t: 'blank' };
+  | { t: 'blank' }
+  /** a graph, plot, spinner or bag (Data and chance: math/data/pics.ts) */
+  | { t: 'data'; d: DataPic };
 
 export type Choice = { id: string; parts: Part[] };
 
