@@ -1502,5 +1502,173 @@
   "ep.frac-unlike.card": {
     "voice": "coach",
     "ms": 5428
+  },
+  "ep.rt-for-every.intro": {
+    "voice": "coach",
+    "ms": 6126
+  },
+  "ep.rt-for-every.s0": {
+    "voice": "coach",
+    "ms": 5293
+  },
+  "ep.rt-for-every.s1": {
+    "voice": "coach",
+    "ms": 6895
+  },
+  "ep.rt-for-every.s2": {
+    "voice": "coach",
+    "ms": 5183
+  },
+  "ep.rt-for-every.s3": {
+    "voice": "coach",
+    "ms": 6680
+  },
+  "ep.rt-for-every.card": {
+    "voice": "coach",
+    "ms": 9174
+  },
+  "ep.rt-batches.intro": {
+    "voice": "coach",
+    "ms": 5533
+  },
+  "ep.rt-batches.s0": {
+    "voice": "coach",
+    "ms": 3462
+  },
+  "ep.rt-batches.s1": {
+    "voice": "coach",
+    "ms": 5084
+  },
+  "ep.rt-batches.s2": {
+    "voice": "coach",
+    "ms": 7418
+  },
+  "ep.rt-batches.s3": {
+    "voice": "coach",
+    "ms": 8416
+  },
+  "ep.rt-batches.card": {
+    "voice": "coach",
+    "ms": 7219
+  },
+  "ep.rt-two-lines.intro": {
+    "voice": "coach",
+    "ms": 7838
+  },
+  "ep.rt-two-lines.s0": {
+    "voice": "coach",
+    "ms": 4196
+  },
+  "ep.rt-two-lines.s1": {
+    "voice": "coach",
+    "ms": 3722
+  },
+  "ep.rt-two-lines.s2": {
+    "voice": "coach",
+    "ms": 4251
+  },
+  "ep.rt-two-lines.s3": {
+    "voice": "coach",
+    "ms": 6046
+  },
+  "ep.rt-two-lines.card": {
+    "voice": "coach",
+    "ms": 7623
+  },
+  "ep.rt-one-each.intro": {
+    "voice": "coach",
+    "ms": 4709
+  },
+  "ep.rt-one-each.s0": {
+    "voice": "coach",
+    "ms": 2609
+  },
+  "ep.rt-one-each.s1": {
+    "voice": "coach",
+    "ms": 4575
+  },
+  "ep.rt-one-each.s2": {
+    "voice": "coach",
+    "ms": 5258
+  },
+  "ep.rt-one-each.s3": {
+    "voice": "coach",
+    "ms": 7189
+  },
+  "ep.rt-one-each.card": {
+    "voice": "coach",
+    "ms": 5163
+  },
+  "ep.rt-out-of-100.intro": {
+    "voice": "coach",
+    "ms": 5553
+  },
+  "ep.rt-out-of-100.s0": {
+    "voice": "coach",
+    "ms": 3572
+  },
+  "ep.rt-out-of-100.s1": {
+    "voice": "coach",
+    "ms": 4944
+  },
+  "ep.rt-out-of-100.s2": {
+    "voice": "coach",
+    "ms": 6192
+  },
+  "ep.rt-out-of-100.s3": {
+    "voice": "coach",
+    "ms": 7668
+  },
+  "ep.rt-out-of-100.card": {
+    "voice": "coach",
+    "ms": 6286
+  },
+  "ep.rt-percent-of.intro": {
+    "voice": "coach",
+    "ms": 5692
+  },
+  "ep.rt-percent-of.s0": {
+    "voice": "coach",
+    "ms": 5009
+  },
+  "ep.rt-percent-of.s1": {
+    "voice": "coach",
+    "ms": 5483
+  },
+  "ep.rt-percent-of.s2": {
+    "voice": "coach",
+    "ms": 4021
+  },
+  "ep.rt-percent-of.s3": {
+    "voice": "coach",
+    "ms": 6131
+  },
+  "ep.rt-percent-of.card": {
+    "voice": "coach",
+    "ms": 8436
+  },
+  "ep.rt-percent-off.intro": {
+    "voice": "coach",
+    "ms": 5313
+  },
+  "ep.rt-percent-off.s0": {
+    "voice": "coach",
+    "ms": 3622
+  },
+  "ep.rt-percent-off.s1": {
+    "voice": "coach",
+    "ms": 5742
+  },
+  "ep.rt-percent-off.s2": {
+    "voice": "coach",
+    "ms": 3871
+  },
+  "ep.rt-percent-off.s3": {
+    "voice": "coach",
+    "ms": 4854
+  },
+  "ep.rt-percent-off.card": {
+    "voice": "coach",
+    "ms": 7413
   }
 }

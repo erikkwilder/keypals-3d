@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import type { SetId } from '../math/episodes';
 import { loadGltf } from './assets';
+import { juiceProps } from './juiceProps';
 
 const std = (color: number, o: Partial<THREE.MeshStandardMaterialParameters> = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.6, ...o });
 const glass = () => new THREE.MeshStandardMaterial({ color: 0xeaf6ff, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
@@ -159,6 +160,7 @@ export function propsFor(id: SetId): { left: THREE.Group; right: THREE.Group } {
     case 'workshop': return { left: blockStack(), right: brushJar() };
     case 'garden': return { left: flowerPot(), right: wateringCan() };
     case 'cave': return { left: crystals(), right: blockStack() };
+    case 'juice': return juiceProps();
   }
 }
 
@@ -173,6 +175,7 @@ const HERO: Record<SetId, [string, number, number][]> = {
   workshop: [['train', 0.22, 0.7], ['paints', 0.18, -0.3]],
   garden: [['flowerpot', 0.34, 0.2], ['can', 0.28, -0.8]],
   cave: [['', 0, 0], ['lantern', 0.36, -0.3]],
+  juice: [['', 0, 0], ['', 0, 0]],
 };
 /** The set's modelled things for the front corners, or null if they can't load (the simple ones stand in). */
 export async function heroProps(id: SetId): Promise<{ left: THREE.Group; right: THREE.Group } | null> {

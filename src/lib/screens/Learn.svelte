@@ -13,6 +13,7 @@
   import { LESSONS, checkDueId, isLearned, nextToLearn, type Lesson } from '../math/learn';
   import { SETS, epLesson, isEpisode, setOf } from '../math/episodes';
   import { FRAC_LESSONS, type FracLesson } from '../math/fracEpisodes';
+  import { RATIO_COLOR, RATIO_LESSONS } from '../math/ratioEpisodes';
   import { SKILL_LESSONS } from '../math/skills/course';
   import { GLIMMER } from '../adventure/glimmers';
   import { glimmerArt } from '../adventure/evolve';
@@ -53,7 +54,7 @@
   /** the first stop that uses this trick, to practise it right after (a fraction idea: the fractions
    *  stop that meets its skill; a place value lesson names its own practice lesson) */
   function practiceStop(id: string) {
-    const f = FRAC_LESSONS.find(x => x.id === id);
+    const f = [...FRAC_LESSONS, ...RATIO_LESSONS].find(x => x.id === id);
     if (f) return SKILL_LESSONS.find(x => x.kind === 'meet' && x.learn.includes(f.skill))?.id ?? null;
     if (id === 'zero-one') return 'twins-1';
     const l = LESSONS.find(x => x.id === id);
@@ -66,9 +67,10 @@
     game.learnId = null;
     if (!stop) return;
     game.setHome('math');
-    if (FRAC_LESSONS.some(x => x.id === id) || LESSONS.find(x => x.id === id)?.practice) game.startSkill(stop); else game.startMath(stop);
+    if ([...FRAC_LESSONS, ...RATIO_LESSONS].some(x => x.id === id) || LESSONS.find(x => x.id === id)?.practice) game.startSkill(stop); else game.startMath(stop);
   }
   const fracLearned = $derived(FRAC_LESSONS.filter(l => isLearned(m, l.id)));
+  const ratioLearned = $derived(RATIO_LESSONS.filter(l => isLearned(m, l.id)));
   const fracSet = (l: FracLesson) => SETS[l.set];
   function back() { if (open) close(); else game.go(game.learnBack === 'learn' ? 'map' : game.learnBack); }
   onMount(() => {
@@ -96,7 +98,7 @@
     {/key}
   {:else}
   <div class="veil"></div>
-  <Header title="Learn" sub={`${learned.length + fracLearned.length} of ${LESSONS.length + FRAC_LESSONS.length} tricks learned`} {back} />
+  <Header title="Learn" sub={`${learned.length + fracLearned.length + ratioLearned.length} of ${LESSONS.length + FRAC_LESSONS.length + RATIO_LESSONS.length} tricks learned`} {back} />
     <div class="room">
     <div class="side">
       {#key hello}<div class="bubble"><p>{hello}</p></div>{/key}
@@ -146,6 +148,32 @@
         <h3><img src="{base}learn/frac/card-pie.webp" alt="" />Fractions<small>{fracLearned.length} of {FRAC_LESSONS.length} learned</small></h3>
         <div class="grid">
           {#each FRAC_LESSONS as l (l.id)}
+            {@const done = isLearned(m, l.id)}
+            {@const fs = fracSet(l)}
+            <article class="lcard" class:done>
+              <button class="lpic" style:--set="url({base}{l.art})" onclick={() => watch(l)} aria-label="Watch {l.title}">
+                <img class="gface" src="{base}{glimmerArt(l.star ?? fs.star)}" alt="" />
+                <span class="play small"><Icon name="play" size={24} /></span>
+                <span class="where">{fs.name}</span>
+              </button>
+              <div class="ltext">
+                <b>{l.title}</b>
+                <span>{l.blurb}</span>
+                <div class="lrow">
+                  {#if done}<span class="pill ok"><Icon name="check" size={14} /> Learned</span>{:else}<span class="pill new">New</span>{/if}
+                  <button class="btn small" class:btn-primary={!done} onclick={() => watch(l)}>{done ? 'Watch again' : 'Watch'}</button>
+                </div>
+              </div>
+            </article>
+          {/each}
+        </div>
+      </section>
+
+      <!-- ratios and percents: Mushroom Mouse's juice bar in the Juice Jungle (math/ratioEpisodes.ts) -->
+      <section class="strand" style:--sc={RATIO_COLOR}>
+        <h3><img src="{base}learn/ratio/card-fruit.webp" alt="" />Ratios and percents<small>{ratioLearned.length} of {RATIO_LESSONS.length} learned</small></h3>
+        <div class="grid">
+          {#each RATIO_LESSONS as l (l.id)}
             {@const done = isLearned(m, l.id)}
             {@const fs = fracSet(l)}
             <article class="lcard" class:done>

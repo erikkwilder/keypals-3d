@@ -22,7 +22,9 @@ export type Hue = 'a' | 'b' | 'c' | 'ghost';
 /** A counter with a shape of its own (the fraction episodes): a slice of a pie or pizza (piece `i` of
  *  `n`, from a whole of radius `r`, its x and y the slice's middle), a square of a chocolate bar
  *  (`w` wide), or a cupcake. */
-export type Shape = { k: 'wedge'; food: 'pie' | 'pizza'; n: number; i: number; r: number } | { k: 'chunk'; w: number } | { k: 'cupcake' };
+export type Shape = { k: 'wedge'; food: 'pie' | 'pizza'; n: number; i: number; r: number } | { k: 'chunk'; w: number } | { k: 'cupcake' }
+  /** a fruit of the Juice Jungle (or a gold coin): the ratios episodes (three/fruitShapes.ts) */
+  | { k: 'fruit'; f: import('../three/fruitShapes').FruitKind };
 export type Dot = { id: string; x: number; y: number; c: Hue; /** crossed out: taken away, still shown */ out?: boolean; /** seconds to wait before moving */ d?: number; shape?: Shape };
 export type Tag = { id: string; x: number; y: number; text: string; c?: Hue | 'ink'; size?: number };
 export type Board = {
