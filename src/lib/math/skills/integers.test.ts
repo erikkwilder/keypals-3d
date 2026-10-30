@@ -8,6 +8,12 @@ import { skillsOf } from './registry';
 import { answerText, partsText } from './text';
 import { asChoices, typedAs } from './choices';
 import type { IntPic, Item, Part } from './types';
+import { newProfile } from '../../engine/profile';
+import { mathOf } from '../progress';
+import { tripStats, mathStars } from '../meter';
+import { SKILL_LESSON, SKILL_LESSONS, SKILL_PLACEMENTS, SKILL_EPISODES, nextSkillLesson, skillRegionsOf, skillUnlocked } from './course';
+import { SkillTripPicker } from './picker';
+import { applySkillRun, type SkillResult } from './progress';
 
 const nums = (ps: Part[]) => ps.flatMap(p => (p.t === 'num' ? [p.n] : []));
 const ipic = (it: Item) => it.prompt.find(p => p.t === 'ipic') as { t: 'ipic'; pic: IntPic } | undefined;
@@ -137,5 +143,63 @@ describe('negative numbers: the map', () => {
       expect((it.answer as { value: number }).value).toBe(Math.abs(P.x - Q.x) + Math.abs(P.y - Q.y));
     }
     for (const it of many(inDist, 'cross', 3)) { const [P, Q] = it.prompt.filter(p => p.t === 'pt') as { x: number; y: number }[]; const [a, b] = P.x === Q.x ? [P.y, Q.y] : [P.x, Q.x]; expect(a * b).toBeLessThan(0); }
+  });
+});
+
+// ---------- the course: three islands, every trip reachable, and Show What You Know ----------
+const T0 = new Date('2026-11-02T16:00:00').getTime();
+function playTrip(lessonId: string, p: ReturnType<typeof newProfile>, at: number, ok = true) {
+  const lesson = SKILL_LESSON[lessonId];
+  const picker = new SkillTripPicker({ lesson, mem: mathOf(p).skills ?? {}, now: at, seed: 42 });
+  const results: SkillResult[] = [];
+  let pick;
+  while ((pick = picker.next())) {
+    const intro = pick.reason === 'new', right = intro || ok;
+    picker.answer(right);
+    results.push({ id: pick.item.id, key: pick.item.key, label: pick.item.id, ok: right, speed: right ? 'fast' : 'miss', thinkMs: 2500, ms: 4000, intro });
+  }
+  const stats = tripStats(results);
+  return applySkillRun(p, { lessonId, results, stats, stars: mathStars(stats, lesson.goal, picker.done), bestRide: 2, finished: picker.done, at });
+}
+
+describe('negative numbers: the course', () => {
+  it('three islands in Below Zero Caves, each ending in a run, with painted strips and a placement', () => {
+    const rs = skillRegionsOf('integers');
+    expect(rs.map(r => r.name)).toEqual(['Sea Level Dock', 'Treasure Map Grotto', 'The Deep Freeze']);
+    for (const r of rs) { expect(r.lessons.at(-1)!.kind).toBe('check'); expect(r.art).toMatch(/^math\/integers\/region-/); }
+    // every skill of the area is met on some island
+    expect(new Set(rs.flatMap(r => r.skills))).toEqual(new Set(INTEGER_SKILLS.map(s => s.id)));
+    expect(SKILL_PLACEMENTS.integers!.kind).toBe('placement');
+    expect(nextSkillLesson(mathOf(newProfile('Ava', 'dino')), 'integers').id).toBe('int-a-1');
+    for (const s of INTEGER_SKILLS) expect(SKILL_EPISODES[s.id], s.id).toMatch(/^neg-/);
+  });
+  it('every trip is reachable: playing each open one in order opens the next, island after island', () => {
+    let p = newProfile('Ava', 'dino'), at = T0;
+    for (const l of SKILL_LESSONS.filter(x => x.area === 'integers')) {
+      expect(skillUnlocked(mathOf(p), l), l.id).toBe(true);
+      p = playTrip(l.id, p, (at += 600_000)).profile;
+      expect(mathOf(p).lessons[l.id]?.stars ?? 0, l.id).toBeGreaterThan(0);
+    }
+  });
+  it('a trip on every lesson serves only that lesson\'s skills', () => {
+    for (const l of SKILL_LESSONS.filter(x => x.area === 'integers')) {
+      const picker = new SkillTripPicker({ lesson: l, mem: {}, now: T0, seed: 3 });
+      for (let i = 0; i < 12; i++) { const pk = picker.next(); if (!pk) break; expect(l.skills).toContain(pk.item.skill); picker.answer(true); }
+    }
+  });
+  it('Show What You Know walks the ladder: all right climbs to the late skills, and tests out of lessons', () => {
+    const run = (ok: boolean) => {
+      const pl = new SkillTripPicker({ lesson: SKILL_LESSON['start-integers'], mem: {}, now: T0, seed: 5 });
+      const asked: { skill: string; rung: number }[] = [];
+      let x; while ((x = pl.next())) { asked.push({ skill: x.item.skill, rung: x.item.rung! }); pl.answer(ok); }
+      return asked;
+    };
+    const up = run(true), down = run(false);
+    expect(up.length).toBeGreaterThanOrEqual(12);
+    expect(new Set(up.map(a => a.skill)).size).toBeGreaterThanOrEqual(5);
+    const order = INTEGER_SKILLS.map(s => s.id), late = (xs: typeof up) => xs.slice(-6).reduce((t, a) => t + order.indexOf(a.skill) + a.rung, 0) / 6;
+    expect(late(up)).toBeGreaterThan(late(down) + 4);
+    const out = playTrip('start-integers', newProfile('Mia', 'dino'), T0);
+    expect(out.testedOut.length).toBeGreaterThan(0);
   });
 });

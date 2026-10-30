@@ -1,9 +1,10 @@
 // The world map: every world of Adventure on one painted picture (worlds-wide.webp). The Sky Islands,
-// Fraction Falls, Counting Caves and Market Isle are open (Counting Caves is painted onto the picture as a
+// Fraction Falls, Counting Caves, Market Isle and Below Zero Caves are open (Counting Caves is painted onto the picture as a
 // cut-out); the rest are the math areas still to come, shown so a child can see where the adventure goes
 // next. Each open world has its own painted map, wide (desktop) and tall (phones).
 import type { AreaId } from '../math/skills/types';
 import type { WorldId } from './state';
+import type { StationId } from '../audio/stations';
 
 export type WorldMap = { wide: string; tall: string; size: { wide: readonly [number, number]; tall: readonly [number, number] } };
 export type WorldPin = {
@@ -17,6 +18,8 @@ export type WorldPin = {
   map?: WorldMap;
   /** a math world's area (it opens once the area is started) */
   area?: AreaId;
+  /** the music station Auto plays there (the usual adventure music if not given) */
+  station?: StationId;
 };
 
 export const WORLD_PINS: WorldPin[] = [
@@ -32,7 +35,8 @@ export const WORLD_PINS: WorldPin[] = [
     map: { wide: 'game/map-market-wide.webp', tall: 'game/map-market-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Clocks, lengths and weights.', at: [60, 55], area: 'measure' },
   { id: 'stars', name: 'Star Lab', blurb: 'Expressions and equations.', at: [88, 57], area: 'algebra' },
-  { id: 'frost', name: 'Below Zero Caves', blurb: 'Negative numbers, under the ice.', at: [37, 87], area: 'integers' },
+  { id: 'frost', name: 'Below Zero Caves', blurb: 'A glacier island with a frozen harbour and an ice palace. Every battle card is about negative numbers and the map.', at: [37, 87], area: 'integers',
+    map: { wide: 'game/map-frost-wide.webp', tall: 'game/map-frost-tall.webp', size: { wide: [1600, 900], tall: [1024, 1821] } }, station: 'snow' },
   { id: 'fair', name: 'Chance Fair', blurb: 'Graphs, chance and data.', at: [73, 86], area: 'data' },
 ];
 export const WORLD_PIN = Object.fromEntries(WORLD_PINS.map(w => [w.id, w])) as Record<string, WorldPin>;

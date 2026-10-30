@@ -6,7 +6,7 @@
   import CloseButton from '../ui/CloseButton.svelte';
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { sfx } from '../audio/sound';
+  import { sfx, setWorldStation } from '../audio/sound';
   import { nextLesson } from '../engine/profile';
   import { mathOf, nextMathLesson } from '../math/progress';
   import { nextToLearn } from '../math/learn';
@@ -38,6 +38,8 @@
   const spots = $derived(SPOTS[kind]);
   // the world on show: the last one looked at (back from a battle lands on the same world)
   let world = $state<WorldId>(lastWorld.id !== 'sky' && !worldOpen(game.profile!, lastWorld.id) ? 'sky' : lastWorld.id);
+  // a world's own music on Auto (Below Zero Caves: Snow Day), from the first look at it
+  setWorldStation(WORLD_PIN[world]?.station ?? null);
   let picker = $state(false);
   let locked = $state<WorldPin | null>(null);
   let wscroll: HTMLDivElement | undefined = $state();
@@ -114,7 +116,7 @@
     if (!worldOpen(p, id)) { sfx.pop(); locked = w; return; }
     sfx.pop(); picker = false; open = null;
     if (id === world) return;
-    world = id; lastWorld.id = id;
+    world = id; lastWorld.id = id; setWorldStation(WORLD_PIN[id]?.station ?? null);
     reach(id);
     if (id !== 'sky' && !a.seen?.includes(`world-${id}`)) { game.say(`Welcome to ${w.name}! ${w.blurb}`); game.update(pp => markSeen(pp, `world-${id}`)); }
   }

@@ -987,8 +987,10 @@ export type NowPlaying = { station: StationId; choice: StationChoice; title?: st
 const listeners = new Set<(n: NowPlaying) => void>();
 
 /** The station that should be playing now (Auto follows what you're doing). */
+/** an Adventure world's own station on Auto (Below Zero Caves plays Snow Day), or none */
+let worldStation: StationId | null = null;
 function currentStation(): StationId {
-  const id = stationChoice === 'auto' ? AUTO[place] : stationChoice;
+  const id = stationChoice === 'auto' ? (place === 'adventure' && worldStation ? worldStation : AUTO[place]) : stationChoice;
   // a station with no recordings (or recordings that won't load) plays the island tunes instead
   return id !== 'originals' && STATION[id]?.tracks.length && fails < 3 ? id : 'originals';
 }
@@ -1076,6 +1078,12 @@ export function startMusic(region: RegionId | 'menu' | 'adventure') {
   where = region === 'adventure' ? 'menu' : region;
   started = true;
   applyMusic();
+}
+/** The Adventure world on show has its own station (or null: Auto plays the usual adventure music). */
+export function setWorldStation(id: StationId | null) {
+  if (id === worldStation) return;
+  worldStation = id;
+  if (started && place === 'adventure') applyMusic();
 }
 /** Pick a station (or 'auto'); it crossfades straight away if music is playing. */
 export function setMusicStation(choice: StationChoice) {

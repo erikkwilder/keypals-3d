@@ -3,7 +3,7 @@
   import GlobalMenu from './lib/ui/GlobalMenu.svelte';
   import { onMount } from 'svelte';
   import { game } from './lib/state/game.svelte';
-  import { configureSound, startMusic, unlockAudio, setMusicStyle, setMusicStation } from './lib/audio/sound';
+  import { configureSound, startMusic, unlockAudio, setMusicStyle, setMusicStation, setWorldStation } from './lib/audio/sound';
   import SvgDefs from './lib/ui/SvgDefs.svelte';
   import Title from './lib/screens/Title.svelte';
   import Players from './lib/screens/Players.svelte';
@@ -86,6 +86,8 @@
   const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market']);
   $effect(() => {
     const scr = game.screen;
+    // (a world's own station only plays in that world and its battles)
+    if (scr !== 'adventure' && scr !== 'battle') setWorldStation(null);
     if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
   });
 

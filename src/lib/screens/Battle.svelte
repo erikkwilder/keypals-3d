@@ -13,7 +13,8 @@
   import { game } from '../state/game.svelte';
   import { stage } from '../three/stage';
   import { BattleScene } from '../three/battleScene';
-  import { sfx } from '../audio/sound';
+  import { sfx, setWorldStation } from '../audio/sound';
+  import { WORLD_PIN } from '../adventure/worlds';
   import { funEvent } from '../fun/bus';
   import { buddyPal, danceOf, outfitOf } from '../engine/profile';
   import { levelFromXp } from '../engine/stickers';
@@ -43,6 +44,8 @@
   const p0 = game.profile!;
   const node = NODE[game.battleNode ?? 'meadow-0'];
   const island = ISLAND[node.island];
+  // a world's own music on Auto (Below Zero Caves: Snow Day)
+  setWorldStation(WORLD_PIN[island.world]?.station ?? null);
   const adv = advOf(p0);
   // a math world (Fraction Falls) is always math, every card from its area
   const subject = island.area ? 'math' : adv.subject;

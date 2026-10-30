@@ -11,6 +11,8 @@ export const SPOTS: Record<'wide' | 'tall', Record<string, [number, number]>> = 
     'caves-0': [22.5, 70.5], 'caves-1': [34.6, 58.0], 'caves-2': [49.7, 47.8], 'caves-3': [63.8, 38.6], 'caves-4': [80.0, 30.0], 'caves-5': [87.0, 18.0],
     // Market Isle (map-market-*.webp): the round stone platforms, from the fruit stalls to the golden hall
     'market-0': [19.0, 68.5], 'market-1': [34.8, 58.6], 'market-2': [47.5, 42.5], 'market-3': [64.2, 37.5], 'market-4': [79.3, 31.0], 'market-5': [87.0, 15.8],
+    // Below Zero Caves (map-frost-*.webp): the round ice platforms, the dock for the second route
+    'frost-0': [18.0, 76.0], 'frost-1': [41.6, 66.0], 'frost-2': [57.0, 52.0], 'frost-3': [71.3, 35.3], 'frost-4': [59.8, 31.9], 'frost-5': [85.0, 23.6],
   },
   tall: {
     'meadow-0': [46.1, 85.0], 'meadow-1': [56.3, 78.2], 'meadow-2': [47.2, 72.1], 'meadow-3': [55.2, 66.4], 'meadow-4': [67.5, 63.3], 'meadow-5': [48.8, 57.5],
@@ -19,5 +21,6 @@ export const SPOTS: Record<'wide' | 'tall', Record<string, [number, number]>> = 
     'falls-0': [43.6, 78.6], 'falls-1': [61.3, 59.9], 'falls-2': [47.9, 43.1], 'falls-3': [72.8, 31.9], 'falls-4': [53.7, 23.3], 'falls-5': [71.3, 11.1],
     'caves-0': [48.0, 81.6], 'caves-1': [70.0, 60.0], 'caves-2': [45.0, 44.4], 'caves-3': [70.0, 34.0], 'caves-4': [47.5, 21.7], 'caves-5': [73.5, 13.0],
     'market-0': [45.0, 87.5], 'market-1': [59.3, 72.0], 'market-2': [55.3, 53.2], 'market-3': [68.7, 33.2], 'market-4': [55.5, 18.2], 'market-5': [71.0, 6.4],
+    'frost-0': [56.0, 88.6], 'frost-1': [61.5, 66.3], 'frost-2': [62.5, 50.0], 'frost-3': [60.8, 30.1], 'frost-4': [44.0, 21.4], 'frost-5': [65.6, 13.4],
   },
 };

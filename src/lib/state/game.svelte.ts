@@ -5,7 +5,7 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
-export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market' | 'ideas';
+export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market' | 'ideas' | 'treasure';
 
 function load(): SaveFile {
   try {
