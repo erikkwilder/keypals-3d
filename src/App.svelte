@@ -53,6 +53,7 @@
     if (p && s !== 'title' && s !== 'players' && s !== 'newPlayer') untrack(() => countPlayer(p));
   });
   import { stage } from './lib/three/stage';
+  import { WORLD_PIN, lastWorld } from './lib/adventure/worlds';
   import QuickSettings from './lib/ui/QuickSettings.svelte';
   import FunLayer from './lib/fun/FunLayer.svelte';
   import LessonChart from './lib/ui/LessonChart.svelte';
@@ -88,7 +89,8 @@
   const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'shifter', 'shapebuilder']);
   $effect(() => {
     const scr = game.screen;
-    if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
+    // (a world with a station of its own plays it on its map and in its battles)
+    if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu', scr === 'adventure' || scr === 'battle' ? WORLD_PIN[lastWorld.id]?.station : null);
   });
 
   let canvas: HTMLCanvasElement | undefined = $state();

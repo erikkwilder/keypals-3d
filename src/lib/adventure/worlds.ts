@@ -4,6 +4,7 @@
 // next. Each open world has its own painted map, wide (desktop) and tall (phones).
 import type { AreaId } from '../math/skills/types';
 import type { WorldId } from './state';
+import type { StationId } from '../audio/stations';
 
 export type WorldMap = { wide: string; tall: string; size: { wide: readonly [number, number]; tall: readonly [number, number] } };
 export type WorldPin = {
@@ -17,6 +18,8 @@ export type WorldPin = {
   map?: WorldMap;
   /** a math world's area (it opens once the area is started) */
   area?: AreaId;
+  /** the music station Auto plays there (Adventure's own if not given) */
+  station?: StationId;
 };
 
 export const WORLD_PINS: WorldPin[] = [
@@ -27,7 +30,8 @@ export const WORLD_PINS: WorldPin[] = [
   { id: 'caves', name: 'Counting Caves', blurb: 'Crystal caves and mine carts of blocks. Every battle card is about tens, hundreds and big numbers.', at: [12, 63], area: 'place',
     art: { src: 'game/world-caves.webp', at: [12, 79], w: 18 },
     map: { wide: 'game/map-caves-wide.webp', tall: 'game/map-caves-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  { id: 'peaks', name: 'Shape Peaks', blurb: 'Shapes, angles and crystals.', at: [89, 31], area: 'shapes' },
+  { id: 'peaks', name: 'Shape Peaks', blurb: 'Crystal mountains and a crystal palace. Every battle card is about shapes and angles.', at: [89, 31], area: 'shapes', station: 'snow',
+    map: { wide: 'game/map-peaks-wide.webp', tall: 'game/map-peaks-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   { id: 'market', name: 'Market Isle', blurb: 'A floating bazaar. Every battle card is money or decimals.', at: [33, 60], area: 'decimals',
     map: { wide: 'game/map-market-wide.webp', tall: 'game/map-market-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Clocks, lengths and weights.', at: [60, 55], area: 'measure' },

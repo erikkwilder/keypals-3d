@@ -6,7 +6,7 @@
   import CloseButton from '../ui/CloseButton.svelte';
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { sfx } from '../audio/sound';
+  import { sfx, startMusic } from '../audio/sound';
   import { nextLesson } from '../engine/profile';
   import { mathOf, nextMathLesson } from '../math/progress';
   import { nextToLearn } from '../math/learn';
@@ -113,6 +113,7 @@
     sfx.pop(); picker = false; open = null;
     if (id === world) return;
     world = id; lastWorld.id = id;
+    startMusic('adventure', w.station);
     reach(id);
     if (id !== 'sky' && !a.seen?.includes(`world-${id}`)) { game.say(`Welcome to ${w.name}! ${w.blurb}`); game.update(pp => markSeen(pp, `world-${id}`)); }
   }

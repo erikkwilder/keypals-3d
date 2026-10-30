@@ -24,13 +24,13 @@ import type { RegionId } from '../engine/course';
 import { newStats, noteStats, type GhostStats, type RivalState } from './ghosts';
 
 // ---------- the map ----------
-export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls' | 'caves' | 'market';
+export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls' | 'caves' | 'market' | 'peaks';
 export type NodeKind = 'battle' | 'practice' | 'champion';
 export type MapNode = { id: string; island: IslandId; kind: NodeKind; n: number };
 /** The worlds on the world map: the Sky Islands (the first three islands, any math or typing), and worlds
  *  of one kind of math (Fraction Falls: every battle card is a fraction). Each world's stops are in order
  *  on their own; finishing one world doesn't open another. */
-export type WorldId = 'sky' | 'falls' | 'caves' | 'market';
+export type WorldId = 'sky' | 'falls' | 'caves' | 'market' | 'peaks';
 export type Island = {
   id: IslandId; world: WorldId; name: string; element: Element; region: RegionId; champion: GlimmerId; blurb: string; odds: Partial<Record<Rarity, number>>;
   /** how tough its Grumbles are (and how many shells they give): 0 for the first island */
@@ -61,6 +61,12 @@ export const ISLANDS: Island[] = [
   { id: 'market', world: 'market', tier: 1, name: 'Market Isle', element: 'sun', region: 'village', champion: 'prismhorn', area: 'decimals',
     natives: ['geodemole', 'popcornpuff', 'rollodillo', 'teakettledrake'], mischief: { kind: 'gust', name: 'A gust from the awnings is coming' },
     blurb: 'Striped stalls, a coin fountain and a golden market hall. Every battle card is money or decimals.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
+  // Shape Peaks: crystal mountains, a meadow of giant crystal shapes, a sundial ridge and a crystal palace
+  // at the top; its Grumbles shake crystals loose to fall like hail. (Its own Glimmers are on the way:
+  // adventure/shapesGlimmers.ts; until their models come, crystal-loving Glimmers from the islands live here.)
+  { id: 'peaks', world: 'peaks', tier: 1, name: 'Shape Peaks', element: 'frost', region: 'cliffs', champion: 'cometcat', area: 'shapes',
+    natives: ['prismhorn', 'frostowl', 'mittenyeti', 'frostjelly'], mischief: { kind: 'pebbles', name: 'Falling crystals are coming' },
+    blurb: 'Crystal mountains, a sundial ridge and a crystal palace at the top. Every battle card is about shapes and angles.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
 ];
 export const islandsOf = (w: WorldId) => ISLANDS.filter(i => i.world === w);
 export const ISLAND: Record<IslandId, Island> = Object.fromEntries(ISLANDS.map(i => [i.id, i])) as Record<IslandId, Island>;
