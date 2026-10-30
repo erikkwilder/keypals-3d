@@ -36,7 +36,7 @@ import type { AreaId } from '../math/skills/types';
 import { SUBJECT, SUBJECTS, WAY, type Subject, type Thing, type WayId } from '../subjects';
 import { CUR_LESSONS, CUR_UNITS } from './curriculum';
 import { LEARN_TEACHES, SPEC } from './lessonSpecs';
-import { checkTrips, factPart, practiceTrips, skillPart, sourceTrips } from './lessonTrips';
+import { checkTrips, factPart, lessonById, practiceTrips, skillPart, sourceTrips } from './lessonTrips';
 import { WORLD_PIN, WORLD_PINS } from '../adventure/worlds';
 import { nodesOf, type WorldId } from '../adventure/state';
 
@@ -197,7 +197,8 @@ function curriculumUnits(): Unit[] {
     const items: PathItem[] = [];
     const eps = new Set<string>();
     const add = (ref: string, day: number, lesson: string, extra: Partial<PathItem> = {}) => { if (!items.some(i => i.ref === ref)) items.push({ ...itemOf(ref), day, lesson, ...extra }); };
-    const quick = (id: string, day: number) => { for (const t of checkTrips(id)) add(`quick:${t}`, day, id); };
+    // (a quick check is named for its lesson, also when it is a fact island's run)
+    const quick = (id: string, day: number) => { for (const t of checkTrips(id)) add(`quick:${t}`, day, id, { name: lessonById[id]?.kidTitle ?? t }); };
     ids.forEach((id, k) => {
       const day = k + 1;
       // a warm-up on earlier lessons (any lesson with skill practice before this one on the path)

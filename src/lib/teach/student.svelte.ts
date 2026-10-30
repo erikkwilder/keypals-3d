@@ -172,9 +172,10 @@ function worldBest(before: Profile | undefined, after: Profile) {
 /** Every finished activity (game.replaceProfile): note it, and later send the week and any world best. */
 export function onActivity(before: Profile | undefined, after: Profile) {
   // a player the path hasn't met yet: what was already done counts, but not as today's
-  if (!pathSave(after).done) {
+  // (and a player from before the curriculum: its one-time step, from before this activity)
+  if (!pathSave(after).done || !pathSave(after).cur) {
     // (from the player as it was, when that's the whole player: replaceProfile hands it over)
-    if (before && 'settings' in before) { startPath(before); (after as PathProfile).path = { ...(after as PathProfile).path, done: { ...pathSave(before).done } }; }
+    if (before && 'settings' in before) { startPath(before); const b = pathSave(before); (after as PathProfile).path = { ...(after as PathProfile).path, done: { ...b.done }, quick: { ...b.quick }, cur: b.cur }; }
     else startPath(after);
   }
   const ev = noteActivity(before, after);
@@ -191,7 +192,7 @@ export function startClasses() {
   game.watchActivity = (p) => { const before = activityBase(p); return () => onActivity(before, p); };
   // every player on this computer: what's already done on My path counts, but not as today's
   let met = false;
-  for (const p of game.save.profiles) if (!pathSave(p).done) { startPath(p); met = true; }
+  for (const p of game.save.profiles) if (!pathSave(p).done || !pathSave(p).cur) { startPath(p); met = true; }
   if (met) game.persist();
   const route = () => {
     const h = location.hash;

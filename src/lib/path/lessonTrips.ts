@@ -109,7 +109,7 @@ export function skillLessonTrips(regions: SkillRegion[]): SkillLesson[] {
 }
 
 /** Show What You Know for a grade or a unit: a placement (an adaptive staircase, skills/placement.ts) on a
- *  ladder of the lessons' skills, each a grade apart as the area ladders are (ability.ts GRADE_RUNGS), and
+ *  ladder of the lessons' skills, a grade apart as the area ladders are (ability.ts GRADE_RUNGS), and
  *  every skill lesson's quick check it can test out. Fact lessons have the strands' own placements. */
 export const swykId = (scope: string) => `swyk-${scope}`;
 /** the scopes: `g0`...`g8` for a grade, a unit's id */
@@ -120,13 +120,10 @@ export function swykTrips(regions: SkillRegion[]): SkillLesson[] {
     const sk = ls.filter(l => SPEC[l.id]?.skill);
     if (!sk.length) return;
     const g0 = Math.min(...sk.map(l => l.grade));
+    // (one grade's skills share a step on the ladder: they come from different areas, so there is no
+    // order among them the way an area's own skills have one)
     const ladder: { skill: string; base: number }[] = [];
-    const perGrade: Record<number, number> = {};
-    for (const l of sk) for (const s of skillPart(l.id)!.skills) {
-      if (ladder.some(x => x.skill === s)) continue;
-      const k = (perGrade[l.grade] = (perGrade[l.grade] ?? -1) + 1);
-      ladder.push({ skill: s, base: 2.5 * (l.grade - g0) + 0.6 * k });
-    }
+    for (const l of sk) for (const s of skillPart(l.id)!.skills) if (!ladder.some(x => x.skill === s)) ladder.push({ skill: s, base: 2.5 * (l.grade - g0) });
     const home = homeOf(ladder[0].skill, regions);
     if (!home) return;
     out.push({

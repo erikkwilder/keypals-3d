@@ -234,9 +234,9 @@
   .ki { width: 36px; height: 36px; object-fit: contain; flex: none; }
   .it { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .nm { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-  .it small { flex: none; font: 800 11px var(--font-body); text-transform: uppercase; letter-spacing: .05em; color: color-mix(in srgb, var(--kc) 80%, #000); min-width: 76px; }
-  .it b { font: 600 17.5px/1.2 var(--font-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .it .ln { font: 700 12.5px/1.3 var(--font-body); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 84px; }
+  .it small { flex: none; font: 800 11px var(--font-body); text-transform: uppercase; letter-spacing: .05em; color: color-mix(in srgb, var(--kc) 80%, #000); min-width: 96px; }
+  .it b { font: 600 17.5px/1.2 var(--font-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .it .ln { font: 700 12.5px/1.3 var(--font-body); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 104px; }
   li.done .it b { text-decoration: line-through; text-decoration-thickness: 2px; color: #7c8a84; }
   li.done .ki { opacity: .55; }
   .okimg { width: 32px; height: 32px; flex: none; }
@@ -260,7 +260,11 @@
   .ticks i.on { background: #c9f1dd; color: #0f5a3c; box-shadow: none; }
   .ticks i.on::before { content: '✓ '; }
   .kn { font: 800 12px var(--font-body); font-style: normal; color: #6a5200; background: #fff0b8; padding: 2px 10px; border-radius: 999px; flex: none; }
-  li.known .row { opacity: .75; }
+  /* a lesson the child knows: its things stay open, shown small */
+  li.known .row { opacity: .8; padding-top: 2px; padding-bottom: 2px; }
+  li.known .row .ln { display: none; }
+  li.known .ki { height: 28px; }
+  li.known .it b { font-size: 15.5px; }
   .gradeskip { margin: 0; }
   .soon { margin: 4px 4px 0; font: 600 12.5px var(--font-body); color: var(--muted); text-align: center; }
   .foot { margin: 14px 4px 0; font: 700 14px var(--font-body); color: var(--muted); text-align: center; }
