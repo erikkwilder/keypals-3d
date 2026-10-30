@@ -280,3 +280,42 @@ describe('Counting Caves', () => {
     expect(['geodemole', 'rollodillo', 'potgolem'].every(id => seen.has(id))).toBe(true);
   });
 });
+
+describe('Below Zero Caves', () => {
+  it('is a world of its own with six stops, opens once negative numbers are started, and every card is from the area', () => {
+    const p = newProfile('Ava', 'dino'), a = advOf(p);
+    expect(nodesOf('frost').map(n => n.kind)).toEqual(['battle', 'battle', 'practice', 'battle', 'battle', 'champion']);
+    expect(currentNode(a, 'frost')!.id).toBe('frost-0');
+    expect(worldOpen(p, 'frost')).toBe(false);
+    const m = (p.math = mathOf(p));
+    noteSkillAnswers(m, [{ key: 'in-real:temp', ok: true, thinkMs: 3000 }, { key: 'in-plot:plot', ok: true, thinkMs: 4000 }], Date.now());
+    expect(worldOpen(p, 'frost')).toBe(true);
+    const pl = mathPool(p, 'integers');
+    expect(pl.subject === 'math' && pl.skills!.length > 0 && pl.skills!.every(s => s.key.startsWith('in-'))).toBe(true);
+    for (const seed of [6, 7, 8, 9]) {
+      const b = newBattle({ pool: pl, seed, sparkMax: 20, role: 'heart', gear: null, team: [], foe: { ...foeFor(p, NODE['frost-0'], pl, seed), hit: 3 } });
+      expect(b.cards.length).toBeGreaterThan(0);
+      expect(b.cards.every(c => c.item?.skill.startsWith('in-'))).toBe(true);
+    }
+  });
+  it('a world started from nothing still deals its first lesson\'s cards', () => {
+    const p = newProfile('Ava', 'dino'), pl = mathPool(p, 'integers');
+    expect(pl.subject === 'math' && pl.skills!.every(s => s.key.startsWith('in-plot:'))).toBe(true);
+  });
+  it('icicles fall when its Grumbles sulk, the frosty Glimmers live there, and the Comet Cat is its Champion', () => {
+    const p = newProfile('Ava', 'dino'), pl = mathPool(p, 'integers');
+    expect(foeFor(p, NODE['frost-5'], pl, 1)).toMatchObject({ glimmer: 'cometcat', champion: true, mischief: { kind: 'snow' } });
+    const seen = new Set<string>();
+    for (let s = 1; s <= 200; s++) { const f = foeFor(p, NODE['frost-1'], pl, s); expect(f.mischief?.name).toMatch(/icicle/); seen.add(f.glimmer); }
+    expect(['snowseal', 'mittenyeti', 'frostjelly'].every(id => seen.has(id))).toBe(true);
+  });
+  it('its own Glimmers are natives of the world, on their way until their models come (never in a random roll)', async () => {
+    const { FROST_GLIMMERS } = await import('./frostGlimmers');
+    expect(FROST_GLIMMERS.length).toBe(4);
+    expect(FROST_GLIMMERS.filter(g => g.champion)).toEqual([expect.objectContaining({ id: 'auroranarwhal', champion: 'frost' })]);
+    for (const g of FROST_GLIMMERS) {
+      expect(g).toMatchObject({ source: 'native', world: 'frost', pending: true });
+      expect(GLIMMERS.some(x => x.id === g.id)).toBe(false); expect(GLIMMER[g.id]).toBe(g); expect(g.power.text(1).length).toBeGreaterThan(10);
+    }
+  });
+});

@@ -20,7 +20,7 @@ function allDone(world: WorldId) {
 
 describe('the trails on the Adventure maps', () => {
   it('every world that is open has trails, and every stop of it is on them', () => {
-    expect([...WORLDS_WITH_TRAILS].sort()).toEqual(['caves', 'clockwork', 'falls', 'jungle', 'market', 'peaks', 'sky']);
+    expect([...WORLDS_WITH_TRAILS].sort()).toEqual(['caves', 'clockwork', 'falls', 'frost', 'jungle', 'market', 'peaks', 'sky']);
     for (const w of OPEN) {
       const tr = trailsOf(w);
       for (const n of nodesOf(w)) expect(tr.point[n.id]?.kind).toBe('stop');

@@ -87,7 +87,7 @@ export function asChoices(it: Item, rng: Rng, count = 4): Item | null {
     }
     if (picked.length < 2) return null;
     opts = [fracPart(a), ...picked.map(fracPart)];
-  } else if (it.input === 'number' && a.kind === 'number' && Number.isInteger(a.value) && a.value >= 0) {
+  } else if (it.input === 'number' && a.kind === 'number' && Number.isInteger(a.value) && a.value >= 0 && !it.signed) {
     const v = a.value;
     const wrong = [...(WRONG_NUM[it.skill]?.(it, v) ?? []), ...genericNum(v)];
     const picked: number[] = [];
@@ -113,7 +113,8 @@ export function choiceChance(stage: number, kind: SkillLesson['kind']): number {
 // ---- typing a choice ----
 // Choices that are all numbers (or all fractions) can be typed as well as tapped: the number pad (or the
 // fraction pad) stays under them, and a typed answer picks the choice it matches.
-const numIn = (c: Choice): number | null => { const p = c.parts.length === 1 ? c.parts[0] : null; return p && p.t === 'num' ? p.n : null; };
+// (a negative number is tapped: the pad under choices has no minus key)
+const numIn = (c: Choice): number | null => { const p = c.parts.length === 1 ? c.parts[0] : null; return p && p.t === 'num' && p.n >= 0 ? p.n : null; };
 const fracIn = (c: Choice): F | null => { const p = c.parts.length === 1 ? c.parts[0] : null; return p && p.t === 'frac' && p.n !== null && p.d !== null ? { n: p.n, d: p.d } : null; };
 
 /** How a question asked as choices can be typed too: 'number', 'fraction', or not at all (words, signs,

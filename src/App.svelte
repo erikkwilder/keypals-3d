@@ -31,6 +31,7 @@
   import ShapeShifter from './lib/screens/ShapeShifter.svelte';
   import ShapeBuilder from './lib/screens/ShapeBuilder.svelte';
   import SmoothieStand from './lib/screens/SmoothieStand.svelte';
+  import TreasureGrid from './lib/screens/TreasureGrid.svelte';
   import Glimmers from './lib/screens/Glimmers.svelte';
   import Eggs from './lib/screens/Eggs.svelte';
   import Learn from './lib/screens/Learn.svelte';
@@ -91,13 +92,13 @@
   // sound, once per player; a typing lesson asks for itself, before its coach starts talking
   $effect(() => {
     const scr = game.screen;
-    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel', 'drop', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'smoothie'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
+    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel', 'drop', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'smoothie', 'treasure'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
     setTimeout(() => { if (game.screen === scr && game.profile && !game.profile.soundSetup && !game.sheet) game.openSheet('setup'); }, 300);
   });
 
   // menu music on the screens around the lessons; Adventure's own on its screens and the Arcade's (Auto
   // plays an adventure there; a picked station just keeps playing)
-  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'glimmerBook', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'shifter', 'shapebuilder', 'smoothie']);
+  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'glimmerBook', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'shifter', 'shapebuilder', 'smoothie', 'treasure']);
   $effect(() => {
     const scr = game.screen;
     // (a world with a station of its own plays it on its map and in its battles while the choice is Auto:
@@ -155,6 +156,7 @@
   {:else if game.screen === 'shifter'}<ShapeShifter />
   {:else if game.screen === 'shapebuilder'}<ShapeBuilder />
   {:else if game.screen === 'smoothie'}<SmoothieStand />
+  {:else if game.screen === 'treasure'}<TreasureGrid />
   {:else if game.screen === 'drop'}<GlimmerDrop />
   {:else if game.screen === 'arcade'}<Arcade />
   {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}

@@ -13,6 +13,11 @@
   import MeasurePic from './MeasurePic.svelte';
   import ShapePic from '../../shapes/ui/ShapePic.svelte';
   import { moneyText } from '../decimals';
+  import IntPic from './IntPic.svelte';
+  /** a number as a kid reads it: 4,382 with a comma, −3 with a real minus sign */
+  const fmt = (n: number) => (n < 0 ? '−' : '') + (Math.abs(n) >= 1000 ? Math.abs(n).toLocaleString('en-US') : String(Math.abs(n)));
+  /** what's typed, with a real minus sign */
+  const typedText = (t: string) => t.replace('-', '−');
   type Fill = { kind: 'number'; text: string; bad?: boolean } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null; bad?: boolean };
   type Props = { parts: Part[]; fill?: Fill | null; size?: number; picSize?: number; done?: boolean; onpick?: ((w: 'n' | 'd') => void) | null };
   let { parts, fill = null, size = 56, picSize = 150, done = false, onpick = null }: Props = $props();
@@ -26,7 +31,9 @@
 <span class="sp" class:done style:--fs="{size}px">
   {#each parts as p, i (i)}
     {#if p.t === 'text'}<span class="tx">{p.s}</span>
-    {:else if p.t === 'num'}<span class="n">{p.n >= 1000 ? p.n.toLocaleString('en-US') : p.n}</span>
+    {:else if p.t === 'num'}<span class="n">{p.paren ? '(' : ''}{fmt(p.n)}{p.paren ? ')' : ''}</span>
+    {:else if p.t === 'pt'}<span class="n pt">({fmt(p.x)},&nbsp;{fmt(p.y)})</span>
+    {:else if p.t === 'ipic'}<IntPic pic={p.pic} size={picSize} />
     {:else if p.t === 'op'}<span class="op" class:word={p.s.length > 1} class:pct={p.s === '%'}>{p.s}</span>
     {:else if p.t === 'pic'}{#if p.pic.kind === 'coins' || p.pic.kind === 'grid'}<MoneyPic pic={p.pic} size={picSize} />{:else}<FractionPic pic={p.pic} size={picSize} />{/if}
     {:else if p.t === 'money'}<span class="n money">{moneyText(p.cents, p.dollars)}</span>
@@ -40,13 +47,13 @@
     {:else if p.t === 'blank'}
       {#if fill?.kind === 'fraction'}<Frac n={fill.n} d={fill.d} size={size * 0.82} focus={done || bad ? null : fill.focus} bad={bad ? 'both' : null} drop={fracDrop} {onpick} />
       {:else if done && !fill}<span class="n">?</span>
-      {:else}<span class="box" class:bad data-drop={live ? 'num' : undefined}>{fill?.kind === 'number' ? fill.text : ''}</span>{/if}
+      {:else}<span class="box" class:bad data-drop={live ? 'num' : undefined}>{fill?.kind === 'number' ? typedText(fill.text) : ''}</span>{/if}
     {/if}
   {/each}
   {#if !gap && fill}
     <span class="op">=</span>
     {#if fill.kind === 'fraction'}<Frac n={fill.n} d={fill.d} size={size * 0.82} focus={done || bad ? null : fill.focus} bad={bad ? 'both' : null} drop={fracDrop} {onpick} />
-    {:else}<span class="box" class:bad data-drop={live ? 'num' : undefined}>{fill.text}</span>{/if}
+    {:else}<span class="box" class:bad data-drop={live ? 'num' : undefined}>{typedText(fill.text)}</span>{/if}
   {/if}
 </span>
 
@@ -54,6 +61,7 @@
   .sp { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: calc(var(--fs) * .28); font: 600 var(--fs)/1 var(--font-ui); color: var(--ink); }
   .op { color: var(--primary); }
   .money { color: #b7791f; }
+  .pt { white-space: nowrap; color: #1f5f9e; }
   .op.word { font-size: calc(var(--fs) * .5); color: var(--muted); }
   /* a percent sign sits close to its number: 25% */
   .op.pct { margin-left: calc(var(--fs) * -.22); }

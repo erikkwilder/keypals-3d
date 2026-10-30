@@ -17,10 +17,12 @@
   import Icon from '../ui/Icon.svelte';
   import GearButton from '../ui/GearButton.svelte';
   import { builderOf, builderOpen } from '../math/place/builder';
+  import { treasureOf } from '../math/integers/treasure';
 
   const p = $derived(game.profile!);
   const save = $derived(arcadeOf(p));
   const builderBest = $derived(builderOf(p).best);
+  const treasureBest = $derived(treasureOf(p).best);
   const shells = $derived(advView(p).shells);
   const today = dailyGame();
   const beaten = $derived(dailyBeaten(p, today));
@@ -63,6 +65,8 @@
     { id: 'clockrush', screen: 'clockrush', name: 'Clock Rush', part: 'Time and measuring', color: '#8a6bd6', art: 'arcade/cab-clock.webp', say: 'Tick-tock, catch the clocks!', line: () => 'Catch the clocks' },
     { id: 'shifter', screen: 'shifter', name: 'Shape Shifter', part: 'Shapes and angles', color: '#6f4ff0', art: 'arcade/cab-shapes.webp', say: 'Catch the crystals!', line: () => 'Catch the crystal shapes' },
     { id: 'smoothie', screen: 'smoothie', name: 'Smoothie Stand', part: 'Ratios and percents', color: '#ef5f8a', art: 'arcade/cab-smoothie.webp', say: 'Smoothies! Mix them just right!', line: () => 'Mix smoothies just right' },
+    { id: 'treasure', screen: 'treasure', name: 'Treasure Grid', part: 'Negative numbers', color: '#2f9ed8', art: 'arcade/cab-treasure.webp', say: 'Treasure! Dig it up!',
+      line: () => (treasureBest ? `Best score ${treasureBest}` : 'Dig on the map') },
   ];
   function openCab(c: AreaCab) { unlockAudio(); sfx.click(); scene?.cheer(); c.before?.(); game.go(c.screen); }
   /** Glimmer Drop: just for fun, on its own screen (it spends play time); its cabinet is always last */

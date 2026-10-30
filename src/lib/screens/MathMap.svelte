@@ -272,6 +272,12 @@
           <img src="{import.meta.env.BASE_URL}math/ratios/tile.webp" alt="" />
           <span class="ptext"><b>Smoothie Stand</b><small>Game: mix smoothies by the recipe for Glimmer customers.{(m.arcade?.['smoothie-stand']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['smoothie-stand'].best}` : ''}</small></span>
         </button>
+      {:else if area === 'integers'}
+        <!-- the negative numbers arcade game (its cabinet is in the Arcade too: screen 'treasure') -->
+        <button class="placement arcade" onclick={() => { sfx.click(); game.go('treasure'); }}>
+          <img src="{import.meta.env.BASE_URL}math/integers/tile.webp" alt="" />
+          <span class="ptext"><b>Treasure Grid</b><small>Game: dig for treasure on the map before the tide comes in.{(m.arcade?.['treasure-grid']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['treasure-grid'].best}` : ''}</small></span>
+        </button>
       {/if}
       {#if area === 'place'}
         <!-- the place value arcade game (its cabinet is in the Arcade too) -->

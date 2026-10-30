@@ -216,6 +216,41 @@ const RATIO_REGIONS = [
     ['Canopy Juice Bar Run', 'check', CANOPY_SKILLS, [], 5, 'slide', 'Every kind of question on this island. Already know them? Start here.'],
   ]),
 ];
+// Negative numbers and the coordinate plane, grades 5 to 7, in Below Zero Caves: Sea Level Dock (points
+// on the map, below zero in real life, opposites), the Treasure Map Grotto (bigger or smaller, how far
+// from zero, the whole four-corner map, distances on it) and the Deep Freeze (adding, taking away, times
+// and sharing with negatives, and decimals below zero).
+const DOCK_SKILLS = ['in-plot', 'in-real', 'in-opp'];
+const GROTTO_SKILLS = ['in-compare', 'in-abs', 'in-quad', 'in-dist'];
+const FREEZE_SKILLS = ['in-add', 'in-sub', 'in-mult', 'in-rat'];
+const DOCK: Omit<SkillRegion, 'lessons'> = { id: 'int-a', area: 'integers', name: 'Sea Level Dock', blurb: 'Points on the map, temperatures and depths below zero, and opposites on the number line.', world: 'shores', chip: '−3°', skills: DOCK_SKILLS, art: 'math/integers/region-dock.webp' };
+const GROTTO: Omit<SkillRegion, 'lessons'> = { id: 'int-b', area: 'integers', name: 'Treasure Map Grotto', blurb: 'Which is bigger, how far from zero, the whole four-corner map, and distances on it.', world: 'ridge', chip: '(−3, 2)', skills: GROTTO_SKILLS, art: 'math/integers/region-grotto.webp' };
+const FREEZE: Omit<SkillRegion, 'lessons'> = { id: 'int-c', area: 'integers', name: 'The Deep Freeze', blurb: 'Adding, taking away, times and sharing with negative numbers, and decimals below zero.', world: 'cliffs', chip: '−3 + 5', skills: FREEZE_SKILLS, art: 'math/integers/region-freeze.webp' };
+const INTEGER_REGIONS = [
+  region(DOCK, [
+    ['Map Points', 'meet', ['in-plot'], ['in-plot'], 6, 'run', 'Across first, then up: (3, 5) is 3 across and 5 up.'],
+    ['Below Zero', 'meet', ['in-real', 'in-plot'], ['in-real'], 6, 'swim', 'Below zero gets a minus sign: 5 degrees below zero is −5.'],
+    ['Opposites', 'meet', ['in-opp', 'in-real'], ['in-opp'], 6, 'climb', 'Opposites are the same distance from 0 on different sides: 4 and −4.'],
+    ['Dock Mix', 'mix', DOCK_SKILLS, [], 6, 'slide', 'Everything so far, all mixed up.'],
+    ['Sea Level Run', 'check', DOCK_SKILLS, [], 7, 'run', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(GROTTO, [
+    ['Bigger or Smaller', 'meet', ['in-compare', 'in-opp'], ['in-compare'], 7, 'run', 'Further right is bigger: −3 is bigger than −7.'],
+    ['How Far From Zero', 'meet', ['in-abs', 'in-compare'], ['in-abs'], 6, 'swim', 'Count the steps to 0: |−8| = 8.'],
+    ['The Whole Map', 'meet', ['in-quad', 'in-plot'], ['in-quad'], 5, 'climb', 'Minus goes left or down: (−3, 2) is 3 left and 2 up.'],
+    ['Map Distances', 'meet', ['in-dist', 'in-quad'], ['in-dist'], 5, 'slide', 'Across the axis? Add the two distances.'],
+    ['Grotto Mix', 'mix', GROTTO_SKILLS, [], 6, 'run', 'Everything on this island, all mixed up.'],
+    ['Grotto Run', 'check', GROTTO_SKILLS, [], 6, 'climb', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(FREEZE, [
+    ['Adding Negatives', 'meet', ['in-add', 'in-opp'], ['in-add'], 6, 'swim', 'Plus hops right, minus hops left.'],
+    ['Taking Away', 'meet', ['in-sub', 'in-add'], ['in-sub'], 5, 'run', 'Taking away a negative is adding: 4 − (−3) = 7.'],
+    ['Times and Share', 'meet', ['in-mult', 'in-add'], ['in-mult'], 6, 'climb', 'Same signs make plus, different signs make minus.'],
+    ['Decimals Below Zero', 'meet', ['in-rat', 'in-add'], ['in-rat'], 5, 'slide', 'Same rules, smaller steps: −1.5 is between −1 and −2.'],
+    ['Deep Freeze Mix', 'mix', [...FREEZE_SKILLS, 'in-compare'], [], 5, 'run', 'This island and the last, all mixed up.'],
+    ['Deep Freeze Run', 'check', FREEZE_SKILLS, [], 6, 'swim', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+];
 export const SKILL_REGIONS: SkillRegion[] = [
   region(PIE, [
     ['Meet Fractions', 'meet', ['fr-name'], ['fr-name'], 6, 'run', 'The bottom number is how many equal parts; the top is how many you have.'],
@@ -246,6 +281,7 @@ export const SKILL_REGIONS: SkillRegion[] = [
   ...MEASURE_REGIONS,
   ...SHAPE_REGIONS,
   ...RATIO_REGIONS,
+  ...INTEGER_REGIONS,
 ];
 
 export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
@@ -255,6 +291,7 @@ export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
   measure: { id: 'start-measure', region: 'start', area: 'measure', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...TICK_SKILLS, ...MILL_M_SKILLS, ...YARD_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of clocks, rulers, scales, area and units. Answer what you know and skip ahead!' },
   fractions: { id: 'start-fractions', region: 'start', area: 'fractions', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...PIE_SKILLS, ...BAKER_SKILLS, ...MILL_SKILLS], learn: [], goal: 6, move: 'run', world: 'village', blurb: 'A quick mix of fractions. Answer what you know and skip ahead!' },
   shapes: { id: 'start-shapes', region: 'start', area: 'shapes', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...MEADOW_SKILLS, ...RIDGE_SKILLS, ...TERRACE_SKILLS, ...SUMMIT_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of shapes and angles. Answer what you know and skip ahead!' },
+  integers: { id: 'start-integers', region: 'start', area: 'integers', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...DOCK_SKILLS, ...GROTTO_SKILLS, ...FREEZE_SKILLS], learn: [], goal: 6, move: 'run', world: 'shores', blurb: 'A quick mix of negative numbers and the map. Answer what you know and skip ahead!' },
 };
 /** The Learn episode that teaches each fraction skill (a hook for math/learn.ts: an episode added with
  *  one of these ids can be offered on that skill's Meet lesson, its results and its practice stop). */
@@ -277,6 +314,9 @@ export const SKILL_EPISODES: Record<string, string> = {
   // ratios and percents (the Jungle Juice Bar: math/ratioEpisodes.ts)
   'rt-ratio': 'rt-for-every', 'rt-table': 'rt-batches', 'rt-dnl': 'rt-two-lines', 'rt-rate': 'rt-one-each', 'rt-units': 'rt-one-each',
   'rt-pct': 'rt-out-of-100', 'rt-pctof': 'rt-percent-of', 'rt-whole': 'rt-percent-of', 'rt-shop': 'rt-percent-off', 'rt-change': 'rt-percent-off',
+  // negative numbers (the Ice Cave Chart Room, math/integers/episodes.ts)
+  'in-plot': 'neg-map', 'in-real': 'neg-zero', 'in-opp': 'neg-opposites', 'in-compare': 'neg-compare', 'in-abs': 'neg-opposites', 'in-quad': 'neg-map',
+  'in-dist': 'neg-map', 'in-add': 'neg-add', 'in-sub': 'neg-sub', 'in-mult': 'neg-times', 'in-rat': 'neg-add',
 };
 export const SKILL_LESSONS: SkillLesson[] = SKILL_REGIONS.flatMap(r => r.lessons);
 export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS].map(l => [l!.id, l!]));
@@ -285,7 +325,7 @@ export const skillRegionsOf = (area: AreaId) => SKILL_REGIONS.filter(r => r.area
 export const isSkillLesson = (id: string) => !!SKILL_LESSON[id];
 /** How much longer a skill question takes than a fact: speeds, treasure and rides are scaled by it so a
  *  good fraction trip feels as fast as a good times-table trip. */
-export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5, measure: 2.8, shapes: 2.5, ratios: 2.5 };
+export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5, measure: 2.8, shapes: 2.5, ratios: 2.5, integers: 2.5 };
 export const tempoOf = (area: AreaId) => TEMPO[area] ?? 2;
 
 // ---------- what's open ----------

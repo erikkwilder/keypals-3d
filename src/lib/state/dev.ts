@@ -56,7 +56,7 @@ export function devBoot() {
   if (key === 'skill') { ensure(); game.setHome('math'); game.startSkill(val || 'place-a-1'); }
   if (key === 'garden') { ensure(); game.go('garden'); }
   // Adventure: #adventure (or #adventure=falls for that world), #battle=meadow-0 (or falls-0), #glimmers, #eggs
-  if (key === 'adventure') { ensure(); if (val === 'sky' || val === 'falls' || val === 'caves' || val === 'market' || val === 'clockwork' || val === 'peaks' || val === 'jungle') lastWorld.id = val; game.go('adventure'); }
+  if (key === 'adventure') { ensure(); if (val === 'sky' || val === 'falls' || val === 'caves' || val === 'market' || val === 'clockwork' || val === 'peaks' || val === 'jungle' || val === 'frost') lastWorld.id = val; game.go('adventure'); }
   if (key === 'battle') { ensure(); game.battleNode = val || 'meadow-0'; game.battleKey++; game.go('battle'); }
   if (key === 'glimmers') { ensure(); game.go('glimmers'); }
   if (key === 'eggs') { ensure(); game.go('eggs'); }
@@ -78,6 +78,11 @@ export function devBoot() {
   if (key === 'smoothie') { ensure(); game.go('smoothie'); }
   // a money Learn episode over the Decimals and money map: #market-learn=dec-coins
   if (key === 'market-learn') { ensure(); game.mathArea = 'decimals'; game.mathOp = null; game.go('map'); game.learnOverlay = val || 'dec-coins'; }
+  // negative numbers: Treasure Grid, the arcade game (#treasure), Star Sketch, the Playground toy (#sketch),
+  // and the area started so Below Zero Caves is open (#neg-start: a few questions met)
+  if (key === 'treasure') { ensure(); game.go('treasure'); }
+  if (key === 'sketch') { ensure(); game.playPick = 'sketch'; game.go('playground'); }
+  if (key === 'neg-start') { ensure(); import('../math/skills/integers').then(() => game.update(pp => { const m = (pp.math = mathOf(pp)); for (const k of ['in-plot:plot', 'in-real:temp', 'in-add:negpos', 'in-quad:plot']) (m.skills ??= {})[k] ??= { stage: 1, seen: 3, right: 3, wrong: 0, times: [3000], fastDays: [], last: Date.now(), due: 0, step: 0 }; })); game.mathArea = 'integers'; game.mathOp = null; game.setHome('math'); game.go('map'); }
   // Glimmer Drop: #drop
   if (key === 'drop') { ensure(); game.go('drop'); }
   // the Arcade: #arcade (the plaza), #arcade=slalom|catch|tower (straight into a round), #arcade=daily

@@ -8,6 +8,7 @@ import { LADDER_EVOLVED, LADDER_GLIMMERS, type LadderGlimmerId } from './glimmer
 import { CLOCKWORK_EVOLVED, CLOCKWORK_GLIMMERS, type ClockworkGlimmerId } from './clockwork';
 import { SHAPES_EVOLVED, SHAPE_PEAKS_GLIMMERS, type ShapesGlimmerId } from './shapesGlimmers';
 import { JUNGLE_EVOLVED, JUNGLE_GLIMMERS, type JungleGlimmerId } from './jungleGlimmers';
+import { FROST_EVOLVED, FROST_GLIMMERS, type FrostGlimmerId } from './frostGlimmers';
 
 export type Element = 'sun' | 'frost' | 'tide' | 'stone' | 'leaf';
 /** The ring: each element is strong against the next one round. */
@@ -44,7 +45,7 @@ export type PowerKind = 'splash' | 'shell' | 'nibble' | 'ember' | 'hide' | 'cool
 export type RollGlimmerId = 'puddlepup' | 'pebbletort' | 'sproutbun' | 'embernewt' | 'fernfox' | 'snowseal' | 'frostowl' | 'sparkmoth' | 'prismhorn' | 'whalecalf' | 'lanternfox' | 'bloomdrake' | 'skywhale' | 'aurorastag'
   | 'sunsnail' | 'mittenyeti' | 'bubbleocto' | 'geodemole' | 'popcornpuff' | 'mushmouse' | 'rainbootfrog' | 'rollodillo'
   | 'teakettledrake' | 'cactuskit' | 'frostjelly' | 'potgolem' | 'stormlamb' | 'pinepango' | 'cometcat' | 'phoenixchick';
-export type GlimmerId = RollGlimmerId | LadderGlimmerId | ClockworkGlimmerId | ShapesGlimmerId | JungleGlimmerId;
+export type GlimmerId = RollGlimmerId | LadderGlimmerId | ClockworkGlimmerId | ShapesGlimmerId | JungleGlimmerId | FrostGlimmerId;
 /** Where a Glimmer comes from (ladder.ts says how each source works): 'roll' (the first 30, absent on
  *  them: battles and eggs), 'native' (a math world's own, and its Champion), 'milestone', 'collection',
  *  'season', 'secret', 'apex' (the four legends). */
@@ -140,7 +141,7 @@ export const GLIMMERS: GlimmerDef[] = [
 ];
 /** Every Glimmer: the first 30 (GLIMMERS, the ones random rolls give) and the ladder's (glimmers2.ts).
  *  Random rolls (battles, eggs, the Grumbles you meet) only ever use GLIMMERS. */
-export const ALL_GLIMMERS: GlimmerDef[] = [...GLIMMERS, ...LADDER_GLIMMERS, ...CLOCKWORK_GLIMMERS, ...SHAPE_PEAKS_GLIMMERS, ...JUNGLE_GLIMMERS];
+export const ALL_GLIMMERS: GlimmerDef[] = [...GLIMMERS, ...LADDER_GLIMMERS, ...CLOCKWORK_GLIMMERS, ...SHAPE_PEAKS_GLIMMERS, ...JUNGLE_GLIMMERS, ...FROST_GLIMMERS];
 /** How many Glimmers there will be once every math world's are in (the Glimmer Book's "of 100"). */
 export const GLIMMER_TOTAL = 100;
 export const GLIMMER: Record<GlimmerId, GlimmerDef> = Object.fromEntries(ALL_GLIMMERS.map(g => [g.id, g])) as Record<GlimmerId, GlimmerDef>;
@@ -195,6 +196,7 @@ export const EVOLVED: Record<GlimmerId, { name: string; perk: string }> = {
   ...CLOCKWORK_EVOLVED,
   ...SHAPES_EVOLVED,
   ...JUNGLE_EVOLVED,
+  ...FROST_EVOLVED,
   puddlepup: { name: 'Tidal Pup', perk: 'Water cards splash 2 more cheer.' },
   pebbletort: { name: 'Boulder Tortoise', perk: 'Blocks the first two rains or zaps, not just one.' },
   sproutbun: { name: 'Blossom Bunny', perk: 'Strong ⚡ cards give you 2 more energy back.' },

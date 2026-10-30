@@ -5,6 +5,7 @@
 //   Build It         build a number from hundreds, tens and ones: place value
 //   Market Stall     price your goods, then give shoppers their change: money (math/market/stall.ts)
 //   Smoothie Lab     mix fruit until the colour matches: ratios and percents (math/ratios/lab.ts)
+//   Star Sketch      plot the points of a picture on a coordinate grid: the map (math/integers/sketch.ts)
 // Rounds feed the same friendship, outfits, dances, stickers and daily minutes as every other game.
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
 import { buddyPal } from '../engine/profile';
@@ -15,7 +16,7 @@ import { mathOf } from './progress';
 import type { Rng } from '../engine/rng';
 import { hasEvidence, pitch, TARGET } from './skills/ability';
 
-export type PlayGame = 'line' | 'bonds' | 'build' | 'stall' | 'lab';
+export type PlayGame = 'line' | 'bonds' | 'build' | 'stall' | 'lab' | 'sketch';
 export type PlayLevel = { n: number; title: string; hint: string };
 
 export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: string; levels: PlayLevel[] }[] = [
@@ -53,6 +54,13 @@ export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: str
     { n: 3, title: 'Match the colour', hint: 'No card: mix, look, and add a little more.' },
     { n: 4, title: 'A bigger jug', hint: '6 strawberries for a 2 : 3 mix? 9 bananas.' },
     { n: 5, title: 'Percent smoothies', hint: 'A percent of the fruit is the first one: 25% is a quarter, 50% is half.' },
+  ] },
+  { id: 'sketch', name: 'Star Sketch', blurb: 'Plot the points on the map and the stars join into a picture. No clock, no rush.', color: '#2c5275', levels: [
+    { n: 1, title: 'Little pictures', hint: 'Across first, then up: (2, 4) is 2 across and 4 up.' },
+    { n: 2, title: 'Bigger pictures', hint: 'Find the first number on the bottom line, then go up.' },
+    { n: 3, title: 'All four corners', hint: 'Minus goes left or down: (−3, 2) is 3 left and 2 up.' },
+    { n: 4, title: 'Mirror pictures', hint: 'Flip over the y-axis: the first number changes sign.' },
+    { n: 5, title: 'Lake reflections', hint: 'Flip over the x-axis: the second number changes sign.' },
   ] },
 ];
 export const PLAY_GAME = Object.fromEntries(PLAY_GAMES.map(g => [g.id, g])) as Record<PlayGame, (typeof PLAY_GAMES)[number]>;
@@ -123,6 +131,7 @@ const PLAY_SKILL: Record<PlayGame, { skill: string; level: number[] }> = {
   build: { skill: 'pv-hundreds', level: [2, 3, 4, 5, 5, 5] },
   stall: { skill: 'dm-change', level: [1, 2, 3, 4, 5, 5] },
   lab: { skill: 'rt-ratio', level: [1, 2, 3, 4, 5, 5] },
+  sketch: { skill: 'in-quad', level: [1, 2, 3, 4, 5, 5] },
 };
 /** The level the child's practice says they're ready for (pitched easy: 90%), once there is practice to
  *  go by (0 before). It opens levels the way a star does and never closes one. */

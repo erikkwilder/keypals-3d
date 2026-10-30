@@ -11,8 +11,9 @@ import { rungFor, STRAND_SKILL, TARGET, thetaOf, type AbilityHome } from './skil
 import { FRAC_LESSON, type EpQ } from './fracEpisodes';
 import { SHAPE_LESSON } from './shapes/episodes';
 import { RATIO_COLOR, RATIO_LESSON, RATIO_NOUN } from './ratioEpisodes';
+import { NEG_LESSON } from './integers/episodes';
 
-export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'clockshop' | 'peaks' | 'juice';
+export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'clockshop' | 'peaks' | 'juice' | 'frost';
 /** what the counters are in each place */
 export type TokenKind = 'cookie' | 'pearl' | 'berry' | 'block' | 'flower';
 
@@ -51,6 +52,9 @@ export const SETS: Record<SetId, {
   // ratios and percents: Mushroom Mouse's juice bar in a treehouse in the Juice Jungle (the counters are fruit)
   juice: { name: 'The Jungle Juice Bar', backdrop: 'learn/ep/set-juice.webp', table: 'learn/ep/tex-juice.webp', star: 'mushmouse', token: 'berry',
     tray: { word: 'fruit crate', color: 0xd9a46a, rim: 0x9c6a38 }, plate: { word: 'plate', color: 0xfffaf2, rim: 0xf07a3a }, key: 0xffdcae, sky: 0xfff0d0, ground: 0x7a5a36, haze: 0xf6d6a0 },
+  // negative numbers: an explorer's chart room inside a glacier, a stove and lanterns, the frozen sea outside
+  frost: { name: 'The Ice Cave Chart Room', backdrop: 'learn/ep/set-frost.webp', table: 'learn/ep/tex-frost.webp', star: 'snowseal', token: 'pearl',
+    tray: { word: 'shell crate', color: 0xc99a62, rim: 0x8a6239 }, plate: { word: 'bucket', color: 0x5fb3d9, rim: 0x2f7aa3 }, key: 0xffdcae, sky: 0xd6ecff, ground: 0x4f6a8a, haze: 0xcfe6f7 },
 };
 
 export type Episode = {
@@ -192,6 +196,8 @@ export type EpLesson = {
   cover: Board | null; art: string | null;
   /** what the counters are called in the prompts ("slices") */
   noun?: string;
+  /** answers can be negative: the pad has its minus key (negative numbers) */
+  minus?: boolean;
 };
 const FRAC_COLOR = '#ef8a4b', SHAPE_COLOR = '#2fb3a0';
 const NOUN: Record<string, string> = { 'frac-one-piece': 'squares', 'frac-take-away': 'squares', 'frac-times': 'squares', 'frac-of-a-set': 'cupcakes' };
@@ -225,6 +231,13 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
       teach: { q: f.teach.q, wrong: f.teach.wrong, says: f.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: f.teach.fixed },
       cover: null, art: f.art, noun: NOUN[id] ?? RATIO_NOUN[id] ?? (shape ? 'pieces' : 'slices') };
   }
+  const n = NEG_LESSON[id];
+  if (n) {
+    const all = [n.teach.q.ans, n.teach.wrong, n.teach.decoy], k = n.id.length % 3;
+    return { id, title: n.title, blurb: n.blurb, color: '#3d7fc4', set: n.set, star: n.star, steps: n.steps, tries: n.tries,
+      teach: { q: n.teach.q, wrong: n.teach.wrong, says: n.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: n.teach.fixed },
+      cover: null, art: n.art, noun: 'coins', minus: true };
+  }
   const l = LESSON[id];
   if (!l) return null;
   const e = episodeOf(id);
@@ -234,7 +247,7 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
     teach: { q: q(e.teach.f), wrong: String(e.teach.wrong), says: e.teach.says, choices: fixChoices(e).map(String), fixed: `Oops! ${hintFor(l, e.teach.f)} Thank you!` },
     cover: coverOf(l), art: null };
 }
-export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!SHAPE_LESSON[id] || !!RATIO_LESSON[id] || !!LESSON[id];
+export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!SHAPE_LESSON[id] || !!RATIO_LESSON[id] || !!LESSON[id] || !!NEG_LESSON[id];
 
 /** The lessons in order, with their episode. */
 export const lessonWithEpisode = (l: Lesson) => ({ lesson: l, ep: episodeOf(l.id), set: setOf(l.id) });

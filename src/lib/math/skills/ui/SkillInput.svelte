@@ -7,6 +7,7 @@
   export function registerInput(name: string, c: Component<CustomInputProps>) { CUSTOM.set(name, c); }
   // the inputs the areas bring
   import CoinTray from './CoinTray.svelte';
+  import ThermoInput from './ThermoInput.svelte';
   registerInput('coins', CoinTray);
   // measurement and time: clock hands, a ribbon on a ruler, water in a jug
   import ClockInput from './ClockInput.svelte';
@@ -31,6 +32,7 @@
   registerInput('ratiotable', RatioTable);
   registerInput('dnl', DoubleLine);
   registerInput('pctbar', PercentBar);
+  registerInput('thermo', ThermoInput);
 </script>
 
 <script lang="ts">
@@ -75,7 +77,8 @@
 
   // ---- whole numbers (and decimals, negatives) ----
   const ans = $derived(item.answer.kind === 'number' ? item.answer.value : 0);
-  const whole = $derived(choice || (item.answer.kind === 'number' && Number.isInteger(ans) && ans >= 0));
+  // (a `signed` item always has its minus key and Check, so a positive answer doesn't give itself away)
+  const whole = $derived(choice || (item.answer.kind === 'number' && Number.isInteger(ans) && ans >= 0 && !item.signed));
   const digits = $derived(String(ans).length);
   const text = $derived(fill?.kind === 'number' ? fill.text : '');
   function digit(d: string) {
@@ -110,7 +113,7 @@
     const d = /^[0-9]$/.test(e.key) ? e.key : m ? m[1] : null;
     if (d) { e.preventDefault(); digit(d); }
     else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); back(); }
-    else if ((e.key === '.' || e.key === ',') && !whole) { e.preventDefault(); digit('.'); }
+    else if ((e.key === '.' || e.key === ',') && !whole && item.signed !== true) { e.preventDefault(); digit('.'); }
     else if (e.key === '-' && !whole) { e.preventDefault(); digit('-'); }
     else if (e.key === 'Enter') { e.preventDefault(); submitNumber(); }
   }
@@ -150,7 +153,7 @@
   </div>
 {:else if item.input === 'number'}
   <div class="num">
-    <NumPad ondigit={digit} onback={back} {disabled} {compact} extra={whole ? [] : ['.', '-']} />
+    <NumPad ondigit={digit} onback={back} {disabled} {compact} extra={whole ? [] : item.signed === true ? ['-'] : ['.', '-']} />
     {#if !whole}<button class="ok" disabled={!text || bad || disabled} onpointerdown={(e) => { e.preventDefault(); submitNumber(); }} tabindex="-1"><Icon name="check" size={28} /><span>Check</span></button>{/if}
   </div>
 {:else if item.input === 'fraction'}

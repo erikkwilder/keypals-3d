@@ -1,12 +1,14 @@
 {
   "acornsprite": [388, 690, 360],
   "cartbeetle": [230, 520, 320],
+  "compasscrab": [425, 540, 300],
   "crystalbat": [370, 720, 340],
   "cupcakebear": [388, 520, 330],
   "eldertreeturtle": [640, 690, 256],
   "fireflyfawn": [400, 470, 300],
   "fruittoucan": [330, 470, 320],
   "galaxynarwhal": [420, 540, 340],
+  "glowfin": [450, 455, 320],
   "keycricket": [585, 560, 290],
   "lighthousepuffin": [380, 530, 330],
   "maplepanda": [300, 590, 300],
@@ -15,5 +17,6 @@
   "pineapplepine": [425, 480, 340],
   "prismpeacock": [430, 490, 250],
   "smoothiesloth": [385, 390, 300],
+  "snowhog": [405, 455, 330],
   "snowpineelk": [405, 410, 270]
 }

@@ -1,5 +1,5 @@
 // The world map: every world of Adventure on one painted picture (worlds-wide.webp). The Sky Islands,
-// Fraction Falls, Counting Caves and Market Isle are open (Counting Caves is painted onto the picture as a
+// Fraction Falls, Counting Caves, Market Isle and Below Zero Caves are open (Counting Caves is painted onto the picture as a
 // cut-out); the rest are the math areas still to come, shown so a child can see where the adventure goes
 // next. Each open world has its own painted map, wide (desktop) and tall (phones).
 import type { AreaId } from '../math/skills/types';
@@ -37,7 +37,8 @@ export const WORLD_PINS: WorldPin[] = [
   { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Cuckoo clocks, gears and a great balance scale. Every battle card is time or measuring.', at: [60, 55], area: 'measure', station: 'storybook',
     map: { wide: 'game/map-clock-wide.webp', tall: 'game/map-clock-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   { id: 'stars', name: 'Star Lab', blurb: 'Expressions and equations.', at: [88, 57], area: 'algebra' },
-  { id: 'frost', name: 'Below Zero Caves', blurb: 'Negative numbers, under the ice.', at: [37, 87], area: 'integers' },
+  { id: 'frost', name: 'Below Zero Caves', blurb: 'A glacier island with a frozen harbour and an ice palace. Every battle card is about negative numbers and the map.', at: [37, 87], area: 'integers',
+    map: { wide: 'game/map-frost-wide.webp', tall: 'game/map-frost-tall.webp', size: { wide: [1600, 900], tall: [1024, 1821] } }, station: 'snow' },
   { id: 'fair', name: 'Chance Fair', blurb: 'Graphs, chance and data.', at: [73, 86], area: 'data' },
   // Juice Jungle (ratios and percents): painted onto the clouds at the bottom right; steel drums and
   // maracas from the World station

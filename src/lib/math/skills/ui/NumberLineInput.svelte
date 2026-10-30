@@ -11,7 +11,7 @@
   let el: HTMLDivElement | undefined = $state();
   const frac = (k: number) => (k - line.min) / (line.max - line.min);
   const label = (v: number) => {
-    if (!line.denom) return String(Math.round(v * 1000) / 1000);
+    if (!line.denom) return String(Math.round(v * 1000) / 1000).replace('-', '−');
     const n = Math.round(v * line.denom);
     return n % line.denom === 0 ? String(n / line.denom) : `${n}/${line.denom}`;
   };
@@ -60,5 +60,6 @@
   .ok { display: flex; align-items: center; gap: 6px; border: 3px solid #3fbf7a; border-radius: 16px; padding: 10px 18px 10px 12px; background: linear-gradient(#7ee0a8, #3fbf7a); color: #fff; font: 600 20px var(--font-ui); box-shadow: 0 4px 0 #2f9a60; cursor: pointer; }
   .ok:disabled { filter: grayscale(.8); opacity: .6; cursor: default; }
   .compact { flex-direction: column; }
-  .compact .track { width: 100%; height: 84px; }
+  /* (in a column the plank keeps its own height: flex: 1 would squash it to nothing under the Check button) */
+  .compact .track { flex: none; width: 100%; height: 84px; }
 </style>

@@ -163,6 +163,7 @@ export function propsFor(id: SetId): { left: THREE.Group; right: THREE.Group } {
     case 'clockshop': return { left: blockStack(), right: brushJar() };
     case 'peaks': return { left: crystals(), right: blockStack() };
     case 'juice': return juiceProps();
+    case 'frost': return { left: crystals(), right: ropeCoil() };
   }
 }
 
@@ -180,6 +181,7 @@ const HERO: Record<SetId, [string, number, number][]> = {
   clockshop: [['train', 0.22, 0.7], ['lantern', 0.36, -0.3]],
   peaks: [['', 0, 0], ['lantern', 0.36, -0.3]],
   juice: [['', 0, 0], ['', 0, 0]],
+  frost: [['lantern', 0.36, 0.4], ['boat', 0.3, -0.6]],
 };
 /** The set's modelled things for the front corners, or null if they can't load (the simple ones stand in). */
 export async function heroProps(id: SetId): Promise<{ left: THREE.Group; right: THREE.Group } | null> {

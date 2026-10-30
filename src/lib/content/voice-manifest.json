@@ -2014,5 +2014,185 @@
   "ep.rt-percent-off.card": {
     "voice": "coach",
     "ms": 7413
+  },
+  "ep.neg-zero.intro": {
+    "voice": "coach",
+    "ms": 5418
+  },
+  "ep.neg-zero.s0": {
+    "voice": "coach",
+    "ms": 2036
+  },
+  "ep.neg-zero.s1": {
+    "voice": "coach",
+    "ms": 6515
+  },
+  "ep.neg-zero.s2": {
+    "voice": "coach",
+    "ms": 2619
+  },
+  "ep.neg-zero.s3": {
+    "voice": "coach",
+    "ms": 7154
+  },
+  "ep.neg-zero.s4": {
+    "voice": "coach",
+    "ms": 5328
+  },
+  "ep.neg-zero.card": {
+    "voice": "coach",
+    "ms": 7608
+  },
+  "ep.neg-opposites.intro": {
+    "voice": "coach",
+    "ms": 4749
+  },
+  "ep.neg-opposites.s0": {
+    "voice": "coach",
+    "ms": 2100
+  },
+  "ep.neg-opposites.s1": {
+    "voice": "coach",
+    "ms": 2679
+  },
+  "ep.neg-opposites.s2": {
+    "voice": "coach",
+    "ms": 1128
+  },
+  "ep.neg-opposites.s3": {
+    "voice": "coach",
+    "ms": 3528
+  },
+  "ep.neg-opposites.s4": {
+    "voice": "coach",
+    "ms": 7977
+  },
+  "ep.neg-opposites.card": {
+    "voice": "coach",
+    "ms": 7428
+  },
+  "ep.neg-compare.intro": {
+    "voice": "coach",
+    "ms": 6051
+  },
+  "ep.neg-compare.s0": {
+    "voice": "coach",
+    "ms": 2869
+  },
+  "ep.neg-compare.s1": {
+    "voice": "coach",
+    "ms": 4211
+  },
+  "ep.neg-compare.s2": {
+    "voice": "coach",
+    "ms": 4769
+  },
+  "ep.neg-compare.s3": {
+    "voice": "coach",
+    "ms": 4510
+  },
+  "ep.neg-compare.card": {
+    "voice": "coach",
+    "ms": 7713
+  },
+  "ep.neg-add.intro": {
+    "voice": "coach",
+    "ms": 4161
+  },
+  "ep.neg-add.s0": {
+    "voice": "coach",
+    "ms": 3896
+  },
+  "ep.neg-add.s1": {
+    "voice": "coach",
+    "ms": 6251
+  },
+  "ep.neg-add.s2": {
+    "voice": "coach",
+    "ms": 2584
+  },
+  "ep.neg-add.s3": {
+    "voice": "coach",
+    "ms": 5483
+  },
+  "ep.neg-add.card": {
+    "voice": "coach",
+    "ms": 4734
+  },
+  "ep.neg-sub.intro": {
+    "voice": "coach",
+    "ms": 3846
+  },
+  "ep.neg-sub.s0": {
+    "voice": "coach",
+    "ms": 2734
+  },
+  "ep.neg-sub.s1": {
+    "voice": "coach",
+    "ms": 3921
+  },
+  "ep.neg-sub.s2": {
+    "voice": "coach",
+    "ms": 2739
+  },
+  "ep.neg-sub.s3": {
+    "voice": "coach",
+    "ms": 7094
+  },
+  "ep.neg-sub.card": {
+    "voice": "coach",
+    "ms": 4949
+  },
+  "ep.neg-times.intro": {
+    "voice": "coach",
+    "ms": 3647
+  },
+  "ep.neg-times.s0": {
+    "voice": "coach",
+    "ms": 4186
+  },
+  "ep.neg-times.s1": {
+    "voice": "coach",
+    "ms": 4475
+  },
+  "ep.neg-times.s2": {
+    "voice": "coach",
+    "ms": 4340
+  },
+  "ep.neg-times.s3": {
+    "voice": "coach",
+    "ms": 6421
+  },
+  "ep.neg-times.card": {
+    "voice": "coach",
+    "ms": 6690
+  },
+  "ep.neg-map.intro": {
+    "voice": "coach",
+    "ms": 5807
+  },
+  "ep.neg-map.s0": {
+    "voice": "coach",
+    "ms": 4764
+  },
+  "ep.neg-map.s1": {
+    "voice": "coach",
+    "ms": 4560
+  },
+  "ep.neg-map.s2": {
+    "voice": "coach",
+    "ms": 6850
+  },
+  "ep.neg-map.s3": {
+    "voice": "coach",
+    "ms": 7149
+  },
+  "ep.neg-map.s4": {
+    "voice": "coach",
+    "ms": 4530
+  },
+  "ep.neg-map.card": {
+    "voice": "coach",
+    "ms": 6870
   }
 }

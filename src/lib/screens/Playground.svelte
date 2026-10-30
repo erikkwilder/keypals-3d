@@ -17,6 +17,7 @@
   import BuildIt from '../math/play/BuildIt.svelte';
   import Stall from '../math/play/Stall.svelte';
   import Lab from '../math/play/Lab.svelte';
+  import Sketch from '../math/play/Sketch.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import MenuButton from '../ui/MenuButton.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -31,7 +32,7 @@
   let burst = $state(0);
   let k = 0;
   // the 3D island and buddy behind each game
-  const WORLD: Record<PlayGame, RegionId> = { line: 'village', bonds: 'shores', build: 'burrows', stall: 'treetops', lab: 'treetops' };
+  const WORLD: Record<PlayGame, RegionId> = { line: 'village', bonds: 'shores', build: 'burrows', stall: 'treetops', lab: 'treetops', sketch: 'ridge' };
   let scene: PlayScene | null = null;
   let areaEl: HTMLElement | null = null;
   let areaOpts: { span?: number; feetAt?: number } = {};
@@ -88,13 +89,14 @@
     build: 'Learns: place value, hundreds, tens and ones, trading ten for one.',
     stall: 'Learns: coins and money, counting up to make change.',
     lab: 'Learns: ratios (equal mixes look the same) and percents.',
+    sketch: 'Learns: the coordinate grid, all four quadrants, and flipping over an axis.',
   };
   function openBlocks() { sfx.click(); builderOpen.toy = true; builderOpen.from = 'playground'; game.go('builder'); }
   function backToGames() { playing = null; done = null; if (scene && stage.current() === scene) stage.use(null); scene?.dispose(); scene = null; }
   // each game's painted picture (number line with a hopping frog, bubbles, place-value blocks)
-  const ART: Record<PlayGame, 'line' | 'bubbles' | 'blocks' | null> = { line: 'line', bonds: 'bubbles', build: 'blocks', stall: null, lab: null };
+  const ART: Record<PlayGame, 'line' | 'bubbles' | 'blocks' | null> = { line: 'line', bonds: 'bubbles', build: 'blocks', stall: null, lab: null, sketch: null };
   /** a painted picture instead of an icon (the toys without one) */
-  const PIC: Partial<Record<PlayGame, string>> = { lab: 'math/ratios/tile.webp' };
+  const PIC: Partial<Record<PlayGame, string>> = { lab: 'math/ratios/tile.webp', sketch: 'game/icon-star.webp' };
 </script>
 
 <svelte:window onkeydown={onKey} onresize={onResize} />
@@ -118,6 +120,7 @@
           {:else if playing.g === 'bonds'}<Bubbles level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
           {:else if playing.g === 'stall'}<Stall level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
           {:else if playing.g === 'lab'}<Lab level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
+          {:else if playing.g === 'sketch'}<Sketch level={playing.level} buddy={p.buddy} ondone={finished} {pal} />
           {:else}<BuildIt level={playing.level} buddy={p.buddy} ondone={finished} {pal} />{/if}
         </div>
       {/key}

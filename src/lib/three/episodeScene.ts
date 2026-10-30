@@ -462,6 +462,8 @@ export class EpisodeScene implements Controller {
       this.trayRects.clear();
       if (this.plank) { this.plank.removeFromParent(); dispose(this.plank); this.plank = null; }
       this.lineKey = '';
+      if (this.chartMesh) { this.chartMesh.removeFromParent(); dispose(this.chartMesh); this.chartMesh = null; }
+      this.chartKey = '';
       this.clearStars(); this.hopsDrawn = 0;
       for (const [k, sp] of this.spots) if (k.startsWith('g:')) { sp.mesh.removeFromParent(); this.spots.delete(k); }
     }
@@ -502,6 +504,13 @@ export class EpisodeScene implements Controller {
       g.position.copy(this.boardPoint(p.x, p.y));
       return g;
     } })), instant);
+    // a treasure map with its grid (negative numbers)
+    const ck = b.chart ? JSON.stringify(b.chart) : '';
+    if (ck !== this.chartKey) {
+      this.chartKey = ck;
+      if (this.chartMesh) { this.chartMesh.removeFromParent(); dispose(this.chartMesh); this.chartMesh = null; }
+      if (b.chart) { this.chartMesh = this.makeChart(b.chart); this.root.add(this.chartMesh); }
+    }
     // the number line
     const lk = b.line ? `${b.line.from}-${b.line.to}` : '';
     if (lk !== this.lineKey) {
@@ -669,6 +678,42 @@ export class EpisodeScene implements Controller {
     g.add(this.blob(r * 2.5));
     g.position.copy(this.boardPoint(x, y));
     return g;
+  }
+  private chartMesh: THREE.Group | null = null;
+  private chartKey = '';
+  /** A treasure map lying on the table: old paper with the coordinate grid, the axes as dark lines and
+   *  every line numbered (minus numbers in blue), a little lifted at the edges. */
+  private makeChart(c: NonNullable<Board['chart']>) {
+    const nx = c.xMax - c.xMin, ny = c.yMax - c.yMin, P = 110, pad = 0.8;
+    const cv = document.createElement('canvas');
+    cv.width = Math.round((nx + pad * 2) * P); cv.height = Math.round((ny + pad * 2) * P);
+    const g = cv.getContext('2d')!;
+    const SW = cv.width, SH = cv.height;
+    const grad = g.createRadialGradient(SW / 2, SH / 2, SH * 0.2, SW / 2, SH / 2, SW * 0.6);
+    grad.addColorStop(0, '#fbf0d4'); grad.addColorStop(1, '#e8cf9a');
+    g.fillStyle = grad; g.fillRect(0, 0, SW, SH);
+    for (let i = 0; i < SW * SH / 400; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(150,100,40,0.06)' : 'rgba(255,255,240,0.2)'; g.fillRect(Math.random() * SW, Math.random() * SH, 3, 3); }
+    g.strokeStyle = '#b8894a'; g.lineWidth = 12; g.strokeRect(10, 10, SW - 20, SH - 20);
+    const X = (v: number) => (v - c.xMin + pad) * P, Y = (v: number) => (c.yMax - v + pad) * P;
+    for (let v = c.xMin; v <= c.xMax; v++) { const axis = v === 0; g.strokeStyle = axis ? '#5b3416' : 'rgba(120,80,35,0.35)'; g.lineWidth = axis ? 9 : 3; g.beginPath(); g.moveTo(X(v), Y(c.yMax) - (axis ? P * 0.45 : 0)); g.lineTo(X(v), Y(c.yMin) + (axis ? P * 0.45 : 0)); g.stroke(); }
+    for (let v = c.yMin; v <= c.yMax; v++) { const axis = v === 0; g.strokeStyle = axis ? '#5b3416' : 'rgba(120,80,35,0.35)'; g.lineWidth = axis ? 9 : 3; g.beginPath(); g.moveTo(X(c.xMin) - (axis ? P * 0.45 : 0), Y(v)); g.lineTo(X(c.xMax) + (axis ? P * 0.45 : 0), Y(v)); g.stroke(); }
+    g.font = `700 ${Math.round(P * 0.46)}px "Fredoka", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    const label = (s: string, x: number, y: number, col: string) => { g.strokeStyle = 'rgba(255,248,230,0.95)'; g.lineWidth = 10; g.strokeText(s, x, y); g.fillStyle = col; g.fillText(s, x, y); };
+    const txt = (v: number) => (v < 0 ? `−${-v}` : String(v));
+    for (let v = c.xMin; v <= c.xMax; v++) if (v !== 0) label(txt(v), X(v), Y(0) + P * 0.42, v < 0 ? '#1f5f9e' : '#5b3416');
+    for (let v = c.yMin; v <= c.yMax; v++) if (v !== 0) label(txt(v), X(0) - P * 0.42, Y(v), v < 0 ? '#1f5f9e' : '#5b3416');
+    label('0', X(0) - P * 0.34, Y(0) + P * 0.38, '#5b3416');
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const w = (nx + pad * 2) * c.cell * this.map.s, d = (ny + pad * 2) * c.cell * this.map.s;
+    const grp = new THREE.Group();
+    const paper = new THREE.Mesh(new THREE.PlaneGeometry(w, d * DEPTH).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+    paper.receiveShadow = true;
+    grp.add(paper);
+    grp.add(this.blob(w * 1.2));
+    const at = this.boardPoint(c.x + ((c.xMin + c.xMax) / 2) * c.cell, c.y - ((c.yMin + c.yMax) / 2) * c.cell, 0.004);
+    grp.position.copy(at);
+    return grp;
   }
   /** the number line: a wooden plank with a peg at every number */
   private makePlank(from: number, to: number) {
@@ -1539,6 +1584,7 @@ function clothTexture(id: SetId) {
     clockshop: ['#3d6f6a', '#2f5f5a', '#c9a24a'],
     peaks: ['#ece6fb', '#b8a6ec', '#7f6cc4'],
     juice: ['#fff2d6', '#ff9f4a', '#e0702a'],
+    frost: ['#eaf4fb', '#9cc8e8', '#3f7fb8'],
   };
   const [bg, line, edge] = C[id];
   return canvasTex(256, (g, s) => {
