@@ -80,7 +80,7 @@
   <div class="top"><span class="dots">{#each Array(GLASSES) as _, k}<i class:done={k < i || (k === i && ok)} class:now={k === i}></i>{/each}</span></div>
   <div class="row">
     <div class="main">
-      <div class="bench" style:background-image="url({base}learn/ep/tex-juice.webp)">
+      <div class="bench" style:background-image="radial-gradient(ellipse at 50% 30%, rgba(255, 246, 220, .75), rgba(120, 70, 20, .35)), url({base}learn/ep/tex-juice.webp)">
         <!-- the glass to match, and its card -->
         <div class="want">
           <div class="glass small" style:--c={target}><span class="liq" style:height="86%"><i class="foam"></i></span><span class="straw"></span><img class="garnish" src={img(o.fruits[0])} alt="" /></div>
@@ -134,7 +134,7 @@
   .row { display: flex; gap: 12px; align-items: stretch; }
   .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; }
   .corner { flex: 0 0 clamp(140px, 18vw, 220px); }
-  .bench { display: flex; align-items: flex-end; justify-content: center; gap: clamp(20px, 6vw, 70px); width: 100%; padding: 18px 18px 22px; border-radius: 26px; background-size: 256px; box-shadow: inset 0 3px 0 rgba(255, 255, 255, .3), 0 6px 0 #9c6a38, var(--shadow-sm); }
+  .bench { display: flex; align-items: flex-end; justify-content: center; gap: clamp(20px, 6vw, 70px); width: 100%; padding: 18px 18px 22px; border-radius: 26px; background-size: 100% 100%, 256px; background-blend-mode: soft-light, normal; box-shadow: inset 0 3px 0 rgba(255, 255, 255, .3), 0 6px 0 #9c6a38, var(--shadow-sm); }
   .want { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .glass { position: relative; border-radius: 10px 10px 34px 34px; background: linear-gradient(90deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, .25) 30%, rgba(255, 255, 255, .15) 70%, rgba(255, 255, 255, .5)); box-shadow: inset 0 0 0 4px rgba(255, 255, 255, .85), inset 0 -10px 18px rgba(0, 0, 0, .06), 0 10px 16px rgba(80, 40, 10, .25); overflow: hidden; }
   .glass.small { width: 96px; height: 150px; }

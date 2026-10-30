@@ -52,7 +52,7 @@ export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: str
     { n: 2, title: 'One to more', hint: '1 : 2 is one of these for every two of those.' },
     { n: 3, title: 'Match the colour', hint: 'No card: mix, look, and add a little more.' },
     { n: 4, title: 'A bigger jug', hint: '6 strawberries for a 2 : 3 mix? 9 bananas.' },
-    { n: 5, title: 'Percent smoothies', hint: '25% mango: a quarter of the fruit is mango.' },
+    { n: 5, title: 'Percent smoothies', hint: 'A percent of the fruit is the first one: 25% is a quarter, 50% is half.' },
   ] },
 ];
 export const PLAY_GAME = Object.fromEntries(PLAY_GAMES.map(g => [g.id, g])) as Record<PlayGame, (typeof PLAY_GAMES)[number]>;

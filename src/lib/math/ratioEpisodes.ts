@@ -82,11 +82,11 @@ export const RATIO_LESSONS: FracLesson[] = [
         tags: [tag('t0', P3[0].x, 282, '2 : 3', 'c'), tag('t1', P3[1].x, 282, '4 : 6', 'c'), tag('t2', P3[2].x, 282, '6 : 9', 'c')] }), eq: '2 : 3 = 4 : 6 = [6 : 9]' },
     ],
     tries: [
-      Q('1 kiwi for every 4 oranges. 2 batches: how many oranges?', '8', 'Every batch has 4 oranges. 2 batches: 4, 8. So 8 oranges.', 'Count the oranges in one batch, then count by that for each batch.', batches(2, [['kiwi', 1], ['orange', 4]])),
-      Q('3 mangoes for every 2 strawberries. 3 batches: how many mangoes?', '9', 'Every batch has 3 mangoes. 3 batches: 3, 6, 9.', 'How many mangoes in one batch? Count by that number.', batches(3, [['mango', 3], ['straw', 2]])),
-      Q('2 bananas for every 5 blueberries. 2 batches: how many blueberries?', '10', 'Every batch has 5 blueberries. 2 batches: 5, 10.', 'How many blueberries in one batch?', batches(2, [['banana', 2], ['berry', 5]])),
+      Q('How many oranges in all?', '8', 'Every batch has 4 oranges. 2 batches: 4, 8. So 8 oranges.', 'Count the oranges in one batch, then count by that for each batch.', batches(2, [['kiwi', 1], ['orange', 4]], [tag('r', 300, 300, '1 kiwi : 4 oranges', 'c')])),
+      Q('How many mangoes in all?', '9', 'Every batch has 3 mangoes. 3 batches: 3, 6, 9.', 'How many mangoes in one batch? Count by that number.', batches(3, [['mango', 3], ['straw', 2]], [tag('r', 300, 300, '3 mangoes : 2 strawberries', 'c')])),
+      Q('How many blueberries in all?', '10', 'Every batch has 5 blueberries. 2 batches: 5, 10.', 'How many blueberries in one batch?', batches(2, [['banana', 2], ['berry', 5]], [tag('r', 300, 300, '2 bananas : 5 blueberries', 'c')])),
     ],
-    teach: { q: Q('2 strawberries for every 3 bananas. 3 batches: how many bananas?', '9', 'Every batch has 3 bananas. 3 batches: 3, 6, 9.', '', batches(3, MIX)), wrong: '5', says: '2 strawberries and 3 bananas... 2 + 3 is 5!', decoy: '6', fixed: 'Each batch has 3 bananas, and there are 3 batches: 3, 6, 9. Count the bananas in every batch!' },
+    teach: { q: Q('How many bananas in all?', '9', 'Every batch has 3 bananas. 3 batches: 3, 6, 9.', '', batches(3, MIX, [tag('r', 300, 300, '2 strawberries : 3 bananas', 'c')])), wrong: '5', says: '2 strawberries and 3 bananas... 2 + 3 is 5!', decoy: '6', fixed: 'Each batch has 3 bananas, and there are 3 batches: 3, 6, 9. Count the bananas in every batch!' },
   },
   {
     id: 'rt-batches', title: 'Bigger Batches', blurb: 'A ratio table: times both numbers by the same number. 1 : 2 is 10 : 20.', set: 'juice', skill: 'rt-table', art: 'learn/ratio/card-fruit.webp',
@@ -100,11 +100,11 @@ export const RATIO_LESSONS: FracLesson[] = [
         tags: [tag('t0', 100, 260, '1 : 2', 'c'), tag('t1', 245, 260, '2 : 4', 'c'), tag('t2', 390, 260, '3 : 6', 'c'), tag('x', 520, 140, '× 10', 'b', 30), tag('t3', 520, 260, '10 : 20', 'c', 30)] }), eq: '1 : 2 = 10 : [20]' },
     ],
     tries: [
-      Q('1 mango : 2 strawberries. 5 batches: how many strawberries?', '10', 'Times both by 5: 1 × 5 = 5 mangoes, 2 × 5 = 10 strawberries.', 'One batch has 2 strawberries. Times it by the batches.', batches(1, [['mango', 1], ['straw', 2]], [tag('a', 300, 290, '1 : 2  →  5 : ?', 'c')])),
-      Q('1 kiwi : 3 oranges. 4 batches: how many oranges?', '12', 'Times both by 4: 3 × 4 = 12 oranges.', 'One batch has 3 oranges. Times it by 4.', batches(1, [['kiwi', 1], ['orange', 3]], [tag('a', 300, 290, '1 : 3  →  4 : ?', 'c')])),
-      Q('2 bananas : 3 blueberries. 10 batches: how many blueberries?', '30', 'Times both by 10: 3 × 10 = 30 blueberries.', 'One batch has 3 blueberries. Times it by 10.', batches(1, [['banana', 2], ['berry', 3]], [tag('a', 300, 290, '2 : 3  →  20 : ?', 'c')])),
+      Q('5 batches: how many strawberries?', '10', 'Times both by 5: 1 × 5 = 5 mangoes, 2 × 5 = 10 strawberries.', 'One batch has 2 strawberries. Times it by the batches.', batches(1, [['mango', 1], ['straw', 2]], [tag('a', 300, 290, '1 : 2  →  5 : ?', 'c')])),
+      Q('4 batches: how many oranges?', '12', 'Times both by 4: 3 × 4 = 12 oranges.', 'One batch has 3 oranges. Times it by 4.', batches(1, [['kiwi', 1], ['orange', 3]], [tag('a', 300, 290, '1 : 3  →  4 : ?', 'c')])),
+      Q('10 batches: how many blueberries?', '30', 'Times both by 10: 3 × 10 = 30 blueberries.', 'One batch has 3 blueberries. Times it by 10.', batches(1, [['banana', 2], ['berry', 3]], [tag('a', 300, 290, '2 : 3  →  20 : ?', 'c')])),
     ],
-    teach: { q: Q('2 mangoes : 3 strawberries. 4 mangoes: how many strawberries?', '6', '4 mangoes is 2 batches. Times both by 2: 3 × 2 = 6.', '', batches(2, [['mango', 2], ['straw', 3]], [tag('a', 300, 300, '2 : 3  →  4 : ?', 'c')])), wrong: '5', says: '2 mangoes became 4, that\'s 2 more. So 3 + 2 = 5!', decoy: '8', fixed: '4 mangoes is 2 batches! Times BOTH numbers by 2: 3 × 2 = 6 strawberries. Same mix, bigger batch.' },
+    teach: { q: Q('4 mangoes: how many strawberries?', '6', '4 mangoes is 2 batches. Times both by 2: 3 × 2 = 6.', '', batches(2, [['mango', 2], ['straw', 3]], [tag('a', 300, 300, '2 : 3  →  4 : ?', 'c')])), wrong: '5', says: '2 mangoes became 4, that\'s 2 more. So 3 + 2 = 5!', decoy: '8', fixed: '4 mangoes is 2 batches! Times BOTH numbers by 2: 3 × 2 = 6 strawberries. Same mix, bigger batch.' },
   },
   {
     id: 'rt-two-lines', title: 'Two Lines', blurb: 'A double number line: cups along the plank, oranges on the hops, step for step.', set: 'juice', skill: 'rt-dnl', art: 'learn/ratio/card-line.webp',
@@ -115,11 +115,11 @@ export const RATIO_LESSONS: FracLesson[] = [
       { say: '', board: plank(4, 4, ['3', '6', '9', '12'], [tag('h', 300, 96, '1 cup of juice = 3 oranges', 'c')]), eq: '4 cups : [12] oranges' },
     ],
     tries: [
-      Q('1 cup needs 2 bananas. How many bananas for 4 cups?', '8', 'Every hop is 2 more bananas: 2, 4, 6, 8.', 'Count the hops to 4 cups, 2 bananas for each.', plank(5, 4, ['2', '', '', ''])),
-      Q('1 cup needs 5 strawberries. How many for 3 cups?', '15', 'Every hop is 5 more: 5, 10, 15.', 'Count by 5s, one for each hop.', plank(4, 3, ['5', '', ''])),
-      Q('1 cup needs 4 kiwis. How many for 5 cups?', '20', 'Every hop is 4 more: 4, 8, 12, 16, 20.', 'Count by 4s, one for each hop.', plank(6, 5, ['4', '', '', '', ''])),
+      Q('How many bananas for 4 cups?', '8', 'Every hop is 2 more bananas: 2, 4, 6, 8.', 'Count the hops to 4 cups, 2 bananas for each.', plank(5, 4, ['2', '', '', ''], [tag('h', 300, 96, '1 cup = 2 bananas', 'c')])),
+      Q('How many strawberries for 3 cups?', '15', 'Every hop is 5 more: 5, 10, 15.', 'Count by 5s, one for each hop.', plank(4, 3, ['5', '', ''], [tag('h', 300, 96, '1 cup = 5 strawberries', 'c')])),
+      Q('How many kiwis for 5 cups?', '20', 'Every hop is 4 more: 4, 8, 12, 16, 20.', 'Count by 4s, one for each hop.', plank(6, 5, ['4', '', '', '', ''], [tag('h', 300, 96, '1 cup = 4 kiwis', 'c')])),
     ],
-    teach: { q: Q('1 cup needs 3 oranges. How many oranges for 4 cups?', '12', 'Every hop is 3 more: 3, 6, 9, 12.', '', plank(4, 4, ['3', '', '', ''])), wrong: '7', says: '4 cups, and 3 oranges... 4 + 3 is 7!', decoy: '9', fixed: 'Every hop is one more cup AND three more oranges: 3, 6, 9, 12. Count the hops in threes!' },
+    teach: { q: Q('How many oranges for 4 cups?', '12', 'Every hop is 3 more: 3, 6, 9, 12.', '', plank(4, 4, ['3', '', '', ''], [tag('h', 300, 96, '1 cup = 3 oranges', 'c')])), wrong: '7', says: '4 cups, and 3 oranges... 4 + 3 is 7!', decoy: '9', fixed: 'Every hop is one more cup AND three more oranges: 3, 6, 9, 12. Count the hops in threes!' },
   },
   {
     id: 'rt-one-each', title: 'One for One', blurb: 'The price of one: share it out, then times it up for more.', set: 'juice', skill: 'rt-rate', art: 'learn/ratio/card-fruit.webp',
@@ -130,11 +130,11 @@ export const RATIO_LESSONS: FracLesson[] = [
       { say: '', board: board({ cell: 36, plates: S4.map((x, i) => plate(`pl${i}`, x, 230, 42)), dots: Array.from({ length: 18 }, (_, k) => { const p = k < 12 ? k % 4 : 4 + ((k - 12) % 2), j = k < 12 ? Math.floor(k / 4) : Math.floor((k - 12) / 2); return { id: `b${k}`, x: S4[p] + (j - 1) * 24, y: 230 + (j === 1 ? -14 : 8), c: (p === 0 ? 'c' : 'a') as Hue, d: 0, shape: { k: 'fruit' as const, f: 'berry' as const } }; }) }), eq: '6 smoothies: 6 × 3 = [18]' },
     ],
     tries: [
-      Q('8 strawberries for 4 smoothies. How many in one?', '2', 'Share 8 onto 4 cups: 2 in each. 8 ÷ 4 = 2.', 'Share them out evenly. How many on one plate?', shared('straw', 8, 4)),
-      Q('15 kiwis for 3 smoothies. How many in one?', '5', 'Share 15 onto 3 cups: 5 in each. 15 ÷ 3 = 5.', 'Share them out evenly. How many on one plate?', shared('kiwi', 15, 3)),
-      Q('12 oranges for 6 smoothies. How many in one?', '2', 'Share 12 onto 6 cups: 2 in each. 12 ÷ 6 = 2.', 'Share them out evenly. How many on one plate?', shared('orange', 12, 6)),
+      Q('How many in one smoothie?', '2', 'Share 8 onto 4 cups: 2 in each. 8 ÷ 4 = 2.', 'Share them out evenly. How many on one plate?', shared('straw', 8, 4)),
+      Q('How many in one smoothie?', '5', 'Share 15 onto 3 cups: 5 in each. 15 ÷ 3 = 5.', 'Share them out evenly. How many on one plate?', shared('kiwi', 15, 3)),
+      Q('How many in one smoothie?', '2', 'Share 12 onto 6 cups: 2 in each. 12 ÷ 6 = 2.', 'Share them out evenly. How many on one plate?', shared('orange', 12, 6)),
     ],
-    teach: { q: Q('10 bananas for 5 smoothies. How many in ONE?', '2', 'Share 10 onto 5 cups: 2 in each.', '', shared('banana', 10, 5)), wrong: '5', says: 'There are 5 smoothies... so 5 bananas in each!', decoy: '10', fixed: 'Share the 10 bananas onto the 5 cups: 2 in each. 10 ÷ 5 = 2. That\'s the amount for ONE!' },
+    teach: { q: Q('How many in ONE smoothie?', '2', 'Share 10 onto 5 cups: 2 in each.', '', shared('banana', 10, 5)), wrong: '5', says: 'There are 5 smoothies... so 5 bananas in each!', decoy: '10', fixed: 'Share the 10 bananas onto the 5 cups: 2 in each. 10 ÷ 5 = 2. That\'s the amount for ONE!' },
   },
   {
     id: 'rt-out-of-100', title: 'Out of 100', blurb: 'Percent means "out of 100": 35 of 100 blueberries is 35%.', set: 'juice', skill: 'rt-pct', art: 'learn/ratio/card-percent.webp',
@@ -145,11 +145,11 @@ export const RATIO_LESSONS: FracLesson[] = [
       { say: '', board: hundred(35, [tag('g', 90, 90, '35% gold', 'c'), tag('b', 510, 250, '65% blue', 'a')]), eq: '35% + 65% = [100%]' },
     ],
     tries: [
-      Q('What percent of the blueberries are gold?', '40', '4 full rows of 10 are gold: 40 out of 100, 40%.', 'Count the gold ones. Out of 100, that number is the percent.', hundred(40)),
-      Q('What percent of the blueberries are gold?', '25', '2 rows and 5 more: 25 out of 100, 25%.', 'Count the gold rows by tens, then the extra ones.', hundred(25)),
-      Q('What percent of the blueberries are gold?', '72', '7 rows and 2 more: 72 out of 100, 72%.', 'Count the gold rows by tens, then the extra ones.', hundred(72)),
+      Q('What percent is gold?', '40', '4 full rows of 10 are gold: 40 out of 100, 40%.', 'Count the gold ones. Out of 100, that number is the percent.', hundred(40)),
+      Q('What percent is gold?', '25', '2 rows and 5 more: 25 out of 100, 25%.', 'Count the gold rows by tens, then the extra ones.', hundred(25)),
+      Q('What percent is gold?', '72', '7 rows and 2 more: 72 out of 100, 72%.', 'Count the gold rows by tens, then the extra ones.', hundred(72)),
     ],
-    teach: { q: Q('What percent of the blueberries are gold?', '50', '5 rows of 10 are gold: 50 out of 100, 50%.', '', hundred(50)), wrong: '5', says: 'I can see 5 gold rows... so 5%!', decoy: '15', fixed: 'Each row is 10 blueberries! 5 rows is 50 out of the 100: 50%. Count every one, not just the rows!' },
+    teach: { q: Q('What percent is gold?', '50', '5 rows of 10 are gold: 50 out of 100, 50%.', '', hundred(50)), wrong: '5', says: 'I can see 5 gold rows... so 5%!', decoy: '15', fixed: 'Each row is 10 blueberries! 5 rows is 50 out of the 100: 50%. Count every one, not just the rows!' },
   },
   {
     id: 'rt-percent-of', title: 'Percent Of', blurb: '25% is a quarter: share into 4. 50% is half, 10% is a tenth.', set: 'juice', skill: 'rt-pctof', art: 'learn/ratio/card-percent.webp',
@@ -175,11 +175,11 @@ export const RATIO_LESSONS: FracLesson[] = [
       { say: '', board: coins(20, 5, true, [tag('p', 300, 40, 'a $20 blender', 'c'), tag('y', 300, 305, 'You pay $15', 'c', 30)]), eq: 'You pay [$15]' },
     ],
     tries: [
-      Q('$10, 50% off. How many dollars do you pay?', '5', '50% of $10 is $5 off. $10 − $5 = $5.', 'Find 50% of the price first, then take it off.', coins(10, 5)),
-      Q('$20, 10% off. How many dollars do you pay?', '18', '10% of $20 is $2 off. $20 − $2 = $18.', 'Find 10% of the price first, then take it off.', coins(20, 2)),
-      Q('$12, 25% off. How many dollars do you pay?', '9', '25% of $12 is $3 off. $12 − $3 = $9.', 'Find 25% of the price first, then take it off.', coins(12, 3)),
+      Q('$10, 50% off. You pay $...', '5', '50% of $10 is $5 off. $10 − $5 = $5.', 'Find 50% of the price first, then take it off.', coins(10, 5)),
+      Q('$20, 10% off. You pay $...', '18', '10% of $20 is $2 off. $20 − $2 = $18.', 'Find 10% of the price first, then take it off.', coins(20, 2)),
+      Q('$12, 25% off. You pay $...', '9', '25% of $12 is $3 off. $12 − $3 = $9.', 'Find 25% of the price first, then take it off.', coins(12, 3)),
     ],
-    teach: { q: Q('$20, 50% off. How many dollars do you pay?', '10', '50% of $20 is $10 off. $20 − $10 = $10.', '', coins(20, 10)), wrong: '15', says: '50% off... take away 5 dollars: $15!', decoy: '30', fixed: '50 percent is HALF! Half of $20 is $10 off, so you pay $10.' },
+    teach: { q: Q('$20, 50% off. You pay $...', '10', '50% of $20 is $10 off. $20 − $10 = $10.', '', coins(20, 10)), wrong: '15', says: '50% off... take away 5 dollars: $15!', decoy: '30', fixed: '50 percent is HALF! Half of $20 is $10 off, so you pay $10.' },
   },
 ];
 export const RATIO_LESSON: Record<string, FracLesson> = Object.fromEntries(RATIO_LESSONS.map(l => [l.id, l]));

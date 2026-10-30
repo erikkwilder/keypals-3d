@@ -208,7 +208,7 @@ export const rtDnl: Skill = {
       explain: `Count the bottom line by ${bs}s: ${Array.from({ length: at }, (_, i) => dec((i + 1) * bs)).join(', ')}. That's the tick under ${tv} ${laneWord('cup', tv)}.`,
       trick: r === 5 ? { name: 'Half way', say: `The tick half way to ${unitBot} is ${bs}. Count on in ${bs}s.` } : { name: 'Count the steps', say: `Every tick on the bottom line is ${bs} more. Count along in ${bs}s until you reach ${bv}.` } };
     return { ...base, id: `rt-dnl:read:${f}:${ts}:${bs}:${N}:${at}:${r}`, ask: `${cap(mix)}. How many ${many(f as Fruit)} for ${tv} ${laneWord('cup', tv)}?`,
-      prompt: [num(unitTop), op(':'), num(unitBot), op('='), num(tv), op(':'), blank], answer: n(bv),
+      prompt: [num(unitTop), op(':'), num(unitBot), op('='), num(tv), op(':'), op('?')], answer: n(bv),
       explain: `${tv} ${laneWord('cup', tv)} is ${at} ${r === 5 ? 'half-steps' : 'steps'} along. ${at} × ${bs} = ${bv} ${laneWord(f, bv)}.`,
       trick: r === 5 ? { name: 'Half way', say: `Half of ${unitTop} ${laneWord('cup', unitTop)} needs half of ${unitBot}: ${bs}. Then count on.` } : { name: 'Step for step', say: `Every step along the top is a step along the bottom: ${ts} more ${laneWord('cup', ts)} up top, ${bs} more ${laneWord(f, bs)} below.` } };
   },

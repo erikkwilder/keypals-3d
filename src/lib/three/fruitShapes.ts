@@ -149,7 +149,7 @@ export function fruitMats(f: FruitKind, hue: Hue, out: boolean, cache: (key: str
     if (f === 'mango') return phys({ map: mangoTex(), color: 0xffffff, roughness: 0.45, clearcoat: 0.4 });
     if (f === 'orange') return phys({ map: orangeTex(), color: 0xffffff, roughness: 0.6, clearcoat: 0.2 });
     if (f === 'berry') return phys({ color: BODY.berry, roughness: 0.55, clearcoat: 0.15, sheen: 1, sheenColor: new THREE.Color(0x9fb0e8) });
-    return phys({ color: 0xf5b800, roughness: 0.62, clearcoat: 0, emissive: h === 'a' ? 0x9a6a00 : em, emissiveIntensity: h === 'a' ? 0.45 : glow + 0.2 });
+    return phys({ color: 0xe0a000, roughness: 0.7, clearcoat: 0, sheen: 0, emissive: h === 'a' ? 0x6a4800 : em, emissiveIntensity: h === 'a' ? 0.35 : glow + 0.15 });
   });
 }
 /** leaves, stems and tips */

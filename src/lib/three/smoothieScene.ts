@@ -10,7 +10,8 @@ import { fruitExtraMat, fruitGeo, fruitMats } from './fruitShapes';
 import { ELEMENT, GLIMMER, type GlimmerId } from '../adventure/glimmers';
 import type { Fruit } from '../math/skills/ratioPic';
 
-const CUST_Z = -1.6;
+/** where the customers stand (further back on a phone, so the blender has room in front) */
+const CUST_Z = -1.6, CUST_Z_TALL = -2.3;
 const JAR_Y = 0.42, JAR_H = 1.3, JAR_R = 0.56;
 /** a fruit's size in the jug */
 const FS = 0.13;
@@ -40,6 +41,7 @@ export class SmoothieScene {
   private raf = 0; private last = 0; private t = 0;
   private w = 1; private h = 1;
   tall = false;
+  private custZ = CUST_Z;
   private slotX = [-2.1, 0, 2.1];
   private disposed = false;
   /** the blend: when it started, how full it gets, and what happens after */
@@ -175,7 +177,7 @@ export class SmoothieScene {
     for (const m of [liquid, straw, berry]) m.castShadow = true;
     const from = this.blender.localToWorld(new THREE.Vector3(this.tall ? 1.1 : -1.15, 0, 0.25));
     const c = slot !== null ? this.cust[slot] : null;
-    const to = new THREE.Vector3(c ? c.x : 0, 0, CUST_Z + 0.55);
+    const to = new THREE.Vector3(c ? c.x : 0, 0, this.custZ + 0.55);
     g.position.copy(from); g.scale.setScalar(0.001);
     this.scene.add(g);
     this.cups.push({ g, liquid, t: -0.15, from, to });
@@ -203,7 +205,7 @@ export class SmoothieScene {
     const c = this.cust[slot]; if (!c) return;
     c.model.play('happy');
     const col = ELEMENT[GLIMMER[c.model.id].element].color;
-    this.fx.emit({ at: new THREE.Vector3(c.x, 0.8, CUST_Z), count: 46, shape: ['star', 'heart', 'spark'], color: [col, 0xffffff, 0xffd36b, 0xff8fb0], speed: [1, 2.6], up: 1.4, life: [0.6, 1.2], size: [0.07, 0.15], gravity: 1.6, drag: 0.8, spin: 3 });
+    this.fx.emit({ at: new THREE.Vector3(c.x, 0.8, this.custZ), count: 46, shape: ['star', 'heart', 'spark'], color: [col, 0xffffff, 0xffd36b, 0xff8fb0], speed: [1, 2.6], up: 1.4, life: [0.6, 1.2], size: [0.07, 0.15], gravity: 1.6, drag: 0.8, spin: 3 });
   }
   sad(slot: number) { this.cust[slot]?.model.play('sad'); }
   /** a burst of fruity sparkles over the blender (a rush hour starting, a big combo) */
@@ -211,7 +213,7 @@ export class SmoothieScene {
   /** Where a customer's head is on the screen (px in the canvas), for the order bubble. */
   headAt(slot: number): { x: number; y: number } | null {
     const c = this.cust[slot]; if (!c) return null;
-    const p = new THREE.Vector3(c.x, c.model.height * (c.model.floats ? 1.5 : 1.12), CUST_Z).project(this.camera);
+    const p = new THREE.Vector3(c.x, c.model.height * (c.model.floats ? 1.5 : 1.12), this.custZ).project(this.camera);
     return { x: (p.x * 0.5 + 0.5) * this.w, y: (-p.y * 0.5 + 0.5) * this.h };
   }
   /** Where the top of the jug is on the screen (for the fruit counts beside it). */
@@ -230,14 +232,16 @@ export class SmoothieScene {
     if (this.tall) {
       this.slotX = [-1.25, 0, 1.25];
       this.camera.fov = 50;
-      this.blender.position.set(0, 0, 1.55); this.blender.scale.setScalar(0.62);
+      this.custZ = CUST_Z_TALL;
+      this.blender.position.set(0, 0, 0.35); this.blender.scale.setScalar(0.5);
       const half = Math.atan(Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * aspect);
       this.camera.position.set(0, 0.4, 0.9).addScaledVector(new THREE.Vector3(0, 1.4, 1).normalize(), 1.7 / Math.tan(half));
-      this.camera.lookAt(0, 0.7, -0.6);
+      this.camera.lookAt(0, 0.15, -1.1);
     } else {
       // the blender stands at the right end of the counter, the customers along the rest of it
       this.slotX = [-2.45, -0.75, 0.95];
       this.camera.fov = 36;
+      this.custZ = CUST_Z;
       this.blender.position.set(2.3, 0, 1.05); this.blender.scale.setScalar(0.66);
       this.camera.position.set(0, 4.1, 6.6);
       this.camera.lookAt(0, 0.55, -0.6);
@@ -312,13 +316,13 @@ export class SmoothieScene {
       if (!c) continue;
       c.t = Math.min(1, c.t + dt / 0.9);
       c.x = c.from + (this.slotX[c.slot] - c.from) * ease(c.t);
-      c.model.root.position.set(c.x, 0, CUST_Z);
+      c.model.root.position.set(c.x, 0, this.custZ);
       c.model.update(dt, this.t);
     }
     for (const c of this.gone) {
       c.t += dt / 0.8;
       const e = ease(c.t);
-      c.model.root.position.set(c.x, Math.sin(Math.min(1, c.t) * Math.PI) * 0.45, CUST_Z - e * 1.6);
+      c.model.root.position.set(c.x, Math.sin(Math.min(1, c.t) * Math.PI) * 0.45, this.custZ - e * 1.6);
       c.model.root.scale.setScalar(Math.max(0.001, 1 - e));
       c.model.update(dt, this.t);
     }
