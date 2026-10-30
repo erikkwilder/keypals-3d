@@ -196,7 +196,6 @@
           {#if daily}<div class="dailyline"><img src="{import.meta.env.BASE_URL}icons/daily.webp" alt="" />Beat <b>{fmt(dailyGoal(id))}</b> today for <b>{DAILY_SHELLS}</b> bonus shells. Everyone gets the same course today!</div>{/if}
           <div class="best muted">{rec.plays ? `Your best: ${fmt(rec.best)}` : 'First go! Every answer counts as practice.'} · {G.maxSecs ? `${Math.round(G.secs)} seconds to start: right answers add time` : `${Math.round(G.secs)} seconds`}</div>
           <div class="tiles">
-            <NavTile size="md" tone="sky" kind="close" label="Back to {exits.backTo}" onclick={() => leave()} />
             <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={begin} />
           </div>
         </div>

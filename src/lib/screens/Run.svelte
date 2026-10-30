@@ -465,6 +465,11 @@
           <div class="meet small"><img class="placeart" src="{import.meta.env.BASE_URL}regions/{lesson.region}.webp" alt="" /></div>
           {#if lesson.blurb}<p class="blurb">{lesson.blurb}</p>{/if}
         {/if}
+        <!-- Start first (on a phone too), with Watch how; the way out is the Pause button, top left -->
+        <div class="tiles">
+          <NavTile size="md" tone="lilac" kind="demo" label="Watch how" onclick={() => watch(reachSteps.length ? 'lesson' : 'home')} />
+          <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={() => { unlockAudio(); begin(); }} />
+        </div>
         <p class="moveline mv-{move}">{MOVE_LINE}</p>
         <div class="goals">
           <div class="goal"><Stars n={1} of={1} size={22} /><span>score {star1}</span></div>
@@ -475,12 +480,6 @@
         {#if record}
           <div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore ?? Math.round(record.bestWpm)} · {move === 'run' ? 'ride' : 'top speed'}: {rideName(record.bestRide, move)}{#if record.platinum} · platinum!{/if}</div>
         {/if}
-        <div class="tiles">
-          <NavTile size="md" tone="sky" kind={backName === 'Home' ? 'home' : 'map'} label="Back to {backName}" onclick={leave} />
-          <NavTile size="md" tone="lilac" kind="demo" label="Watch how" onclick={() => watch(reachSteps.length ? 'lesson' : 'home')} />
-          {#if record}<NavTile size="md" tone="sky" kind="chart" label="Progress" onclick={() => game.openChart(lesson.id)} />{/if}
-          <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={() => { unlockAudio(); begin(); }} />
-        </div>
         <div class="pills">
           <label class="pill"><input type="checkbox" checked={game.settings.voice !== false} onchange={() => toggleVoice('voice')} /> Coach voice</label>
           <button class="pill" onclick={speakIntro}><TileArt kind="sfx" size={24} /> Hear it again</button>

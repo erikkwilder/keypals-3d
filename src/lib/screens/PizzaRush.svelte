@@ -303,7 +303,7 @@
           <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same orders all day</span><span class="tiny bonus">Beat {STAR_AT[1]} for {DAILY_SHELLS} bonus shells</span></div>
         </div>
         <div class="acts">
-          <ExitButtons {exits} />
+          
           <button class="btn" onclick={() => start(true)}><Icon name="target" size={20} /> Today's challenge</button>
           <button class="btn btn-primary big" onclick={() => start(false)}>Play <span class="kbd">enter</span></button>
         </div>

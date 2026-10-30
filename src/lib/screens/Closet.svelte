@@ -174,11 +174,11 @@
   ];
   const SORTS: { id: Sort; name: string }[] = [{ id: 'cheap', name: 'Cheapest' }, { id: 'pricey', name: 'Priciest' }, { id: 'new', name: 'Newest' }, { id: 'rare', name: 'Rarest' }];
   let showing = $state<Show>('all');
-  // a short screen (an older laptop): the sort and filter rows open from one button
+  // the sort and filter rows open from one button on every screen (the Shop keeps to its spots and its things)
   const shortQ = typeof matchMedia === 'function' ? matchMedia('(max-height: 820px) and (min-width: 761px)') : null;
-  let short = $state(!!shortQ?.matches);
+  let short = $state(true);
   let filtersOpen = $state(false);
-  const onShort = () => { short = !!shortQ?.matches; };
+  const onShort = () => { short = true; };
   let sort = $state<Sort>('cheap');
   const shows = (c: CatalogItem) => {
     const mine = ownsItem(p, c.id);

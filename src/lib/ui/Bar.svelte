@@ -68,7 +68,7 @@
       </div>
     {/if}
   </div>
-  {#if p && !plain}
+  {#if p && !plain && !overlay}
     <nav class="rgt" aria-label="Shells, My stuff, Ideas and help, Menu">
       <button class="shells" class:on={card} bind:this={shellEl} title="Shells: {fmt(shells)}" aria-label="Shells: {fmt(shells)}" aria-expanded={card} onclick={() => { sfx.click(); card = !card; }}>
         <img src="{base}game/icon-shell.webp" alt="" draggable="false" /><b>{fmt(shells)}</b>

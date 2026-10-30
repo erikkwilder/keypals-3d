@@ -475,7 +475,6 @@
         {/if}
         {#if record}<div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore} · top speed: {rideName(record.bestRide, moveOf(lesson))}</div>{/if}
         <div class="tiles">
-          <NavTile size="md" tone="sky" kind={backName === 'Home' ? 'home' : 'map'} label="Back to {backName}" onclick={leave} />
           <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={() => { unlockAudio(); begin(); }} />
         </div>
         <div class="pills">

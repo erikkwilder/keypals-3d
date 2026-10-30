@@ -33,7 +33,11 @@ export function addTester() {
 }
 
 export function devBoot() {
-  if (import.meta.env.DEV) (window as unknown as { __game: typeof game }).__game = game;
+  if (import.meta.env.DEV) {
+    (window as unknown as { __game: typeof game }).__game = game;
+    // the same modules the game uses, for checking screens from the browser (nav: the pages; cloud: the grown-up check)
+    void Promise.all([import('../nav'), import('./cloud.svelte'), import('../math/place/builder')]).then(([nav, cloud, builder]) => Object.assign(window, { __nav: nav, __cloud: cloud, __builder: builder }));
+  }
   const h = location.hash.slice(1);
   if (!h) return;
   const [key, val] = h.split('=');
