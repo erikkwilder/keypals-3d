@@ -1,19 +1,23 @@
 <script lang="ts">
   // The fraction pad: type the top number and it moves to the bottom by itself; type the bottom and it
-  // checks by itself. So 3/4 is two taps (or drag a number straight into either box). A two-digit
-  // number waits for its second digit when the answer has one (12/5), and a bottom 1 waits a moment in
-  // case it's the start of 10 or 12. Tap a box in the question (or Top, Bottom, the arrow keys) to fix
-  // it; Enter checks straight away.
+  // checks by itself, the way the number pad checks once there are as many digits as the answer. So 1/2 is
+  // "1, 2" (or drag a number straight into either box). A top that can still grow into the answer's top
+  // waits for its next digit (the 1 of 12/5); the bottom waits the same way, for the answer's bottom or the
+  // one that makes an equal fraction with the top typed (10/20 for 1/2: go back up with the arrow to make
+  // the top 10). Tap a box in the question (or Top, Bottom, the arrow keys) to fix it; Enter checks
+  // straight away.
   import { onDestroy } from 'svelte';
   import NumPad from '../../ui/NumPad.svelte';
   import Icon from '../../../ui/Icon.svelte';
+  import { bottomDone, topDone, type Frac } from '../fracPad';
   type Props = { n: string; d: string; focus: 'n' | 'd'; disabled?: boolean; compact?: boolean;
-    /** the right answer: only its number of digits is used, to know when a box is finished */
-    want?: { n: number; d: number } | null;
+    /** the right answer (or the choices): only their digits are used, to know when a box is finished */
+    want?: Frac | Frac[] | null;
     /** show how it works (the first few fraction questions) */
     hint?: boolean;
     onchange: (v: { n: string; d: string; focus: 'n' | 'd' }) => void; onsubmit: () => void; onfirst?: () => void };
   let { n, d, focus, disabled = false, compact = false, want = null, hint = false, onchange, onsubmit, onfirst }: Props = $props();
+  const wants = $derived(want ? (Array.isArray(want) ? want : [want]) : []);
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   const clear = () => { clearTimeout(timer); timer = undefined; };
@@ -26,38 +30,24 @@
     clear();
     if (slot === 'n') {
       const nn = n.length >= 2 || (n === '0') ? x : n + x;
-      onchange({ n: nn, d, focus: 'n' });
-      afterTop(nn, d);
+      // (with no answer to go by, a moment's wait for a second digit)
+      if (!wants.length && nn.length < 2) { onchange({ n: nn, d, focus: 'n' }); timer = setTimeout(() => onTo(nn, d), 380); }
+      else if (!wants.length || topDone(nn, wants)) onTo(nn, d);
+      else onchange({ n: nn, d, focus: 'n' });
     } else {
       const dd = d.length >= 2 || d === '0' ? x : d + x;
       onchange({ n, d: dd, focus: 'd' });
-      afterBottom(n, dd);
+      if (!bottomDone(n, dd, wants)) return;
+      // the top's still empty: fill it next
+      if (!n) onchange({ n, d: dd, focus: 'n' });
+      else onsubmit();
     }
   }
-  /** The top is done: on to the bottom (or check, if the bottom's already there). */
-  function afterTop(nn: string, dd: string) {
-    const w = want ? String(want.n) : '';
-    const done = () => { clear(); if (dd && dd !== '0' && finished(dd)) later(nn, dd, 250); else onchange({ n: nn, d: dd, focus: 'd' }); };
-    if (nn.length >= 2) return done();
-    if (w.length === 2 && nn === w[0]) return; // the answer's top has two digits: wait for the second
-    timer = setTimeout(done, 380);
-  }
-  /** Is this a whole bottom number (not the start of a two-digit one)? */
-  function finished(dd: string) {
-    const w = want ? String(want.d) : '';
-    if (dd.length >= 2) return true;
-    if (w.length === 2 && dd === w[0]) return false;
-    return true;
-  }
-  function afterBottom(nn: string, dd: string) {
-    if (dd === '0' || !finished(dd)) return;
-    if (!nn) { timer = setTimeout(() => onchange({ n: nn, d: dd, focus: 'n' }), 300); return; }
-    // a lone 1 could be the start of 10 or 12: a moment longer
-    later(nn, dd, dd === '1' && want && want.d !== 1 ? 1100 : 300);
-  }
-  function later(nn: string, dd: string, ms: number) {
+  /** The top is finished: on to the bottom, or check if the bottom's there and finished already. */
+  function onTo(nn: string, dd: string) {
     clear();
-    timer = setTimeout(() => { if (!disabled && nn && dd && dd !== '0') onsubmit(); }, ms);
+    onchange({ n: nn, d: dd, focus: 'd' });
+    if (nn && bottomDone(nn, dd, wants)) onsubmit();
   }
   function back() {
     if (disabled) return;

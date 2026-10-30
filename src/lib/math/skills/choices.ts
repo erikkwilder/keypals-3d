@@ -126,11 +126,10 @@ export function typedAs(it: Item): 'number' | 'fraction' | null {
   return null;
 }
 
-/** The right choice as a fraction (the fraction pad uses its digits to know when a box is finished). */
-export function rightFraction(it: Item): F | null {
-  const id = it.answer.kind === 'choice' ? it.answer.id : null;
-  const c = it.choices?.find(x => x.id === id);
-  return c ? fracIn(c) : null;
+/** The choices as fractions (the fraction pad uses their digits to know when a box is finished, so a
+ *  child typing any of them gets all of it in). */
+export function choiceFractions(it: Item): F[] {
+  return (it.choices ?? []).flatMap(c => { const f = fracIn(c); return f ? [f] : []; });
 }
 
 /** The choice a typed answer means: the same number, or the same fraction (else one worth the same). */

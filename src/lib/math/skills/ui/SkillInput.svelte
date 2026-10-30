@@ -24,7 +24,7 @@
   import ChoiceInput from './ChoiceInput.svelte';
   import NumberLineInput from './NumberLineInput.svelte';
   import GridInput from './GridInput.svelte';
-  import { choiceFor, rightFraction, typedAs, typedChoice } from '../choices';
+  import { choiceFor, choiceFractions, typedAs, typedChoice } from '../choices';
   type Fill = { kind: 'number'; text: string; bad?: boolean } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null; bad?: boolean };
   type Props = { item: Item; disabled?: boolean; compact?: boolean; marked?: { id: string; ok: boolean } | null;
     /** false: that was wrong (it shows in red, then clears) */
@@ -101,7 +101,8 @@
     const id = choice ? choiceFor(item, a) : null;
     send(id ? { kind: 'choice', id } : a);
   }
-  const want = $derived(item.answer.kind === 'fraction' ? { n: item.answer.n, d: item.answer.d } : pad === 'fraction' ? rightFraction(item) : null);
+  // what the fraction pad goes by to know when a box is finished: the answer, or every choice
+  const want = $derived(item.answer.kind === 'fraction' ? { n: item.answer.n, d: item.answer.d } : pad === 'fraction' ? choiceFractions(item) : null);
   // how the fraction pad works, shown the first few fraction questions on this device
   const HINT_KEY = 'kp-frac-hint';
   let hint = $state(false);

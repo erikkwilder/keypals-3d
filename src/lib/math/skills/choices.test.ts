@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../../engine/rng';
 import { FRACTION_SKILLS, checkAnswer, sameValue } from './fractions';
-import { asChoices, choiceChance, choiceFor, rightFraction, typedAs, typedChoice, CHOICE_RIGHT } from './choices';
+import { asChoices, choiceChance, choiceFor, choiceFractions, typedAs, typedChoice, CHOICE_RIGHT } from './choices';
 import { PLACE_SKILLS } from './place';
 import { DECIMAL_SKILLS } from './decimals';
 import type { Part } from './types';
@@ -94,7 +94,8 @@ describe('questions asked as choices', () => {
     const add = FRACTION_SKILLS.find(s => s.id === 'fr-add')!;
     const ch = asChoices(add.make(mulberry32(3), 'small', 1), mulberry32(9))!;
     expect(typedAs(ch)).toBe('fraction');
-    const r = rightFraction(ch)!;
+    expect(choiceFractions(ch)).toHaveLength(ch.choices!.length);
+    const r = fracOf(ch.choices!.find(c => c.id === CHOICE_RIGHT)!.parts)!;
     expect(choiceFor(ch, { kind: 'fraction', n: r.n, d: r.d })).toBe(CHOICE_RIGHT);
     expect(choiceFor(ch, { kind: 'fraction', n: r.n * 3, d: r.d * 3 })).toBe(CHOICE_RIGHT);
     expect(choiceFor(ch, { kind: 'fraction', n: 97, d: 98 })).toBeNull();

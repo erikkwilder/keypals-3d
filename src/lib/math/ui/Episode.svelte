@@ -87,6 +87,8 @@
   const step = $derived(lesson.steps[Math.min(i, lesson.steps.length - 1)]);
   const q = $derived<EpQ>(check ? lesson.tries[2] : lesson.tries[Math.min(k, 1)]);
   const ans = $derived(q.ans);
+  /** a fraction answer as numbers: the pad uses its digits to know when each box is finished */
+  const fracWant = $derived.by(() => { const [a, b] = q.ans.split('/').map(Number); return q.input === 'frac' && a >= 0 && b > 0 ? { n: a, d: b } : null; });
   /** a question to work out ("What fraction is on the plate?") or a sum ("6 + 3"), and its answer after it */
   const asks = (x: EpQ) => /(\?|\.\.\.)$/.test(x.text);
   const total = lesson.steps.length + 4;
@@ -437,7 +439,7 @@
       <div class="turn">
         {#key shake}<div class="ask" class:shake={shake > 0}>{#if phase === 'turn'}<small>Your turn {k + 1} of 2</small>{:else}<small>Quick check</small>{/if}<span><FracText text={q.text} size={34} />{asks(q) ? '' : ' ='}</span>{#if q.input === 'frac'}<span class="fbox" class:good={locked}><Frac n={fn} d={fd} size={34} focus={locked ? null : ff} /></span>{:else}<span class="box" class:good={locked}>{typed || ' '}</span>{/if}</div>{/key}
         {#if q.input === 'frac'}
-          <FractionPad n={fn} d={fd} focus={ff} disabled={locked} compact={narrow} onchange={(v) => { fn = v.n; fd = v.d; ff = v.focus; sfx.click(); }} onsubmit={answerFrac} />
+          <FractionPad n={fn} d={fd} focus={ff} want={fracWant} disabled={locked} compact={narrow} onchange={(v) => { fn = v.n; fd = v.d; ff = v.focus; sfx.click(); }} onsubmit={answerFrac} />
         {:else}
           <NumPad ondigit={digit} onback={backspace} compact={narrow} lit={null} />
         {/if}
