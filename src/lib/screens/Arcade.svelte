@@ -2,7 +2,7 @@
   // The Arcade (a place: ← Home | Arcade): a painted plaza on a sky island, the 3D buddy waving you in,
   // Today's challenge (the one big button: one game a day, the same course for everyone in the family, and
   // bonus shells for beating its goal), then the cabinets under small headings: Typing, Math (each labelled
-  // by its topic), Play together (Family Duel, Rival Ghosts) and Just for fun (Glimmer Drop). Every game's
+  // by its topic), Play together (Family Duel, Rival Ghosts, and the Boards: class, family and world) and Just for fun (Glimmer Drop). Every game's
   // Pause card and end card come back here. Arcade rounds count as practice:
   // every answer feeds the fact memory, and they earn stars, shells and treasure (not lessons). Glimmer
   // Drop stands here too: just for fun, played with the same play time as Adventure.
@@ -195,9 +195,9 @@
           </button>
         {/each}
       </div>
-      {#if versus}
-        <h2 class="ch">Play together</h2>
-        <div class="cabs pair">
+      <h2 class="ch">Play together</h2>
+      <div class="cabs pair">
+        {#if versus}
           <button class="cab duo" style:--c="#2f9ed8" style:--d="0ms" onclick={() => openAnywhere('duel')}>
             <img class="art tile" src="{import.meta.env.BASE_URL}game/intro-duel.webp" alt="" />
             <span class="plate"><b>Family Duel</b><span class="bs">Two players, one screen</span></span>
@@ -206,8 +206,13 @@
             <img class="art tile" src="{import.meta.env.BASE_URL}game/intro-rivals.webp" alt="" />
             <span class="plate"><b>Rival Ghosts</b><span class="bs">Race a ghost, climb the leagues</span></span>
           </button>
-        </div>
-      {/if}
+        {/if}
+        <!-- the leaderboards: your class, your family, and today's challenge around the world -->
+        <button class="cab duo" style:--c="#e8a21a" style:--d="180ms" onclick={() => { sfx.click(); game.go('boards'); }}>
+          <span class="art tile boardart" aria-hidden="true"><img src="{import.meta.env.BASE_URL}icons/trophy.webp" alt="" /><i class="pod p2">2</i><i class="pod p1">1</i><i class="pod p3">3</i></span>
+          <span class="plate"><b>Boards</b><span class="bs">Class, family, world</span></span>
+        </button>
+      </div>
       <h2 class="ch">Just for fun</h2>
       <div class="cabs">
         <!-- Glimmer Drop: not practice, just for fun, so it uses play time (the same minutes as Adventure) -->
@@ -238,13 +243,21 @@
   .bubble::after { content: ''; position: absolute; left: 34px; bottom: -10px; border: 10px solid transparent; border-top-color: #fff; border-bottom: 0; }
 
   /* (safe: on a short screen the cabinets start at the top and scroll, instead of running up under the bar) */
-  .right { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; justify-content: safe flex-end; gap: 14px; padding-top: 12px; }
+  .right { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; display: flex; flex-direction: column; justify-content: safe flex-end; gap: 14px; padding-top: 12px; }
   .right::-webkit-scrollbar { display: none; }
   /* the small headings over each group of cabinets */
-  .ch { align-self: flex-start; margin: 6px 0 -4px; padding: 3px 14px; border-radius: 999px; background: rgba(255, 255, 255, .92); font: 600 19px var(--font-ui); color: var(--ink); box-shadow: 0 4px 12px -6px rgba(40, 30, 90, .45); }
+  .ch { align-self: flex-start; margin: 14px 0 -4px; padding: 3px 14px; border-radius: 999px; background: rgba(255, 255, 255, .92); font: 600 19px var(--font-ui); color: var(--ink); box-shadow: 0 4px 12px -6px rgba(40, 30, 90, .45); }
   .soon { align-self: flex-start; margin: 0; padding: 6px 14px; border-radius: 14px; background: rgba(255, 255, 255, .85); font: 700 14px var(--font-body); color: var(--muted); }
   .cabs.pair { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .duo .art.tile { aspect-ratio: 1.3; object-fit: cover; border-radius: 22px; margin-bottom: -14px; box-shadow: 0 0 0 4px #fff; }
+  /* the Boards' picture: a trophy over a little podium */
+  .boardart { position: relative; display: block; width: 100%; background: radial-gradient(circle at 50% 30%, #fff8dc, #ffd977 60%, #f4b73c); overflow: hidden; }
+  .boardart img { position: absolute; left: 50%; top: 4%; width: 38%; transform: translateX(-50%); filter: drop-shadow(0 6px 6px rgba(120, 70, 0, .35)); }
+  .boardart .pod { position: absolute; bottom: 20%; width: 24%; display: grid; place-items: start center; padding-top: 2%; font: 600 clamp(12px, 1.4vw, 20px) var(--font-ui); font-style: normal; color: #fff; border-radius: 8px 8px 0 0; text-shadow: 0 1px 0 rgba(0, 0, 0, .25); }
+  .boardart .p1 { left: 38%; height: 22%; background: #7c5cf5; }
+  .boardart .p2 { left: 14%; height: 15%; background: #3fa7e0; }
+  .boardart .p3 { left: 62%; height: 11%; background: #ef7d2b; }
+  .boardart::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 20%; background: #e9a92e; }
   .daily { align-self: center; display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 8px; border: 0; cursor: pointer; text-align: left; border-radius: 24px; min-width: min(560px, 100%);
     background: linear-gradient(135deg, #fff9e8, #ffe9b0); box-shadow: 0 0 0 4px #fff, 0 0 0 7px #ffc93d, 0 14px 28px -12px rgba(140, 90, 0, .55); transition: transform .15s; animation: pop-in .45s cubic-bezier(.3, .8, .4, 1.4); }
   .daily:hover { transform: translateY(-3px) rotate(-.5deg); }
@@ -268,6 +281,7 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--c, #7c5cf5) 55%, #fff), 0 10px 20px -10px rgba(40, 30, 90, .45); }
   .plate b { font: 600 clamp(17px, 1.6vw, 22px)/1.1 var(--font-ui); color: var(--ink); white-space: nowrap; }
   .bs { font: 700 13px var(--font-body); color: var(--muted); white-space: nowrap; }
+  .duo .bs { white-space: normal; text-align: center; line-height: 1.25; }
   /* which part of math a cabinet is, with the chip names the Math page uses */
   .part { position: absolute; top: -11px; left: 50%; translate: -50% 0; max-width: 104%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 10.5px var(--font-body); color: #fff; background: var(--c, #7c5cf5); padding: 2px 8px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
   .kbd { position: absolute; top: 6px; left: 8px; z-index: 2; }

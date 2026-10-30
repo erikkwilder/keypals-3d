@@ -20,6 +20,6 @@ export function classTiles(p: Profile): MenuTile[] {
     const open = work.filter(a => progressOf(p, a).done < 1).length;
     out.push({ id: 'classwork', name: 'Class work', img: 'icons/book.webp', line: work.length ? (open ? `${open} to do for ${cs[0].teacher}` : 'All done!') : cs[0].name, hot: open > 0, go: () => game.go('hub') });
   }
-  if (p.cloud) out.push({ id: 'boards', name: 'Boards', img: 'icons/chart.webp', line: cs.length ? 'Your class this week' : 'Family and world', go: () => game.go('boards') });
+  if (p.cloud) out.push({ id: 'boards', name: 'Boards', img: 'icons/chart.webp', line: cs.length ? 'Your class this week' : 'Family and world', go: () => game.visit('boards') });
   return out;
 }

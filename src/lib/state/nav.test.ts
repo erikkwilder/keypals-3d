@@ -54,7 +54,7 @@ describe('the levels: Back goes up one', () => {
     [P('arcade'), P('hub')], [P('adventure'), P('hub')], [P('island'), P('hub')], [P('mystuff'), P('hub')], [P('path'), P('hub')],
     [P('keypals'), P('mystuff')], [P('closet'), P('mystuff')], [P('shop'), P('mystuff')], [P('dances'), P('mystuff')],
     [P('stickers'), P('mystuff')], [P('glimmers'), P('mystuff')], [P('eggs'), P('mystuff')], [P('garden'), P('mystuff')], [P('progress'), P('mystuff')],
-    [P('duel'), P('arcade')], [P('rivals'), P('arcade')],
+    [P('duel'), P('arcade')], [P('rivals'), P('arcade')], [P('boards'), P('arcade')],
     [P('grownups', { guSection: 'time' }), P('grownups', { guSection: null })], [P('grownups'), P('hub')],
     [P('skills'), P('grownups', { guSection: 'progress' })],
     [P('ideas'), P('hub')], [P('about'), P('hub')], [P('teach'), P('hub')],

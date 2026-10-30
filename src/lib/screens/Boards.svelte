@@ -40,6 +40,17 @@
     {#if !cloud.online}
       <p class="note">The boards need the internet.</p>
     {/if}
+    {#if !p.cloud}
+      <!-- not saved online yet: the boards that need it, said kindly, and who can turn it on -->
+      <section class="pane hello">
+        <img src="{import.meta.env.BASE_URL}icons/trophy.webp" alt="" />
+        <div>
+          <h2>Want to be on the boards?</h2>
+          <p>Your class's board and your family's board show players who are saved online. A grown-up can turn that on for you in Grown-ups, under Players and saving. Today's Arcade challenge around the world is below for everyone.</p>
+          <button class="btn" onclick={() => game.openGrownups('players')}><img src="{import.meta.env.BASE_URL}icons/grownups.webp" alt="" />Ask a grown-up</button>
+        </div>
+      </section>
+    {/if}
 
     {#each classes as c (c.id)}
       <section class="pane">
@@ -83,7 +94,7 @@
 
     <section class="pane">
       <h2>Around the world: {ARCADE[today].name}</h2>
-      <p class="muted">Today's Arcade challenge. Everyone gets a made-up name.{#if prefs.world} You're on the board as <b>{prefs.alias}</b>.{:else} To be on it, ask a grown-up to turn on world boards (Grown-ups screen).{/if}</p>
+      <p class="muted">Today's Arcade challenge. Everyone gets a made-up name. {#if prefs.world}You're on the board as <b>{prefs.alias}</b>.{:else}To be on it, ask a grown-up to turn on world boards (Grown-ups screen).{/if}</p>
       {#if world === null}<p class="muted">Loading…</p>
       {:else if !world.length}<p class="muted">Nobody yet today. Be the first!</p>
       {:else}
@@ -104,6 +115,11 @@
   h3 { margin: 14px 0 2px; font-size: 20px; }
   .muted { color: var(--muted); font: 600 15px/1.4 var(--font-body); margin: 0 0 8px; }
   .note { font: 700 16px var(--font-body); color: var(--muted); }
+  .hello { display: flex; gap: 14px; align-items: flex-start; background: linear-gradient(135deg, #fff9e8, #fff); box-shadow: 0 0 0 3px #ffe08a, var(--shadow-sm); }
+  .hello > img { width: 64px; height: 64px; object-fit: contain; flex: none; }
+  .hello p { margin: 0 0 10px; font: 600 16px/1.45 var(--font-body); color: var(--ink2); }
+  .hello .btn { display: inline-flex; align-items: center; gap: 6px; }
+  .hello .btn img { width: 26px; height: 26px; object-fit: contain; }
   .goalrow { display: flex; align-items: center; gap: 14px; margin: 4px 0 10px; }
   .goalrow p { margin: 2px 0 0; font: 600 15px var(--font-body); color: var(--ink2); }
   .big { font: 600 26px var(--font-ui); }

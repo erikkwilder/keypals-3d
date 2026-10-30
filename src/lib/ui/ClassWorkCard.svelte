@@ -51,7 +51,7 @@
             <span><b>{c.week.right.toLocaleString('en-US')}</b> of {c.goal.toLocaleString('en-US')}<small>class goal</small></span>
           </div>
         {/if}
-        <button class="btn ghost sm" onclick={() => { sfx.click(); game.go('boards'); }}>Boards</button>
+        <button class="btn ghost sm" onclick={() => { sfx.click(); game.visit('boards'); }}>Boards</button>
         {#if shared}<button class="btn ghost sm" onclick={() => (leaving = 'ask')}>Done for today</button>{/if}
       </header>
       {#if !work.length}

@@ -4,7 +4,7 @@
 //
 //   L0 Home
 //   L1 Subjects (Typing, Math) · Places (Arcade, Adventure, My Sky Island) · My stuff · Grown-ups · My path
-//   L2 a Topic (Math › Fractions) · My stuff's pages (Wardrobe, Shop, Dances...) · Play together
+//   L2 a Topic (Math › Fractions) · My stuff's pages (Wardrobe, Shop, Dances...) · Play together (Duel, Rivals, Boards)
 //   L2 under a topic: its Practice map and its Learn and Play lists
 //   L3 activities (a trip, a lesson, a Learn episode, a game, a battle): no bar, one Pause button
 import type { Screen } from './game.svelte';
@@ -54,7 +54,8 @@ export function parentOf(pl: Place, from: Place | null = null): Place | null {
       return c.topic ? at('topic', { subject: subj, topic: c.topic }) : at('subject', { subject: subj });
     case 'grownups': return c.guSection ? at('grownups', { guSection: null }) : HOME;
     case 'skills': return at('grownups', { guSection: 'progress' });
-    case 'duel': case 'rivals': return at('arcade');
+    // Play together, in the Arcade: Family Duel, Rival Ghosts and the Boards
+    case 'duel': case 'rivals': case 'boards': return at('arcade');
     case 'players': case 'newPlayer': case 'classLogin': case 'title': return pl.screen === 'newPlayer' ? at('players') : null;
     default:
       if (STUFF_PAGES.has(pl.screen)) return at('mystuff');
