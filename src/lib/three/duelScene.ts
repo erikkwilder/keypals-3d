@@ -203,15 +203,16 @@ export class DuelScene implements Controller {
   /** A side's Glimmer (slot 0/1) or buddy (-1) adds a little extra cheer. */
   async extra(i: 0 | 1, slot: number, element: Element): Promise<void> {
     const g = slot >= 0 ? this.sides[i].team[slot] : null;
-    if (g) g.play('act'); else this.play(i, 'jump', 0.8, 'fistpump');
-    await sleep(220);
-    const from = g ? g.root.position.clone().add(new THREE.Vector3(0, g.height * 0.7, 0)) : this.hand(i);
+    if (g) g.play('attack'); else this.play(i, 'jump', 0.8, 'fistpump');
+    // (off it goes as the Glimmer's lunge lands, from its mouth)
+    await sleep(g?.rigged ? 340 : 220);
+    const from = g ? g.headAt() : this.hand(i);
     const c = CAST[element], to = this.grumble.centre;
     await new Promise<void>(res => this.fx.fly(from, to, { color: c.color, size: 0.3, time: 0.45, arc: 0.8, trail: at => c.trail(at, 0.4), hit: () => { for (const e of c.impact(to, 0.35)) this.fx.emit(e); this.grumble.hit(0.25); res(); } }));
   }
   /** Frost Owl readies an ice shield for the next rain cloud. */
   freeze(i: 0 | 1, slot: number) {
-    this.sides[i].team[slot]?.play('act');
+    this.sides[i].team[slot]?.play('attack');
     this.fx.emit({ at: this.sides[i].at.clone().add(new THREE.Vector3(0, 0.9, 0)), count: 40, shape: ['shard', 'flake'], color: [0xbff0ff, 0xffffff, 0x7fd6ff], speed: [0.6, 1.8], radius: 0.6, life: [1, 1.6], size: [0.12, 0.26], drag: 2, spin: 3 });
   }
   dazzle() {
@@ -260,6 +261,7 @@ export class DuelScene implements Controller {
       if (g) this.fx.emit({ at: g.position.clone().add(new THREE.Vector3(0, -0.15, 0)), count: 70, shape: 'drop', color: [0x9fd0ff, 0xd6ecff], dir: new THREE.Vector3(0, -1, 0), spread: 0.15, speed: [3, 5], radius: 0.45, life: [0.4, 0.7], size: [0.08, 0.13], gravity: 6 });
       await sleep(350);
       this.play(i, 'stumble', 1.2, 'idle');
+      this.sides[i].team.forEach((t, k) => setTimeout(() => t?.play('hit'), 60 + k * 90));
       this.shake = 0.2;
     }
     await sleep(300);
@@ -300,6 +302,8 @@ export class DuelScene implements Controller {
     this.fx.beam(this.glimmerAt.clone(), rc, { radius: 1.0, height: 16, life: 3.4, peak: 1 });
     this.play(i, 'cheer', 2.6, 'jump');
     this.play((1 - i) as 0 | 1, tie ? 'cheer' : 'wave', 2.6, tie ? 'jump' : 'cheer');
+    // the winners' Glimmers cheer (both sides' on a tie)
+    this.sides.forEach((s, k) => { if (k === i || tie) s.team.forEach((g, j) => setTimeout(() => g?.play('cheer'), 150 + j * 200)); });
     this.winner = i; this.tie = tie;
     await sleep(1100);
     if (tie) { this.grumble.glimmer.play('happy'); await sleep(1500); return; }
@@ -327,7 +331,7 @@ export class DuelScene implements Controller {
       if (this.now > s.busyUntil && s.me.currentName !== 'idle') s.me.play('idle', 0.4);
       s.me.update(dt);
       if (!s.me.root.visible) s.me.root.visible = true;
-      for (const g of s.team) { if (g) { g.face = this.grumble.root.position.clone(); g.update(dt, t); } }
+      for (const g of s.team) { if (g) { g.face = this.grumble.root.position.clone(); g.lookAt = this.grumble.centre; g.update(dt, t); } }
       // a ghost leaves a soft trail of blue light
       if (s.ghost && Math.random() < dt * 14) this.fx.emit({ at: s.at.clone().add(new THREE.Vector3(0, 0.3 + Math.random() * 0.9, 0)), count: 1, shape: 'dot', color: [0x9fd8ff, 0xd6ecff], speed: [0.05, 0.25], up: 0.6, radius: 0.35, life: [0.8, 1.4], size: [0.05, 0.1], drag: 0.6, gravity: -0.2 });
     });

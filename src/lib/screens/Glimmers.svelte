@@ -112,7 +112,8 @@
     {#snippet right()}<button class="btn bookbtn" onclick={() => { sfx.click(); game.openBook(); }}><Icon name="book" size={26} /> Glimmer Book</button>{/snippet}
   </Header>
   <div class="body">
-    <div class="stagebox" bind:this={stageEl}>
+    <!-- tap the Glimmer: it's happy to see you -->
+    <div class="stagebox" bind:this={stageEl} role="button" tabindex="-1" aria-label="Pet your Glimmer" onclick={() => { if (owns(a, sel) && !evolving) { scene?.poke(); sfx.pop(); } }} onkeydown={() => {}}>
       {#if !owns(a, sel)}<div class="unknown"><GlimmerCard id={sel} width={200} locked /></div>{/if}
       {#if evolving}<div class="evobanner"><b>What's happening?</b><span>{GLIMMER[evolving].name} is evolving!</span></div>{/if}
     </div>

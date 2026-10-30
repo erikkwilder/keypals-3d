@@ -63,6 +63,8 @@ export class BattleScene implements Controller {
 
   private constructor(island: Island, me: Character, grumble: GrumpyGlimmer, team: (GlimmerModel | null)[], opts: Opts) {
     this.island = island; this.me = me; this.grumble = grumble; this.team = team; this.opts = opts; this.view = opts.view;
+    // development: the page can reach the battle (window.__battle) for checking its moves
+    if (import.meta.env.DEV) (window as unknown as { __battle: BattleScene }).__battle = this;
     const f = island.trail.at(8);
     this.C = f.p.clone(); this.n = f.n.clone().setY(0).normalize();
     this.right = new THREE.Vector3().crossVectors(this.n.clone().negate(), UP).normalize();
@@ -301,10 +303,12 @@ export class BattleScene implements Controller {
   /** A Glimmer (or the buddy's role, or outfit) adds a little extra cheer. `slot` -1 = the buddy. */
   async extra(slot: number, element: Element): Promise<void> {
     const g = slot >= 0 ? this.team[slot] : null;
-    if (g) g.play('act');
+    // a lunge (a pounce, a gust, a splash...) with a puff of its element
+    if (g) g.play('attack');
     else this.play('jump', 0.8, 'fistpump');
-    await sleep(220);
-    const from = g ? g.root.position.clone().add(new THREE.Vector3(0, g.height * 0.7, 0)) : this.hand();
+    // (off it goes as the Glimmer's lunge lands, from its mouth)
+    await sleep(g?.rigged ? 340 : 220);
+    const from = g ? g.headAt() : this.hand();
     const c = CAST[element];
     await new Promise<void>(res => this.fx.fly(from, this.foeCentre(), { color: c.color, size: 0.3, time: 0.45, arc: 0.8, trail: at => c.trail(at, 0.4), hit: () => { for (const e of c.impact(this.foeCentre(), 0.35)) this.fx.emit(e); this.grumble.hit(0.25); res(); } }));
   }
@@ -317,7 +321,7 @@ export class BattleScene implements Controller {
   }
   /** The Grumble freezes for a turn. */
   freeze(slot: number) {
-    this.team[slot]?.play('act');
+    this.team[slot]?.play('attack');
     this.fx.emit({ at: this.foeCentre(), count: 40, shape: ['shard', 'flake'], color: [0xbff0ff, 0xffffff, 0x7fd6ff], speed: [0.8, 2.5], radius: 0.5 * this.grumble.height, life: [1, 1.8], size: [0.15, 0.3], drag: 2, spin: 3 });
   }
   /** Dazzled by a strong element: stars round its head. */
@@ -370,6 +374,8 @@ export class BattleScene implements Controller {
     this.fx.emit(look.splash(target));
     if (kind === 'rain') this.cloudlet(target.clone().add(new THREE.Vector3(0, 1.5, 0)));
     this.play('stumble', 1.0, 'idle');
+    // the team flinches too
+    this.team.forEach((g, i) => setTimeout(() => g?.play('hit'), 60 + i * 90));
     this.flinch = 1;
     this.shake = 0.35;
   }
@@ -442,6 +448,7 @@ export class BattleScene implements Controller {
     this.grumble.burst();
     this.fx.emit({ at, count: 110, shape: ['star', 'dot', 'spark', 'heart'], color: [0xff6fa8, 0xffb44d, 0xffe066, 0x6fe3a0, 0x5bb6ff, 0xa98cff, 0xffffff], speed: [1.5, 6], life: [0.8, 1.8], size: [0.15, 0.35], drag: 1.4, gravity: 0.6, spin: 3 });
     this.play('cheer', 2.2, 'jump');
+    this.team.forEach((g, i) => setTimeout(() => g?.play('cheer'), 150 + i * 200));
     await sleep(300);
     const rc = RARITY[rarity].color;
     this.fx.beam(this.foeAt.clone(), rc, { radius: 1.0 + (['legendary', 'mythic'].includes(rarity) ? 0.4 : 0), height: 16, life: 3.4, peak: 1 });
@@ -501,7 +508,9 @@ export class BattleScene implements Controller {
     }
     this.grumble.update(dt, t);
     // the team and the newcomer
-    for (const g of this.team) g?.update(dt, t);
+    // the team keeps its eyes on the Grumble (and on the newcomer once it's cheered up)
+    const eye = this.foeCentre();
+    for (const g of this.team) { if (g) { g.lookAt = eye; g.update(dt, t); } }
     if (this.revealed) this.grumble.lookAt.copy(stage.camera.position);
     // banners wave, crystals turn and glow
     for (const b of this.banners) { const p = b.geometry.attributes.position as THREE.BufferAttribute; for (let i = 0; i < p.count; i++) { const y = -p.getY(i); p.setZ(i, Math.sin(t * 2.6 + y * 4 + b.id) * 0.06 * y); } p.needsUpdate = true; }

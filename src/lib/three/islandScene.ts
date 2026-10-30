@@ -57,6 +57,8 @@ export type Aim = { place: Block | null; on: Block | null; key: string | null };
 type Spot = { kind: 'swim' | 'sit' | 'warm' | 'perch'; at: THREE.Vector3; r: number; face?: number; taken?: GlimmerId };
 type Thing = { uid: string; pl: Placed; obj: THREE.Object3D; tick: Tick | null; pop: number };
 type Mood = 'idle' | 'walk' | 'nap' | 'play' | 'swim' | 'sit' | 'warm' | 'perch' | 'fetch' | 'bring' | 'munch';
+/** what a Glimmer's body keeps doing in each mood (glimmerMotion.ts) */
+const MOOD_POSE: Record<Mood, 'idle' | 'walk' | 'sit' | 'sleep' | 'swim'> = { idle: 'idle', walk: 'walk', nap: 'sleep', play: 'idle', swim: 'swim', sit: 'sit', warm: 'sit', perch: 'sit', fetch: 'walk', bring: 'walk', munch: 'idle' };
 type Pal = {
   id: GlimmerId; m: GlimmerModel; mood: Mood; until: number; to: THREE.Vector3 | null; home: THREE.Vector3 | null; hopAt: number; zzz: number; heart?: THREE.Sprite; heartT?: number; heartAt?: number;
   /** where it is (its feet), how fast it's falling */
@@ -847,6 +849,11 @@ export class IslandScene implements Controller {
   }
   private palMove(p: Pal, dt: number, t: number) {
     const m = p.m, P = p.p3;
+    // what its body does (a Glimmer with a skeleton): walks, naps curled up, sits on a bench or up high,
+    // paddles in a pond; looks at your buddy when it's close
+    m.pose = p.hop ? 'idle' : MOOD_POSE[p.mood];
+    const near = this.me && (p.mood === 'idle' || p.mood === 'play' || p.mood === 'sit' || p.mood === 'perch') && Math.hypot(this.meP.x - P.x, this.meP.z - P.z) < 4;
+    m.lookAt = near ? this.me!.root.position.clone().setY(this.meP.y + 0.8) : p.mood === 'warm' ? this.sun.position : null;
     // now and then a happy one shows a heart
     p.heartAt ??= t + 3 + Math.random() * 12;
     if (t > p.heartAt && p.mood !== 'nap' && p.mood !== 'sit') { p.heartAt = t + 10 + Math.random() * 16; p.heartT = 0; if (!p.heart) { p.heart = this.heartBubble(); this.root.add(p.heart); } }
@@ -890,7 +897,8 @@ export class IslandScene implements Controller {
       if (len < 0.08) return len;
       const moved = this.move3(P, { x: d.x / len, z: d.z / len }, Math.min(len, dt * speed), 0.2, 0.12);
       m.face = to.clone().setY(P.y);
-      if (!m.floats && t > p.hopAt) { m.play('hop'); p.hopAt = t + (speed > 1 ? 0.32 : 0.5); }
+      // (one that walks on legs walks; the rest hop along)
+      if (!m.floats && !m.walks && t > p.hopAt) { m.play('hop'); p.hopAt = t + (speed > 1 ? 0.32 : 0.5); }
       return moved < dt * speed * 0.15 && len > 0.3 ? -1 : len;
     };
     if (p.mood === 'walk' && p.to) {
@@ -919,7 +927,8 @@ export class IslandScene implements Controller {
       p.zzz -= dt;
       if (p.zzz <= 0) { p.zzz = 0.5; this.fx.emit({ at: new THREE.Vector3(P.x, sp.at.y + 0.03, P.z), count: 1, shape: 'ring', color: 0xe6f8ff, speed: [0.02, 0.06], life: [0.8, 1.1], size: [0.3, 0.5], grow: 1.5, drag: 2 }); }
     } else if (p.mood === 'sit' || p.mood === 'nap') {
-      m.droop = Math.min(0.9, m.droop + dt * 0.8);
+      // (one with a skeleton sits up or curls up instead of slumping)
+      if (!m.rigged) m.droop = Math.min(0.9, m.droop + dt * 0.8);
       p.zzz -= dt;
       if (p.zzz <= 0) { p.zzz = 0.9; this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0.1, m.height * 0.9, 0)), count: 1, shape: 'dot', color: 0xffffff, speed: [0.15, 0.3], up: 0.6, life: [1.2, 1.6], size: [0.05, 0.09], drag: 0.5, fade: 1 }); }
     } else if (p.mood === 'warm') {
@@ -928,10 +937,10 @@ export class IslandScene implements Controller {
     } else if (p.mood === 'perch') {
       if (t > p.hopAt) { p.hopAt = t + 2 + Math.random() * 2; m.face = new THREE.Vector3(P.x + Math.cos(t) * 3, P.y, P.z + Math.sin(t) * 3); if (Math.random() < 0.4) m.play('happy'); }
     } else if (p.mood === 'play') {
-      if (t > p.hopAt) { m.play(Math.random() < 0.4 ? 'happy' : 'hop'); p.hopAt = t + 0.9 + Math.random() * 0.6; if (Math.random() < 0.5) this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0, 0.5, 0)), count: 6, shape: ['star', 'dot'], color: [0xffffff, 0xfff2a8], speed: [0.3, 0.9], up: 0.8, life: [0.4, 0.7], size: [0.05, 0.1], drag: 2 }); }
+      if (t > p.hopAt) { const r = Math.random(); m.play(r < 0.35 ? 'happy' : r < 0.55 && m.rigged ? 'cheer' : 'hop'); p.hopAt = t + (m.rigged ? 1.4 : 0.9) + Math.random() * 0.6; if (Math.random() < 0.5) this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0, 0.5, 0)), count: 6, shape: ['star', 'dot'], color: [0xffffff, 0xfff2a8], speed: [0.3, 0.9], up: 0.8, life: [0.4, 0.7], size: [0.05, 0.1], drag: 2 }); }
     }
     // a treat: munch, munch, munch
-    if (p.munch && t < p.munch) { if (t > p.hopAt) { m.play('act'); p.hopAt = t + 0.34; this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0, m.height * 0.5, 0)), count: 3, shape: 'dot', color: [0xe8a050, 0xffd9a0], speed: [0.3, 0.8], up: 0.6, life: [0.3, 0.5], size: [0.03, 0.05], gravity: 4 }); } }
+    if (p.munch && t < p.munch) { if (t > p.hopAt) { m.play('eat'); p.hopAt = t + (m.rigged ? 0.8 : 0.34); this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0, m.height * 0.5, 0)), count: 3, shape: 'dot', color: [0xe8a050, 0xffd9a0], speed: [0.3, 0.8], up: 0.6, life: [0.3, 0.5], size: [0.03, 0.05], gravity: 4 }); } }
     if (p.mood !== 'swim' && p.mood !== 'sit' && p.mood !== 'warm' && p.mood !== 'perch') p.vy = fall(this.world, P, p.vy, dt);
     m.root.position.set(P.x, P.y + swimY, P.z);
     m.update(dt, t);

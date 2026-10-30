@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glimmer frame times</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; background: #eef6fc; font: 13px system-ui, sans-serif; color: #223; }
+  #status { padding: 8px 12px; }
+  #grid { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; }
+  figure { margin: 0; background: #a9d6f5; border-radius: 8px; overflow: hidden; }
+  figcaption { background: #fff; padding: 2px 6px; font-size: 11px; }
+  img { display: block; }
+</style>
+</head>
+<body>
+<div id="status">Loading...</div>
+<div id="grid"></div>
+<script type="module" src="./perf.ts"></script>
+</body>
+</html>

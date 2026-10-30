@@ -65,8 +65,9 @@ export class GlimmerShow implements Controller {
       this.fx.emit({ at: g.root.position.clone().add(new THREE.Vector3(0, 0.6, 0)), count: 90, shape: ['star', 'dot', 'spark'], color: [c, 0xffffff, 0xffe066], speed: [1.5, 5], life: [0.8, 1.6], size: [0.12, 0.3], drag: 1.4, gravity: 0.5, spin: 3 });
     }
   }
-  /** A little hop (tapped). */
-  poke() { this.g?.play('happy'); }
+  /** Tapped: happy hops (every third tap, a cheer). */
+  private pokes = 0;
+  poke() { this.g?.play(++this.pokes % 3 === 0 ? 'cheer' : 'happy'); }
 
   /** The evolution: about 3.2 s of glowing and spinning, then the burst and the grown-up form. Resolves
    *  once the new one has landed. `onBurst` fires at the burst (for the sound). */
@@ -114,6 +115,8 @@ export class GlimmerShow implements Controller {
       this.spin += dt * 0.35;
       const camDir = this.n.clone().applyAxisAngle(UP, Math.sin(this.spin) * 0.6);
       this.g.face = this.g.root.position.clone().addScaledVector(camDir, 5);
+      // its eyes stay on you as it turns
+      this.g.lookAt = stage.camera.position;
       this.g.update(dt, t);
     }
     if (Math.random() < dt * 6) this.fx.emit({ at: this.stone.position.clone().add(new THREE.Vector3(0, 0.3, 0)), count: 1, shape: 'dot', color: [0xfff2b0, 0xffffff], speed: [0.1, 0.3], up: 3, radius: 1.2, life: [2, 3.5], size: [0.04, 0.08], gravity: -0.05 });

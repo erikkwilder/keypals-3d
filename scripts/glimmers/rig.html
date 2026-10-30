@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glimmer rig</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; height: 100%; background: #e8f2fa; font: 13px system-ui, sans-serif; color: #223; }
+  #view { position: absolute; inset: 0 0 0 300px; }
+  #side { position: absolute; left: 0; top: 0; bottom: 0; width: 300px; overflow: auto; background: #fff; border-right: 1px solid #cdd; padding: 10px; box-sizing: border-box; }
+  h1 { font-size: 15px; margin: 0 0 8px; }
+  select, button { font: inherit; margin: 2px 0; }
+  button { padding: 3px 8px; border: 1px solid #aab; border-radius: 6px; background: #f4f7fb; cursor: pointer; }
+  button.on { background: #ffe58a; border-color: #c9a400; }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; align-items: center; }
+  .pts button { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; }
+  .pts i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  .pts small { color: #889; margin-left: auto; }
+  #msg { margin: 6px 0; min-height: 18px; color: #2a6; }
+  .help { color: #667; font-size: 12px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div id="side">
+  <h1>Glimmer rig</h1>
+  <div class="row"><select id="who"></select><select id="plan"></select></div>
+  <div class="help">Click a point's name, then click the model where it should go (it lands in the middle of the part under the pointer). Drag to turn the view, scroll to zoom.</div>
+  <div class="row"><button id="guess">Guess all again</button><button id="save">Save</button></div>
+  <div id="msg"></div>
+  <div class="row"><button id="wts">Weights</button><button id="bones" class="on">Bones</button></div>
+  <div class="row" id="moves"></div>
+  <div class="row" id="add"></div>
+  <div class="pts" id="pts"></div>
+</div>
+<div id="view"></div>
+<script type="module" src="./rig.ts"></script>
+</body>
+</html>

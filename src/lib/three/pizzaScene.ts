@@ -11,7 +11,8 @@ import { PIZZAS, PIZZA_KINDS, type PizzaKind } from '../math/pizza/rush';
 
 const R = 1, H = 0.08, CUST_Z = -1.1;
 type Slice = { mesh: THREE.Mesh; cap: THREE.MeshStandardMaterial; mid: number; picked: boolean; k: number; fly: { t: number; from: THREE.Vector3; to: THREE.Vector3 } | null };
-type Cust = { model: GlimmerModel; slot: number; x: number; from: number; t: number; leaving: boolean };
+/** `glance`: when it next looks somewhere else; `fidget`: when it next fidgets */
+type Cust = { model: GlimmerModel; slot: number; x: number; from: number; t: number; leaving: boolean; glance?: number; fidget?: number };
 
 const ease = (x: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
 
@@ -54,6 +55,8 @@ export class PizzaScene {
   private camAim = new THREE.Vector3(0, 0.2, -0.5);
 
   private constructor(private canvas: HTMLCanvasElement) {
+    // development: the page can pick the customers (window.__pizza.setCustomers) for checking them
+    if (import.meta.env.DEV) (window as unknown as { __pizza: PizzaScene }).__pizza = this;
     const r = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
     r.setPixelRatio(Math.min(devicePixelRatio, 1.75));
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFShadowMap;
@@ -242,10 +245,28 @@ export class PizzaScene {
   /** A served customer cheers (with sparkles of its colour). */
   cheer(slot: number) {
     const c = this.cust[slot]; if (!c) return;
-    c.model.play('happy');
+    c.model.play('cheer'); c.fidget = this.t + 3;
     const col = ELEMENT[GLIMMER[c.model.id].element].color;
     this.fx.emit({ at: new THREE.Vector3(c.x, 0.7, CUST_Z), count: 40, shape: ['star', 'heart', 'spark'], color: [col, 0xffffff, 0xffd36b], speed: [1, 2.6], up: 1.4, life: [0.6, 1.2], size: [0.07, 0.15], gravity: 1.6, drag: 0.8, spin: 3 });
   }
+  /** A customer at the counter: walks in, then waits. It looks at the pizza (the one whose order is up
+   *  keeps its eyes on it), glances round now and then, and fidgets: a little bounce, licking its lips. */
+  private wait(c: Cust, on: boolean) {
+    const m = c.model, t = this.t;
+    this.pizzaPos.copy(this.pizza.position).setY(0.1);
+    m.pose = c.t < 1 ? 'walk' : 'idle';
+    c.glance ??= t + 1 + Math.random() * 2; c.fidget ??= t + 3 + Math.random() * 4;
+    if (t > c.glance) {
+      c.glance = t + 1.5 + Math.random() * 2.5;
+      m.lookAt = on || Math.random() < 0.6 ? this.pizzaPos : Math.random() < 0.5 ? this.camera.position : null;
+    }
+    if (on) m.lookAt = this.pizzaPos;
+    if (c.t >= 1 && t > c.fidget) {
+      c.fidget = t + 4 + Math.random() * 5;
+      m.play(Math.random() < 0.5 ? 'hop' : 'eat');
+    }
+  }
+  private pizzaPos = new THREE.Vector3(0, 0.1, 0);
   /** A customer who waited too long, or got the wrong pizza, looks sad for a moment. */
   sad(slot: number) { this.cust[slot]?.model.play('sad'); }
   /** Where a customer's head is on the screen (px in the canvas), for its order bubble. */
@@ -331,6 +352,7 @@ export class PizzaScene {
       c.model.root.position.set(c.x, -0.09 + (on ? Math.abs(Math.sin(this.t * 4)) * 0.04 : 0), CUST_Z + k * (k > 0 ? 0.32 : 0.22));
       c.model.root.scale.setScalar(1 + k * (k > 0 ? 0.16 : 0.12));
       c.model.setGrey(Math.max(0, -k) * 0.45);
+      this.wait(c, on);
       c.model.update(dt, this.t);
     }
     // the spotlight slides to whoever's up; the camera turns a little toward them
@@ -346,6 +368,7 @@ export class PizzaScene {
     if (!this.tall) { this.camAim.set(this.lookX, 0.2, -0.5); this.camera.lookAt(this.camAim); }
     // a customer leaving hops off backwards and shrinks away (walking sideways crossed the others)
     for (const c of this.gone) {
+      if (c.t === 0) { c.model.lookAt = null; c.model.pose = 'idle'; c.model.play('hop'); }
       c.t += dt / 0.8;
       const e = ease(c.t);
       c.model.root.position.set(c.x, -0.09 + Math.sin(Math.min(1, c.t) * Math.PI) * 0.45, CUST_Z - e * 1.6);
