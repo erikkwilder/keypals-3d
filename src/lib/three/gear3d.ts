@@ -1209,3 +1209,173 @@ export function nudgeGear(c: Character, slot: Slot, n: Nudge) {
   const w = rigs.get(c)?.worn[slot];
   if (w) { w.nz.v = n; w.onNudge.forEach(f => f()); }
 }
+
+// ---------- the climbing kit (the cliff course: three/runScene.ts) ----------
+/** What a climber wears up the cliff, and how fast it shows it's going. `update` with the speed step (0
+ *  Hold On .. 5 Rocket Boots) and how fast the buddy is moving (m/s). */
+export type ClimbKit = { update(dt: number, t: number, step: number, speed: number): void; dispose(): void };
+/**
+ * Climbing gear on a buddy: chunky climbing boots on its own feet, with a little booster on each heel; a
+ * harness belt round its waist with a chalk bag at the back and two gold clips; and speed you can see.
+ * The boosters light as the climber gets quicker: a flicker at Speed Climber, real flames at Super
+ * Climber, big flames and sparks at Rocket Boots. Speed lines rush past either side from Quick Climber on,
+ * more and longer the faster it goes, and chalk puffs from the bag on a fast climb. The boots and belt
+ * ride the bones (bind space, like everything worn); the speed lines and sparks ride the buddy's root.
+ */
+export async function climbKit(c: Character): Promise<ClimbKit | null> {
+  const f = fitOf(c);
+  if (!f.feet.length) return null;
+  const [boot, rocket, flameMap, dot] = await Promise.all([
+    painted('gear/tile-sneaker_rocket.webp', { repeat: true }), painted('gear/tex-rocket.webp'), loadTexture('gear/tex-flame.webp'), loadTexture('vibes/dot.webp'),
+  ]);
+  boot.roughness = 0.55;
+  const objs: THREE.Object3D[] = [], s = hw(c) * f.unit, H = f.H;
+  const flames: { g: THREE.Group; outer: number }[] = [];
+  // the boots: the feet's own shells (a little bigger, over any shoes it has on), a booster up each heel,
+  // nose up, its flame pointing down
+  const fmat = new THREE.MeshBasicMaterial({ map: flameMap, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+  const heelSpots: THREE.Object3D[] = [];
+  for (const ft of f.feet) {
+    const g = onBone(c, `${ft.side}Foot`);
+    if (!g) continue;
+    objs.push(g);
+    const mid = new THREE.Vector3(ft.cx, ft.sole, (ft.heel + ft.toe) / 2);
+    if (ft.geo) { const shell = new THREE.Mesh(ft.geo, boot); shell.position.copy(mid).multiplyScalar(-0.04); shell.scale.setScalar(1.04); g.add(shell); }
+    const outer = ft.side === 'Left' ? 1 : -1, bh = s * 0.1;
+    const holder = new THREE.Group();
+    holder.add(new THREE.Mesh(latheFromPicture(bh, ROCKET, ROCKET_ASPECT, 14), rocket));
+    holder.position.set(ft.cx + outer * ft.w * 0.18, ft.sole + bh * 0.62, ft.heel - bh * 0.12);
+    const fl = new THREE.Group();
+    for (const turn of [0, Math.PI / 2]) {
+      const fg = new THREE.PlaneGeometry(bh * 0.55, bh * 1.1); fg.translate(0, -bh * 0.55, 0); fg.rotateY(turn);
+      fl.add(new THREE.Mesh(fg, fmat));
+    }
+    fl.position.y = -bh * 0.5; fl.scale.setScalar(0.001);
+    holder.add(fl); g.add(holder);
+    flames.push({ g: fl, outer });
+    const spot = new THREE.Object3D(); spot.position.y = -bh * 0.7; holder.add(spot); heelSpots.push(spot);
+  }
+  // the harness: a belt round the waist (the body's own shape there, a little out), a chalk bag at the
+  // back, and two gold clips on the sides
+  const hipsB = c.bones.Hips, hsk = hipsB && skinned(c).find(m => m.skeleton.bones.includes(hipsB));
+  let bag: THREE.Object3D | null = null;
+  if (hsk && f.back) {
+    const hipY = new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(hsk.skeleton.boneInverses[hsk.skeleton.bones.indexOf(hipsB)]).invert()).y;
+    const y = hipY + H * 0.035, band = points(c, Object.keys(c.bones), 0).filter(p => Math.abs(p.y - y) < H * 0.025);
+    if (band.length > 20) {
+      const cx = pct(band.map(p => p.x), 0.5), x0 = pct(band.map(p => p.x), 0.04), x1 = pct(band.map(p => p.x), 0.96);
+      const z0 = pct(band.map(p => p.z), 0.04), z1 = pct(band.map(p => p.z), 0.96), cz = (z0 + z1) / 2;
+      const rx = (x1 - x0) / 2 * 1.06 + H * 0.006, rz = (z1 - z0) / 2 * 1.08 + H * 0.006;
+      const ring = new THREE.CatmullRomCurve3(Array.from({ length: 40 }, (_, i) => { const a = (i / 40) * Math.PI * 2; return new THREE.Vector3(cx + Math.sin(a) * rx, y, cz + Math.cos(a) * rz); }), true);
+      const g = onBone(c, 'Hips');
+      if (g) {
+        objs.push(g);
+        const strap = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.75 });
+        const belt = new THREE.Mesh(new THREE.TubeGeometry(ring, 80, H * 0.012, 8, true), strap);
+        belt.scale.set(1, 1.6, 1); belt.position.y = -y * 0.6; // (flattened into a strap, about its own height)
+        g.add(belt);
+        // the chalk bag: a little teal pot with a fluffy white rim, hanging at the back of the belt
+        bag = new THREE.Group();
+        const pot = new THREE.Mesh(new THREE.CylinderGeometry(H * 0.03, H * 0.026, H * 0.055, 14), new THREE.MeshStandardMaterial({ color: 0x23b5a8, roughness: 0.8 }));
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(H * 0.03, H * 0.008, 8, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }));
+        rim.rotation.x = Math.PI / 2; rim.position.y = H * 0.028;
+        bag.add(pot, rim);
+        bag.position.set(cx, y - H * 0.03, cz - rz - H * 0.028);
+        g.add(bag);
+        // two gold clips on the sides
+        const gold = new THREE.MeshStandardMaterial({ color: 0xffc23d, roughness: 0.3, metalness: 0.6 });
+        for (const sd of [-1, 1]) {
+          const clip = new THREE.Mesh(new THREE.TorusGeometry(H * 0.016, H * 0.004, 6, 14), gold);
+          clip.scale.set(0.7, 1.15, 1); clip.position.set(cx + sd * rx * 0.92, y - H * 0.022, cz - rz * 0.35); clip.rotation.y = sd * 0.9;
+          g.add(clip);
+        }
+      }
+    }
+  }
+  objs.forEach(shadows);
+  // speed you can see: lines rushing down past either side, and sparks from the boosters (on the root, in
+  // metres: the buddy faces the wall, +z, with the camera behind it)
+  const Hm = hw(c), fx = new THREE.Group(); c.root.add(fx);
+  const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  // (a soft-ended streak: brighter in the middle)
+  const lg = new THREE.PlaneGeometry(1, 1, 1, 4); { const p = lg.attributes.position as THREE.BufferAttribute, col: number[] = []; for (let i = 0; i < p.count; i++) { const k = 1 - Math.abs(p.getY(i)) * 2; col.push(k, k, k); } lg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); }
+  lineMat.vertexColors = true;
+  const lines = Array.from({ length: 14 }, (_, i) => {
+    const m = new THREE.Mesh(lg, lineMat), side = i % 2 ? 1 : -1;
+    m.userData = { side, x: side * Hm * (0.42 + Math.random() * 0.45), z: -Hm * (0.05 + Math.random() * 0.3), y: Math.random() * 2 - 0.5, sp: 0.8 + Math.random() * 0.5 };
+    m.visible = false; fx.add(m); return m;
+  });
+  const sparks = Array.from({ length: 16 }, () => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: dot, color: 0xffd36b, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    sp.visible = false; sp.userData = { life: 9, v: new THREE.Vector3() }; fx.add(sp); return sp;
+  });
+  const chalk = Array.from({ length: 6 }, () => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: dot, color: 0xffffff, transparent: true, depthWrite: false, opacity: 0 }));
+    sp.visible = false; sp.userData = { life: 9, v: new THREE.Vector3() }; fx.add(sp); return sp;
+  });
+  let flame = 0, sparkT = 0, chalkT = 0;
+  const tmp = new THREE.Vector3();
+  return {
+    update(dt, t, step, speed) {
+      // the boosters: off below Speed Climber, then a flicker, flames, big flames
+      const want = step >= 5 ? 1 : step >= 4 ? 0.72 : step >= 3 ? 0.4 : 0;
+      flame += (want * Math.min(1, speed / 0.25) - flame) * Math.min(1, dt * 6);
+      for (const fl of flames) {
+        const on = flame > 0.02, k = flame * 1.7 * (0.8 + 0.3 * Math.abs(Math.sin(t * 23 + fl.outer))), w = 0.7 + 0.6 * flame;
+        fl.g.scale.set(on ? w : 0.001, Math.max(0.001, k), on ? w : 0.001);
+      }
+      // speed lines: from Quick Climber on, more, brighter and longer the faster it goes
+      const lk = Math.max(0, Math.min(1, (step - 1) / 4)) * Math.min(1, speed / 0.3), shown = Math.round(lines.length * lk);
+      lineMat.opacity = 0.18 + 0.32 * lk;
+      lines.forEach((m, i) => {
+        const u = m.userData as { side: number; x: number; z: number; y: number; sp: number };
+        m.visible = i < shown;
+        if (!m.visible) return;
+        u.y -= dt * u.sp * (1.2 + 3.5 * lk);
+        if (u.y < -0.6) { u.y = 1.6 + Math.random() * 0.4; u.x = u.side * Hm * (0.42 + Math.random() * 0.45); }
+        const len = Hm * (0.25 + 0.55 * lk);
+        m.position.set(u.x, u.y * Hm, u.z); m.scale.set(Hm * 0.016, len, 1);
+      });
+      // sparks from the boosters at Super Climber and Rocket Boots
+      sparkT -= dt;
+      if (flame > 0.6 && sparkT <= 0 && heelSpots.length) {
+        sparkT = 0.05 / flame;
+        const sp = sparks.find(x => (x.userData.life as number) > 0.5) ?? sparks[0], from = heelSpots[Math.floor(Math.random() * heelSpots.length)];
+        from.getWorldPosition(tmp); c.root.worldToLocal(tmp);
+        sp.position.copy(tmp); sp.userData.life = 0; (sp.userData.v as THREE.Vector3).set((Math.random() - 0.5) * 0.6, -1.4 - Math.random(), -(Math.random() * 0.4)).multiplyScalar(Hm);
+        sp.visible = true;
+      }
+      for (const sp of sparks) {
+        const u = sp.userData as { life: number; v: THREE.Vector3 };
+        if (!sp.visible) continue;
+        u.life += dt;
+        if (u.life > 0.5) { sp.visible = false; continue; }
+        sp.position.addScaledVector(u.v, dt); sp.scale.setScalar(Hm * 0.05 * (1 - u.life * 1.6));
+      }
+      // a puff of chalk from the bag now and then on a quick climb
+      chalkT -= dt;
+      if (bag && step >= 2 && speed > 0.2 && chalkT <= 0) {
+        chalkT = 0.6 / Math.max(0.5, step - 1);
+        const sp = chalk.find(x => (x.userData.life as number) > 0.9) ?? chalk[0];
+        bag.getWorldPosition(tmp); c.root.worldToLocal(tmp);
+        sp.position.copy(tmp); sp.userData.life = 0; (sp.userData.v as THREE.Vector3).set((Math.random() - 0.5) * 0.3, -0.4, -0.25).multiplyScalar(Hm);
+        sp.visible = true;
+      }
+      for (const sp of chalk) {
+        const u = sp.userData as { life: number; v: THREE.Vector3 };
+        if (!sp.visible) continue;
+        u.life += dt;
+        if (u.life > 0.9) { sp.visible = false; continue; }
+        sp.position.addScaledVector(u.v, dt); sp.scale.setScalar(Hm * (0.06 + u.life * 0.12)); (sp.material as THREE.SpriteMaterial).opacity = 0.7 * (1 - u.life / 0.9);
+      }
+    },
+    dispose() {
+      for (const o of [...objs, fx]) {
+        o.removeFromParent();
+        o.traverse(x => { const m = x as THREE.Mesh; if (m.geometry && m.geometry !== f.feet[0]?.geo && m.geometry !== f.feet[1]?.geo) m.geometry.dispose(); });
+      }
+      boot.dispose(); rocket.dispose(); fmat.dispose(); lineMat.dispose(); lg.dispose();
+      for (const sp of [...sparks, ...chalk]) (sp.material as THREE.SpriteMaterial).dispose();
+    },
+  };
+}
