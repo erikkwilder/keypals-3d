@@ -7,10 +7,10 @@
   // three stars, a best score and today's challenge.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
+  import { AREA } from '../math/skills/registry';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import type { Profile } from '../engine/profile';
-  import { FRIEND } from '../art/cast';
   import type { Answer } from '../math/skills/types';
   import { ROUND_MS, STAR_AT, applyRush, comboMult, dailyBestOf, dailySeed, levelsFor, orderMaker, orderScore, rightAnswer, rushOf, skillsFor, starsFor, type Order, type RushOutcome } from '../math/measure/rush';
   import { timeText } from '../math/skills/measure';
@@ -22,6 +22,7 @@
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
+  import PrizeRow from '../arcade/ui/PrizeRow.svelte';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -137,9 +138,14 @@
     for (let i = 0; i < out.stars; i++) setTimeout(() => sfx.star(i), 400 + i * 300);
     musicEnergy(0.5);
   }
+  /** opened from the Arcade, Back goes there; otherwise to the area's map */
+  const fromArcade = game.gameFrom === 'arcade';
+  game.gameFrom = 'map';
+  const backTo = fromArcade ? 'the Arcade' : AREA.measure.name;
   function quit() {
     sfx.click();
     if (phase === 'play') { phase = 'menu'; order = null; msg = null; return; }
+    if (fromArcade) { game.go('arcade'); return; }
     game.mathArea = 'measure'; game.mathOp = null; game.setHome('math'); game.go('map');
   }
   function onKey(e: KeyboardEvent) {
@@ -163,7 +169,7 @@
   <img class="gearbg g3" src="{base}math/measure/gear.webp" alt="" />
 
   <div class="top">
-    <button class="back" onclick={quit} aria-label={phase === 'play' ? 'Stop the round' : 'Back to Measurement and time'}><Icon name="back" size={26} /></button>
+    <button class="back" onclick={quit} aria-label={phase === 'play' ? 'Stop the round' : `Back to ${backTo}`}><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/measure/tile.webp" alt="" /><b>Clock Rush</b>{#if daily}<small>Today's challenge</small>{/if}</div>
     {#if phase === 'play'}
       <div class="score"><small>Score</small><b>{score}</b></div>
@@ -273,13 +279,9 @@
           <div><b>{bestCombo}</b><small>best combo</small></div>
           <div><b>{o.best}</b><small>best score</small></div>
         </div>
-        <div class="xp">
-          <span>{FRIEND[p.buddy].name} <Icon name="heart" size={16} /> +{o.xp.gained} XP</span>
-          {#if o.shells}<span><img src="{base}game/icon-shell.webp" alt="" /> +{o.shells} shells</span>{/if}
-          {#each o.stickers as s}<span><Icon name="sticker" size={16} /> {s.name}</span>{/each}
-        </div>
+        <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <button class="btn" onclick={quit}>Back to Measuring</button>
+          <button class="btn" onclick={quit}>Back to {backTo}</button>
           {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
           <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
         </div>
@@ -395,9 +397,6 @@
   .facts > div { flex: 1; background: #fff8ec; border-radius: 14px; padding: 8px; display: flex; flex-direction: column; }
   .facts b { font: 600 26px var(--font-ui); }
   .facts small { font: 700 13px var(--font-body); color: var(--muted); }
-  .xp { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  .xp span { display: inline-flex; align-items: center; gap: 5px; background: var(--bg2); border-radius: 999px; padding: 5px 12px; font: 700 14px var(--font-body); color: var(--ink2); }
-  .xp img { width: 20px; height: 20px; }
 
   /* a phone */
   .compact .top { gap: 6px; padding: 8px; flex-wrap: wrap; }

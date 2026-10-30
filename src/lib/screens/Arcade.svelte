@@ -20,13 +20,16 @@
   import { treasureOf } from '../math/integers/treasure';
   import { showdownOf } from '../math/data/showdown';
   import { beamOf } from '../math/algebra/beam';
+  import { AREA } from '../math/skills/registry';
+  import { rushOf as pizzaOf } from '../math/pizza/rush';
+  import { dashOf } from '../math/market/dash';
+  import { rushOf as clockOf } from '../math/measure/rush';
+  import { shifterOf } from '../math/shapes/shifter';
+  import { standOf } from '../math/ratios/stand';
+  import type { Profile } from '../engine/profile';
 
   const p = $derived(game.profile!);
   const save = $derived(arcadeOf(p));
-  const builderBest = $derived(builderOf(p).best);
-  const treasureBest = $derived(treasureOf(p).best);
-  const showdownBest = $derived(showdownOf(p).best);
-  const balanceBest = $derived(beamOf(p).best);
   const shells = $derived(advView(p).shells);
   const today = dailyGame();
   const beaten = $derived(dailyBeaten(p, today));
@@ -59,24 +62,25 @@
     game.playArcade(id, daily);
   }
   /** The math areas' own games, each on its own screen with its own records: their cabinets stand here after
-   *  the fact games, in the order the areas came. A new area adds one line here (and its screen). */
-  type AreaCab = { id: string; screen: Screen; name: string; part: string; color: string; art: string; say: string; line: () => string; before?: () => void };
+   *  the fact games, in the order the areas came, each labelled with its area's name. A new area adds one
+   *  line here (and its screen). */
+  type Rec = { best: number; stars: number; plays: number };
+  type AreaCab = { id: string; screen: Screen; name: string; part: string; color: string; art: string; say: string; line: string; rec: (p: Profile) => Rec; unit?: string; before?: () => void };
   const AREA_CABS: AreaCab[] = [
-    { id: 'pizza', screen: 'pizza', name: 'Pizza Rush', part: 'Fractions', color: '#e2452b', art: 'arcade/cab-pizza.webp', say: 'Pizza! Slice it up!', line: () => 'Slice up fractions' },
-    { id: 'builder', screen: 'builder', name: 'Number Builder', part: 'Place value', color: '#2d6fb8', art: 'arcade/cab-builder.webp', say: 'Build it with blocks!',
-      line: () => (builderBest ? `Best score ${builderBest}` : 'Build numbers with blocks'), before: () => { builderOpen.toy = false; builderOpen.from = 'arcade'; } },
-    { id: 'market', screen: 'market', name: 'Market Dash', part: 'Decimals and money', color: '#e6a817', art: 'arcade/cab-market.webp', say: 'Coins! Count them up!', line: () => 'Pay and make change' },
-    { id: 'clockrush', screen: 'clockrush', name: 'Clock Rush', part: 'Time and measuring', color: '#8a6bd6', art: 'arcade/cab-clock.webp', say: 'Tick-tock, catch the clocks!', line: () => 'Catch the clocks' },
-    { id: 'shifter', screen: 'shifter', name: 'Shape Shifter', part: 'Shapes and angles', color: '#6f4ff0', art: 'arcade/cab-shapes.webp', say: 'Catch the crystals!', line: () => 'Catch the crystal shapes' },
-    { id: 'smoothie', screen: 'smoothie', name: 'Smoothie Stand', part: 'Ratios and percents', color: '#ef5f8a', art: 'arcade/cab-smoothie.webp', say: 'Smoothies! Mix them just right!', line: () => 'Mix smoothies just right' },
-    { id: 'treasure', screen: 'treasure', name: 'Treasure Grid', part: 'Negative numbers', color: '#2f9ed8', art: 'arcade/cab-treasure.webp', say: 'Treasure! Dig it up!',
-      line: () => (treasureBest ? `Best score ${treasureBest}` : 'Dig on the map') },
-    { id: 'showdown', screen: 'showdown', name: 'Spinner Showdown', part: 'Data and chance', color: '#e2468f', art: 'arcade/cab-spinner.webp', say: 'Spin the big wheel!',
-      line: () => (showdownBest ? `Best ${showdownBest} tickets` : 'Graphs, spinners and chances') },
-    { id: 'balance', screen: 'balance', name: 'Balance Beam', part: 'Equations', color: '#6c4fd8', art: 'arcade/cab-balance.webp', say: 'Keep it level!',
-      line: () => (balanceBest ? `Best score ${balanceBest}` : 'Keep the seesaw level') },
+    { id: 'pizza', screen: 'pizza', name: 'Pizza Rush', part: AREA.fractions.name, color: '#e2452b', art: 'arcade/cab-pizza.webp', say: 'Pizza! Slice it up!', line: 'Slice up fractions', rec: pizzaOf },
+    { id: 'builder', screen: 'builder', name: 'Number Builder', part: AREA.place.name, color: '#2d6fb8', art: 'arcade/cab-builder.webp', say: 'Build it with blocks!', line: 'Build numbers with blocks', rec: builderOf,
+      before: () => { builderOpen.toy = false; builderOpen.from = 'arcade'; } },
+    { id: 'market', screen: 'market', name: 'Market Dash', part: AREA.decimals.name, color: '#e6a817', art: 'arcade/cab-market.webp', say: 'Coins! Count them up!', line: 'Pay and make change', rec: dashOf },
+    { id: 'clockrush', screen: 'clockrush', name: 'Clock Rush', part: AREA.measure.name, color: '#8a6bd6', art: 'arcade/cab-clock.webp', say: 'Tick-tock, catch the clocks!', line: 'Catch the clocks', rec: clockOf },
+    { id: 'shifter', screen: 'shifter', name: 'Shape Shifter', part: AREA.shapes.name, color: '#6f4ff0', art: 'arcade/cab-shapes.webp', say: 'Catch the crystals!', line: 'Catch the crystal shapes', rec: shifterOf },
+    { id: 'smoothie', screen: 'smoothie', name: 'Smoothie Stand', part: AREA.ratios.name, color: '#ef5f8a', art: 'arcade/cab-smoothie.webp', say: 'Smoothies! Mix them just right!', line: 'Mix smoothies just right', rec: standOf },
+    { id: 'treasure', screen: 'treasure', name: 'Treasure Grid', part: AREA.integers.name, color: '#2f9ed8', art: 'arcade/cab-treasure.webp', say: 'Treasure! Dig it up!', line: 'Dig on the map', rec: treasureOf },
+    { id: 'showdown', screen: 'showdown', name: 'Spinner Showdown', part: AREA.data.name, color: '#e2468f', art: 'arcade/cab-spinner.webp', say: 'Spin the big wheel!', line: 'Graphs, spinners and chances', rec: showdownOf, unit: 'tickets' },
+    { id: 'balance', screen: 'balance', name: 'Balance Beam', part: AREA.algebra.name, color: '#6c4fd8', art: 'arcade/cab-balance.webp', say: 'Keep it level!', line: 'Keep the seesaw level', rec: beamOf },
   ];
-  function openCab(c: AreaCab) { unlockAudio(); sfx.click(); scene?.cheer(); c.before?.(); game.go(c.screen); }
+  /** an area cabinet's plate: the best score once played (and its stars, like the fact games'), else what you do */
+  const best = (c: AreaCab, r: Rec) => (!r.plays ? c.line : c.unit ? `Best ${fmt(r.best)} ${c.unit}` : `Best score ${fmt(r.best)}`);
+  function openCab(c: AreaCab) { unlockAudio(); sfx.click(); scene?.cheer(); c.before?.(); game.gameFrom = 'arcade'; game.go(c.screen); }
   /** Glimmer Drop: just for fun, on its own screen (it spends play time); its cabinet is always last */
   function openDrop() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('drop'); }
   /** each cabinet's own key, by its place: 1 to 9, then 0, then along the top row of letters (D is today's challenge) */
@@ -160,9 +164,10 @@
         {/each}
         <!-- the math areas' own games (their own screens and records); their cabinets stand here too -->
         {#each AREA_CABS as c, k (c.id)}
+          {@const r = c.rec(p)}
           <button class="cab" style:--c={c.color} style:--d="{(ARCADE_GAMES.length + k) * 90}ms" onclick={() => openCab(c)} onpointerenter={(e) => hover(c.id, e.currentTarget)} onpointerleave={() => hover(null)}>
             <img class="art" src="{import.meta.env.BASE_URL}{c.art}" alt="" />
-            <span class="plate"><span class="part">{c.part}</span><b>{c.name}</b><span class="bs">{c.line()}</span></span>
+            <span class="plate"><span class="part">{c.part}</span><b>{c.name}</b><span class="bs">{best(c, r)}</span><Stars n={r.stars} of={3} size={compact ? 20 : 26} /></span>
             {#if !compact && keyOf(ARCADE_GAMES.length + k + 1)}<span class="kbd">{keyOf(ARCADE_GAMES.length + k + 1)}</span>{/if}
           </button>
         {/each}
@@ -211,7 +216,8 @@
   .daily.done .dgo { background: #fff; box-shadow: 0 4px 0 #b6e6cc; }
   .daily.done small { color: #1f8a55; } .daily.done b { color: #0f5a3c; } .daily.done .dtext span { color: #2f6a4a; }
 
-  .cabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1.4%; align-items: end; }
+  /* (never squeezed shorter than its cabinets when the column scrolls, or the last plates run under the note) */
+  .cabs { flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1.4%; align-items: end; }
   .cab { position: relative; display: flex; flex-direction: column; align-items: center; border: 0; background: none; padding: 0; cursor: pointer; animation: rise-in .5s var(--d) cubic-bezier(.3, .8, .4, 1.3) both; transition: transform .18s; }
   .cab:hover, .cab:focus-visible { transform: translateY(-8px) scale(1.03); }
   .cab:hover .art { filter: drop-shadow(0 18px 18px rgba(40, 30, 90, .35)) brightness(1.06); }

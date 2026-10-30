@@ -50,11 +50,9 @@ export type Subject = {
 };
 
 // ---------- math ----------
-/** The short chip names for math's areas; an area added to the skills registry shows with its own name. */
-const AREA_CHIP: Partial<Record<AreaId, string>> = {
-  plus: 'Plus', minus: 'Minus', times: 'Times', share: 'Share', fractions: 'Fractions', place: 'Place value', decimals: 'Decimals and money',
-  measure: 'Time and measuring', shapes: 'Shapes', ratios: 'Ratios and percents', integers: 'Below zero', algebra: 'Equations', data: 'Graphs and chance',
-};
+/** The chip names for the fact strands (Plus, not Adding); every other area shows with its own name from
+ *  the skills registry, the same name its Practice card, Learn shelf, Arcade game and world use. */
+const AREA_CHIP: Partial<Record<AreaId, string>> = { plus: 'Plus', minus: 'Minus', times: 'Times', share: 'Share' };
 const FACT_AREAS: AreaId[] = ['plus', 'minus', 'times', 'share'];
 const live = AREAS.filter(a => a.live);
 export const MATH_CHIPS: Chip[] = live.map(a => ({ id: a.id, name: AREA_CHIP[a.id] ?? a.name, art: a.op ? STRAND[a.op].art : a.art, color: a.color }));

@@ -5,6 +5,7 @@
   // stars, a best score and today's challenge. The rules and scoring are in math/pizza/rush.ts.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
+  import { AREA } from '../math/skills/registry';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { PizzaScene } from '../three/pizzaScene';
@@ -16,8 +17,8 @@
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
+  import PrizeRow from '../arcade/ui/PrizeRow.svelte';
   import CloseButton from '../ui/CloseButton.svelte';
-  import { FRIEND } from '../art/cast';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -194,9 +195,14 @@
     slots = [null, null, null]; syncCustomers();
   }
 
+  /** opened from the Arcade, Back goes there; otherwise to the area's map */
+  const fromArcade = game.gameFrom === 'arcade';
+  game.gameFrom = 'map';
+  const backTo = fromArcade ? 'the Arcade' : AREA.fractions.name;
   function quit() {
     sfx.click();
     if (phase === 'play') { phase = 'menu'; slots = [null, null, null]; syncCustomers(); active = null; msg = null; return; }
+    if (fromArcade) { game.go('arcade'); return; }
     game.mathArea = 'fractions'; game.mathOp = null; game.setHome('math'); game.go('map');
   }
   function onKey(e: KeyboardEvent) {
@@ -233,7 +239,7 @@
   {/each}
 
   <div class="top">
-    <button class="back" onclick={quit} aria-label={phase === 'play' ? 'Stop the round' : 'Back to Fractions'}><Icon name="back" size={26} /></button>
+    <button class="back" onclick={quit} aria-label={phase === 'play' ? 'Stop the round' : `Back to ${backTo}`}><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/pizza/tile.webp" alt="" /><b>Pizza Rush</b>{#if daily}<small>Today's challenge</small>{/if}</div>
     {#if phase === 'play'}
       <div class="score"><small>Score</small><b>{score}</b></div>
@@ -310,13 +316,9 @@
           <div><b>{bestCombo}</b><small>best combo</small></div>
           <div><b>{o.best}</b><small>best score</small></div>
         </div>
-        <div class="xp">
-          <span>{FRIEND[p.buddy].name} <Icon name="heart" size={16} /> +{o.xp.gained} XP</span>
-          {#if o.shells}<span><img src="{base}game/icon-shell.webp" alt="" /> +{o.shells} shells</span>{/if}
-          {#each o.stickers as s}<span><Icon name="sticker" size={16} /> {s.name}</span>{/each}
-        </div>
+        <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <button class="btn" onclick={quit}>Back to Fractions</button>
+          <button class="btn" onclick={quit}>Back to {backTo}</button>
           {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
           <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
         </div>
@@ -415,9 +417,6 @@
   .facts > div { flex: 1; background: #fff8ec; border-radius: 14px; padding: 8px; display: flex; flex-direction: column; }
   .facts b { font: 600 26px var(--font-ui); }
   .facts small { font: 700 13px var(--font-body); color: var(--muted); }
-  .xp { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  .xp span { display: inline-flex; align-items: center; gap: 5px; background: var(--bg2); border-radius: 999px; padding: 5px 12px; font: 700 14px var(--font-body); color: var(--ink2); }
-  .xp img { width: 20px; height: 20px; }
 
   /* a phone */
   @media (max-width: 760px) {

@@ -28,7 +28,7 @@
   import { ITEM, SLOT_NAME, SLOTS, battleWornOf, kitOf, startPerks } from '../adventure/gear';
   import { mathOf as mathOfLearn } from '../math/progress';
   import { answerText } from '../math/skills/text';
-  import type { Answer as SkillAnswer } from '../math/skills/types';
+  import type { Answer as SkillAnswer, Item as SkillItem } from '../math/skills/types';
   import SkillPrompt from '../math/skills/ui/SkillPrompt.svelte';
   import SkillInput from '../math/skills/ui/SkillInput.svelte';
   import Coach from '../ui/Coach.svelte';
@@ -89,7 +89,7 @@
   /** a skill card's answer as it's typed (shown in the question's gap) */
   let skFill = $state<{ kind: 'number'; text: string } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null } | null>(null);
   // blocking
-  let blk = $state<{ name: string; fact?: Fact; word?: string; limitMs: number; hit: number; bold: boolean } | null>(null);
+  let blk = $state<{ name: string; fact?: Fact; word?: string; item?: SkillItem; limitMs: number; hit: number; bold: boolean } | null>(null);
   let blockAt = 0; let blockLeft = $state(1); let blockTimer = 0;
 
   // floating numbers and messages
@@ -203,7 +203,7 @@
   function back() { if (ui === 'answer') { sel = null; ui = 'pick'; } }
   function choose(n: number) { if (!sel?.open) return; choice = n; typed = ''; shownAt = performance.now(); sfx.pop(); }
   function digit(d: string) {
-    if (ui === 'block') { blockTyped += d; if (blk?.fact && blockTyped.length >= String(answerOf(blk.fact)).length) submitBlock(); return; }
+    if (ui === 'block') { blockTyped += d; const want = blockAnswer(); if (want !== null && blockTyped.length >= String(want).length) submitBlock(); return; }
     if (ui !== 'answer' || !sel || subject !== 'math' || sel.item) return;
     if (sel.open && choice === null) { const n = Number(d); if (n <= sel.open.max) choose(n === 0 && sel.open.op === 'x' ? 10 : n); return; }
     typed += d; sfx.click();
@@ -211,6 +211,8 @@
   }
   function backspace() { if (ui === 'block') blockTyped = blockTyped.slice(0, -1); else typed = typed.slice(0, -1); }
   let blockTyped = $state('');
+  /** the number that blocks: the fact's answer, or the area question's (null: a word to type) */
+  const blockAnswer = () => (blk?.item?.answer.kind === 'number' ? blk.item.answer.value : blk?.fact ? answerOf(blk.fact) : null);
 
   async function submit() {
     const c = sel; if (!c) return;
@@ -231,7 +233,7 @@
   if (import.meta.env.DEV) (window as unknown as { __battle: object }).__battle = { ui: () => ui, cards: () => b?.cards, sel: () => sel, pick: (i: number) => { const c = b?.cards[i]; if (c) pick(c); }, answer: (a: SkillAnswer) => submitItem(a) };
   /** A skill card (a fraction to name, two to compare...): its own input checks in, the engine marks it. */
   // (for checking a battle from the console: the card's question, and answering it)
-  if (import.meta.env.DEV) (window as unknown as { __battle: object }).__battle = { ui: () => ui, item: () => sel?.item ?? null, block: () => (blk?.fact ? String(answerOf(blk.fact)) : blk?.word ?? null), cards: () => cards.length, pick: (i: number) => { const c = cards[i]; if (c) pick(c); }, answer: (a: SkillAnswer) => submitItem(a) };
+  if (import.meta.env.DEV) (window as unknown as { __battle: object }).__battle = { ui: () => ui, item: () => sel?.item ?? null, block: () => (blockAnswer() !== null ? String(blockAnswer()) : blk?.word ?? null), blockItem: () => blk?.item ?? null, cards: () => cards.length, pick: (i: number) => { const c = cards[i]; if (c) pick(c); }, answer: (a: SkillAnswer) => submitItem(a) };
   async function submitItem(given: SkillAnswer) {
     const c = sel; if (!c?.item || ui !== 'answer') return;
     const think = performance.now() - shownAt;
@@ -366,7 +368,7 @@
 
   function startBlock() {
     const bl = b.block!;
-    blk = { name: bl.name, fact: bl.fact, word: bl.word, limitMs: bl.limitMs, hit: kit.includes('cape') && !bl.half ? Math.ceil(bl.hit / 2) : bl.hit, bold: b.bold > 0 };
+    blk = { name: bl.name, fact: bl.fact, word: bl.word, item: bl.item, limitMs: bl.limitMs, hit: kit.includes('cape') && !bl.half ? Math.ceil(bl.hit / 2) : bl.hit, bold: b.bold > 0 };
     letGo();
     // the very first one a player meets says what a miss costs, and the ring waits while they read it
     const told = tip('t-counter', 'Miss it and you lose energy. Answer before the ring runs out!', '.blockbox');
@@ -385,9 +387,13 @@
     if (ui !== 'block' || !blk) return;
     clearInterval(blockTimer);
     const ms = Math.max(0, performance.now() - blockAt);
-    const ok = !timeout && (subject === 'math' ? !!blk.fact && Number(blockTyped) === answerOf(blk.fact) : wordErr === 0);
+    const want = blockAnswer();
+    const ok = !timeout && (subject === 'math' ? want !== null && Number(blockTyped) === want : wordErr === 0);
     if (!timeout) holdAnswer(blockEqEl, { text: blockTyped, ok });
-    if (subject === 'math' && blk.fact && !ok) say(timeout ? `Too slow! ${factText(blk.fact)} = ${answerOf(blk.fact)}` : `${factText(blk.fact)} = ${answerOf(blk.fact)}`, 'miss');
+    if (subject === 'math' && !ok) {
+      const said = blk.item ? `It's ${answerText(blk.item)}` : blk.fact ? `${factText(blk.fact)} = ${answerOf(blk.fact)}` : '';
+      if (said) say(timeout ? `Too slow! ${said}` : said, 'miss');
+    }
     closeTip('t-counter');
     blk = null; ui = 'busy';
     await run(doBlock(b, ok, ms));
@@ -493,7 +499,7 @@
         {#if sel.item}
           {@const it = sel.item}
           <p class="ask">{it.ask} <b>+{sel.value} cheer</b></p>
-          {#key shakeKey}<div class="iq" class:shake={shakeKey > 0}><SkillPrompt parts={it.prompt} fill={skFill} size={narrow ? 34 : 46} picSize={narrow ? 96 : 130} onpick={(w) => { if (skFill?.kind === 'fraction') skFill = { ...skFill, focus: w }; }} /></div>{/key}
+          {#key shakeKey}<div class="iq" class:shake={shakeKey > 0}><SkillPrompt parts={it.prompt} fill={skFill} size={narrow ? 34 : 46} picSize={narrow ? 124 : 130} onpick={(w) => { if (skFill?.kind === 'fraction') skFill = { ...skFill, focus: w }; }} /></div>{/key}
           {#if glowOk && !glowText}<button class="glowbtn" onclick={askGlow}><Icon name="bulb" size={20} /> Hint from {myName('sparkmoth')}</button>{/if}
           {#if glowText}<p class="glow"><Icon name="bulb" size={20} /> {glowText}</p>{/if}
           {#key `${sel.id}-${shakeKey}`}<SkillInput item={it} compact={narrow} bind:fill={skFill} onanswer={submitItem} />{/key}
@@ -520,7 +526,11 @@
           <div class="btxt"><small>{blk.name}!</small><b>Block it!</b><span>Answer quick to put your shield up</span></div>
         </div>
         <div class="bq">
-          {#if blk.fact}<div class="eq blockeq" bind:this={blockEqEl}><span>{factText(blk.fact)} =</span><span class="box">{blockTyped || ' '}</span></div>
+          {#if blk.item}
+            <!-- in a math world, one of its own quick questions -->
+            <p class="bask">{blk.item.ask}</p>
+            <div class="blockeq bitem" bind:this={blockEqEl}><SkillPrompt parts={blk.item.prompt} fill={{ kind: 'number', text: blockTyped }} size={narrow ? 26 : 36} picSize={narrow ? 84 : 124} /></div>
+          {:else if blk.fact}<div class="eq blockeq" bind:this={blockEqEl}><span>{factText(blk.fact)} =</span><span class="box">{blockTyped || ' '}</span></div>
           {:else}<div class="word blockeq" bind:this={blockEqEl}>{#each blk.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/if}
           <p class="stake"><img src="{base}game/icon-spark.webp" alt="" />{blk.bold ? 'It\'s getting stronger! ' : ''}Miss it and lose {blk.hit} energy</p>
         </div>
@@ -824,7 +834,9 @@
   .btxt small { font: 800 13px var(--font-body); letter-spacing: .04em; text-transform: uppercase; color: #5b6b8a; }
   .btxt b { font: 600 clamp(34px, 4.4vw, 46px)/1 var(--font-ui); color: #1f5fc8; }
   .btxt span { font: 600 18px/1.2 var(--font-ui); color: #2a3a5c; }
-  .bq { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .bq { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 100%; }
+  .bask { margin: 0; font: 700 17px/1.2 var(--font-body); color: #2a3a5c; text-align: center; }
+  .bitem { display: flex; justify-content: center; max-width: 100%; }
   .stake { display: flex; align-items: center; gap: 4px; margin: 0; font: 700 15px var(--font-body); color: #8a1f38; background: #fff0f2; border-radius: 999px; padding: 3px 12px 3px 4px; }
   .stake img { width: 22px; height: 22px; object-fit: contain; }
   .blockbox :global(.pad) { flex-basis: 100%; }
@@ -937,7 +949,7 @@
   .narrow .shieldring { width: 70px; height: 70px; } .narrow .shieldring img { width: 56px; height: 56px; }
   .narrow .btxt span { font-size: 14px; } .narrow .btxt b { font-size: 30px; }
   .narrow .blockbox { column-gap: 12px; }
-  .narrow .stake { font-size: 13px; }
+  .narrow .stake { font-size: 13px; } .narrow .bask { font-size: 15px; }
   .narrow .chips button { width: 46px; height: 46px; font-size: 22px; }
   .narrow .hint { font-size: 12px; }
 </style>

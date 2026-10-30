@@ -324,11 +324,14 @@ export class EpisodeScene implements Controller {
 
   // ---------- characters ----------
   private compact = false;
+  /** a phone held upright: always framed the phone's way (the friends at the top, the work big under them),
+   *  even when the page's box for the picture is short and wide over a number pad */
+  private get phone() { return (innerWidth || 1) < 760 && (innerHeight || 1) > (innerWidth || 1); }
   /** Where the buddy and the Glimmer stand: closer together on a tall screen. */
   private layout() {
     const W = innerWidth || 1, Hh = innerHeight || 1;
     const asp = ((this.view.right - this.view.left) * W) / Math.max(1, (this.view.bottom - this.view.top) * Hh);
-    const compact = asp < 1.05;
+    const compact = this.phone || asp < 1.05;
     this.compact = compact;
     // the table's back edge just behind the work; the friends stand right behind it, either side of the
     // work (the table hides their legs)
@@ -409,7 +412,7 @@ export class EpisodeScene implements Controller {
   /** Fit these pictures onto the table (call when the picture's zoom changes). */
   fitBoards(boards: Board[]) {
     const W = innerWidth || 1, Hh = innerHeight || 1;
-    this.stack = ((this.view.right - this.view.left) * W) / Math.max(1, (this.view.bottom - this.view.top) * Hh) < 0.9;
+    this.stack = this.phone || ((this.view.right - this.view.left) * W) / Math.max(1, (this.view.bottom - this.view.top) * Hh) < 0.9;
     // (only when no dish or plate sits across the middle, and something is on the right)
     const things = (b: Board) => [...b.plates.map(p => ({ x: p.x, h: p.r })), ...(b.dishes ?? []).map(p => ({ x: p.x, h: p.kind === 'foil' ? (p.w ?? 0) / 2 : p.r }))];
     this.stackFrac = this.stack && this.close && boards.every(b => !b.line && !b.frames.length && things(b).every(p => p.x + p.h * 0.5 < 300 || p.x - p.h * 0.5 > 300))
@@ -1280,8 +1283,9 @@ export class EpisodeScene implements Controller {
       if (k >= 1) { this.palHop0 = -9; pal.play('hop'); }
     } else if (!this.board?.line) this.palAt.lerp(this.palHome, Math.min(1, dt * 3));
     pal.root.position.copy(this.palAt);
-    // smaller on the number line (a pin on the plank), its own size elsewhere
-    const ps = this.board?.line && !this.together ? 0.38 : 1;
+    // smaller on the number line (a pin on the plank), and a floating one (the Comet Cat) a little smaller
+    // on a phone, so it doesn't loom over the work; its own size elsewhere
+    const ps = this.board?.line && !this.together ? 0.38 : this.compact && pal.floats ? 0.78 : 1;
     pal.root.scale.setScalar(pal.root.scale.x + (ps - pal.root.scale.x) * Math.min(1, dt * 5));
     // the Glimmer faces the kid too, turned a little toward the work
     pal.face = cam.position.clone().lerp(this.focusPoint(), 0.25).setY(this.palAt.y);
@@ -1393,16 +1397,25 @@ export class EpisodeScene implements Controller {
     const box = new THREE.Box3();
     const a = this.area;
     const content = new THREE.Box3(new THREE.Vector3(a.x0 - 0.05, TY, a.z0 - 0.05), new THREE.Vector3(a.x1 + 0.05, TY + 0.12, a.z1 + 0.05));
+    // a tall box (a phone): the friends at the top, the work big under them, seen more from above
+    const tall = this.phone || ((v.right - v.left) * innerWidth) / Math.max(1, (v.bottom - v.top) * innerHeight) < 0.9;
+    // (and the work shots frame the picture on the table now, with where a task's things are going, not
+    // the room every step of the lesson takes: a row of shapes or one tin of a later two comes up big)
+    if (tall && this.board && (this.shotName === 'board' || this.shotName === 'wide')) {
+      const bb = boundsOf(this.armed ? [this.board, this.armed.next] : [this.board]);
+      const p0 = this.boardPoint(bb.x, bb.y), p1 = this.boardPoint(bb.x + bb.w, bb.y + bb.h);
+      content.min.set(Math.max(a.x0, p0.x) - 0.05, TY, Math.max(a.z0, p0.z) - 0.05);
+      content.max.set(Math.min(a.x1, p1.x) + 0.05, TY + 0.12, Math.min(a.z1, p1.z) + 0.05);
+    }
     if (this.armed && this.armed.t.kind === 'place') content.expandByPoint(new THREE.Vector3(0, TY, this.pileZ + this.r * 2.4 * Math.ceil(this.armed.t.ids.length / 10)));
     const head = this.buddyAt.clone().add(new THREE.Vector3(0, this.H * 1.02, 0));
     const buddy = new THREE.Box3(new THREE.Vector3(head.x - 0.3, TY - 0.05, head.z - 0.2), new THREE.Vector3(head.x + 0.3, head.y, head.z + 0.2));
-    const ph = this.pal.height * this.pal.root.scale.y;
+    // (a floating Glimmer's head is higher than its height: on a phone the shot keeps all of it in)
+    const ph = this.pal.height * this.pal.root.scale.y * (this.compact && this.pal.floats ? 1.38 : 1);
     const pal = new THREE.Box3(new THREE.Vector3(this.palAt.x - 0.28, Math.max(TY, this.palAt.y), this.palAt.z - 0.2), new THREE.Vector3(this.palAt.x + 0.28, this.palAt.y + ph * 1.05, this.palAt.z + 0.2));
     let pitch = 0.42, yaw = 0;
     const margin = 0.02;
     const s = this.shotName;
-    // a tall box (a phone): the friends at the top, the work big under them, seen more from above
-    const tall = ((v.right - v.left) * innerWidth) / Math.max(1, (v.bottom - v.top) * innerHeight) < 0.9;
     const r = v;
     /** the points that must be in the shot (a box's corners, or for the work shots exact points: a box
      *  round both the near work and the far faces would have phantom corners that push the camera back) */

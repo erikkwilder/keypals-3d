@@ -9,7 +9,7 @@
 import { mulberry32, type Rng } from '../engine/rng';
 import { answerOf, type Fact, type Op } from '../math/facts';
 import { SKILL, splitKey } from '../math/skills/registry';
-import type { Answer as SkillAnswer, Item } from '../math/skills/types';
+import type { Answer as SkillAnswer, AreaId, Item } from '../math/skills/types';
 import { factFitFor, makeAt, pitchRung, STRAND_SKILL, TARGET } from '../math/skills/ability';
 import { ELEMENT, ELEMENTS, EVOLVE_BOOST, GLIMMER, powerBase, powerNum, strong, type Element, type GearKind, type GlimmerId, type Rarity, type RoleId } from './glimmers';
 import type { KitKind } from './gear';
@@ -17,11 +17,13 @@ import type { KitKind } from './gear';
 export type Subject = 'math' | 'typing';
 /** What a battle draws on. Math: facts and how well each is known (stage 3 = in bloom), and whether open
  *  cards (7 × ?) are in play; skills from the other areas (fractions...) by memory key (`skill:sub`), and
- *  how many of the cards are those (`mix`, 0..1; blocks stay facts); and the player's ability on each
- *  skill and fact strand (`theta`, math/skills/ability.ts), so every question is pitched for them: the
- *  cards at about 80% right, the quick blocks at 90% (a guest's pool has none: it is their chosen level).
+ *  how many of the cards are those (`mix`, 0..1); `area`: a math world's own area (Fraction Falls...), whose
+ *  questions the quick blocks come from too when it has ones with a plain whole-number answer (else, and
+ *  everywhere else, blocks are facts); and the player's ability on each skill and fact strand (`theta`,
+ *  math/skills/ability.ts), so every question is pitched for them: the cards at about 80% right, the quick
+ *  blocks at 90% (a guest's pool has none: it is their chosen level).
  *  Typing: words the player can type with the keys learned so far. */
-export type Pool = { subject: 'math'; facts: { f: Fact; stage: number; w?: number }[]; open: boolean; skills?: { key: string; stage: number; w?: number }[]; mix?: number; theta?: Record<string, number> } | { subject: 'typing'; words: string[] };
+export type Pool = { subject: 'math'; facts: { f: Fact; stage: number; w?: number }[]; open: boolean; skills?: { key: string; stage: number; w?: number }[]; mix?: number; area?: AreaId; theta?: Record<string, number> } | { subject: 'typing'; words: string[] };
 /** What a skill question cheers: more for the harder ones (its weight, 1..5), shown on the card. */
 export const itemCheer = (it: Item) => 4 + 4 * Math.max(1, Math.min(5, it.weight));
 
@@ -80,8 +82,10 @@ export type BEvent =
   | { k: 'won'; perfect: boolean }
   | { k: 'lost' };
 
-/** `half`: already halved (a Strong card's dazzle, Steady): a Hero Cape doesn't halve it again */
-export type Block = { kind: MischiefKind; name: string; hit: number; half?: boolean; limitMs: number; fact?: Fact; word?: string };
+/** A counterattack to block: a fact, a word, or (in a math world) one of its area's questions with a plain
+ *  whole-number answer, given longer by how quick that kind of question is (blockMs). `half`: already
+ *  halved (a Strong card's dazzle, Steady): a Hero Cape doesn't halve it again */
+export type Block = { kind: MischiefKind; name: string; hit: number; half?: boolean; limitMs: number; fact?: Fact; word?: string; item?: Item };
 export type Phase = 'pick' | 'block' | 'won' | 'lost';
 
 export type Battle = {
@@ -228,6 +232,27 @@ export function quickFact(b: Battle): Fact {
   const th = b.pool.theta, rungs = strandRungs(b, TARGET.quick);
   return pickWeighted(b.rng, from.map(x => ({ ...x, w: 0 })), x => factFitFor(th, x.f, rungs)).f;
 }
+/** Whether a question can be a block: the block box is a number pad that sends the answer as soon as it's
+ *  typed, so a plain whole number (no minus, no decimal point, no picking or dragging). */
+export const blockable = (it: Item) => it.input === 'number' && it.answer.kind === 'number' && Number.isInteger(it.answer.value) && it.answer.value >= 0 && !it.signed;
+/** A quick one from a math world's own area, pitched easy like a fact block (about 90% right): something
+ *  already known if there's enough of it, the first of a few tries that the block box can take; null when
+ *  the area has none (then the block is a fact). */
+export function quickItem(b: Battle): Item | null {
+  if (b.pool.subject !== 'math' || !b.pool.area || !b.pool.skills?.length) return null;
+  const known = b.pool.skills.filter(x => x.stage >= 2), from = (known.length >= 3 ? known : b.pool.skills).map(x => ({ ...x, w: 0 }));
+  const th = b.pool.theta;
+  for (let t = 0; t < 12; t++) {
+    const x = pickWeighted(b.rng, from), { skill, sub } = splitKey(x.key), s = SKILL[skill];
+    if (!s || s.facts || s.area !== b.pool.area) continue;
+    const it = makeAt(s, b.rng, sub, th?.[skill] === undefined ? (x.stage >= 2 ? 3 : 1) : pitchRung(th[skill], TARGET.quick, b.rng));
+    if (blockable(it)) return it;
+  }
+  return null;
+}
+/** How long a block gives: 5 seconds for a fact (about one and a half times a quick one), and the same
+ *  share of a quick answer for an area's question (counting coins takes longer than 3 + 4), up to 20. */
+export const blockMs = (it?: Item) => (it ? Math.min(20000, Math.max(5000, Math.round((SKILL[it.skill]?.fastMs ?? 3000) * 5 / 3 / 500) * 500)) : 5000);
 function itemCard(b: Battle, c: Card, x: { key: string; stage: number }): boolean {
   const it = makeItem(b.rng, x, b.pool);
   if (!it) return false;
@@ -465,16 +490,17 @@ function grumbleTurn(b: Battle): BEvent[] {
   if (b.role === 'steady' && b.mischiefs % 2 === 0) half = true;
   const hit = half ? Math.ceil(full / 2) : full;
   const seal = has(b, 'coolhead');
-  const limitMs = b.subject === 'math' ? 5000 + (seal ? powerNum(2, lv(seal), 8) * 1000 : 0) + (b.gear === 'shieldwall' ? 2000 : 0) : 0;
-  const block: Block = { kind: m.kind, name: m.name, hit, half, limitMs, ...blockPrompt(b) };
+  const prompt = blockPrompt(b);
+  const limitMs = b.subject === 'math' ? blockMs(prompt.item) + (seal ? powerNum(2, lv(seal), 8) * 1000 : 0) + (b.gear === 'shieldwall' ? 2000 : 0) : 0;
+  const block: Block = { kind: m.kind, name: m.name, hit, half, limitMs, ...prompt };
   if (b.subject === 'typing') block.limitMs = 2000 + 800 * (block.word?.length ?? 4) + (seal ? powerNum(2, lv(seal), 8) * 1000 : 0) + (b.gear === 'shieldwall' ? 2000 : 0);
   b.block = block;
   b.phase = 'block';
   return [];
 }
 
-function blockPrompt(b: Battle): { fact?: Fact; word?: string } {
-  if (b.pool.subject === 'math') return { fact: quickFact(b) };
+function blockPrompt(b: Battle): { fact?: Fact; word?: string; item?: Item } {
+  if (b.pool.subject === 'math') { const item = quickItem(b); return item ? { item } : { fact: quickFact(b) }; }
   const short = b.pool.words.filter(w => w.length >= 2 && w.length <= 4);
   return { word: pick(b.rng, short.length ? short : b.pool.words) };
 }
@@ -485,6 +511,7 @@ export function block(b: Battle, ok: boolean, ms: number): BEvent[] {
   if (!bl || b.phase !== 'block') return [];
   b.stats.blocks++;
   if (b.subject === 'math' && bl.fact) b.answered.push({ f: bl.fact, ok, thinkMs: ms });
+  if (bl.item) b.skillAnswers.push({ key: bl.item.key, ok, thinkMs: ms, rung: bl.item.rung });
   // right and in time: blocked. Too late or wrong: it lands
   const result: 'full' | 'none' = ok && ms <= bl.limitMs ? 'full' : 'none';
   // the Hero Cape catches half of a hit that lands

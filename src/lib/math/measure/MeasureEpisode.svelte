@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-  // A Measurement and time Learn episode (math/measure/episodes.ts) in the shared episode framework: the
+  // A Time and measuring Learn episode (math/measure/episodes.ts) in the shared episode framework: the
   // Clockmaker's Workshop in 3D (three/episodeScene.ts: the table, your buddy, a Glimmer, the light and
   // the camera), with real measuring things on the table (three/measureKit.ts). The coach tells the
   // story (voice and words at the top). Each step is something your hands do: drag the clock's hands,
@@ -81,6 +81,8 @@
   let pinsNow = $state<{ id: string; text: string; kind: string }[]>([]);
   let result = $state<{ first: boolean; shells: number; eggs: number } | null>(null);
   let w = $state(1280), h = $state(800);
+  /** how tall the bottom panel is now (on a phone the 3D work is framed above it) */
+  let bottomH = $state(0);
   const narrow = $derived(w < 760);
 
   const step = $derived(L.steps[Math.min(i, L.steps.length - 1)]);
@@ -307,9 +309,10 @@
     if (phase === 'turn' || phase === 'check') bottom = 1 - (q.input === 'num' ? (narrow ? 352 : 228) : (narrow ? 170 : 150)) / H;
     else if (phase === 'teach' && tsub !== 'watch') bottom = 1 - (narrow ? 196 : 150) / H;
     else if (phase === 'card' || phase === 'checked') { if (narrow) bottom = 0.5; else right = 0.5; }
+    if (narrow && bottomH && phase !== 'card' && phase !== 'checked') bottom = Math.min(bottom, 1 - (bottomH + 14) / H);
     return { top, bottom, left: 0.01, right };
   }
-  $effect(() => { void phase; void tsub; void w; void h; void narrow; void k; sc?.setView(viewFor()); });
+  $effect(() => { void phase; void tsub; void w; void h; void narrow; void k; void bottomH; sc?.setView(viewFor()); });
 
   let unquiet = () => {};
   onMount(() => {
@@ -324,6 +327,8 @@
       ctl = { fps: 60, update: (dt, t) => { s.update(dt, t); kt.update(dt, t); }, focus: () => s.focus(), dispose: () => {} };
       before = stage.swap(ctl); s.enter();
       if (import.meta.env.DEV) (window as unknown as { __mep: { sc: EpisodeScene; kit: MeasureKit } }).__mep = { sc: s, kit: kt };
+      // for checking the episodes: where the story is, its own Enter, the fix and the answer
+      if (import.meta.env.DEV) (window as unknown as { __epUi: object }).__epUi = { phase: () => phase, sub: () => tsub, done: () => stepDone, primary, fix: () => pickFix(right), solve: () => answer(q.ans), finish: () => kit?.finish() };
       s.show(CLEAR, true); s.fit(kt.bounds()); kt.refit();
       kt.onChange = () => { left = kt.left; pinsNow = kt.pins.map(p => ({ id: p.id, text: p.text, kind: p.kind })); };
       s.setView(viewFor());
@@ -340,6 +345,9 @@
   });
   const pinAt = (id: string) => () => kit?.pins.find(p => p.id === id)?.at() ?? null;
 </script>
+
+<!-- the buddy's answer to the teach question: over the work on a wide screen, in the bottom panel on a phone -->
+{#snippet wrongEq()}<div class="eq wrong isq" class:docked={narrow} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}><small class="qt">{L.teach.q.text}</small><span class="ans">{#if tsub === 'fixed'}<span class="lit">{right}</span>{:else}<s>{L.teach.wrong}</s>?{/if}</span></div>{/snippet}
 
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
 <div class="ep" class:narrow style:--sc="#8a6bd6" style:--bg="url({base}{place.backdrop})">
@@ -364,8 +372,8 @@
     {#if eqOn && phase === 'step'}
       {#key i}<div class="pin" use:pin={() => kit!.overPoint()}><div class="eq">{#each eqParts as p}{#if p.lit}<span class="lit">{p.t}</span>{:else}<span>{p.t}</span>{/if}{/each}</div></div>{/key}
     {/if}
-    {#if phase === 'teach' && wrongOn}
-      {#key shake}<div class="pin" use:pin={() => kit!.overPoint()}><div class="eq wrong isq" class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}><small class="qt">{L.teach.q.text}</small><span class="ans">{#if tsub === 'fixed'}<span class="lit">{right}</span>{:else}<s>{L.teach.wrong}</s>?{/if}</span></div></div>{/key}
+    {#if phase === 'teach' && wrongOn && !narrow}
+      {#key shake}<div class="pin" use:pin={() => kit!.overPoint()}>{@render wrongEq()}</div>{/key}
     {/if}
     {#if bubble || (line && phase !== 'load')}
       {#key bubble ?? line}<div class="pin" use:pin={() => sc!.bubbleAt()}><div class="say" class:story={!bubble} class:oops={!!bubble && misses > 0 && !locked && (phase === 'turn' || phase === 'check')} class:good={!!bubble && locked}>{#if bubble}<b>{FRIEND[buddy].name}</b>{/if}{bubble ?? line}</div></div>{/key}
@@ -387,7 +395,7 @@
     {#key line}<div class="subtitle"><p>{line}</p></div>{/key}
   {/if}
 
-  <div class="bottom">
+  <div class="bottom" bind:clientHeight={bottomH}>
     {#if phase === 'intro'}
       <div class="row"><span class="pill">{pal.name} and {FRIEND[buddy].name} need your help!</span><button class="btn btn-primary btn-big go" onclick={primary}>Let's go! <span class="kbd">enter</span></button></div>
     {:else if phase === 'step'}
@@ -403,6 +411,8 @@
         {/if}
       </div>
     {:else if phase === 'teach'}
+      <div class="tcol">
+      {#if narrow && wrongOn}<div class="dock">{#key shake}{@render wrongEq()}{/key}</div>{/if}
       {#if tsub === 'fix'}
         <div class="fix">
           <span class="pill task">Tap the right answer</span>
@@ -413,6 +423,7 @@
       {:else}
         <div class="row"><span class="pill">Is your buddy right?</span></div>
       {/if}
+      </div>
     {:else if phase === 'turn' || phase === 'check'}
       <div class="turn">
         {#key shake}<div class="ask" class:shake={shake > 0}>{#if phase === 'turn'}<small>Your turn {k + 1} of 2</small>{:else}<small>Quick check</small>{/if}<span class="qtx">{q.text}</span>{#if q.input === 'num'}<span class="box" class:good={locked}>{typed || ' '}</span>{/if}</div>{/key}
@@ -445,7 +456,7 @@
           {#if result?.first}<span class="prize"><Icon name="clock" size={34} /><b>Tomorrow</b><small>quick check</small></span>{/if}
         </div>
       {/if}
-      <div class="cbtns"><button class="btn btn-primary btn-big" onclick={leave}>More to learn <span class="kbd">enter</span></button></div>
+      <div class="cbtns"><button class="btn btn-primary btn-big" onclick={leave}>More tricks <span class="kbd">enter</span></button></div>
     </div>
   {/if}
   <Confetti {burst} x={narrow ? 50 : 30} y={40} />
@@ -489,6 +500,11 @@
   /* a fraction can't take a line through its text: a slash across it instead */
   .eq.wrong s:has(:global(.frac)) { position: relative; text-decoration: none; }
   .eq.wrong s:has(:global(.frac))::after { content: ''; position: absolute; left: -6px; right: -6px; top: 50%; height: 4px; margin-top: -2px; background: #d63c5c; border-radius: 2px; transform: rotate(-20deg); }
+  /* (on a phone: in the bottom panel, over the choices) */
+  .tcol { display: flex; flex-direction: column; align-items: center; }
+  .dock { display: flex; justify-content: center; margin-bottom: 10px; }
+  .eq.docked { position: static; transform: none; animation: eqpop .4s cubic-bezier(.3, 1.5, .5, 1) both; }
+  @keyframes eqpop { from { opacity: 0; scale: .6; } }
   .eq.fixed { box-shadow: 0 0 0 4px #7fe0b0, 0 0 34px rgba(80, 220, 150, .7), 0 12px 24px rgba(0, 60, 30, .3); }
   @keyframes eqin { from { opacity: 0; transform: translate(-50%, -60%) scale(.6); } }
   .say { transform: translate(18px, -60%); white-space: normal; width: max-content; max-width: min(400px, 34vw); background: #fff; border-radius: 26px; padding: 12px 20px 14px; font: 600 22px/1.3 var(--font-ui); text-align: center; color: var(--ink); box-shadow: 0 0 0 3px #fff, 0 12px 26px -10px rgba(40, 20, 80, .55); animation: bub .35s cubic-bezier(.3, 1.4, .5, 1) both; }

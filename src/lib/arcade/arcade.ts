@@ -4,7 +4,7 @@
 // through the shared payout (engine/settle.ts), but arcade stars don't open lessons. Each day one game
 // has the daily challenge: the same course for everyone in the family, and a bonus for beating its goal.
 import { buddyPal, dayKey, type Profile } from '../engine/profile';
-import { settlePractice, type Settled } from '../engine/settle';
+import { settlePractice, treasureFor, type Settled } from '../engine/settle';
 import { earnShells } from '../adventure/state';
 import { mathOf } from '../math/progress';
 import { answerOf, factId, FAST_MS, opSign, seedPartner, updateFact, type Fact, type Op } from '../math/facts';
@@ -125,10 +125,7 @@ export type ArcadeOutcome = Settled & {
 };
 
 /** The treasure a round finds: up the ladder as the score goes past the three-star score. */
-export function arcadeTreasure(id: ArcadeId, score: number): number {
-  const r = score / ARCADE[id].stars[2];
-  return r < 0.2 ? -1 : Math.min(9, Math.floor(r * 6.5));
-}
+export const arcadeTreasure = (id: ArcadeId, score: number): number => treasureFor(score, ARCADE[id].stars[2]);
 
 /** A finished round: the fact memory, the record, the daily challenge, and the shared practice payout. */
 export function applyArcade(p0: Profile, run: ArcadeRun): ArcadeOutcome {

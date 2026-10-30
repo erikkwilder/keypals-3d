@@ -11,6 +11,7 @@
   import { EpisodeScene, type View } from '../three/episodeScene';
   import { MeasureKit } from '../three/measureKit';
   import { game } from '../state/game.svelte';
+  import { AREA } from '../math/skills/registry';
   import { sfx } from '../audio/sound';
   import { advView, teamOf } from '../adventure/state';
   import { FRIEND } from '../art/cast';
@@ -114,7 +115,7 @@
     {#key bubble}<div class="pin" use:pin={() => sc!.bubbleAt()}><div class="say"><b>{FRIEND[buddy].name}</b>{bubble}</div></div>{/key}
   {/if}
   <div class="top">
-    <button class="back" onclick={leave} aria-label="Back to Measurement and time"><Icon name="back" size={26} /></button>
+    <button class="back" onclick={leave} aria-label="Back to {AREA.measure.name}"><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/play-bench.webp" alt="" /><span><small>A toy · no clock</small><b>The Measuring Bench</b></span></div>
   </div>
   <div class="bottom">

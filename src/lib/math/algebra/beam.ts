@@ -14,7 +14,7 @@
 // already met, and the round pays out like any practice.
 import { mulberry32, type Rng } from '../../engine/rng';
 import { buddyPal, dayKey, type Profile } from '../../engine/profile';
-import { settlePractice, type Settled } from '../../engine/settle';
+import { settlePractice, treasureFor, type Settled } from '../../engine/settle';
 import { mathOf, type ArcadeRecord } from '../progress';
 import { noteSkillAnswers } from '../skills/progress';
 import { pitchRung, TARGET, thetaOf } from '../skills/ability';
@@ -146,6 +146,6 @@ export function applyBeam(p0: Profile, run: BeamRun): BeamOutcome {
   pal.runs++;
   if (stars === 3) pal.stars3++;
   // right answers warm the eggs like a trip's (an equation is worth a few facts)
-  const done = settlePractice(p, { at: run.at, ms: run.ms, finished: true, stars, medals: stars === 3 ? ['three'] : [], right: Math.round(run.solved * 2.5), xp: () => Math.round((25 + stars * 12 + Math.min(12, run.solved) * 2) * (p.settings.grown ? 0.8 : 1)) });
+  const done = settlePractice(p, { at: run.at, ms: run.ms, finished: true, stars, medals: stars === 3 ? ['three'] : [], right: Math.round(run.solved * 2.5), xp: () => Math.round((25 + stars * 12 + Math.min(12, run.solved) * 2) * (p.settings.grown ? 0.8 : 1)) , treasure: treasureFor(run.score, STAR_AT[2]) });
   return { ...done, profile: p, stars, newBest, newDaily, best: rec.best };
 }

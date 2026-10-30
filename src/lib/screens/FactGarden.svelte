@@ -339,7 +339,7 @@
   const skillGrowing = ALL_KEYS.some(k => (skillMem(mathOf(game.profile!))[k]?.stage ?? 0) > 0);
   let say = $state(grewIds.length && !firstVisit ? `${grewIds.length} ${grewIds.length === 1 ? 'fact grew' : 'facts grew'} since you last looked!`
     : grewKeys.length && !firstVisit ? `${grewKeys.length} new ${grewKeys.length === 1 ? 'plant grew' : 'plants grew'} since you last looked!`
-    : area && skillGrowing ? `Your ${AREA[area].name.toLowerCase()} are growing. Quick answers on different days make flowers bloom.`
+    : area && skillGrowing ? `Your ${AREA[area].name.toLowerCase()} plants are growing. Quick answers on different days make flowers bloom.`
     : stageCounts(mathOf(game.profile!), ALL_GARDEN_IDS)[3] ? 'Tap any plant to see how it\'s doing!'
     : stageCounts(mathOf(game.profile!), ALL_GARDEN_IDS)[1] + stageCounts(mathOf(game.profile!), ALL_GARDEN_IDS)[2] ? 'Your garden is growing. Quick answers on different days make flowers bloom.'
     : 'Every fact you learn grows here. Take a trip on the Times Trail to plant your first ones!');

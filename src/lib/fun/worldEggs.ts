@@ -148,7 +148,8 @@ export function trailEggs(o: { root: THREE.Object3D; trail: { at(s: number): TP 
       const f = o.trail.at(pebbleS);
       pebble.root.position.copy(ground(f.p.clone().addScaledVector(f.n, -1.5)));
       pebble.face = pebble.root.position.clone().add(pebbleMade ? f.n.clone().multiplyScalar(3) : f.t);
-      if (!pebbleSaid && focus.distanceTo(pebble.root.position) < 2.6) {
+      // (not while the lesson's start card is up: only once you're on your way)
+      if (!pebbleSaid && going && focus.distanceTo(pebble.root.position) < 2.6) {
         pebbleSaid = true; pebble.play(pebbleMade ? 'happy' : 'hop'); if (pebbleMade) sfx.cheer();
         // the first couple of times, who he is and what he's doing; and the day he makes it
         const met = recall<number>('pebbleMet', 0);

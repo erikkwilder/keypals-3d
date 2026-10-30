@@ -288,11 +288,26 @@
     const k = cam.ready ? 1 - Math.exp(-dt * 5) : 1;
     cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; cam.ready = true;
     if (mapEl) mapEl.style.transform = `translate3d(${cam.x.toFixed(1)}px, ${cam.y.toFixed(1)}px, 0)`;
+    dodgeStick();
     if (cv) cv.style.transform = `translate3d(${(bx * scale - bud.w / 2).toFixed(1)}px, ${(by * scale - bud.h * FOOT_AT).toFixed(1)}px, 0)`;
     if (bubbleEl) bubbleEl.style.transform = `translate3d(${(bx * scale).toFixed(1)}px, ${(by * scale - bud.h * 0.62).toFixed(1)}px, 0) translate(-50%, -100%)`;
     walker?.frame(dt);
     if (import.meta.env.DEV) cost = cost * 0.95 + (performance.now() - c0) * 0.05;
     raf = requestAnimationFrame(frame);
+  }
+
+  // an island's name that would sit under the stick (the first island's often does, at the bottom
+  // left of the map) slides right, just clear of it
+  const names = new Set<HTMLElement>();
+  function nameEl(el: HTMLElement) { names.add(el); return { destroy() { names.delete(el); } }; }
+  function dodgeStick() {
+    if (!stickEl || !names.size) return;
+    const clear = stickEl.offsetLeft + stickEl.offsetWidth + 8, top = stickEl.offsetTop - 4;
+    for (const el of names) {
+      const x = (Number(el.dataset.x) / 100) * mw + cam.x, y = (Number(el.dataset.y) / 100) * mh + cam.y, left = x - el.offsetWidth / 2;
+      const by = left < clear && y + el.offsetHeight > top ? `${(clear - left).toFixed(0)}px 0` : '';
+      if (el.dataset.by !== by) { el.dataset.by = by; el.style.translate = by; }
+    }
   }
 
   function measure() {
@@ -375,7 +390,7 @@
     {/each}
     {#each islandsOf(world).filter(i => tr.point[`${i.id}-0`]) as isl (isl.id)}
       {@const f = tr.point[`${isl.id}-0`].at[kind]}
-      <span class="iname" style="left:{f[0]}%;top:{f[1] + (tall ? 4.2 : 7)}%">{isl.name}</span>
+      <span class="iname" use:nameEl data-x={f[0]} data-y={f[1] + (tall ? 4.2 : 7)} style="left:{f[0]}%;top:{f[1] + (tall ? 4.2 : 7)}%">{isl.name}</span>
     {/each}
     <canvas class="buddy" bind:this={cv} aria-hidden="true"></canvas>
     {#if bubble}<button class="bubble" bind:this={bubbleEl} onclick={() => here && act(here)}>{bubble}<small>{touchy ? 'Tap' : 'Enter'}</small></button>{/if}

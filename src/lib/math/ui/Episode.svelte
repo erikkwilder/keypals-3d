@@ -82,6 +82,8 @@
   let stuck = $state(false);
   let result = $state<{ first: boolean; shells: number; eggs: number } | null>(null);
   let w = $state(1280), h = $state(800);
+  /** how tall the bottom panel is now (on a phone the 3D work is framed above it, whatever it holds) */
+  let bottomH = $state(0);
   const narrow = $derived(w < 760);
 
   const step = $derived(lesson.steps[Math.min(i, lesson.steps.length - 1)]);
@@ -319,9 +321,11 @@
     if (phase === 'turn' || phase === 'check') bottom = 1 - (narrow ? 352 : 228) / H;
     else if (phase === 'teach' && tsub !== 'watch') bottom = 1 - (narrow ? 196 : 150) / H;
     else if (phase === 'card' || phase === 'checked') { if (narrow) bottom = 0.5; else right = 0.5; }
+    // (a phone's turn: a long question, a fraction pad or the buddy's answer make the panel taller)
+    if (narrow && bottomH && phase !== 'card' && phase !== 'checked') bottom = Math.min(bottom, 1 - (bottomH + 14) / H);
     return { top, bottom, left: 0.01, right };
   }
-  $effect(() => { void phase; void tsub; void w; void h; void narrow; sc?.setView(viewFor()); });
+  $effect(() => { void phase; void tsub; void w; void h; void narrow; void bottomH; sc?.setView(viewFor()); });
 
   // the music hushes while the lesson plays (the coach's voice and the sounds carry on)
   let unquiet = () => {};
@@ -333,6 +337,8 @@
       if (gone) { s.dispose(); return; }
       before = stage.swap(s); s.enter();
       if (import.meta.env.DEV) (window as unknown as { __ep: EpisodeScene }).__ep = s;
+      // for checking the episodes: where the story is, the answers, and its own Enter and fix
+      if (import.meta.env.DEV) (window as unknown as { __epUi: object }).__epUi = { phase: () => phase, sub: () => tsub, done: () => stepDone, primary, fix: () => pickFix(right), solve: () => { typed = ans; answer(); } };
       s.onChange = () => { hops = s.hopsDrawn; left = s.left; revealed = new Set(s.revealed); };
       s.setView(viewFor());
       sc = s;
@@ -352,6 +358,10 @@
   const ticks = $derived(shown?.line ? Array.from({ length: shown.line.to - shown.line.from + 1 }, (_, n) => shown!.line!.from + n) : []);
   const every = $derived(shown?.line && shown.line.to - shown.line.from > 12 ? 5 : 1);
 </script>
+
+<!-- the buddy's answer to the teach question (crossed out, then fixed): over the work on a wide screen, and
+     on a phone in the bottom panel, so it never sits on the work or under the speech bubble -->
+{#snippet wrongEq()}<div class="eq wrong" class:docked={narrow} class:long={lesson.teach.q.text.length > 10 && !asks(lesson.teach.q)} class:isq={asks(lesson.teach.q)} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{#if asks(lesson.teach.q)}<small class="qt"><FracText text={lesson.teach.q.text} size={narrow ? 14 : 18} /></small>{:else}<FracText text={lesson.teach.q.text} size={narrow ? 22 : 30} /> = {/if}<span class="ans">{#if tsub === 'fixed'}<span class="lit"><FracText text={minusSign(right)} size={narrow ? 26 : 34} /></span>{:else}<s><FracText text={minusSign(lesson.teach.wrong)} size={narrow ? 22 : 30} /></s>?{/if}</span></div>{/snippet}
 
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
 <div class="ep" class:narrow class:frac={!lesson.cover} style:--sc={lesson.color} style:--bg="url({base}{place.backdrop})">
@@ -385,8 +395,8 @@
     {#if eqOn && phase === 'step'}
       {#key i}<div class="pin" use:pin={() => sc!.over()}><div class="eq">{#each eqParts as p}{#if p.lit}<span class="lit"><FracText text={p.t} size={narrow ? 26 : 34} /></span>{:else}<span><FracText text={p.t} size={narrow ? 22 : 30} /></span>{/if}{/each}</div></div>{/key}
     {/if}
-    {#if phase === 'teach' && wrongOn}
-      {#key shake}<div class="pin" use:pin={() => sc!.over()}><div class="eq wrong" class:long={lesson.teach.q.text.length > 10 && !asks(lesson.teach.q)} class:isq={asks(lesson.teach.q)} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{#if asks(lesson.teach.q)}<small class="qt"><FracText text={lesson.teach.q.text} size={narrow ? 14 : 18} /></small>{:else}<FracText text={lesson.teach.q.text} size={narrow ? 22 : 30} /> = {/if}<span class="ans">{#if tsub === 'fixed'}<span class="lit"><FracText text={minusSign(right)} size={narrow ? 26 : 34} /></span>{:else}<s><FracText text={minusSign(lesson.teach.wrong)} size={narrow ? 22 : 30} /></s>?{/if}</span></div></div>{/key}
+    {#if phase === 'teach' && wrongOn && !narrow}
+      {#key shake}<div class="pin" use:pin={() => sc!.over()}>{@render wrongEq()}</div>{/key}
     {/if}
     <!-- one speech bubble, by the buddy: its own words when it has some, else the story's -->
     {#if bubble || (line && phase !== 'load')}
@@ -412,7 +422,7 @@
   {/if}
 
   <!-- the bottom: what to do now -->
-  <div class="bottom">
+  <div class="bottom" bind:clientHeight={bottomH}>
     {#if phase === 'intro'}
       <div class="row"><span class="pill">{pal.name} and {FRIEND[buddy].name} need your help!</span><button class="btn btn-primary btn-big go" onclick={primary}>Let's go! <span class="kbd">enter</span></button></div>
     {:else if phase === 'step'}
@@ -428,6 +438,8 @@
         {/if}
       </div>
     {:else if phase === 'teach'}
+      <div class="tcol">
+      {#if narrow && wrongOn}<div class="dock">{#key shake}{@render wrongEq()}{/key}</div>{/if}
       {#if tsub === 'fix'}
         <div class="fix">
           <span class="pill task">Tap the right answer</span>
@@ -438,9 +450,10 @@
       {:else}
         <div class="row"><span class="pill">Is your buddy right?</span></div>
       {/if}
+      </div>
     {:else if phase === 'turn' || phase === 'check'}
       <div class="turn">
-        {#key shake}<div class="ask" class:shake={shake > 0}>{#if phase === 'turn'}<small>Your turn {k + 1} of 2</small>{:else}<small>Quick check</small>{/if}<span><FracText text={q.text} size={34} />{asks(q) ? '' : ' ='}</span>{#if q.input === 'frac'}<span class="fbox" class:good={locked}><Frac n={fn} d={fd} size={34} focus={locked ? null : ff} /></span>{:else}<span class="box" class:good={locked}>{minusSign(typed) || ' '}</span>{/if}</div>{/key}
+        {#key shake}<div class="ask" class:shake={shake > 0} class:long={q.text.length > 12}>{#if phase === 'turn'}<small>Your turn {k + 1} of 2</small>{:else}<small>Quick check</small>{/if}<span><FracText text={q.text} size={narrow && q.text.length > 12 ? 22 : 34} />{asks(q) ? '' : ' ='}</span>{#if q.input === 'frac'}<span class="fbox" class:good={locked}><Frac n={fn} d={fd} size={34} focus={locked ? null : ff} /></span>{:else}<span class="box" class:good={locked}>{minusSign(typed) || ' '}</span>{/if}</div>{/key}
         {#if q.input === 'frac'}
           <FractionPad n={fn} d={fd} focus={ff} want={fracWant} disabled={locked} compact={narrow} onchange={(v) => { fn = v.n; fd = v.d; ff = v.focus; sfx.click(); }} onsubmit={answerFrac} />
         {:else}
@@ -532,6 +545,11 @@
   /* a fraction can't take a line through its text: a slash across it instead */
   .eq.wrong s:has(:global(.frac)) { position: relative; text-decoration: none; }
   .eq.wrong s:has(:global(.frac))::after { content: ''; position: absolute; left: -6px; right: -6px; top: 50%; height: 4px; margin-top: -2px; background: #d63c5c; border-radius: 2px; transform: rotate(-20deg); }
+  /* (on a phone: in the bottom panel, over the choices) */
+  .tcol { display: flex; flex-direction: column; align-items: center; }
+  .dock { display: flex; justify-content: center; margin-bottom: 10px; }
+  .eq.docked { position: static; transform: none; animation: eqpop .4s cubic-bezier(.3, 1.5, .5, 1) both; }
+  @keyframes eqpop { from { opacity: 0; scale: .6; } }
   .eq.fixed { box-shadow: 0 0 0 4px #7fe0b0, 0 0 34px rgba(80, 220, 150, .7), 0 12px 24px rgba(0, 60, 30, .3); }
   @keyframes eqin { from { opacity: 0; transform: translate(-50%, -60%) scale(.6); } }
   .say { transform: translate(18px, -60%); white-space: normal; width: max-content; max-width: min(400px, 34vw); background: #fff; border-radius: 26px; padding: 12px 20px 14px; font: 600 22px/1.3 var(--font-ui); text-align: center; color: var(--ink); box-shadow: 0 0 0 3px #fff, 0 12px 26px -10px rgba(40, 20, 80, .55); animation: bub .35s cubic-bezier(.3, 1.4, .5, 1) both; }
@@ -615,6 +633,8 @@
   .narrow .choice { min-width: 92px; height: 70px; font-size: 32px; }
   .narrow .choices { gap: 10px; }
   .narrow .ask { font-size: 32px; padding: 6px 16px; }
+  /* (a question in words, not a sum: smaller, so it stays one or two lines under the work) */
+  .narrow .ask.long { font-size: 22px; }
   .narrow .say { font-size: 15px; max-width: min(58vw, calc(100vw - var(--px, 0) * 1px - 22px)); padding: 8px 12px 10px; transform: translate(10px, -40%); }
   .narrow .num { font-size: 13px; }
   .narrow .num.here { font-size: 18px; }

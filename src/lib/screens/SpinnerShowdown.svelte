@@ -12,7 +12,7 @@
   import { stage } from '../three/stage';
   import { ShowdownScene } from '../three/showdownScene';
   import type { Profile } from '../engine/profile';
-  import { SKILL } from '../math/skills/registry';
+  import { AREA, SKILL } from '../math/skills/registry';
   import type { Answer } from '../math/skills/types';
   import { answerParts } from '../math/skills/text';
   import { BET_TICKETS, KINDS, ROUND_MS, STAR_AT, applyShowdown, challengeMaker, comboMult, dailyBestOf, dailySeed, poolFor, showdownOf, spinLand, starsFor, thetasFor, ticketsFor, type Challenge, type KindId, type ShowOutcome } from '../math/data/showdown';
@@ -23,7 +23,7 @@
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
-  import { FRIEND } from '../art/cast';
+  import PrizeRow from '../arcade/ui/PrizeRow.svelte';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -231,9 +231,14 @@
     musicEnergy(0.5);
   }
 
+  /** opened from the Arcade, Back goes there; otherwise to the area's map */
+  const fromArcade = game.gameFrom === 'arcade';
+  game.gameFrom = 'map';
+  const backTo = fromArcade ? 'the Arcade' : AREA.data.name;
   function quit() {
     sfx.click();
     if (phase === 'play') { phase = 'menu'; ch = null; msg = null; run++; return; }
+    if (fromArcade) { game.go('arcade'); return; }
     game.mathArea = 'data'; game.mathOp = null; game.setHome('math'); game.go('map');
   }
   function onKey(e: KeyboardEvent) {
@@ -254,7 +259,7 @@
   <canvas class="three" bind:this={canvas}></canvas>
 
   <div class="top">
-    <button class="back" onclick={quit} aria-label={phase === 'play' ? 'Stop the round' : 'Back to Data and chance'}><Icon name="back" size={26} /></button>
+    <button class="back" onclick={quit} aria-label={phase === 'play' ? 'Stop the round' : `Back to ${backTo}`}><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/data/tile.webp" alt="" /><b>Spinner Showdown</b>{#if daily}<small>Today's challenge</small>{/if}</div>
     {#if phase === 'play'}
       <div class="tix" bind:this={ticketEl}><img src="{base}math/data/prize-ticket.webp" alt="" /><b>{score}</b></div>
@@ -348,13 +353,9 @@
           <div><b>{o.best}</b><small>best score</small></div>
         </div>
         {#if tallyPic}<div class="tally end"><small>Your Best Bet spins</small><DataPicView d={tallyPic} size={narrow ? 90 : 110} /></div>{/if}
-        <div class="xp">
-          <span>{FRIEND[p.buddy].name} <Icon name="heart" size={16} /> +{o.xp.gained} XP</span>
-          {#if o.shells}<span><img src="{base}game/icon-shell.webp" alt="" /> +{o.shells} shells</span>{/if}
-          {#each o.stickers as s}<span><Icon name="sticker" size={16} /> {s.name}</span>{/each}
-        </div>
+        <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <button class="btn" onclick={quit}>Back to Data and chance</button>
+          <button class="btn" onclick={quit}>Back to {backTo}</button>
           {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
           <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
         </div>
@@ -455,9 +456,6 @@
   .facts > div { flex: 1; background: #fff2f7; border-radius: 14px; padding: 8px; display: flex; flex-direction: column; }
   .facts b { font: 600 26px var(--font-ui); }
   .facts small { font: 700 13px var(--font-body); color: var(--muted); }
-  .xp { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  .xp span { display: inline-flex; align-items: center; gap: 5px; background: var(--bg2); border-radius: 999px; padding: 5px 12px; font: 700 14px var(--font-body); color: var(--ink2); }
-  .xp img { width: 20px; height: 20px; }
 
   /* a phone (or anything tall): the wheel up top, the card underneath */
   .narrow .top { gap: 6px; padding: 8px; flex-wrap: wrap; }

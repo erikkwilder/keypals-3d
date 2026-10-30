@@ -53,6 +53,8 @@
   onMount(() => { unquiet = quietForLesson(); speak(`ep.${L.id}.intro`, L.intro); fit(); addEventListener('resize', fit); });
   onDestroy(() => { hush(); unquiet(); removeEventListener('resize', fit); });
   function fit() { wide = innerWidth > 760; }
+  // for checking the episodes: where the story is, its own Enter, the fix and the answer
+  if (import.meta.env.DEV) (window as unknown as { __epUi: object }).__epUi = { phase: () => phase, sub: () => (fixedOk ? 'fixed' : 'fix'), done: () => true, primary: next, fix: () => fix(L.teach.q.ans), solve: () => answer(L.tries[tryN].ans) };
 
   function next() {
     sfx.click(); feedback = null;

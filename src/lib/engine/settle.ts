@@ -82,6 +82,13 @@ export type Settled = {
   treasure: number; newBestTreasure: boolean;
 };
 
+/** The treasure a scored game's round finds (the Arcade's fact games and every math area's own game): up
+ *  the ladder as the score goes past the three-star score, nothing under a fifth of it. */
+export function treasureFor(score: number, threeStars: number): number {
+  const r = score / threeStars;
+  return r < 0.2 ? -1 : Math.min(9, Math.floor(r * 6.5));
+}
+
 /** The end of any practice: today's minutes, medals (plus the goal medal), friendship, stickers, new
  *  buddies, warm eggs and shells, in that order. `xp` works out the friendship from the medal count. */
 export function settlePractice(p: Profile, o: { at: number; ms: number; finished: boolean; stars: number; medals: string[]; right: number; xp: (medals: number) => number; move?: Move; treasure?: number }): Settled {

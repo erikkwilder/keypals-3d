@@ -17,6 +17,7 @@
   import { RATIO_COLOR, RATIO_LESSONS } from '../math/ratioEpisodes';
   import { DATA_COLOR, DATA_LESSONS } from '../math/data/episodes';
   import { ALG_LESSONS } from '../math/algebra/episodes';
+  import { NEG_LESSONS } from '../math/integers/episodes';
   import { SKILL_LESSONS } from '../math/skills/course';
   import { GLIMMER } from '../adventure/glimmers';
   import { glimmerArt } from '../adventure/evolve';
@@ -56,8 +57,10 @@
   function close() { game.learnId = null; checking = false; if (direct) game.go(game.learnBack === 'learn' ? 'map' : game.learnBack); }
   /** the first stop that uses this trick, to practise it right after (a fraction idea: the fractions
    *  stop that meets its skill; a place value lesson names its own practice lesson) */
+  /** the skill areas' episodes: each card's "Practise it now" starts the trip that meets its skill */
+  const SKILL_EPS = [...FRAC_LESSONS, ...SHAPE_LESSONS, ...RATIO_LESSONS, ...NEG_LESSONS, ...DATA_LESSONS, ...ALG_LESSONS];
   function practiceStop(id: string) {
-    const f = [...FRAC_LESSONS, ...SHAPE_LESSONS, ...RATIO_LESSONS, ...DATA_LESSONS, ...ALG_LESSONS].find(x => x.id === id);
+    const f = SKILL_EPS.find(x => x.id === id);
     if (f) return SKILL_LESSONS.find(x => x.kind === 'meet' && x.learn.includes(f.skill))?.id ?? null;
     if (id === 'zero-one') return 'twins-1';
     const l = LESSONS.find(x => x.id === id);
@@ -70,7 +73,7 @@
     game.learnId = null;
     if (!stop) return;
     game.setHome('math');
-    if (FRAC_LESSONS.some(x => x.id === id) || SHAPE_LESSONS.some(x => x.id === id) || RATIO_LESSONS.some(x => x.id === id) || DATA_LESSONS.some(x => x.id === id) || ALG_LESSONS.some(x => x.id === id) || LESSONS.find(x => x.id === id)?.practice) game.startSkill(stop); else game.startMath(stop);
+    if (SKILL_EPS.some(x => x.id === id) || LESSONS.find(x => x.id === id)?.practice) game.startSkill(stop); else game.startMath(stop);
   }
   const fracLearned = $derived(FRAC_LESSONS.filter(l => isLearned(m, l.id)));
   const shapeLearned = $derived(SHAPE_LESSONS.filter(l => isLearned(m, l.id)));

@@ -29,7 +29,11 @@ def outline(im):
     ys = np.linspace(0, 1, a.shape[0])[:, None, None]
     bg = top * (1 - ys) + bot * ys
     d = np.sqrt(((a - bg) ** 2).sum(2))
-    m = Image.fromarray(((d > 34) * 255).astype(np.uint8)).filter(ImageFilter.MedianFilter(5)).filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(5))
+    # close the gaps first (grow then shrink 9 px), before the speck filter: a pale part close to the background
+    # (cream fur on a cream background, a sunlit face the colour of the sand) only shows as broken strokes, and
+    # without this the speck filter wipes them and the outside leaks in through the gap, leaving a hole
+    m = Image.fromarray(((d > 34) * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.MinFilter(9))
+    m = m.filter(ImageFilter.MedianFilter(5)).filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.MinFilter(9))
     # solid: anything the outside can't reach (white fur, eyes, pale bellies) is the creature too
     m = m.copy(); W, H = m.size
     pad = Image.new('L', (W + 2, H + 2), 0); pad.paste(m, (1, 1))

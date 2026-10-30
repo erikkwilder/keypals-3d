@@ -335,7 +335,7 @@
   .bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffb52e, #ff7ab8); }
   .hatch { font-size: 20px; animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse { 50% { transform: scale(1.06); } }
-  .waiting { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; font: 700 14px var(--font-body); color: var(--ink2); }
+  .waiting { display: flex; width: fit-content; align-items: center; justify-content: center; gap: 6px; margin: 10px auto 0; padding: 2px 14px 2px 16px; border-radius: 999px; background: rgba(255, 255, 255, .9); font: 700 14px var(--font-body); color: var(--ink2); }
   .waiting img { width: 40px; }
   .how { margin: 12px auto 16px; width: min(820px, 94vw); padding: 0; display: grid; grid-template-columns: 220px 1fr; overflow: hidden; }
   .howpic { background-size: cover; background-position: center; min-height: 170px; }
@@ -358,6 +358,18 @@
   @keyframes pop { from { opacity: 0; transform: scale(.4); } }
   .msg { padding: 10px 18px; text-align: center; max-width: 520px; }
   .msg h2 { margin: 0; font-size: 24px; } .msg p { margin: 4px 0; font-weight: 600; color: var(--ink2); } .msg small { color: var(--muted); font-weight: 700; }
+  /* a short laptop screen (1280 x 720): the nests and the how-to card closer together, so the card fits */
+  @media (max-height: 800px) and (min-width: 761px) {
+    .stagebox { min-height: 70px; }
+    .nestbox { width: 160px; margin-top: 22px; }
+    .slot { width: 210px; padding: 8px 10px 10px; }
+    .waiting { margin-top: 6px; } .waiting img { width: 32px; }
+    .how { margin: 8px auto 10px; grid-template-columns: 170px 1fr; }
+    .howpic { min-height: 0; }
+    .howtext { padding: 8px 16px; gap: 5px; }
+    .howtext h3 { font-size: 19px; }
+    .howtext li { font-size: 14.5px; line-height: 1.3; }
+  }
   @media (max-width: 760px) {
     .slot { width: 30%; min-width: 104px; padding: 6px 4px 10px; border-radius: 18px; }
     .nestbox { width: 100%; margin-top: 22px; }

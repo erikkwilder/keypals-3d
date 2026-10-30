@@ -11,7 +11,7 @@
 // lessons. The same mat with no clock and no orders is the Playground's Block Table.
 import { mulberry32, type Rng } from '../../engine/rng';
 import { buddyPal, dayKey, type Profile } from '../../engine/profile';
-import { settlePractice, type Settled } from '../../engine/settle';
+import { settlePractice, treasureFor, type Settled } from '../../engine/settle';
 import { mathOf, type ArcadeRecord } from '../progress';
 import { noteSkillAnswers } from '../skills/progress';
 import { words, commas } from '../skills/place';
@@ -175,7 +175,7 @@ export function applyBuild(p0: Profile, run: BuildRun): BuildOutcome {
   pal.runs++;
   if (stars === 3) pal.stars3++;
   // right builds warm the eggs like a trip's (a build is worth a couple of facts)
-  const done = settlePractice(p, { at: run.at, ms: run.ms, finished: true, stars, medals: stars === 3 ? ['three'] : [], right: Math.round(run.built * 2.5), xp: () => Math.round((25 + stars * 12 + Math.min(12, run.built) * 2) * (p.settings.grown ? 0.8 : 1)) });
+  const done = settlePractice(p, { at: run.at, ms: run.ms, finished: true, stars, medals: stars === 3 ? ['three'] : [], right: Math.round(run.built * 2.5), xp: () => Math.round((25 + stars * 12 + Math.min(12, run.built) * 2) * (p.settings.grown ? 0.8 : 1)) , treasure: treasureFor(run.score, STAR_AT[2]) });
   return { ...done, profile: p, stars, newBest, newDaily, best: rec.best };
 }
 

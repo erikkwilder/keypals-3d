@@ -9,6 +9,7 @@
   // ten cubes for a rod (or break a rod into ten cubes), or ask for a number to build.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
+  import { AREA } from '../math/skills/registry';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { BuilderScene, type Kind } from '../three/builderScene';
@@ -19,7 +20,7 @@
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
-  import { FRIEND } from '../art/cast';
+  import PrizeRow from '../arcade/ui/PrizeRow.svelte';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -233,6 +234,8 @@
     goal = null;
   }
 
+  /** what Back says: where it goes (the Arcade, the Playground or Place value's map) */
+  const backTo = builderOpen.from === 'arcade' ? 'the Arcade' : builderOpen.from === 'playground' ? 'the Playground' : AREA.place.name;
   function quit() {
     sfx.click();
     if (!toy && phase === 'play') { phase = 'menu'; msg = null; order = null; scene?.set(0, 0, 0); b = { h: 0, t: 0, o: 0 }; return; }
@@ -266,7 +269,7 @@
   <canvas class="three" bind:this={canvas} onpointerdown={onPointer}></canvas>
 
   <div class="top">
-    <button class="back" onclick={quit} aria-label={!toy && phase === 'play' ? 'Stop the round' : 'Back'}><Icon name="back" size={26} /></button>
+    <button class="back" onclick={quit} aria-label={!toy && phase === 'play' ? 'Stop the round' : `Back to ${backTo}`}><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/place/ten.webp" alt="" /><b>{toy ? 'Block Table' : 'Number Builder'}</b>{#if daily}<small>Today's challenge</small>{/if}</div>
     {#if phase === 'play' && !toy}
       <div class="score"><small>Score</small><b>{score}</b></div>
@@ -365,13 +368,9 @@
           <div><b>{bestCombo}</b><small>best combo</small></div>
           <div><b>{o.best}</b><small>best score</small></div>
         </div>
-        <div class="xp">
-          <span>{FRIEND[p.buddy].name} <Icon name="heart" size={16} /> +{o.xp.gained} XP</span>
-          {#if o.shells}<span><img src="{base}game/icon-shell.webp" alt="" /> +{o.shells} shells</span>{/if}
-          {#each o.stickers as s}<span><Icon name="sticker" size={16} /> {s.name}</span>{/each}
-        </div>
+        <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <button class="btn" onclick={quit}>Back</button>
+          <button class="btn" onclick={quit}>Back to {backTo}</button>
           {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
           <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
         </div>
@@ -475,9 +474,6 @@
   .facts > div { flex: 1; background: #eef6ff; border-radius: 14px; padding: 8px; display: flex; flex-direction: column; }
   .facts b { font: 600 26px var(--font-ui); }
   .facts small { font: 700 13px var(--font-body); color: var(--muted); }
-  .xp { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  .xp span { display: inline-flex; align-items: center; gap: 5px; background: var(--bg2); border-radius: 999px; padding: 5px 12px; font: 700 14px var(--font-body); color: var(--ink2); }
-  .xp img { width: 20px; height: 20px; }
 
   /* a phone */
   @media (max-width: 760px) {

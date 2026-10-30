@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
 import { ANYWHERE, MATH_CHIPS, SUBJECTS, WAYS, chipNames, linksFor, thingsIn, wayCount } from './subjects';
+import { AREA, AREAS } from './math/skills/registry';
 
 const pub = (f: string) => existsSync(new URL(`../../public/${f}`, import.meta.url));
 
@@ -54,6 +55,18 @@ describe('subjects and their four ways to play', () => {
     expect(linksFor(math, 'times').adventure?.id).toBe('sky');
     expect(chipNames(math, math.ways.games.things.find(t => t.id === 'slalom')!)).toBe('Plus · Minus · Times · Share');
     expect(MATH_CHIPS.map(c => c.name)).toEqual(expect.arrayContaining(['Plus', 'Minus', 'Times', 'Share', 'Fractions', 'Place value', 'Decimals and money']));
+  });
+
+  it('shows every math area in all four ways, under one name everywhere', () => {
+    const math = SUBJECTS.find(s => s.id === 'math')!;
+    for (const c of math.chips) for (const w of WAYS) expect(thingsIn(math, w.id, c.id).filter(t => !t.soon).length, `${c.id} ${w.id}`).toBeGreaterThan(0);
+    // an area's chip, its Practice card and its Arcade game's label all read its registry name (the fact
+    // strands' chips are Plus, Minus, Times and Share; their cards are places, Plus Peaks...)
+    for (const a of AREAS.filter(x => x.live && !x.op)) {
+      expect(math.chips.find(c => c.id === a.id)?.name).toBe(a.name);
+      expect(math.ways.practice.things.find(t => t.id === a.id)?.name).toBe(a.name);
+    }
+    expect(AREA.measure.name).toBe('Time and measuring');
   });
 
   it('lists the places that take every subject', () => {

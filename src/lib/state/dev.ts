@@ -124,7 +124,7 @@ export function devBoot() {
   if (key === 'clockrush') { ensure(); game.go('clockrush'); }
   if (key === 'bench') { ensure(); game.go('bench'); }
   if (key === 'measure') { ensure(); game.setHome('math'); game.mathArea = 'measure'; game.mathOp = null; game.go('map'); }
-  // a measuring Learn episode over the Measurement and time map: #measure-learn=ms-oclock (=ms-oclock,check for its quick check)
+  // a measuring Learn episode over the Time and measuring map: #measure-learn=ms-oclock (=ms-oclock,check for its quick check)
   if (key === 'measure-learn') { ensure(); game.setHome('math'); game.mathArea = 'measure'; game.mathOp = null; game.go('map'); const [id, c] = (val || 'ms-oclock').split(','); game.learnCheck = c === 'check'; game.learnOverlay = id; }
   // every sound in the game, with Play buttons (works on the live site too)
   if (key === 'sounds') void Promise.all([import('svelte'), import('../ui/SoundBoard.svelte')]).then(([s, m]) => s.mount(m.default, { target: document.body }));

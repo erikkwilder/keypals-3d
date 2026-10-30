@@ -89,6 +89,9 @@ class Game {
   typingArea = $state<import('../engine/course').RegionId | null>(null);
   /** the Learn episode opened from a subject page is just its next-day quick check */
   learnCheck = $state(false);
+  /** where a math area's own arcade game (Pizza Rush, Clock Rush...) was opened from: the Arcade sets it, and
+   *  the game reads it once as it opens (Back goes to the Arcade, else to the area's map) */
+  gameFrom = $state<'arcade' | 'map'>('map');
   /** a Playground game to start straight away (picked on a subject page's Games) */
   playPick = $state<string | null>(null);
   /** a Learn lesson opened over a math trip (the trip waits underneath) */

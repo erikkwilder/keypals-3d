@@ -187,12 +187,14 @@
           <div class="xptop"><span>{FRIEND[p.buddy].name} · <Icon name="heart" size={16} /> Friendship {done.out.xp.after.level}</span><b>+{done.out.xp.gained} XP</b></div>
           <div class="xbar"><i style:width="{(done.out.xp.after.into / done.out.xp.after.need) * 100}%"></i></div>
         </div>
-        {#if done.out.rewards.length || done.out.stickers.length || done.out.medals.length || done.out.buddies.length}
+        {#if done.out.shells || done.out.eggsReady?.length || done.out.rewards.length || done.out.stickers.length || done.out.medals.length || done.out.buddies.length}
           <div class="news">
+            {#if done.out.shells}<span class="chip"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /> +{done.out.shells} shells</span>{/if}
             {#each done.out.medals as m}<span class="chip"><Icon name="medal" size={18} /> {m.name}</span>{/each}
             {#each done.out.rewards as r}<span class="chip"><Icon name={r.kind === 'dance' ? 'dance' : 'hanger'} dance={r.id} size={18} /> New {r.kind}: {r.name}</span>{/each}
             {#each done.out.stickers as s}<span class="chip"><Icon name="sticker" size={18} /> Sticker: {s.name}</span>{/each}
             {#each done.out.buddies as b}<span class="chip new"><Icon name="popper" size={18} /> {FRIEND[b].name} joined your team!</span>{/each}
+            {#if done.out.eggsReady?.length}<span class="chip"><Icon name="gift" size={18} /> An egg is ready to hatch!</span>{/if}
           </div>
         {/if}
         <div class="acts">
@@ -261,6 +263,7 @@
   .news { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
   .chip { display: inline-flex; align-items: center; gap: 4px; font: 700 13px var(--font-body); background: #f6f1ff; border-radius: 999px; padding: 4px 10px; }
   .chip.new { background: #fff3c4; }
+  .chip img { width: 18px; height: 18px; }
   .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
   @media (max-width: 900px) { .bar :global(.tile .lbl) { display: none; } .games { grid-template-columns: 1fr; } .body { padding: 10px 10px 20px; } .bar { padding: 8px 10px; } .bar h1 { font-size: 20px; } .hello p { font-size: 15px; } .hello :global(.critter-host) { width: 64px !important; height: 64px !important; } .toy { grid-template-columns: 1fr; } .toy > .gpic { aspect-ratio: 16 / 8; min-height: 0; } .toy .tbody { padding: 0; } }
 </style>
