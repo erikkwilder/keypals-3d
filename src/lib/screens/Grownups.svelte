@@ -16,6 +16,7 @@
   import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, openCode, addAllFromAccount, grownupOpen, showCode } from '../state/cloud.svelte';
   import GrownupGate from '../ui/GrownupGate.svelte';
   import CodeCard from '../ui/CodeCard.svelte';
+  import ClassGrownups from '../ui/ClassGrownups.svelte';
 
   let saveMsg = $state<string | null>(null);
   async function act(fn: () => Promise<unknown>, done?: string) {
@@ -193,6 +194,7 @@
           <div><h3>Math skills by grade</h3><p class="muted">Every math skill from kindergarten to 8th grade, with its school standard and where {p.name} is on each: not started, growing or solid.</p></div>
           <button class="btn btn-primary" onclick={() => { game.skillsFor = p!.id; game.go('skills'); }}>See skills</button>
         </div>
+        <ClassGrownups {p} /><!-- classes: teachers, linking to a class, world boards -->
         <div class="card pane advset">
           <h3>Adventure: play time</h3>
           <p class="muted small">Adventure is the battle mode. Every move in a battle is still a math answer or a typed word, and practice is where the eggs hatch. Choose how play time works for {p.name}.</p>

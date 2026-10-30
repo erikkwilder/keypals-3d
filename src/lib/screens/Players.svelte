@@ -12,6 +12,7 @@
   import SaveCodeForm from '../ui/SaveCodeForm.svelte';
   import SafeReminder from '../ui/SafeReminder.svelte';
   import { cloud, goSaveOnline } from '../state/cloud.svelte';
+  import ClassEntry from '../ui/ClassEntry.svelte';
 
   function pick(id: string) {
     sfx.click();
@@ -46,6 +47,7 @@
   </div>
   <SafeReminder />
   <SaveCodeForm />
+  <ClassEntry /><!-- classes: "I'm in a class" and "For teachers" -->
   <div class="foot">
     <button class="btn btn-ghost" onclick={() => game.go('title')}>Back</button>
     <button class="btn btn-ghost" onclick={() => game.go('grownups')}>Grown-ups</button>

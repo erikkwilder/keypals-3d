@@ -118,13 +118,13 @@ async function challengeOf(env, classId) {
   return ch ? challengeView(env, ch) : null;
 }
 
-/** Remove one student: a player the class made goes too (unless a family keeps it in their account);
- *  a player from home just leaves the class. */
-async function dropStudents(env, rows) {
+/** Remove students: a player the class made goes too (unless a family keeps it in their account; one the
+ *  teacher's own sign-in filed under the teacher goes), a player from home just leaves the class. */
+async function dropStudents(env, rows, teacher = '') {
   const st = [];
   for (const s of rows) {
     if (!s.home) {
-      st.push(env.DB.prepare('DELETE FROM players WHERE code = ? AND account IS NULL').bind(s.player));
+      st.push(env.DB.prepare('DELETE FROM players WHERE code = ? AND (account IS NULL OR account = ?)').bind(s.player, teacher));
       st.push(env.DB.prepare('DELETE FROM player_week WHERE player = ? AND player NOT IN (SELECT code FROM players)').bind(s.player));
     }
     st.push(env.DB.prepare('DELETE FROM students WHERE id = ?').bind(s.id));
@@ -230,7 +230,7 @@ export async function classApi(request, env, url, path, h) {
         const body = await h.readBody(request) || {};
         if (String(body.confirm ?? '').trim().toLowerCase() !== c.name.trim().toLowerCase()) return h.fail(400, `Type the class's name, ${c.name}, to delete it.`);
         const st = await DB.prepare('SELECT id, player, home FROM students WHERE class = ?').bind(c.id).all();
-        await dropStudents(env, st.results ?? []);
+        await dropStudents(env, st.results ?? [], acct);
         await DB.batch([
           DB.prepare('DELETE FROM assignments WHERE class = ?').bind(c.id),
           DB.prepare('DELETE FROM challenge_classes WHERE class = ?').bind(c.id),
@@ -319,7 +319,7 @@ export async function classApi(request, env, url, path, h) {
         await DB.prepare('UPDATE students SET name = ? WHERE id = ?').bind(name, s.id).run();
         return h.json({ student: { id: s.id, name } });
       }
-      if (!m[2] && method === 'DELETE') { await dropStudents(env, [s]); return h.json({ ok: true }); }
+      if (!m[2] && method === 'DELETE') { await dropStudents(env, [s], acct); return h.json({ ok: true }); }
       if (m[2] === '/pics' && method === 'POST') {
         const pics = newPics();
         await DB.prepare('UPDATE students SET pics = ? WHERE id = ?').bind(pics, s.id).run();

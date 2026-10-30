@@ -40,6 +40,10 @@
   import FactGarden from './lib/screens/FactGarden.svelte';
   import Arcade from './lib/screens/Arcade.svelte';
   import ArcadePlay from './lib/screens/ArcadePlay.svelte';
+  import Teach from './lib/screens/Teach.svelte';
+  import ClassLogin from './lib/screens/ClassLogin.svelte';
+  import Boards from './lib/screens/Boards.svelte';
+  import { startClasses } from './lib/teach/student.svelte';
   import { stage } from './lib/three/stage';
   import QuickSettings from './lib/ui/QuickSettings.svelte';
   import FunLayer from './lib/fun/FunLayer.svelte';
@@ -85,6 +89,7 @@
     stage.onAutoSmooth = () => game.say('Switched to smooth mode so the game runs better on this computer. You can change it in Settings.', 6000);
     devBoot();
     startCloud();
+    startClasses();
     const unlock = () => unlockAudio();
     window.addEventListener('pointerdown', unlock, { once: true });
   });
@@ -125,6 +130,9 @@
   {:else if game.screen === 'drop'}<GlimmerDrop />
   {:else if game.screen === 'arcade'}<Arcade />
   {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}
+  {:else if game.screen === 'teach'}<Teach />
+  {:else if game.screen === 'classLogin'}<ClassLogin />
+  {:else if game.screen === 'boards'}<Boards />
   {/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}

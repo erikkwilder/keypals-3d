@@ -31,6 +31,7 @@
   import Stars from '../ui/Stars.svelte';
   import Ring from '../ui/Ring.svelte';
   import Icon from '../ui/Icon.svelte';
+  import ClassWorkCard from '../ui/ClassWorkCard.svelte';
 
   const p = $derived(game.profile!);
   const look = $derived(p.settings.look);
@@ -151,6 +152,8 @@
         <button class="btn ghost" onclick={() => { sfx.click(); staySignedOut(); }}>Stay signed out</button>
       </div>
     {/if}
+
+    <ClassWorkCard compact={sw < 600} /><!-- classes: class work for a player in a class -->
 
     <div class="doors">
       <section class="door typing">

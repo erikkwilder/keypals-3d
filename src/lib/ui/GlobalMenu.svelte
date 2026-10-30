@@ -29,6 +29,7 @@
   import SaveChip from './SaveChip.svelte';
   import { cloud, goSaveOnline } from '../state/cloud.svelte';
   import CloseButton from './CloseButton.svelte';
+  import { classTiles } from '../teach/menu';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -75,6 +76,7 @@
     { id: 'learn', name: 'Learn', img: 'icons/book.webp', line: `${tricks} of ${TRICKS.length} tricks learned`, go: () => game.openLearn(null, game.screen === 'learn' ? 'hub' : game.screen) },
     { id: 'garden', name: 'Fact Garden', img: 'icons/garden.webp', line: `${blooms} flowers in bloom`, go: () => { game.setHome('math'); game.go('garden'); } },
     { id: 'playground', name: 'Playground', img: 'icons/line.webp', line: playStars ? `${playStars} stars` : 'Number games, no clock', go: () => { game.setHome('math'); game.go('playground'); } },
+    ...classTiles(p), // classes: Class work and the Boards
   ]);
   const playTiles = $derived<Tile[]>([
     { id: 'arcade', name: 'Arcade', img: 'icons/arcade.webp', line: arcBest ? `${arcStars} stars · best ${fmt(arcBest)}` : 'Quick score games', go: () => game.go('arcade') },

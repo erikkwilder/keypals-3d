@@ -23,14 +23,14 @@ const H = 3600000, DAY = 24 * H;
 
 function skillTrip(p: Profile, at: number, key: string, right: number, wrong: number, lessonId = 'frac-a-1') {
   const results: SkillResult[] = [];
-  for (let i = 0; i < right + wrong; i++) results.push({ id: `${key}#${i}`, key, label: key, ok: i < right, speed: i < right ? 'fast' : 'miss', thinkMs: 1500, ms: 4000 });
+  for (let i = 0; i < right + wrong; i++) results.push({ id: `${key}#${i}`, key, label: key, ok: i < right, speed: i < right ? 'fast' : 'miss', thinkMs: 1500, ms: 4000, intro: false });
   const stats = tripStats(results);
   const out = applySkillRun(p, { lessonId, results, stats, stars: 2, bestRide: 1, finished: true, at });
   noteActivity(p, out.profile, at);
   return out.profile;
 }
 function factTrip(p: Profile, at: number, ids: string[], wrong = 0) {
-  const results: FactResult[] = ids.map((id, i) => ({ id, ok: i >= wrong, speed: i >= wrong ? 'fast' : 'miss', thinkMs: 1200, ms: 3000 }));
+  const results: FactResult[] = ids.map((id, i) => ({ id, ok: i >= wrong, speed: i >= wrong ? 'fast' : 'miss', thinkMs: 1200, ms: 3000, intro: false }));
   const out = applyMathRun(p, { lessonId: MATH_LESSONS[0].id, results, stats: tripStats(results), stars: 1, bestRide: 1, finished: true, at });
   noteActivity(p, out.profile, at);
   return out.profile;

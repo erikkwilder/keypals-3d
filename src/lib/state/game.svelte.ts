@@ -5,7 +5,7 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
-export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market';
+export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market' | 'teach' | 'classLogin' | 'boards';
 
 function load(): SaveFile {
   try {
@@ -189,6 +189,7 @@ class Game {
 
   replaceProfile(p: Profile) {
     const i = this.save.profiles.findIndex(x => x.id === p.id);
+    this.onActivity?.(i >= 0 ? this.save.profiles[i] : undefined, p); // class work counts every activity (teach/student.svelte.ts)
     p.updatedAt = Date.now();
     if (i >= 0) this.save.profiles[i] = p;
     this.persist();
@@ -197,6 +198,8 @@ class Game {
 
   /** told after a player changes (online saving sends the new copy) */
   onProfileChange: (() => void) | null = null;
+  /** told when an activity ends, with the player before and after (classes: teach/student.svelte.ts) */
+  onActivity: ((before: Profile | undefined, after: Profile) => void) | null = null;
 
   /** replaying a lesson skips its intro card and starts right away */
   quickStart = false;
