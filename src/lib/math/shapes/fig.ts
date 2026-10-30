@@ -10,12 +10,12 @@ import type { P } from './geo';
 export type FigHue = 'teal' | 'rose' | 'gold' | 'violet' | 'sky' | 'mint' | 'pale';
 export const HUES: FigHue[] = ['teal', 'rose', 'gold', 'violet', 'sky', 'mint'];
 export const HUE_RGB: Record<FigHue, { fill: string; edge: string; deep: string }> = {
-  teal: { fill: '#5fd6c4', edge: '#1f9c8c', deep: '#0e6b60' },
-  rose: { fill: '#f58fb4', edge: '#d24f82', deep: '#9c2a59' },
-  gold: { fill: '#ffd36b', edge: '#dc9a19', deep: '#9b6200' },
-  violet: { fill: '#b9a0ff', edge: '#7c5cf0', deep: '#4f33b5' },
-  sky: { fill: '#86c8ff', edge: '#3a8fe0', deep: '#1d5fa8' },
-  mint: { fill: '#94e6b0', edge: '#3cb36c', deep: '#1f7a44' },
+  teal: { fill: '#2fd0bb', edge: '#14998a', deep: '#0b6a5f' },
+  rose: { fill: '#ff6fa3', edge: '#d63b77', deep: '#9c2156' },
+  gold: { fill: '#ffc93d', edge: '#e09a0e', deep: '#9b6200' },
+  violet: { fill: '#a283ff', edge: '#6f4ff0', deep: '#4a2eb5' },
+  sky: { fill: '#5cb6ff', edge: '#2a82dc', deep: '#1a59a8' },
+  mint: { fill: '#6fe09a', edge: '#2fae62', deep: '#1c7840' },
   pale: { fill: '#f4f1fb', edge: '#b9b0d6', deep: '#7d74a0' },
 };
 

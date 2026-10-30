@@ -105,6 +105,7 @@
   <defs>
     <pattern id="{uid}t" patternUnits="userSpaceOnUse" width={big * 0.6} height={big * 0.6}><image href="{base}math/shapes/crystal.webp" width={big * 0.6} height={big * 0.6} preserveAspectRatio="none" /></pattern>
     <linearGradient id="{uid}s" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".6" /><stop offset=".42" stop-color="#fff" stop-opacity=".08" /><stop offset="1" stop-color="#1b1040" stop-opacity=".16" /></linearGradient>
+    <radialGradient id="{uid}g" cx=".38" cy=".3" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".5" /><stop offset=".5" stop-color="#fff" stop-opacity=".1" /><stop offset="1" stop-color="#fff" stop-opacity="0" /></radialGradient>
     <filter id="{uid}d" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy={big * 0.012} stdDeviation={big * 0.012} flood-color="#3a2a60" flood-opacity=".28" /></filter>
   </defs>
 
@@ -129,9 +130,12 @@
   {#each closed as p, pi (pi)}
     {@const c = hue(p)}
     <g filter="url(#{uid}d)">
+      <clipPath id="{uid}c{pi}"><polygon points={pts(p.pts)} /></clipPath>
       <polygon points={pts(p.pts)} fill={c.fill} />
       <polygon points={pts(p.pts)} fill="url(#{uid}t)" class="tex" />
+      <polygon points={pts(p.pts)} fill="url(#{uid}g)" />
       <polygon points={pts(p.pts)} fill="url(#{uid}s)" />
+      <polygon points={pts(p.pts)} fill="none" stroke="#fff" stroke-opacity=".65" stroke-width={sw * 3.4} stroke-linejoin="round" clip-path="url(#{uid}c{pi})" />
       <polygon points={pts(p.pts)} fill="none" stroke={c.edge} stroke-width={sw * 1.5} stroke-linejoin="round" />
     </g>
     {#each p.parts ?? [] as q, qi (qi)}<polygon points={pts(q.pts)} fill={HUE_RGB[q.hue].fill} stroke={HUE_RGB[q.hue].edge} stroke-width={sw} stroke-linejoin="round" />{/each}
@@ -212,7 +216,7 @@
 
 <style>
   .sp { display: block; overflow: visible; flex: none; }
-  .tex { mix-blend-mode: multiply; opacity: .85; }
+  .tex { mix-blend-mode: multiply; opacity: .55; }
   .lab { font-family: var(--font-ui); font-weight: 600; fill: #3b2a66; paint-order: stroke; stroke: #fff; stroke-width: .16px; stroke-linejoin: round; }
   .lab.side { fill: #2a2050; }
   .lab.big { fill: #fff; stroke: rgba(40, 20, 80, .55); stroke-width: .14px; }
