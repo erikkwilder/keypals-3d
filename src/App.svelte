@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { game } from './lib/state/game.svelte';
   import { configureSound, startMusic, unlockAudio, setMusicStyle, setMusicStation } from './lib/audio/sound';
+  import { lastWorld, worldStation } from './lib/adventure/worlds';
   import SvgDefs from './lib/ui/SvgDefs.svelte';
   import Title from './lib/screens/Title.svelte';
   import Players from './lib/screens/Players.svelte';
@@ -89,6 +90,13 @@
   $effect(() => {
     const scr = game.screen;
     if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
+  });
+
+  // a world with its own station (Clockwork Isle: Storybook) plays it on its map and in its battles while
+  // the player's station is Auto
+  $effect(() => {
+    const scr = game.screen, mine = game.settings.musicStation ?? 'auto';
+    setMusicStation(scr === 'adventure' || scr === 'battle' ? worldStation(lastWorld.id, mine) : mine);
   });
 
   let canvas: HTMLCanvasElement | undefined = $state();

@@ -56,7 +56,7 @@ export function devBoot() {
   if (key === 'skill') { ensure(); game.setHome('math'); game.startSkill(val || 'place-a-1'); }
   if (key === 'garden') { ensure(); game.go('garden'); }
   // Adventure: #adventure (or #adventure=falls for that world), #battle=meadow-0 (or falls-0), #glimmers, #eggs
-  if (key === 'adventure') { ensure(); if (val === 'sky' || val === 'falls' || val === 'caves' || val === 'market') lastWorld.id = val; game.go('adventure'); }
+  if (key === 'adventure') { ensure(); if (val === 'sky' || val === 'falls' || val === 'caves' || val === 'market' || val === 'clockwork') lastWorld.id = val; game.go('adventure'); }
   if (key === 'battle') { ensure(); game.battleNode = val || 'meadow-0'; game.battleKey++; game.go('battle'); }
   if (key === 'glimmers') { ensure(); game.go('glimmers'); }
   if (key === 'eggs') { ensure(); game.go('eggs'); }
