@@ -27,8 +27,8 @@ function hops(a: number, b: number, by = 1, label = ''): Hop[] {
   return out;
 }
 const plank = (at: number, hs: Hop[] = [], tags: Tag[] = []): Board => board({ line: { from: FROM, to: TO, at, hops: hs }, tags });
-/** words under a number on the plank (under its number tag) */
-const under = (id: string, n: number, text: string, c: Tag['c'] = 'ink') => tag(id, lx(n), 300, text, c, 24);
+/** words under a number on the plank (below its number, clear of it) */
+const under = (id: string, n: number, text: string, c: Tag['c'] = 'ink') => tag(id, lx(n), 338, text, c, 24);
 const Q = (text: string, ans: string, hint: string, hidden: string, pic: Board): EpQ => ({ text, ans, input: 'num', hint, hidden, pic });
 
 // ---------- the map: a treasure map on the table, −5 to 5 across and −3 to 3 up ----------
