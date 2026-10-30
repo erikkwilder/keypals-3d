@@ -49,7 +49,7 @@
     { id: 'glimmers', name: 'Glimmers', count: `${found}`, line: `of ${GLIMMER_TOTAL} met${team.length ? ` · ${team.length} on your team` : ''}`, img: '', bg: 'game/intro-glimmers.webp', tone: '#2e9e6e', go: STUFF_GO.glimmers },
     { id: 'eggs', name: 'Eggs', count: `${eggsAll}`, line: eggsReady ? `${eggsReady} ready to hatch!` : eggsAll ? 'warming up' : 'practice hatches eggs', img: `game/egg-${a.incubator.find(e => e)?.rarity ?? 'rare'}.webp`, tone: '#b4561a', hot: eggsReady > 0, go: STUFF_GO.eggs },
     { id: 'garden', name: 'Fact Garden', count: `${blooms}`, line: `in bloom · ${growing} growing`, img: 'icons/garden.webp', tone: '#1f7a50', go: STUFF_GO.garden },
-    { id: 'progress', name: 'My progress', count: fmt(totalStars(p) + mathStarsTotal(m)), line: 'stars, and how each subject is going', img: 'icons/chart.webp', tone: '#5b3fd0', go: STUFF_GO.progress },
+    { id: 'progress', name: 'My progress', count: fmt(totalStars(p) + mathStarsTotal(m)), line: 'stars, what's going well, and what you earned', img: 'icons/chart.webp', tone: '#5b3fd0', go: STUFF_GO.progress },
   ]);
   function go(f: () => void) { sfx.click(); f(); }
 </script>

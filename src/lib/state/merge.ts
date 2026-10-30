@@ -234,6 +234,8 @@ function mergeWith(mine: Profile, theirs: Profile, base?: Profile | null): Profi
   out.pals = keyed(m.pals, t.pals, b?.pals, (a, c, bb) => pal(a, c, bb, mineNewer));
   if (m.book || t.book) out.book = m.book && t.book ? book(m.book, t.book, b?.book, mineNewer) : m.book ?? t.book;
   out.history = timeline(m.history, t.history, x => `${x.at}|${x.lessonId}`, 300) ?? [];
+  // what came in, from both computers (engine/ledger.ts)
+  if (m.ledger || t.ledger) out.ledger = timeline(m.ledger, t.ledger, x => `${x.at}|${x.from}|${x.ref ?? ''}`, 200);
   out.rideBest = max(m.rideBest, t.rideBest) ?? 0;
   out.buddiesMet = union(n.buddiesMet, o.buddiesMet); out.demosSeen = union(n.demosSeen, o.demosSeen); out.unlocked = union(n.unlocked, o.unlocked) ?? [];
   out.soundSetup = or(m.soundSetup, t.soundSetup); out.allBuddies = or(m.allBuddies, t.allBuddies);

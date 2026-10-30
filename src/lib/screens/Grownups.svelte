@@ -262,6 +262,13 @@
           <div><h3>Math skills by grade</h3><p class="muted">Every math skill from kindergarten to 8th grade, with its school standard and where {p.name} is on each: not started, growing or solid.</p></div>
           <button class="btn btn-primary" onclick={() => { game.skillsFor = p!.id; game.go('skills'); }}>See skills</button>
         </div>
+        {#if p.id === game.profile?.id}
+        <!-- the page the child sees: what's going well, what's growing, time, and everything earned with when -->
+        <div class="card tryall">
+          <div><h3>{p.name}'s My progress</h3><p class="muted">The page {p.name} sees in My stuff: what's going well, what's still growing, minutes each day and week, and every star, shell, egg, medal, sticker and Glimmer earned, with when and from what.</p></div>
+          <button class="btn" onclick={() => game.visit('progress')}>Open My progress</button>
+        </div>
+        {/if}
         {/if}
         {#if sec === 'classes'}
         <ClassGrownups {p} /><!-- classes: teachers, linking to a class, world boards -->

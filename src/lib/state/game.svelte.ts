@@ -5,6 +5,7 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 import { CTX_FIELDS, isAbove, isActivity, parentOf, samePlace, type Place } from './where';
+import { ledgerNote, ledgerSnap, ledgerWhere } from '../engine/ledger';
 
 export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market' | 'ideas' | 'teach' | 'classLogin' | 'boards' | 'clockrush' | 'bench' | 'shifter' | 'shapebuilder'
   | 'smoothie' | 'treasure' | 'showdown' | 'balance'
@@ -273,8 +274,10 @@ class Game {
     const p = this.profile;
     if (!p) return;
     const played = this.watchActivity?.(p); // class work counts battles and Learn too (teach/student.svelte.ts)
+    const was = ledgerSnap(p); // what came in goes in the player's ledger (engine/ledger.ts)
     fn(p);
     played?.();
+    ledgerNote(p, was, this.where());
     p.updatedAt = Date.now();
     this.persist();
     this.onProfileChange?.();
@@ -283,11 +286,15 @@ class Game {
   replaceProfile(p: Profile) {
     const i = this.save.profiles.findIndex(x => x.id === p.id);
     this.onActivity?.(i >= 0 ? this.save.profiles[i] : undefined, p); // class work counts every activity (teach/student.svelte.ts)
+    if (i >= 0) ledgerNote(p, ledgerSnap(this.save.profiles[i]), this.where()); // and what it earned (engine/ledger.ts)
     p.updatedAt = Date.now();
     if (i >= 0) this.save.profiles[i] = p;
     this.persist();
     this.onProfileChange?.();
   }
+
+  /** where something happens now, in words, for the ledger */
+  private where() { return ledgerWhere({ screen: this.screen, arcadeGame: this.arcadeGame, battleNode: this.battleNode }); }
 
   /** told after a player changes (online saving sends the new copy) */
   onProfileChange: (() => void) | null = null;

@@ -109,6 +109,8 @@ export type Profile = {
   adventure?: import('../adventure/state').Adventure;
   /** My Sky Island (island/save.ts): what's built, the Glimmers living there, visitors and family hearts */
   island?: import('../island/save').IslandSave;
+  /** what came in, when and from what (the last 200 times: engine/ledger.ts), for My progress; absent in older saves */
+  ledger?: import('./ledger').LedgerEntry[];
 };
 
 export type HistoryItem = { at: number; lessonId: string; wpm: number; acc: number; stars: number; ride: number; ms: number; score?: number };
@@ -165,6 +167,7 @@ export function migrate(raw: unknown): SaveFile {
         lessons: p.lessons ?? {}, keys: p.keys ?? {}, days: p.days ?? {}, badges: p.badges ?? {}, medals: p.medals ?? {},
         unlocked: Array.isArray(p.unlocked) ? p.unlocked : [],
         history: Array.isArray(p.history) ? p.history : [],
+        ledger: Array.isArray(p.ledger) ? p.ledger : undefined,
         pals,
         buddiesMet: p.buddiesMet,
         looks: p.looks ?? Object.fromEntries(Object.entries(pals).map(([id, v]) => [id, { outfit: v!.outfit ?? 'none', dance: v!.dance ?? 'dance_hiphop' }])),
