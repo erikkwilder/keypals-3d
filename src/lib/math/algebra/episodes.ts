@@ -67,7 +67,8 @@ const ep1 = [
 // 2 two steps (2x + 1 = 7): take 1 off both, then share 6 between the two boxes
 const share2 = (): Board => {
   const b = balance(2, 1, 7, 'x', { kl: 0, kr: 6 });
-  const A = { x: 360, y: 300 }, B = { x: 510, y: 300 };
+  // (low enough to clear the right pan: they sat in its rim)
+  const A = { x: 360, y: 336 }, B = { x: 510, y: 336 };
   // the six weights left on the right go three to each little plate, one plate for each box
   const dots = b.dots.map(d => { if (!d.id.startsWith('rw')) return d; const i = Number(d.id.slice(2)); const c = i < 3 ? A : B, k = i % 3; return { ...d, x: c.x + (k - 1) * 34, y: c.y, c: 'c' as Hue }; });
   return { ...b, plates: [...b.plates, plate('ga', A, 62), plate('gb', B, 62)], dots, tags: [...boxTags(dots, 'x'), tag('ga-t', A.x, A.y + 58, '3', 'c', 26), tag('gb-t', B.x, B.y + 58, '3', 'c', 26)] };
