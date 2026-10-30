@@ -18,7 +18,7 @@ export type Subject = 'math' | 'typing';
 /** What a battle draws on. Math: facts and how well each is known (stage 3 = in bloom), and whether open
  *  cards (7 × ?) are in play; skills from the other areas (fractions...) by memory key (`skill:sub`), and
  *  how many of the cards are those (`mix`, 0..1); `area`: a math world's own area (Fraction Falls...), whose
- *  questions the quick blocks come from too when it has ones with a plain whole-number answer (else, and
+ *  questions the quick blocks come from too when it has ones with a whole-number answer (else, and
  *  everywhere else, blocks are facts); and the player's ability on each skill and fact strand (`theta`,
  *  math/skills/ability.ts), so every question is pitched for them: the cards at about 80% right, the quick
  *  blocks at 90% (a guest's pool has none: it is their chosen level).
@@ -63,7 +63,8 @@ export type Member = { id: GlimmerId; level: number; evolved?: boolean };
 export type Setup = { pool: Pool; seed: number; sparkMax: number; role: RoleId; gear: GearKind | null; team: Member[]; foe: Foe; fastMs?: number; kit?: KitKind[]; flat?: number };
 
 export type BEvent =
-  | { k: 'cast'; card: Card; value: number; ok: boolean; perfect: boolean; super: boolean }
+  /** `slips` and `power` (typing): wrong keys pressed in the word, and the share of its cheer that landed */
+  | { k: 'cast'; card: Card; value: number; ok: boolean; perfect: boolean; super: boolean; slips?: number; power?: number }
   | { k: 'extra'; by: 'glimmer' | 'role' | 'gear'; id?: GlimmerId; what: string; value: number; item?: string }
   | { k: 'heal'; by: 'glimmer' | 'role' | 'gear'; id?: GlimmerId; what: string; value: number; item?: string }
   /** a piece of gear did something that isn't cheer or energy (a bubble shield, an extra Finale star, half a hit) */
@@ -82,8 +83,8 @@ export type BEvent =
   | { k: 'won'; perfect: boolean }
   | { k: 'lost' };
 
-/** A counterattack to block: a fact, a word, or (in a math world) one of its area's questions with a plain
- *  whole-number answer, given longer by how quick that kind of question is (blockMs). `half`: already
+/** A counterattack to block: a fact, a word, or (in a math world) one of its area's questions with a
+ *  whole-number answer (below zero too), given longer by how quick that kind of question is (blockMs). `half`: already
  *  halved (a Strong card's dazzle, Steady): a Hero Cape doesn't halve it again */
 export type Block = { kind: MischiefKind; name: string; hit: number; half?: boolean; limitMs: number; fact?: Fact; word?: string; item?: Item };
 export type Phase = 'pick' | 'block' | 'won' | 'lost';
@@ -232,9 +233,13 @@ export function quickFact(b: Battle): Fact {
   const th = b.pool.theta, rungs = strandRungs(b, TARGET.quick);
   return pickWeighted(b.rng, from.map(x => ({ ...x, w: 0 })), x => factFitFor(th, x.f, rungs)).f;
 }
-/** Whether a question can be a block: the block box is a number pad that sends the answer as soon as it's
- *  typed, so a plain whole number (no minus, no decimal point, no picking or dragging). */
-export const blockable = (it: Item) => it.input === 'number' && it.answer.kind === 'number' && Number.isInteger(it.answer.value) && it.answer.value >= 0 && !it.signed;
+/** Whether a question can be a block: the block box is a number pad, so a whole number typed on it (no
+ *  decimal point, no picking or dragging). A plain one sends as soon as it's typed; a negative numbers
+ *  question (`signed`) gets the minus key and a Check button there, whatever the sign of its answer, so a
+ *  positive answer doesn't give itself away. */
+export const blockable = (it: Item) => it.input === 'number' && it.answer.kind === 'number' && Number.isInteger(it.answer.value) && (it.signed === true || (it.answer.value >= 0 && !it.signed));
+/** A block the box answers with its minus key and Check (a negative numbers question). */
+export const signedBlock = (it?: Item) => !!it && it.signed === true;
 /** A quick one from a math world's own area, pitched easy like a fact block (about 90% right): something
  *  already known if there's enough of it, the first of a few tries that the block box can take; null when
  *  the area has none (then the block is a fact). */
@@ -350,18 +355,31 @@ export function swap(b: Battle): boolean {
 export const openFact = (o: NonNullable<Card['open']>, n: number): Fact => (o.op === 'x' ? { a: o.a, b: n } : { a: o.a, b: n, op: o.op });
 
 // ---------- your turn ----------
-export type Answer = { ok: boolean; value: number; thinkMs: number; fact?: Fact; given?: SkillAnswer };
+/** Typing: `slips` is how many wrong keys were pressed while typing the word (see typePower). */
+export type Answer = { ok: boolean; value: number; thinkMs: number; fact?: Fact; given?: SkillAnswer; slips?: number };
+
+/** Typing: how much of a word's cheer lands, 0..1. Every key right first time is full power; each wrong key
+ *  takes a share off, so one slip on a long word costs a little, and enough of them leave nothing: four on
+ *  a short word (four letters or fewer), up to six on a long one. The same in battles and duels. */
+export const slipRoom = (len: number) => Math.max(4, Math.min(6, len));
+export const typePower = (len: number, slips: number) => Math.max(0, 1 - Math.max(0, slips) / slipRoom(len));
+/** A cheer with the typing power taken into account: at least 1 while any power is left, 0 when none is. */
+export const powered = (n: number, power: number) => (power <= 0 ? 0 : Math.max(1, Math.round(n * power)));
 
 /** Play a card. Math: `value` is the answer typed, `fact` the fact answered (an open card's, once its
- *  number is chosen); a skill card's answer is `given` (checked here, by its skill). Typing: `value` is
- *  the letters typed right. Returns the events to show. */
+ *  number is chosen); a skill card's answer is `given` (checked here, by its skill). Typing: `ok` the word
+ *  was finished, `slips` the wrong keys pressed on the way (they lower its power: typePower; with too
+ *  many it cheers nothing and counts as a miss). Returns the events to show. */
 export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
   const card = b.cards.find(c => c.id === cardId);
   if (!card || b.phase !== 'pick') return [];
   const ev: BEvent[] = [];
   const fact = card.item ? undefined : a.fact ?? card.fact;
   const it = card.item, sk = it ? SKILL[it.skill] : undefined;
-  const ok = it ? !!a.given && !!sk && sk.check(it, a.given) : b.subject === 'math' ? !!fact && a.ok && a.value === answerOf(fact) : a.ok && a.value > 0;
+  // typing: the word's power after its slips
+  const len = card.word?.length ?? Math.max(1, a.value), slips = Math.max(0, a.slips ?? 0);
+  const power = b.subject === 'typing' && !it ? typePower(len, slips) : 1;
+  const ok = it ? !!a.given && !!sk && sk.check(it, a.given) : b.subject === 'math' ? !!fact && a.ok && a.value === answerOf(fact) : a.ok && power > 0;
   // the Wizard Hat: one wrong answer becomes a retry
   if (!ok && b.gear === 'retry' && !b.used.retry) { b.used.retry = true; return [{ k: 'retry' }]; }
   b.stats.answers++;
@@ -375,14 +393,14 @@ export function play(b: Battle, cardId: number, a: Answer): BEvent[] {
     if (ok && i >= 0) b.missed.splice(i, 1);
     else if (!ok && i < 0) b.missed.push(key);
   }
-  const real = ok ? (it ? card.value ?? itemCheer(it) : b.subject === 'math' ? answerOf(fact!) : a.value) : 0;
-  const value = ok ? b.flat || real : 0;
-  const fast = ok && (it ? a.thinkMs <= (sk?.fastMs ?? b.fastMs) : b.subject === 'math' ? a.thinkMs <= b.fastMs : a.thinkMs <= 450 * Math.max(1, real) + 600);
+  const real = ok ? (it ? card.value ?? itemCheer(it) : b.subject === 'math' ? answerOf(fact!) : powered(len, power)) : 0;
+  const value = ok ? (b.flat ? powered(b.flat, power) : real) : 0;
+  const fast = ok && (it ? a.thinkMs <= (sk?.fastMs ?? b.fastMs) : b.subject === 'math' ? a.thinkMs <= b.fastMs : a.thinkMs <= 450 * len + 600);
   // landing it exactly is a battle thing: in a duel every answer counts the same
   const perfect = ok && !b.flat && value === b.foe.grump;
   b.foe.grump = Math.max(0, b.foe.grump - value);
   b.stats.cheer += value;
-  ev.push({ k: 'cast', card, value, ok, perfect, super: ok && card.super });
+  ev.push({ k: 'cast', card, value, ok, perfect, super: ok && card.super, ...(b.subject === 'typing' && !it ? { slips, power } : {}) });
   if (ok) {
     b.stats.right++; if (fast) b.stats.fast++;
     b.rights++; b.streak++;

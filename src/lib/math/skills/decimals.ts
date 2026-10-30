@@ -1,8 +1,9 @@
 // Decimals and money, grades 2 to 5 (Common Core 2.MD.C.8, 4.MD.A.2, 4.NF.C.5-7, 5.NBT.A.2-4, 5.NBT.B.7):
 // counting coins, making an amount, giving change, tenths and hundredths, which is bigger, adding and
-// taking away decimals, rounding, and times or divide by 10 and 100. The island's coins look like their
-// own (a shell, a turtle, a fish, a whale, a sun) but are worth what US coins are worth, so a kid who
-// counts them counts real money: penny 1¢, nickel 5¢, dime 10¢, quarter 25¢, a dollar 100¢.
+// taking away decimals, rounding, and times or divide by 10 and 100. The coins are painted US coins, each
+// its real colour and size against the others (Lincoln's copper penny, Jefferson's nickel, Roosevelt's
+// little dime, Washington's quarter, the golden dollar), so a kid who counts them learns real money:
+// penny 1¢, nickel 5¢, dime 10¢, quarter 25¢, a dollar 100¢.
 //
 // Every skill has six rungs (types.ts): rung 1 gentle (friendly amounts, coins in order, pictures), rung 3
 // the full grade-level range, rungs 4 to 6 the stretch (more coins, two things to pay for, numbers past
@@ -32,6 +33,8 @@ export const COINS = [100, 25, 10, 5, 1] as const;
 export type Coin = (typeof COINS)[number];
 export const COIN_NAME: Record<number, string> = { 1: 'penny', 5: 'nickel', 10: 'dime', 25: 'quarter', 100: 'dollar coin', [-100]: 'dollar bill' };
 export const COIN_ART: Record<number, string> = { 1: 'penny', 5: 'nickel', 10: 'dime', 25: 'quarter', 100: 'dollar', [-100]: 'bill' };
+/** each coin's width against a quarter's, as the real coins are (a dime is the smallest; the bill is wider) */
+export const COIN_REL: Record<number, number> = { 1: 0.79, 5: 0.87, 10: 0.74, 25: 1, 100: 1.09, [-100]: 1.7 };
 /** a coin's (or a bill's) worth in cents */
 export const worth = (c: number) => Math.abs(c);
 /** money in words a kid reads: 35¢, $1.35, $2 */

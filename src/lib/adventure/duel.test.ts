@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { answerOf } from '../math/facts';
 import { newDuel, duelPlay, duelFinale, duelRain, ghostMove, guestPool, progress, cur, DUEL_BAR, DUEL_CARD, type SideSetup, type Duel } from './duel';
 import { newRivals, rollWeek, rivalsFor, styleOf, noteStats, newStats, UP_AT, weekKey, type GhostCopy } from './ghosts';
-import { FINALE_AT } from './battle';
+import { FINALE_AT, powered, typePower } from './battle';
 import { newProfile } from '../engine/profile';
 
 const words = ['cat', 'dog', 'sun', 'happy', 'rocket', 'garden', 'planet', 'adventure', 'butterfly', 'tree', 'jump', 'kite', 'bubble', 'friend', 'island', 'castle'];
@@ -17,6 +17,20 @@ function playRight(d: Duel, small = false) {
 }
 
 describe('Family Duel', () => {
+  it('typing: slips lower a word\'s fill the same way as in a battle, and enough of them fill nothing', () => {
+    const d = newDuel(side('Mia', 'little', 'typing'), side('Dad', 'grown', 'typing'), 'embernewt', 3);
+    const a = d.sides[0], c = a.b.cards[0], len = c.word!.length;
+    const ev = duelPlay(d, c.id, { ok: true, value: len, slips: 2, thinkMs: 2000 });
+    const cast = ev.find(e => e.k === 'cast');
+    expect(cast && cast.k === 'cast' && cast.slips).toBe(2);
+    expect(a.b.foe.grump).toBe(DUEL_BAR - powered(DUEL_CARD, typePower(len, 2)));
+    expect(DUEL_BAR - a.b.foe.grump).toBeLessThan(DUEL_CARD);
+    // Dad mashes: nothing fills, and it counts as a miss
+    const b = d.sides[1], cb = b.b.cards[0];
+    const ev2 = duelPlay(d, cb.id, { ok: true, value: cb.word!.length, slips: 9, thinkMs: 2000 });
+    expect(ev2.find(e => e.k === 'cast')).toMatchObject({ ok: false, value: 0, power: 0 });
+    expect(b.b.foe.grump).toBe(DUEL_BAR);
+  });
   it('every right answer fills the same amount on bars of the same size, whatever the level', () => {
     const d = newDuel(side('Mia', 'little'), side('Dad', 'grown'), 'embernewt', 7);
     const [a, b] = d.sides;

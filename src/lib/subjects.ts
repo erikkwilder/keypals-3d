@@ -20,7 +20,7 @@ import { SKILL_LESSONS } from './math/skills/course';
 import type { AreaId } from './math/skills/types';
 import { ARCADE_GAMES } from './arcade/arcade';
 import { PLAY_GAMES } from './math/playground';
-import { WORLD_PINS } from './adventure/worlds';
+import { TYPING_SOON, worldsFor } from './adventure/worlds';
 
 export type WayId = 'learn' | 'practice' | 'games' | 'adventure';
 /** a Glimmer's round face, for the corner of a Learn card */
@@ -94,7 +94,8 @@ const mathGames: Thing[] = [
   { id: 'bench', name: 'The Measuring Bench', line: 'Measure toys with rulers, weigh them on the balance, pour water. No clock.', art: 'math/play-bench.webp', areas: ['measure'], kind: 'toy' },
   { id: 'shapebuilder', name: 'Shape Builder', line: 'Stretch glowing bands between pegs. No clock, no rush.', art: 'math/play-shapes.webp', areas: ['shapes'], kind: 'toy' },
 ];
-const mathWorlds: Thing[] = WORLD_PINS.map(w => ({
+// each subject's own worlds (adventure/worlds.ts): the Sky Islands are in both
+const mathWorlds: Thing[] = worldsFor('math').map(w => ({
   id: w.id, name: w.name, line: w.blurb, art: w.map ? w.map.wide : 'game/worlds-wide.webp',
   areas: w.area ? [w.area] : FACT_AREAS, kind: 'world', soon: !w.map,
 }));
@@ -107,7 +108,10 @@ const typingLearn: Thing[] = ALL_LESSONS.filter(l => l.kind === 'drill').map(l =
   id: l.id, name: l.title, line: l.blurb ?? 'Your buddy shows which finger reaches each new key. Then you try.', art: `regions/${l.region}.webp`, areas: [l.region], kind: 'keys',
 }));
 const typingPractice: Thing[] = REGIONS.map(r => ({ id: r.id, name: r.name, line: r.blurb, art: `regions/${r.id}.webp`, areas: [r.id], kind: 'trail' }));
-const typingWorlds: Thing[] = [{ id: 'sky', name: 'Sky Islands', line: 'Battles where you type the words to cheer up the Glimmers.', art: 'game/map-wide.webp', areas: REGIONS.map(r => r.id), kind: 'world' }];
+const typingWorlds: Thing[] = [
+  ...worldsFor('typing').map(w => ({ id: w.id, name: w.name, line: w.id === 'sky' ? 'Battles where you type the words to cheer up the Glimmers.' : w.blurb, art: w.map ? w.map.wide : 'game/worlds-wide.webp', areas: REGIONS.map(r => r.id), kind: 'world', soon: !w.map })),
+  ...TYPING_SOON.map((t, i) => ({ id: `typing-soon-${i + 1}`, name: t.name, line: t.blurb, art: 'game/worlds-wide.webp', areas: REGIONS.map(r => r.id), kind: 'world', soon: true })),
+];
 
 export const SUBJECTS: Subject[] = [
   {

@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../engine/rng';
 import { answerOf, type Fact } from '../math/facts';
-import { newBattle, play, block, finale, grumpFor, openFact, sparkFor, hitFor, FINALE_AT, type Pool, type Foe, type Member, type Battle } from './battle';
+import { newBattle, play, block, finale, grumpFor, openFact, sparkFor, hitFor, typePower, FINALE_AT, type Pool, type Foe, type Member, type Battle } from './battle';
 import type { GearKind, RoleId } from './glimmers';
 import type { KitKind } from './gear';
 
@@ -27,13 +27,24 @@ type Case = {
   team?: Member[]; gear?: GearKind | null; kit?: KitKind[];
   /** the energy and hit to use instead of the game's (to measure the old numbers) */
   old?: boolean;
+  /** typing: the wrong keys pressed in a word (`ok`: one the child knows well); a careful typist by default */
+  slips?: (kid: () => number, ok: boolean) => number;
+};
+/** how the pretend child types: a careful typist (no slips on most words, two on the shaky ones), one
+ *  who slips a little on every word, and one who mashes the keys (three to eight wrong keys a word) */
+const SLIPS = {
+  usual: (_: () => number, ok: boolean) => (ok ? 0 : 2),
+  careful: (kid: () => number) => (kid() < 0.6 ? 0 : 1),
+  mash: (kid: () => number) => 3 + Math.floor(kid() * 6),
 };
 // the numbers before round 9: energy grew with friendship (12 + level, up to 30; Big Heart 6 more), a
 // counterattack took 2 (1 more each later island), a Champion's 4, and every one the same
 const OLD = { energy: (level: number, role: RoleId) => 12 + Math.min(18, Math.max(1, level)) + (role === 'heart' ? 6 : 0), hit: (champion: boolean, tier: number) => (champion ? 4 : 2) + tier };
 
 /** One battle, start to finish: true when it's lost. */
-function lostOne(c: Case, seed: number): boolean {
+function lostOne(c: Case, seed: number): boolean { return playOne(c, seed).phase === 'lost'; }
+/** One battle, start to finish (or 400 moves), played by the pretend child. */
+function playOne(c: Case, seed: number): Battle {
   const pool = c.pool ?? plus, role = c.role ?? 'speed', level = c.level ?? 10, champion = !!c.champion, tier = c.tier ?? 0;
   const kid = mulberry32(seed * 7919 + 17);
   const energy = c.old ? OLD.energy(level, role) : sparkFor(level, role);
@@ -49,12 +60,12 @@ function lostOne(c: Case, seed: number): boolean {
     const card = b.cards[Math.floor(kid() * b.cards.length)];
     const ok = kid() < (c.cards ?? 0.85);
     const think = 2500 + kid() * 4000;
-    // typing: every word cheers, slips make it a little less
-    if (b.subject === 'typing') { const len = card.word!.length; play(b, card.id, { ok: true, value: ok ? len : Math.max(1, len - 2), thinkMs: think }); continue; }
+    // typing: every word is finished; its slips take some of its power (enough of them, all of it)
+    if (b.subject === 'typing') { play(b, card.id, { ok: true, value: card.word!.length, slips: (c.slips ?? SLIPS.usual)(kid, ok), thinkMs: think }); continue; }
     const f = card.fact ?? (card.open ? openFact(card.open, 1 + Math.floor(kid() * 9)) : undefined);
     play(b, card.id, f ? { ok, value: ok ? answerOf(f) : answerOf(f) + 1, thinkMs: think, fact: f } : { ok: false, value: 0, thinkMs: think });
   }
-  return b.phase === 'lost';
+  return b;
 }
 /** The share of 500 seeded battles lost. */
 function lossRate(c: Case, n = 500): number {
@@ -112,6 +123,29 @@ describe('battle risk (500 seeded battles a case)', () => {
     expect(lossRate({ ...fort, blocks: 0 })).toBeGreaterThanOrEqual(0.4);
     // (the healers' pile: grown-up Sky Whale and Sprout Bun, the Playground set, Big Heart)
     expect(lossRate({ ...heal, blocks: 0 })).toBeGreaterThanOrEqual(0.25);
+  });
+
+  it('typing slips lower a word\'s power: none is full, one on a long word costs a little, a few on a short one leave nothing', () => {
+    expect(typePower(3, 0)).toBe(1);
+    expect(typePower(7, 1)).toBeGreaterThanOrEqual(0.8);
+    expect(typePower(3, 1)).toBe(0.75);
+    expect(typePower(3, 2)).toBe(0.5);
+    expect(typePower(3, 4)).toBe(0);
+    expect(typePower(9, 6)).toBe(0);
+    for (let len = 2; len <= 10; len++) for (let s = 0; s < 8; s++) expect(typePower(len, s + 1)).toBeLessThanOrEqual(typePower(len, s));
+  });
+  it('a careful typist still wins comfortably; one who mashes the keys does little', () => {
+    // a careful typist slips once on some words and blocks most counterattacks (typing blocks need no slips)
+    const careful = everyone({ pool: typing, slips: SLIPS.careful, blocks: 0.85 });
+    expect(Math.max(...careful)).toBeLessThanOrEqual(0.1);
+    // even blocking only half, as safe as the usual player
+    expect(avg(everyone({ pool: typing, slips: SLIPS.careful, blocks: 0.5 }))).toBeLessThanOrEqual(avg(everyone({ pool: typing, blocks: 0.5 })) + 0.02);
+    // mashing: hardly any cheer per word, and nearly every battle lost (its blocks mostly miss too)
+    const cheer = (slips: Case['slips'], blocks: number) => { let words = 0, cheer = 0; for (let s = 1; s <= 200; s++) { const b = playOne({ pool: typing, slips, blocks }, s); words += b.stats.answers; cheer += b.stats.cheer; } return cheer / Math.max(1, words); };
+    const calm = cheer(SLIPS.careful, 0.85), mash = cheer(SLIPS.mash, 0.2);
+    expect(mash).toBeLessThanOrEqual(calm * 0.15);
+    expect(avg(everyone({ pool: typing, slips: SLIPS.mash, blocks: 0.2 }))).toBeGreaterThanOrEqual(0.95);
+    if (process.env.BALANCE_REPORT) console.log({ careful: careful.map(pct).join(' '), calmCheerPerWord: calm.toFixed(2), mashCheerPerWord: mash.toFixed(2) });
   });
 
   it.runIf(process.env.BALANCE_REPORT)('report', () => {

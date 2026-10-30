@@ -5,6 +5,8 @@
   // The jar and its Glimmers are drawn on a canvas over the 3D island, where your buddy cheers you on.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
+  import { exitsOf } from '../arcade/exits';
+  import ExitButtons from '../arcade/ui/ExitButtons.svelte';
   import { stage } from '../three/stage';
   import { ShowScene } from '../three/showScene';
   import { sfx } from '../audio/sound';
@@ -499,11 +501,11 @@
     warning = false; gustDir = 0; timeUp = null;
     setTimeout(() => { phase = 'over'; tick++; }, 900);
   }
-  function leave() {
-    if (g && phase === 'play') { const ms = unsaved; unsaved = 0; if (ms > 0) game.update(pp => spendPlay(pp, ms)); }
-    // Glimmer Drop lives in the Arcade now
-    game.go('arcade');
-  }
+  /** the play time used so far comes off as you leave */
+  function spendNow() { if (g && phase === 'play') { const ms = unsaved; unsaved = 0; if (ms > 0) game.update(pp => spendPlay(pp, ms)); } }
+  // Glimmer Drop lives in the Arcade: its cards offer the way back there (and Home, when it was opened from Home)
+  const exits = exitsOf();
+  function leave() { spendNow(); exits.back(); }
   function practice(kind: 'math' | 'typing') {
     if (kind === 'typing') { game.setHome('typing'); game.startLesson(nextLesson(p).id); }
     else { game.setHome('math'); game.startMath(nextMathLesson(mathOf(p)).id); }
@@ -535,7 +537,7 @@
 
 <div class="drop" class:narrow>
   <div class="top">
-    <button class="back" onclick={leave} aria-label="Back to the Arcade"><Icon name="back" size={30} /></button>
+    <button class="back" onclick={leave} aria-label="Back to {exits.backTo}"><Icon name="back" size={30} /></button>
     <div class="title"><small>Just for fun</small><b>Glimmer Drop</b></div>
     {#if phase !== 'menu'}<span class="chip mode">{mode === 'daily' ? "Today's jar" : 'Free play'}</span>{/if}
     <span class="sp"></span>
@@ -561,7 +563,7 @@
         {#if narrow}<div class="pal"><Critter friend={me.buddy} size={230} pulse={{ kind: 'joy', n: cheer }} /></div>{/if}
         {#if warning}<div class="warnpill">Too full! Merge to make room</div>{/if}
         {#if timeUp !== null}<div class="warnpill time">Play time's up: {Math.ceil(timeUp)} seconds to finish!</div>{/if}
-        {#if paused}<div class="pausebg"><div class="card pausecard"><h2>Paused</h2><button class="btn btn-primary" onclick={() => (paused = false)}>Keep going</button><button class="btn" onclick={leave}>Leave</button></div></div>{/if}
+        {#if paused}<div class="pausebg"><div class="card pausecard"><h2>Paused</h2><button class="btn btn-primary" onclick={() => (paused = false)}>Keep going</button><ExitButtons {exits} before={spendNow} /></div></div>{/if}
       {/if}
     </div>
 
@@ -642,7 +644,7 @@
         {/if}
         <div class="modes">
           {#if canPlay}<button class="btn btn-primary" onclick={() => start(mode)}>Play again <span class="kbd">enter</span></button>{/if}
-          <button class="btn" onclick={leave}>Back to the map</button>
+          <ExitButtons {exits} />
         </div>
         {#if !canPlay}<p class="playnote">Practice earns more play time.</p>{/if}
       </div>

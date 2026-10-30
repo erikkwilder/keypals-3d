@@ -1,14 +1,12 @@
 <script lang="ts">
-  // Money and decimal pictures: a row of painted island coins (a shell penny, a turtle nickel, a fish dime,
-  // a whale quarter, a sun dollar, a dollar bill), each its real size against the others, or a chocolate
-  // slab of 100 squares with some eaten (hundredths).
+  // Money and decimal pictures: a row of painted US coins (Lincoln's penny, Jefferson's nickel, Roosevelt's
+  // dime, Washington's quarter, the golden dollar, a dollar bill), each its real size against the others, or
+  // a chocolate slab of 100 squares with some eaten (hundredths).
   import type { Pic } from '../types';
+  import { COIN_ART as ART, COIN_REL as REL } from '../decimals';
   type Props = { pic: Extract<Pic, { kind: 'coins' } | { kind: 'grid' }>; size?: number };
   let { pic, size = 150 }: Props = $props();
   const base = import.meta.env.BASE_URL;
-  const ART: Record<number, string> = { 1: 'penny', 5: 'nickel', 10: 'dime', 25: 'quarter', 100: 'dollar', [-100]: 'bill' };
-  /** each coin's width against a quarter's (the real coins' sizes) */
-  const REL: Record<number, number> = { 1: 0.8, 5: 0.88, 10: 0.74, 25: 1, 100: 1.08, [-100]: 1.6 };
   const uid = `mp${Math.random().toString(36).slice(2, 8)}`;
   const coinW = $derived(Math.round(size * (pic.kind === 'coins' && pic.coins.length > 5 ? 0.38 : 0.46)));
 </script>

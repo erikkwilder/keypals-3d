@@ -11,11 +11,13 @@
   import { dailyGoal, type Answered, type ArcadeGame, type ArcadeOutcome } from '../arcade';
   import Stars from '../../ui/Stars.svelte';
   import NavTile from '../../ui/NavTile.svelte';
+  import type { Way } from '../exits';
   import Confetti from '../../ui/Confetti.svelte';
   import Icon from '../../ui/Icon.svelte';
 
-  type Props = { outcome: ArcadeOutcome; game: ArcadeGame; daily: boolean; answered: Answered[]; bestCombo: number; compact: boolean; onagain: () => void; onarcade: () => void; onhome: () => void };
-  let { outcome: o, game: G, daily, answered, bestCombo, compact, onagain, onarcade, onhome }: Props = $props();
+  /** `other`: the page the round was opened from (a math page, Home), offered beside the Arcade; without it, Home */
+  type Props = { outcome: ArcadeOutcome; game: ArcadeGame; daily: boolean; answered: Answered[]; bestCombo: number; compact: boolean; onagain: () => void; onarcade: () => void; onhome: () => void; other?: Way | null };
+  let { outcome: o, game: G, daily, answered, bestCombo, compact, onagain, onarcade, onhome, other = null }: Props = $props();
 
   const right = $derived(answered.filter(a => a.ok).length);
   const title = $derived(o.newBest ? 'New best!' : o.stars === 3 ? 'Three stars!' : o.stars === 2 ? 'Great run!' : o.stars === 1 ? 'Nice one!' : 'Good practice!');
@@ -99,11 +101,13 @@
     <p class="next">{nextStar ? `Next star at ${fmt(nextStar)}. Every answer here counts as practice for your Fact Garden.` : 'All three stars! Every answer here counts as practice for your Fact Garden.'}</p>
 
     <div class="tiles">
-      <NavTile size={compact ? 'md' : 'lg'} tone="mint" kind="redo" label="Play again" hotkey={compact ? undefined : 'space'} onclick={onagain} />
-      <NavTile size={compact ? 'md' : 'lg'} tone="lilac" label="Arcade" onclick={onarcade}>
-        {#snippet art()}<img class="tileart" src="{import.meta.env.BASE_URL}icons/arcade.webp" alt="" style:height={compact ? '52px' : '80px'} />{/snippet}
+      <!-- three in a row: a little smaller when the third is the way back to a page -->
+      <NavTile size={compact || other ? 'md' : 'lg'} tone="mint" kind="redo" label="Play again" hotkey={compact ? undefined : 'space'} onclick={onagain} />
+      <NavTile size={compact || other ? 'md' : 'lg'} tone="lilac" label="Back to the Arcade" onclick={onarcade}>
+        {#snippet art()}<img class="tileart" src="{import.meta.env.BASE_URL}icons/arcade.webp" alt="" style:height={compact || other ? '52px' : '80px'} />{/snippet}
       </NavTile>
-      <NavTile size={compact ? 'md' : 'lg'} tone="sky" kind="home" label="Home" onclick={onhome} />
+      {#if other}<NavTile size="md" tone="sky" kind={other.label === 'Home' ? 'home' : 'map'} label={other.text} onclick={other.go} />
+      {:else}<NavTile size={compact ? 'md' : 'lg'} tone="sky" kind="home" label="Home" onclick={onhome} />{/if}
     </div>
   </div>
   <Confetti {burst} x={50} y={30} />

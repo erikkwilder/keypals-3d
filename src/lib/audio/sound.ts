@@ -558,12 +558,19 @@ export const sfx = {
     const f = Math.max(140, 300 - h * 6);
     play(Math.random() < 0.5 ? 'block-1' : 'block-2', { gain: 0.3, rate: Math.min(1.25, 0.95 + h * 0.012) }, () => { tone(f, { type: 'triangle', dur: 0.12, gain: 0.12, slideTo: f * 0.7 }); noise(0.07, { gain: 0.08, freq: 1400, q: 1.6 }); });
   },
-  /** A lit block lets go: a light airy "fwip" (never a falling whistle). */
-  blockDrop() { noise(0.22, { gain: 0.05, freq: 1200, q: 0.8, sweepTo: 2600, attack: 0.1 }); tone(660, { type: 'sine', dur: 0.12, gain: 0.03, slideTo: 990, attack: 0.04 }); },
+  /** A lit block lets go: a soft whoosh that falls away as it drops (no whistle, no rising "fwip"). */
+  blockDrop() { noise(0.42, { gain: 0.045, freq: 1300, q: 0.8, sweepTo: 380, attack: 0.14 }); },
+  /** A block lands on the tower: a gentle wooden "tok" with a soft low thud under it (a little higher as
+   *  the tower grows, never sharp). */
+  blockLand(h = 0) {
+    play(Math.random() < 0.5 ? 'block-1' : 'block-2', { gain: 0.16, rate: Math.min(1.12, 0.9 + h * 0.008) }, () => noise(0.06, { gain: 0.05, freq: 900, q: 1.4 }));
+    tone(130, { type: 'sine', dur: 0.18, gain: 0.11, slideTo: 82, attack: 0.006 });
+  },
   /** A block that missed the top: a soft puff and a cartoon "boing" (a miss, so gentle, never a buzzer). */
   blockSlip() { noise(0.3, { gain: 0.05, freq: 800, q: 0.7, sweepTo: 1600, attack: 0.12 }); tone(300, { type: 'triangle', dur: 0.16, gain: 0.07, slideTo: 520, delay: 0.1 }); tone(420, { type: 'sine', dur: 0.12, gain: 0.04, slideTo: 300, delay: 0.24 }); },
-  /** The crane winds the next block in: a quiet little wooden ratchet. */
-  creak() { play('crane-creak', { gain: 0.16 }, () => wobble(330, { dur: 0.4, gain: 0.025, rate: 22, depth: 0.05, type: 'triangle', tone: 1200, attack: 0.08 })); },
+  /** The crane winds the next block in: three soft wooden ticks. (The old recorded creak screeched,
+   *  right after every landing.) */
+  creak() { [0, 0.08, 0.16].forEach((d, i) => noise(0.03, { gain: 0.02 - i * 0.004, freq: 1700 - i * 150, q: 2.2, delay: d })); },
   /** A perfect landing: a sparkle on top of the thunk. */
   sparkle() { [1568, 2093, 2637].forEach((n, i) => tone(n, { type: 'sine', dur: 0.25, gain: 0.04, delay: 0.04 + i * 0.05 })); noise(0.4, { gain: 0.025, freq: 9000, q: 0.8, delay: 0.05 }); },
   /** The top of the tower tipping over: a long creak and a whoosh down. */

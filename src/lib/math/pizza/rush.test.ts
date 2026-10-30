@@ -3,7 +3,9 @@ import { newProfile } from '../../engine/profile';
 import { mathOf } from '../progress';
 import { noteSkillAnswers } from '../skills/progress';
 import { SKILL } from '../skills/registry';
-import { applyRush, cutsFor, dailySeed, kindsFor, makeOrder, orderMaker, orderScore, same, servedRight, slicesNeeded, starsFor, type OrderKind } from './rush';
+import { applyRush, cutsFor, dailySeed, kindsFor, makeOrder, orderMaker, orderScore, PIZZAS, PIZZA_KINDS, same, servedRight, slicesNeeded, starsFor, type OrderKind } from './rush';
+import { existsSync } from 'node:fs';
+import { mulberry32 } from '../../engine/rng';
 
 const ALL: OrderKind[] = ['tap', 'cut', 'equal', 'add', 'unlike'];
 
@@ -76,5 +78,25 @@ describe('a Pizza Rush round', () => {
     const again = applyRush(out.profile, { ...run, score: 900 });
     expect(again).toMatchObject({ newBest: false, newDaily: false, best: 1700 });
     expect(mathOf(again.profile).arcade!['pizza-rush'].plays).toBe(2);
+  });
+  it('brings all kinds of pizza, a funny one now and then, never the same kind twice in a row', () => {
+    const next = orderMaker(7, ['tap', 'cut']);
+    const seen = new Map<string, number>();
+    let last = '', funny = 0;
+    for (let i = 0; i < 400; i++) {
+      const o = next();
+      expect(o.pizza).toBeTruthy();
+      expect(o.pizza).not.toBe(last);
+      last = o.pizza!;
+      seen.set(last, (seen.get(last) ?? 0) + 1);
+      if (PIZZAS[o.pizza!].funny) funny++;
+    }
+    expect([...seen.keys()].sort()).toEqual([...PIZZA_KINDS].sort());
+    expect(funny / 400).toBeGreaterThan(0.15);
+    expect(funny / 400).toBeLessThan(0.4);
+    // the pizzas come from their own dice: the same orders as without them
+    const a = orderMaker(99, ['tap', 'cut', 'equal']), rng = mulberry32(99);
+    for (let i = 0; i < 30; i++) { const x = a(), y = makeOrder(rng, i, ['tap', 'cut', 'equal']); expect([x.key, x.want, x.slices]).toEqual([y.key, y.want, y.slices]); }
+    for (const k of PIZZA_KINDS) expect(existsSync(`public/${PIZZAS[k].art}`), PIZZAS[k].art).toBe(true);
   });
 });

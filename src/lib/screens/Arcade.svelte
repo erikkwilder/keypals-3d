@@ -48,10 +48,36 @@
   let say = $state('Pick a game to play!');
   let ready = $state(false);
 
+  // Where the buddy can stand: the painted plaza's stone terrace (an oval) and the steps at its front, in
+  // shares of the picture across and down. The picture covers the screen, anchored half way across and
+  // three quarters down (as the 3D stage paints it), so a spot on the screen maps to a spot in the picture.
+  const PIC = { w: 2048, h: 1153, ax: 0.5, ay: 0.75 };
+  const TERRACE = { cx: 0.55, cy: 0.66, rx: 0.42 * 0.9, ry: 0.15 * 0.84 };
+  const STEPS = { l: 0.3, r: 0.63, t: 0.85, b: 1 };
+  /** the nearest spot on the terrace (or its steps) to where the page put the buddy's feet, in window pixels */
+  function onFloor(x: number, y: number): [number, number] {
+    const W = innerWidth, H = innerHeight, k = Math.max(W / PIC.w, H / PIC.h), dw = PIC.w * k, dh = PIC.h * k;
+    const ox = (W - dw) * PIC.ax, oy = (H - dh) * PIC.ay;
+    let u = (x - ox) / dw, v = (y - oy) / dh;
+    if (u >= STEPS.l && u <= STEPS.r && v >= STEPS.t && v <= STEPS.b) return [x, y];
+    const T = TERRACE;
+    // keep across where the page wants it (inside the oval), then come up or down onto the stones
+    u = Math.max(T.cx - T.rx * 0.98, Math.min(T.cx + T.rx * 0.98, u));
+    const du = (u - T.cx) / T.rx, half = T.ry * Math.sqrt(Math.max(0, 1 - du * du));
+    v = Math.max(T.cy - half, Math.min(T.cy + half, v));
+    return [ox + u * dw, oy + v * dh];
+  }
+  /** how far the buddy was lifted onto the terrace (its speech bubble goes up with it) */
+  let lift = $state({ x: 0, y: 0 });
   function place() {
     if (!scene || !spotEl) return;
     const r = spotEl.getBoundingClientRect();
-    scene.spot = { x: (r.left + r.width / 2) / innerWidth, y: r.bottom / innerHeight, h: r.height / innerHeight };
+    // (a phone: the buddy stands on the steps at the bottom of the page, under the cabinets, and scrolls with them)
+    const fx0 = r.left + r.width / 2, [fx, fy] = compact ? [fx0, r.bottom] : onFloor(fx0, r.bottom);
+    // further back on the terrace is further away: a little smaller
+    const far = Math.max(0.55, Math.min(1, fy / Math.max(1, r.bottom)));
+    scene.spot = { x: fx / innerWidth, y: fy / innerHeight, h: (r.height / innerHeight) * Math.pow(far, 1.4) };
+    lift = { x: fx - fx0, y: fy - r.bottom + r.height * (1 - Math.pow(far, 1.4)) };
   }
   $effect(() => { void w; void h; void compact; requestAnimationFrame(place); });
 
@@ -126,13 +152,13 @@
     <img class="sign" src="{import.meta.env.BASE_URL}arcade/sign.webp" alt="Arcade" />
     <div class="rt">
       {#if w >= 430}<span class="wallet"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><b>{fmt(shells)}</b>{#if !compact} shells{/if}</span>{/if}
-      <GearButton size={compact ? 32 : 38} />
+      <GearButton size={compact ? 30 : 38} />
     </div>
   </header>
 
   <div class="stagebox" onscroll={place}>
     <div class="buddycol">
-      <div class="bubble">{say}</div>
+      <div class="bubble" style:translate="{lift.x}px {lift.y}px">{say}</div>
       <div class="spot" bind:this={spotEl} aria-label="{buddyName} waving"></div>
     </div>
 
@@ -250,7 +276,11 @@
   }
   /* phones: the challenge, the cabinets two by two, and the buddy waving from the terrace at the bottom */
   .compact .top { padding: 8px 10px; gap: 8px; }
-  .compact .sign { height: 44px; margin: -6px 0; }
+  .compact .sign { height: auto; max-height: 44px; min-width: 0; max-width: 38vw; object-fit: contain; margin: -6px 0; }
+  .top .btn-icon { flex: none; }
+  .compact .rt { gap: 6px; }
+  .compact .rt :global(.pair) { gap: 4px; }
+  .compact .rt :global(.gear), .compact .rt :global(.mus), .compact .rt :global(.menu), .compact .rt :global(.help) { padding: 3px; border-width: 2px; }
   .compact .stagebox { flex-direction: column; padding: 8px 12px 12px; gap: 8px; overflow-y: auto; }
   .compact .buddycol { order: 2; flex: 0 0 140px; flex-direction: row; align-items: flex-end; justify-content: flex-start; }
   .compact .spot { order: -1; width: 38%; height: 100%; margin: 0; }

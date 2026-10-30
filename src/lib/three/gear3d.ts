@@ -263,12 +263,14 @@ function latheFromPicture(height: number, prof: [number, number][], aspect: numb
 type Ctx = { c: Character; f: Fit; id: string; nz: { v: Nudge }; onNudge: (() => void)[]; /** groups that follow the skin, set each frame */ follow: (() => void)[] };
 type Built = { objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void };
 const _a = new THREE.Matrix4(), _b = new THREE.Matrix4();
-/** T(pivot + offset) · turn · size · T(−pivot): moved, turned (about up) and sized about its own attach
- *  point. `unit` turns the nudge's shares of the buddy's height into this space's units. */
+/** T(pivot + offset) · turn · tip · tilt · size · T(−pivot): moved, turned round (about up), tipped forward
+ *  or back (about the buddy's side to side), tilted (about its front to back) and sized about its own
+ *  attach point. `unit` turns the nudge's shares of the buddy's height into this space's units. */
+const _e = new THREE.Euler();
 function nudgeMatrix(m: THREE.Matrix4, pivot: THREE.Vector3, n: Nudge, unit: number) {
   m.makeTranslation(-pivot.x, -pivot.y, -pivot.z);
   m.premultiply(_a.makeScale(n.s, n.s, n.s));
-  m.premultiply(_b.makeRotationY(n.r));
+  m.premultiply(_b.makeRotationFromEuler(_e.set(n.p ?? 0, n.r, n.t ?? 0, 'YXZ')));
   m.premultiply(_a.makeTranslation(pivot.x + n.x * unit, pivot.y + n.y * unit, pivot.z + n.z * unit));
 }
 /** A group riding a bone, its children placed in bind space, nudged about `pivot` (bind space). */

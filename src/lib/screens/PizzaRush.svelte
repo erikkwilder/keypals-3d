@@ -5,14 +5,17 @@
   // stars, a best score and today's challenge. The rules and scoring are in math/pizza/rush.ts.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { AREA } from '../math/skills/registry';
+  import { DAILY_SHELLS } from '../engine/settle';
+  import { clearOldLine } from '../arcade/feedback';
+  import { exitsOf } from '../arcade/exits';
+  import ExitButtons from '../arcade/ui/ExitButtons.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { PizzaScene } from '../three/pizzaScene';
   import { mulberry32, shuffle } from '../engine/rng';
   import type { Profile } from '../engine/profile';
   import { GLIMMERS, type GlimmerId } from '../adventure/glimmers';
-  import { CUTS, ROUND_MS, STAR_AT, applyRush, comboMult, cutsFor, dailyBestOf, dailySeed, fracText, kindsFor, levelsFor, orderMaker, orderScore, orderText, rushOf, servedRight, slicesNeeded, starsFor, type Order, type RushOutcome } from '../math/pizza/rush';
+  import { CUTS, ROUND_MS, STAR_AT, applyRush, comboMult, cutsFor, dailyBestOf, dailySeed, fracText, kindsFor, levelsFor, orderMaker, orderScore, orderText, rushOf, servedRight, slicesNeeded, starsFor, type Order, type RushOutcome, PIZZAS } from '../math/pizza/rush';
   import Frac from '../math/skills/ui/Frac.svelte';
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
@@ -99,9 +102,11 @@
     slots.forEach((c, i) => { if (c && !c.leaving && (best === null || c.n < slots[best]!.n)) best = i; });
     active = best;
     if (best === null) return;
+    // the last order's line goes (the first order keeps the how-to tip)
+    if (served + missed) clearOldLine(() => msg, () => (msg = null));
     const o = slots[best]!.order;
     activeAt = performance.now(); sfx.nextUp();
-    scene?.newPizza(o.slices ?? 1);
+    scene?.newPizza(o.slices ?? 1, o.pizza);
     cutInto = o.slices ?? 1; picked = 0;
     if (o.slices === null) { cutPulse++; say("How many slices? Cut the pizza!"); }
   }
@@ -195,15 +200,13 @@
     slots = [null, null, null]; syncCustomers();
   }
 
-  /** opened from the Arcade, Back goes there; otherwise to the area's map */
-  const fromArcade = game.gameFrom === 'arcade';
-  game.gameFrom = 'map';
-  const backTo = fromArcade ? 'the Arcade' : AREA.fractions.name;
+  /** where it was opened from: Back goes there, and its cards offer the Arcade too */
+  const exits = exitsOf('fractions');
+  const backTo = exits.backTo;
   function quit() {
     sfx.click();
     if (phase === 'play') { phase = 'menu'; slots = [null, null, null]; syncCustomers(); active = null; msg = null; return; }
-    if (fromArcade) { game.go('arcade'); return; }
-    game.mathArea = 'fractions'; game.mathOp = null; game.setHome('math'); game.go('map');
+    exits.back();
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
@@ -232,6 +235,7 @@
         {#if isOn && !c.leaving}<div class="up"><img src="{base}icons/down.webp" alt="" /><span>Your order!</span></div>{/if}
         <div class="bin">
           {#each c.order.parts as f, j}{#if j}<span class="plus">+</span>{/if}<Frac n={f.n} d={f.d} size={isOn ? 44 : 24} />{/each}
+          {#if isOn && !c.leaving && c.order.pizza}<small class="pz" class:funny={PIZZAS[c.order.pizza].funny}>{PIZZAS[c.order.pizza].name}</small>{/if}
         </div>
         {#if isOn && !c.leaving}<span class="ring" aria-hidden="true"></span>{:else if !c.leaving}<span class="wait">next</span>{/if}
       </div>
@@ -291,10 +295,10 @@
         </ol>
         <div class="bests">
           <div><small>Best</small><b>{rec.best}</b><Stars n={rec.stars} size={20} /></div>
-          <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same orders all day</span></div>
+          <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same orders all day</span><span class="tiny bonus">Beat {STAR_AT[1]} for {DAILY_SHELLS} bonus shells</span></div>
         </div>
         <div class="acts">
-          <button class="btn" onclick={quit}>Back</button>
+          <ExitButtons {exits} />
           <button class="btn" onclick={() => start(true)}><Icon name="target" size={20} /> Today's challenge</button>
           <button class="btn btn-primary big" onclick={() => start(false)}>Play <span class="kbd">enter</span></button>
         </div>
@@ -318,7 +322,7 @@
         </div>
         <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <button class="btn" onclick={quit}>Back to {backTo}</button>
+          <ExitButtons {exits} />
           {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
           <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
         </div>
@@ -366,6 +370,10 @@
   @keyframes glowb { 50% { box-shadow: 0 0 0 5px #ffd36b, 0 0 42px rgba(255, 210, 107, 1), 0 8px 20px rgba(80, 40, 10, .35); } }
   .bubble.leaving { opacity: 0; transform: translate(-50%, calc(-100% - 40px)); }
   .plus { font: 600 26px var(--font-ui); color: var(--ink2); }
+  /* what kind of pizza the order is, under the fraction (the funny ones in a party colour) */
+  .bin { flex-wrap: wrap; justify-content: center; }
+  .pz { flex-basis: 100%; text-align: center; margin-top: 2px; font: 700 13px/1 var(--font-body); color: #a8501c; letter-spacing: .02em; }
+  .pz.funny { color: #c2367a; }
   .bubble.on .plus { font-size: 34px; }
   .ring { position: absolute; left: 50%; bottom: -40px; transform: translateX(-50%); width: 120px; height: 10px; border-radius: 999px; background: linear-gradient(90deg, #4fcf9f calc(var(--pat) * 100%), rgba(255, 255, 255, .7) 0); box-shadow: 0 0 0 2px #fff; }
 
@@ -408,6 +416,7 @@
   .bests small { font: 800 11px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .bests b { font: 600 26px var(--font-ui); color: var(--ink); }
   .tiny { font: 600 12px var(--font-body); color: var(--muted); }
+  .tiny.bonus { color: #a86a00; font-weight: 700; }
   .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
   .big { font-size: 22px; padding: 12px 26px; }
   .sub { margin: -6px 0 0; font: 800 12px var(--font-body); color: #a86a00; text-transform: uppercase; letter-spacing: .06em; }

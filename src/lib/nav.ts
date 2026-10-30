@@ -17,7 +17,7 @@ import { arcadeOf, type ArcadeId } from './arcade/arcade';
 import { playNextLevel, playOf, type PlayGame } from './math/playground';
 import { builderOf, builderOpen } from './math/place/builder';
 import { advOf, worldOpen, type WorldId } from './adventure/state';
-import { lastWorld, WORLD_PIN } from './adventure/worlds';
+import { lastWorld, WORLD_PIN, worldSubject } from './adventure/worlds';
 
 export const wayOf = (s: string): WayId => game.way[s] ?? 'practice';
 /** a part of math by its chip name, for a sentence ("place value") */
@@ -56,7 +56,8 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
   game.way = { ...game.way, [s.id]: w };
   if (s.id === 'typing') {
     if (w === 'practice') { openSubject('typing', 'practice', t.id); return; }
-    if (w === 'adventure') { game.update(pp => { advOf(pp).subject = 'typing'; }); lastWorld.id = 'sky'; game.go('adventure'); return; }
+    // a typing adventure: the typing worlds (the Sky Islands, for now), answering with typing
+    if (w === 'adventure') { game.update(pp => { advOf(pp).subject = 'typing'; }); worldSubject.id = 'typing'; lastWorld.id = 'sky'; game.go('adventure'); return; }
     const l = TYPING_LESSON[t.id];
     if (!l) return;
     if (!isUnlocked(p, l)) { sfx.nope(); game.say('Keep going on the typing map to open this one!'); return; }
@@ -108,6 +109,7 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
     return;
   }
   game.update(pp => { advOf(pp).subject = 'math'; });
+  worldSubject.id = 'math';
   lastWorld.id = id;
   game.go('adventure');
 }
@@ -162,6 +164,8 @@ export const subjectOf = (id: string) => SUBJECT[id];
 /** Open one of the places that take every subject (Home's "Play anywhere", the compass menu). */
 export function openAnywhere(id: Anywhere['id']) {
   sfx.click();
-  if (id === 'duel') { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); }
-  else game.go(id === 'drop' ? 'drop' : id === 'rivals' ? 'rivals' : id);
+  if (id === 'duel') { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); return; }
+  // Adventure from Home or the menu: the worlds of the subject played last
+  if (id === 'adventure') worldSubject.id = game.homeGame;
+  game.go(id === 'drop' ? 'drop' : id === 'rivals' ? 'rivals' : id);
 }

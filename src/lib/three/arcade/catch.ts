@@ -14,6 +14,7 @@ import type { FriendId } from '../../art/cast';
 import type { GlimmerId } from '../../adventure/glimmers';
 import type { Fact } from '../../math/facts';
 import { factText } from '../../arcade/arcade';
+import type { Faller } from '../../arcade/catchPlan';
 import { arcadeIsland, daylight, disposeSprite, fontLoaded, paintedBackground, plaqueSprite, shadowCatcher } from './kit';
 
 const KINDS: GlimmerId[] = ['popcornpuff', 'sproutbun', 'puddlepup', 'bubbleocto', 'mushmouse', 'frostjelly', 'sunsnail', 'rainbootfrog'];
@@ -92,6 +93,8 @@ export class CatchScene implements Controller {
   clear() { for (const f of this.falling) if (f.state === 'fall') { f.state = 'land'; f.k = 0; f.vy = -2.5; } }
   /** How many are still falling. */
   get count() { return this.falling.filter(f => f.state === 'fall').length; }
+  /** The ones still falling, for the fair-play check (arcade/catchPlan.ts) */
+  fallers(): Faller[] { return this.falling.filter(f => f.state === 'fall').map(f => ({ x: f.x, y: f.y, vy: f.vy, right: f.right })); }
   /** Steer: run toward a spot (-1..1 across the field) or nudge by a step. */
   runTo(x: number) { this.goal = Math.max(-1, Math.min(1, x)) * (this.field.half - 0.4); }
   nudge(dir: -1 | 1) { this.goal = Math.max(-this.field.half + 0.4, Math.min(this.field.half - 0.4, this.goal + dir * 1.6)); }

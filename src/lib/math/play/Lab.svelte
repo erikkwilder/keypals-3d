@@ -1,8 +1,11 @@
 <script lang="ts">
   // The Smoothie Lab: a calm toy, no clock. A glass of smoothie stands on the bench with its recipe card (or
   // just its colour); tap fruit into the big jug and watch the colour change, then Pour to see if it matches.
-  // Any mix in the same ratio is the same colour: 2 to 3 matches 4 to 6. Six glasses a round. The rules are
-  // in math/ratios/lab.ts; the colours are Smoothie Stand's own (math/ratios/stand.ts mixColor).
+  // Any mix in the same ratio is the same colour: 2 to 3 matches 4 to 6. Many glasses ask for a bigger mix
+  // ("use all 6 strawberries", or a line on the jug to fill), so the smallest mix won't do. Matching by
+  // colour has a guide: a bar from one fruit's colour to the other's, with the glass's spot and your jug's
+  // spot on it. Six glasses a round. The rules are in math/ratios/lab.ts; the colours are Smoothie Stand's
+  // own (math/ratios/stand.ts mixColor).
   import { onDestroy, untrack } from 'svelte';
   import { mulberry32 } from '../../engine/rng';
   import { sfx } from '../../audio/sound';
@@ -38,6 +41,9 @@
   const mine = $derived(mixColor(have, o.fruits));
   const level01 = $derived((have[0] + have[1]) / JUG_MAX);
   const showCard = $derived(o.card !== 'none' || tries >= 2);
+  /** the colour guide: where a mix sits between all of the first fruit (0) and all of the second (1) */
+  const wantAt = $derived(o.ratio[1] / (o.ratio[0] + o.ratio[1]));
+  const mineAt = $derived(have[0] + have[1] ? have[1] / (have[0] + have[1]) : null);
   const img = (f: string) => `${base}math/ratios/fruit/${f}.webp`;
 
   function add(n: 0 | 1) {
@@ -87,9 +93,11 @@
           <div class="card" class:hidden={!showCard}>
             {#if o.card === 'percent'}
               <span class="pc"><b>{o.pct}%</b><img src={img(o.fruits[0])} alt={names[0]} /></span><small>the rest</small><img class="sm" src={img(o.fruits[1])} alt={names[1]} />
+              {#if o.total !== undefined}<span class="need">Fill to the line: <b>{o.total}</b> fruit</span>{/if}
             {:else if showCard}
               <span class="rc"><b>{o.ratio[0]}</b><img src={img(o.fruits[0])} alt={names[0]} /><i>:</i><b>{o.ratio[1]}</b><img src={img(o.fruits[1])} alt={names[1]} /></span>
-              {#if o.first !== undefined}<small>use {o.first} {names[0]}</small>{/if}
+              {#if o.first !== undefined}<span class="need">Use all <b>{o.first}</b><img src={img(o.fruits[0])} alt={names[0]} /></span>
+              {:else if o.total !== undefined}<span class="need">Fill to the line: <b>{o.total}</b> fruit</span>{/if}
             {:else}
               <span class="rc q"><img src={img(o.fruits[0])} alt={names[0]} /><i>?</i><img src={img(o.fruits[1])} alt={names[1]} /></span><small>match the colour</small>
             {/if}
@@ -99,12 +107,25 @@
         <div class="jugwrap">
           <div class="glass big" class:pouring class:ok style:--c={mine}>
             <span class="liq" style:height="{Math.max(0, Math.min(1, level01)) * 88}%"><i class="foam"></i></span>
+            {#if o.total !== undefined}<span class="line" class:hit={have[0] + have[1] === o.total} style:bottom="calc(6px + {(o.total / JUG_MAX) * 88}%)"><b>{o.total}</b></span>{/if}
             {#each drops as d (d.k)}<img class="drop" src={img(d.f)} alt="" style:left="{d.x}%" />{/each}
             <span class="count">{have[0]} : {have[1]}</span>
           </div>
           {#if ok}<div class="sparkle" aria-hidden="true">{#each Array(10) as _, s (s)}<i style:--a="{s * 36}deg"></i>{/each}</div>{/if}
         </div>
       </div>
+      {#if o.card === 'none'}
+        <!-- the colour guide: all of one fruit at one end, all of the other at the other end; the glass's
+             mix has its spot, and your jug's spot moves as you add fruit -->
+        <div class="guide">
+          <img class="end" src={img(o.fruits[0])} alt={names[0]} />
+          <div class="bar" style:background="linear-gradient(90deg, {mixColor([1, 0], o.fruits)}, {mixColor([0, 1], o.fruits)})">
+            <span class="mk want" style:left="{wantAt * 100}%" style:--c={target}><small>glass</small><i></i></span>
+            {#if mineAt !== null}<span class="mk mine" class:on={Math.abs(mineAt - wantAt) < 1e-9} style:left="{mineAt * 100}%" style:--c={mine}><i></i><small>your jug</small></span>{/if}
+          </div>
+          <img class="end" src={img(o.fruits[1])} alt={names[1]} />
+        </div>
+      {/if}
       <div class="fruits">
         {#each [0, 1] as const as n (n)}
           <div class="fb">
@@ -120,7 +141,7 @@
     <div class="corner" bind:this={corner}></div>
   </div>
   <div class="foot">
-    <p class="note" class:good={ok}>{note || (o.card === 'none' ? 'Mix and look: is your jug the same colour as the glass?' : o.card === 'percent' ? `${o.pct}% of the fruit is ${names[0]}. Any size jug!` : o.first !== undefined ? `Use ${o.first} ${names[0]}. How many ${names[1]} keep the same mix?` : 'Any size works: the same mix makes the same colour.')}</p>
+    <p class="note" class:good={ok}>{note || (o.card === 'none' ? 'Mix and look: move your jug onto the glass on the colour bar.' : o.card === 'percent' ? (o.total !== undefined ? `${o.pct}% of the ${o.total} fruit is ${names[0]}.` : `${o.pct}% of the fruit is ${names[0]}. Any size jug!`) : o.first !== undefined ? `Use all ${o.first} ${names[0]}. How many ${names[1]} keep the same mix?` : o.total !== undefined ? `The same mix, but bigger: fill the jug to the line, ${o.total} fruit in all.` : 'Any size works: the same mix makes the same colour.')}</p>
     <button class="btn btn-primary pourb" onclick={pour} disabled={ok}>Pour <span class="kbd">enter</span></button>
   </div>
 </div>
@@ -154,6 +175,27 @@
   .rc.q i { font-size: 30px; color: var(--muted); }
   .card small { font: 800 11px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .card .sm { width: 28px; height: 28px; object-fit: contain; }
+  .need { display: flex; align-items: center; gap: 4px; font: 700 14px var(--font-body); color: #8a2a4a; }
+  .need b { font: 600 22px var(--font-ui); color: var(--ink); }
+  .need img { width: 28px; height: 28px; object-fit: contain; }
+  /* the line to fill the jug to */
+  .line { position: absolute; left: 4px; right: 4px; height: 0; border-top: 3px dashed rgba(255, 255, 255, .95); filter: drop-shadow(0 1px 1px rgba(80, 40, 10, .45)); }
+  .line b { position: absolute; right: -2px; top: -14px; transform: translateX(100%); font: 600 18px var(--font-ui); color: #fff; background: #ef5f8a; border-radius: 999px; padding: 0 9px; box-shadow: 0 0 0 2px #fff; }
+  .line.hit { border-top-style: solid; border-top-color: #7ee0a8; }
+  .line.hit b { background: #2fb57a; }
+  .glass.big { overflow: visible; }
+  .glass.big .liq { overflow: hidden; }
+  /* the colour guide */
+  .guide { display: flex; align-items: center; gap: 10px; width: min(560px, 100%); padding: 22px 14px 24px; background: rgba(255, 255, 255, .92); border-radius: 20px; box-shadow: var(--shadow-sm); }
+  .guide .end { width: 40px; height: 40px; object-fit: contain; flex: none; }
+  .bar { position: relative; flex: 1; height: 22px; border-radius: 999px; box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .7); }
+  .mk { position: absolute; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; transition: left .3s cubic-bezier(.3, 1.3, .5, 1); }
+  .mk i { width: 26px; height: 26px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 3px #fff, 0 2px 6px rgba(80, 40, 10, .35); }
+  .mk small { font: 800 11px/1 var(--font-body); color: var(--ink2); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  .mk.want { bottom: -2px; } .mk.want small { margin-bottom: 3px; }
+  .mk.want i { border-radius: 6px 6px 12px 12px; }
+  .mk.mine { top: -2px; } .mk.mine small { margin-top: 3px; }
+  .mk.mine.on i { box-shadow: 0 0 0 3px #fff, 0 0 0 6px #7ee0a8; }
   .jugwrap { position: relative; }
   .drop { position: absolute; top: 18%; width: 40px; height: 40px; object-fit: contain; transform: translateX(-50%); animation: plunk .7s cubic-bezier(.5, 0, .6, 1) forwards; pointer-events: none; }
   @keyframes plunk { 0% { transform: translate(-50%, -140%) rotate(0); opacity: 1; } 60% { transform: translate(-50%, 120%) rotate(160deg); opacity: 1; } 100% { transform: translate(-50%, 160%) rotate(220deg) scale(.4); opacity: 0; } }

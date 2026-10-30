@@ -4,11 +4,10 @@
   import { sfx } from '../../../audio/sound';
   import Icon from '../../../ui/Icon.svelte';
   import type { CustomInputProps } from './SkillInput.svelte';
+  import { COIN_ART as ART, COIN_REL as REL } from '../decimals';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   const base = import.meta.env.BASE_URL;
-  const ART: Record<number, string> = { 1: 'penny', 5: 'nickel', 10: 'dime', 25: 'quarter', 100: 'dollar' };
   const NAME: Record<number, string> = { 1: '1¢', 5: '5¢', 10: '10¢', 25: '25¢', 100: '$1' };
-  const REL: Record<number, number> = { 1: 0.8, 5: 0.88, 10: 0.74, 25: 1, 100: 1.08 };
   const spec = $derived((item.custom?.spec ?? { coins: [25, 10, 5, 1] }) as { target?: number; coins: number[] });
   let tray = $state<{ c: number; k: number }[]>([]);
   let k = 0;

@@ -9,7 +9,10 @@
   // ten cubes for a rod (or break a rod into ten cubes), or ask for a number to build.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { AREA } from '../math/skills/registry';
+  import { DAILY_SHELLS } from '../engine/settle';
+  import { clearOldLine } from '../arcade/feedback';
+  import { exitsOf } from '../arcade/exits';
+  import ExitButtons from '../arcade/ui/ExitButtons.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { BuilderScene, type Kind } from '../three/builderScene';
@@ -65,6 +68,8 @@
     if (canvas) BuilderScene.create(canvas).then(s => { if (disposed) s.dispose(); else { scene = s; if (import.meta.env.DEV) (window as unknown as { __builder: BuilderScene }).__builder = s; raf = requestAnimationFrame(tick); } });
     addEventListener('resize', onResize);
     if (toy) say('Tap a bin to put blocks on the mat. Ten ones make a ten!');
+    // for checking by hand: __nb.card() is the card now, __nb.fill() puts its number on the mat, __nb.finish() ends the round
+    if (import.meta.env.DEV) (window as unknown as { __nb: unknown }).__nb = { card: () => order && { ask: order.ask, card: order.card, target: order.target }, fill: () => { if (order) { b = toBlocks(order.target); scene?.set(b.h, b.t, b.o); } }, finish };
   });
   onDestroy(() => { disposed = true; cancelAnimationFrame(raf); removeEventListener('resize', onResize); scene?.dispose(); scene = null; musicEnergy(0.5); });
   function onResize() { scene?.resize(); }
@@ -89,6 +94,8 @@
   function newOrder() {
     order = nextOrder();
     tries = 0; added = [];
+    // the last card's line ("371 is three hundreds...") goes: it was about that card, not this one
+    if (answers.length) clearOldLine(() => msg, () => (msg = null));
     b = toBlocks(order.start);
     scene?.set(b.h, b.t, b.o);
     orderAt = performance.now();
@@ -234,16 +241,15 @@
     goal = null;
   }
 
-  /** what Back says: where it goes (the Arcade, the Playground or Place value's map) */
-  const backTo = builderOpen.from === 'arcade' ? 'the Arcade' : builderOpen.from === 'playground' ? 'the Playground' : AREA.place.name;
+  /** where it was opened from (the Arcade, the Playground or a math page): Back goes there, and the
+   *  game's cards offer the Arcade too */
+  const exits = exitsOf('place');
+  const backTo = exits.backTo;
   function quit() {
     sfx.click();
     if (!toy && phase === 'play') { phase = 'menu'; msg = null; order = null; scene?.set(0, 0, 0); b = { h: 0, t: 0, o: 0 }; return; }
-    const from = builderOpen.from;
     builderOpen.toy = false;
-    if (from === 'arcade') game.go('arcade');
-    else if (from === 'playground') game.go('playground');
-    else { game.mathArea = 'place'; game.mathOp = null; game.setHome('math'); game.go('map'); }
+    exits.back();
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
@@ -343,10 +349,10 @@
         </ol>
         <div class="bests">
           <div><small>Best</small><b>{rec.best}</b><Stars n={rec.stars} size={20} /></div>
-          <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same cards all day</span></div>
+          <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same cards all day</span><span class="tiny bonus">Beat {STAR_AT[1]} for {DAILY_SHELLS} bonus shells</span></div>
         </div>
         <div class="acts">
-          <button class="btn" onclick={quit}>Back</button>
+          <ExitButtons {exits} before={() => (builderOpen.toy = false)} />
           <button class="btn" onclick={() => start(true)}><Icon name="target" size={20} /> Today's challenge</button>
           <button class="btn btn-primary big" onclick={() => start(false)}>Play <span class="kbd">enter</span></button>
         </div>
@@ -370,7 +376,7 @@
         </div>
         <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <button class="btn" onclick={quit}>Back to {backTo}</button>
+          <ExitButtons {exits} before={() => (builderOpen.toy = false)} />
           {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
           <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
         </div>
@@ -465,6 +471,7 @@
   .bests small { font: 800 11px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .bests b { font: 600 26px var(--font-ui); color: var(--ink); }
   .tiny { font: 600 12px var(--font-body); color: var(--muted); }
+  .tiny.bonus { color: #a86a00; font-weight: 700; }
   .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
   .big { font-size: 22px; padding: 12px 26px; }
   .sub { margin: -6px 0 0; font: 800 12px var(--font-body); color: #a86a00; text-transform: uppercase; letter-spacing: .06em; }

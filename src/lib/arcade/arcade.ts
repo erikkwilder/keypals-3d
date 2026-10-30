@@ -4,7 +4,7 @@
 // through the shared payout (engine/settle.ts), but arcade stars don't open lessons. Each day one game
 // has the daily challenge: the same course for everyone in the family, and a bonus for beating its goal.
 import { buddyPal, dayKey, type Profile } from '../engine/profile';
-import { settlePractice, treasureFor, type Settled } from '../engine/settle';
+import { settlePractice, treasureFor, type Settled, DAILY_SHELLS } from '../engine/settle';
 import { earnShells } from '../adventure/state';
 import { mathOf } from '../math/progress';
 import { answerOf, factId, FAST_MS, opSign, seedPartner, updateFact, type Fact, type Op } from '../math/facts';
@@ -74,7 +74,8 @@ export function dailyGame(day = dayKey(Date.now())): ArcadeId {
 export const dailySeed = (id: ArcadeId, day = dayKey(Date.now())) => Math.abs(hash(`${day}:${id}`));
 /** Beat this score in today's challenge for the bonus: the two-star score. */
 export const dailyGoal = (id: ArcadeId) => ARCADE[id].stars[1];
-export const DAILY_SHELLS = 25;
+/** the bonus shells for beating it (the same in every game with a daily challenge: engine/settle.ts) */
+export { DAILY_SHELLS };
 export const dailyBeaten = (p: Profile, id: ArcadeId, day = dayKey(Date.now())) => { const d = recordOf(p, id).daily; return !!d && d.day === day && d.best >= dailyGoal(id); };
 
 // ---------- questions: the player's own facts, the shaky ones more often ----------

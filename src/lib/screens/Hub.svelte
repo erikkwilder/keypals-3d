@@ -30,6 +30,8 @@
   import Critter from '../ui/Critter.svelte';
   import Icon from '../ui/Icon.svelte';
   import ClassWorkCard from '../ui/ClassWorkCard.svelte';
+  import { buddyPicture, storedPicture } from '../three/buddyPic';
+  import { dressOf } from '../adventure/wardrobe';
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -37,6 +39,21 @@
   const goalMs = $derived(p.settings.dailyGoalMin * 60000);
   const today = $derived(todayMs(p));
   let sw = $state(1280);
+  // the buddy by the hello: the real 3D buddy's picture in everything it has on (the same as it looks when
+  // tickled), saved on this computer so a refresh shows it dressed straight away; the plain picture only
+  // if it can't be drawn
+  const budPx = $derived(sw < 760 ? 64 : 88);
+  let budPic = $state<string | null>(null), budWait = $state(true);
+  $effect(() => {
+    const id = p.buddy, dress = JSON.parse(JSON.stringify(dressOf(p))), size = budPx * 2;
+    void p.settings.look;
+    let gone = false;
+    const kept = storedPicture(id, dress, size);
+    if (kept) { budPic = kept; budWait = false; }
+    else { budWait = true; setTimeout(() => { if (!gone) budWait = false; }, 2500); }
+    void buddyPicture(id, { dress, size, keep: true }).then(u => { if (gone) return; if (u) budPic = u; budWait = false; });
+    return () => { gone = true; };
+  });
   const m = $derived(mathOf(p));
   const adv = $derived(advView(p));
   // how it all fits together: shown once, and from the "How it works" button
@@ -99,7 +116,7 @@
 
   <div class="body scroll">
     <div class="hello">
-      <div class="bud"><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={sw < 760 ? 64 : 88} mood="idle" /></div>
+      <div class="bud" style:width="{budPx}px" style:height="{budPx}px">{#if budPic}<img class="budpic" src={budPic} alt={p.name} draggable="false" />{:else}<span class:waiting={budWait}><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={budPx} mood="idle" /></span>{/if}</div>
       <p>{hello}</p>
       {#if sw >= 860}<span class="hsave"><SaveChip /></span>{/if}
     </div>
@@ -214,7 +231,9 @@
   .hello { display: flex; align-items: center; gap: 14px; justify-content: center; }
   .hello p { margin: 0; font: 600 24px var(--font-ui); color: var(--ink); background: #fff; padding: 10px 20px; border-radius: 22px; box-shadow: var(--shadow-sm); position: relative; }
   .hello p::before { content: ''; position: absolute; left: -10px; top: 50%; margin-top: -10px; border: 10px solid transparent; border-right-color: #fff; border-left: 0; }
-  .bud { animation: bob 2.8s ease-in-out infinite; margin: -14px 0 -10px; }
+  .bud { flex: none; animation: bob 2.8s ease-in-out infinite; margin: -14px 0 -10px; cursor: pointer; }
+  .budpic { display: block; width: 100%; height: 100%; object-fit: contain; object-position: bottom; user-select: none; }
+  .waiting { visibility: hidden; }
   @keyframes bob { 50% { transform: translateY(-6px); } }
   .hsave { margin-left: 8px; }
   .hsave.sm { margin: -4px 0 0; align-self: center; width: auto; max-width: 100%; }

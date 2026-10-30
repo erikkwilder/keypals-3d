@@ -13,7 +13,7 @@
 // like any practice; it doesn't open lessons.
 import { mulberry32, type Rng } from '../../engine/rng';
 import { buddyPal, dayKey, type Profile } from '../../engine/profile';
-import { settlePractice, treasureFor, type Settled } from '../../engine/settle';
+import { dailyBonus, settlePractice, treasureFor, type Settled } from '../../engine/settle';
 import { mathOf, type ArcadeRecord } from '../progress';
 import { noteSkillAnswers } from '../skills/progress';
 import { pitchRung, TARGET, thetaOf } from '../skills/ability';
@@ -194,10 +194,11 @@ export function applyTreasure(p0: Profile, run: TreasureRun): TreasureOutcome {
   const newBest = run.score > rec.best;
   rec.best = Math.max(rec.best, run.score); rec.stars = Math.max(rec.stars, stars); rec.plays++;
   rec.bestCombo = Math.max(rec.bestCombo ?? 0, run.bestCombo);
-  let newDaily = false;
+  let newDaily = false, dailyBefore = 0;
   if (run.daily) {
     const k = dayKey(run.at);
     if (rec.daily?.key !== k) rec.daily = { key: k, best: 0 };
+    dailyBefore = rec.daily.best;
     newDaily = run.score > rec.daily.best;
     rec.daily.best = Math.max(rec.daily.best, run.score);
   }
@@ -206,5 +207,7 @@ export function applyTreasure(p0: Profile, run: TreasureRun): TreasureOutcome {
   if (stars === 3) pal.stars3++;
   // right answers warm the eggs like a trip's (a chest is worth a couple of facts)
   const done = settlePractice(p, { at: run.at, ms: run.ms, finished: true, stars, medals: stars === 3 ? ['three'] : [], right: Math.round(run.found * 2), xp: () => Math.round((25 + stars * 12 + Math.min(12, run.found) * 2) * (p.settings.grown ? 0.8 : 1)) , treasure: treasureFor(run.score, STAR_AT[2]) });
-  return { ...done, profile: p, stars, newBest, newDaily, best: rec.best };
+  // today's challenge: the same bonus shells as the Arcade's for beating its goal, once a day
+  const bonus = dailyBonus(p, run.daily, dailyBefore, run.score, STAR_AT[1]);
+  return { ...done, ...bonus, profile: p, stars, newBest, newDaily, best: rec.best };
 }

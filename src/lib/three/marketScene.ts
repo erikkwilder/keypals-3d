@@ -1,7 +1,8 @@
 // Market Dash in 3D: a see-through renderer of its own over the painted market stall (the game's stage is
 // an island world; this game happens at a counter). A wooden coin tray on the counter, where coins tapped
 // from the bank drop in with a bounce and a clink (tap one in the tray to take it back), and up to three
-// Glimmer shoppers behind it. Paid coins slide across to the shopper, who cheers.
+// Glimmer shoppers behind it. Paid coins slide across to the shopper, who cheers. The coins are painted US
+// coins: heads on top, the back underneath (it shows as a coin flips on its way into the tray).
 import * as THREE from 'three';
 import { loadTexture } from './assets';
 import { Fx } from './fx';
@@ -9,8 +10,8 @@ import { GlimmerModel } from './glimmerModel';
 import { ELEMENT, GLIMMER, type GlimmerId } from '../adventure/glimmers';
 
 const CUST_Z = -1.15;
-/** coin radius (world units) against its value: the real coins' sizes */
-const RADIUS: Record<number, number> = { 1: 0.25, 5: 0.27, 10: 0.23, 25: 0.31, 100: 0.33 };
+/** coin radius (world units) against its value: the real coins' sizes (a quarter is 0.31) */
+const RADIUS: Record<number, number> = { 1: 0.245, 5: 0.27, 10: 0.23, 25: 0.31, 100: 0.338 };
 const EDGE: Record<number, number> = { 1: 0xc8743c, 5: 0xc9ced6, 10: 0xd2d6de, 25: 0xc6ccd4, 100: 0xe7b631 };
 const ART: Record<number, string> = { 1: 'penny', 5: 'nickel', 10: 'dime', 25: 'quarter', 100: 'dollar' };
 const TRAY_W = 2.7, TRAY_D = 1.25, PER_ROW = 5;
@@ -30,6 +31,7 @@ export class MarketScene {
   private coins: CoinM[] = [];
   private flying: CoinM[] = [];
   private faces: Record<number, THREE.Texture | null> = {};
+  private backs: Record<number, THREE.Texture | null> = {};
   private geo: Record<number, THREE.CylinderGeometry> = {};
   private mats: THREE.Material[] = [];
   private shakeT = 0;
@@ -70,9 +72,16 @@ export class MarketScene {
   static async create(canvas: HTMLCanvasElement): Promise<MarketScene> {
     const s = new MarketScene(canvas);
     const vals = [1, 5, 10, 25, 100];
-    const texs = await Promise.all(vals.map(v => loadTexture(`math/money/${ART[v]}.webp`, { color: true })));
+    const [texs, backs] = await Promise.all([
+      Promise.all(vals.map(v => loadTexture(`math/money/${ART[v]}.webp`, { color: true }))),
+      Promise.all(vals.map(v => loadTexture(`math/money/${ART[v]}-back.webp`, { color: true }))),
+    ]);
+    // a cylinder's caps lay their picture sideways: turn each a quarter so the heads (and the back, when
+    // the coin lands upside down) read upright from the counter
+    const turn = (t: THREE.Texture | null, a: number) => { if (t) { t.center.set(0.5, 0.5); t.rotation = a; t.anisotropy = 4; } return t; };
     vals.forEach((v, i) => {
-      s.faces[v] = texs[i];
+      s.faces[v] = turn(texs[i], Math.PI / 2);
+      s.backs[v] = turn(backs[i], -Math.PI / 2);
       s.geo[v] = new THREE.CylinderGeometry(RADIUS[v], RADIUS[v], 0.045, 40);
     });
     s.resize();
@@ -105,10 +114,11 @@ export class MarketScene {
 
   /** A coin from the bank drops into the tray. */
   addCoin(value: number) {
-    const face = this.faces[value] ?? null;
+    const face = this.faces[value] ?? null, back = this.backs[value] ?? null;
     const top = new THREE.MeshStandardMaterial({ map: face, color: face ? 0xffffff : EDGE[value], roughness: 0.38, metalness: 0.25, alphaTest: 0.4, transparent: false });
+    const under = new THREE.MeshStandardMaterial({ map: back ?? face, color: back || face ? 0xffffff : EDGE[value], roughness: 0.38, metalness: 0.25, alphaTest: 0.4, transparent: false });
     const side = new THREE.MeshStandardMaterial({ color: EDGE[value], roughness: 0.32, metalness: 0.65 });
-    const mesh = new THREE.Mesh(this.geo[value], [side, top, top]);
+    const mesh = new THREE.Mesh(this.geo[value], [side, top, under]);
     mesh.castShadow = true;
     mesh.userData.coin = true;
     const at = this.spotFor(this.coins.length).add(this.tray.position);
@@ -251,7 +261,7 @@ export class MarketScene {
     for (const k of this.flying.filter(x => x.fly!.t >= 1)) {
       this.fx.emit({ at: k.fly!.to.clone(), count: 5, shape: 'spark', color: [0xffd36b, 0xffffff], speed: [0.5, 1.2], life: [0.3, 0.6], size: [0.05, 0.1] });
       this.scene.remove(k.mesh);
-      (k.mesh.material as THREE.Material[]).forEach((m, i) => { if (i < 2) m.dispose(); });
+      (k.mesh.material as THREE.Material[]).forEach(m => m.dispose());
     }
     this.flying = this.flying.filter(x => x.fly!.t < 1);
     for (const c of this.cust) {
@@ -279,7 +289,7 @@ export class MarketScene {
     cancelAnimationFrame(this.raf);
     for (const c of [...this.cust, ...this.gone]) c?.model.dispose();
     this.fx.dispose();
-    for (const k of [...this.coins, ...this.flying]) (k.mesh.material as THREE.Material[]).forEach((m, i) => { if (i < 2) m.dispose(); });
+    for (const k of [...this.coins, ...this.flying]) (k.mesh.material as THREE.Material[]).forEach(m => m.dispose());
     Object.values(this.geo).forEach(g => g.dispose());
     this.mats.forEach(m => m.dispose());
     this.tray.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry.dispose(); });

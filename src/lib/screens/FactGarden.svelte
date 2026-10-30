@@ -19,6 +19,7 @@
   import Critter from '../ui/Critter.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import MenuButton from '../ui/MenuButton.svelte';
+  import HelpButton from '../ui/HelpButton.svelte';
   import { mulberry32 } from '../engine/rng';
   import { AREA, AREAS, SKILL, skillsOf, splitKey } from '../math/skills/registry';
   import { makeAt, pitch, TARGET } from '../math/skills/ability';
@@ -109,10 +110,13 @@
   let viewEl: HTMLDivElement | undefined = $state();
   let bed = $state<number | null>(null);
   let narrow = $state(innerWidth < 861);
+  // the gardens' tabs wrap onto more rows when they don't all fit across: everything under them moves down
+  let tabsH = $state(44);
+  $effect(() => { void tabsH; if (scene) scene.view = viewOf(); });
   function viewOf() {
     const r = viewEl?.getBoundingClientRect();
     // frame the garden between the tabs along the top and the bed chips (and, on a phone, the key) along the bottom
-    return r ? { top: (r.top + 54) / innerHeight, bottom: (r.bottom - (narrow ? 104 : 64)) / innerHeight, left: r.left / innerWidth, right: r.right / innerWidth } : { top: 0.12, bottom: 0.9, left: 0, right: 0.75 };
+    return r ? { top: (r.top + tabsH + 14) / innerHeight, bottom: (r.bottom - (narrow ? 104 : 64)) / innerHeight, left: r.left / innerWidth, right: r.right / innerWidth } : { top: 0.12, bottom: 0.9, left: 0, right: 0.75 };
   }
   function onResize() { narrow = innerWidth < 861; if (scene) scene.view = viewOf(); }
   onMount(async () => {
@@ -357,23 +361,23 @@
       <span title="Sprouts"><img src={STAGE_PIC[1]} alt="" /><b>{counts[1]}</b><small>sprout</small></span>
     </div>
     <button class="helpbtn" onclick={() => { help = !help; sfx.pop(); }} aria-label="How the garden works">?</button>
-    <MenuButton size={36} />
+    <MenuButton size={narrow ? 28 : 36} /><HelpButton size={narrow ? 28 : 36} />
   </header>
 
   <div class="main">
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="view" bind:this={viewEl} onpointerdown={pdown} onpointermove={pmove} onpointerup={pup} onpointercancel={(e) => ptrs.delete(e.pointerId)} oncontextmenu={(e) => e.preventDefault()}>
-      <div class="tabs" role="tablist" aria-label="Which garden">
+    <div class="view" bind:this={viewEl} style:--tabs-h="{tabsH}px" onpointerdown={pdown} onpointermove={pmove} onpointerup={pup} onpointercancel={(e) => ptrs.delete(e.pointerId)} oncontextmenu={(e) => e.preventDefault()}>
+      <div class="tabs" role="tablist" aria-label="Which garden" bind:clientHeight={tabsH}>
         {#each STRANDS as st (st.op)}
           {@const n = stageCounts(m, GARDEN_BY_OP[st.op])[3]}
-          <button role="tab" aria-selected={!area && op === st.op} class:on={!area && op === st.op} style:--sc={st.color} onclick={() => setOp(st.op)}>
+          <button role="tab" aria-selected={!area && op === st.op} class:on={!area && op === st.op} style:--sc={st.color} title={st.name} aria-label={st.name} onclick={() => setOp(st.op)}>
             <img src="{base}{st.art}" alt="" /><span>{st.name}</span>{#if n}<em><img src={STAGE_PIC[3]} alt="" />{n}</em>{/if}
           </button>
         {/each}
         {#each AREA_PLOTS as a (a.id)}
           {@const n = keyCounts(keysOf(a.id))[3]}
-          <button role="tab" aria-selected={area === a.id} class:on={area === a.id} style:--sc={a.color} onclick={() => setArea(a.id)}>
+          <button role="tab" aria-selected={area === a.id} class:on={area === a.id} style:--sc={a.color} title={a.name} aria-label={a.name} onclick={() => setArea(a.id)}>
             <img src="{base}{a.art}" alt="" /><span>{a.name}</span>{#if n}<em><img src={STAGE_PIC[3]} alt="" />{n}</em>{/if}
           </button>
         {/each}
@@ -519,13 +523,13 @@
   .backview img { width: 32px; height: 32px; object-fit: contain; }
   .hint { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); margin: 0; pointer-events: none; font: 700 13px var(--font-body); color: #fff; background: rgba(30, 40, 20, .55); padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
   .view > :global(*) { cursor: default; }
-  .tabs { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: rgba(255, 255, 255, .9); box-shadow: 0 8px 22px -12px rgba(30, 40, 20, .5); white-space: nowrap; }
+  .tabs { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 20px); display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 6px; padding: 5px; border-radius: 24px; background: rgba(255, 255, 255, .9); box-shadow: 0 8px 22px -12px rgba(30, 40, 20, .5); white-space: nowrap; }
   .tabs button { display: flex; align-items: center; gap: 6px; border: 0; cursor: pointer; padding: 3px 12px 3px 3px; border-radius: 999px; background: transparent; font: 600 15px var(--font-ui); color: var(--ink2); }
   .tabs button img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px #fff; }
   .tabs button.on { background: var(--sc); color: #fff; }
   .tabs em { display: flex; align-items: center; gap: 1px; font: 800 12px var(--font-body); font-style: normal; background: #fff; color: #b02a68; border-radius: 999px; padding: 0 7px 0 2px; }
   .tabs em img { width: 18px; height: 18px; box-shadow: none; border-radius: 0; object-fit: contain; }
-  .say { position: absolute; left: 12px; top: 64px; display: flex; align-items: center; gap: 8px; max-width: min(380px, 60%); }
+  .say { position: absolute; left: 12px; top: calc(var(--tabs-h) + 20px); display: flex; align-items: center; gap: 8px; max-width: min(380px, 60%); }
   .say p { margin: 0; font: 600 15px/1.35 var(--font-body); color: var(--ink); background: rgba(255, 255, 255, .95); padding: 8px 12px; border-radius: 16px; box-shadow: 0 6px 18px -10px rgba(30, 40, 20, .5); }
   .loadpill { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 8px; background: #fff; padding: 6px 18px 6px 6px; border-radius: 999px; font: 600 18px var(--font-ui); color: var(--ink2); box-shadow: var(--shadow-sm); }
   .loadpill img { width: 40px; height: 40px; animation: bob 1s ease-in-out infinite; }
@@ -538,7 +542,7 @@
   .tag.open { pointer-events: auto; cursor: pointer; border: 0; display: flex; align-items: center; gap: 6px; }
   .tag.open small { font: 800 11px var(--font-body); color: #fff; background: var(--primary); border-radius: 999px; padding: 1px 7px; }
   .padme { grid-area: 2 / 2; display: grid; place-items: center; pointer-events: none; }
-  .key { position: absolute; right: 12px; top: 64px; display: flex; flex-direction: column; gap: 2px; background: rgba(255, 255, 255, .92); border-radius: 16px; padding: 6px 12px 6px 6px; box-shadow: 0 6px 18px -10px rgba(30, 40, 20, .5); font: 700 13px var(--font-body); color: var(--ink2); }
+  .key { position: absolute; right: 12px; top: calc(var(--tabs-h) + 20px); display: flex; flex-direction: column; gap: 2px; background: rgba(255, 255, 255, .92); border-radius: 16px; padding: 6px 12px 6px 6px; box-shadow: 0 6px 18px -10px rgba(30, 40, 20, .5); font: 700 13px var(--font-body); color: var(--ink2); }
   .key span { display: flex; align-items: center; gap: 6px; }
   .key img { width: 28px; height: 28px; object-fit: contain; }
 
@@ -629,6 +633,10 @@
 
   /* a phone: the garden fills the screen; the card and the how-to slide up from the bottom */
   .narrow .bar { padding: 6px 8px; gap: 6px; }
+  /* (a phone: the Home button keeps its picture, so the compass and Ideas and help fit beside the totals) */
+  .narrow .bar :global(.tile .lbl) { display: none; }
+  .narrow .bar :global(.tile) { padding: 4px; }
+  .narrow .bar :global(.menu), .narrow .bar :global(.help) { padding: 3px; border-width: 2px; }
   .narrow .bar h1 { font-size: 20px; }
   .narrow .tally { gap: 3px; }
   .narrow .tally span { padding: 0 7px 0 0; }
@@ -640,13 +648,13 @@
   .narrow .side { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 8px 8px; overflow: visible; pointer-events: none; z-index: 20; }
   .narrow .side > :global(*) { pointer-events: auto; }
   .narrow .detail, .narrow .sheet { max-height: 62vh; overflow-y: auto; box-shadow: 0 -6px 30px rgba(40, 28, 70, .25), 0 0 0 3px #ffd34d; }
-  .narrow .tabs { left: 8px; right: 8px; transform: none; overflow-x: auto; scrollbar-width: none; }
+  .narrow .tabs { left: 8px; right: 8px; width: auto; max-width: none; transform: none; gap: 3px 4px; }
   .narrow .tabs button { padding: 2px 9px 2px 2px; font-size: 12.5px; }
   .narrow .tabs button img { width: 26px; height: 26px; }
   .narrow .tabs button:not(.on) span { display: none; }
-  .narrow .say { top: 58px; left: 8px; max-width: 72%; }
+  .narrow .say { top: calc(var(--tabs-h) + 16px); left: 8px; max-width: 72%; }
   .narrow .say p { font-size: 13px; padding: 6px 10px; }
-  .narrow .pad { right: 6px; bottom: auto; top: 108px; width: 108px; height: 108px; grid-template-columns: repeat(3, 36px); grid-template-rows: repeat(3, 36px); }
+  .narrow .pad { right: 6px; bottom: auto; top: calc(var(--tabs-h) + 66px); width: 108px; height: 108px; grid-template-columns: repeat(3, 36px); grid-template-rows: repeat(3, 36px); }
   .narrow .mv { width: 36px; height: 36px; } .narrow .mv img { width: 24px; height: 24px; }
   .narrow .backview, .narrow .hint { bottom: 112px; }
   .narrow .backview { font-size: 14px; }

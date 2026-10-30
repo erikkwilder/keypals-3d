@@ -12,7 +12,7 @@
   import { TowerScene, type Landed } from '../../three/arcade/tower';
   import { answerOf, opSign, type Fact } from '../../math/facts';
   import { factText } from '../arcade';
-  import { sfx, unlockAudio } from '../../audio/sound';
+  import { preloadSfx, sfx, unlockAudio } from '../../audio/sound';
   import NumPad from '../../math/ui/NumPad.svelte';
   import { mult, type GameProps } from './hud';
 
@@ -94,7 +94,7 @@
       scene.react('oops');
       hud.score(0, at, 'Missed the top!');
     } else {
-      sfx.thunk(r.height);
+      sfx.blockLand(r.height);
       if (r.perfect) { combo++; hud.combo(combo); }
       const base = r.perfect ? 250 : Math.max(40, Math.round(140 - Math.abs(r.offset) * 160));
       const pts = Math.round(base * (r.perfect ? mult(combo + 2) : 1) * (quick ? 1.2 : 1));
@@ -149,6 +149,8 @@
   $effect(() => { void compact; requestAnimationFrame(updateView); });
 
   onMount(() => {
+    // the wooden landing "tok" is a recording: fetch it now so the first block has it
+    preloadSfx('block-1', 'block-2');
     TowerScene.create({ buddy }).then(sc => {
       scene = sc;
       sc.fastMs = fastMs;

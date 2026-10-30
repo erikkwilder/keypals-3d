@@ -7,6 +7,7 @@ import type { FriendId } from '../art/cast';
 import type { Dress } from '../adventure/gear';
 import { makeOutfit } from './outfits3d';
 import { wearKit } from './gear3d';
+import { applyLook } from './looks';
 
 let fromSave: ((buddy: FriendId) => Dress | null) | null = null;
 /** Where a buddy's look comes from when a scene doesn't bring one (the app sets it once). */
@@ -14,8 +15,10 @@ export function setDressSource(f: (buddy: FriendId) => Dress | null) { fromSave 
 /** The look the save has for a buddy (null before there's a player). */
 export const savedDress = (buddy: FriendId) => fromSave?.(buddy) ?? null;
 
-/** Put everything on: the hat (with its nudge) and every other slot. `d` null: nothing at all. */
+/** Put everything on: the hat (with its nudge) and every other slot, and the Look from Settings
+ *  (looks.ts: before anything goes on, so only the buddy's own body takes it). `d` null: nothing at all. */
 export async function dressUp(c: Character, d: Dress | null | undefined = savedDress(c.id)) {
+  applyLook(c);
   const look = d ?? { hat: 'none', on: {}, nudge: {} };
   c.nudgeHat(look.nudge[look.hat] ?? null);
   await Promise.all([c.wear(look.hat || 'none', makeOutfit), wearKit(c, look.on, look.nudge)]);

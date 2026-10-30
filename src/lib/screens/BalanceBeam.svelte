@@ -6,7 +6,10 @@
   // three stars, a best score and today's challenge. The rules are in math/algebra/beam.ts.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { AREA } from '../math/skills/registry';
+  import { DAILY_SHELLS } from '../engine/settle';
+  import { clearOldLine } from '../arcade/feedback';
+  import { exitsOf } from '../arcade/exits';
+  import ExitButtons from '../arcade/ui/ExitButtons.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { BalanceScene } from '../three/balanceScene';
@@ -76,6 +79,8 @@
   function drop() {
     if (phase !== 'play') return;
     z = next(); n++;
+    // the last puzzle's line goes (the first keeps the how-to tip)
+    if (n > 1) clearOldLine(() => msg, () => (msg = null));
     typed = ''; bad = false; solved = false; tries = 0; jolt = 0; tip = 0;
     dir = dirRng() < 0.5 ? -1 : 1;
     zAt = performance.now() + 500;
@@ -155,15 +160,13 @@
     musicEnergy(0.5);
     scene?.clear();
   }
-  /** opened from the Arcade, Back goes there; otherwise to the area's map */
-  const fromArcade = game.gameFrom === 'arcade';
-  game.gameFrom = 'map';
-  const backTo = fromArcade ? 'the Arcade' : AREA.algebra.name;
+  /** where it was opened from: Back goes there, and its cards offer the Arcade too */
+  const exits = exitsOf('algebra');
+  const backTo = exits.backTo;
   function quit() {
     sfx.click();
     if (phase === 'play') { phase = 'menu'; z = null; msg = null; scene?.clear(); return; }
-    if (fromArcade) { game.go('arcade'); return; }
-    game.mathArea = 'algebra'; game.mathOp = null; game.setHome('math'); game.go('map');
+    exits.back();
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -232,10 +235,10 @@
         </ol>
         <div class="bests">
           <div><small>Best</small><b>{rec.best}</b><Stars n={rec.stars} size={20} /></div>
-          <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same puzzles all day</span></div>
+          <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same puzzles all day</span><span class="tiny bonus">Beat {STAR_AT[1]} for {DAILY_SHELLS} bonus shells</span></div>
         </div>
         <div class="acts">
-          <button class="btn" onclick={quit}>Back</button>
+          <ExitButtons {exits} />
           <button class="btn" onclick={() => start(true)}><Icon name="target" size={20} /> Today's challenge</button>
           <button class="btn btn-primary big" onclick={() => start(false)}>Play <span class="kbd">enter</span></button>
         </div>
@@ -259,7 +262,7 @@
         </div>
         <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <button class="btn" onclick={quit}>Back to {backTo}</button>
+          <ExitButtons {exits} />
           {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
           <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
         </div>
@@ -341,6 +344,7 @@
   .bests small { font: 800 11px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .bests b { font: 600 26px var(--font-ui); color: var(--ink); }
   .tiny { font: 600 12px var(--font-body); color: var(--muted); }
+  .tiny.bonus { color: #a86a00; font-weight: 700; }
   .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
   .big { font-size: 22px; padding: 12px 26px; }
   .sub { margin: -6px 0 0; font: 800 12px var(--font-body); color: #b7791f; text-transform: uppercase; letter-spacing: .06em; }

@@ -10,7 +10,7 @@
 // lesson does), and the round pays out like any practice; it doesn't open lessons.
 import { mulberry32, type Rng } from '../../engine/rng';
 import { buddyPal, dayKey, type Profile } from '../../engine/profile';
-import { settlePractice, treasureFor, type Settled } from '../../engine/settle';
+import { dailyBonus, settlePractice, treasureFor, type Settled } from '../../engine/settle';
 import { mathOf, type ArcadeRecord } from '../progress';
 import { noteSkillAnswers } from '../skills/progress';
 import { pitchRung, TARGET, thetaOf } from '../skills/ability';
@@ -32,7 +32,28 @@ export type Order = {
   patienceMs: number;
   /** how hard it was pitched (1..6; 3 when there's no ability to go by) */
   rung: number;
+  /** what kind of pizza it is (just for fun: every kind cuts the same) */
+  pizza?: PizzaKind;
 };
+
+/** The kinds of pizza the Glimmers order: the usual ones, and now and then a funny one. Each is a painted
+ *  top in public/math/pizza/ (pepperoni is top.webp). */
+export type PizzaKind = 'pepperoni' | 'mushroom' | 'veggie' | 'pineapple' | 'cookie' | 'sprinkle' | 'fishjelly';
+export const PIZZAS: Record<PizzaKind, { name: string; art: string; funny?: boolean }> = {
+  pepperoni: { name: 'Pepperoni', art: 'math/pizza/top.webp' },
+  mushroom: { name: 'Mushroom', art: 'math/pizza/top-mushroom.webp' },
+  veggie: { name: 'Veggie', art: 'math/pizza/top-veggie.webp' },
+  pineapple: { name: 'Pineapple', art: 'math/pizza/top-pineapple.webp' },
+  cookie: { name: 'Cookie pizza!', art: 'math/pizza/top-cookie.webp', funny: true },
+  sprinkle: { name: 'Rainbow sprinkles!', art: 'math/pizza/top-sprinkle.webp', funny: true },
+  fishjelly: { name: 'Fish and jelly!', art: 'math/pizza/top-fishjelly.webp', funny: true },
+};
+export const PIZZA_KINDS = Object.keys(PIZZAS) as PizzaKind[];
+/** The next pizza: never the same kind twice in a row, a funny one about one time in four. */
+export function pickPizza(rng: Rng, last: PizzaKind | null): PizzaKind {
+  const plain = PIZZA_KINDS.filter(k => !PIZZAS[k].funny && k !== last), funny = PIZZA_KINDS.filter(k => PIZZAS[k].funny && k !== last);
+  return pick(rng, rng() < 0.27 ? funny : plain);
+}
 
 export const GAME_ID = 'pizza-rush';
 export const ROUND_MS = 120_000;
@@ -129,11 +150,12 @@ export function dailySeed(at: number): number {
   for (const c of `pizza-${dayKey(at)}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
   return h >>> 0;
 }
-/** A round's orders come from one seed (the daily challenge's or a random one). */
+/** A round's orders come from one seed (the daily challenge's or a random one); the kinds of pizza
+ *  come from dice of their own, so the orders are the same as ever. */
 export function orderMaker(seed: number, kinds: readonly OrderKind[], levels?: Partial<Record<OrderKind, number>>) {
-  const rng = mulberry32(seed);
-  let i = 0;
-  return () => makeOrder(rng, i++, kinds, levels);
+  const rng = mulberry32(seed), looks = mulberry32(seed ^ 0x5bd1e995);
+  let i = 0, last: PizzaKind | null = null;
+  return (): Order => { const pizza = (last = pickPizza(looks, last)); return { ...makeOrder(rng, i++, kinds, levels), pizza }; };
 }
 
 export const rushOf = (p: Profile): ArcadeRecord => mathOf(p).arcade?.[GAME_ID] ?? { best: 0, stars: 0, plays: 0 };
@@ -158,10 +180,11 @@ export function applyRush(p0: Profile, run: RushRun): RushOutcome {
   const newBest = run.score > rec.best;
   rec.best = Math.max(rec.best, run.score); rec.stars = Math.max(rec.stars, stars); rec.plays++;
   rec.bestCombo = Math.max(rec.bestCombo ?? 0, run.bestCombo);
-  let newDaily = false;
+  let newDaily = false, dailyBefore = 0;
   if (run.daily) {
     const k = dayKey(run.at);
     if (rec.daily?.key !== k) rec.daily = { key: k, best: 0 };
+    dailyBefore = rec.daily.best;
     newDaily = run.score > rec.daily.best;
     rec.daily.best = Math.max(rec.daily.best, run.score);
   }
@@ -170,5 +193,7 @@ export function applyRush(p0: Profile, run: RushRun): RushOutcome {
   if (stars === 3) pal.stars3++;
   // right answers warm the eggs like a trip's (a fraction is worth a couple of facts)
   const done = settlePractice(p, { at: run.at, ms: run.ms, finished: true, stars, medals: stars === 3 ? ['three'] : [], right: Math.round(run.served * 2.5), xp: () => Math.round((25 + stars * 12 + Math.min(12, run.served) * 2) * (p.settings.grown ? 0.8 : 1)) , treasure: treasureFor(run.score, STAR_AT[2]) });
-  return { ...done, profile: p, stars, newBest, newDaily, best: rec.best };
+  // today's challenge: the same bonus shells as the Arcade's for beating its goal, once a day
+  const bonus = dailyBonus(p, run.daily, dailyBefore, run.score, STAR_AT[1]);
+  return { ...done, ...bonus, profile: p, stars, newBest, newDaily, best: rec.best };
 }

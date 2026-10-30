@@ -22,7 +22,7 @@
   import { trickOf } from '../math/course';
   import { BUDDY_ROLE, ELEMENT, EVOLVE_BOOST, EVOLVED, GEAR, GLIMMER, RARITY, ROLE, glimmerName, rarityRank, type Element, type GlimmerId } from '../adventure/glimmers';
   import { canEvolve } from '../adventure/evolve';
-  import { newBattle, play, block as doBlock, finale as doFinale, swap as doSwap, openFact, sparkFor, hitFor, useGlow, glowLeft, FINALE_AT, type Battle, type BEvent, type Card, type Foe } from '../adventure/battle';
+  import { newBattle, play, block as doBlock, finale as doFinale, swap as doSwap, openFact, sparkFor, hitFor, useGlow, glowLeft, signedBlock, typePower, FINALE_AT, type Battle, type BEvent, type Card, type Foe } from '../adventure/battle';
   import { advOf, advView, applyBattle, foeFor, ISLAND, markSeen, mathPool, NODE, teamOf, typingPool, type BattleOutcome } from '../adventure/state';
   import { learnedTrick } from '../math/learn';
   import { ITEM, SLOT_NAME, SLOTS, battleWornOf, kitOf, startPerks } from '../adventure/gear';
@@ -93,7 +93,7 @@
   let blockAt = 0; let blockLeft = $state(1); let blockTimer = 0;
 
   // floating numbers and messages
-  type Float = { id: number; x: number; y: number; text: string; kind: string; img?: string };
+  type Float = { id: number; x: number; y: number; text: string; kind: string; img?: string; sub?: string };
   let floats = $state<Float[]>([]); let fid = 0;
   let toast = $state<{ text: string; kind: string; key: number } | null>(null);
   let bigBanner = $state<{ text: string; sub?: string; kind: string; key: number } | null>(null);
@@ -169,14 +169,17 @@
     spark.target = b.spark; sparkLag.target = b.spark; grump.target = b.foe.grump;
     scene?.setGrump(b.foe.grump / b.foe.max);
   }
-  function float(which: 'buddy' | 'foe' | 'team0' | 'team1' | 'shield', text: string, kind: string, img?: string) {
+  function float(which: 'buddy' | 'foe' | 'team0' | 'team1' | 'shield', text: string, kind: string, img?: string, sub?: string) {
     const pos = scene?.screenOf(which, 0.2) ?? { x: which === 'buddy' ? 0.3 : 0.7, y: 0.3 };
     // a helper's badge stays on screen even when its Glimmer stands at the very edge
     const edge = Math.min(0.4, 105 / Math.max(1, innerWidth));
     const x = kind === 'helper' ? Math.min(1 - edge, Math.max(edge, pos.x)) : pos.x + (Math.random() - 0.5) * 0.03;
     // badges that come together (a Glimmer and a piece of gear) stack instead of covering each other
     const stack = kind === 'helper' ? floats.filter(q => q.kind === 'helper').length : 0;
-    const f = { id: fid++, x, y: kind === 'helper' ? Math.max(0.2, pos.y) + stack * 0.075 : pos.y, text, kind, img };
+    // the Grumble's numbers start a little under its grumpy bar, so the bar never hides them (or a slips note)
+    const bar = which === 'foe' && kind !== 'helper' ? document.querySelector('.bar.grump')?.getBoundingClientRect() : undefined;
+    const top = bar ? (bar.bottom + 70) / Math.max(1, innerHeight) : 0;
+    const f = { id: fid++, x, y: kind === 'helper' ? Math.max(0.2, pos.y) + stack * 0.075 : Math.max(top, kind === 'slips' ? pos.y + 0.06 : pos.y), text, kind, img, sub };
     floats = [...floats, f];
     setTimeout(() => (floats = floats.filter(x => x.id !== f.id)), kind === 'helper' ? 2200 : kind === 'blocked' ? 1400 : 1500);
   }
@@ -203,7 +206,12 @@
   function back() { if (ui === 'answer') { sel = null; ui = 'pick'; } }
   function choose(n: number) { if (!sel?.open) return; choice = n; typed = ''; shownAt = performance.now(); sfx.pop(); }
   function digit(d: string) {
-    if (ui === 'block') { blockTyped += d; const want = blockAnswer(); if (want !== null && blockTyped.length >= String(want).length) submitBlock(); return; }
+    if (ui === 'block') {
+      // a negative numbers question: the minus goes first, and Check sends it (no giving a positive answer away)
+      if (blkSigned) { if (d === '-' ? blockTyped !== '' : blockTyped.replace('-', '').length >= 3) return; blockTyped += d; sfx.click(); return; }
+      if (d === '-') return;
+      blockTyped += d; const want = blockAnswer(); if (want !== null && blockTyped.length >= String(want).length) submitBlock(); return;
+    }
     if (ui !== 'answer' || !sel || subject !== 'math' || sel.item) return;
     if (sel.open && choice === null) { const n = Number(d); if (n <= sel.open.max) choose(n === 0 && sel.open.op === 'x' ? 10 : n); return; }
     typed += d; sfx.click();
@@ -211,6 +219,11 @@
   }
   function backspace() { if (ui === 'block') blockTyped = blockTyped.slice(0, -1); else typed = typed.slice(0, -1); }
   let blockTyped = $state('');
+  /** the block box has its minus key and Check (a negative numbers question) */
+  const blkSigned = $derived(signedBlock(blk?.item));
+  function checkBlock() { if (ui === 'block' && blkSigned && blockTyped && blockTyped !== '-') submitBlock(); }
+  /** typing: the power the word has left after its slips (the little bar under it) */
+  const wordPower = $derived(sel?.word ? typePower(sel.word.length, wordErr) : 1);
   /** the number that blocks: the fact's answer, or the area question's (null: a word to type) */
   const blockAnswer = () => (blk?.item?.answer.kind === 'number' ? blk.item.answer.value : blk?.fact ? answerOf(blk.fact) : null);
 
@@ -224,7 +237,7 @@
     holdAnswer(eqEl, { text: typed, ok: right });
     const ev = subject === 'math'
       ? play(b, c.id, { ok: right, value: Number(typed), thinkMs: think, fact: f ?? undefined })
-      : play(b, c.id, { ok: true, value: Math.max(1, (c.word?.length ?? 1) - wordErr), thinkMs: think });
+      : play(b, c.id, { ok: true, value: c.word?.length ?? 1, slips: wordErr, thinkMs: think });
     if (ev.length === 1 && ev[0].k === 'retry') { letGo(); sfx.miss(); say(`${GEAR[outfit]?.name ?? 'Second Chance'}: have another go!`, 'good'); typed = ''; wordPos = 0; wordErr = 0; ui = 'answer'; shakeKey++; return; }
     sel = null; typed = '';
     await run(ev);
@@ -252,6 +265,8 @@
       if (ui === 'answer' && sel?.item) { if (e.key === 'Escape') back(); return; }
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
       else if (e.key === 'Backspace') { e.preventDefault(); backspace(); }
+      else if (ui === 'block' && blkSigned && (e.key === '-' || e.key === '−')) { e.preventDefault(); digit('-'); }
+      else if (ui === 'block' && blkSigned && e.key === 'Enter') { e.preventDefault(); checkBlock(); }
       else if (e.key === 'Escape') back();
       else if ((e.key === 'f' || e.key === 'F') && finaleN >= FINALE_AT && ui === 'pick') doTheFinale();
       else if (ui === 'pick' && ['1', '2', '3', '4'].includes(e.key)) { /* digits handled above */ }
@@ -298,13 +313,17 @@
       if (disposed) return;
       if (e.k === 'cast') {
         if (e.ok) sfx.cast(e.card.element); else sfx.miss();
-        await scene?.cast(e.card.element, e.value, { perfect: e.perfect, super: e.super, ok: e.ok, big: e.value / Math.max(1, b.foe.max) * 2.2 });
+        // typing: slips make the hit weaker (smaller, dimmer, a smaller number) and say how many
+        const weak = e.ok && (e.power ?? 1) < 1;
+        await scene?.cast(e.card.element, e.value, { perfect: e.perfect, super: e.super, ok: e.ok, big: e.value / Math.max(1, b.foe.max) * 2.2, power: e.power });
         if (e.ok) {
-          sfx.hit(Math.min(1, e.value / Math.max(1, b.foe.max) * 3));
-          float('foe', `−${e.value}`, e.card.element);
+          sfx.hit(Math.min(1, e.value / Math.max(1, b.foe.max) * 3 * (e.power ?? 1)));
+          // (the slips note rides along under the number)
+          float('foe', `−${e.value}`, weak ? `${e.card.element} weak` : e.card.element, undefined, weak ? `${e.slips} slip${e.slips === 1 ? '' : 's'}` : undefined);
           if (e.perfect) { sfx.perfect(); bigBanner = { text: 'Perfect Cheer!', sub: `Exactly ${e.value}!`, kind: 'perfect', key: Date.now() }; burst++; }
           else if (e.super) say(`⚡ Strong! ${ELEMENT[e.card.element].name} beats ${ELEMENT[b.foe.element].name}.`, 'super');
-        } else { say(e.card.item ? `Not quite: it's ${answerText(e.card.item)}` : subject === 'math' && e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
+        } else if (e.slips) { float('foe', `${e.slips} slips`, 'slips'); say('Too many slips: no cheer this time. Slow and careful wins!', 'miss'); }
+        else { say(e.card.item ? `Not quite: it's ${answerText(e.card.item)}` : subject === 'math' && e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
         sync();
       } else if (e.k === 'extra') {
         const slot = e.id ? team.findIndex(m => m.id === e.id) : -1;
@@ -466,7 +485,7 @@
 
   <div class="stage" bind:this={stageEl}></div>
 
-  {#each floats as f (f.id)}<div class="float {f.kind}" style:left="{f.x * 100}%" style:top="{f.y * 100}%">{#if f.img}<img src={f.img} alt="" />{/if}{f.text}</div>{/each}
+  {#each floats as f (f.id)}<div class="float {f.kind}" style:left="{f.x * 100}%" style:top="{f.y * 100}%">{#if f.img}<img src={f.img} alt="" />{/if}{f.text}{#if f.sub}<small class="fsub">{f.sub}</small>{/if}</div>{/each}
   {#if toast}{#key toast.key}<div class="toast {toast.kind}">{toast.text}</div>{/key}{/if}
   {#if bigBanner}{#key bigBanner.key}<div class="big {bigBanner.kind}"><b>{bigBanner.text}</b>{#if bigBanner.sub}<small>{bigBanner.sub}</small>{/if}</div>{/key}{/if}
 
@@ -514,7 +533,8 @@
           <NumPad ondigit={digit} onback={backspace} compact={narrow} />
         {:else}
           {#key shakeKey}<div class="word" class:shake={shakeKey > 0} bind:this={eqEl}>{#each sel.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/key}
-          <p class="ask">Type it! {wordErr ? `${wordErr} slip${wordErr === 1 ? '' : 's'}` : 'No slips so far'}</p>
+          <!-- every slip takes some power off the cheer: the bar shows what's left -->
+          <p class="ask typeask">Type it!<span class="power" class:low={wordPower < 0.5} aria-label="Power left"><i style:width="{wordPower * 100}%"></i></span>{wordErr ? `${wordErr} slip${wordErr === 1 ? '' : 's'}` : 'Full power'}</p>
         {/if}
         <button class="backbtn" onclick={back}>Pick a different card</button>
       </div>
@@ -534,7 +554,13 @@
           {:else}<div class="word blockeq" bind:this={blockEqEl}>{#each blk.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/if}
           <p class="stake"><img src="{base}game/icon-spark.webp" alt="" />{blk.bold ? 'It\'s getting stronger! ' : ''}Miss it and lose {blk.hit} energy</p>
         </div>
-        {#if subject === 'math'}<NumPad ondigit={digit} onback={backspace} compact={narrow} />{/if}
+        {#if subject === 'math' && blkSigned}
+          <!-- below zero: the minus key, and Check to send it -->
+          <div class="signpad">
+            <NumPad ondigit={digit} onback={backspace} compact={narrow} extra={['-']} />
+            <button class="okbtn" disabled={!blockTyped || blockTyped === '-'} onpointerdown={(e) => { e.preventDefault(); checkBlock(); }} tabindex="-1"><Icon name="check" size={28} /><span>Check</span></button>
+          </div>
+        {:else if subject === 'math'}<NumPad ondigit={digit} onback={backspace} compact={narrow} />{/if}
       </div>
     {/if}
   </div>
@@ -742,6 +768,9 @@
   .float { position: absolute; transform: translate(-50%, -50%); font: 600 34px var(--font-ui); color: #fff; z-index: 8; pointer-events: none; animation: rise 1.5s cubic-bezier(.2, .8, .3, 1) forwards; -webkit-text-stroke: 1px rgba(40, 20, 80, .25); text-shadow: 0 3px 0 rgba(40, 20, 80, .35), 0 0 18px currentColor; white-space: nowrap; }
   .float.sun { color: #ffbf2e; } .float.tide { color: #3fa2ff; } .float.frost { color: #7fd6ff; } .float.leaf { color: #4fd17a; } .float.stone { color: #d6a46a; }
   .float.extra { font-size: 20px; color: #ffd166; }
+  .float.weak { font-size: 26px; text-align: center; }
+  .float .fsub, .float.slips { display: block; width: max-content; margin: 4px auto 0; font: 700 16px/1.2 var(--font-ui); color: #b0406a; -webkit-text-stroke: 0; text-shadow: none; background: #fff; padding: 2px 10px; border-radius: 999px; box-shadow: 0 0 0 2px #ffb3c9, 0 6px 14px -8px rgba(40, 20, 80, .5); }
+  .float.slips { margin: 0; padding: 3px 12px; }
   .float.helper { display: flex; align-items: center; gap: 8px; font: 600 18px var(--font-ui); color: var(--ink); -webkit-text-stroke: 0; text-shadow: none; background: #fff; padding: 4px 14px 4px 4px; border-radius: 999px; box-shadow: 0 0 0 3px #ffd36b, 0 10px 24px -10px rgba(40, 20, 80, .6); animation: badge 2.2s cubic-bezier(.2, .8, .3, 1) forwards; }
   .float.helper img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: center 35%; }
   @keyframes badge { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 12% { opacity: 1; transform: translate(-50%, -110%) scale(1.05); } 20% { transform: translate(-50%, -110%) scale(1); } 85% { opacity: 1; transform: translate(-50%, -125%); } 100% { opacity: 0; transform: translate(-50%, -140%); } } .float.heal { font-size: 22px; color: #5be38d; } .float.hurt { color: #ff5f6d; font-size: 32px; } .float.block { color: #7fe0ff; font-size: 26px; }
@@ -811,6 +840,13 @@
   @keyframes shake { 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
   .ask { margin: 0; font: 600 20px var(--font-ui); color: var(--ink2); text-align: center; }
   .ask b { color: var(--primary); }
+  .typeask { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .power { width: 120px; height: 12px; border-radius: 999px; background: #ece6f6; overflow: hidden; box-shadow: inset 0 0 0 2px #fff; }
+  .power i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #7a5cf5, #b79cff); transition: width .25s ease-out; }
+  .power.low i { background: linear-gradient(90deg, #ff7a9a, #ffb3c9); }
+  .signpad { flex-basis: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .okbtn { display: flex; align-items: center; gap: 6px; border: 3px solid #3fbf7a; border-radius: 16px; padding: 8px 18px 8px 12px; background: linear-gradient(#7ee0a8, #3fbf7a); color: #fff; font: 600 20px var(--font-ui); box-shadow: 0 4px 0 #2f9a60; cursor: pointer; }
+  .okbtn:disabled { filter: grayscale(.8); opacity: .6; cursor: default; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
   .chips button { width: 58px; height: 58px; border-radius: 18px; border: 3px solid #ece6f6; background: linear-gradient(#fff, #f1ecfb); box-shadow: 0 5px 0 #d9cff0; font: 600 28px var(--font-ui); color: var(--ink); cursor: pointer; }
   .chips button:active { transform: translateY(4px); box-shadow: 0 1px 0 #d9cff0; }

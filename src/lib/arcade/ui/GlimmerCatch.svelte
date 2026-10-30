@@ -12,6 +12,8 @@
   import { CatchScene, type Drop } from '../../three/arcade/catch';
   import { answerOf, factId, type Fact, type Op } from '../../math/facts';
   import { factText } from '../arcade';
+  import { placeDrop } from '../catchPlan';
+  import { mulberry32 } from '../../engine/rng';
   import { sfx, unlockAudio } from '../../audio/sound';
   import { mult, type GameProps } from './hud';
 
@@ -57,20 +59,31 @@
     }
     wrongs = [...near, ...made];
     target = t; caught = 0; targetAge = 0; sinceRight = 0; flip++;
+    next = null;
   }
-  function spawn() {
-    if (!scene) return;
-    // right about two in five, and never three wrong in a row
-    const right = sinceRight >= 2 || rng() < 0.42;
-    const f = right ? rights[Math.floor(rng() * rights.length)] : wrongs[Math.floor(rng() * wrongs.length)];
-    if (!f) return;
-    const gold = right && rng() < 0.08;
-    let x = rng() * 1.8 - 0.9;
-    if (Math.abs(x - lastX) < 0.4) x = x > 0 ? x - 0.7 : x + 0.7;
-    lastX = x;
+  /** Let a Glimmer go. Where it comes down keeps play fair (arcade/catchPlan.ts): there's always a way to
+   *  every right one that stays clear of the wrong ones, and no wrong one comes down across the straight
+   *  run to a right one. When there's no such spot just now it waits a moment (false). */
+  function spawn(): boolean {
+    if (!scene) return true;
+    // right about two in five, and never three wrong in a row (one that's waiting for a spot keeps its sum)
+    if (!next) {
+      const right = sinceRight >= 2 || rng() < 0.42;
+      const f = right ? rights[Math.floor(rng() * rights.length)] : wrongs[Math.floor(rng() * wrongs.length)];
+      if (!f) return true;
+      next = { f, right, gold: right && rng() < 0.08 };
+    }
+    const { f, right, gold } = next;
     const secs = 5.4 - 1.9 * progress + (gold ? 0.6 : 0);
+    // the spots come from their own dice, so today's challenge still brings everyone the same sums
+    const x = placeDrop(spot, scene.fallers(), scene.x, scene.field, { right, secs }, lastX);
+    if (x === null) return false;
+    lastX = x; next = null;
     if (scene.drop({ f, right, gold, x, secs })) sinceRight = right ? 0 : sinceRight + 1;
+    return true;
   }
+  let next: { f: Fact; right: boolean; gold: boolean } | null = null;
+  const spot = mulberry32(Math.floor(rng() * 2 ** 31));
 
   function onCatch(d: Drop, at: { x: number; y: number }, age: number) {
     if (!scene) return;
@@ -100,7 +113,7 @@
     if (!scene || phase !== 'play') return;
     targetAge += dt;
     spawnIn -= dt;
-    if (spawnIn <= 0) { spawn(); spawnIn = 1.35 - 0.5 * progress + rng() * 0.3; }
+    if (spawnIn <= 0) spawnIn = spawn() ? 1.35 - 0.5 * progress + rng() * 0.3 : 0.25;
     // a number nobody can finish changes after a while
     if (targetAge > 16 && caught < PER) { scene.clear(); newTarget(); }
   }

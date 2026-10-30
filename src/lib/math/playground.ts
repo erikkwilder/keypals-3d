@@ -52,11 +52,11 @@ export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: str
     { n: 5, title: 'Two things', hint: 'Add the two prices, then count up to $1.' },
   ] },
   { id: 'lab', name: 'Smoothie Lab', blurb: 'Mix fruit in the jug until it is the same colour as the glass. The same mix makes the same colour. No clock, no rush.', color: '#ef5f8a', levels: [
-    { n: 1, title: 'One to one', hint: 'The same number of each fruit.' },
-    { n: 2, title: 'One to more', hint: '1 : 2 is one of these for every two of those.' },
-    { n: 3, title: 'Match the colour', hint: 'No card: mix, look, and add a little more.' },
+    { n: 1, title: 'One to one', hint: 'The same number of each fruit. Some glasses want a full jug: 3 and 3, 4 and 4.' },
+    { n: 2, title: 'One to more', hint: '1 : 2 is one of these for every two of those, so 2 : 4 and 3 : 6 are the same mix.' },
+    { n: 3, title: 'Match the colour', hint: 'No card: move your jug onto the glass on the colour bar.' },
     { n: 4, title: 'A bigger jug', hint: '6 strawberries for a 2 : 3 mix? 9 bananas.' },
-    { n: 5, title: 'Percent smoothies', hint: 'A percent of the fruit is the first one: 25% is a quarter, 50% is half.' },
+    { n: 5, title: 'Percent smoothies', hint: '25% is a quarter of the fruit: in a jug of 8, that is 2.' },
   ] },
   { id: 'sketch', name: 'Star Sketch', blurb: 'Plot the points on the map and the stars join into a picture. No clock, no rush.', color: '#2c5275', levels: [
     { n: 1, title: 'Little pictures', hint: 'Across first, then up: (2, 4) is 2 across and 4 up.' },

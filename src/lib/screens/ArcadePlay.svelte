@@ -21,6 +21,7 @@
   import GlimmerCatch from '../arcade/ui/GlimmerCatch.svelte';
   import TowerStack from '../arcade/ui/TowerStack.svelte';
   import ArcadeResults from '../arcade/ui/ArcadeResults.svelte';
+  import { exitsOf } from '../arcade/exits';
   import MusicButton from '../ui/MusicButton.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import Stars from '../ui/Stars.svelte';
@@ -34,6 +35,8 @@
   const fastMs = mathOf(p0).fastMs ?? FAST_MS;
   const rec = recordOf(p0, id);
   const again = lastDone === id;
+  /** where the round was opened from: the pause card and the results offer the Arcade, and that page too */
+  const exits = exitsOf();
 
   let phase = $state<Phase>('loading');
   let score = $state(0);
@@ -46,7 +49,7 @@
   let held = 0; // seconds the clock waits (a game's how-to)
   let timePop = $state<{ n: number; text: string } | null>(null);
   let count = $state(3);
-  let pops = $state<{ n: number; text: string; label: string; x: number; y: number; big: boolean }[]>([]);
+  let pops = $state<{ n: number; text: string; label: string; x: number; y: number; big: boolean; side: number }[]>([]);
   let popN = 0;
   let outcome = $state<ArcadeOutcome | null>(null);
   let w = $state(1280);
@@ -64,8 +67,10 @@
       score += points;
       if (at) {
         const n = ++popN;
-        pops = [...pops.slice(-5), { n, text: points ? `+${points}` : '', label, x: at.x, y: at.y, big: points >= 300 }];
-        later(1300, () => (pops = pops.filter(p => p.n !== n)));
+        // a side pop (Sky Slalom) is small and quick, and only one shows at a time
+        const side = at.side ?? 0;
+        pops = [...pops.slice(-5).filter(p => !(side && p.side)), { n, text: points ? `+${points}` : '', label, x: at.x, y: at.y, big: points >= 300, side }];
+        later(side ? 950 : 1300, () => (pops = pops.filter(p => p.n !== n)));
       }
       if (points >= 50) scoreBump++;
     },
@@ -108,7 +113,8 @@
   }
   function pause() { if (phase === 'play') phase = 'paused'; }
   function resume() { if (phase === 'paused') { phase = 'play'; last = 0; } }
-  function leave() { timers.forEach(clearTimeout); game.go('arcade'); }
+  /** out of the round: to the Arcade, or back to the page it was opened from */
+  function leave(to: () => void = exits.back) { timers.forEach(clearTimeout); to(); }
 
   function frame(t: number) {
     raf = requestAnimationFrame(frame);
@@ -169,7 +175,7 @@
   {/if}
 
   {#each pops as p (p.n)}
-    <div class="pop" class:big={p.big} style:left="{p.x * 100}%" style:top="{p.y * 100}%">
+    <div class="pop" class:big={p.big && !p.side} class:side={p.side} style:--dx="{p.side * 46}px" style:left="{p.x * 100}%" style:top="{p.y * 100}%">
       {#if p.text}<b>{p.text}</b>{/if}{#if p.label}<span>{p.label}</span>{/if}
     </div>
   {/each}
@@ -192,7 +198,7 @@
           {#if daily}<div class="dailyline"><img src="{import.meta.env.BASE_URL}icons/daily.webp" alt="" />Beat <b>{fmt(dailyGoal(id))}</b> today for <b>{DAILY_SHELLS}</b> bonus shells. Everyone gets the same course today!</div>{/if}
           <div class="best muted">{rec.plays ? `Your best: ${fmt(rec.best)}` : 'First go! Every answer counts as practice.'} · {G.maxSecs ? `${Math.round(G.secs)} seconds to start: right answers add time` : `${Math.round(G.secs)} seconds`}</div>
           <div class="tiles">
-            <NavTile size="md" tone="sky" kind="close" label="Back" onclick={leave} />
+            <NavTile size="md" tone="sky" kind="close" label="Back" onclick={() => leave()} />
             <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={begin} />
           </div>
         </div>
@@ -208,7 +214,10 @@
         <div class="tiles">
           <NavTile size="lg" tone="mint" kind="play" label="Keep going" hotkey="esc" onclick={resume} />
           <NavTile size="lg" tone="butter" kind="redo" label="Start over" onclick={() => game.playArcade(id, daily)} />
-          <NavTile size="lg" tone="sky" kind="close" label="Arcade" onclick={leave} />
+          <NavTile size="lg" tone="lilac" label="Back to the Arcade" onclick={() => leave(exits.toArcade)}>
+            {#snippet art()}<img class="tileart" src="{import.meta.env.BASE_URL}icons/arcade.webp" alt="" style:height="80px" />{/snippet}
+          </NavTile>
+          {#if exits.other}{@const o = exits.other}<NavTile size="lg" tone="sky" kind={o.label === 'Home' ? 'home' : 'map'} label={o.text} onclick={() => leave(o.go)} />{/if}
         </div>
       </div>
     </div>
@@ -216,7 +225,7 @@
 
   {#if phase === 'done' && outcome}
     <ArcadeResults {outcome} game={G} {daily} {answered} {bestCombo} {compact}
-      onagain={() => game.playArcade(id, daily)} onarcade={() => game.go('arcade')} onhome={() => game.go('hub')} />
+      onagain={() => game.playArcade(id, daily)} onarcade={exits.toArcade} other={exits.other} onhome={() => game.go('hub')} />
   {/if}
 </div>
 
@@ -254,6 +263,11 @@
   .pop b { font: 700 42px/1 var(--font-ui); color: #ffd84a; -webkit-text-stroke: 2px #8a4a00; paint-order: stroke fill; text-shadow: 0 4px 0 #b86a00, 0 0 18px rgba(255, 200, 60, .7); }
   .pop.big b { font-size: 60px; }
   .pop span { font: 600 20px/1 var(--font-ui); color: var(--ink); background: #fff; padding: 5px 12px; border-radius: 999px; box-shadow: var(--shadow-sm); white-space: nowrap; }
+  /* Sky Slalom's pops: beside the sled, small, sliding out and down (never up over the gates ahead) */
+  .pop.side { animation: aside .95s cubic-bezier(.2, .8, .3, 1) forwards; gap: 2px; }
+  .pop.side b { font-size: 30px; -webkit-text-stroke-width: 1.5px; text-shadow: 0 3px 0 #b86a00; }
+  .pop.side span { font-size: 14px; padding: 3px 9px; }
+  @keyframes aside { 0% { transform: translate(-50%, -50%) scale(.5); opacity: 0; } 15% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; } 65% { opacity: 1; } 100% { transform: translate(calc(-50% + var(--dx)), -10%) scale(.9); opacity: 0; } }
   @keyframes rise { 0% { transform: translate(-50%, -30%) scale(.4); opacity: 0; } 15% { transform: translate(-50%, -60%) scale(1.15); opacity: 1; } 30% { transform: translate(-50%, -70%) scale(1); } 80% { opacity: 1; } 100% { transform: translate(-50%, -150%) scale(.95); opacity: 0; } }
 
   .count { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 12; font: 700 clamp(120px, 26vh, 220px)/1 var(--font-ui); color: #fff; -webkit-text-stroke: 6px var(--primary-edge); paint-order: stroke fill;
@@ -284,6 +298,7 @@
   .pausecard { padding: 24px 28px 20px; text-align: center; animation: pop-in .3s cubic-bezier(.3, .8, .4, 1.3); }
   .pausecard h2 { font-size: 34px; margin: 0; }
   .pausecard .tiles { justify-content: center; }
+  .tileart { width: auto; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(60, 40, 10, .25)); }
 
   .compact .hud { top: 8px; left: 8px; right: 8px; }
   .compact .score { padding: 4px 12px 4px 6px; }
@@ -296,6 +311,8 @@
   .compact .pop b { font-size: 32px; }
   .compact .pop.big b { font-size: 44px; }
   .compact .pop span { font-size: 16px; }
+  .compact .pop.side b { font-size: 24px; }
+  .compact .pop.side span { font-size: 12px; }
   .compact .card.intro { flex-direction: column; gap: 6px; padding: 16px 18px; text-align: center; }
   .compact .cab { width: 120px; }
   .compact .body { text-align: center; }

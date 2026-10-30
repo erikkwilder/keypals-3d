@@ -1,6 +1,7 @@
 // Blocking a counterattack in a math world: the quick one comes from the world's own area when it has
-// questions with a plain whole-number answer (pitched easy, about 90% right, like a fact block), and is
-// a fact when it hasn't; on the Sky Islands blocks stay facts.
+// questions with a whole-number answer (pitched easy, about 90% right, like a fact block), and is a fact
+// when it hasn't; on the Sky Islands blocks stay facts. Negative numbers questions are blocks too: the
+// block box has a minus key and Check for them.
 import { describe, expect, it } from 'vitest';
 import { newProfile, type Profile } from '../engine/profile';
 import { mathOf } from '../math/progress';
@@ -9,7 +10,7 @@ import { SKILL, skillsOf } from '../math/skills/registry';
 import { rungFor, TARGET } from '../math/skills/ability';
 import { mulberry32 } from '../engine/rng';
 import type { AreaId } from '../math/skills/types';
-import { block, blockable, blockMs, newBattle, play, type Battle, type Pool } from './battle';
+import { block, blockable, blockMs, newBattle, play, signedBlock, type Battle, type Pool } from './battle';
 import { mathPool } from './state';
 
 const AREAS: AreaId[] = ['fractions', 'place', 'decimals', 'measure', 'shapes', 'ratios', 'integers', 'algebra', 'data'];
@@ -59,8 +60,34 @@ describe('blocks in a math world', () => {
       else expect(items, area).toBe(0);
     }
   });
-  it('every area with a world has some, but negative numbers (its answers always take the minus key)', () => {
-    for (const area of AREAS) expect(skillsOf(area).some(s => s.subs.some(sb => everPlain(`${s.id}:${sb.id}`))), area).toBe(area !== 'integers');
+  it('every area with a world has some, negative numbers too', () => {
+    for (const area of AREAS) expect(skillsOf(area).some(s => s.subs.some(sb => everPlain(`${s.id}:${sb.id}`))), area).toBe(true);
+  });
+  it('Below Zero Caves blocks are its own questions, some with a negative answer, all with the minus key and Check', () => {
+    const pool = mathPool(metAll('integers'), 'integers');
+    let neg = 0, items = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const bl = counter(battle(pool, seed));
+      if (!bl.item) continue;
+      items++;
+      expect(SKILL[bl.item.skill].area).toBe('integers');
+      expect(signedBlock(bl.item)).toBe(true);
+      expect(bl.item.answer.kind === 'number' && Number.isInteger(bl.item.answer.value)).toBe(true);
+      if (bl.item.answer.kind === 'number' && bl.item.answer.value < 0) neg++;
+    }
+    expect(items).toBeGreaterThanOrEqual(35);
+    expect(neg).toBeGreaterThanOrEqual(8);
+    // a negative answer blocks it when it's right
+    const b = battle(pool, 2), bl = counter(b);
+    block(b, true, 2000);
+    expect(b.skillAnswers.at(-1)?.ok).toBe(true);
+    expect(bl.item).toBeTruthy();
+  });
+  it('plain questions in the other worlds keep the instant send (no minus key)', () => {
+    for (const area of AREAS.filter(a => a !== 'integers')) {
+      const pool = mathPool(metAll(area), area);
+      for (let seed = 1; seed <= 8; seed++) { const bl = counter(battle(pool, seed)); if (bl.item) expect(signedBlock(bl.item), area).toBe(false); }
+    }
   });
   it('fall back to facts when the area\'s questions met so far have no plain number answer', () => {
     const p = metAll('shapes'), pool = mathPool(p, 'shapes');

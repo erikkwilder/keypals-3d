@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
 import { ANYWHERE, MATH_CHIPS, SUBJECTS, WAYS, chipNames, linksFor, thingsIn, wayCount } from './subjects';
 import { AREA, AREAS } from './math/skills/registry';
+import { WORLD_PINS, worldsFor } from './adventure/worlds';
 
 const pub = (f: string) => existsSync(new URL(`../../public/${f}`, import.meta.url));
 
@@ -72,5 +73,17 @@ describe('subjects and their four ways to play', () => {
   it('lists the places that take every subject', () => {
     expect(ANYWHERE.map(a => a.id)).toEqual(['arcade', 'adventure', 'drop', 'island', 'duel', 'rivals']);
     for (const a of ANYWHERE) { expect(pub(a.icon), a.icon).toBe(true); expect(pub(a.art), a.art).toBe(true); }
+  });
+
+  it('gives every world a subject, so a typing adventure shows typing worlds and math shows math', () => {
+    for (const w of WORLD_PINS) expect(w.subjects.length, w.id).toBeGreaterThan(0);
+    expect(worldsFor('typing').map(w => w.id)).toEqual(['sky']);
+    expect(worldsFor('math').map(w => w.id)).toContain('sky');
+    expect(worldsFor('math').map(w => w.id)).toContain('falls');
+    const typing = SUBJECTS.find(s => s.id === 'typing')!;
+    // the Sky Islands, then cards for the typing worlds still to come
+    expect(wayCount(typing, 'adventure')).toBe(1);
+    expect(typing.ways.adventure.things.filter(t => t.soon).length).toBeGreaterThan(0);
+    expect(typing.ways.adventure.things.some(t => t.id === 'falls')).toBe(false);
   });
 });

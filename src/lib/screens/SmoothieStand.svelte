@@ -8,7 +8,10 @@
   // The rules and scoring are in math/ratios/stand.ts; the 3D in three/smoothieScene.ts.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { AREA } from '../math/skills/registry';
+  import { DAILY_SHELLS } from '../engine/settle';
+  import { clearOldLine } from '../arcade/feedback';
+  import { exitsOf } from '../arcade/exits';
+  import ExitButtons from '../arcade/ui/ExitButtons.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { SmoothieScene } from '../three/smoothieScene';
@@ -99,6 +102,8 @@
     slots.forEach((c, i) => { if (c && !c.leaving && (best === null || c.n < slots[best]!.n)) best = i; });
     active = best;
     if (best === null) return;
+    // the last order's line goes (the first order keeps the how-to tip)
+    if (served + missed) clearOldLine(() => msg, () => (msg = null));
     const o = slots[best]!.order;
     activeAt = performance.now();
     scene?.clear(); have = [0, 0];
@@ -215,15 +220,13 @@
     scene?.clear(); have = [0, 0];
   }
 
-  /** opened from the Arcade, Back goes there; otherwise to the area's map */
-  const fromArcade = game.gameFrom === 'arcade';
-  game.gameFrom = 'map';
-  const backTo = fromArcade ? 'the Arcade' : AREA.ratios.name;
+  /** where it was opened from: Back goes there, and its cards offer the Arcade too */
+  const exits = exitsOf('ratios');
+  const backTo = exits.backTo;
   function quit() {
     sfx.click();
     if (phase === 'play') { phase = 'menu'; slots = [null, null, null]; syncCustomers(); active = null; msg = null; rush = false; scene?.clear(); have = [0, 0]; return; }
-    if (fromArcade) { game.go('arcade'); return; }
-    game.mathArea = 'ratios'; game.mathOp = null; game.setHome('math'); game.go('map');
+    exits.back();
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
@@ -338,10 +341,10 @@
         </ol>
         <div class="bests">
           <div><small>Best</small><b>{rec.best}</b><Stars n={rec.stars} size={20} /></div>
-          <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same customers all day</span></div>
+          <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same customers all day</span><span class="tiny bonus">Beat {STAR_AT[1]} for {DAILY_SHELLS} bonus shells</span></div>
         </div>
         <div class="acts">
-          <button class="btn" onclick={quit}>Back</button>
+          <ExitButtons {exits} />
           <button class="btn" onclick={() => start(true)}><Icon name="target" size={20} /> Today's challenge</button>
           <button class="btn btn-primary big" onclick={() => start(false)}>Play <span class="kbd">enter</span></button>
         </div>
@@ -366,7 +369,7 @@
         </div>
         <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <button class="btn" onclick={quit}>Back to {backTo}</button>
+          <ExitButtons {exits} />
           {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
           <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
         </div>
@@ -482,6 +485,7 @@
   .bests small { font: 800 11px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .bests b { font: 600 26px var(--font-ui); color: var(--ink); }
   .tiny { font: 600 12px var(--font-body); color: var(--muted); }
+  .tiny.bonus { color: #a86a00; font-weight: 700; }
   .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
   .big { font-size: 22px; padding: 12px 26px; }
   .sub { margin: -6px 0 0; font: 800 12px var(--font-body); color: #2f7d5b; text-transform: uppercase; letter-spacing: .06em; }

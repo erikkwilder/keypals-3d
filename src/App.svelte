@@ -52,6 +52,8 @@
   import Arcade from './lib/screens/Arcade.svelte';
   import ArcadePlay from './lib/screens/ArcadePlay.svelte';
   import Ideas from './lib/screens/Ideas.svelte';
+  import MyStuff from './lib/screens/MyStuff.svelte';
+  import About from './lib/screens/About.svelte';
   // the 100-Glimmer ladder: its book, and the special eggs' moments (looked for on the calm screens)
   import GlimmerBook from './lib/screens/GlimmerBook.svelte';
   import LadderMoment from './lib/ui/LadderMoment.svelte';
@@ -170,6 +172,8 @@
   {:else if game.screen === 'arcade'}<Arcade />
   {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}
   {:else if game.screen === 'ideas'}<Ideas />
+  {:else if game.screen === 'mystuff'}<MyStuff />
+  {:else if game.screen === 'about'}<About />
   {:else if game.screen === 'teach'}<Teach />
   {:else if game.screen === 'classLogin'}<ClassLogin />
   {:else if game.screen === 'boards'}<Boards />

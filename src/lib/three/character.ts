@@ -853,9 +853,9 @@ export class Character {
   }
 
   /** the Wardrobe's Move it nudge for the hat (shares of the buddy's height, a size, a turn) */
-  private hatN: { x: number; y: number; z: number; s: number; r: number } | null = null;
-  /** Move, size and turn the hat about where it sits on the head (null: back to its own place). */
-  nudgeHat(n: { x: number; y: number; z: number; s: number; r: number } | null) {
+  private hatN: { x: number; y: number; z: number; s: number; r: number; p?: number; t?: number } | null = null;
+  /** Move, size, turn, tip and tilt the hat about where it sits on the head (null: back to its own place). */
+  nudgeHat(n: { x: number; y: number; z: number; s: number; r: number; p?: number; t?: number } | null) {
     this.hatN = n;
     const fit = this.headFit, h = this.outfit;
     if (!fit || !h) return;
@@ -866,7 +866,7 @@ export class Character {
     const u = FRIEND[this.id].height / Math.max(1e-9, ws), q = fit.basis;
     const off = new THREE.Vector3(n?.x ?? 0, n?.y ?? 0, n?.z ?? 0).multiplyScalar(u).applyQuaternion(q);
     h.position.copy(fit.top).add(off);
-    h.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), n?.r ?? 0));
+    h.quaternion.copy(q).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(n?.p ?? 0, n?.r ?? 0, n?.t ?? 0, 'YXZ')));
     h.scale.setScalar(n?.s ?? 1);
   }
 

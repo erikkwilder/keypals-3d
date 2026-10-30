@@ -437,7 +437,9 @@
   .node.next img { animation: glow 1.4s ease-in-out infinite; }
   .node.locked img { width: 82%; height: 82%; margin: 9%; }
   @keyframes glow { 50% { filter: drop-shadow(0 0 14px #fff) drop-shadow(0 0 22px #ffd36b); } }
-  .tick { position: absolute; right: -6px; top: -6px; line-height: 0; filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff); }
+  /* a stop won: its tick on a solid round badge, so it reads on any painting */
+  .tick { position: absolute; right: -8px; top: -8px; line-height: 0; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2.5px #2fbf73, 0 3px 0 #1f8f55, 0 6px 12px -4px rgba(40, 20, 10, .55); }
+  .tick :global(.ico) { width: 22px; height: 22px; }
   .gift { position: absolute; right: -10px; top: -14px; line-height: 0; animation: hop 1s ease-in-out infinite; }
   @keyframes hop { 50% { translate: 0 -6px; } }
   .crown, .nx { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); font: 800 11px var(--font-body); padding: 2px 8px; border-radius: 999px; white-space: nowrap; pointer-events: none; }
@@ -471,7 +473,7 @@
   .knob { width: 50px; height: 50px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff, #ffe7a1 60%, #ffc93d); box-shadow: 0 4px 10px rgba(80, 50, 0, .45), inset 0 -3px 0 rgba(200, 120, 0, .35); pointer-events: none; }
   .tall .stick { width: 100px; height: 100px; left: 10px; bottom: 10px; }
   .hint { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); margin: 0; z-index: 4; pointer-events: none; font: 700 14px var(--font-body); color: #fff; background: rgba(40, 30, 60, .6); padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
-  .tall .hint { top: 56px; font-size: 12.5px; }
+  .tall .hint { top: 76px; font-size: 12.5px; }
   .prize { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 12px; padding: 10px 18px 10px 10px; cursor: pointer; animation: pop .35s cubic-bezier(.3, .8, .4, 1.4); box-shadow: 0 0 0 3px #ffd36b, 0 12px 30px -10px rgba(40, 20, 60, .6); }
   .prize img { width: 76px; height: 76px; object-fit: contain; }
   .prize img.egg { width: 54px; height: 64px; }

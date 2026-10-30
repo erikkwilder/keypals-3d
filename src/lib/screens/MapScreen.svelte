@@ -127,7 +127,7 @@
             {#if rec && rec.bestRide > 0}<span class="ride" title="Best: {rideName(rec.bestRide, mv)}"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff', mv)}</svg></span>{/if}
             <span class="lbl">{lessonTitle(l, game.layout)}</span>
             {#if !l.practice}<span class="mv mv-{mv}" title="{MOVE_WORD[mv]}"><Icon name={mv} size={15} /> {MOVE_WORD[mv]}</span>{/if}
-            {#if !l.practice}<Stars n={rec?.stars ?? 0} size={15} />{#if rec?.platinum}<span class="plat" title="Platinum"><Icon name="gem" size={16} /></span>{/if}{/if}
+            {#if !l.practice}<span class="starplate" class:none={!(rec?.stars)} title="{rec?.stars ?? 0} of 3 stars"><Stars n={rec?.stars ?? 0} size={17} /></span>{#if rec?.platinum}<span class="plat" title="Platinum"><Icon name="gem" size={16} /></span>{/if}{/if}
             {#if isNext}<span class="buddy"><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={70} mood="dance" /></span>{/if}
           </button>
         {/each}
@@ -171,6 +171,10 @@
   .node.next .disc { animation: pulse-ring 1.4s ease-out infinite; background: linear-gradient(var(--primary-hi), var(--primary)); color: #fff; box-shadow: 0 5px 0 var(--primary-edge); }
   .node.locked .disc { background: #ece8f3; color: #b4abc7; box-shadow: 0 4px 0 #d8d2e3; }
   .node.locked .lbl { opacity: .6; }
+  /* the stars won at a stop, on a solid plaque so they read on any painting */
+  .starplate { display: inline-flex; align-items: center; padding: 2px 7px 3px; margin-top: 2px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 2px #ffd34d, 0 3px 0 #e8b92c, 0 6px 12px -4px rgba(40, 20, 60, .45); }
+  .starplate.none { box-shadow: 0 0 0 2px #e6e0f0, 0 3px 0 #d6cfe4, 0 6px 12px -4px rgba(40, 20, 60, .35); }
+  .starplate :global(img:not(.on)) { filter: grayscale(1) brightness(.85) opacity(.55); }
   .lbl { font: 700 13px/1.15 var(--font-body); color: var(--ink); background: rgba(255, 255, 255, .88); padding: 3px 8px; border-radius: 10px; margin-top: 4px; max-width: 120px; text-align: center; }
   /* how the lesson moves (the trail, or a climb, a swim or a sled run), as on the math map */
   .mv { display: inline-flex; align-items: center; gap: 3px; font: 700 11px var(--font-body); color: var(--ink2); background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 1px 7px 1px 3px; margin-top: 2px; }
@@ -196,6 +200,8 @@
     .lbl { font-size: 11px; max-width: 68px; padding: 2px 4px; }
     .mv { font-size: 10px; padding: 1px 5px; }
     .mv-run { display: none; }
+    .starplate { padding: 1px 5px 2px; }
+    .starplate :global(.stars) { --sz: 13px !important; }
     .ride { width: 22px; height: 22px; top: -6px; right: 4px; }
     .ride svg { width: 14px; height: 14px; }
     .buddy { display: none; }

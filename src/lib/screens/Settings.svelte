@@ -1,5 +1,12 @@
 <script lang="ts">
+  // Settings: the player's own things, the ones a child picks. The Look (how the 3D buddy is drawn
+  // everywhere, with a picture of each on its card), typing help (keyboard layout, hints, finger demos, the
+  // keyboard and hands, the ghost racer), sound and music, comfort (font, less motion, graphics) and the
+  // player's name. Grown-up choices (the daily goal, grown-up and easy mode, play time, saving online,
+  // privacy) are in Grown-ups, behind the grown-up check; deleting a player stays here behind that check.
   import { game } from '../state/game.svelte';
+  import { buddyPicture } from '../three/buddyPic';
+  import { dressOf } from '../adventure/wardrobe';
   import { outfitOf } from '../engine/profile';
   import type { Look } from '../art/cast';
   import { LAYOUT_LIST } from '../engine/layouts';
@@ -31,12 +38,20 @@
     game.update(pp => { pp.settings[k] = v; });
     sfx.click();
   }
+  // the Looks: how the 3D buddy is drawn everywhere (three/looks.ts), each card with a picture of your buddy in it
   const LOOKS: { id: Look; name: string; desc: string }[] = [
-    { id: 'soft', name: 'Soft Squish', desc: 'Squishy and glowy' },
-    { id: 'ink', name: 'Ink Sticker', desc: 'Bold outlines, candy colors' },
-    { id: 'paper', name: 'Paper Craft', desc: 'Cut paper, storybook calm' },
-    { id: 'geo', name: 'Geo Pop', desc: 'Clean shapes, bright pops' },
+    { id: 'soft', name: 'Soft Squish', desc: 'Soft and glowy, just as made' },
+    { id: 'ink', name: 'Ink Sticker', desc: 'A bold outline, like a sticker' },
+    { id: 'paper', name: 'Paper Craft', desc: 'Matte paper with a cut edge' },
+    { id: 'geo', name: 'Geo Pop', desc: 'Folded shapes, bright edges' },
   ];
+  let lookPics = $state<Partial<Record<Look, string>>>({});
+  $effect(() => {
+    const id = p.buddy, dress = JSON.parse(JSON.stringify(dressOf(p)));
+    let gone = false;
+    for (const l of LOOKS) void buddyPicture(id, { dress, look: l.id, size: 264, frame: 'bust' }).then(u => { if (!gone && u) lookPics = { ...lookPics, [l.id]: u }; });
+    return () => { gone = true; };
+  });
   const FONTS: { id: Settings['font']; name: string; family: string }[] = [
     { id: 'fredoka', name: 'Bubbly', family: 'Fredoka' },
     { id: 'atkinson', name: 'Extra clear', family: 'Atkinson Hyperlegible' },
@@ -78,11 +93,13 @@
   <div class="body scroll">
     <section>
       <h2>Look</h2>
+      <p class="hint lookhint">How your buddy is drawn, everywhere in the game.</p>
       <div class="looks">
         {#each LOOKS as l}
-          <button class="look card" class:on={s.look === l.id} data-look={l.id} onclick={() => set('look', l.id)}>
-            <Critter friend={p.buddy} look={l.id} accessory={outfitOf(p)} size={110} />
+          <button class="look card" class:on={s.look === l.id} data-look={l.id} aria-pressed={s.look === l.id} onclick={() => set('look', l.id)}>
+            <span class="lpic">{#if lookPics[l.id]}<img src={lookPics[l.id]} alt="" />{:else}<span class="lwait"><Critter friend={p.buddy} look={l.id} accessory={outfitOf(p)} size={110} /></span>{/if}</span>
             <b>{l.name}</b><span>{l.desc}</span>
+            {#if s.look === l.id}<em class="lon">Your look</em>{/if}
           </button>
         {/each}
       </div>
@@ -113,19 +130,9 @@
         <p class="hint">The coach shows where each finger goes before lessons with new keys. You can always skip, or press "Watch how" to see it again.</p>
         <label class="row">Show the keyboard <input type="checkbox" checked={s.keyboard} onchange={(e) => set('keyboard', e.currentTarget.checked)} /></label>
         <label class="row">Show the hands <input type="checkbox" checked={s.hands} onchange={(e) => set('hands', e.currentTarget.checked)} /></label>
-        <label class="row">Grown-up mode <input type="checkbox" checked={s.grown} onchange={(e) => set('grown', e.currentTarget.checked)} /></label>
-        <p class="hint">Grown-up mode sets higher goal scores, longer lessons and higher ride speeds.</p>
         <label class="row">Ghost racer <input type="checkbox" checked={s.ghost !== false} onchange={(e) => set('ghost', e.currentTarget.checked)} /></label>
         <p class="hint">A see-through friend runs at three-star pace (or your best). Try to stay ahead!</p>
-        {#if !s.grown}
-          <label class="row">Easy mode <input type="checkbox" checked={!!s.easy} onchange={(e) => set('easy', e.currentTarget.checked)} /></label>
-          <p class="hint">Stars need two thirds of the usual score. Good for younger typists.</p>
-        {/if}
-        <div class="row">Daily goal
-          <div class="seg">
-            {#each [5, 10, 15, 20, 30] as m}<button class:on={s.dailyGoalMin === m} onclick={() => set('dailyGoalMin', m)}>{m} min</button>{/each}
-          </div>
-        </div>
+        <div class="row grownrow"><span>Daily goal ({s.dailyGoalMin} min){s.grown ? ', grown-up mode' : s.easy ? ', easy mode' : ''}<small>A grown-up sets these in Grown-ups.</small></span><button class="btn" onclick={() => { game.closeSettings(); game.go('grownups'); }}><img src="{import.meta.env.BASE_URL}icons/grownups.webp" alt="" />Grown-ups</button></div>
       </div>
       <div>
         <h2>Sound</h2>
@@ -201,8 +208,8 @@
       <img src="brand/ant.png" alt="The FancyAnt ant" width="74" height="112" />
       <div>
         <h2>Made by FancyAnt Games</h2>
-        <p class="hint">Keypals is free, with no ads and no tracking, and anyone can read its code. We make other small, friendly games too.</p>
-        <FancyAntButton />
+        <p class="hint">Keypals is free, with no ads and no tracking. What it is, how it's made and how to reach us:</p>
+        <div class="abtns"><button class="btn btn-primary" onclick={() => { game.closeSettings(); game.openAbout(); }}>About Keypals</button><FancyAntButton /></div>
       </div>
     </section>
   </div>
@@ -219,7 +226,17 @@
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; }
   h2 { font-size: 24px; margin: 0 0 12px; }
   .looks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-  .look { display: flex; flex-direction: column; align-items: center; padding: 14px 10px; cursor: pointer; border: 3px solid transparent; font: inherit; color: inherit; transition: transform .12s; }
+  .look { position: relative; display: flex; flex-direction: column; align-items: center; padding: 10px 10px 12px; cursor: pointer; border: 3px solid transparent; font: inherit; color: inherit; transition: transform .12s; }
+  .lpic { display: grid; place-items: end center; width: 132px; height: 132px; border-radius: 20px; background: radial-gradient(circle at 50% 40%, #fff, #eef3fb); margin-bottom: 6px; overflow: hidden; }
+  .lpic img { width: 132px; height: 132px; object-fit: contain; object-position: bottom; }
+  .lwait { opacity: .35; }
+  .lon { position: absolute; top: 8px; right: 8px; font: 800 11px var(--font-body); font-style: normal; color: #fff; background: var(--primary); padding: 2px 8px; border-radius: 999px; }
+  .lookhint { margin: -8px 0 10px; }
+  .grownrow span { display: flex; flex-direction: column; }
+  .grownrow small { font: 600 13px var(--font-body); color: var(--muted); }
+  .grownrow .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  .grownrow img { width: 26px; height: 26px; object-fit: contain; }
+  .abtns { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .look:hover { transform: translateY(-2px); }
   .look.on { border-color: var(--primary-hi); }
   .look b { font: 600 19px var(--font-ui); }
@@ -249,4 +266,14 @@
   .musicpick { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; padding: 4px 14px 4px 4px; background: #f4efff; cursor: pointer; font: 700 15px var(--font-body); color: var(--ink2); box-shadow: inset 0 0 0 2px #e2d8ff; }
   .musicpick img { width: 34px; height: 34px; object-fit: contain; }
   .musicpick b { color: var(--primary); }
+  /* phones: one column, the Looks two by two */
+  @media (max-width: 760px) {
+    .body { padding: 14px 12px 40px; }
+    .cols { grid-template-columns: 1fr; gap: 10px; }
+    .looks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .lpic, .lpic img { width: 112px; height: 112px; }
+    .look b { font-size: 17px; } .look span { font-size: 12px; text-align: center; }
+    .fonts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .row { flex-wrap: wrap; }
+  }
 </style>

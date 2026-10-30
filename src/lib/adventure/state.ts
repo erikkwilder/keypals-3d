@@ -275,8 +275,9 @@ export function playLeft(p: Profile, now = Date.now()): { open: boolean; left: n
 export function mathPool(p: Profile, only?: AreaId): Pool {
   const m = mathOf(p), focus = only ?? advView(p).settings.focus;
   // a math world's area, or one the grown-ups chose (fractions...): every card is one of its questions, and
-  // so is each quick block when the area has questions with a plain whole-number answer (battle.ts
-  // quickItem); the facts met so far are there for the blocks when it hasn't
+  // so is each quick block when the area has questions with a whole-number answer, negative ones too (the
+  // block box has a minus key and Check for those: battle.ts quickItem); the facts met so far are there
+  // for the blocks when it hasn't
   const area = focus !== 'all' && focus.length > 1 && AREA[focus as AreaId] && !AREA[focus as AreaId].op ? (focus as AreaId) : null;
   const ok = (f: Fact) => focus === 'all' || !!area || (f.op ?? 'x') === focus;
   let facts = Object.entries(m.facts).filter(([, s]) => s.seen > 0 || s.stage > 0).map(([id, s]) => ({ f: parseFact(id), stage: s.stage })).filter(x => ok(x.f));

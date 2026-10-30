@@ -2,6 +2,9 @@
 // Fraction Falls, Counting Caves, Market Isle and the newer math worlds are open (Counting Caves is painted onto the picture as a
 // cut-out); the rest are the math areas still to come, shown so a child can see where the adventure goes
 // next. Each open world has its own painted map, wide (desktop) and tall (phones).
+// Every world belongs to a subject (or two): the Sky Islands take typing and math, the others are math.
+// Adventure opened from Typing shows the typing worlds, from Math the math worlds, and the world map has
+// a tab for each; a new typing world is one more entry here with subjects: ['typing'].
 import type { AreaId } from '../math/skills/types';
 import type { WorldId } from './state';
 import type { StationId } from '../audio/stations';
@@ -20,31 +23,34 @@ export type WorldPin = {
   area?: AreaId;
   /** its own music station, played there while the player's station is Auto (Adventure's own if not given) */
   station?: StationId;
+  /** the subjects whose world map shows it (the Sky Islands: both) */
+  subjects: WorldSubject[];
 };
+export type WorldSubject = 'typing' | 'math';
 
 export const WORLD_PINS: WorldPin[] = [
-  { id: 'sky', name: 'Sky Islands', blurb: 'Sunny Meadow, Treetop Hollow and Cloudwhale Bay: any math or typing.', at: [27, 34],
+  { id: 'sky', name: 'Sky Islands', blurb: 'Sunny Meadow, Treetop Hollow and Cloudwhale Bay: any math or typing.', at: [27, 34], subjects: ['typing', 'math'],
     map: { wide: 'game/map-wide.webp', tall: 'game/map-tall.webp', size: { wide: [1672, 941], tall: [1024, 1536] } } },
-  { id: 'falls', name: 'Fraction Falls', blurb: 'A pie shop at the top of the falls. Every battle card is a fraction.', at: [70, 27], area: 'fractions',
+  { id: 'falls', name: 'Fraction Falls', blurb: 'A pie shop at the top of the falls. Every battle card is a fraction.', at: [70, 27], subjects: ['math'], area: 'fractions',
     map: { wide: 'game/map-falls-wide.webp', tall: 'game/map-falls-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  { id: 'caves', name: 'Counting Caves', blurb: 'Crystal caves and mine carts of blocks. Every battle card is about tens, hundreds and big numbers.', at: [12, 63], area: 'place',
+  { id: 'caves', name: 'Counting Caves', blurb: 'Crystal caves and mine carts of blocks. Every battle card is about tens, hundreds and big numbers.', at: [12, 63], subjects: ['math'], area: 'place',
     art: { src: 'game/world-caves.webp', at: [12, 79], w: 18 },
     map: { wide: 'game/map-caves-wide.webp', tall: 'game/map-caves-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  { id: 'peaks', name: 'Shape Peaks', blurb: 'Crystal mountains and a crystal palace. Every battle card is about shapes and angles.', at: [89, 31], area: 'shapes', station: 'snow',
+  { id: 'peaks', name: 'Shape Peaks', blurb: 'Crystal mountains and a crystal palace. Every battle card is about shapes and angles.', at: [89, 31], subjects: ['math'], area: 'shapes', station: 'snow',
     map: { wide: 'game/map-peaks-wide.webp', tall: 'game/map-peaks-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  { id: 'market', name: 'Market Isle', blurb: 'A floating bazaar. Every battle card is money or decimals.', at: [33, 60], area: 'decimals',
+  { id: 'market', name: 'Market Isle', blurb: 'A floating bazaar. Every battle card is money or decimals.', at: [33, 60], subjects: ['math'], area: 'decimals',
     map: { wide: 'game/map-market-wide.webp', tall: 'game/map-market-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Cuckoo clocks, gears and a great balance scale. Every battle card is time or measuring.', at: [60, 55], area: 'measure', station: 'storybook',
+  { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Cuckoo clocks, gears and a great balance scale. Every battle card is time or measuring.', at: [60, 55], subjects: ['math'], area: 'measure', station: 'storybook',
     map: { wide: 'game/map-clock-wide.webp', tall: 'game/map-clock-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  { id: 'stars', name: 'Star Lab', blurb: 'A sky observatory among the stars. Every battle card is an equation.', at: [88, 57], area: 'algebra', station: 'storybook',
+  { id: 'stars', name: 'Star Lab', blurb: 'A sky observatory among the stars. Every battle card is an equation.', at: [88, 57], subjects: ['math'], area: 'algebra', station: 'storybook',
     map: { wide: 'game/map-stars-wide.webp', tall: 'game/map-stars-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  { id: 'frost', name: 'Below Zero Caves', blurb: 'A glacier island with a frozen harbour and an ice palace. Every battle card is about negative numbers and the map.', at: [37, 87], area: 'integers',
+  { id: 'frost', name: 'Below Zero Caves', blurb: 'A glacier island with a frozen harbour and an ice palace. Every battle card is about negative numbers and the map.', at: [37, 87], subjects: ['math'], area: 'integers',
     map: { wide: 'game/map-frost-wide.webp', tall: 'game/map-frost-tall.webp', size: { wide: [1600, 900], tall: [1024, 1821] } }, station: 'snow' },
-  { id: 'fair', name: 'Chance Fair', blurb: 'A carnival in the clouds. Every battle card is graphs, data or chance.', at: [73, 86], area: 'data', station: 'world',
+  { id: 'fair', name: 'Chance Fair', blurb: 'A carnival in the clouds. Every battle card is graphs, data or chance.', at: [73, 86], subjects: ['math'], area: 'data', station: 'world',
     map: { wide: 'game/map-fair-wide.webp', tall: 'game/map-fair-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   // Juice Jungle (ratios and percents): painted onto the clouds at the bottom right; steel drums and
   // maracas from the World station
-  { id: 'jungle', name: 'Juice Jungle', blurb: 'Fruit trees and juice waterfalls. Every battle card is ratios or percents.', at: [93.5, 69], area: 'ratios',
+  { id: 'jungle', name: 'Juice Jungle', blurb: 'Fruit trees and juice waterfalls. Every battle card is ratios or percents.', at: [93.5, 69], subjects: ['math'], area: 'ratios',
     art: { src: 'game/world-jungle.webp', at: [94.2, 83], w: 10.5 }, station: 'world',
     map: { wide: 'game/map-jungle-wide.webp', tall: 'game/map-jungle-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
 ];
@@ -55,3 +61,13 @@ export const stationOf = (w: string | undefined | null) => (w ? WORLD_PIN[w]?.st
 
 /** The world the Adventure map last showed, so coming back from a battle lands on the same world. */
 export const lastWorld: { id: WorldId } = { id: 'sky' };
+/** Whose worlds Adventure shows: the subject it was opened from (Typing, Math), so a typing adventure's
+ *  world map opens on the typing worlds. */
+export const worldSubject: { id: WorldSubject } = { id: 'math' };
+/** A subject's worlds, in the world map's order. */
+export const worldsFor = (s: WorldSubject) => WORLD_PINS.filter(w => w.subjects.includes(s));
+/** Typing worlds still to come: cards on the typing world map until they're built. */
+export const TYPING_SOON = [
+  { name: 'More typing worlds', blurb: 'More typing worlds are coming. For now the Sky Islands are where typing battles happen.' },
+  { name: 'Coming soon', blurb: 'Every new typing world will have its own islands, battles and Glimmers to meet.' },
+];

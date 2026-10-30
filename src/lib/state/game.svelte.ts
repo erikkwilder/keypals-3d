@@ -7,7 +7,8 @@ import { LAYOUTS } from '../engine/layouts';
 
 export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market' | 'ideas' | 'teach' | 'classLogin' | 'boards' | 'clockrush' | 'bench' | 'shifter' | 'shapebuilder'
   | 'glimmerBook' | 'smoothie' | 'treasure' | 'showdown' | 'balance' // the 100-Glimmer ladder's book (screens/GlimmerBook.svelte)
-  | 'island'; // My Sky Island (screens/SkyIsland.svelte)
+  | 'island' // My Sky Island (screens/SkyIsland.svelte)
+  | 'mystuff' | 'about'; // everything that's yours in one place (screens/MyStuff.svelte), and About Keypals (screens/About.svelte)
 
 function load(): SaveFile {
   try {
@@ -79,6 +80,7 @@ class Game {
   arcadeDaily = $state(false);
   arcadeKey = $state(0);
   playArcade(id: import('../arcade/arcade').ArcadeId, daily = false) {
+    if (this.screen !== 'arcadePlay') this.cameFrom = this.screen;
     this.arcadeGame = id;
     this.arcadeDaily = daily;
     this.arcadeKey++;
@@ -124,8 +126,12 @@ class Game {
   go(screen: Screen) {
     // the sticker book, closet and settings go back to wherever they were opened from
     if (screen === 'hub' || screen === 'map') this.home = screen;
+    if (screen === 'mystuff' && this.screen !== 'mystuff') this.stuffBack = this.screen;
+    if (screen !== this.screen) this.cameFrom = this.screen;
     this.screen = screen;
   }
+  /** the screen before this one: an arcade game opened from the Arcade offers the way back there first */
+  cameFrom: Screen = 'title';
   /** where "back" goes from the sticker book, closet and settings: Home or a subject's map */
   home = $state<'hub' | 'map'>('hub');
 
@@ -148,6 +154,10 @@ class Game {
   /** Ideas and help: which part opens first, and where Back goes */
   ideasTab = $state<'board' | 'suggest' | 'problem'>('board');
   ideasBack = $state<Screen>('hub');
+  /** My stuff and About: where Back goes */
+  stuffBack = $state<Screen>('hub');
+  aboutBack = $state<Screen>('hub');
+  openAbout() { if (this.screen !== 'about') this.aboutBack = this.screen; this.screen = 'about'; }
   openIdeas(tab: 'board' | 'suggest' | 'problem' = 'board') {
     if (this.screen !== 'ideas') this.ideasBack = this.screen;
     this.ideasTab = tab;

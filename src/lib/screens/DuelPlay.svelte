@@ -18,7 +18,7 @@
   import { FRIEND } from '../art/cast';
   import { answerOf, opSign, type Fact } from '../math/facts';
   import { ELEMENT, GLIMMER, ROLE, glimmerName, rarityRank, type GlimmerId } from '../adventure/glimmers';
-  import { FINALE_AT, type Card } from '../adventure/battle';
+  import { FINALE_AT, typePower, type Card } from '../adventure/battle';
   import { newDuel, duelPlay, duelFinale, duelRain, ghostMove, ghostRain, cur, progress, DUEL_CARD, type DEvent, type Duel, type SideSetup } from '../adventure/duel';
   import { applyVersus, tellGhostOwner, type VersusOutcome } from '../adventure/versus';
   import { LEAGUES, type Rival } from '../adventure/ghosts';
@@ -71,7 +71,7 @@
   let rain = $state<{ fact?: Fact; word?: string; limitMs: number; from: string } | null>(null);
   let rainAt = 0; let rainLeft = $state(1); let rainTimer = 0; let rainTyped = $state('');
 
-  type Float = { id: number; x: number; y: number; text: string; kind: string; img?: string; color?: string };
+  type Float = { id: number; x: number; y: number; text: string; kind: string; img?: string; color?: string; sub?: string };
   let floats = $state<Float[]>([]); let fid = 0;
   let toast = $state<{ text: string; kind: string; key: number } | null>(null);
   let bigBanner = $state<{ text: string; sub?: string; kind: string; key: number; color?: string } | null>(null);
@@ -146,11 +146,15 @@
   });
   onDestroy(() => { disposed = true; dropHeld(); clearInterval(rainTimer); removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
 
-  function float(at: Spot, text: string, kind: string, img?: string, color?: string) {
+  function float(at: Spot, text: string, kind: string, img?: string, color?: string, sub?: string) {
     const pos = scene?.screenOf(at, 0.2) ?? { x: at.startsWith('p1') ? 0.75 : at === 'glimmer' ? 0.5 : 0.25, y: 0.35 };
     const edge = Math.min(0.4, 105 / Math.max(1, innerWidth));
     const x = kind === 'helper' ? Math.min(1 - edge, Math.max(edge, pos.x)) : pos.x + (Math.random() - 0.5) * 0.03;
-    const f = { id: fid++, x, y: kind === 'helper' ? Math.max(0.22, pos.y) : pos.y, text, kind, img, color };
+    // the Glimmer's numbers start a little under the turn pill, so it never hides them (or a slips note);
+    // on a phone, lower down by the Glimmer, under the "whose turn" banner that follows straight after
+    const pill = at === 'glimmer' && kind !== 'helper' ? document.querySelector('.turnpill')?.getBoundingClientRect() : undefined;
+    const top = pill ? (pill.bottom + 80) / Math.max(1, innerHeight) + (narrow ? 0.2 : 0) : 0;
+    const f = { id: fid++, x, y: kind === 'helper' ? Math.max(0.22, pos.y) : Math.max(top, kind === 'slips' ? pos.y + 0.06 : pos.y), text, kind, img, color, sub };
     floats = [...floats, f];
     setTimeout(() => (floats = floats.filter(x => x.id !== f.id)), kind === 'helper' ? 2200 : 1500);
   }
@@ -209,7 +213,7 @@
     holdAnswer(eqEl, { text: typed, ok: right });
     const ev = subject === 'math'
       ? duelPlay(d, c.id, { ok: right, value: Number(typed), thinkMs: think, fact: f ?? undefined })
-      : duelPlay(d, c.id, { ok: true, value: Math.max(1, (c.word?.length ?? 1) - wordErr), thinkMs: think });
+      : duelPlay(d, c.id, { ok: true, value: c.word?.length ?? 1, slips: wordErr, thinkMs: think });
     if (ev.length === 1 && ev[0].k === 'retry') { letGo(); sfx.miss(); say('Second Chance: have another go!', 'good'); typed = ''; wordPos = 0; wordErr = 0; ui = 'answer'; shakeKey++; return; }
     sel = null; typed = '';
     await run(ev, side);
@@ -334,13 +338,17 @@
       if (disposed) return;
       if (e.k === 'cast') {
         if (e.ok) sfx.cast(e.card.element); else if (d.sides[side].kind === 'ghost') sfx.fizzle(); else sfx.miss();
-        await scene?.cast(side, e.card.element, { perfect: e.perfect, super: e.super, ok: e.ok, big: e.value / Math.max(1, d.sides[side].b.foe.max) * 2.2 });
+        // typing: slips make the shot weaker (smaller, dimmer, a smaller number) and say how many
+        const weak = e.ok && (e.power ?? 1) < 1;
+        await scene?.cast(side, e.card.element, { perfect: e.perfect, super: e.super, ok: e.ok, big: e.value / Math.max(1, d.sides[side].b.foe.max) * 2.2, power: e.power });
         if (e.ok) {
-          sfx.hit(Math.min(1, e.value / Math.max(1, d.sides[side].b.foe.max) * 3));
-          float('glimmer', `+${e.value}`, 'cheer', undefined, SIDE[side]);
+          sfx.hit(Math.min(1, e.value / Math.max(1, d.sides[side].b.foe.max) * 3 * (e.power ?? 1)));
+          // (the slips note rides along under the number)
+          float('glimmer', `+${e.value}`, weak ? 'cheer weak' : 'cheer', undefined, SIDE[side], weak ? `${e.slips} slip${e.slips === 1 ? '' : 's'}` : undefined);
           if (e.perfect) { sfx.perfect(); bigBanner = { text: 'Perfect Cheer!', sub: `${nameOf(side)} landed it exactly!`, kind: 'perfect', key: Date.now() }; }
           else if (e.super) say(`⚡ Strong! ${ELEMENT[e.card.element].name} beats ${ELEMENT[g.element].name}.`, 'super');
-        } else { say(e.card.item ? `Not quite: it's ${answerText(e.card.item)}` : e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
+        } else if (e.slips) { float('glimmer', `${e.slips} slips`, 'slips'); say('Too many slips: no cheer this time. Slow and careful wins!', 'miss'); }
+        else { say(e.card.item ? `Not quite: it's ${answerText(e.card.item)}` : e.card.fact ? `Not quite: ${factText(e.card.fact)} = ${answerOf(e.card.fact)}` : 'Not quite!', 'miss'); }
         sync();
       } else if (e.k === 'extra') {
         const slot = e.id ? d.sides[side].team.findIndex(m => m.id === e.id) : -1;
@@ -456,7 +464,7 @@
 
   <div class="stage" bind:this={stageEl}></div>
 
-  {#each floats as f (f.id)}<div class="float {f.kind}" style:left="{f.x * 100}%" style:top="{f.y * 100}%" style:color={f.color}>{#if f.img}<img src={f.img} alt="" />{/if}{f.text}</div>{/each}
+  {#each floats as f (f.id)}<div class="float {f.kind}" style:left="{f.x * 100}%" style:top="{f.y * 100}%" style:color={f.color}>{#if f.img}<img src={f.img} alt="" />{/if}{f.text}{#if f.sub}<small class="fsub">{f.sub}</small>{/if}</div>{/each}
   {#if toast}{#key toast.key}<div class="toast {toast.kind}">{toast.text}</div>{/key}{/if}
   {#if bigBanner}{#key bigBanner.key}<div class="big {bigBanner.kind}" style:--sc={bigBanner.color}><b>{bigBanner.text}</b>{#if bigBanner.sub}<small>{bigBanner.sub}</small>{/if}</div>{/key}{/if}
 
@@ -490,7 +498,8 @@
           {#if !ghosting}<NumPad ondigit={digit} onback={backspace} compact={narrow} />{/if}
         {:else}
           {#key shakeKey}<div class="word" class:shake={shakeKey > 0} bind:this={eqEl}>{#each sel.word!.split('') as ch, i}<span class:done={i < wordPos} class:next={i === wordPos}>{ch}</span>{/each}</div>{/key}
-          {#if !ghosting}<p class="ask">Type it! {wordErr ? `${wordErr} slip${wordErr === 1 ? '' : 's'}` : 'No slips so far'}</p>{/if}
+          <!-- every slip takes some power off the cheer: the bar shows what's left -->
+          {#if !ghosting}{@const pw = typePower(sel.word!.length, wordErr)}<p class="ask typeask">Type it!<span class="power" class:low={pw < 0.5} aria-label="Power left"><i style:width="{pw * 100}%"></i></span>{wordErr ? `${wordErr} slip${wordErr === 1 ? '' : 's'}` : 'Full power'}</p>{/if}
         {/if}
       </div>
     {:else if ui === 'rain' && rain}
@@ -672,6 +681,9 @@
 
   .float { position: absolute; transform: translate(-50%, -50%); font: 600 34px var(--font-ui); color: #fff; z-index: 8; pointer-events: none; animation: rise 1.5s cubic-bezier(.2, .8, .3, 1) forwards; -webkit-text-stroke: 1px rgba(40, 20, 80, .25); text-shadow: 0 3px 0 rgba(40, 20, 80, .35), 0 0 18px currentColor; white-space: nowrap; }
   .float.extra { font-size: 22px; }
+  .float.weak { font-size: 26px; text-align: center; }
+  .float .fsub, .float.slips { display: block; width: max-content; margin: 4px auto 0; font: 700 16px/1.2 var(--font-ui); color: #b0406a; -webkit-text-stroke: 0; text-shadow: none; background: #fff; padding: 2px 10px; border-radius: 999px; box-shadow: 0 0 0 2px #ffb3c9, 0 6px 14px -8px rgba(40, 20, 80, .5); }
+  .float.slips { margin: 0; padding: 3px 12px; }
   .float.block { font-size: 24px; color: #7fe0ff; }
   .float.hurt { font-size: 22px; color: #ff8a9a; }
   .float.finale { font-size: 52px; }
@@ -735,6 +747,10 @@
   .shake { animation: shake .35s; }
   @keyframes shake { 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
   .ask { margin: 0; font: 600 20px var(--font-ui); color: var(--ink2); text-align: center; }
+  .typeask { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .power { width: 120px; height: 12px; border-radius: 999px; background: #ece6f6; overflow: hidden; box-shadow: inset 0 0 0 2px #fff; }
+  .power i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #7a5cf5, #b79cff); transition: width .25s ease-out; }
+  .power.low i { background: linear-gradient(90deg, #ff7a9a, #ffb3c9); }
   .iq { display: flex; align-items: center; justify-content: center; gap: 14px; font: 600 clamp(40px, 6vw, 64px)/1 var(--font-ui); color: var(--ink); }
   .word { display: flex; gap: 4px; font: 600 clamp(44px, 7vw, 72px)/1 var(--font-ui); letter-spacing: .02em; }
   .word span { color: #b8b0cc; padding: 0 2px; border-bottom: 5px solid transparent; }

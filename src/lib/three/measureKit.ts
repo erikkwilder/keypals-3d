@@ -233,13 +233,16 @@ export class MeasureKit {
       c.globalAlpha = 0.18; c.strokeStyle = '#9a6a2c'; for (let i = 0; i < 18; i++) { c.lineWidth = 2 + (i % 3); c.beginPath(); c.moveTo(0, 10 + i * 14); c.bezierCurveTo(600, i * 13, 1400, 20 + i * 15, 2048, 8 + i * 14); c.stroke(); }
       c.globalAlpha = 1;
       const px = (v: number) => (margin + v * u) / L * 2048;
+      // the ticks run along the edge the things lie against: the back edge, or on the bench the front edge
+      // (there the things lie in front of the ruler, where nothing at the back can hide them)
+      const front = this.bench;
       c.fillStyle = '#3a220a'; c.strokeStyle = '#3a220a'; c.textAlign = 'center'; c.font = `600 80px ${fontUi()}`;
       for (let i = 0; i <= r.len * 2; i++) {
-        const v = i / 2, whole = i % 2 === 0;
-        c.lineWidth = whole ? 7 : 4; c.beginPath(); c.moveTo(px(v), 0); c.lineTo(px(v), whole ? 96 : 54); c.stroke();
-        if (whole) c.fillText(String(v), px(v), 196);
+        const v = i / 2, whole = i % 2 === 0, tick = whole ? 96 : 54;
+        c.lineWidth = whole ? 7 : 4; c.beginPath(); c.moveTo(px(v), front ? 256 : 0); c.lineTo(px(v), front ? 256 - tick : tick); c.stroke();
+        if (whole) c.fillText(String(v), px(v), front ? 136 : 196);
       }
-      c.font = `700 52px ${fontUi()}`; c.textAlign = 'right'; c.fillText(r.unit, 2030, 230);
+      c.font = `700 52px ${fontUi()}`; c.textAlign = 'right'; c.fillText(r.unit, 2030, front ? 60 : 230);
     });
     const top = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }), side = std(0xc98f45);
     const body = mesh(new RoundedBoxGeometry(L, H, W, 2, 0.004), [side, side, top, side, side, side] as unknown as THREE.Material);
@@ -247,11 +250,13 @@ export class MeasureKit {
     g.add(body);
     g.position.copy(this.at(300, this.bench ? 268 : 238));
     this.ruler = g; this.root.add(g);
-    // the things lying above it: a crayon and a pencil, made in 3D at their exact lengths
+    // the things lying beside it: a crayon and a pencil, made in 3D at their exact lengths (behind the
+    // ruler; on the bench in front of it, clear of the scale and the jug at the back)
     this.items = r.items.map((it, i) => {
       const len = (it.to - it.from) * u;
       const t = it.thing === 'pencil' ? pencil(len, 7 * this.s) : crayon(len, 8.5 * this.s);
-      t.position.set(0, 0, -W / 2 - (i + 0.65) * 34 * this.s);
+      const off = W / 2 + (i + 0.65) * 34 * this.s;
+      t.position.set(0, 0, this.bench ? off : -off);
       // a bigger, unseen box round it, so a finger can grab it easily
       const grab = new THREE.Mesh(new THREE.BoxGeometry(len, 0.06, 0.05), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
       grab.position.set(len / 2, 0.02, 0); t.add(grab);
@@ -429,7 +434,13 @@ export class MeasureKit {
       water: this.state.jug?.value ?? 0,
     };
   }
-  itemPoint(i: number) { const it = this.items[i]; return it ? it.g.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(it.len * this.rulerU * (i ? 0.78 : 0.22), 0.05 + i * 0.03, -0.02)) : new THREE.Vector3(); }
+  itemPoint(i: number) {
+    const it = this.items[i];
+    if (!it) return new THREE.Vector3();
+    // on the bench the label sits on the thing itself, in its middle (above it, it would cover the ruler's numbers)
+    if (this.bench) return it.g.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(it.len * this.rulerU * (i ? 0.68 : 0.32), 0.02, 0));
+    return it.g.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(it.len * this.rulerU * (i ? 0.78 : 0.22), 0.05 + i * 0.03, -0.02));
+  }
   /** set the things on the ruler to new lengths, and the sack to a new weight (the bench's "something else") */
   restock(lens: number[], weight: number) {
     const r = this.state.ruler; if (!r) return;
@@ -745,8 +756,9 @@ function pencil(L: number, r = 0.012) {
   const tip = Math.min(L * 0.16, 0.05), era = Math.min(L * 0.1, 0.025), fer = Math.min(L * 0.06, 0.014), body = L - tip - era - fer;
   const yel = std(0xf7c531, { roughness: 0.45 });
   const b = mesh(new THREE.CylinderGeometry(r, r, body, 6).rotateZ(Math.PI / 2), yel); b.position.x = era + fer + body / 2; g.add(b);
-  const wood = mesh(new THREE.CylinderGeometry(0.0001, r, tip * 0.75, 6).rotateZ(Math.PI / 2), std(0xe8c08a)); wood.position.x = L - tip * 0.625; wood.rotation.x = 0; g.add(wood);
-  const lead = mesh(new THREE.CylinderGeometry(0.0001, r * 0.32, tip * 0.25, 8).rotateZ(Math.PI / 2), std(0x333333)); lead.position.x = L - tip * 0.125; g.add(lead);
+  // the sharpened end points out along the pencil (a cone's narrow top turned to +x)
+  const wood = mesh(new THREE.CylinderGeometry(r * 0.32, r, tip * 0.75, 6).rotateZ(-Math.PI / 2), std(0xe8c08a)); wood.position.x = L - tip * 0.625; g.add(wood);
+  const lead = mesh(new THREE.CylinderGeometry(0.0001, r * 0.32, tip * 0.25, 8).rotateZ(-Math.PI / 2), std(0x333333)); lead.position.x = L - tip * 0.125; g.add(lead);
   const f = mesh(new THREE.CylinderGeometry(r * 1.05, r * 1.05, fer, 12).rotateZ(Math.PI / 2), std(0xc0c6cf, { metalness: 0.8, roughness: 0.3 })); f.position.x = era + fer / 2; g.add(f);
   const e = mesh(new THREE.CylinderGeometry(r, r, era, 12).rotateZ(Math.PI / 2), std(0xf28aa8, { roughness: 0.7 })); e.position.x = era / 2; g.add(e);
   g.position.y = r; g.rotation.x = Math.PI / 6;

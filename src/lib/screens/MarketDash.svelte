@@ -6,7 +6,10 @@
   // and today's challenge. The rules and scoring are in math/market/dash.ts.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { AREA } from '../math/skills/registry';
+  import { DAILY_SHELLS } from '../engine/settle';
+  import { clearOldLine } from '../arcade/feedback';
+  import { exitsOf } from '../arcade/exits';
+  import ExitButtons from '../arcade/ui/ExitButtons.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { MarketScene } from '../three/marketScene';
@@ -14,7 +17,7 @@
   import type { Profile } from '../engine/profile';
   import { GLIMMERS, type GlimmerId } from '../adventure/glimmers';
   import { BANK, GOODS, ROUND_MS, STAR_AT, applyDash, comboMult, dailyBestOf, dailySeed, dashOf, kindsFor, levelsFor, oneWay, orderMaker, orderScore, servedRight, starsFor, type DashOutcome, type Order } from '../math/market/dash';
-  import { COIN_ART, COIN_NAME, moneyText } from '../math/skills/decimals';
+  import { COIN_ART, COIN_NAME, COIN_REL, moneyText } from '../math/skills/decimals';
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
@@ -101,6 +104,8 @@
     slots.forEach((c, i) => { if (c && !c.leaving && (best === null || c.n < slots[best]!.n)) best = i; });
     active = best;
     if (best === null) return;
+    // the last shopper's line goes (the first shopper keeps the how-to tip)
+    if (served + missed) clearOldLine(() => msg, () => (msg = null));
     const o = slots[best]!.order;
     activeAt = performance.now();
     // the first couple of change orders get a word, once the last message has been read
@@ -200,15 +205,13 @@
     scene?.clear(); syncTray();
   }
 
-  /** opened from the Arcade, Back goes there; otherwise to the area's map */
-  const fromArcade = game.gameFrom === 'arcade';
-  game.gameFrom = 'map';
-  const backTo = fromArcade ? 'the Arcade' : AREA.decimals.name;
+  /** where it was opened from: Back goes there, and its cards offer the Arcade too */
+  const exits = exitsOf('decimals');
+  const backTo = exits.backTo;
   function quit() {
     sfx.click();
     if (phase === 'play') { phase = 'menu'; slots = [null, null, null]; syncCustomers(); active = null; msg = null; scene?.clear(); syncTray(); return; }
-    if (fromArcade) { game.go('arcade'); return; }
-    game.mathArea = 'decimals'; game.mathOp = null; game.setHome('math'); game.go('map');
+    exits.back();
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
@@ -271,7 +274,7 @@
       <div class="bank" role="group" aria-label="Coins">
         {#each BANK as v, k (v)}
           <button class="coin" onclick={() => add(v)} aria-label="Add a {COIN_NAME[v]}, {moneyText(v)}">
-            <img src="{base}math/money/{COIN_ART[v]}.webp" alt="" style:--s={v === 25 ? 1 : v === 5 ? 0.88 : v === 1 ? 0.8 : 0.74} />
+            <img src="{base}math/money/{COIN_ART[v]}.webp" alt="" style:--s={COIN_REL[v]} />
             <b>{moneyText(v)}</b><span class="kbd">{k + 1}</span>
           </button>
         {/each}
@@ -298,10 +301,10 @@
         </ol>
         <div class="bests">
           <div><small>Best</small><b>{rec.best}</b><Stars n={rec.stars} size={20} /></div>
-          <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same shoppers all day</span></div>
+          <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same shoppers all day</span><span class="tiny bonus">Beat {STAR_AT[1]} for {DAILY_SHELLS} bonus shells</span></div>
         </div>
         <div class="acts">
-          <button class="btn" onclick={quit}>Back</button>
+          <ExitButtons {exits} />
           <button class="btn" onclick={() => start(true)}><Icon name="target" size={20} /> Today's challenge</button>
           <button class="btn btn-primary big" onclick={() => start(false)}>Play <span class="kbd">enter</span></button>
         </div>
@@ -325,7 +328,7 @@
         </div>
         <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <button class="btn" onclick={quit}>Back to {backTo}</button>
+          <ExitButtons {exits} />
           {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
           <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
         </div>
@@ -373,10 +376,10 @@
   .paid { position: relative; z-index: 1; display: flex; align-items: center; gap: 2px; padding-left: 6px; margin-left: 2px; border-left: 2px solid #f0e2c8; }
   .paid small { font: 800 10px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-right: 3px; }
   .paid img { width: 22px; height: 22px; object-fit: contain; }
-  .paid img.bill { width: 38px; height: 22px; }
+  .paid img.bill { width: 47px; height: 22px; }
   .paid b { font: 600 16px var(--font-ui); color: #2f7d5b; margin-left: 3px; }
   .bubble.on .paid img { width: 30px; height: 30px; }
-  .bubble.on .paid img.bill { width: 54px; height: 30px; }
+  .bubble.on .paid img.bill { width: 64px; height: 30px; }
   .bubble.on .paid b { font-size: 22px; }
   .ring { position: absolute; left: 50%; bottom: -40px; transform: translateX(-50%); width: 120px; height: 10px; border-radius: 999px; background: linear-gradient(90deg, #4fcf9f calc(var(--pat) * 100%), rgba(255, 255, 255, .7) 0); box-shadow: 0 0 0 2px #fff; }
 
@@ -390,12 +393,13 @@
   .bottom { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 14px 16px; pointer-events: none; }
   .bottom > * { pointer-events: auto; }
   .bank { display: flex; gap: 8px; background: rgba(255, 250, 238, .94); border-radius: 24px; padding: 8px 10px; box-shadow: var(--shadow-sm); }
-  .coin { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0; border: 0; cursor: pointer; background: #fff; border-radius: 18px; padding: 6px 10px 4px; min-width: 76px; box-shadow: 0 4px 0 #e6cf9e; transition: transform .1s; }
+  .coin { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0; border: 0; cursor: pointer; background: #fff; border-radius: 18px; padding: 6px 10px 4px; min-width: 84px; box-shadow: 0 4px 0 #e6cf9e; transition: transform .1s; }
   .coin:hover { transform: translateY(-2px); }
   .coin:active { transform: translateY(2px); box-shadow: 0 2px 0 #e6cf9e; }
-  .coin img { width: calc(56px * var(--s)); height: calc(56px * var(--s)); margin: calc(28px * (1 - var(--s))) 0; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(80, 50, 10, .3)); }
+  .coin img { width: calc(64px * var(--s)); height: calc(64px * var(--s)); margin: calc(32px * (1 - var(--s))) 0; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(80, 50, 10, .3)); }
   .coin b { font: 600 18px var(--font-ui); color: var(--ink); }
-  .coin .kbd { position: absolute; top: 4px; right: 6px; }
+  /* the key's number sits on the button's corner, off the coin's face */
+  .coin .kbd { position: absolute; top: -7px; right: -5px; }
   .paybar { display: flex; align-items: center; gap: 10px; }
   .have { display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, .94); border-radius: 20px; padding: 6px 16px; box-shadow: var(--shadow-sm); font: 700 16px var(--font-body); color: var(--ink2); min-height: 56px; }
   .have b { font: 600 28px var(--font-ui); color: #2f7d5b; min-width: 2.4em; }
@@ -421,6 +425,7 @@
   .bests small { font: 800 11px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .bests b { font: 600 26px var(--font-ui); color: var(--ink); }
   .tiny { font: 600 12px var(--font-body); color: var(--muted); }
+  .tiny.bonus { color: #a86a00; font-weight: 700; }
   .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
   .big { font-size: 22px; padding: 12px 26px; }
   .sub { margin: -6px 0 0; font: 800 12px var(--font-body); color: #2f7d5b; text-transform: uppercase; letter-spacing: .06em; }
@@ -451,7 +456,7 @@
     .paid b { display: none; }
     .bank { gap: 6px; padding: 6px; border-radius: 20px; }
     .coin { min-width: 0; width: 76px; padding: 4px 4px 2px; border-radius: 14px; }
-    .coin img { width: calc(48px * var(--s)); height: calc(48px * var(--s)); margin: calc(24px * (1 - var(--s))) 0; }
+    .coin img { width: calc(54px * var(--s)); height: calc(54px * var(--s)); margin: calc(27px * (1 - var(--s))) 0; }
     .coin b { font-size: 16px; }
     .coin .kbd { display: none; }
     .paybar { gap: 6px; }

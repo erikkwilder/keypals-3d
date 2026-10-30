@@ -80,7 +80,18 @@ export type Settled = {
   buddies: FriendId[]; eggsReady: Rarity[]; shells: number;
   /** the treasure step this practice found (-1: none), and whether it's the best the player has found */
   treasure: number; newBestTreasure: boolean;
+  /** today's challenge beaten for the first time today, and its bonus shells (a game with a daily challenge) */
+  dailyBeat?: boolean; dailyShells?: number;
 };
+
+/** Today's challenge pays the same everywhere: beat its goal (the two-star score) and the first time
+ *  today it pays this many bonus shells, in the Arcade's fact games and in every math area's game. */
+export const DAILY_SHELLS = 25;
+/** The bonus for a round of today's challenge: `before` is today's best before this round. */
+export function dailyBonus(p: Profile, daily: boolean, before: number, score: number, goal: number): { dailyBeat: boolean; dailyShells: number } {
+  const dailyBeat = daily && before < goal && score >= goal;
+  return { dailyBeat, dailyShells: dailyBeat ? earnShells(p, DAILY_SHELLS) : 0 };
+}
 
 /** The treasure a scored game's round finds (the Arcade's fact games and every math area's own game): up
  *  the ladder as the score goes past the three-star score, nothing under a fifth of it. */

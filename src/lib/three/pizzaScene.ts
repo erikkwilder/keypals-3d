@@ -7,6 +7,7 @@ import { loadTexture } from './assets';
 import { Fx } from './fx';
 import { GlimmerModel } from './glimmerModel';
 import { ELEMENT, GLIMMER, type GlimmerId } from '../adventure/glimmers';
+import { PIZZAS, PIZZA_KINDS, type PizzaKind } from '../math/pizza/rush';
 
 const R = 1, H = 0.08, CUST_Z = -1.1;
 type Slice = { mesh: THREE.Mesh; cap: THREE.MeshStandardMaterial; mid: number; picked: boolean; k: number; fly: { t: number; from: THREE.Vector3; to: THREE.Vector3 } | null };
@@ -22,6 +23,9 @@ export class PizzaScene {
   private peel = new THREE.Group();
   private fx = new Fx();
   private top: THREE.Texture | null = null;
+  /** each kind of pizza's painted top, once loaded (by its art) */
+  private tops = new Map<string, THREE.Texture>();
+  private kind: PizzaKind = 'pepperoni';
   private slices: Slice[] = [];
   private flying: Slice[] = [];
   /** the slices it's cut into (1: whole) */
@@ -98,12 +102,9 @@ export class PizzaScene {
 
   static async create(canvas: HTMLCanvasElement): Promise<PizzaScene> {
     const s = new PizzaScene(canvas);
-    const tex = await loadTexture('math/pizza/top.webp');
-    if (tex) {
-      // the caps' corners are in the slice's own units (-1..1 across the pizza)
-      const t = tex.clone(); t.repeat.set(1 / (2 * R), 1 / (2 * R)); t.offset.set(0.5, 0.5); t.anisotropy = 4; t.needsUpdate = true;
-      s.top = t;
-    }
+    s.top = await s.loadTop(PIZZAS.pepperoni.art);
+    // the other kinds load meanwhile, ready for the orders
+    for (const k of PIZZA_KINDS) void s.loadTop(PIZZAS[k].art);
     s.setCut(1, false);
     s.resize();
     s.raf = requestAnimationFrame(s.frame);
@@ -150,8 +151,30 @@ export class PizzaScene {
     if (animate && n > 1) this.fx.emit({ at: new THREE.Vector3(0, 0.15, 0), count: 26, shape: ['dot', 'star'], color: [0xffffff, 0xffe39a], speed: [0.6, 1.6], up: 0.5, life: [0.3, 0.6], size: [0.04, 0.09], drag: 2, spread: 1 });
   }
 
-  /** A fresh pizza drops onto the peel, whole or already cut. */
-  newPizza(cut: number) {
+  /** A kind of pizza's painted top, fitted to the slices' caps. */
+  private async loadTop(art: string): Promise<THREE.Texture | null> {
+    const have = this.tops.get(art);
+    if (have) return have;
+    const tex = await loadTexture(art);
+    if (!tex || this.disposed) return null;
+    if (this.tops.has(art)) return this.tops.get(art)!;
+    // the caps' corners are in the slice's own units (-1..1 across the pizza)
+    const t = tex.clone(); t.repeat.set(1 / (2 * R), 1 / (2 * R)); t.offset.set(0.5, 0.5); t.anisotropy = 4; t.needsUpdate = true;
+    this.tops.set(art, t);
+    return t;
+  }
+
+  /** A fresh pizza drops onto the peel, whole or already cut, of this kind (mushroom, a cookie pizza...). */
+  newPizza(cut: number, kind: PizzaKind = 'pepperoni') {
+    this.kind = kind;
+    const art = PIZZAS[kind].art, t = this.tops.get(art);
+    if (t) this.top = t;
+    else void this.loadTop(art).then(x => {
+      // still loading when it came up: it shows as soon as it's here
+      if (!x || this.kind !== kind) return;
+      this.top = x;
+      for (const sl of this.slices) { sl.cap.map = x; sl.cap.color.set(0xffffff); sl.cap.needsUpdate = true; }
+    });
     this.setCut(cut, false);
     this.drop = 1;
   }
@@ -342,7 +365,7 @@ export class PizzaScene {
     this.fx.dispose();
     for (const k of ['pool', 'beam', 'halo']) { const m = (this.spot.userData[k] as THREE.Mesh).material as THREE.MeshBasicMaterial; m.map?.dispose(); m.dispose(); }
     this.scene.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh && !m.userData.glimmer) { m.geometry?.dispose(); } });
-    this.top?.dispose();
+    for (const t of this.tops.values()) t.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
   }

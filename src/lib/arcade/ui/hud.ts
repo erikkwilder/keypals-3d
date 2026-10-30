@@ -9,8 +9,10 @@ export type Phase = 'loading' | 'intro' | 'count' | 'play' | 'paused' | 'ending'
 export type ArcadeHud = {
   /** an answer, for the fact memory */
   answer(f: Fact, ok: boolean, thinkMs: number): void;
-  /** points scored; `at` is where on the screen (0..1 across and down) to pop "+N" (null: no pop), with a word */
-  score(points: number, at?: { x: number; y: number } | null, label?: string): void;
+  /** points scored; `at` is where on the screen (0..1 across and down) to pop "+N" (null: no pop), with a word.
+   *  With `side` (-1 left, 1 right) it's a small quick pop that slides out that way and down, never up into
+   *  what's ahead (Sky Slalom's gates). */
+  score(points: number, at?: { x: number; y: number; side?: -1 | 1 } | null, label?: string): void;
   /** right ones in a row */
   combo(n: number): void;
   /** good play adds seconds to the clock (games with maxSecs) */

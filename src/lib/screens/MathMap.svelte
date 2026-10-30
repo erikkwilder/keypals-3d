@@ -147,7 +147,7 @@
 <div class="screen map" class:behind={!!(game.learnOverlay && MEASURE_LESSON[game.learnOverlay])}>
   <TopBar />
   <WaysBar subject={S} {way} onpick={pickWay}>
-    {#snippet right()}<span class="pill stars" title="Math stars"><Stars n={1} of={1} size={20} /> <b>{stars}</b></span>{/snippet}
+    {#snippet right()}<span class="pill stars" title="Math stars"><Stars n={1} of={1} size={20} /> <b>{stars}</b></span><button class="pill gardenpill" title="The Fact Garden: every fact you know, growing" onclick={() => { sfx.click(); game.go('garden'); }}><img src="{import.meta.env.BASE_URL}icons/garden.webp" alt="" /><span class="gw">Garden</span><b>{blooms}</b></button>{/snippet}
   </WaysBar>
   {#if wayCount(S, way)}<ChipRow chips={S.chips} {chip} onpick={pickChip} label="Which kind of math" />{/if}
 
@@ -328,7 +328,7 @@
             {#if rec && rec.bestRide > 0}<span class="ride" title="Best: {rideName(rec.bestRide, l.move)}"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff', l.move)}</svg></span>{/if}
             <span class="lbl">{l.title}</span>
             <span class="mv" title="{MOVE_NAME[l.move]}"><Icon name={l.move} size={15} /> {MOVE_NAME[l.move]}</span>
-            <Stars n={rec?.stars ?? 0} size={14} />
+            <span class="starplate" class:none={!(rec?.stars)} title="{rec?.stars ?? 0} of 3 stars"><Stars n={rec?.stars ?? 0} size={17} /></span>
             {#if isNext}<span class="buddy"><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={64} mood="dance" /></span>{/if}
           </button>
         {/each}
@@ -388,7 +388,7 @@
             {#if rec && rec.bestRide > 0}<span class="ride" title="Best: {rideName(rec.bestRide, moveOf(l))}"><svg viewBox="0 0 48 48">{@html rideIcon(rec.bestRide, '#fff', moveOf(l))}</svg></span>{/if}
             <span class="lbl">{l.title}</span>
             <span class="mv" title="{MOVE_NAME[moveOf(l)]}"><Icon name={moveOf(l)} size={15} /> {MOVE_NAME[moveOf(l)]}</span>
-            <Stars n={rec?.stars ?? 0} size={14} />
+            <span class="starplate" class:none={!(rec?.stars)} title="{rec?.stars ?? 0} of 3 stars"><Stars n={rec?.stars ?? 0} size={17} /></span>
             {#if isNext}<span class="buddy"><Critter friend={p.buddy} {look} accessory={outfitOf(p)} size={64} mood="dance" /></span>{/if}
           </button>
         {/each}
@@ -449,6 +449,11 @@
   .map { display: flex; flex-direction: column; background: linear-gradient(#cfe9fa, #eaf6ff 60%, #f3f9ff); }
   .pill { display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, .9); padding: 5px 12px; border-radius: 999px; font: 700 15px var(--font-body); color: var(--ink2); white-space: nowrap; }
   .pill b { font: 600 19px var(--font-ui); color: var(--ink); }
+  /* the Fact Garden, one tap from every tab: its picture and how many facts are in bloom */
+  .gardenpill { border: 0; cursor: pointer; padding: 2px 12px 2px 3px; font: 600 15px var(--font-ui); color: #1f7a50; background: #ecfaf2; box-shadow: inset 0 0 0 2px #bfe9d0, 0 3px 0 #bfe9d0; transition: transform .12s; }
+  .gardenpill:hover { transform: translateY(-2px); }
+  .gardenpill img { width: 34px; height: 34px; object-fit: contain; }
+  @media (max-width: 1100px) { .gardenpill .gw { display: none; } }
   .scroller { flex: 1; min-height: 0; padding: 8px 22px 120px; display: flex; flex-direction: column; gap: 22px; }
   /* a part's links to the other tabs (Learn it, Games, World), on its card and on its map */
   .links { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
@@ -510,6 +515,10 @@
   .node.next .disc { animation: pulse-ring 1.4s ease-out infinite; background: linear-gradient(var(--primary-hi), var(--primary)); color: #fff; box-shadow: 0 5px 0 var(--primary-edge); }
   .node.locked .disc { background: #ece8f3; color: #b4abc7; box-shadow: 0 4px 0 #d8d2e3; }
   .node.locked .lbl { opacity: .6; }
+  /* the stars won at a stop, on a solid plaque so they read on any painting */
+  .starplate { display: inline-flex; align-items: center; padding: 2px 7px 3px; margin-top: 2px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 2px #ffd34d, 0 3px 0 #e8b92c, 0 6px 12px -4px rgba(40, 20, 60, .45); }
+  .starplate.none { box-shadow: 0 0 0 2px #e6e0f0, 0 3px 0 #d6cfe4, 0 6px 12px -4px rgba(40, 20, 60, .35); }
+  .starplate :global(img:not(.on)) { filter: grayscale(1) brightness(.85) opacity(.55); }
   .lbl { font: 700 13px/1.15 var(--font-body); color: var(--ink); background: rgba(255, 255, 255, .9); padding: 3px 8px; border-radius: 10px; margin-top: 4px; max-width: 124px; text-align: center; }
   .ride { position: absolute; top: -6px; right: 22px; width: 28px; height: 28px; border-radius: 50%; background: var(--primary); display: grid; place-items: center; box-shadow: 0 0 0 3px #fff; }
   .ride svg { width: 18px; height: 18px; }
@@ -543,6 +552,8 @@
     .disc { width: 50px; height: 50px; font-size: 22px; }
     .node.check .disc { width: 58px; height: 58px; }
     .lbl { font-size: 11.5px; max-width: 86px; padding: 2px 5px; }
+    .starplate { padding: 1px 5px 2px; }
+    .starplate :global(.stars) { --sz: 13px !important; }
     .buddy { display: none; }
     .go .kbd { display: none; }
     .go .btn { font-size: 18px; padding: 12px 18px; white-space: normal; }

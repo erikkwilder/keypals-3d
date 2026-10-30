@@ -64,7 +64,7 @@
     // the thinking time is until the last steer; staying put in the right lane counts as the whole way
     const think = ok && steered ? steerAt - shownAt : now - shownAt;
     hud.answer(q.f, ok, Math.max(250, think));
-    const at = scene.screenAt();
+    const at = popAt();
     if (ok) {
       combo++;
       const quick = think <= fastMs;
@@ -100,6 +100,14 @@
     scene.addGate(next.d, next.spec);
     maybeRing(from, next.d);
   }
+  /** Where points pop: beside the sled, low, on the outside of its lane, sliding out and down. The next
+   *  gates come up the middle of the run above the sled, so a pop never covers them. */
+  function popAt(): { x: number; y: number; side: -1 | 1 } {
+    const b = scene!.screenAt();
+    const side: -1 | 1 = scene!.lane < 0 ? -1 : 1;
+    const off = Math.min(0.3, Math.max(0.12, 130 / innerWidth));
+    return { x: Math.min(0.88, Math.max(0.12, b.x + side * off)), y: Math.min(0.8, b.y + 0.12), side };
+  }
   /** Now and then a golden boost ring between two gates, in any lane (worth a detour if there's time). */
   function maybeRing(a: number, b: number) {
     if (!scene || rng() > 0.55 || b - a < 26) return;
@@ -108,7 +116,7 @@
   function onRing(hit: boolean) {
     if (!hit || !scene) return;
     const pts = Math.round(150 * speedMult() * (scene.turbo > 0 ? 2 : 1));
-    hud.score(pts, scene.screenAt(), 'Boost!');
+    hud.score(pts, popAt(), 'Boost!');
     hud.addTime(timeBack() + 0.5);
     sfx.ringPass();
   }
@@ -177,6 +185,8 @@
     });
     window.addEventListener('keydown', onKey);
     raf = requestAnimationFrame(frame);
+    // for checking by hand: __slalom.right is the lane (-1, 0, 1) of the right arch, __slalom.lane the sled's
+    if (import.meta.env.DEV) (window as unknown as { __slalom: unknown }).__slalom = { get right() { return cur ? cur.spec.right - 1 : null; }, get lane() { return scene?.lane ?? 0; } };
   });
   onDestroy(() => {
     window.removeEventListener('keydown', onKey);

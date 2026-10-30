@@ -1,7 +1,8 @@
 // Shortcuts for checking screens: add #run=village-1, #map, #math, #mathrun=twins-2, #garden, #arcade, #arcade=slalom, #results, #stickers, #closet, #dances,
-// #settings, #grownups or #new to the address. #tester (works on the live site too) adds a player
-// called "Tester" who has passed every lesson and has every buddy at friendship 26, for trying the
-// later levels, outfits and dances; it never touches other players.
+// #settings, #grownups or #new to the address. #tester (development builds only: on the live site it's
+// the admin's "Try every level" in Grown-ups) adds a player called "Tester" who has passed every lesson
+// and has every buddy at friendship 26, for trying the later levels, outfits and dances; it never touches
+// other players.
 import { game } from './game.svelte';
 import { ALL_LESSONS } from '../engine/course';
 import { BUDDIES } from '../art/cast';
@@ -120,7 +121,7 @@ export function devBoot() {
     });
     game.openCloset('gear');
   }
-  if (key === 'tester') { addTester(); game.go('map'); history.replaceState(null, '', location.pathname + location.search); }
+  if (key === 'tester' && import.meta.env.DEV) { addTester(); game.go('map'); history.replaceState(null, '', location.pathname + location.search); }
   // measurement and time: #measure-pics (every question's picture and input), #measure (its map)
   if (key === 'measure-pics' && import.meta.env.DEV) { ensure(); void Promise.all([import('svelte'), import('../math/measure/PicGallery.svelte')]).then(([s, m]) => { const c = s.mount(m.default, { target: document.body, props: { onclose: () => s.unmount(c) } }); }); }
   // Clock Rush, the measuring arcade game: #clockrush; the Measuring Bench toy: #bench

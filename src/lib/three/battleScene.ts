@@ -268,7 +268,7 @@ export class BattleScene implements Controller {
   }
 
   /** Your buddy casts a power. Resolves when it hits. */
-  async cast(element: Element, value: number, o: { perfect: boolean; super: boolean; ok: boolean; big: number }): Promise<void> {
+  async cast(element: Element, value: number, o: { perfect: boolean; super: boolean; ok: boolean; big: number; power?: number }): Promise<void> {
     if (!o.ok) {
       this.play('stumble', 1.1, 'idle');
       await sleep(350);
@@ -280,7 +280,10 @@ export class BattleScene implements Controller {
     await sleep(380);
     const from = this.hand(), to = this.foeCentre();
     const c = CAST[element];
-    const k = Math.min(1.6, 0.6 + o.big);
+    // typing slips (`power` below 1): a smaller, weaker shot, with grey puffs where the slips fell off
+    const pw = Math.max(0.2, Math.min(1, o.power ?? 1));
+    const k = Math.min(1.6, 0.6 + o.big) * (0.4 + 0.6 * pw);
+    if (pw < 1) this.fx.emit({ at: from, count: 6 + Math.round(16 * (1 - pw)), shape: 'dot', color: 0xb8b8c8, speed: [0.3, 1.1], life: [0.5, 0.9], size: [0.08, 0.18], up: 0.5, drag: 2 });
     await new Promise<void>(res => this.fx.fly(from, to, {
       color: c.color, size: 0.55 * k, time: 0.55, arc: c.arc,
       trail: at => c.trail(at, k),
@@ -288,8 +291,8 @@ export class BattleScene implements Controller {
         for (const e of c.impact(to, k)) this.fx.emit(e);
         if (o.super) this.fx.emit({ at: to, count: 24, shape: 'spark', color: [0xffffff, ELEMENT[element].color], speed: [3, 6], life: [0.3, 0.6], size: [0.2, 0.4], drag: 3 });
         if (o.perfect) this.fx.emit({ at: to, count: 60, shape: ['star', 'spark'], color: [0xffe066, 0xffffff, 0xff9ad5, 0x9fe6ff], speed: [3, 8], life: [0.6, 1.2], size: [0.18, 0.36], drag: 1.5, gravity: 1 });
-        this.grumble.hit(Math.min(1, 0.4 + o.big));
-        this.shake = 0.18 + o.big * 0.25;
+        this.grumble.hit(Math.min(1, 0.4 + o.big) * (0.5 + 0.5 * pw));
+        this.shake = (0.18 + o.big * 0.25) * pw;
         res();
       },
     }));

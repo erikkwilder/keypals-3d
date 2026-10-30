@@ -108,7 +108,7 @@
   {#if !sc}<div class="loading"><div class="lcard"><small>The Clockmaker's Workshop</small><b>The Measuring Bench</b></div></div>{/if}
   {#if sc && kit}
     {#each read.items as it, i (i)}
-      <div class="pin" use:pin={() => kit!.itemPoint(i)}><span class="tag" class:gold={it.from === 0}>{it.from === 0 ? `${it.len} cm` : `${it.from} to ${it.to}`}</span></div>
+      <div class="pin" use:pin={() => kit!.itemPoint(i)}><span class="tag on" class:gold={it.from === 0}>{it.from === 0 ? `${it.len} cm` : `${it.from} to ${it.to}`}</span></div>
     {/each}
     {#if read.weight}<div class="pin" use:pin={() => kit!.dialPoint()}><span class="tag gold">{read.weight} g</span></div>{/if}
     <div class="pin" use:pin={() => kit!.waterPoint()}><span class="tag water">{read.water} mL</span></div>
@@ -137,6 +137,8 @@
   .pin > * { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); white-space: nowrap; }
   .tag { font: 600 18px var(--font-ui); color: #4a2f00; background: rgba(255, 252, 240, .92); padding: 2px 10px; border-radius: 12px; box-shadow: 0 4px 10px rgba(80, 40, 0, .25); }
   .tag.gold { font-size: 24px; background: linear-gradient(#fffaf0, #ffe9a8); box-shadow: 0 0 0 3px #ffd75e, 0 6px 14px rgba(120, 70, 0, .3); }
+  /* a thing's label sits on the thing itself, so it never covers the ruler */
+  .pin > .tag.on { transform: translate(-50%, -50%); }
   .tag.water { color: #1b4a78; box-shadow: 0 0 0 3px #9fd0ff, 0 6px 14px rgba(20, 60, 120, .25); }
   .say { transform: translate(18px, -60%); white-space: normal; width: max-content; max-width: min(380px, 34vw); background: #fff; border-radius: 26px; padding: 10px 18px 12px; font: 600 20px/1.3 var(--font-ui); text-align: center; color: var(--ink); box-shadow: 0 0 0 3px #fff, 0 12px 26px -10px rgba(40, 20, 80, .55); animation: bub .35s cubic-bezier(.3, 1.4, .5, 1) both; }
   .say b { display: block; font: 800 11px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: #8a6bd6; }
@@ -152,6 +154,8 @@
   .bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 16px 18px; z-index: 3; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
   .narrow .say { font-size: 15px; max-width: 58vw; padding: 8px 12px 10px; transform: translate(10px, -40%); }
   .narrow .tag { font-size: 14px; } .narrow .tag.gold { font-size: 18px; }
+  /* on a phone the pencil and crayon are small: their labels too, so they don't cover them */
+  .narrow .tag.on { font-size: 11px; padding: 1px 6px; border-radius: 8px; } .narrow .tag.on.gold { font-size: 13px; box-shadow: 0 0 0 2px #ffd75e, 0 3px 8px rgba(120, 70, 0, .3); }
   .narrow .title b { font-size: 16px; } .narrow .title img { display: none; }
   .narrow .bottom .btn { font-size: 15px; padding: 10px 14px; }
   .narrow .bottom .btn-big { font-size: 17px; }

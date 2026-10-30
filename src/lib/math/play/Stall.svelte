@@ -10,7 +10,7 @@
   import { slipStars } from '../playground';
   import { GOODS } from '../market/dash';
   import { SHOPPERS, changeDue, countUpText, nudge, owed, stallGoods, stallLevel, stallShoppers, startPrices } from '../market/stall';
-  import { COIN_ART, COIN_NAME, moneyText } from '../skills/decimals';
+  import { COIN_ART, COIN_NAME, COIN_REL as REL, moneyText } from '../skills/decimals';
   import { GLIMMERS } from '../../adventure/glimmers';
   import { glimmerArt } from '../../adventure/evolve';
 
@@ -44,7 +44,6 @@
   const due = $derived(changeDue(lv, prices, buys));
   const total = $derived(tray.reduce((t, x) => t + x.c, 0));
   const PAID = L.pay === 100 ? 'a dollar bill' : L.pay === 50 ? 'two quarters' : 'a quarter';
-  const REL: Record<number, number> = { 1: 0.8, 5: 0.88, 10: 0.74, 25: 1 };
   const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
   function price(n: number, dir: 1 | -1) { if (open) return; sfx.click(); prices[n] = nudge(lv, prices[n], dir); }
@@ -169,7 +168,7 @@
   .says { display: flex; flex-direction: column; gap: 2px; font: 600 19px var(--font-ui); color: var(--ink); }
   .paid { display: flex; align-items: center; gap: 4px; font: 700 15px var(--font-body); color: var(--ink2); }
   .paid img { width: 32px; height: 32px; object-fit: contain; }
-  .paid img.bill { width: 60px; height: 32px; }
+  .paid img.bill { width: 68px; height: 32px; }
   .paid b { font: 600 20px var(--font-ui); color: #2f7d5b; }
 
   .tray { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px; min-height: 72px; width: min(560px, 100%); padding: 10px 70px 10px 14px; border-radius: 22px; background: linear-gradient(#3d8f69, #2f7d5b); box-shadow: inset 0 4px 10px rgba(10, 40, 20, .45), 0 4px 0 #7d5428; }

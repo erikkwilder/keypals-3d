@@ -92,6 +92,14 @@
     game.save.profiles.forEach(x => { if (x.id === selected) { const a = advOf(x); a.settings = { ...a.settings, ...patch }; } });
     game.persist();
   }
+  /** change the player picked here (the one playing, or another on this computer) */
+  function setFor(fn: (x: Profile) => void) {
+    if (selected === game.save.activeId) { game.update(fn); return; }
+    const x = game.save.profiles.find(pr => pr.id === selected);
+    if (!x) return;
+    fn(x); x.updatedAt = Date.now();
+    game.persist(); game.onProfileChange?.();
+  }
   function saveWords() {
     game.save.profiles.forEach(x => { if (x.id === selected) x.customText = words.slice(0, 3000); });
     game.persist();
@@ -209,10 +217,6 @@
           <div class="stat card"><b>{RIDES[p.rideBest].name}</b><span>best ride</span></div>
         </div>
         <div class="card tryall">
-          <div><h3>Try every level</h3><p class="muted">Adds a player called Tester with every typing lesson, math trip and playground level open, every buddy on the team, and every outfit and dance. Your own players aren't changed.</p></div>
-          <button class="btn btn-primary" onclick={() => { addTester(); game.go('hub'); }}>Open Tester</button>
-        </div>
-        <div class="card tryall">
           <img class="ti" src="{import.meta.env.BASE_URL}icons/bulb.webp" alt="" />
           <div><h3>Ideas and help</h3><p class="muted">Suggest a new game or something to make better, vote on other families' ideas, or tell us about a problem.</p></div>
           <button class="btn btn-primary" onclick={() => game.openIdeas()}>Ideas and help</button>
@@ -222,6 +226,24 @@
           <button class="btn btn-primary" onclick={() => { game.skillsFor = p!.id; game.go('skills'); }}>See skills</button>
         </div>
         <ClassGrownups {p} /><!-- classes: teachers, linking to a class, world boards -->
+        <!-- time and goals (moved here from Settings: the grown-ups choose them, the player just plays) -->
+        <div class="card pane goals">
+          <h3>Time and goals for {p.name}</h3>
+          <div class="grow">
+            <span class="gl"><b>Daily goal</b><small>Minutes of lessons, trips, Learn and games a day. The minutes in the top bar fill up toward it.</small></span>
+            <div class="seg">{#each [5, 10, 15, 20, 30] as m (m)}<button class:on={p.settings.dailyGoalMin === m} onclick={() => setFor(x => { x.settings.dailyGoalMin = m; })}>{m} min</button>{/each}</div>
+          </div>
+          <label class="grow">
+            <span class="gl"><b>Grown-up mode</b><small>For a grown-up playing: higher goal scores, longer lessons and faster rides.</small></span>
+            <input type="checkbox" checked={p.settings.grown} onchange={(e) => { const v = e.currentTarget.checked; setFor(x => { x.settings.grown = v; }); }} />
+          </label>
+          {#if !p.settings.grown}
+            <label class="grow">
+              <span class="gl"><b>Easy mode</b><small>Typing stars need two thirds of the usual score. Good for younger typists.</small></span>
+              <input type="checkbox" checked={!!p.settings.easy} onchange={(e) => { const v = e.currentTarget.checked; setFor(x => { x.settings.easy = v; }); }} />
+            </label>
+          {/if}
+        </div>
         <div class="card pane advset">
           <h3>Adventure: play time</h3>
           <p class="muted small">Adventure is the battle mode. Every move in a battle is still a math answer or a typed word, and practice is where the eggs hatch. Choose how play time works for {p.name}.</p>
@@ -294,6 +316,10 @@
         <div class="card pane adminpane">
           <h3>Admin</h3>
           <p class="muted small">Only you see this ({cloud.account.email}).</p>
+          <div class="tryall inadmin">
+            <div><h3>Try every level</h3><p class="muted">Adds a player called Tester with every typing lesson, math trip and playground level open, every buddy on the team, and every outfit and dance. Your own players aren't changed.</p></div>
+            <button class="btn btn-primary" onclick={() => { addTester(); game.go('hub'); }}>Open Tester</button>
+          </div>
           <AdminPanel />
         </div>
       {/if}
@@ -301,6 +327,7 @@
         <h3>About {GAME_NAME}</h3>
         <p>Free, made by {STUDIO}. No ads, no tracking. The code is source-available (PolyForm Strict 1.0.0: read it, run it, help improve it); the art, characters, voices and music are all rights reserved.</p>
         <div class="row">
+          <button class="btn btn-primary" onclick={() => game.openAbout()}>About Keypals</button>
           <button class="btn" onclick={() => openExternal(STUDIO_URL)}>More games at fancyant.com</button>
           {#if SOURCE_PUBLIC}<button class="btn" onclick={() => openExternal(SOURCE_URL)}>Source code</button>{/if}
         </div>
@@ -315,6 +342,18 @@
   .tryall .ti { width: 52px; height: 52px; object-fit: contain; flex: none; }
   @media (max-width: 600px) { .tryall .ti { display: none; } }
   .adminpane { border: 3px solid #ffcf8a; }
+  .tryall.inadmin { margin: 6px 0 14px; padding: 12px 14px; border-radius: 16px; background: #fff8ec; }
+  .goals { display: flex; flex-direction: column; gap: 4px; }
+  .grow { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .grow:last-child { border-bottom: 0; }
+  .gl { display: flex; flex-direction: column; min-width: 0; }
+  .gl b { font: 600 17px var(--font-ui); color: var(--ink); }
+  .gl small { font: 600 13px/1.35 var(--font-body); color: var(--muted); }
+  .grow input[type='checkbox'] { width: 22px; height: 22px; accent-color: var(--primary); flex: none; }
+  .seg { display: flex; gap: 4px; background: var(--bg2); padding: 4px; border-radius: 14px; flex: none; }
+  .seg button { border: 0; background: none; padding: 7px 10px; border-radius: 10px; font: 700 13px var(--font-body); color: var(--muted); cursor: pointer; }
+  .seg button.on { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
+  @media (max-width: 600px) { .grow { flex-wrap: wrap; } }
   .sw { display: flex; align-items: center; gap: 8px; font: 700 14px var(--font-body); color: var(--ink2); margin: 4px 0 10px; }
   .sw input { width: 20px; height: 20px; accent-color: var(--primary); flex: none; }
   .tryall p { margin: 0; font: 600 14px/1.4 var(--font-body); }

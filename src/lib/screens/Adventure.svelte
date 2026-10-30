@@ -1,7 +1,9 @@
 <script lang="ts">
   // Adventure: the painted map of a world (the sky islands, or Fraction Falls). Each island has battles, a
   // practice stop and a Champion at the end. Your buddy stands on the next stop; your team, eggs and the
-  // shop are in the corner; the World map button opens every world on one picture.
+  // shop are in the corner; the big World map button (how many worlds are open, and "New world!" when one
+  // opens) shows every world of the subject Adventure was opened from: the typing worlds from Typing, the
+  // math worlds on their painted picture from Math, with a tab for each.
   // The first visit starts with a short story (four pictures), then a tip pointing at the first battle.
   import CloseButton from '../ui/CloseButton.svelte';
   import { onDestroy, onMount } from 'svelte';
@@ -15,7 +17,7 @@
   import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, islandsOf, markSeen, nodesOf, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, worldOpen, type MapNode, type WorldId, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
   import { DuelScene } from '../three/duelScene';
-  import { WORLD_PIN, WORLD_PINS, lastWorld, mapOf, stationOf, type WorldPin } from '../adventure/worlds';
+  import { WORLD_PIN, TYPING_SOON, lastWorld, mapOf, stationOf, worldSubject, worldsFor, type WorldPin, type WorldSubject } from '../adventure/worlds';
   import { nextSkillLesson } from '../math/skills/course';
   import { AREA } from '../math/skills/registry';
     import Header from '../ui/Header.svelte';
@@ -26,6 +28,8 @@
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
   import MenuButton from '../ui/MenuButton.svelte';
+  import HelpButton from '../ui/HelpButton.svelte';
+  import { tips } from '../ui/tips';
   // WALK: the walking map layer
   import MapWalker from '../ui/MapWalker.svelte';
 
@@ -38,7 +42,22 @@
   const kind = $derived(tall ? 'tall' : 'wide');
   const spots = $derived(SPOTS[kind]);
   // the world on show: the last one looked at (back from a battle lands on the same world)
-  let world = $state<WorldId>(lastWorld.id !== 'sky' && !worldOpen(game.profile!, lastWorld.id) ? 'sky' : lastWorld.id);
+  // (a world of another subject, or not open yet: the Sky Islands, which every subject has)
+  const startWorld: WorldId = lastWorld.id !== 'sky' && (!worldOpen(game.profile!, lastWorld.id) || !WORLD_PIN[lastWorld.id]?.subjects.includes(worldSubject.id)) ? 'sky' : lastWorld.id;
+  lastWorld.id = startWorld;
+  let world = $state<WorldId>(startWorld);
+  /** whose worlds: the subject Adventure was opened from (the world map's tab) */
+  let subj = $state<WorldSubject>(worldSubject.id);
+  let tab = $state<WorldSubject>(worldSubject.id);
+  const SUBJ_NAME: Record<WorldSubject, string> = { typing: 'Typing', math: 'Math' };
+  const liveOpen = (s: WorldSubject) => worldsFor(s).filter(w => w.map && worldOpen(p, w.id as WorldId));
+  const nOpen = $derived(liveOpen(subj).length);
+  const nAll = $derived(subj === 'typing' ? worldsFor('typing').length + TYPING_SOON.length : worldsFor('math').length);
+  /** worlds open now and never visited: "New world!" on the button */
+  const fresh = $derived(liveOpen(subj).filter(w => w.id !== 'sky' && !a.seen?.includes(`world-${w.id}`)));
+  /** the first time a world opens, a tip points at the World map */
+  const nudge = $derived(fresh.find(w => !a.seen?.includes(`nudge-${w.id}`)) ?? null);
+  function nudged() { const ids = fresh.map(w => `nudge-${w.id}`); game.update(pp => { for (const id of ids) markSeen(pp, id); }); }
   let picker = $state(false);
   let locked = $state<WorldPin | null>(null);
   let wscroll: HTMLDivElement | undefined = $state();
@@ -105,7 +124,8 @@
     if (c?.kind === 'practice' && advView(game.profile!).stopAt[c.id] === undefined) game.update(pp => reachStop(advOf(pp), c.id));
   }
   function openWorlds() {
-    picker = true; locked = null; sfx.pop();
+    picker = true; locked = null; tab = subj; sfx.pop();
+    if (nudge) nudged();
     // on a phone the world picture is wider than the screen: start with this world in the middle
     requestAnimationFrame(() => { if (wscroll) wscroll.scrollLeft = wscroll.scrollWidth * WORLD_PIN[world].at[0] / 100 - wscroll.clientWidth / 2; });
   }
@@ -114,6 +134,9 @@
     const id = w.id as WorldId;
     if (!worldOpen(p, id)) { sfx.pop(); locked = w; return; }
     sfx.pop(); picker = false; open = null;
+    // a world picked on a tab: that subject's worlds from now on (the Sky Islands answer with it too)
+    if (subj !== tab) { subj = tab; worldSubject.id = tab; }
+    if (id === 'sky' && a.subject !== tab) game.update(pp => { advOf(pp).subject = tab; });
     if (id === world) return;
     world = id; lastWorld.id = id;
     setPlaceStation(stationOf(id));
@@ -171,9 +194,9 @@
   <Header title="Adventure" back={() => game.go('hub')} sub="{met} of {GLIMMER_TOTAL} Glimmers found" gear={!tall}>
     {#snippet right()}
       <button class="chip help" onclick={() => { intro = 0; sfx.pop(); }} title="How Adventure works"><Icon name="help" size={28} /></button>
-      <span class="chip shells" title="Shells: spend them in the shop"><img src="{base}game/icon-shell.webp" alt="" />{a.shells}</span>
+      {#if !tall}<span class="chip shells" title="Shells: spend them in the shop"><img src="{base}game/icon-shell.webp" alt="" />{a.shells}</span>{/if}
       {#if play.left !== null}<span class="chip time" class:low={play.left < 3} title={PLAY_RULES[a.settings.rule].text}><Icon name="clock" size={20} /> {Math.max(0, Math.floor(play.left))}<span class="mn">&nbsp;min</span></span>{/if}
-      {#if tall}<MenuButton size={32} />{/if}
+      {#if tall}<span class="tallbtns" use:tips><MenuButton size={30} /><HelpButton size={30} /></span>{/if}
     {/snippet}
   </Header>
 
@@ -181,7 +204,11 @@
     <div class="backdrop"></div>
     <!-- WALK: the map you walk round with your buddy (trails, stops, finds, the 3D buddy): ui/MapWalker.svelte -->
     <MapWalker {world} {kind} {tall} paused={!!open || picker || intro >= 0} onopen={tap} />
-    <button class="worldbtn" onclick={openWorlds} title="Every world of Adventure"><img src="{base}game/worlds-wide.webp" alt="" /><span><small>{WORLD_PIN[world].name}</small><b>World map</b></span></button>
+    <button class="worldbtn" class:hasnew={fresh.length > 0} onclick={openWorlds} title="Every {SUBJ_NAME[subj].toLowerCase()} world of Adventure" aria-label="World map: {nOpen} of {nAll} {SUBJ_NAME[subj].toLowerCase()} worlds open{fresh.length ? ', a new world is open' : ''}">
+      <img src="{base}game/worlds-wide.webp" alt="" />
+      <span class="wbt"><small>{SUBJ_NAME[subj]} worlds · {WORLD_PIN[world].name}</small><b>World map</b><em>{nOpen} of {nAll} open{subj === 'typing' ? ' · more coming' : ''}</em></span>
+      {#if fresh.length}<span class="newb">{fresh.length === 1 ? 'New world!' : `${fresh.length} new worlds!`}</span>{/if}
+    </button>
   </div>
 
   <div class="dock">
@@ -191,7 +218,8 @@
     <NavTile label="Eggs" tone="butter" badge={ready ? `${ready} ready!` : eggs ? eggs : undefined} title="Your eggs hatch when you practice" onclick={() => game.go('eggs')}>
       {#snippet art()}<img class="tileimg" src="{base}game/egg-{a.incubator.find(e => e)?.rarity ?? 'rare'}.webp" alt="" />{/snippet}
     </NavTile>
-    <NavTile label="Shop" tone="mint" title="The Island Shop: things to wear, eggs and treats" onclick={() => game.openShop()}>
+    <!-- (on a phone the shells show on the Shop, so the bar keeps room for the compass and Ideas and help) -->
+    <NavTile label="Shop" tone="mint" badge={tall ? a.shells : undefined} title="The Island Shop: things to wear, eggs and treats. You have {a.shells} shells" onclick={() => game.openShop()}>
       {#snippet art()}<img class="tileimg" src="{base}game/icon-shell.webp" alt="" />{/snippet}
     </NavTile>
     {#if a.settings.versus !== false}
@@ -212,7 +240,8 @@
     </div>
   {/if}
 
-  {#if mapTip && cur && !picker}<Coach text="Tap here for your first battle!" at=".node.here" place="below" />{/if}
+  {#if mapTip && cur && !picker}<Coach text="Tap here for your first battle!" at=".node.here" place="below" />
+  {:else if nudge && !picker && !open && intro < 0}<Coach text="A new world is open: {nudge.name}! Tap the World map to go there." at=".worldbtn" place="below" button="Got it" onok={nudged} />{/if}
 
   {#if open}
     {@const n = open}
@@ -274,22 +303,46 @@
 
   {#if picker}
     <div class="worlds" class:narrow={tall} role="dialog" aria-label="World map">
-      <div class="wtop"><h2>World map</h2><p>Each world is a kind of math. More are on the way!</p><span class="x"><CloseButton onclick={() => (picker = false)} size={40} /></span></div>
+      <div class="wtop">
+        <h2>World map</h2>
+        <div class="wtabs" role="tablist" aria-label="Whose worlds">
+          {#each (['typing', 'math'] as const) as s (s)}
+            <button role="tab" aria-selected={tab === s} class:on={tab === s} onclick={() => { if (tab !== s) { tab = s; locked = null; sfx.pop(); } }}><img src="{base}game/icon-{s}.webp" alt="" />{SUBJ_NAME[s]}<em>{liveOpen(s).length}</em></button>
+          {/each}
+        </div>
+        <p>{tab === 'math' ? 'Each world is a kind of math. More are on the way!' : 'Type the words to cheer up the Glimmers. More typing worlds are coming!'}</p>
+        <span class="x"><CloseButton onclick={() => (picker = false)} size={40} /></span>
+      </div>
+      {#if tab === 'typing'}
+        <!-- the typing worlds: the Sky Islands for now, and cards for the ones still to come -->
+        <div class="tworlds">
+          {#each worldsFor('typing') as w (w.id)}
+            <button class="tw live" class:here={w.id === world && subj === 'typing'} onclick={() => pickWorld(w)}>
+              <span class="twpic" style:background-image="url({base}{w.map?.wide ?? 'game/worlds-wide.webp'})">{#if w.id === world}<span class="twme"><Critter friend={p.buddy} size={tall ? 56 : 72} mood="idle" /></span>{/if}</span>
+              <b>{w.name}</b><small>{w.id === world && subj === 'typing' ? 'You are here' : 'Go!'}</small>
+            </button>
+          {/each}
+          {#each TYPING_SOON as t (t.name)}
+            <div class="tw soon"><span class="twpic" style:background-image="url({base}game/worlds-wide.webp)"><span class="twlock"><Icon name="lock" size={34} /></span></span><b>{t.name}</b><small>{t.blurb}</small></div>
+          {/each}
+        </div>
+      {:else}
       <div class="wscroll" bind:this={wscroll}>
         <div class="wpic">
           <img class="wimg" src="{base}game/worlds-wide.webp" alt="" draggable="false" />
-          {#each WORLD_PINS as w (w.id)}{#if w.art}<img class="wart" src="{base}{w.art.src}" alt="" draggable="false" style:left="{w.art.at[0]}%" style:top="{w.art.at[1]}%" style:width="{w.art.w}%" />{/if}{/each}
-          {#each WORLD_PINS as w (w.id)}
+          {#each worldsFor('math') as w (w.id)}{#if w.art}<img class="wart" src="{base}{w.art.src}" alt="" draggable="false" style:left="{w.art.at[0]}%" style:top="{w.art.at[1]}%" style:width="{w.art.w}%" />{/if}{/each}
+          {#each worldsFor('math') as w (w.id)}
             {@const live = !!w.map}
             {@const ok = live && worldOpen(p, w.id as WorldId)}
             <button class="pin" class:live class:shut={live && !ok} class:here={w.id === world} style:left="{w.at[0]}%" style:top="{w.at[1]}%" onclick={() => pickWorld(w)} aria-label="{w.name}: {live ? (ok ? 'open' : 'locked') : 'coming soon'}">
               {#if w.id === world}<span class="pme"><Critter friend={p.buddy} size={tall ? 44 : 56} mood="idle" /></span>{/if}
               <b>{#if live && !ok}<Icon name="lock" size={16} />{/if}{w.name}</b>
-              <small>{!live ? 'Coming soon' : !ok ? 'Locked' : w.id === world ? 'You are here' : 'Go!'}</small>
+              <small>{!live ? 'Coming soon' : !ok ? 'Locked' : w.id === world ? 'You are here' : w.id !== 'sky' && !a.seen?.includes(`world-${w.id}`) ? 'New!' : 'Go!'}</small>
             </button>
           {/each}
         </div>
       </div>
+      {/if}
       {#if locked}
         {@const w = locked}
         {@const an = w.area ? AREA[w.area].name : "Math"}
@@ -334,16 +387,44 @@
   .backdrop { position: absolute; inset: -40px; background: var(--bg) center / cover; filter: blur(22px) saturate(1.1); }
   @keyframes hop { 50% { translate: 0 -6px; } }
 
-  .worldbtn { position: absolute; left: 14px; top: 12px; z-index: 3; display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; background: rgba(255, 255, 255, .94); border-radius: 18px; padding: 5px 14px 5px 5px; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); text-align: left; transition: transform .15s; }
-  .worldbtn:hover { transform: scale(1.04); }
-  .worldbtn img { width: 64px; height: 40px; object-fit: cover; border-radius: 12px; }
-  .worldbtn small { display: block; font: 800 11px var(--font-body); letter-spacing: .05em; text-transform: uppercase; color: #a86a00; }
-  .worldbtn b { font: 600 18px var(--font-ui); color: var(--ink); }
+  /* the World map: big, in the corner of every map, with how many worlds are open and a badge for a new one */
+  .worldbtn { position: absolute; left: 14px; top: 12px; z-index: 3; display: flex; align-items: center; gap: 12px; border: 0; cursor: pointer; background: linear-gradient(#fff, #fff8e4); border-radius: 24px; padding: 7px 20px 7px 7px; box-shadow: 0 0 0 4px #ffc93d, 0 6px 0 #e0a21c, 0 16px 30px -12px rgba(60, 40, 0, .55); text-align: left; transition: transform .15s; }
+  .worldbtn:hover { transform: translateY(-2px) scale(1.03); }
+  .worldbtn:active { transform: translateY(4px); box-shadow: 0 0 0 4px #ffc93d, 0 2px 0 #e0a21c; }
+  .worldbtn img { width: 116px; height: 66px; object-fit: cover; border-radius: 17px; box-shadow: 0 0 0 3px #fff; }
+  .wbt { display: flex; flex-direction: column; }
+  .worldbtn small { display: block; font: 800 11.5px var(--font-body); letter-spacing: .05em; text-transform: uppercase; color: #a86a00; }
+  .worldbtn b { font: 600 27px/1.05 var(--font-ui); color: var(--ink); }
+  .worldbtn em { font: 700 13.5px var(--font-body); font-style: normal; color: var(--ink2); }
+  .worldbtn.hasnew { animation: callout 1.8s ease-in-out infinite; }
+  @keyframes callout { 50% { box-shadow: 0 0 0 4px #ffc93d, 0 6px 0 #e0a21c, 0 0 0 12px rgba(255, 201, 61, .35), 0 16px 30px -12px rgba(60, 40, 0, .55); } }
+  .newb { position: absolute; top: -16px; right: -22px; padding: 4px 11px; border-radius: 999px; background: linear-gradient(#ff7aa8, #e2468f); color: #fff; font: 600 15px var(--font-ui); box-shadow: 0 3px 0 #a8246a, 0 0 0 3px #fff; transform: rotate(6deg); white-space: nowrap; }
+  :global(:root[data-motion='reduced']) .worldbtn.hasnew { animation: none; }
   .areanote { background: #e8f6ff; border-radius: 14px; padding: 8px 12px; color: #1c5fd1 !important; }
 
   .worlds { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; background: linear-gradient(#2a2160, #3b2f7a); animation: fade .25s; }
   .wtop { display: flex; align-items: center; gap: 14px; padding: 10px 16px; color: #fff; }
   .wtop h2 { margin: 0; font-size: 28px; color: #fff; }
+  .wtabs { display: flex; gap: 6px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, .14); }
+  .wtabs button { display: flex; align-items: center; gap: 6px; border: 0; cursor: pointer; padding: 4px 14px 4px 4px; border-radius: 999px; background: transparent; color: #fff; font: 600 18px var(--font-ui); }
+  .wtabs button img { width: 34px; height: 34px; object-fit: contain; }
+  .wtabs button em { font: 800 12px var(--font-body); font-style: normal; background: rgba(255, 255, 255, .25); border-radius: 999px; padding: 1px 8px; }
+  .wtabs button.on { background: #fff; color: var(--ink); box-shadow: 0 3px 0 #ffc93d; }
+  .wtabs button.on em { background: #ffe9a8; color: #7a5200; }
+  /* the typing worlds, as big cards */
+  .tworlds { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; padding: 8px 24px 24px; align-content: center; width: 100%; max-width: 1240px; margin: 0 auto; }
+  .tw { display: flex; flex-direction: column; gap: 6px; border: 0; padding: 10px 10px 14px; border-radius: 26px; background: #fff; text-align: center; font: inherit; box-shadow: 0 0 0 4px #ffd36b, 0 14px 30px -12px rgba(0, 0, 0, .5); }
+  .tw.live { cursor: pointer; transition: transform .15s; }
+  .tw.live:hover { transform: translateY(-3px); }
+  .tw.here { box-shadow: 0 0 0 5px var(--primary), 0 0 30px rgba(255, 255, 255, .6); }
+  .twpic { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 18px; background-size: cover; background-position: center; }
+  .twme { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); filter: drop-shadow(0 6px 5px rgba(40, 20, 10, .45)); animation: hop 1.1s ease-in-out infinite; }
+  .tw b { font: 600 24px var(--font-ui); color: var(--ink); }
+  .tw small { font: 700 14px/1.35 var(--font-body); color: var(--muted); }
+  .tw.live small { font: 800 13px var(--font-body); text-transform: uppercase; letter-spacing: .05em; color: var(--primary); }
+  .tw.soon { background: rgba(255, 255, 255, .82); box-shadow: 0 0 0 3px #c9c2e0, 0 14px 30px -12px rgba(0, 0, 0, .5); }
+  .tw.soon .twpic { filter: grayscale(.85) brightness(.75); }
+  .twlock { position: absolute; inset: 0; display: grid; place-items: center; }
   .wtop p { margin: 0; font: 600 15px var(--font-body); color: #d9d2ff; }
   .wscroll { flex: 1; min-height: 0; overflow: auto; container-type: size; display: grid; place-items: center; padding: 0 0 12px; }
   .wpic { position: relative; width: min(calc(100cqw - 32px), calc((100cqh - 12px) * 16 / 9)); aspect-ratio: 16 / 9; border-radius: 22px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, .4); }
@@ -370,9 +451,14 @@
   .worlds.narrow .wscroll { display: block; place-items: normal; padding: 0 0 8px; }
   .worlds.narrow .wpic { width: auto; height: calc(100cqh - 8px); border-radius: 0; }
   .worlds.narrow .wtop p { display: none; }
-  .tall .worldbtn { left: 8px; top: 8px; padding: 4px 10px 4px 4px; border-radius: 14px; }
-  .tall .worldbtn img { width: 46px; height: 30px; border-radius: 9px; }
-  .tall .worldbtn b { font-size: 15px; } .tall .worldbtn small { font-size: 9px; }
+  .tall .worldbtn { left: 8px; top: 8px; gap: 8px; padding: 5px 12px 5px 5px; border-radius: 18px; }
+  .tall .worldbtn img { width: 64px; height: 40px; border-radius: 12px; }
+  .tall .worldbtn b { font-size: 19px; } .tall .worldbtn small { font-size: 9.5px; } .tall .worldbtn em { font-size: 11.5px; }
+  .tall .newb { font-size: 12.5px; top: -10px; right: -10px; padding: 3px 8px; }
+  .worlds.narrow .wtop { flex-wrap: wrap; gap: 8px; }
+  .worlds.narrow .wtop h2 { font-size: 22px; }
+  .worlds.narrow .wtabs button { font-size: 15px; padding: 3px 10px 3px 3px; } .worlds.narrow .wtabs button img { width: 28px; height: 28px; }
+  .worlds.narrow .tworlds { grid-template-columns: 1fr; padding: 6px 14px 18px; gap: 14px; }
 
   .dock { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 12px; z-index: 4; }
   .dock :global(.tile) { width: 112px; height: 112px; }
@@ -447,6 +533,8 @@
   /* phone header holds back, title, help, shells, time and the menu compass on one row */
   .tall :global(.hd) { gap: 8px; padding: 10px 10px; } .tall :global(.hd .rt) { gap: 6px; } .tall :global(.hd h1) { font-size: 22px; } .tall :global(.hd .tt) { min-width: 0; }
   @media (max-width: 380px) { .tall :global(.hd h1) { font-size: 19px; } .tall :global(.hd) { gap: 6px; padding: 10px 8px; } }
+  .tallbtns { display: flex; gap: 5px; }
+  .tallbtns :global(.menu), .tallbtns :global(.help) { padding: 2px; border-width: 2px; }
   .tall .chip { font-size: 15px; padding: 2px 8px 2px 2px; } .tall .chip img { width: 24px; height: 24px; } .tall .chip.time { padding: 4px 8px; font-size: 13px; }
   /* phone header: smaller painted icons so the title keeps its room */
   .tall .chip.time { gap: 3px; padding: 4px 7px 4px 4px; } .tall .chip.time :global(.ico) { width: 16px; height: 16px; } .tall .chip.help :global(.ico) { width: 22px; height: 22px; } .tall .chip.time .mn { display: none; } .tall .chip.help { width: 32px; height: 32px; font-size: 18px; padding: 0; }

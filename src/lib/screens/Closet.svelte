@@ -114,6 +114,7 @@
   function dance(r: Reward) {
     if (locked(r)) return nope(r);
     game.update(pp => setLook(pp, who, { dance: r.id }));
+    saved();
     scene?.dance(who, r.id);
     sfx.pop();
   }
@@ -138,18 +139,26 @@
     sfx.pop();
   }
 
+  // ---------- saving ----------
+  // putting a thing on or taking it off, a colour, a dance: each is saved the moment it's picked, and a
+  // little "Saved" says so; only a move waits for its Save button
+  let savedAt = $state(0);
+  function saved() { const t = (savedAt = Date.now()); setTimeout(() => { if (savedAt === t) savedAt = 0; }, 1500); }
+
   // ---------- My things ----------
   const mineFor = $derived(isSlot(cat) ? CATALOG.filter(c => c.slot === cat && ownsItem(p, c.id)) : []);
   function tapMine(c: CatalogItem) {
     const on = onSlot(c.slot) === c.id;
     game.update(pp => { wearItem(pp, who, c.slot, on ? null : c.id); });
     void scene?.redress(who);
+    saved();
     if (on) sfx.pop(); else { burst++; sfx.equip(); }
   }
   function takeOff(sl: WearSlot) {
     game.update(pp => { wearItem(pp, who, sl, null); });
     if (sel?.slot === sl) sel = null;
     void scene?.redress(who);
+    saved();
     sfx.pop();
   }
 
@@ -213,6 +222,7 @@
   function wearIt(c: CatalogItem) {
     game.update(pp => { wearItem(pp, who, c.slot, c.id); });
     void scene?.redress(who);
+    saved();
     burst++; sfx.equip();
   }
   function buyThing(id: string) {
@@ -225,7 +235,7 @@
 
   // ---------- Move it: nudge a worn thing into place on this buddy ----------
   let moving = $state<{ slot: WearSlot; id: string; n: Nudge; was: Nudge } | null>(null);
-  const same = (a: Nudge, b: Nudge) => (['x', 'y', 'z', 's', 'r'] as const).every(k => Math.abs(a[k] - b[k]) < 1e-6);
+  const same = (a: Nudge, b: Nudge) => (['x', 'y', 'z', 's', 'r', 'p', 't'] as const).every(k => Math.abs((a[k] ?? 0) - (b[k] ?? 0)) < 1e-6);
   /** something has been moved since Move it opened (the big button says Save, not Done) */
   const changed = $derived(!!moving && !same(moving.n, moving.was));
   // (a colour isn't a thing on the buddy: nothing to move)
@@ -281,6 +291,8 @@
     const next: Nudge = {
       x: lim(n.x + (d.x ?? 0) * STEP * k), y: lim(n.y + (d.y ?? 0) * STEP * k), z: lim(n.z + (d.z ?? 0) * STEP * k),
       s: Math.max(0.4, Math.min(2.5, n.s * (d.s ? Math.pow(1.06, d.s) : 1))), r: n.r + (d.r ?? 0) * 0.15,
+      // tip forward or back and tilt to the side: up to a quarter turn each way
+      p: Math.max(-1.57, Math.min(1.57, (n.p ?? 0) + (d.p ?? 0) * 0.1)), t: Math.max(-1.57, Math.min(1.57, (n.t ?? 0) + (d.t ?? 0) * 0.1)),
     };
     moving = { ...moving, n: next };
     live(next);
@@ -295,7 +307,7 @@
   function finishMove() {
     if (!moving) return;
     const m = moving;
-    if (changed) { game.update(pp => nudgeItem(pp, who, m.id, m.n)); burst++; sfx.equip(); } else sfx.pop();
+    if (changed) { game.update(pp => nudgeItem(pp, who, m.id, m.n)); burst++; sfx.equip(); saved(); } else sfx.pop();
     moving = null;
   }
   function resetMove() {
@@ -373,6 +385,7 @@
       <div class="stagebox" bind:this={stageEl}>
         <Confetti {burst} count={50} x={50} y={45} />
         <Turntable scene={() => scene} el={stageEl} top />
+        {#key savedAt}{#if savedAt}<span class="savedpill" role="status"><Icon name="check" size={16} /> Saved</span>{/if}{/key}
         {#if side === 'shop' && sel && cat !== 'eggs' && joined && !moving}
           {@const s = sel}
           {@const mine = ownsItem(p, s.id)}
@@ -385,8 +398,8 @@
               <span>{s.power ? `In battles: ${s.text}` : s.text}</span>
             </div>
             <div class="act">
-              {#if on}<em class="have"><Icon name="check" size={14} /> {FRIEND[who].name} has it on</em>{#if s.slot !== 'colour'}<button class="btn movebtn" onclick={() => startMove(s.slot)}><Icon name="hand" size={18} /> Move it</button>{/if}
-              {:else if mine}<button class="btn btn-primary" onclick={() => wearIt(s)}>Wear it</button>
+              {#if on}<em class="have"><Icon name="check" size={14} /> {FRIEND[who].name} has it on</em>{#if s.slot !== 'colour'}<button class="btn movebtn" onclick={() => startMove(s.slot)}><Icon name="hand" size={18} /> Move it</button>{/if}<button class="btn" onclick={() => { sel = null; sfx.pop(); }}>Done</button>
+              {:else if mine}<span class="keepline">Only trying it on: not saved yet.</span><button class="btn btn-primary savebtn save" onclick={() => wearIt(s)}><Icon name="check" size={18} /> Save</button>
               {:else if s.how === 'shop'}<span class="keepline">Buy it to keep it and move it.</span><button class="btn btn-primary buy" disabled={adv.shells < (s.price ?? 0)} onclick={() => buyIt(s)}><img src="{base}game/icon-shell.webp" alt="" />{adv.shells < (s.price ?? 0) ? `${(s.price ?? 0) - adv.shells} more` : `Buy: ${s.price}`}</button>
               {:else if s.how === 'friendship'}<em class="gift"><Icon name="heart" size={14} /> Friendship {s.level} with any buddy (best: {bestFriendship(p)})</em>
               {:else}<em class="champ"><Icon name="trophy" size={14} /> {howText(s, island)}</em>{/if}
@@ -418,8 +431,16 @@
             <button class="mv wide" onpointerdown={() => hold({ r: -1 })} aria-label="Turn left"><Icon name="turnleft" size={36} /><small>Turn left</small></button>
             <button class="mv wide" onpointerdown={() => hold({ r: 1 })} aria-label="Turn right"><Icon name="turnright" size={36} /><small>Turn right</small></button>
           </div>
+          <!-- tip it forward or back, and tilt it to one side: every way it can turn -->
+          <div class="mvrow">
+            <button class="mv wide" onpointerdown={() => hold({ p: 1 })} aria-label="Tip forward"><img class="mvi" src="{base}icons/tipforward.webp" alt="" /><small>Tip forward</small></button>
+            <button class="mv wide" onpointerdown={() => hold({ p: -1 })} aria-label="Tip back"><img class="mvi" src="{base}icons/tipback.webp" alt="" /><small>Tip back</small></button>
+            <button class="mv wide" onpointerdown={() => hold({ t: 1 })} aria-label="Tilt left"><img class="mvi" src="{base}icons/tiltleft.webp" alt="" /><small>Tilt left</small></button>
+            <button class="mv wide" onpointerdown={() => hold({ t: -1 })} aria-label="Tilt right"><img class="mvi" src="{base}icons/tiltright.webp" alt="" /><small>Tilt right</small></button>
+          </div>
           <div class="mvbtns">
             <button class="btn resetbtn" onclick={resetMove}><Icon name="reset" size={20} /> Reset</button>
+            <span class="mvstate" class:dirty={changed}>{changed ? 'Not saved yet' : 'Nothing to save'}</span>
             <button class="btn btn-primary savebtn" class:save={changed} onclick={finishMove}>{#if changed}<Icon name="check" size={20} /> Save{:else}Done{/if}</button>
           </div>
           <p class="mvnote">Just for {FRIEND[who].name}: every other buddy keeps its own fit.</p>
@@ -726,7 +747,13 @@
   .mv:active { transform: translateY(2px); box-shadow: inset 0 -1px 0 #ddd3f7; background: #ebe4ff; }
   .mv small { font: 800 11px var(--font-body); color: var(--ink2); margin-top: 2px; }
   .mv.mid { background: #fff4d6; color: #b07b00; }
-  .mvbtns { display: flex; gap: 8px; justify-content: space-between; }
+  .mvbtns { display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+  .mvi { width: 36px; height: 36px; object-fit: contain; }
+  .mvstate { flex: 1; text-align: center; font: 700 13px var(--font-body); color: var(--muted); }
+  .mvstate.dirty { color: #b25a1e; }
+  /* every change on this side is saved the moment it's made: a little "Saved" says so */
+  .savedpill { position: absolute; left: 50%; top: 10px; translate: -50% 0; z-index: 4; display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 999px; background: #2fbf73; color: #fff; font: 600 15px var(--font-ui); box-shadow: 0 3px 0 #1f8f55; animation: savedin .25s cubic-bezier(.3, .8, .4, 1.4); pointer-events: none; }
+  @keyframes savedin { from { scale: .7; opacity: 0; } }
   .mvbtns .btn { padding: 8px 16px; font-size: 16px; }
   .savebtn { min-width: 120px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
   .savebtn.save { background: #2fbf73; box-shadow: 0 4px 0 #1f8f55; }

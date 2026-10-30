@@ -18,8 +18,9 @@ export const SLOTS: Slot[] = ['hand', 'back', 'feet'];
 export const SLOT_NAME: Record<WearSlot, string> = { head: 'Head', face: 'Face', neck: 'Neck', back: 'Back', hand: 'In hand', feet: 'Feet', vibe: 'Vibes', colour: 'Colour' };
 
 /** A nudge from the Move it tool: x, y, z as a share of the buddy's height (x to the buddy's left, y up,
- *  z forward), s a size multiplier, r a turn in radians. */
-export type Nudge = { x: number; y: number; z: number; s: number; r: number };
+ *  z forward), s a size multiplier, r a turn round (about up) in radians, and p a tip forward or back,
+ *  t a tilt to the side (older saves have neither: no tip, no tilt). */
+export type Nudge = { x: number; y: number; z: number; s: number; r: number; p?: number; t?: number };
 export const NO_NUDGE: Nudge = { x: 0, y: 0, z: 0, s: 1, r: 0 };
 /** Everything a 3D buddy needs to get dressed: its hat, what's on each other slot, and the nudges. */
 export type Dress = { hat: string; on: Partial<Record<WearSlot, string>>; nudge: Record<string, Nudge> };
@@ -173,8 +174,8 @@ export function wearGear(a: Adventure, buddy: string, slot: WearSlot, id: string
 export function setNudge(a: Adventure, buddy: string, id: string, n: Nudge | null) {
   const l = lookOfBuddy(a, buddy);
   l.nudge ??= {};
-  if (!n || (n.x === 0 && n.y === 0 && n.z === 0 && n.s === 1 && n.r === 0)) delete l.nudge[id];
-  else l.nudge[id] = { x: n.x, y: n.y, z: n.z, s: n.s, r: n.r };
+  if (!n || (n.x === 0 && n.y === 0 && n.z === 0 && n.s === 1 && n.r === 0 && !n.p && !n.t)) delete l.nudge[id];
+  else l.nudge[id] = { x: n.x, y: n.y, z: n.z, s: n.s, r: n.r, ...(n.p ? { p: n.p } : {}), ...(n.t ? { t: n.t } : {}) };
 }
 /** A Champion beaten: its piece is the player's (if not already), and the buddy who beat it puts it on
  *  if that slot is free. */
