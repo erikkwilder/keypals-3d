@@ -21,6 +21,7 @@ import { grumpFor, type Foe, type MischiefKind, type Pool, type Subject } from '
 import { championPrize, type BuddyGear, type GearItem, type Wardrobe } from './gear';
 import type { RegionId } from '../engine/course';
 import { newStats, noteStats, type GhostStats, type RivalState } from './ghosts';
+import { parallel } from './trails';
 
 // ---------- the map ----------
 export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls' | 'caves' | 'market';
@@ -124,6 +125,12 @@ export type Adventure = {
   ghost?: GhostStats; rivals?: RivalState; duels?: { played: number; won: number };
   /** Glimmer Drop: best scores and the chain Glimmers made (drop/save.ts) */
   drop?: import('../drop/save').DropSave;
+  /** the walking map (trails.ts): the trail point the buddy stands on in each world */
+  walkAt?: Partial<Record<WorldId, string>>;
+  /** finds on the trails (treasure chests, hidden spots, Bonus Rounds): the day each was last collected */
+  finds?: Record<string, string>;
+  /** hidden spots found so far: they stay on the map once found */
+  hidden?: string[];
 };
 export const newAdventure = (): Adventure => ({
   shells: 0, xp: 0, glimmers: {}, team: [null, null], incubator: [null, null, null], nest: [], eggsMade: 0, nodes: {},
@@ -172,10 +179,11 @@ export function currentNode(a: Adventure, w: WorldId = 'sky'): MapNode | null {
 }
 /** Practice stops: with the Open rule they can be stepped past (they still give their reward). */
 export function canPass(a: Adventure, n: MapNode) { return n.kind !== 'practice' || practiceDone(a, n.id) || a.settings.rule === 'open'; }
-/** Open once every stop before it in its own world is done. */
+/** Open once every stop before it in its own world is done (the two battles on parallel routes, stops 3
+ *  and 4, don't wait for each other: either can come first; the Champion waits for both). */
 export function nodeOpen(a: Adventure, n: MapNode): boolean {
   const list = nodesOf(ISLAND[n.island].world), i = list.indexOf(n);
-  for (let k = 0; k < i; k++) { const m = list[k]; if (m.kind === 'practice' ? !canPass(a, m) : !cleared(a, m.id)) return false; }
+  for (let k = 0; k < i; k++) { const m = list[k]; if (parallel(m.id, n.id)) continue; if (m.kind === 'practice' ? !canPass(a, m) : !cleared(a, m.id)) return false; }
   return true;
 }
 /** Mark a practice stop as reached, so the next practice session finishes it. */
@@ -309,6 +317,11 @@ function newEgg(rng: Rng, a: Adventure, rarity?: Rarity): Egg {
   return { id: `egg${Date.now().toString(36)}${Math.floor(rng() * 1e6).toString(36)}`, rarity: r, need: RARITY[r].hatch, have: 0, got: Date.now() };
 }
 export const EGG_ODDS = 'Common 50% · Uncommon 28% · Rare 14% · Epic 6% · Legendary 1.6% · Mythic 0.4%. Every 10th egg is Rare or better.';
+/** A new egg (rolled, or of a rarity) put in a free warm slot or the nest: a find on the trails. */
+export function giveEgg(a: Adventure, rng: Rng, rarity?: Rarity): { egg: Egg; where: 'incubator' | 'nest' | 'full' } {
+  const egg = newEgg(rng, a, rarity);
+  return { egg, where: store(a, egg) };
+}
 /** Put an egg in a free warm slot, or the nest. */
 function store(a: Adventure, e: Egg): 'incubator' | 'nest' | 'full' {
   const i = a.incubator.findIndex(x => !x);
