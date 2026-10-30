@@ -126,7 +126,9 @@ describe('Adventure', () => {
     expect(collectStop(p, 'meadow-2')!.shells).toBe(20);
     expect(nodeOpen(a, NODE['meadow-3'])).toBe(true);
     a.settings.rule = 'open';
-    expect(nodeOpen(a, NODE['meadow-4'])).toBe(false);
+    // (stops 3 and 4 are battles on two routes, either first: the Champion waits for both)
+    expect(nodeOpen(a, NODE['meadow-4'])).toBe(true);
+    expect(nodeOpen(a, NODE['meadow-5'])).toBe(false);
     expect(nodesOf('sky').filter(n => n.kind === 'champion').map(n => GLIMMER[n.island === 'meadow' ? 'lanternfox' : n.island === 'treetops' ? 'bloomdrake' : 'skywhale'].rarity)).toEqual(['legendary', 'legendary', 'legendary']);
   });
   it('winning cheers the Glimmer onto your team, pays shells, and may drop an egg', () => {

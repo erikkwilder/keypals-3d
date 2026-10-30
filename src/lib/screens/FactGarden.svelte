@@ -471,6 +471,8 @@
       {#if !narrow}
         <div class="card bedlist">
           <b class="h">{area ? AREA[area].name : STRAND[op].name} beds</b>
+          <!-- (the rows scroll inside the card on a short screen) -->
+          <div class="brows">
           {#each beds as b (b.j)}
             <button class="brow" class:on={bed === b.j} onclick={() => goBed(b.j)}>
               <span class="bl">{b.label}</span>
@@ -478,6 +480,7 @@
               <span class="bn">{b.bloom}<small>/{b.total}</small></span>
             </button>
           {/each}
+          </div>
           <small class="bnote">Pink: in bloom. Green: growing.</small>
         </div>
       {/if}
@@ -599,6 +602,25 @@
   .bn { font: 600 18px var(--font-ui); text-align: right; color: var(--ink); }
   .bn small { font: 700 12px var(--font-body); color: var(--muted); }
   .bnote { font: 700 12px var(--font-body); color: var(--muted); }
+  /* the side column fits the screen: the how-to and a plant's card keep their size, the beds list takes
+     what's left and scrolls inside itself */
+  .side > .how, .side > .detail { flex: none; }
+  .bedlist { flex: 1 1 0; min-height: 150px; display: flex; flex-direction: column; }
+  .brows { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px; scrollbar-width: thin; }
+  .bedlist .bnote { flex: none; margin-top: 4px; }
+  /* short screens (a 1280 by 720 laptop): smaller rows and a tighter how-to */
+  @media (max-height: 820px) {
+    .side { gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+    .side .card { padding: 10px 14px; }
+    .how .h, .bedlist .h { font-size: 16px; margin-bottom: 4px; }
+    .how li img { width: 38px; height: 38px; }
+    .how li b { font-size: 13px; }
+    .foot { font-size: 12px; line-height: 1.35; padding: 5px 8px; }
+    .brow { margin: 0; padding: 1px 6px; gap: 6px; }
+    .bl { font-size: 14px; }
+    .bar2 { height: 9px; }
+    .bn { font-size: 15px; }
+  }
 
   /* a phone: the garden fills the screen; the card and the how-to slide up from the bottom */
   .narrow .bar { padding: 6px 8px; gap: 6px; }
