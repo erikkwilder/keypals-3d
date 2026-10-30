@@ -629,4 +629,8 @@
   .compact .announce { top: 45%; }
   .compact .banner { left: 30%; }
   .compact .bword { font-size: 34px; }
+  /* phones: Start sits right under the name of the trip, above the fold */
+  .compact .card.intro { display: flex; flex-direction: column; }
+  .compact .card.intro > .where, .compact .card.intro > h1 { order: -2; }
+  .compact .card.intro > .tiles { order: -1; margin-top: 8px; }
 </style>
