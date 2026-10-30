@@ -21,6 +21,9 @@
   import { sfx } from '../audio/sound';
   import { advOf, advView } from '../adventure/state';
   import { GLIMMER, type GlimmerId } from '../adventure/glimmers';
+  import { FRIEND } from '../art/cast';
+  import { ROOM_LOOK } from '../three/islandRoom';
+  import { HABITAT_OF } from '../island/catalog';
   import { dressOf } from '../adventure/wardrobe';
   import { ITEM, ITEMS, KINDS, type ItemKind } from '../island/catalog';
   import {
@@ -36,7 +39,8 @@
   import SecretsSheet from '../island/SecretsSheet.svelte';
   import { FIRST_PAINT, MAX_BLOCKS, PAINTS, SHAPE, blockCount, blockList, canPlace, ctxOf, paintBlock, placeBlock, removeBlock, turnBlock, undoOp, type BuildResult, type Op, type ShapeId } from '../island/blocks';
   import { BOTTLE_NOTE, NOTE_WORDS, SECRET, SECRETS, bottlePond, busyCells, darkness, foundCount, foundOf, findSecret, keepOutOf, noteFrom, openedToday, rainToday, sparkleSpot, type SecretId } from '../island/secrets';
-  import { SNACKS, WANTS, buySnacks, canWish, dig, feed, fetched, grantWish, heartsOf, newWish, pet, wishAtWell, wishWords, type Wish, type WellGift } from '../island/play';
+  import { WANTS, canWish, dig, feed, fetched, grantWish, heartsOf, newWish, pet, wishAtWell, wishWords, type Wish, type WellGift } from '../island/play';
+  import { buyShop, islandEntry, islandShelf, paintEntry } from '../shop/shop';
   import { islandDev } from '../island/dev';
   import { mulberry32 } from '../engine/rng';
   import { dayKey } from '../engine/profile';
@@ -98,6 +102,7 @@
       if (import.meta.env.DEV) (window as unknown as { __sky: unknown }).__sky = { placeBlocks: devBlocks, scene: sc };
       sc.onLanded = () => { const v = visitorNow(islandView(me)); if (v && !owner) { card = { kind: 'visitor', v }; } };
       sc.onReach = reached;
+      sc.onInside = onInside;
       sc.onFetched = (id) => {
         let j: ReturnType<typeof fetched> | null = null;
         game.update(pp => { j = fetched(pp, id); });
@@ -112,6 +117,9 @@
         if (news) { hearts = news; setTimeout(() => sc.hearts(), 900); }
         lookForVisitor(true);
         setupSecrets(sc);
+        // from the Shop's "Put it on my island": ready to put it out
+        const want = game.islandPlace;
+        if (want) { game.islandPlace = null; later(() => { if (storedOf(islandView(me), want) > 0) { mode = 'things'; kind = 'storage'; pickItem(want); } }, 400); }
       } else say(`${o.name}'s island. Have a look round, and leave a heart!`, 5000);
       void sc.thumbs([...ITEMS.map(i => i.id), ...PAINTS.filter(x => x.kind !== 'plain').map(x => `block:cube:${x.id}`), ...SHAPES_IDS.map(id => `block:${id}:${paint}`)], (id, url) => { thumbs[id] = url; });
     } catch (e) { console.error(e); }
@@ -147,7 +155,14 @@
       visitorAt = va ? { x: va.x * innerWidth, y: va.y * innerHeight } : null;
       const sa = selected && !placing ? scene.screenOf({ uid: selected }) : null;
       selAt = sa ? { x: sa.x * innerWidth, y: sa.y * innerHeight } : null;
-      if (gcard) { const at = scene.screenOf({ glimmer: gcard.id }, 1.05); if (!at || performance.now() > gcard.until) gcard = null; else { gcard.x = at.x * innerWidth; gcard.y = at.y * innerHeight; } }
+      if (gcard) { const at = scene.screenOf({ glimmer: gcard.id }, 1.05); if (!at || performance.now() > gcard.until) endTalk(); else { gcard.x = at.x * innerWidth; gcard.y = at.y * innerHeight; } }
+      const mb = msgsEl?.getBoundingClientRect(); msgsBottom = mb && mb.height > 4 ? mb.bottom : 92;
+      // what's close to do (one hint over the buddy's head)
+      const n = canMove() && !gcard && !blocking ? scene.near() : null;
+      if ((n?.kind ?? null) !== (near?.kind ?? null) || n?.label !== near?.label) near = n ? { kind: n.kind, label: n.label } : null;
+      const ba = n ? scene.buddyScreen() : null;
+      nearAt = ba ? { x: ba.x * innerWidth, y: ba.y * innerHeight } : null;
+      if (busy !== scene.busy) busy = scene.busy;
       // the Wishing Well's "Make a wish", and digging where the grass sparkles
       const well = !owner && !blocking && !placing && !photo && canWish(isl) ? Object.entries(isl.placed).find(([, pl]) => pl.item === 'well')?.[0] : undefined;
       const wv = well ? scene.thingAt(well) : null, ws = wv ? scene.screenAt(wv.setY(2.15)) : null;
@@ -195,16 +210,19 @@
   let placing = $state<{ item: string; x: number; z: number; rot: Rot; uid: string | null } | null>(null);
   let selected = $state<string | null>(null);
   const stored = $derived(storage(isl));
-  const shown = $derived(kind === 'storage' ? stored.map(s => s.item) : ITEMS.filter(i => i.kind === kind && !i.gift));
+  // the tray is a window onto the Shop's Island section: the same things at the same prices (shop/shop.ts)
+  const shown = $derived(kind === 'storage' ? stored.map(s => s.item) : islandShelf(kind).map(e => ITEM[e.id]));
+  /** a thing's price: the Shop's */
+  const priceOf = (id: string) => islandEntry(id)?.price ?? ITEM[id].price;
   const ghostOk = $derived(placing ? fits(isl, grow.r, ITEM[placing.item], placing.x, placing.z, placing.rot, placing.uid ?? undefined) : false);
-  const placingCost = $derived(placing && !placing.uid && storedOf(isl, placing.item) < 1 ? ITEM[placing.item].price : 0);
+  const placingCost = $derived(placing && !placing.uid && storedOf(isl, placing.item) < 1 ? priceOf(placing.item) : 0);
   function ghost() { if (scene && placing) scene.setGhost({ item: placing.item, x: placing.x, z: placing.z, rot: placing.rot, ok: ghostOk, hide: placing.uid }); }
   $effect(() => { void ghostOk; ghost(); });
   function pickItem(id: string) {
     if (visiting) return;
     const it = ITEM[id];
     const have = storedOf(isl, id) > 0;
-    if (!have && shells < it.price) { sfx.nope(); say(`You need ${fmt(it.price - shells)} more shells for the ${it.name}. Practice and battles earn shells!`); return; }
+    if (!have && shells < priceOf(id)) { sfx.nope(); say(`You need ${fmt(priceOf(id) - shells)} more shells for the ${it.name}. Practice and battles earn shells!`); return; }
     const spot = freeSpot(isl, grow.r, it, 0, { x: 0.5, z: 1.5 });
     if (!spot) { sfx.nope(); say('No room left! Your island grows when you meet more Glimmers.'); return; }
     sfx.click();
@@ -233,7 +251,9 @@
     if (!pl) return;
     let r = { ok: false, why: '' } as Result;
     const hadInvites = Object.values(invitesOf(isl)).some(n => n > 0);
-    game.update(pp => { r = pl.uid ? move(pp, pl.uid, pl.x, pl.z, pl.rot) : buyAndPlace(pp, pl.item, pl.x, pl.z, pl.rot); });
+    // (buying here is the Shop's buying: it goes in "What I earned" with what it bought)
+    const buying = !pl.uid && placingCost > 0;
+    game.update(pp => { r = pl.uid ? move(pp, pl.uid, pl.x, pl.z, pl.rot) : buyAndPlace(pp, pl.item, pl.x, pl.z, pl.rot); }, buying ? { bought: [islandEntry(pl.item).key] } : undefined);
     if (!r.ok) { sfx.nope(); say(r.why); return; }
     placing = null;
     scene?.setGhost(null); scene?.setBuilding(false);
@@ -327,8 +347,11 @@
   function unlockPaint() {
     const pd = lockedPaint === null ? null : PAINTS[lockedPaint];
     if (!pd?.special) return;
-    if (shells < pd.special.price) { sfx.nope(); say(`You need ${pd.special.price - shells} more shells.`); return; }
-    game.update(pp => { const s = islandOf(pp); advOf(pp).shells -= pd.special!.price; s.mats = [...new Set([...s.mats, pd.id])]; });
+    const e = paintEntry(pd.id);
+    let r: ReturnType<typeof buyShop> = { ok: false };
+    game.update(pp => { r = buyShop(pp, e.key); }, { bought: [e.key] });
+    const res = r as ReturnType<typeof buyShop>;
+    if (!res.ok) { sfx.nope(); say(res.why ?? 'Not now.'); return; }
     sfx.buy(); lockedPaint = null; setPaint(pd.id);
     say(`${pd.name} blocks are yours! Build with them as much as you like.`);
   }
@@ -398,16 +421,49 @@
     return n;
   }
 
-  // ---------- playing with the Glimmers ----------
-  let gcard = $state<{ id: GlimmerId; until: number; x: number; y: number } | null>(null);
-  function petGlimmer(id: GlimmerId) {
-    let j: ReturnType<typeof pet> | null = null;
-    game.update(pp => { j = pet(pp, id); });
-    if (selected) choose(null);
-    gcard = { id, until: performance.now() + 7000, x: gcard?.x ?? 0, y: gcard?.y ?? 0 };
-    if ((j as ReturnType<typeof pet> | null)?.note) noteNow(id);
+  // ---------- talking with the Glimmers ----------
+  // Walk up to one and press E (or tap it): it says something (what it wishes for, what it's doing, how it
+  // feels) and you pick what to do: pet it, play ball, give it a treat. Short words a six-year-old can read.
+  let gcard = $state<{ id: GlimmerId; until: number; x: number; y: number; line: string; happy: boolean } | null>(null);
+  /** the messages at the top: the talk card goes under its Glimmer rather than over them */
+  let msgsEl: HTMLDivElement | undefined = $state();
+  let msgsBottom = $state(92);
+  const TALK_MS = 20000;
+  /** what a Glimmer says when you come to talk */
+  function lineFor(id: GlimmerId): string {
+    const w = isl.wish?.id === id ? isl.wish : null;
+    if (w) return `I wish for ${WANTS[w.want].words}! Can you build it?`;
+    const mood = scene?.moodOf(id);
+    if (mood === 'nap') return 'Zzz... Oh! Hi! I was having a little nap.';
+    if (mood === 'swim') return 'Splash! The water is lovely.';
+    if (mood === 'warm') return 'Mmm, the sun is so warm here.';
+    if (mood === 'sit') return 'This is a good spot to sit.';
+    if (mood === 'perch') return 'I can see the whole island from up here!';
+    const home = ITEM[HABITAT_OF[GLIMMER[id].element]];
+    const hasHome = Object.values(isl.placed).some(pl => pl.item === home.id);
+    const h = heartsOf(isl, id), r = Math.random();
+    if (!hasHome && r < 0.4) return `I would love a ${home.name} one day.`;
+    if (h >= 4) return `You are my best friend, ${FRIEND[me.buddy].name}!`;
+    if (h >= 2) return r < 0.5 ? 'I am so happy you came to see me!' : 'I like it here on your island.';
+    return r < 0.5 ? 'Hello! Do you want to play?' : 'Hi! Will you be my friend?';
   }
-  function keepCard() { if (gcard) gcard.until = performance.now() + 7000; }
+  /** Start talking to a Glimmer (walked up and pressed E, or tapped it). */
+  function talkTo(id: GlimmerId) {
+    if (selected) choose(null);
+    scene?.talkTo(id);
+    gcard = { id, until: performance.now() + TALK_MS, x: gcard?.x ?? 0, y: gcard?.y ?? 0, line: lineFor(id), happy: false };
+  }
+  function endTalk() { gcard = null; scene?.endTalk(); }
+  function keepCard() { if (gcard) gcard.until = performance.now() + TALK_MS; }
+  function petGlimmer() {
+    const g = gcard; if (!g) return;
+    keepCard();
+    let j: ReturnType<typeof pet> | null = null;
+    game.update(pp => { j = pet(pp, g.id); });
+    scene?.poke(g.id); sfx.giggle();
+    g.line = ['Hee hee! That tickles!', 'Aww, I love pets!', 'More, more!'][Math.floor(Math.random() * 3)]; g.happy = true;
+    if ((j as ReturnType<typeof pet> | null)?.note) noteNow(g.id);
+  }
   function giveTreat() {
     const g = gcard; if (!g) return;
     keepCard();
@@ -416,19 +472,62 @@
     const res = r as ReturnType<typeof feed> | null;
     if (!res?.ok) { sfx.nope(); return; }
     scene?.feedFx(g.id);
-    say(`Yum! ${GLIMMER[g.id].name} loves treats.`, 2400);
+    g.line = 'Yum! Thank you! That was so good.'; g.happy = true;
     if (res.note) setTimeout(() => noteNow(g.id), 2200);
   }
-  function getTreats() {
-    keepCard();
-    let r: ReturnType<typeof buySnacks> = { ok: false };
-    game.update(pp => { r = buySnacks(pp); });
-    if ((r as ReturnType<typeof buySnacks>).ok) { sfx.buy(); say(`${SNACKS.n} treats for your Glimmers!`, 2400); } else { sfx.nope(); say((r as ReturnType<typeof buySnacks>).why ?? 'Not now.'); }
-  }
+  /** No treats: they're in the Shop's Care section (one place sells each thing; Back comes back here) */
+  function getTreats() { sfx.click(); game.openShop(null, 'care'); }
+  /** the whole Island section in the Shop (Back comes back here) */
+  function toShop() { sfx.click(); if (placing) cancelPlace(); game.openShop(null, 'island'); }
   function playBall() {
     const g = gcard; if (!g) return;
-    if (scene?.throwBall(g.id)) { gcard = null; say(`Fetch, ${GLIMMER[g.id].name}!`, 2000); } else sfx.nope();
+    if (scene?.throwBall(g.id)) { endTalk(); say(`Fetch, ${GLIMMER[g.id].name}!`, 2000); } else sfx.nope();
   }
+
+  // ---------- jumping, and E for what's close: talk, swing, climb, go in, get off ----------
+  /** what the buddy can do where it is (the hint over its head; a button on a touch screen) */
+  let near = $state<{ kind: string; label: string } | null>(null);
+  let nearAt = $state<{ x: number; y: number } | null>(null);
+  /** in a house: which kind (its room's name) */
+  let inside = $state<string | null>(null);
+  let busy = $state<'swing' | 'tree' | 'inside' | null>(null);
+  const canMove = () => !!scene && !placing && !photo && !moment && !card && !sheet && lockedPaint === null && !roomNote;
+  function doJump() { if (!canMove()) return; if (scene!.jump()) hinted = true; }
+  function doAct() {
+    if (!canMove()) return;
+    if (gcard) { endTalk(); return; }
+    const n = scene!.act();
+    if (!n) return;
+    hinted = true;
+    if (n.kind === 'talk') {
+      if (visiting) { tag = { id: n.id, until: performance.now() + 2800, x: 0, y: 0 }; sfx.pop(); }
+      else { sfx.pop(); talkTo(n.id); }
+    } else if (n.kind === 'note') showRoomNote();
+    else if (n.kind === 'swing') say('Wheee! Press E or move to get off.', 2600);
+    else if (n.kind === 'tree') say('Up we go!', 1800);
+  }
+  /** the house's little secret: a note from one of your Glimmers */
+  let roomNote = $state<{ from: GlimmerId | null; text: string } | null>(null);
+  const NOTES = [
+    'I love your cosy house! Can I come for tea?',
+    'I hid this note just for you. You are a great friend!',
+    'Your bed looks so comfy. Can I nap here one day?',
+    'Thank you for my home on the island. It is the best!',
+    'Let us play ball later. I will be by the pond!',
+  ];
+  function showRoomNote() {
+    const o = out, day = Number(dayKey(Date.now()).replace(/\D/g, '')) || 0;
+    const from = o.length ? o[day % o.length] : null;
+    roomNote = { from, text: NOTES[(day + (inside?.length ?? 0)) % NOTES.length] };
+    sfx.twinkle();
+  }
+  function onInside(item: string | null) {
+    inside = item;
+    if (item) { choose(null); endTalk(); if (narrow) trayOpen = false; say(`Welcome to ${ROOM_LOOK[item]?.name ?? 'your house'}! Walk out of the door to go back.`, 4200); }
+    else say('Back outside!', 1800);
+  }
+  /** out of the house, off the swing, down from the top of a tree (the Go outside button, Esc) */
+  function goOutside() { sfx.click(); scene?.getOff(); }
   // wishes: now and then a Glimmer living here thinks of something it would love
   async function askWish() {
     if (owner || !scene || photo) return;
@@ -603,7 +702,8 @@
     if (blocking) { blockTap(x, y); return; }
     if (photo) return;
     const h = scene.pick(x, y);
-    if (h?.kind === 'glimmer' && !visiting) { scene.poke(h.id); sfx.pop(); petGlimmer(h.id); return; }
+    if (h?.kind === 'roomnote') { scene.readNote(); showRoomNote(); return; }
+    if (h?.kind === 'glimmer' && !visiting) { sfx.pop(); talkTo(h.id); return; }
     if (h?.kind === 'glimmer') { scene.poke(h.id); sfx.pop(); tag = { id: h.id, until: performance.now() + 2800, x: 0, y: 0 }; return; }
     if (!visiting && h?.kind === 'bottle') { scene.showBottle(null); sfx.pop(); found('bottle', BOTTLE_NOTE); return; }
     if (!visiting && h?.kind === 'note') { const from = noteFrom(isl, outOf(me)); scene.showNote(null); sfx.pop(); found('note', NOTE_WORDS(from ? GLIMMER[from].name : 'your Glimmer')); return; }
@@ -648,12 +748,14 @@
     if (game.modalOpen || tagName === 'INPUT' || tagName === 'SELECT' || tagName === 'TEXTAREA') return;
     const d = KEYDIR[e.code];
     if (d) { e.preventDefault(); held.add(d); startDrive(); return; }
+    if (e.code === 'Space' && !e.repeat) { e.preventDefault(); doJump(); return; }
+    if (e.code === 'KeyE' && !e.repeat && !e.metaKey && !e.ctrlKey) { e.preventDefault(); doAct(); return; }
     if (placing && (e.key === 'r' || e.key === 'R')) { turn(); return; }
     if (placing && e.key === 'Enter') { confirmPlace(); return; }
     if (blocking && (e.key === 'r' || e.key === 'R')) { turnK = (turnK + 1) % 4; sfx.click(); refreshHover(); return; }
     if (blocking && e.key === 'z' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); undo(); return; }
     if (e.key !== 'Escape') return;
-    if (moment) moment = null; else if (photo) endPhoto(); else if (card) thanks(); else if (sheet) sheet = null; else if (lockedPaint !== null) lockedPaint = null; else if (placing) cancelPlace(); else if (blocking) trayOpen = narrow ? false : (mode = 'things', true); else if (selected) choose(null); else if (owner) void goHome(); else game.back();
+    if (roomNote) roomNote = null; else if (gcard) endTalk(); else if (busy) goOutside(); else if (moment) moment = null; else if (photo) endPhoto(); else if (card) thanks(); else if (sheet) sheet = null; else if (lockedPaint !== null) lockedPaint = null; else if (placing) cancelPlace(); else if (blocking) trayOpen = narrow ? false : (mode = 'things', true); else if (selected) choose(null); else if (owner) void goHome(); else game.back();
   }
   function keyUp(e: KeyboardEvent) { const d = KEYDIR[e.code]; if (d) held.delete(d); }
 
@@ -663,7 +765,7 @@
 
 <svelte:window onkeydown={onKey} onkeyup={keyUp} onblur={() => { held.clear(); stick = null; }} />
 
-<div class="isle" class:narrow class:visiting class:photo class:blocking>
+<div class="isle" class:narrow class:visiting class:photo class:blocking class:inside={!!inside}>
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="view" bind:this={viewEl} onpointerdown={pdown} onpointermove={pmove} onpointerup={pup} onpointercancel={(e) => ptrs.delete(e.pointerId)} oncontextmenu={(e) => e.preventDefault()}></div>
@@ -696,15 +798,25 @@
     {/if}
   </nav>
 
-  {#if said}<div class="say" class:low={!!placing}><Critter friend={me.buddy} look={me.settings.look} size={narrow ? 38 : 48} round /><p>{said}</p></div>{/if}
+  <!-- the island's messages, in one place: they stack, so none covers another -->
+  <div class="msgs" class:low={!!placing && narrow} bind:this={msgsEl}>
+    {#if said}<div class="say"><Critter friend={me.buddy} look={me.settings.look} size={narrow ? 38 : 48} round /><p>{said}</p></div>{/if}
+    {#if hearts && !visiting}
+      <div class="hearts card">
+        <img src="{base}icons/heart.webp" alt="" />
+        <p><b>{hearts.text}</b><span>Family can visit your island from theirs.</span></p>
+        <button class="btn small" onclick={closeHearts}>Yay!</button>
+      </div>
+    {/if}
+    {#if !said && !hinted && !loading && !placing && !selected && !(narrow && trayOpen) && !gcard && !inside}
+      <p class="hint">{touchy ? 'Drag to look round · pinch to zoom · tap the grass to walk' : 'Walk with the arrow keys · Space to jump · E to talk, swing, climb or go in'}</p>
+    {/if}
+    {#if looking && !placing && !inside}<button class="backview" onclick={backToIsland}><img src="{base}island/tile.webp" alt="" />See the whole island</button>{/if}
+  </div>
   {#if loading}<div class="loadpill">Floating up to the island…</div>{/if}
-  {#if hearts && !visiting}
-    <div class="hearts card">
-      <img src="{base}icons/heart.webp" alt="" />
-      <p><b>{hearts.text}</b><span>Family can visit your island from theirs.</span></p>
-      <button class="btn small" onclick={closeHearts}>Yay!</button>
-    </div>
-  {/if}
+  <!-- what's close to do: a hint over the buddy (a button on a touch screen) -->
+  {#if near && nearAt && !touchy && near.kind !== 'jump'}<div class="acthint" style:left="{nearAt.x}px" style:top="{nearAt.y}px"><kbd>E</kbd>{near.label}</div>{/if}
+  {#if near && nearAt && !touchy && near.kind === 'jump'}<div class="acthint" style:left="{nearAt.x}px" style:top="{nearAt.y}px"><kbd>Space</kbd>Jump</div>{/if}
 
   {#if tag}<div class="tag" style:left="{tag.x}px" style:top="{tag.y}px">{GLIMMER[tag.id].name}<small>Level {advView(who).glimmers[tag.id]?.level ?? 1}</small></div>{/if}
   {#if visitorAt && !card}<button class="vtag" style:left="{visitorAt.x}px" style:top="{visitorAt.y}px" onclick={() => { if (shownVisit) card = { kind: 'visitor', v: shownVisit }; sfx.pop(); }}><Icon name="gift" size={22} />A visitor!</button>{/if}
@@ -713,19 +825,21 @@
 
   {#if gcard}
     {@const gl = GLIMMER[gcard.id]}
-    {@const w = isl.wish?.id === gcard.id ? isl.wish : null}
+    <!-- talking with a Glimmer: what it says, and what you'd like to do -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <!-- (over the Glimmer; under it when it's near the top of the screen) -->
-    <div class="gcard card" class:below={gcard.y < (narrow ? 330 : 280)} style:left="{Math.min(innerWidth - 125, Math.max(125, gcard.x))}px" style:top="{gcard.y}px" onpointerdown={keepCard}>
+    <div class="gcard card" class:below={gcard.y < msgsBottom + (narrow ? 270 : 250)} style:left="{Math.min(innerWidth - 150, Math.max(150, gcard.x))}px" style:top="{gcard.y}px" onpointerdown={keepCard}>
       <div class="gt"><img src={face(gcard.id, !!advView(me).glimmers[gcard.id]?.evolved)} alt="" /><span><b>{gl.name}</b><small>Level {advView(me).glimmers[gcard.id]?.level ?? 1}</small></span>
-        <button class="x" onclick={() => (gcard = null)} aria-label="Close"><Icon name="close" size={18} /></button></div>
-      <div class="h5" title="Friendship">{#each [0, 1, 2, 3, 4] as i (i)}<img class:off={i >= heartsOf(isl, gcard.id)} src="{base}icons/heart.webp" alt="" />{/each}</div>
-      {#if w}<p class="wl">Wishes for {WANTS[w.want].words}!</p>{/if}
-      <div class="row">
-        {#if isl.treats > 0}<button class="act" onclick={giveTreat}><img src="{base}island/treat.webp" alt="" />Treat<em>{isl.treats}</em></button>
-        {:else}<button class="act buyt" onclick={getTreats}><img src="{base}island/treat.webp" alt="" />{SNACKS.n} treats<span><img src="{base}game/icon-shell.webp" alt="" />{SNACKS.price}</span></button>{/if}
-        <button class="act" onclick={playBall}><img src="{base}island/ball.webp" alt="" />Ball</button>
+        <span class="h5" title="Friendship">{#each [0, 1, 2, 3, 4] as i (i)}<img class:off={i >= heartsOf(isl, gcard.id)} src="{base}icons/heart.webp" alt="" />{/each}</span>
+        <button class="x" onclick={endTalk} aria-label="Close"><Icon name="close" size={18} /></button></div>
+      {#key gcard.line}<p class="line" class:happy={gcard.happy}>{gcard.line}</p>{/key}
+      <p class="about">{gl.quirk}</p>
+      <div class="replies">
+        <button class="rep" onclick={petGlimmer}><img src="{base}icons/heart.webp" alt="" />Pet</button>
+        <button class="rep" onclick={playBall}><img src="{base}island/ball.webp" alt="" />Play ball</button>
+        {#if isl.treats > 0}<button class="rep" onclick={giveTreat}><img src="{base}island/treat.webp" alt="" />Treat<em>{isl.treats}</em></button>{/if}
       </div>
+      {#if isl.treats === 0}<button class="treatlink" onclick={getTreats}><img src="{base}island/treat.webp" alt="" />Treats are in the Shop</button>{/if}
     </div>
   {/if}
 
@@ -753,13 +867,27 @@
     </div>
   {/if}
 
-  {#if !hinted && !loading && !placing && !selected && !(narrow && trayOpen) && !gcard}
-    <p class="hint">{touchy ? 'Drag to look round · pinch to zoom · tap the grass to walk' : 'Drag to look round · scroll to zoom · walk with the arrow keys'}</p>
+
+  {#if touchy && !placing && !photo && (!trayOpen || inside)}
+    <div class="moves" style:bottom="{inside ? 96 : barUp}px">
+      {#if near && near.kind !== 'jump' && !(inside && near.kind === 'off')}<button class="actbtn" onclick={doAct}>{near.label}</button>{/if}
+      <button class="jumpbtn" onclick={doJump} aria-label="Jump"><Icon name="up" size={30} /><span>Jump</span></button>
+    </div>
   {/if}
-  {#if looking && !placing}<button class="backview" onclick={backToIsland}><img src="{base}island/tile.webp" alt="" />See the whole island</button>{/if}
 
   <footer class="bottom" bind:this={bottomEl}>
-    {#if placing}
+    {#if inside}
+      <div class="trayrow">
+        {#if touchy}
+          <div class="stick" bind:this={stickEl} onpointerdown={stickDown} onpointermove={stickMove} onpointerup={stickUp} onpointercancel={stickUp} onlostpointercapture={stickUp} role="presentation" aria-label="Walk">
+            <span class="knob" style:transform="translate({(stick?.x ?? 0) * 30}px, {(stick?.y ?? 0) * 30}px)"></span>
+          </div>
+          <span class="sp"></span>
+        {/if}
+        <button class="btn btn-primary outbtn" onclick={goOutside}><img src="{base}island/tile.webp" alt="" />Go outside</button>
+        {#if touchy}<span class="sp"></span>{/if}
+      </div>
+    {:else if placing}
       {@const it = ITEM[placing.item]}
       <div class="placebar card">
         <img class="pth" src={thumbs[it.id] ?? `${base}island/tile.webp`} alt="" />
@@ -790,8 +918,9 @@
                 <button class:on={mode === 'things'} onclick={() => { mode = 'things'; sfx.click(); }}><img src="{base}island/tile.webp" alt="" />Things</button>
                 <button class:on={mode === 'blocks'} onclick={() => { mode = 'blocks'; sfx.click(); hinted = true; }}><img src="{base}icons/blocks.webp" alt="" />Blocks</button>
               </span>
+              <button class="toshop" onclick={toShop} title="Everything for the island, in the Shop"><img src="{base}game/icon-shell.webp" alt="" />Shop</button>
               {#if mode === 'things'}
-                {#each KINDS as k (k.id)}<button role="tab" aria-selected={kind === k.id} class:on={kind === k.id} onclick={() => { kind = k.id; sfx.click(); }}>{k.name}</button>{/each}
+                {#each KINDS as k (k.id)}<button role="tab" aria-selected={kind === k.id} class:on={kind === k.id} title={k.name} onclick={() => { kind = k.id; sfx.click(); }}>{k.short}</button>{/each}
                 <button role="tab" aria-selected={kind === 'storage'} class:on={kind === 'storage'} onclick={() => { kind = 'storage'; sfx.click(); }}>Storage{#if stored.length}<em>{stored.reduce((t, s) => t + s.n, 0)}</em>{/if}</button>
               {:else}
                 <span class="bhint">{tool === 'build' ? (touchy ? 'Tap the grass or a block to build on it' : 'Click the grass or a block to build on it · R turns it') : tool === 'paint' ? 'Tap a block to paint it' : tool === 'turn' ? 'Tap a block to turn it' : 'Tap a block to take it away'}</span>
@@ -805,12 +934,12 @@
             <div class="cards">
               {#each shown as it (it.id)}
                 {@const have = storedOf(isl, it.id)}
-                {@const short = !have && shells < it.price}
+                {@const short = !have && shells < priceOf(it.id)}
                 <button class="item" class:short class:dream={it.dream} onclick={() => pickItem(it.id)} title={it.blurb}>
                   <span class="pic">{#if thumbs[it.id]}<img src={thumbs[it.id]} alt="" />{:else}<i class="wait"></i>{/if}</span>
                   <span class="nm">{it.name}</span>
                   {#if have}<span class="price have">{have} in storage</span>
-                  {:else}<span class="price"><img src="{base}game/icon-shell.webp" alt="" />{fmt(it.price)}</span>{/if}
+                  {:else}<span class="price"><img src="{base}game/icon-shell.webp" alt="" />{fmt(priceOf(it.id))}</span>{/if}
                   {#if it.habitat}<span class="hab" title="A Glimmer home"><img src="{base}game/icon-{it.habitat}.webp" alt="" /></span>{/if}
                 </button>
               {:else}
@@ -858,6 +987,20 @@
         <div class="gift"><img src="{base}icons/gift.webp" alt="" /><p>The <b>{ITEM[d.keepsake]?.name}</b> is in your storage to put on your island, and there's a new sticker in your sticker book.</p></div>
         <p class="mcount"><img src="{base}island/map.webp" alt="" />{foundCount(isl)} of {SECRETS.length} island secrets found</p>
         <button class="btn btn-primary" onclick={() => (moment = null)}>Yay!</button>
+      </div>
+    </div>
+  {/if}
+
+  {#if roomNote}
+    {@const rn = roomNote}
+    <div class="overlay" role="presentation" onclick={() => (roomNote = null)}>
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <div class="mcard card notecard" role="dialog" aria-label="A note" tabindex="-1" onclick={(e) => e.stopPropagation()}>
+        <div class="mpic">{#if rn.from}<img src={face(rn.from)} alt="" />{:else}<img src="{base}icons/mail.webp" alt="" />{/if}</div>
+        <small class="kick">A note on the bed!</small>
+        <h2>{rn.from ? `From ${GLIMMER[rn.from].name}` : 'Welcome home!'}</h2>
+        <p class="letter">{rn.from ? rn.text : 'This is your cosy house. Come back any time!'}</p>
+        <button class="btn btn-primary" onclick={() => (roomNote = null)}>Aww, thank you!</button>
       </div>
     </div>
   {/if}
@@ -968,15 +1111,18 @@
   .round em { position: absolute; top: 2px; right: 6px; font: 800 12px var(--font-body); color: #fff; background: var(--primary); border-radius: 999px; padding: 1px 7px; font-style: normal; }
   .round:hover { transform: translateY(-2px); }
 
-  .say { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 22px; padding: 6px 18px 6px 6px; max-width: min(620px, 86vw); box-shadow: 0 0 0 3px #ffd36b, 0 12px 28px -12px rgba(60, 40, 20, .55); animation: pop-in .3s cubic-bezier(.3, .8, .4, 1.4); pointer-events: none; z-index: 5; }
+  /* the messages: one column at the top, each under the last (nothing covers anything) */
+  .msgs { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 8px; width: max-content; max-width: min(620px, 92vw); pointer-events: none; }
+  .msgs > :global(*) { pointer-events: auto; }
+  .msgs .say, .msgs .hint { pointer-events: none; }
+  .say { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 22px; padding: 6px 18px 6px 6px; max-width: 100%; box-sizing: border-box; box-shadow: 0 0 0 3px #ffd36b, 0 12px 28px -12px rgba(60, 40, 20, .55); animation: pop-in .3s cubic-bezier(.3, .8, .4, 1.4); }
   .say p { margin: 0; font: 700 16px/1.3 var(--font-body); color: var(--ink); }
   .loadpill { position: absolute; left: 50%; top: 45%; transform: translateX(-50%); background: rgba(255, 255, 255, .92); padding: 10px 22px; border-radius: 999px; font: 600 18px var(--font-ui); color: var(--ink2); box-shadow: var(--shadow-sm); }
-  .hint { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); margin: 0; pointer-events: none; font: 700 13px var(--font-body); color: #fff; background: rgba(70, 45, 20, .5); padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
-  .say ~ .hint { display: none; }
-  .backview { position: absolute; left: 50%; top: 140px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; border: 0; cursor: pointer; padding: 4px 16px 4px 4px; border-radius: 999px; background: #fff; font: 600 15px var(--font-ui); color: var(--ink); box-shadow: 0 0 0 3px #ffd34d, 0 8px 20px -10px rgba(30, 20, 60, .6); white-space: nowrap; }
+  .hint { margin: 0; font: 700 13px var(--font-body); color: #fff; background: rgba(70, 45, 20, .5); padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
+  .backview { display: flex; align-items: center; gap: 6px; border: 0; cursor: pointer; padding: 4px 16px 4px 4px; border-radius: 999px; background: #fff; font: 600 15px var(--font-ui); color: var(--ink); box-shadow: 0 0 0 3px #ffd34d, 0 8px 20px -10px rgba(30, 20, 60, .6); white-space: nowrap; }
   .backview img { width: 34px; height: 34px; border-radius: 50%; }
 
-  .hearts { position: absolute; right: 16px; top: 96px; display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; max-width: 360px; animation: pop-in .35s cubic-bezier(.3, .8, .4, 1.4); box-shadow: 0 0 0 3px #ff9fc6, var(--shadow); }
+  .hearts { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; max-width: 360px; animation: pop-in .35s cubic-bezier(.3, .8, .4, 1.4); box-shadow: 0 0 0 3px #ff9fc6, var(--shadow); }
   .hearts img { width: 44px; height: 44px; }
   .hearts p { margin: 0; font: 700 14px var(--font-body); color: var(--ink2); }
   .hearts b { display: block; font: 600 17px var(--font-ui); color: var(--ink); }
@@ -998,12 +1144,15 @@
   .trayrow { display: flex; align-items: flex-end; justify-content: center; gap: 14px; width: 100%; max-width: 1220px; pointer-events: none; }
   .trayrow > * { pointer-events: auto; }
   .tray { flex: 0 1 auto; min-width: 0; padding: 8px 10px 10px; border-radius: 26px; background: rgba(255, 255, 255, .95); box-shadow: 0 0 0 4px rgba(255, 255, 255, .55), 0 18px 40px -18px rgba(80, 50, 30, .6); }
-  .tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 0 2px 6px; align-items: center; }
-  .tabs::-webkit-scrollbar { display: none; }
+  /* the tray's row of kinds: it fits, and wraps to a second line rather than run off the edge or scroll */
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; row-gap: 4px; padding: 0 2px 6px; align-items: center; }
   .tabs button { flex: none; border: 0; background: transparent; border-radius: 999px; padding: 5px 12px; font: 600 15px var(--font-ui); color: var(--ink2); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
   .tabs button.on { background: #fff1cc; color: #7a4a00; box-shadow: inset 0 0 0 2px #ffd36b; }
   .tabs em { font: 800 11px var(--font-body); font-style: normal; color: #fff; background: var(--primary); border-radius: 999px; padding: 1px 6px; }
   .tabs .tclose { margin-left: auto; background: #f2eef8; padding: 4px; }
+  /* the whole Island section in the Shop, one tap away */
+  .tabs .toshop { background: #eafaf1; color: #1f7a4a; box-shadow: inset 0 0 0 2px #9fe3bd; margin-right: 4px; }
+  .tabs .toshop img { width: 20px; height: 20px; object-fit: contain; }
   .cards { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 4px; scroll-snap-type: x proximity; }
   .item { position: relative; flex: none; width: 128px; display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: #fff; border-radius: 20px; padding: 6px 6px 8px; cursor: pointer; box-shadow: inset 0 0 0 2px #efe7da, 0 4px 10px -6px rgba(80, 50, 30, .35); scroll-snap-align: start; transition: transform .15s; }
   .item:hover { transform: translateY(-3px); box-shadow: inset 0 0 0 2px #ffd36b, 0 8px 16px -8px rgba(80, 50, 30, .45); }
@@ -1073,7 +1222,7 @@
   .tabs .seg button { padding: 4px 12px 4px 5px; font: 600 15px var(--font-ui); }
   .tabs .seg button img { width: 26px; height: 26px; object-fit: contain; }
   .tabs .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 2px 6px -2px rgba(80, 50, 30, .35), inset 0 0 0 2px #ffd36b; }
-  .bhint { flex: none; font: 700 14px var(--font-body); color: var(--ink2); white-space: nowrap; padding: 0 6px; }
+  .bhint { flex: 0 1 auto; min-width: 0; font: 700 14px var(--font-body); color: var(--ink2); padding: 0 6px; }
   .bcount2 { flex: none; margin-left: auto; font: 700 13px var(--font-body); color: var(--muted); white-space: nowrap; padding-right: 6px; }
   .bcount2 b { color: var(--ink); font-size: 15px; }
   .bcount2.full b { color: #d4473b; }
@@ -1090,15 +1239,40 @@
   .digbtn img { width: 52px; height: 52px; }
   /* a Glimmer you tapped */
   .gcard.below { transform: translate(-50%, 70px); }
-  .gcard { position: absolute; transform: translate(-50%, calc(-100% - 14px)); width: 270px; box-sizing: border-box; padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 0 0 3px #ff9fc6, var(--shadow); z-index: 6; }
+  .gcard { position: absolute; transform: translate(-50%, calc(-100% - 14px)); width: 300px; box-sizing: border-box; padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 0 0 3px #ff9fc6, var(--shadow); z-index: 6; }
   .gt { display: flex; align-items: center; gap: 8px; }
   .gt img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: #f3ecfb; }
   .gt span { flex: 1; min-width: 0; }
   .gt b { display: block; font: 600 17px/1.1 var(--font-ui); color: var(--ink); }
   .gt small { font: 700 12px var(--font-body); color: var(--muted); }
   .gt .x { width: 30px; height: 30px; }
-  .h5 { display: flex; gap: 3px; justify-content: center; }
-  .h5 img { width: 26px; height: 26px; }
+  .gt .h5 { flex: none; } .gt .h5 img { width: 17px; height: 17px; border-radius: 0; background: none; }
+  .h5 { display: flex; gap: 2px; justify-content: center; }
+  .h5 img { width: 20px; height: 20px; }
+  /* talking: what the Glimmer says, in a bubble, and what to do */
+  .gcard .line { position: relative; margin: 2px 0 0; padding: 8px 12px; border-radius: 16px; background: #f4ecff; font: 700 17px/1.3 var(--font-body); color: var(--ink); text-align: center; animation: pop-in .25s cubic-bezier(.3, .8, .4, 1.4); }
+  .gcard .line.happy { background: #ffe9f2; }
+  .gcard .about { margin: 0; font: 600 13px/1.3 var(--font-body); color: var(--muted); text-align: center; }
+  .replies { display: flex; gap: 6px; }
+  .rep { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; cursor: pointer; padding: 6px 4px; border-radius: 14px; background: #fff4d6; box-shadow: inset 0 0 0 2px #ffd36b; font: 600 15px var(--font-ui); color: var(--ink); position: relative; white-space: nowrap; }
+  .rep:hover { background: #ffecb3; }
+  .rep img { width: 34px; height: 34px; object-fit: contain; }
+  .rep em { position: absolute; top: 2px; right: 6px; font: 800 11px var(--font-body); font-style: normal; color: #fff; background: var(--primary); border-radius: 999px; padding: 1px 6px; }
+  .treatlink { align-self: center; display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; cursor: pointer; font: 700 13px var(--font-body); color: #7a4a00; text-decoration: underline; }
+  .treatlink img { width: 22px; height: 22px; }
+  /* what's close to do, over the buddy's head */
+  .acthint { position: absolute; transform: translate(-50%, -100%); pointer-events: none; z-index: 4; display: flex; align-items: center; gap: 6px; padding: 3px 12px 3px 4px; border-radius: 999px; background: rgba(255, 255, 255, .95); font: 600 16px var(--font-ui); color: var(--ink); box-shadow: 0 0 0 3px #9fe3bd, 0 8px 18px -8px rgba(30, 20, 60, .5); white-space: nowrap; animation: pop-in .2s ease-out; }
+  .acthint kbd { font: 800 13px var(--font-body); color: #1f7a4a; background: #eafaf1; border-radius: 8px; padding: 2px 7px; box-shadow: inset 0 -2px 0 #9fe3bd; }
+  /* a touch screen: jump, and the thing to do */
+  .moves { position: absolute; right: 16px; display: flex; align-items: flex-end; gap: 10px; z-index: 4; }
+  .jumpbtn { width: 78px; height: 78px; border-radius: 50%; border: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; background: radial-gradient(circle at 40% 35%, #fff, #eafaf1); color: #1f7a4a; font: 600 14px var(--font-ui); box-shadow: 0 0 0 4px rgba(255, 255, 255, .7), 0 0 0 7px #9fe3bd, 0 10px 22px -10px rgba(30, 20, 60, .6); touch-action: manipulation; user-select: none; }
+  .jumpbtn:active { transform: scale(.94); }
+  .actbtn { height: 58px; padding: 0 22px; border-radius: 999px; border: 0; cursor: pointer; background: #fff; color: var(--ink); font: 600 19px var(--font-ui); box-shadow: 0 0 0 4px #ffd36b, 0 10px 22px -10px rgba(30, 20, 60, .6); white-space: nowrap; animation: pop-in .2s ease-out; touch-action: manipulation; }
+  /* in a house: the way out, and nothing to build */
+  .inside .side, .inside .tools, .inside .digbtn, .inside .vtag { display: none !important; }
+  .outbtn { display: flex; align-items: center; gap: 8px; font-size: 20px; padding: 10px 22px 10px 10px; }
+  .outbtn img { width: 40px; height: 40px; border-radius: 50%; }
+  .notecard .mpic img { border-radius: 50%; }
   .h5 img.off { filter: grayscale(1) opacity(.3); }
   .wl { margin: 0; text-align: center; font: 700 14px var(--font-body); color: #7a3dc0; background: #f4ecff; border-radius: 12px; padding: 4px 8px; }
   .gcard .row { justify-content: center; }
@@ -1172,11 +1346,10 @@
   .narrow .side { left: 10px; top: 70px; flex-direction: row; gap: 8px; }
   .narrow .round { width: 64px; font-size: 12px; border-radius: 18px; }
   .narrow .round img { width: 38px; height: 38px; }
-  .narrow .say { top: 150px; max-width: 92vw; }
-  .narrow .say.low { top: auto; bottom: 120px; }
-  .narrow .hint { top: auto; bottom: 140px; white-space: normal; text-align: center; max-width: 86vw; }
-  .narrow .backview { top: 150px; }
-  .narrow .hearts { left: 10px; right: 10px; top: 150px; max-width: none; }
+  .narrow .msgs { top: 150px; }
+  .narrow .msgs.low { top: auto; bottom: 120px; }
+  .narrow.blocking .msgs { max-width: calc(100vw - 150px); }
+  .narrow .hint { white-space: normal; text-align: center; }
   .narrow .bottom { padding: 0 8px 8px; }
   .narrow .tray { flex: 1; border-radius: 22px; padding: 6px 6px 8px; }
   .narrow .tabs button { font-size: 14px; padding: 4px 10px; }
@@ -1198,7 +1371,9 @@
   .narrow .bhint { display: none; }
   .narrow .digbtn { bottom: 150px; font-size: 19px; }
   .narrow .digbtn img { width: 42px; height: 42px; }
-  .narrow .gcard { width: 230px; }
+  .narrow .gcard { width: 260px; }
+  .narrow .gcard .line { font-size: 15px; }
+  .narrow .rep { font-size: 13px; } .narrow .rep img { width: 28px; height: 28px; }
   .narrow .blocksbtn, .narrow .build { font-size: 17px; padding: 8px 14px 8px 8px; }
   .narrow .shutter { width: 80px; height: 80px; }
 </style>

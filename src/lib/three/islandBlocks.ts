@@ -115,8 +115,9 @@ export class BlockKit {
     const rep = (t: THREE.Texture | null, n: number) => { if (!t) return null; const c = k(t.clone()); c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(n, n); c.needsUpdate = true; return c; };
     const std = (o: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial({ roughness: 0.6, ...o });
     const glowPatch = (m: THREE.MeshStandardMaterial, key: string) => {
-      // the glow takes each block's own colour
-      m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#if defined( USE_INSTANCING_COLOR ) || defined( USE_COLOR )\n totalEmissiveRadiance *= vColor;\n#endif'); };
+      // the glow takes each block's own colour (vColor is a vec4 in this three.js: `.rgb`, or the shader
+      // doesn't compile and the block draws nothing but its shadow)
+      m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#if defined( USE_INSTANCING_COLOR ) || defined( USE_COLOR )\n totalEmissiveRadiance *= vColor.rgb;\n#endif'); };
       m.customProgramCacheKey = () => key;
       return m;
     };

@@ -27,6 +27,10 @@ export const MAX_LAYERS = 16;
 export const REACH = 6;
 /** how high a walker steps up without a ramp (a half block is fine, a whole one is a wall) */
 export const STEP = 0.3;
+/** the buddy is bigger and bouncier: it steps up on to a whole block (two blocks is a jump) */
+export const BUDDY_STEP = BLOCK + 0.05;
+/** how high the buddy jumps (its feet), in metres: up on to two blocks */
+export const JUMP_UP = 2 * BLOCK + 0.2;
 /** the room a walker needs over its head */
 export const CLEAR = 0.95;
 /** round a walker's middle, how high something can be before it bumps into it (less than a block) */
@@ -404,12 +408,13 @@ export const groundAt = (w: World, wx: number, wz: number, feetY = 0) => floorAt
 /**
  * A path over the blocks from one point to another, square by square (half a metre), up ramps and steps and
  * down drops, round walls; `blocked` says a square's middle is taken by one of the island's things. The
- * points to walk through (the last is `to`), or null when there's no way there.
+ * points to walk through (the last is `to`), or null when there's no way there. `step`: how high the walker
+ * steps up (the buddy steps up a whole block).
  */
-export function findPath(w: World, from: P3, to: P3, blocked: (x: number, z: number, y: number) => boolean = () => false, maxNodes = 6000): P3[] | null {
+export function findPath(w: World, from: P3, to: P3, blocked: (x: number, z: number, y: number) => boolean = () => false, maxNodes = 6000, step = STEP): P3[] | null {
   const cx = (v: number) => Math.floor(v / BLOCK), mid = (c: number) => (c + 0.5) * BLOCK;
   const sx = cx(from.x), sz = cx(from.z), tx = cx(to.x), tz = cx(to.z);
-  const f0 = floorAt(w, mid(sx), mid(sz), from.y + 0.05) ?? from.y;
+  const f0 = floorAt(w, mid(sx), mid(sz), from.y + 0.05, step) ?? from.y;
   type N = { x: number; z: number; y: number; prev: N | null };
   const key = (n: { x: number; z: number; y: number }) => `${n.x},${n.z},${Math.round(n.y * 20)}`;
   const start: N = { x: sx, z: sz, y: f0, prev: null };
@@ -421,9 +426,9 @@ export function findPath(w: World, from: P3, to: P3, blocked: (x: number, z: num
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nx = n.x + dx, nz = n.z + dz;
       // through the edge between the two squares, then to the middle of the next
-      const e = floorAt(w, mid(n.x) + dx * (BLOCK * 0.5 + 0.02), mid(n.z) + dz * (BLOCK * 0.5 + 0.02), n.y);
+      const e = floorAt(w, mid(n.x) + dx * (BLOCK * 0.5 + 0.02), mid(n.z) + dz * (BLOCK * 0.5 + 0.02), n.y, step);
       if (e === null) continue;
-      const f = floorAt(w, mid(nx), mid(nz), Math.max(e, n.y));
+      const f = floorAt(w, mid(nx), mid(nz), Math.max(e, n.y), step);
       if (f === null || blocked(mid(nx), mid(nz), f)) continue;
       const nn: N = { x: nx, z: nz, y: f, prev: n }, k = key(nn);
       if (seen.has(k)) continue;

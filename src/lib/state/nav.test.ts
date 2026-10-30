@@ -113,6 +113,29 @@ describe('Back, in play', () => {
     expect([game.screen, game.glimmerTab]).toEqual(['glimmers', 'all']);
     game.back(); expect(game.screen).toBe('adventure');
   });
+  it('a chain of cross-links unwinds in order: the island\'s Shop, then Move and size it to the Wardrobe, then Back, Back, Back', () => {
+    game.go('island');
+    game.openShop(null, 'island'); // the island tray's Shop button
+    expect([game.screen, game.shopSection]).toEqual(['shop', 'island']);
+    game.closetTab = 'outfits'; game.visit('closet'); // Wear's "Move and size it"
+    expect(game.screen).toBe('closet');
+    game.back(); expect(game.screen).toBe('shop');
+    game.back(); expect(game.screen).toBe('island');
+    game.back(); expect(game.screen).toBe('hub');
+    // the Wardrobe's Shop and back again (Back from the Shop is the Wardrobe, then where the Wardrobe came from)
+    game.go('island'); game.openShop(null, 'island'); game.visit('closet'); game.openShop('head');
+    expect(game.screen).toBe('shop');
+    game.back(); expect(game.screen).toBe('closet');
+    game.back(); expect(game.screen).toBe('shop');
+    game.back(); expect(game.screen).toBe('island');
+  });
+  it('leaving a chain of cross-links the usual way ends it: the Menu from the Wardrobe, then Back goes up', () => {
+    game.go('island'); game.openShop(null, 'island'); game.visit('closet');
+    menuPlaces().find(m => m.id === 'arcade')!.go();
+    expect(game.screen).toBe('arcade');
+    expect(game.returns).toEqual([]);
+    game.back(); expect(game.screen).toBe('hub');
+  });
   it('a topic\'s garden bed comes back to the topic; Ideas and help to wherever it was opened', () => {
     openSubjectPage('math'); openTopic('math', 'times');
     game.visit('garden'); game.back();
