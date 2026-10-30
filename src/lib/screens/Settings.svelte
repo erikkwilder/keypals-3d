@@ -7,14 +7,12 @@
   import { game } from '../state/game.svelte';
   import { buddyPicture } from '../three/buddyPic';
   import { dressOf } from '../adventure/wardrobe';
-  import { outfitOf } from '../engine/profile';
-  import type { Look } from '../art/cast';
+  import { FRIEND, type Look } from '../art/cast';
   import { LAYOUT_LIST } from '../engine/layouts';
   import { TUNES, sfx, melodyNote, resetMelody } from '../audio/sound';
   import { STATION } from '../audio/stations';
   import type { Settings } from '../engine/profile';
   import Header from '../ui/Header.svelte';
-  import Critter from '../ui/Critter.svelte';
   import FingerCoach from '../ui/FingerCoach.svelte';
   import FancyAntButton from '../ui/FancyAntButton.svelte';
   import { LAYOUTS } from '../engine/layouts';
@@ -45,11 +43,18 @@
     { id: 'paper', name: 'Paper Craft', desc: 'Matte paper with a cut edge' },
     { id: 'geo', name: 'Geo Pop', desc: 'Folded shapes, bright edges' },
   ];
+  // each card's picture is the real buddy drawn in that Look, close up and at the screen's own sharpness, so
+  // the edges and shading show as they do in the game; until it's drawn, a soft blank (never the same
+  // picture four times); if this computer can't draw them, the cards are words only
   let lookPics = $state<Partial<Record<Look, string>>>({});
+  let lookFails = $state(0);
+  const LOOK_PX = 140;
   $effect(() => {
     const id = p.buddy, dress = JSON.parse(JSON.stringify(dressOf(p)));
+    const dpr = Math.min(2, typeof devicePixelRatio === 'number' ? devicePixelRatio : 1);
     let gone = false;
-    for (const l of LOOKS) void buddyPicture(id, { dress, look: l.id, size: 264, frame: 'bust' }).then(u => { if (!gone && u) lookPics = { ...lookPics, [l.id]: u }; });
+    lookPics = {}; lookFails = 0;
+    for (const l of LOOKS) void buddyPicture(id, { dress, look: l.id, size: LOOK_PX, dpr, frame: 'face' }).then(u => { if (gone) return; if (u) lookPics = { ...lookPics, [l.id]: u }; else lookFails++; });
     return () => { gone = true; };
   });
   const FONTS: { id: Settings['font']; name: string; family: string }[] = [
@@ -97,7 +102,7 @@
       <div class="looks">
         {#each LOOKS as l}
           <button class="look card" class:on={s.look === l.id} data-look={l.id} aria-pressed={s.look === l.id} onclick={() => set('look', l.id)}>
-            <span class="lpic">{#if lookPics[l.id]}<img src={lookPics[l.id]} alt="" />{:else}<span class="lwait"><Critter friend={p.buddy} look={l.id} accessory={outfitOf(p)} size={110} /></span>{/if}</span>
+            {#if lookFails < LOOKS.length}<span class="lpic" class:wait={!lookPics[l.id]}>{#if lookPics[l.id]}<img src={lookPics[l.id]} alt="{FRIEND[p.buddy].name} in {l.name}" />{/if}</span>{/if}
             <b>{l.name}</b><span>{l.desc}</span>
             {#if s.look === l.id}<em class="lon">Your look</em>{/if}
           </button>
@@ -227,9 +232,10 @@
   h2 { font-size: 24px; margin: 0 0 12px; }
   .looks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
   .look { position: relative; display: flex; flex-direction: column; align-items: center; padding: 10px 10px 12px; cursor: pointer; border: 3px solid transparent; font: inherit; color: inherit; transition: transform .12s; }
-  .lpic { display: grid; place-items: end center; width: 132px; height: 132px; border-radius: 20px; background: radial-gradient(circle at 50% 40%, #fff, #eef3fb); margin-bottom: 6px; overflow: hidden; }
-  .lpic img { width: 132px; height: 132px; object-fit: contain; object-position: bottom; }
-  .lwait { opacity: .35; }
+  .lpic { display: grid; place-items: end center; width: 140px; height: 140px; border-radius: 20px; background: radial-gradient(circle at 50% 40%, #fff, #e4ecf8); margin-bottom: 6px; overflow: hidden; }
+  .lpic img { width: 140px; height: 140px; object-fit: contain; object-position: bottom; }
+  .lpic.wait { background: linear-gradient(100deg, #eef2fa 30%, #f9fbff 50%, #eef2fa 70%) 0 0 / 300% 100%; animation: lshim 1.4s linear infinite; }
+  @keyframes lshim { to { background-position: -150% 0; } }
   .lon { position: absolute; top: 8px; right: 8px; font: 800 11px var(--font-body); font-style: normal; color: #fff; background: var(--primary); padding: 2px 8px; border-radius: 999px; }
   .lookhint { margin: -8px 0 10px; }
   .grownrow span { display: flex; flex-direction: column; }
