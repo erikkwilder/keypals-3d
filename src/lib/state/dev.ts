@@ -56,7 +56,7 @@ export function devBoot() {
   if (key === 'skill') { ensure(); game.setHome('math'); game.startSkill(val || 'place-a-1'); }
   if (key === 'garden') { ensure(); game.go('garden'); }
   // Adventure: #adventure (or #adventure=falls for that world), #battle=meadow-0 (or falls-0), #glimmers, #eggs
-  if (key === 'adventure') { ensure(); if (val === 'sky' || val === 'falls' || val === 'caves' || val === 'market' || val === 'clockwork' || val === 'peaks') lastWorld.id = val; game.go('adventure'); }
+  if (key === 'adventure') { ensure(); if (val === 'sky' || val === 'falls' || val === 'caves' || val === 'market' || val === 'clockwork' || val === 'peaks' || val === 'jungle') lastWorld.id = val; game.go('adventure'); }
   if (key === 'battle') { ensure(); game.battleNode = val || 'meadow-0'; game.battleKey++; game.go('battle'); }
   if (key === 'glimmers') { ensure(); game.go('glimmers'); }
   if (key === 'eggs') { ensure(); game.go('eggs'); }
@@ -74,6 +74,8 @@ export function devBoot() {
   // Shape Shifter, the shapes arcade game: #shifter; Shape Builder, its calm toy: #shapebuilder
   if (key === 'shifter') { ensure(); game.go('shifter'); }
   if (key === 'shapebuilder') { ensure(); game.go('shapebuilder'); }
+  // Smoothie Stand, the ratios arcade game: #smoothie
+  if (key === 'smoothie') { ensure(); game.go('smoothie'); }
   // a money Learn episode over the Decimals and money map: #market-learn=dec-coins
   if (key === 'market-learn') { ensure(); game.mathArea = 'decimals'; game.mathOp = null; game.go('map'); game.learnOverlay = val || 'dec-coins'; }
   // Glimmer Drop: #drop

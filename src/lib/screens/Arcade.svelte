@@ -52,36 +52,38 @@
     scene?.cheer();
     game.playArcade(id, daily);
   }
-  /** Pizza Rush is the Fractions area's game, on its own screen */
-  function openPizza() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('pizza' as Screen); }
-  /** Glimmer Drop: just for fun, on its own screen (it spends play time) */
+  /** The math areas' own games, each on its own screen with its own records: their cabinets stand here after
+   *  the fact games, in the order the areas came. A new area adds one line here (and its screen). */
+  type AreaCab = { id: string; screen: Screen; name: string; part: string; color: string; art: string; say: string; line: () => string; before?: () => void };
+  const AREA_CABS: AreaCab[] = [
+    { id: 'pizza', screen: 'pizza', name: 'Pizza Rush', part: 'Fractions', color: '#e2452b', art: 'arcade/cab-pizza.webp', say: 'Pizza! Slice it up!', line: () => 'Slice up fractions' },
+    { id: 'builder', screen: 'builder', name: 'Number Builder', part: 'Place value', color: '#2d6fb8', art: 'arcade/cab-builder.webp', say: 'Build it with blocks!',
+      line: () => (builderBest ? `Best score ${builderBest}` : 'Build numbers with blocks'), before: () => { builderOpen.toy = false; builderOpen.from = 'arcade'; } },
+    { id: 'market', screen: 'market', name: 'Market Dash', part: 'Decimals and money', color: '#e6a817', art: 'arcade/cab-market.webp', say: 'Coins! Count them up!', line: () => 'Pay and make change' },
+    { id: 'clockrush', screen: 'clockrush', name: 'Clock Rush', part: 'Time and measuring', color: '#8a6bd6', art: 'arcade/cab-clock.webp', say: 'Tick-tock, catch the clocks!', line: () => 'Catch the clocks' },
+    { id: 'shifter', screen: 'shifter', name: 'Shape Shifter', part: 'Shapes and angles', color: '#6f4ff0', art: 'arcade/cab-shapes.webp', say: 'Catch the crystals!', line: () => 'Catch the crystal shapes' },
+    { id: 'smoothie', screen: 'smoothie', name: 'Smoothie Stand', part: 'Ratios and percents', color: '#ef5f8a', art: 'arcade/cab-smoothie.webp', say: 'Smoothies! Mix them just right!', line: () => 'Mix smoothies just right' },
+  ];
+  function openCab(c: AreaCab) { unlockAudio(); sfx.click(); scene?.cheer(); c.before?.(); game.go(c.screen); }
+  /** Glimmer Drop: just for fun, on its own screen (it spends play time); its cabinet is always last */
   function openDrop() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('drop'); }
-  /** Number Builder is the Place value area's game, on its own screen too */
-  function openBuilder() { unlockAudio(); sfx.click(); scene?.cheer(); builderOpen.toy = false; builderOpen.from = 'arcade'; game.go('builder' as Screen); }
-  /** Clock Rush is the Measurement and time area's game, on its own screen too */
-  function openClock() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('clockrush' as Screen); }
-  /** Market Dash is the Decimals and money area's game, on its own screen too */
-  function openMarket() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('market' as Screen); }
-  /** Shape Shifter is the Shapes and angles area's game, on its own screen too */
-  function openShifter() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('shifter' as Screen); }
-  function hover(id: ArcadeId | 'pizza' | 'builder' | 'market' | 'clockrush' | 'shifter' | 'drop' | null, el?: HTMLElement) {
+  /** the number key for the cabinet in this place (1 to 9, then 0 for the tenth; none after that) */
+  const keyOf = (place: number) => (place <= 9 ? String(place) : place === 10 ? '0' : '');
+  const DROP_PLACE = ARCADE_GAMES.length + AREA_CABS.length + 1;
+  function hover(id: string | null, el?: HTMLElement) {
     if (!scene) return;
     if (!id || !el) { scene.look(null); say = 'Pick a game to play!'; return; }
     const r = el.getBoundingClientRect();
     scene.look((r.left + r.width / 2) / innerWidth);
-    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'builder' ? 'Build it with blocks!' : id === 'market' ? 'Coins! Count them up!' : id === 'clockrush' ? 'Tick-tock, catch the clocks!' : id === 'shifter' ? 'Catch the crystals!' : id === 'drop' ? 'Squish them together!' : 'Pizza! Slice it up!';
+    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'drop' ? 'Squish them together!' : AREA_CABS.find(c => c.id === id)?.say ?? 'Pick a game to play!';
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'Escape') { back(); return; }
-    const n = Number(e.key);
+    const n = e.key === '0' ? 10 : Number(e.key);
     if (n >= 1 && n <= ARCADE_GAMES.length) play(ARCADE_GAMES[n - 1].id);
-    if (n === ARCADE_GAMES.length + 1) openPizza();
-    if (n === ARCADE_GAMES.length + 2) openBuilder();
-    if (n === ARCADE_GAMES.length + 3) openMarket();
-    if (n === ARCADE_GAMES.length + 4) openClock();
-    if (n === ARCADE_GAMES.length + 5) openShifter();
-    if (n === ARCADE_GAMES.length + 6) openDrop();
+    else if (n > ARCADE_GAMES.length && n <= ARCADE_GAMES.length + AREA_CABS.length) openCab(AREA_CABS[n - ARCADE_GAMES.length - 1]);
+    else if (n === DROP_PLACE) openDrop();
     if (e.key === 'd' || e.key === 'D') play(today, true);
   }
 
@@ -143,38 +145,20 @@
             {#if !compact}<span class="kbd">{i + 1}</span>{/if}
           </button>
         {/each}
-        <!-- Pizza Rush lives with the Fractions area (its own screen and records); its cabinet stands here too -->
-        <button class="cab" style:--c="#e2452b" style:--d="{ARCADE_GAMES.length * 90}ms" onclick={openPizza} onpointerenter={(e) => hover('pizza', e.currentTarget)} onpointerleave={() => hover(null)}>
-          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-pizza.webp" alt="" />
-          <span class="plate"><span class="part">Fractions</span><b>Pizza Rush</b><span class="bs">Slice up fractions</span></span>
-          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 1}</span>{/if}
-        </button>
-        <button class="cab" style:--c="#2d6fb8" style:--d="{(ARCADE_GAMES.length + 1) * 90}ms" onclick={openBuilder} onpointerenter={(e) => hover('builder', e.currentTarget)} onpointerleave={() => hover(null)}>
-          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-builder.webp" alt="" />
-          <span class="plate"><span class="part">Place value</span><b>Number Builder</b><span class="bs">{builderBest ? `Best score ${builderBest}` : 'Build numbers with blocks'}</span></span>
-          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 2}</span>{/if}
-        </button>
-        <button class="cab" style:--c="#e6a817" style:--d="{(ARCADE_GAMES.length + 2) * 90}ms" onclick={openMarket} onpointerenter={(e) => hover('market', e.currentTarget)} onpointerleave={() => hover(null)}>
-          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-market.webp" alt="" />
-          <span class="plate"><span class="part">Decimals and money</span><b>Market Dash</b><span class="bs">Pay and make change</span></span>
-          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 3}</span>{/if}
-        </button>
-        <button class="cab" style:--c="#8a6bd6" style:--d="{(ARCADE_GAMES.length + 3) * 90}ms" onclick={openClock} onpointerenter={(e) => hover('clockrush', e.currentTarget)} onpointerleave={() => hover(null)}>
-          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-clock.webp" alt="" />
-          <span class="plate"><span class="part">Time and measuring</span><b>Clock Rush</b><span class="bs">Catch the clocks</span></span>
-          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 4}</span>{/if}
-        </button>
-        <button class="cab" style:--c="#6f4ff0" style:--d="{(ARCADE_GAMES.length + 4) * 90}ms" onclick={openShifter} onpointerenter={(e) => hover('shifter', e.currentTarget)} onpointerleave={() => hover(null)}>
-          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-shapes.webp" alt="" />
-          <span class="plate"><span class="part">Shapes and angles</span><b>Shape Shifter</b><span class="bs">Catch the crystal shapes</span></span>
-          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 5}</span>{/if}
-        </button>
+        <!-- the math areas' own games (their own screens and records); their cabinets stand here too -->
+        {#each AREA_CABS as c, k (c.id)}
+          <button class="cab" style:--c={c.color} style:--d="{(ARCADE_GAMES.length + k) * 90}ms" onclick={() => openCab(c)} onpointerenter={(e) => hover(c.id, e.currentTarget)} onpointerleave={() => hover(null)}>
+            <img class="art" src="{import.meta.env.BASE_URL}{c.art}" alt="" />
+            <span class="plate"><span class="part">{c.part}</span><b>{c.name}</b><span class="bs">{c.line()}</span></span>
+            {#if !compact && keyOf(ARCADE_GAMES.length + k + 1)}<span class="kbd">{keyOf(ARCADE_GAMES.length + k + 1)}</span>{/if}
+          </button>
+        {/each}
         <!-- Glimmer Drop: not practice, just for fun, so it uses play time (the same minutes as Adventure) -->
-        <button class="cab fun" style:--c="#9a6cf0" style:--d="{(ARCADE_GAMES.length + 5) * 90}ms" onclick={openDrop} onpointerenter={(e) => hover('drop', e.currentTarget)} onpointerleave={() => hover(null)}>
+        <button class="cab fun" style:--c="#9a6cf0" style:--d="{(DROP_PLACE - 1) * 90}ms" onclick={openDrop} onpointerenter={(e) => hover('drop', e.currentTarget)} onpointerleave={() => hover(null)}>
           <span class="ribbon fun">Just for fun</span>
           <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-drop.webp" alt="" />
           <span class="plate"><b>Glimmer Drop</b><span class="bs">{drop.best ? `Best score ${fmt(drop.best)}` : 'New! Give it a go'}</span><span class="pt" class:out={!time.open}>{playText}</span></span>
-          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 6}</span>{/if}
+          {#if !compact && keyOf(DROP_PLACE)}<span class="kbd">{keyOf(DROP_PLACE)}</span>{/if}
         </button>
       </div>
       <p class="note">Math games count as practice: every answer helps your Fact Garden grow, and you earn shells and treasure. Typing games are coming soon. Glimmer Drop is just for fun and uses play time.</p>

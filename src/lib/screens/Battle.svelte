@@ -13,7 +13,8 @@
   import { game } from '../state/game.svelte';
   import { stage } from '../three/stage';
   import { BattleScene } from '../three/battleScene';
-  import { sfx } from '../audio/sound';
+  import { sfx, worldStation } from '../audio/sound';
+  import { WORLD_PIN } from '../adventure/worlds';
   import { funEvent } from '../fun/bus';
   import { buddyPal, danceOf, outfitOf } from '../engine/profile';
   import { levelFromXp } from '../engine/stickers';
@@ -161,6 +162,9 @@
       if (firstBattle) tip('t-cards', b.cards.some(c => c.item) ? 'Tap a card and answer it. Every right answer cheers it up, and harder cards cheer more (see the number on each)!' : 'Tap a card, then type the answer. Every right answer cheers it up, and bigger answers cheer more!', '.cards');
     }, champion ? 2800 : 2300);
   });
+  // a world with its own music keeps playing it through its battles
+  worldStation(WORLD_PIN[island.world]?.station ?? null);
+  onDestroy(() => setTimeout(() => { if (game.screen !== 'battle' && game.screen !== 'adventure') worldStation(null); }, 0));
   onDestroy(() => { disposed = true; dropHeld(); cancelAnimationFrame(raf); clearInterval(blockTimer); removeEventListener('resize', onResize); if (scene && stage.current() === scene) stage.use(null); });
 
   function sync() {

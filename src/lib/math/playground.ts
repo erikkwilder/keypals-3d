@@ -4,6 +4,7 @@
 //   Make Ten Bubbles pop two bubbles that make 10 (then 5, 20 and 100): number bonds
 //   Build It         build a number from hundreds, tens and ones: place value
 //   Market Stall     price your goods, then give shoppers their change: money (math/market/stall.ts)
+//   Smoothie Lab     mix fruit until the colour matches: ratios and percents (math/ratios/lab.ts)
 // Rounds feed the same friendship, outfits, dances, stickers and daily minutes as every other game.
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
 import { buddyPal } from '../engine/profile';
@@ -14,7 +15,7 @@ import { mathOf } from './progress';
 import type { Rng } from '../engine/rng';
 import { hasEvidence, pitch, TARGET } from './skills/ability';
 
-export type PlayGame = 'line' | 'bonds' | 'build' | 'stall';
+export type PlayGame = 'line' | 'bonds' | 'build' | 'stall' | 'lab';
 export type PlayLevel = { n: number; title: string; hint: string };
 
 export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: string; levels: PlayLevel[] }[] = [
@@ -45,6 +46,13 @@ export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: str
     { n: 3, title: 'Change from $1', hint: 'Count up to the next quarter, then by quarters.' },
     { n: 4, title: 'Any price, from $1', hint: 'Pennies first, up to the next 5¢.' },
     { n: 5, title: 'Two things', hint: 'Add the two prices, then count up to $1.' },
+  ] },
+  { id: 'lab', name: 'Smoothie Lab', blurb: 'Mix fruit in the jug until it is the same colour as the glass. The same mix makes the same colour. No clock, no rush.', color: '#ef5f8a', levels: [
+    { n: 1, title: 'One to one', hint: 'The same number of each fruit.' },
+    { n: 2, title: 'One to more', hint: '1 : 2 is one of these for every two of those.' },
+    { n: 3, title: 'Match the colour', hint: 'No card: mix, look, and add a little more.' },
+    { n: 4, title: 'A bigger jug', hint: '6 strawberries for a 2 : 3 mix? 9 bananas.' },
+    { n: 5, title: 'Percent smoothies', hint: 'A percent of the fruit is the first one: 25% is a quarter, 50% is half.' },
   ] },
 ];
 export const PLAY_GAME = Object.fromEntries(PLAY_GAMES.map(g => [g.id, g])) as Record<PlayGame, (typeof PLAY_GAMES)[number]>;
@@ -114,6 +122,7 @@ const PLAY_SKILL: Record<PlayGame, { skill: string; level: number[] }> = {
   bonds: { skill: 'add-facts', level: [1, 2, 2, 3, 3, 4] },
   build: { skill: 'pv-hundreds', level: [2, 3, 4, 5, 5, 5] },
   stall: { skill: 'dm-change', level: [1, 2, 3, 4, 5, 5] },
+  lab: { skill: 'rt-ratio', level: [1, 2, 3, 4, 5, 5] },
 };
 /** The level the child's practice says they're ready for (pitched easy: 90%), once there is practice to
  *  go by (0 before). It opens levels the way a star does and never closes one. */

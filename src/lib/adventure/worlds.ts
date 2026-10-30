@@ -39,6 +39,11 @@ export const WORLD_PINS: WorldPin[] = [
   { id: 'stars', name: 'Star Lab', blurb: 'Expressions and equations.', at: [88, 57], area: 'algebra' },
   { id: 'frost', name: 'Below Zero Caves', blurb: 'Negative numbers, under the ice.', at: [37, 87], area: 'integers' },
   { id: 'fair', name: 'Chance Fair', blurb: 'Graphs, chance and data.', at: [73, 86], area: 'data' },
+  // Juice Jungle (ratios and percents): painted onto the clouds at the bottom right; steel drums and
+  // maracas from the World station
+  { id: 'jungle', name: 'Juice Jungle', blurb: 'Fruit trees and juice waterfalls. Every battle card is ratios or percents.', at: [93.5, 69], area: 'ratios',
+    art: { src: 'game/world-jungle.webp', at: [94.2, 83], w: 10.5 }, station: 'world',
+    map: { wide: 'game/map-jungle-wide.webp', tall: 'game/map-jungle-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
 ];
 export const WORLD_PIN = Object.fromEntries(WORLD_PINS.map(w => [w.id, w])) as Record<string, WorldPin>;
 export const mapOf = (w: WorldId) => WORLD_PIN[w].map!;

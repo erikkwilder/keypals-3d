@@ -10,6 +10,7 @@ import { FRAC_LESSONS } from './math/fracEpisodes';
 import { MARKET_LESSONS } from './math/market/episodes';
 import { MEASURE_LESSONS } from './math/measure/episodes';
 import { SHAPE_LESSONS } from './math/shapes/episodes';
+import { RATIO_LESSONS } from './math/ratioEpisodes';
 import { setOf, SETS } from './math/episodes';
 import { AREAS, areaOfOp } from './math/skills/registry';
 import { SKILL_LESSONS } from './math/skills/course';
@@ -49,7 +50,7 @@ export type Subject = {
 /** The short chip names for math's areas; an area added to the skills registry shows with its own name. */
 const AREA_CHIP: Partial<Record<AreaId, string>> = {
   plus: 'Plus', minus: 'Minus', times: 'Times', share: 'Share', fractions: 'Fractions', place: 'Place value', decimals: 'Decimals and money',
-  measure: 'Time and measuring', shapes: 'Shapes', ratios: 'Percents', integers: 'Below zero', algebra: 'Equations', data: 'Graphs and chance',
+  measure: 'Time and measuring', shapes: 'Shapes', ratios: 'Ratios and percents', integers: 'Below zero', algebra: 'Equations', data: 'Graphs and chance',
 };
 const FACT_AREAS: AreaId[] = ['plus', 'minus', 'times', 'share'];
 const live = AREAS.filter(a => a.live);
@@ -65,13 +66,14 @@ const mathLearn: Thing[] = [
   ...MARKET_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: 'learn/market.webp', face: faceOf(l.star), areas: ['decimals'], kind: 'market' })),
   ...MEASURE_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: 'math/measure/learn.webp', face: faceOf(l.star), areas: ['measure'], kind: 'measure' })),
   ...SHAPE_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: l.art, face: faceOf(l.star ?? SETS[l.set].star), areas: ['shapes'], kind: 'episode' })),
+  ...RATIO_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: l.art, face: faceOf(l.star ?? SETS[l.set].star), areas: ['ratios'], kind: 'episode' })),
 ];
 const mathPractice: Thing[] = [
   ...live.map(a => ({ id: a.id, name: a.op ? STRAND[a.op].name : a.name, line: a.op ? STRAND[a.op].blurb : a.blurb, art: a.op ? STRAND[a.op].art : a.art, areas: [a.id], kind: 'trail' })),
   { id: 'garden', name: 'Fact Garden', line: 'Every fact you know, growing. Water the ones that need it.', art: 'icons/garden.webp', areas: FACT_AREAS, kind: 'review' },
 ];
-const PLAY_AREA: Record<string, AreaId> = { line: 'place', bonds: 'plus', build: 'place', stall: 'decimals' };
-const PLAY_ART: Record<string, string> = { line: 'math/play-line.webp', bonds: 'math/play-bubbles.webp', build: 'math/play-build.webp', stall: 'math/play-stall.webp' };
+const PLAY_AREA: Record<string, AreaId> = { line: 'place', bonds: 'plus', build: 'place', stall: 'decimals', lab: 'ratios' };
+const PLAY_ART: Record<string, string> = { line: 'math/play-line.webp', bonds: 'math/play-bubbles.webp', build: 'math/play-build.webp', stall: 'math/play-stall.webp', lab: 'math/play-lab.webp' };
 const mathGames: Thing[] = [
   ...ARCADE_GAMES.map(g => ({ id: g.id, name: g.name, line: g.blurb, art: g.art, areas: FACT_AREAS, kind: 'arcade' })),
   { id: 'pizza', name: 'Pizza Rush', line: 'Serve fraction pizzas to hungry Glimmers.', art: 'arcade/cab-pizza.webp', areas: ['fractions'], kind: 'arcade' },
@@ -79,6 +81,7 @@ const mathGames: Thing[] = [
   { id: 'market', name: 'Market Dash', line: 'Pay and give change to Glimmer shoppers.', art: 'arcade/cab-market.webp', areas: ['decimals'], kind: 'arcade' },
   { id: 'clockrush', name: 'Clock Rush', line: 'Read and set the clocks before they ring.', art: 'arcade/cab-clock.webp', areas: ['measure'], kind: 'arcade' },
   { id: 'shifter', name: 'Shape Shifter', line: 'Catch the crystal shapes that fit the rule.', art: 'arcade/cab-shapes.webp', areas: ['shapes'], kind: 'arcade' },
+  { id: 'smoothie', name: 'Smoothie Stand', line: 'Mix smoothies by the recipe, as big as the Glimmers ask.', art: 'arcade/cab-smoothie.webp', areas: ['ratios'], kind: 'arcade' },
   ...PLAY_GAMES.map(g => ({ id: g.id, name: g.name, line: g.blurb, art: PLAY_ART[g.id] ?? 'math/strand-playground.webp', areas: [PLAY_AREA[g.id] ?? 'plus'], kind: 'toy' })),
   { id: 'blocks', name: 'Block Table', line: 'Build anything with blocks. No questions, no clock.', art: 'math/play-blocks.webp', areas: ['place'], kind: 'toy' },
   { id: 'bench', name: 'The Measuring Bench', line: 'Measure toys with rulers, weigh them on the balance, pour water. No clock.', art: 'math/play-bench.webp', areas: ['measure'], kind: 'toy' },

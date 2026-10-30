@@ -26,13 +26,13 @@ import { newStats, noteStats, type GhostStats, type RivalState } from './ghosts'
 import { parallel, tellStops } from './trails';
 
 // ---------- the map ----------
-export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls' | 'caves' | 'market' | 'clockwork' | 'peaks';
+export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls' | 'caves' | 'market' | 'clockwork' | 'peaks' | 'jungle';
 export type NodeKind = 'battle' | 'practice' | 'champion';
 export type MapNode = { id: string; island: IslandId; kind: NodeKind; n: number };
 /** The worlds on the world map: the Sky Islands (the first three islands, any math or typing), and worlds
  *  of one kind of math (Fraction Falls: every battle card is a fraction). Each world's stops are in order
  *  on their own; finishing one world doesn't open another. */
-export type WorldId = 'sky' | 'falls' | 'caves' | 'market' | 'clockwork' | 'peaks';
+export type WorldId = 'sky' | 'falls' | 'caves' | 'market' | 'clockwork' | 'peaks' | 'jungle';
 export type Island = {
   id: IslandId; world: WorldId; name: string; element: Element; region: RegionId; champion: GlimmerId; blurb: string; odds: Partial<Record<Rarity, number>>;
   /** how tough its Grumbles are (and how many shells they give): 0 for the first island */
@@ -77,6 +77,13 @@ export const ISLANDS: Island[] = [
   { id: 'peaks', world: 'peaks', tier: 1, name: 'Shape Peaks', element: 'frost', region: 'cliffs', champion: 'cometcat', area: 'shapes',
     natives: ['prismhorn', 'frostowl', 'mittenyeti', 'frostjelly'], mischief: { kind: 'pebbles', name: 'Falling crystals are coming' },
     blurb: 'Crystal mountains, a sundial ridge and a crystal palace at the top. Every battle card is about shapes and angles.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
+  // Juice Jungle: a fruit jungle on a floating island, juice waterfalls, a smoothie hut, a juice fountain and a
+  // golden mango treehouse at the top; its Grumbles shake a shower of juice from the waterfalls. Its own
+  // Glimmers (adventure/jungleGlimmers.ts) are still being made, so leafy and sunny ones from the islands
+  // live here until then, and the Pinecone Pangolin is its Champion
+  { id: 'jungle', world: 'jungle', tier: 1, name: 'Juice Jungle', element: 'leaf', region: 'treetops', champion: 'pinepango', area: 'ratios',
+    natives: ['mushmouse', 'cactuskit', 'sproutbun', 'popcornpuff'], mischief: { kind: 'rain', name: 'A juice shower is coming' },
+    blurb: 'Fruit trees, juice waterfalls and a golden mango treehouse. Every battle card is ratios or percents.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
 ];
 export const islandsOf = (w: WorldId) => ISLANDS.filter(i => i.world === w);
 export const ISLAND: Record<IslandId, Island> = Object.fromEntries(ISLANDS.map(i => [i.id, i])) as Record<IslandId, Island>;

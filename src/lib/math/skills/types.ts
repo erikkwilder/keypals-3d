@@ -60,7 +60,9 @@ export type Part =
   /** a measuring picture (a clock, a ruler, a scale, a jug, squares, a box: skills/measure.ts) */
   | { t: 'meas'; m: import('./measure').MeasPic }
   /** a shapes picture: crystal shapes, angles, solids, boxes (math/shapes/fig.ts) */
-  | { t: 'fig'; fig: Fig };
+  | { t: 'fig'; fig: Fig }
+  /** a ratios picture: fruit on plates, a table, a graph, a map strip (skills/ratioPic.ts) */
+  | { t: 'rpic'; pic: import('./ratioPic').RatioPic };
 
 export type Choice = { id: string; parts: Part[] };
 

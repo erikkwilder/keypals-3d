@@ -9,6 +9,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Hue, Shape } from '../math/learn';
 import { tileGeo, tileKey, tileMat } from './shapeTiles';
+import { fruitExtraMat, fruitGeo, fruitMats } from './fruitShapes';
 
 /** where slice i of n sits (its middle), from the middle of a whole of radius R (board units) */
 export function sliceAt(n: number, i: number, R: number) {
@@ -17,11 +18,12 @@ export function sliceAt(n: number, i: number, R: number) {
   return { dx: Math.cos(a) * d, dy: Math.sin(a) * d };
 }
 
-export const shapeKey = (s: Shape) => (s.k === 'wedge' ? `w:${s.food}:${s.n}:${s.i}:${s.r}` : s.k === 'chunk' ? `c:${s.w}` : s.k === 'tile' ? tileKey(s) : 'cup');
+export const shapeKey = (s: Shape) => (s.k === 'wedge' ? `w:${s.food}:${s.n}:${s.i}:${s.r}` : s.k === 'chunk' ? `c:${s.w}` : s.k === 'tile' ? tileKey(s) : s.k === 'fruit' ? `f:${s.f}` : 'cup');
 
 /** A shape's geometry in counter units: `main` carries the colour (two material groups for a wedge: its
  *  top and its sides), `extra` an undyed part (a cupcake's paper cup). */
 export function shapeGeo(s: Shape, RU: number, depth: number): { main: THREE.BufferGeometry; extra: THREE.BufferGeometry | null; height: number } {
+  if (s.k === 'fruit') return fruitGeo(s.f);
   if (s.k === 'wedge') return wedge(s.food, s.n, s.i, s.r, RU, depth);
   if (s.k === 'tile') return tileGeo(s, RU, depth);
   if (s.k === 'chunk') {
@@ -95,6 +97,7 @@ export type FracTex = { pie: THREE.Texture | null; pizza: THREE.Texture | null; 
 
 /** The materials for a shape in a hue: [top, sides] for a wedge, one for the rest. */
 export function shapeMats(s: Shape, hue: Hue, out: boolean, tex: FracTex, cache: (key: string, make: () => THREE.Material) => THREE.Material): THREE.Material | THREE.Material[] {
+  if (s.k === 'fruit') return fruitMats(s.f, hue, out, cache);
   const h = hue === 'ghost' ? 'a' : hue;
   if (s.k === 'tile') return tileMat(s, hue, out, cache);
   if (out) return cache('f-out', () => new THREE.MeshStandardMaterial({ color: 0xc9c1b4, roughness: 0.85, transparent: true, opacity: 0.5 }));
@@ -112,7 +115,8 @@ export function shapeMats(s: Shape, hue: Hue, out: boolean, tex: FracTex, cache:
   }
   return cache(`f-icing-${h}`, () => new THREE.MeshPhysicalMaterial({ color: ICING[h], roughness: 0.45, sheen: 1, sheenColor: new THREE.Color(0xffffff), clearcoat: 0.3, emissive: ICING[h], emissiveIntensity: h === 'c' ? 0.25 : 0.06 }));
 }
-export function extraMat(cache: (key: string, make: () => THREE.Material) => THREE.Material) {
+export function extraMat(cache: (key: string, make: () => THREE.Material) => THREE.Material, s?: Shape) {
+  if (s?.k === 'fruit') return fruitExtraMat(s.f, cache);
   return cache('f-cup', () => new THREE.MeshStandardMaterial({ map: cupTex(), roughness: 0.7 }));
 }
 

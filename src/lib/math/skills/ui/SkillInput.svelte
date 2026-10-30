@@ -24,6 +24,13 @@
   registerInput('protractor', Protractor);
   registerInput('angle-maker', AngleMaker);
   registerInput('dot-grid', DotGrid);
+  // ratios and percents: a ratio table, a double number line, a percent bar
+  import RatioTable from './RatioTable.svelte';
+  import DoubleLine from './DoubleLine.svelte';
+  import PercentBar from './PercentBar.svelte';
+  registerInput('ratiotable', RatioTable);
+  registerInput('dnl', DoubleLine);
+  registerInput('pctbar', PercentBar);
 </script>
 
 <script lang="ts">

@@ -24,7 +24,9 @@ export type Hue = 'a' | 'b' | 'c' | 'ghost';
  *  (`w` wide), or a cupcake. */
 export type Shape = { k: 'wedge'; food: 'pie' | 'pizza'; n: number; i: number; r: number } | { k: 'chunk'; w: number } | { k: 'cupcake' }
   /** a crystal tile (the shapes episodes): its corners round the counter's middle, in board units, its colour for the first lot, how thick */
-  | { k: 'tile'; pts: [number, number][]; tint?: 'teal' | 'rose' | 'gold' | 'violet' | 'sky' | 'mint' | 'pale'; h?: number };
+  | { k: 'tile'; pts: [number, number][]; tint?: 'teal' | 'rose' | 'gold' | 'violet' | 'sky' | 'mint' | 'pale'; h?: number }
+  /** a fruit of the Juice Jungle (or a gold coin): the ratios episodes (three/fruitShapes.ts) */
+  | { k: 'fruit'; f: import('../three/fruitShapes').FruitKind };
 export type Dot = { id: string; x: number; y: number; c: Hue; /** crossed out: taken away, still shown */ out?: boolean; /** seconds to wait before moving */ d?: number; shape?: Shape;
   /** turned this many degrees (anticlockwise, seen from above): a shape tile turning as it moves */ rot?: number };
 export type Tag = { id: string; x: number; y: number; text: string; c?: Hue | 'ink'; size?: number };

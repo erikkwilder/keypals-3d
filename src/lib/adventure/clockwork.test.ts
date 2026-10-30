@@ -62,7 +62,7 @@ describe('Clockwork Isle', () => {
     }
   });
   it('plays the Storybook station (with its Magical Mysterious Clockwork) while the choice is Auto', () => {
-    // (Adventure hands the world's station to startMusic, which plays it only while the choice is Auto)
+    // (Adventure and Battle tell sound.ts the world on screen, worldStation; it plays this only on Auto)
     expect(WORLD_PIN.clockwork.station).toBe('storybook');
     expect(WORLD_PIN.sky.station).toBeUndefined();
     expect(STATION.storybook.tracks.some(t => /clockwork/i.test(t.title))).toBe(true);

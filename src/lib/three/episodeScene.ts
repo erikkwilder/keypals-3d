@@ -553,7 +553,7 @@ export class EpisodeScene implements Controller {
       let sg = this.shapeGeos.get(key);
       if (!sg) { sg = shapeGeo(shape, FC * 0.45, DEPTH); this.shapeGeos.set(key, sg); }
       geos = { hue: sg.main, base: null, rim: sg.main };
-      if (sg.extra) { extra = new THREE.Mesh(sg.extra, extraMat((k, m) => this.mat(k, m))); extra.castShadow = true; extra.receiveShadow = true; }
+      if (sg.extra) { extra = new THREE.Mesh(sg.extra, extraMat((k, m) => this.mat(k, m), shape)); extra.castShadow = true; extra.receiveShadow = true; }
     }
     const g = new THREE.Group();
     const hueMesh = new THREE.Mesh(geos.hue, shape ? shapeMats(shape, hue, false, this.fracTex, (k, m) => this.mat(k, m)) : this.hueMat(hue, false));
@@ -585,7 +585,7 @@ export class EpisodeScene implements Controller {
     this.root.add(g);
     const tk: Token = { id, g, hueMesh, halo, rim, blob, hue, out: false, from: at.clone(), to: at.clone(), t0: -9, dur: 0.5, arc: 0, born: -9, scale: r, leaving: 0, eaten: false, glow: 0, lit: 0, spin0: 0, spin1: 0, drag: false, squashAt: -9, shape, extra };
     // a flat thing (a slice, a square): its glow is a thin border round it, not a big shell
-    if (shape && shape.k !== 'cupcake') rim.scale.set(1.08, 1.6, 1.08);
+    if (shape && shape.k !== 'cupcake' && shape.k !== 'fruit') rim.scale.set(1.08, 1.6, 1.08);
     this.tokens.set(id, tk);
     return tk;
   }
@@ -1538,13 +1538,14 @@ function clothTexture(id: SetId) {
     workshop: ['#6f9a63', '#5f8a55', '#3f6b3a'], garden: ['#e7dcc2', '#c9b88f', '#9c8758'], cave: ['#5b6fa3', '#4c5f92', '#33446f'],
     clockshop: ['#3d6f6a', '#2f5f5a', '#c9a24a'],
     peaks: ['#ece6fb', '#b8a6ec', '#7f6cc4'],
+    juice: ['#fff2d6', '#ff9f4a', '#e0702a'],
   };
   const [bg, line, edge] = C[id];
   return canvasTex(256, (g, s) => {
     g.fillStyle = bg; g.fillRect(0, 0, s, s);
     // checks (gingham) in the bakery, a weave elsewhere
-    g.globalAlpha = id === 'kitchen' ? 0.5 : 0.18; g.fillStyle = line;
-    const n = id === 'kitchen' ? 12 : 40;
+    g.globalAlpha = id === 'kitchen' || id === 'juice' ? 0.5 : 0.18; g.fillStyle = line;
+    const n = id === 'kitchen' || id === 'juice' ? 12 : 40;
     for (let i = 0; i < n; i += 2) { g.fillRect((i / n) * s, 0, s / n, s); g.fillRect(0, (i / n) * s, s, s / n); }
     g.globalAlpha = 1;
     // a border and its stitches

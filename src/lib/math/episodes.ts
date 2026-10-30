@@ -10,8 +10,9 @@ import { factRung, groupFacts, MATH_REGION, STRAND } from './course';
 import { rungFor, STRAND_SKILL, TARGET, thetaOf, type AbilityHome } from './skills/ability';
 import { FRAC_LESSON, type EpQ } from './fracEpisodes';
 import { SHAPE_LESSON } from './shapes/episodes';
+import { RATIO_COLOR, RATIO_LESSON, RATIO_NOUN } from './ratioEpisodes';
 
-export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'clockshop' | 'peaks';
+export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'clockshop' | 'peaks' | 'juice';
 /** what the counters are in each place */
 export type TokenKind = 'cookie' | 'pearl' | 'berry' | 'block' | 'flower';
 
@@ -47,6 +48,9 @@ export const SETS: Record<SetId, {
   // shapes and angles: the crystal workshop high in Shape Peaks (its things are crystal tiles and cubes)
   peaks: { name: 'The Crystal Workshop', backdrop: 'learn/ep/set-peaks.webp', table: 'learn/ep/tex-peaks.webp', star: 'prismhorn', token: 'block',
     tray: { word: 'box layer', color: 0xb9c6e8, rim: 0x6a78b5 }, plate: { word: 'plate', color: 0xf6f2ff, rim: 0x9b84e0 }, key: 0xffe4bf, sky: 0xe4e6ff, ground: 0x6a5a7a, haze: 0xe8dcf6 },
+  // ratios and percents: Mushroom Mouse's juice bar in a treehouse in the Juice Jungle (the counters are fruit)
+  juice: { name: 'The Jungle Juice Bar', backdrop: 'learn/ep/set-juice.webp', table: 'learn/ep/tex-juice.webp', star: 'mushmouse', token: 'berry',
+    tray: { word: 'fruit crate', color: 0xd9a46a, rim: 0x9c6a38 }, plate: { word: 'plate', color: 0xfffaf2, rim: 0xf07a3a }, key: 0xffdcae, sky: 0xfff0d0, ground: 0x7a5a36, haze: 0xf6d6a0 },
 };
 
 export type Episode = {
@@ -213,13 +217,13 @@ function pitchedTries(l: Lesson, rung?: number): Fact[] {
 /** The episode for a lesson id: a fact trick (learn.ts) or a fraction idea (fracEpisodes.ts); `rung`
  *  pitches a trick's own tries for the child (teachRung). */
 export function epLesson(id: string, rung?: number): EpLesson | null {
-  const f = FRAC_LESSON[id] ?? SHAPE_LESSON[id];
+  const f = FRAC_LESSON[id] ?? SHAPE_LESSON[id] ?? RATIO_LESSON[id];
   if (f) {
     const all = [f.teach.q.ans, f.teach.wrong, f.teach.decoy], k = f.id.length % 3;
-    const shape = !!SHAPE_LESSON[id];
-    return { id, title: f.title, blurb: f.blurb, color: shape ? SHAPE_COLOR : FRAC_COLOR, set: f.set, star: f.star, steps: f.steps, tries: f.tries,
+    const shape = !!SHAPE_LESSON[id], ratio = !!RATIO_LESSON[id];
+    return { id, title: f.title, blurb: f.blurb, color: shape ? SHAPE_COLOR : ratio ? RATIO_COLOR : FRAC_COLOR, set: f.set, star: f.star, steps: f.steps, tries: f.tries,
       teach: { q: f.teach.q, wrong: f.teach.wrong, says: f.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: f.teach.fixed },
-      cover: null, art: f.art, noun: NOUN[id] ?? (shape ? 'pieces' : 'slices') };
+      cover: null, art: f.art, noun: NOUN[id] ?? RATIO_NOUN[id] ?? (shape ? 'pieces' : 'slices') };
   }
   const l = LESSON[id];
   if (!l) return null;
@@ -230,7 +234,7 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
     teach: { q: q(e.teach.f), wrong: String(e.teach.wrong), says: e.teach.says, choices: fixChoices(e).map(String), fixed: `Oops! ${hintFor(l, e.teach.f)} Thank you!` },
     cover: coverOf(l), art: null };
 }
-export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!SHAPE_LESSON[id] || !!LESSON[id];
+export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!SHAPE_LESSON[id] || !!RATIO_LESSON[id] || !!LESSON[id];
 
 /** The lessons in order, with their episode. */
 export const lessonWithEpisode = (l: Lesson) => ({ lesson: l, ep: episodeOf(l.id), set: setOf(l.id) });

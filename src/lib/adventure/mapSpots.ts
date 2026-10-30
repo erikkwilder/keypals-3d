@@ -15,6 +15,8 @@ export const SPOTS: Record<'wide' | 'tall', Record<string, [number, number]>> = 
     'clockwork-0': [15.4, 73.6], 'clockwork-1': [32.1, 65.4], 'clockwork-2': [47.1, 50.8], 'clockwork-3': [64.1, 35.5], 'clockwork-4': [79.3, 27.3], 'clockwork-5': [87.3, 16.5],
     // Shape Peaks (map-peaks-*.webp): the round stone platforms, from the crystal meadow to the palace
     'peaks-0': [15.3, 74.4], 'peaks-1': [32.8, 65.0], 'peaks-2': [49.6, 52.6], 'peaks-3': [84.8, 46.4], 'peaks-4': [78.8, 30.3], 'peaks-5': [84.8, 20.2],
+    // Juice Jungle (map-jungle-*.webp): the round stone platforms, the juice fountain, the mango treehouse at the top
+    'jungle-0': [22.0, 71.0], 'jungle-1': [45.5, 50.5], 'jungle-2': [51.0, 43.0], 'jungle-3': [66.5, 38.3], 'jungle-4': [81.0, 30.0], 'jungle-5': [87.2, 18.5],
   },
   tall: {
     'meadow-0': [46.1, 85.0], 'meadow-1': [56.3, 78.2], 'meadow-2': [47.2, 72.1], 'meadow-3': [55.2, 66.4], 'meadow-4': [67.5, 63.3], 'meadow-5': [48.8, 57.5],
@@ -25,5 +27,6 @@ export const SPOTS: Record<'wide' | 'tall', Record<string, [number, number]>> = 
     'market-0': [45.0, 87.5], 'market-1': [59.3, 72.0], 'market-2': [55.3, 53.2], 'market-3': [68.7, 33.2], 'market-4': [55.5, 18.2], 'market-5': [71.0, 6.4],
     'clockwork-0': [58.8, 90.4], 'clockwork-1': [57.3, 81.0], 'clockwork-2': [51.9, 63.8], 'clockwork-3': [64.4, 46.3], 'clockwork-4': [55.6, 27.9], 'clockwork-5': [70.0, 13.8],
     'peaks-0': [51.6, 81.3], 'peaks-1': [46.5, 57.5], 'peaks-2': [28.8, 49.2], 'peaks-3': [52.3, 37.9], 'peaks-4': [58.3, 21.7], 'peaks-5': [71.0, 15.2],
+    'jungle-0': [50.0, 86.0], 'jungle-1': [61.0, 55.0], 'jungle-2': [69.0, 37.0], 'jungle-3': [42.0, 33.0], 'jungle-4': [56.0, 21.0], 'jungle-5': [70.0, 7.0],
   },
 };

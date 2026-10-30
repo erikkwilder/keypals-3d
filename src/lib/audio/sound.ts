@@ -600,6 +600,12 @@ export const sfx = {
   },
   /** A new best score: a little fanfare. */
   newBest() { [523.25, 659.25, 783.99, 1046.5].forEach((n, i) => tone(n, { type: 'square', dur: 0.14, gain: 0.04, delay: i * 0.09 })); [1046.5, 1318.5, 1568].forEach((n, i) => tone(n, { type: 'triangle', dur: 0.7, gain: 0.06, delay: 0.38 + i * 0.02 })); },
+  /** Smoothie Stand: a fruit plops into the blender (a little higher for each one in) */
+  fruitIn(n = 0) { tone(330 + Math.min(12, n) * 22, { type: 'sine', dur: 0.1, gain: 0.07, slideTo: 200 + Math.min(12, n) * 14 }); noise(0.05, { gain: 0.03, freq: 2400, q: 1.5, delay: 0.03 }); },
+  /** the blender whirs up and down */
+  blend() { wobble(180, { dur: 1.1, gain: 0.05, rate: 38, depth: 0.08, type: 'sawtooth', slideTo: 260, tone: 1400, attack: 0.08 }); noise(1.1, { gain: 0.05, freq: 900, q: 0.6, sweepTo: 2200, attack: 0.1 }); },
+  /** a smoothie poured and slid across: a glug and a sparkle */
+  pour() { [0, 1, 2].forEach(i => tone(240 - i * 30, { type: 'sine', dur: 0.12, gain: 0.06, slideTo: 160 - i * 20, delay: i * 0.09 })); tone(1568, { type: 'sine', dur: 0.3, gain: 0.03, delay: 0.3 }); },
 };
 
 // ---------- melody mode: each right key plays the next note of a tune ----------
@@ -979,8 +985,6 @@ type Deck = { el: HTMLAudioElement; gain: GainNode; station: StationId; track: n
 let deck: Deck | null = null;
 let stationChoice: StationChoice = 'auto';
 let place: MusicPlace = 'menu';
-/** an Adventure world's own station (Shape Peaks: snow), played there on Auto */
-let placeStation: StationId | null = null;
 let where: RegionId | 'menu' = 'menu';
 let started = false;
 let fails = 0;
@@ -988,9 +992,13 @@ const orders: Partial<Record<StationId, { list: number[]; at: number }>> = {};
 export type NowPlaying = { station: StationId; choice: StationChoice; title?: string; artist?: string };
 const listeners = new Set<(n: NowPlaying) => void>();
 
+/** the Adventure world on screen's own station (worlds.ts WORLD_PINS `station`: Clockwork Isle's Storybook,
+ *  Shape Peaks' snow, Juice Jungle's steel drums...), played there on Auto instead of the usual. Adventure
+ *  and Battle set it from the world they show (worldStation); nothing else chooses a world's music. */
+let worldSt: StationId | null = null;
 /** The station that should be playing now (Auto follows what you're doing). */
 function currentStation(): StationId {
-  const id = stationChoice === 'auto' ? (place === 'adventure' && placeStation ? placeStation : AUTO[place]) : stationChoice;
+  const id = stationChoice === 'auto' ? (place === 'adventure' && worldSt ? worldSt : AUTO[place]) : stationChoice;
   // a station with no recordings (or recordings that won't load) plays the island tunes instead
   return id !== 'originals' && STATION[id]?.tracks.length && fails < 3 ? id : 'originals';
 }
@@ -1073,12 +1081,17 @@ function applyMusic() {
 
 /** Music for where you are: an island while you practise, 'menu' around the game, 'adventure' in
  *  Adventure. With a station picked it just keeps playing; on Auto it follows the place. */
-export function startMusic(region: RegionId | 'menu' | 'adventure', station?: StationId | null) {
+export function startMusic(region: RegionId | 'menu' | 'adventure') {
   place = region === 'menu' ? 'menu' : region === 'adventure' ? 'adventure' : 'focus';
-  placeStation = region === 'adventure' ? station ?? null : null;
   where = region === 'adventure' ? 'menu' : region;
   started = true;
   applyMusic();
+}
+/** The Adventure world on screen has its own station (or null: the usual adventure music). Only on Auto. */
+export function worldStation(id: StationId | null) {
+  if (id === worldSt) return;
+  worldSt = id;
+  if (started && stationChoice === 'auto' && place === 'adventure') applyMusic();
 }
 /** Pick a station (or 'auto'); it crossfades straight away if music is playing. */
 export function setMusicStation(choice: StationChoice) {

@@ -8,6 +8,7 @@
   import Frac from './Frac.svelte';
   import FractionPic from './FractionPic.svelte';
   import BlocksPic from './BlocksPic.svelte';
+  import RatioPic from './RatioPic.svelte';
   import MoneyPic from './MoneyPic.svelte';
   import MeasurePic from './MeasurePic.svelte';
   import ShapePic from '../../shapes/ui/ShapePic.svelte';
@@ -26,12 +27,13 @@
   {#each parts as p, i (i)}
     {#if p.t === 'text'}<span class="tx">{p.s}</span>
     {:else if p.t === 'num'}<span class="n">{p.n >= 1000 ? p.n.toLocaleString('en-US') : p.n}</span>
-    {:else if p.t === 'op'}<span class="op" class:word={p.s.length > 1}>{p.s}</span>
+    {:else if p.t === 'op'}<span class="op" class:word={p.s.length > 1} class:pct={p.s === '%'}>{p.s}</span>
     {:else if p.t === 'pic'}{#if p.pic.kind === 'coins' || p.pic.kind === 'grid'}<MoneyPic pic={p.pic} size={picSize} />{:else}<FractionPic pic={p.pic} size={picSize} />{/if}
     {:else if p.t === 'money'}<span class="n money">{moneyText(p.cents, p.dollars)}</span>
     {:else if p.t === 'blocks'}<BlocksPic b={p.b} size={picSize} />
     {:else if p.t === 'meas'}<MeasurePic m={p.m} size={picSize} />
     {:else if p.t === 'fig'}<ShapePic fig={p.fig} size={picSize * 1.25} />
+    {:else if p.t === 'rpic'}<RatioPic pic={p.pic} size={picSize} />
     {:else if p.t === 'frac'}
       <Frac n={p.n ?? (fill?.kind === 'number' ? fill.text : null)} d={p.d ?? (fill?.kind === 'number' ? fill.text : null)} size={size * 0.82} focus={(p.n === null || p.d === null) && !done && !bad ? (p.n === null ? 'n' : 'd') : null} bad={bad ? (p.n === null ? 'n' : p.d === null ? 'd' : null) : null}
         drop={live && fill?.kind === 'number' ? (p.n === null ? { n: 'num' } : p.d === null ? { d: 'num' } : null) : null} />
@@ -53,6 +55,8 @@
   .op { color: var(--primary); }
   .money { color: #b7791f; }
   .op.word { font-size: calc(var(--fs) * .5); color: var(--muted); }
+  /* a percent sign sits close to its number: 25% */
+  .op.pct { margin-left: calc(var(--fs) * -.22); }
   .tx { font-size: calc(var(--fs) * .5); }
   .box.bad { color: #d6335c; background: #fff0f3; box-shadow: inset 0 0 0 4px #ff8aa5, 0 0 0 6px #ffe0e8; animation: nope .4s ease; }
   @keyframes nope { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }

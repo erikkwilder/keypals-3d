@@ -30,6 +30,7 @@
   import MeasureBench from './lib/screens/MeasureBench.svelte';
   import ShapeShifter from './lib/screens/ShapeShifter.svelte';
   import ShapeBuilder from './lib/screens/ShapeBuilder.svelte';
+  import SmoothieStand from './lib/screens/SmoothieStand.svelte';
   import Glimmers from './lib/screens/Glimmers.svelte';
   import Eggs from './lib/screens/Eggs.svelte';
   import Learn from './lib/screens/Learn.svelte';
@@ -64,7 +65,6 @@
   import Boards from './lib/screens/Boards.svelte';
   import { startClasses } from './lib/teach/student.svelte';
   import { stage } from './lib/three/stage';
-  import { WORLD_PIN, lastWorld } from './lib/adventure/worlds';
   import QuickSettings from './lib/ui/QuickSettings.svelte';
   import FunLayer from './lib/fun/FunLayer.svelte';
   import LessonChart from './lib/ui/LessonChart.svelte';
@@ -91,17 +91,18 @@
   // sound, once per player; a typing lesson asks for itself, before its coach starts talking
   $effect(() => {
     const scr = game.screen;
-    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel', 'drop', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
+    if (!['mathRun', 'skillRun', 'playground', 'battle', 'duel', 'drop', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'smoothie'].includes(scr) || !game.profile || game.profile.soundSetup || game.sheet) return;
     setTimeout(() => { if (game.screen === scr && game.profile && !game.profile.soundSetup && !game.sheet) game.openSheet('setup'); }, 300);
   });
 
   // menu music on the screens around the lessons; Adventure's own on its screens and the Arcade's (Auto
   // plays an adventure there; a picked station just keeps playing)
-  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'glimmerBook', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'shifter', 'shapebuilder']);
+  const ADVENTURE_SCREENS = new Set(['adventure', 'battle', 'duel', 'rivals', 'glimmers', 'glimmerBook', 'eggs', 'drop', 'arcade', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'shifter', 'shapebuilder', 'smoothie']);
   $effect(() => {
     const scr = game.screen;
-    // (a world with a station of its own, Clockwork Isle's Storybook or Shape Peaks' snow, plays it on its map and in its battles while the choice is Auto)
-    if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu', scr === 'adventure' || scr === 'battle' ? WORLD_PIN[lastWorld.id]?.station : null);
+    // (a world with a station of its own plays it on its map and in its battles while the choice is Auto:
+    // Adventure and Battle tell sound.ts which world is on screen, worldStation)
+    if (scr !== 'run' && scr !== 'mathRun' && scr !== 'skillRun' && scr !== 'title') startMusic(ADVENTURE_SCREENS.has(scr) ? 'adventure' : 'menu');
   });
 
   let canvas: HTMLCanvasElement | undefined = $state();
@@ -153,6 +154,7 @@
   {:else if game.screen === 'bench'}<MeasureBench />
   {:else if game.screen === 'shifter'}<ShapeShifter />
   {:else if game.screen === 'shapebuilder'}<ShapeBuilder />
+  {:else if game.screen === 'smoothie'}<SmoothieStand />
   {:else if game.screen === 'drop'}<GlimmerDrop />
   {:else if game.screen === 'arcade'}<Arcade />
   {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}

@@ -4,9 +4,9 @@
   // shop are in the corner; the World map button opens every world on one picture.
   // The first visit starts with a short story (four pictures), then a tip pointing at the first battle.
   import CloseButton from '../ui/CloseButton.svelte';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { sfx, startMusic } from '../audio/sound';
+  import { sfx, worldStation } from '../audio/sound';
   import { nextLesson } from '../engine/profile';
   import { mathOf, nextMathLesson } from '../math/progress';
   import { nextToLearn } from '../math/learn';
@@ -17,6 +17,7 @@
   import { DuelScene } from '../three/duelScene';
   import { WORLD_PIN, WORLD_PINS, lastWorld, mapOf, type WorldPin } from '../adventure/worlds';
   import { nextSkillLesson } from '../math/skills/course';
+  import { AREA } from '../math/skills/registry';
     import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
@@ -38,6 +39,9 @@
   const spots = $derived(SPOTS[kind]);
   // the world on show: the last one looked at (back from a battle lands on the same world)
   let world = $state<WorldId>(lastWorld.id !== 'sky' && !worldOpen(game.profile!, lastWorld.id) ? 'sky' : lastWorld.id);
+  // a world with its own music plays it here (and in its battles); leaving Adventure puts the usual back
+  $effect(() => { worldStation(WORLD_PIN[world]?.station ?? null); });
+  onDestroy(() => setTimeout(() => { if (game.screen !== 'battle' && game.screen !== 'adventure') worldStation(null); }, 0));
   let picker = $state(false);
   let locked = $state<WorldPin | null>(null);
   let wscroll: HTMLDivElement | undefined = $state();
@@ -115,7 +119,6 @@
     sfx.pop(); picker = false; open = null;
     if (id === world) return;
     world = id; lastWorld.id = id;
-    startMusic('adventure', w.station);
     reach(id);
     if (id !== 'sky' && !a.seen?.includes(`world-${id}`)) { game.say(`Welcome to ${w.name}! ${w.blurb}`); game.update(pp => markSeen(pp, `world-${id}`)); }
   }
@@ -291,10 +294,11 @@
       </div>
       {#if locked}
         {@const w = locked}
+        {@const an = w.area ? AREA[w.area].name : "Math"}
         <div class="wlock card">
-          <img src="{base}math/pizza/tile.webp" alt="" />
-          <div><h3>{w.name} opens with Fractions</h3><p>Do your first Fractions trip in Math, then come back: every battle card here is a fraction.</p></div>
-          <div class="row"><button class="btn" onclick={() => (locked = null)}>Not now</button><button class="btn btn-primary" onclick={() => startArea(w)}>Start Fractions</button></div>
+          <img src="{base}{w.art?.src ?? 'math/pizza/tile.webp'}" alt="" />
+          <div><h3>{w.name} opens with {an}</h3><p>Do your first {an} trip in Math, then come back: every battle card here is {w.area === 'fractions' ? 'a fraction' : `about ${an.toLowerCase()}`}.</p></div>
+          <div class="row"><button class="btn" onclick={() => (locked = null)}>Not now</button><button class="btn btn-primary" onclick={() => startArea(w)}>Start {an}</button></div>
         </div>
       {/if}
     </div>
