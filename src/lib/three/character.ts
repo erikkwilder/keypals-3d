@@ -562,7 +562,7 @@ export class Character {
       };
       this.model.traverse(o => {
         const m = o as THREE.Mesh;
-        if (!m.isMesh) return;
+        if (!m.isMesh || m.userData.kpEdge) return;
         const one = (mat: THREE.Material) => {
           const cl = mat.clone(), prev = mat.onBeforeCompile;
           cl.onBeforeCompile = (sh, r) => {
@@ -587,12 +587,18 @@ export class Character {
     u.uMode.value = c.mode === 'gold' ? 1 : c.mode === 'rainbow' ? 2 : c.mode === 'galaxy' ? 3 : 0;
   }
 
+  /** The colour the buddy is painted (hue and colourfulness, 0..1), or null when it's in its own colour. */
+  paintTone(): { hue: number; sat: number } | null {
+    const u = this.paint?.u;
+    return u && (u.uPaint.value as number) > 0.5 ? { hue: u.uHT.value as number, sat: u.uST.value as number } : null;
+  }
+
   /** Shown in shadowy black and white (a buddy who hasn't joined the team yet). */
   shadowed() {
     this.isShadowed = true;
     this.model.traverse(o => {
       const m = o as THREE.Mesh;
-      if (!m.isMesh) return;
+      if (!m.isMesh || m.userData.kpEdge) return;
       const one = (mat: THREE.Material) => {
         const c = mat.clone();
         c.onBeforeCompile = (sh) => {

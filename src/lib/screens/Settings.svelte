@@ -41,7 +41,7 @@
     { id: 'soft', name: 'Soft Squish', desc: 'Soft and glowy, just as made' },
     { id: 'ink', name: 'Ink Sticker', desc: 'A bold outline, like a sticker' },
     { id: 'paper', name: 'Paper Craft', desc: 'Matte paper with a cut edge' },
-    { id: 'geo', name: 'Geo Pop', desc: 'Folded shapes, bright edges' },
+    { id: 'geo', name: 'Geo Pop', desc: 'Folded shapes, crisp edges' },
   ];
   // each card's picture is the real buddy drawn in that Look, close up and at the screen's own sharpness, so
   // the edges and shading show as they do in the game; until it's drawn, a soft blank (never the same
