@@ -526,6 +526,7 @@
     if (item) { choose(null); endTalk(); if (narrow) trayOpen = false; say(`Welcome to ${ROOM_LOOK[item]?.name ?? 'your house'}! Walk out of the door to go back.`, 4200); }
     else say('Back outside!', 1800);
   }
+  /** out of the house, off the swing, down from the top of a tree (the Go outside button, Esc) */
   function goOutside() { sfx.click(); scene?.getOff(); }
   // wishes: now and then a Glimmer living here thinks of something it would love
   async function askWish() {
@@ -754,7 +755,7 @@
     if (blocking && (e.key === 'r' || e.key === 'R')) { turnK = (turnK + 1) % 4; sfx.click(); refreshHover(); return; }
     if (blocking && e.key === 'z' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); undo(); return; }
     if (e.key !== 'Escape') return;
-    if (roomNote) roomNote = null; else if (gcard) endTalk(); else if (busy && busy !== 'tree') goOutside(); else if (moment) moment = null; else if (photo) endPhoto(); else if (card) thanks(); else if (sheet) sheet = null; else if (lockedPaint !== null) lockedPaint = null; else if (placing) cancelPlace(); else if (blocking) trayOpen = narrow ? false : (mode = 'things', true); else if (selected) choose(null); else if (owner) void goHome(); else game.back();
+    if (roomNote) roomNote = null; else if (gcard) endTalk(); else if (busy) goOutside(); else if (moment) moment = null; else if (photo) endPhoto(); else if (card) thanks(); else if (sheet) sheet = null; else if (lockedPaint !== null) lockedPaint = null; else if (placing) cancelPlace(); else if (blocking) trayOpen = narrow ? false : (mode = 'things', true); else if (selected) choose(null); else if (owner) void goHome(); else game.back();
   }
   function keyUp(e: KeyboardEvent) { const d = KEYDIR[e.code]; if (d) held.delete(d); }
 
