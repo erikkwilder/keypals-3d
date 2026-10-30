@@ -17,6 +17,8 @@ export type WorldPin = {
   map?: WorldMap;
   /** a math world's area (it opens once the area is started) */
   area?: AreaId;
+  /** its own music station on Auto (the others play the Adventure station) */
+  station?: import('../audio/stations').StationId;
 };
 
 export const WORLD_PINS: WorldPin[] = [
@@ -31,7 +33,8 @@ export const WORLD_PINS: WorldPin[] = [
   { id: 'market', name: 'Market Isle', blurb: 'A floating bazaar. Every battle card is money or decimals.', at: [33, 60], area: 'decimals',
     map: { wide: 'game/map-market-wide.webp', tall: 'game/map-market-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Clocks, lengths and weights.', at: [60, 55], area: 'measure' },
-  { id: 'stars', name: 'Star Lab', blurb: 'Expressions and equations.', at: [88, 57], area: 'algebra' },
+  { id: 'stars', name: 'Star Lab', blurb: 'A sky observatory among the stars. Every battle card is an equation.', at: [88, 57], area: 'algebra', station: 'storybook',
+    map: { wide: 'game/map-stars-wide.webp', tall: 'game/map-stars-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   { id: 'frost', name: 'Below Zero Caves', blurb: 'Negative numbers, under the ice.', at: [37, 87], area: 'integers' },
   { id: 'fair', name: 'Chance Fair', blurb: 'Graphs, chance and data.', at: [73, 86], area: 'data' },
 ];
