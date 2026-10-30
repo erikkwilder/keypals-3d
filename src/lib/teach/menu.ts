@@ -1,4 +1,4 @@
-// The compass menu's entries that aren't places of their own: My path (what's next, for everyone), Class
+// The Menu's entries that aren't places of their own: My path (what's next, for everyone), Class
 // work (for a player in a class) and the Boards.
 import { game } from '../state/game.svelte';
 import type { Profile } from '../engine/profile';

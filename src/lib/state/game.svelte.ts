@@ -214,7 +214,7 @@ class Game {
     this.ideasTab = tab;
     this.visit('ideas');
   }
-  /** the menu that goes anywhere in the game (the compass) */
+  /** the menu that goes anywhere in the game (three lines on the top bar) */
   menuOpen = $state(false);
   /** an activity's Pause card: open, and how to keep going */
   pause = $state<{ resume: () => void; back?: { name: string; go: () => void } } | null>(null);

@@ -1,6 +1,6 @@
 // Going places from the subjects list (subjects.ts): open a subject's page on one way and one part,
 // open one thing (an episode, a game, a world), the "Keep going" for each subject, and the little
-// line each thing shows (learned, best score, locked...). Home, the subject pages and the compass use these.
+// line each thing shows (learned, best score, locked...). Home, the subject pages and the Menu use these.
 import { game, type Screen } from './state/game.svelte';
 import type { Place } from './state/where';
 import { sfx } from './audio/sound';
@@ -162,7 +162,7 @@ export function placementFor(chip: string) {
 export const strandName = (chip: string) => { const a = AREA[chip as AreaId]; return a?.op ? STRAND[a.op].name : a?.name ?? ''; };
 export const subjectOf = (id: string) => SUBJECT[id];
 
-/** Open one of the places that take every subject (Home's "Play anywhere", the compass menu). */
+/** Open one of the places that take every subject (Home's "Play anywhere", the Menu). */
 export function openAnywhere(id: Anywhere['id']) {
   sfx.click();
   if (id === 'duel') { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); return; }
@@ -393,7 +393,7 @@ export function topicExtras(s: string, topic: string): { id: string; name: strin
   return out;
 }
 
-/** The Menu (the compass), by level: Home, the subjects, the places, My stuff and My path; then Settings,
+/** The Menu (three lines on the top bar), by level: Home, the subjects, the places, My stuff and My path; then Settings,
  *  Ideas and help, Grown-ups, For teachers and About. A jump from the Menu is a step, so Back from there
  *  goes up a level (Ideas and help comes back to where it was opened). */
 export type MenuItem = { id: string; name: string; icon: string; go: () => void };

@@ -1,6 +1,6 @@
 // Every subject in Keypals, and the four ways to play each one: Learn (watch and try), Practice (the
 // map of trips that earn stars, eggs and treasure), Games (arcade games and playground toys) and
-// Adventure (worlds and battles). Home, the subject pages and the compass menu all draw from this list,
+// Adventure (worlds and battles). Home, the subject pages and the Menu all draw from this list,
 // so the four ways have the same names, pictures, colours and order everywhere, and a new subject
 // (Reading, Spelling...) is one more entry here. A way with nothing in it yet shows as "Coming soon".
 import { ALL_LESSONS, REGIONS, type RegionId } from './engine/course';
@@ -160,7 +160,7 @@ export function linksFor(s: Subject, chip: string): Partial<Record<WayId, Thing>
   return out;
 }
 
-/** The places that take every subject: on Home under "Play anywhere", and in the compass menu.
+/** The places that take every subject: on Home under "Play anywhere", and in the Menu.
  *  `fun` ones are just for fun and use play time; `versus` ones show when the grown-ups allow them. */
 export type Anywhere = { id: 'arcade' | 'adventure' | 'drop' | 'island' | 'duel' | 'rivals'; name: string; line: string; icon: string; art: string; contain?: boolean; fun?: boolean; versus?: boolean };
 export const ANYWHERE: Anywhere[] = [

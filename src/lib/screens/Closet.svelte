@@ -1,9 +1,9 @@
 <script lang="ts">
   // Four of My stuff's pages, each showing only its own thing (`mode`), on the same turntable buddy:
-  // - Keypals: your buddies in a row (the only page with the row), friendship, and who plays.
-  // - Wardrobe: what you have, on the buddy playing now (a small "Change buddy" goes to Keypals).
+  // - Keypals: every buddy in a gallery (the only page with them all), friendship, and who plays.
+  // - Wardrobe: what you have, on the buddy playing now (its chip, and a Change buddy button to Keypals).
   // - Shop: everything there is, to try on and buy, and the eggs and treats.
-  // - Dances: the dances for the buddy playing now (and a small "Change buddy").
+  // - Dances: the dances for the buddy playing now (the same chip and Change buddy).
   // Below is how the old two sides worked; the pages are those sides, one at a time:
   // - My things: what you have. Put it on, take it off, move it ("Move it" nudges it into place on this
   //   buddy), and the finish-line dances. Everything you have is yours, so any buddy can wear it, and each
@@ -358,24 +358,15 @@
 
 <div class="screen closet" class:shopside={side === 'shop'}>
   <Header {back} />
-  {#if mode === 'keypals'}
-  <div class="crew">
-    {#each BUDDIES as f (f.id)}
-      {@const mine = onTeam(p, f.id)}
-      <button class="mate" class:on={who === f.id} class:locked={!mine} onclick={() => pick(f.id)} title={mine ? f.name : `${f.name}: ${UNLOCKS[f.id]?.how}`}>
-        <span class="pic"><Critter friend={f.id} size={64} round /></span>
-        <span class="nm">{f.name}</span>
-        {#if !mine}<span class="lk"><Icon name="lock" /></span>{/if}
-        {#if p.buddy === f.id}<span class="me">buddy</span>{/if}
-      </button>
-    {/each}
-  </div>
-  {/if}
   <div class="body" class:kp={mode === 'keypals'}>
     <div class="left">
       {#if mode !== 'keypals'}
-        <!-- the buddy this page is for: the one playing now (Keypals picks who plays) -->
-        <div class="wholine"><b>{FRIEND[who].name}</b>{#if mode !== 'shop'}<button class="linky" onclick={changeBuddy}>Change buddy</button>{/if}</div>
+        <!-- the buddy this page is for: the one playing now, as a chip anyone can read on any background,
+             and a real button to change it (Keypals picks who plays) -->
+        <div class="wholine">
+          <span class="whochip"><Critter friend={who} size={40} round /><b>{FRIEND[who].name}</b></span>
+          {#if mode !== 'shop'}<button class="btn chgbtn" onclick={changeBuddy}><img src="{base}icons/swap.webp" alt="" />Change buddy</button>{/if}
+        </div>
       {/if}
       {#if mode === 'keypals'}
       <div class="who card">
@@ -460,9 +451,25 @@
         </div>
       {:else}
         {#if mode === 'keypals'}
-          <div class="card kpnote">
-            <p><b>{teamCount} of {BUDDIES.length} buddies</b> on your team. Tap a buddy above to see them; <b>Play with</b> picks who plays.</p>
-            <p class="muted">What they wear is in the Wardrobe; their dances are in Dances.</p>
+          <!-- every buddy in one gallery (no row to scroll sideways): tap one to see them; Play with picks who plays -->
+          <div class="gallery card">
+            <p class="ghead"><b>{teamCount} of {BUDDIES.length} buddies</b> on your team. Tap one to meet them.</p>
+            <div class="mates scroll">
+              {#each BUDDIES as f (f.id)}
+                {@const mine = onTeam(p, f.id)}
+                {@const fl = mine ? levelFromXp(palOf(p, f.id).xp).level : 0}
+                {@const jp = mine ? null : joinProgress(p, f.id)}
+                <button class="mate" class:on={who === f.id} class:locked={!mine} onclick={() => pick(f.id)} title={mine ? f.name : `${f.name}: ${UNLOCKS[f.id]?.how}`} aria-pressed={who === f.id}>
+                  {#if p.buddy === f.id}<span class="me">Playing</span>{/if}
+                  <span class="pic"><Critter friend={f.id} size={72} round /></span>
+                  {#if !mine}<span class="lk"><Icon name="lock" size={14} /></span>{/if}
+                  <span class="nm">{f.name}</span>
+                  {#if mine}<span class="fr"><Icon name="heart" size={12} /> {fl}</span>
+                  {:else if jp}<span class="jbar" title={jp.text}><i style:width="{jp.share * 100}%"></i></span>{/if}
+                </button>
+              {/each}
+            </div>
+            <p class="muted gfoot">What they wear is in the Wardrobe; their dances are in Dances.</p>
           </div>
         {:else}
         <p class="sidehead">{side === 'shop' ? 'Try on anything. Buy it to keep it and move it.' : cat === 'dances' ? `Pick the dance ${FRIEND[who].name} does at the finish line.` : 'Put your things on, take them off, and move them.'}</p>
@@ -655,23 +662,32 @@
 <style>
   .closet { display: flex; flex-direction: column; background: transparent; }
   /* the buddy a page is for, and the small "Change buddy" (Keypals has the row of buddies) */
-  .wholine { display: flex; align-items: baseline; gap: 12px; padding: 2px 6px; }
-  .wholine b { font: 600 26px var(--font-ui); color: var(--ink); }
-  .linky { border: 0; background: none; padding: 0; cursor: pointer; font: 800 15px var(--font-body); color: var(--primary-edge); text-decoration: underline; text-underline-offset: 3px; }
-  .kpnote { padding: 14px 18px; display: flex; flex-direction: column; gap: 6px; }
-  .kpnote p { margin: 0; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }
+  .wholine { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; flex: none; }
+  .whochip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 16px 4px 4px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 2px #e6def5, 0 6px 16px -8px rgba(40, 20, 80, .45); }
+  .whochip b { font: 600 24px/1 var(--font-ui); color: var(--ink); white-space: nowrap; }
+  .chgbtn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px 6px 8px; font-size: 17px; white-space: nowrap; }
+  .chgbtn img { width: 28px; height: 28px; object-fit: contain; }
   .wallet { display: inline-flex; align-items: center; gap: 6px; font: 600 18px var(--font-ui); color: var(--ink); background: #fff8e6; padding: 4px 14px 4px 6px; border-radius: 999px; box-shadow: inset 0 0 0 2px #ffe3a0; }
   .wallet img { width: 28px; height: 28px; object-fit: contain; }
-  .crew { display: flex; gap: 8px; padding: 8px 20px; overflow-x: auto; background: rgba(255, 255, 255, .85); border-bottom: var(--panel-border); flex: none; }
-  .mate { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; width: 88px; padding: 4px 4px 6px; border-radius: 18px; border: 3px solid transparent; background: #fff; cursor: pointer; box-shadow: var(--shadow-sm); }
-  .mate.on { border-color: var(--primary-hi); }
-  .mate .nm { font: 600 15px var(--font-ui); }
-  /* not on the team yet: the real buddy in shadowy black and white */
+  /* Keypals: every buddy in one gallery on the right (it scrolls down, never sideways) */
+  .gallery { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; }
+  .ghead { margin: 0; font: 600 16px/1.35 var(--font-body); color: var(--ink2); }
+  .gfoot { margin: 0; font: 600 14px var(--font-body); }
+  .mates { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; align-content: start; padding: 4px 4px 8px; }
+  .mate { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px 8px; border-radius: 20px; border: 3px solid #eee8f8; background: #fff; cursor: pointer; box-shadow: var(--shadow-sm); transition: transform .14s; }
+  .mate:hover { transform: translateY(-2px); }
+  .mate.on { border-color: var(--primary-hi); box-shadow: 0 0 0 3px #e3d8ff, var(--shadow-sm); }
+  .mate .nm { font: 600 17px var(--font-ui); color: var(--ink); }
+  .mate .fr { display: inline-flex; align-items: center; gap: 3px; font: 800 13px var(--font-body); color: #b0306a; }
+  .jbar { width: 70%; height: 7px; border-radius: 99px; background: #e9e4f3; overflow: hidden; margin-top: 3px; }
+  .jbar i { display: block; height: 100%; background: #a99bd0; border-radius: 99px; }
+  /* not on the team yet: the real buddy in shadowy black and white, with a lock */
+  .mate.locked { background: #f4f2f8; border-color: #e6e2ee; }
   .mate.locked .pic :global(img) { filter: grayscale(1) brightness(.5) contrast(1.25); }
   .mate.locked .pic :global(.critter-host) { background: radial-gradient(circle at 50% 35%, #e9e9ef, #b9bccb); }
-  .mate.locked .nm { color: var(--muted); }
-  .mate .lk { position: absolute; top: 48px; right: 12px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(48, 36, 80, .8); box-shadow: 0 0 0 2px #fff; }
-  .mate .me { position: absolute; top: 4px; right: 4px; font: 800 9px var(--font-body); background: var(--mint); color: #0f4a36; padding: 2px 5px; border-radius: 999px; }
+  .mate.locked .nm { color: #6b6380; }
+  .mate .lk { position: absolute; top: 58px; left: calc(50% + 16px); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(48, 36, 80, .85); box-shadow: 0 0 0 2px #fff; }
+  .mate .me { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); z-index: 1; font: 800 11px var(--font-body); background: var(--mint); color: #0f4a36; padding: 2px 8px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
   .joins { margin: 0; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font: 600 16px/1.35 var(--font-body); color: var(--ink2); }
   .soon { padding: 16px 18px; }
   .soon p { margin: 0; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }
@@ -733,7 +749,7 @@
   .buy { display: inline-flex; align-items: center; gap: 6px; }
   .buy img, .egg .btn img { width: 20px; height: 20px; object-fit: contain; }
   .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; align-content: start; padding: 4px; overflow: auto; }
-  .countline { margin: 0; font: 600 13px var(--font-body); color: var(--muted); text-align: center; }
+  .countline { margin: 0; align-self: center; flex: none; font: 700 14px var(--font-body); color: var(--ink2); text-align: center; background: rgba(255, 255, 255, .92); padding: 3px 14px; border-radius: 999px; box-shadow: var(--shadow-sm); }
   .of { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px; border-radius: 18px; border: 3px solid transparent; background: #fff; cursor: pointer; box-shadow: var(--shadow-sm); font: 600 14px var(--font-ui); color: var(--ink); }
   .of.on { border-color: var(--primary-hi); background: #faf7ff; }
   .of.locked { opacity: .55; filter: grayscale(.6); }
@@ -849,7 +865,7 @@
   .gtext li.on { color: #1f9a6a; }
   /* short screens: the buddy card keeps just the name, friendship and the button */
   @media (max-height: 820px) and (min-width: 761px) {
-    .crew { padding: 5px 20px; } .mate { width: 76px; padding: 3px 3px 4px; } .mate .nm { font-size: 14px; } .mate .pic :global(.critter-host) { width: 48px !important; height: 48px !important; } .mate .lk { top: 32px; }
+    .mates { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; } .mate { padding: 6px 4px; } .mate .nm { font-size: 15px; } .mate .pic :global(.critter-host) { width: 56px !important; height: 56px !important; } .mate .lk { top: 44px; }
     .who { padding: 8px 14px; gap: 4px; }
     .who h2 { font-size: 24px; }
     .quirk, .advline { display: none; }
@@ -877,7 +893,8 @@
     .whotop .xp { min-width: 160px; } .xp .muted { display: none; }
   }
   @media (max-width: 760px) {
-    .crew { padding: 6px 10px; gap: 6px; } .mate { width: 70px; } .mate .nm { font-size: 13px; } .mate .pic :global(.critter-host) { width: 48px !important; height: 48px !important; } .mate .lk { top: 30px; right: 6px; }
+    .whochip b { font-size: 20px; } .whochip :global(.critter-host) { width: 34px !important; height: 34px !important; } .chgbtn { font-size: 15px; padding: 4px 12px 4px 6px; } .chgbtn img { width: 24px; height: 24px; }
+    .gallery { flex: none; } .mates { overflow: visible; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; } .mate { padding: 6px 2px; } .mate .nm { font-size: 14px; } .mate .pic :global(.critter-host) { width: 52px !important; height: 52px !important; } .mate .lk { top: 40px; left: calc(50% + 12px); }
     .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); padding: 8px 10px; gap: 8px; }
     .left { gap: 6px; }
     .who { padding: 6px 10px; } .who h2 { font-size: 20px; } .quirk, .advline { display: none; }

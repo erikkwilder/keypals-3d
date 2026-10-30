@@ -156,11 +156,15 @@ describe('Back, in play', () => {
 
 describe('the one frame', () => {
   const bar = src('../ui/Bar.svelte');
-  it('the bar: Back or the player on the left; Shells, My stuff, Ideas and help, Menu on the right, in that order; Esc is Back', () => {
-    const order = ['class="shells"', 'class="round stuff"', 'class="round help"', 'class="round menu"'].map(k => bar.indexOf(k));
+  it('the bar: Back or the player on the left; Shells, My stuff, Ideas and help, Music, Menu on the right, in that order; Esc is Back', () => {
+    const order = ['class="shells"', 'class="round stuff"', 'class="round help"', 'class="round tunes"', 'class="round menu"'].map(k => bar.indexOf(k));
     expect(order.every(i => i > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(bar).toMatch(/\{#if !phone\}\s*<button class="round help"/); // phones: Shells, My stuff, Menu
+    expect(bar).toMatch(/\{#if !phone\}\s*<button class="round tunes"/); // (the music is at the top of the Menu there)
+    expect(src('../ui/GlobalMenu.svelte')).toMatch(/<MusicNow\b/);
+    expect(src('../ui/PauseCard.svelte')).toMatch(/<MusicNow\b/);
+    expect(bar).toMatch(/icons\/hamburger\.svg/);
     expect(bar).toMatch(/e\.key !== 'Escape'/);
     expect(bar).toMatch(/goBack\(\)/);
     expect(bar).toMatch(/game\.back\(\)/);

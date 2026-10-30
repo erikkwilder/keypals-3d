@@ -3,9 +3,10 @@
   // Left: on Home, the player (buddy face and name: tap to switch player); everywhere else one round Back
   // (up one level, or back to where a cross-link came from: game.back) and the page's title, with a small
   // trail under it on the levels below a subject ("Math › Fractions"). Esc is Back too.
-  // Right: exactly four round buttons, in this order on every screen, each naming itself on hover (a long
-  // press on a touch screen): Shells (how many: opens the shells card), My stuff, Ideas and help, Menu.
-  // On a phone: Shells, My stuff, Menu (Ideas and help is in the Menu).
+  // Right: round buttons in this order on every screen, each naming itself on hover (a long press on a
+  // touch screen): Shells (how many: opens the shells card), My stuff, Ideas and help, Music (a note: what's
+  // playing, next song, pick a station, on or off: ui/MusicCard.svelte), Menu (three lines).
+  // On a phone: Shells, My stuff, Menu (Ideas and help and the music are at the top of the Menu).
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
   import { outfitOf } from '../engine/profile';
@@ -14,6 +15,7 @@
   import { STUFF_PAGES } from '../state/where';
   import Critter from './Critter.svelte';
   import ShellsCard from './ShellsCard.svelte';
+  import MusicCard from './MusicCard.svelte';
   import { tips } from './tips';
   import '../state/shellLog.svelte';
 
@@ -40,8 +42,10 @@
   function goBack() { sfx.click(); if (back) back(); else game.back(); }
   let card = $state(false);
   let shellEl: HTMLElement | null = $state(null);
+  let tunes = $state(false);
+  let tunesEl: HTMLElement | null = $state(null);
   function onKey(e: KeyboardEvent) {
-    if (!esc || e.key !== 'Escape' || home || card || (overlay ? !!game.sheet || game.menuOpen : game.modalOpen)) return;
+    if (!esc || e.key !== 'Escape' || home || card || tunes || (overlay ? !!game.sheet || game.menuOpen : game.modalOpen)) return;
     const t = e.target;
     if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
     e.preventDefault();
@@ -69,7 +73,7 @@
     {/if}
   </div>
   {#if p && !plain && !overlay}
-    <nav class="rgt" aria-label="Shells, My stuff, Ideas and help, Menu">
+    <nav class="rgt" aria-label="Shells, My stuff, Ideas and help, Music, Menu">
       <button class="shells" class:on={card} bind:this={shellEl} title="Shells: {fmt(shells)}" aria-label="Shells: {fmt(shells)}" aria-expanded={card} onclick={() => { sfx.click(); card = !card; }}>
         <img src="{base}game/icon-shell.webp" alt="" draggable="false" /><b>{fmt(shells)}</b>
       </button>
@@ -81,14 +85,20 @@
           <img src="{base}icons/bulb.webp" alt="" draggable="false" />
         </button>
       {/if}
+      {#if !phone}
+        <button class="round tunes" class:on={tunes} bind:this={tunesEl} title="Music" aria-label="Music" aria-expanded={tunes} onclick={() => { sfx.click(); tunes = !tunes; }}>
+          <img src="{base}icons/note.webp" alt="" draggable="false" />
+        </button>
+      {/if}
       <button class="round menu" title="Menu" aria-label="Menu" onclick={(e) => { (e.currentTarget as HTMLElement).blur(); sfx.click(); game.openMenu(); }}>
-        <img src="{base}icons/menu.webp" alt="" draggable="false" />
+        <img src="{base}icons/hamburger.svg" alt="" draggable="false" />
       </button>
     </nav>
   {/if}
 </header>
 
 {#if card}<ShellsCard anchor={shellEl} onclose={() => (card = false)} />{/if}
+{#if tunes}<MusicCard anchor={tunesEl} onclose={() => (tunes = false)} />{/if}
 
 <style>
   .bar { flex: none; position: relative; z-index: 6; box-sizing: border-box; height: 68px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: #fff; border-bottom: 1px solid #ece6f6; box-shadow: 0 6px 18px -16px rgba(60, 40, 110, .45); }
@@ -100,6 +110,8 @@
   .round:active { transform: translateY(2px); box-shadow: 0 1px 0 #e6def5; }
   .round.on { border-color: #ffc93d; box-shadow: 0 3px 0 #e8b92c; background: #fffaf0; }
   .back img { width: 34px; height: 34px; }
+  .menu img { width: 32px; height: 32px; }
+  .tunes img { width: 34px; height: 34px; }
   .tt { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
   h1 { margin: 0; font: 600 26px/1.1 var(--font-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .trail { font: 700 13.5px/1.2 var(--font-body); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

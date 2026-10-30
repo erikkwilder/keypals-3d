@@ -1,5 +1,6 @@
 <script lang="ts">
-  // The Menu (the compass on the top bar of every screen): a quick row (music and sounds on or off), then
+  // The Menu (the three lines on the top bar of every screen): the music (what's playing, next song, pick a
+  // station: the note on the bar opens the same, and on a phone this is where it is), music and sounds on or off, then
   // go anywhere, by level (Home, Typing, Math, Arcade, Adventure, My Sky Island, My stuff, My path), then
   // Settings, Ideas and help, Grown-ups, For teachers and About. No scores here: how you're doing is in My
   // stuff › My progress. A tap outside it, or Esc, closes it.
@@ -10,6 +11,7 @@
   import { menuMore, menuPlaces, type MenuItem } from '../nav';
   import CloseButton from './CloseButton.svelte';
   import QuickToggles from './QuickToggles.svelte';
+  import MusicNow from './MusicNow.svelte';
 
   const base = import.meta.env.BASE_URL;
   const places = menuPlaces();
@@ -28,10 +30,11 @@
 <div class="gm" transition:fade={{ duration: 140 }} onclick={close}>
   <div class="panel" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Menu" tabindex="-1">
     <header class="top">
-      <img class="cmp" src="{base}icons/menu.webp" alt="" />
+      <img class="cmp" src="{base}icons/hamburger.svg" alt="" />
       <h2>Menu</h2>
       <CloseButton onclick={close} label="Close the menu" size={42} />
     </header>
+    <MusicNow compact onpick={() => game.closeMenu()} />
     <QuickToggles />
     <h3>Go to</h3>
     <nav class="places" aria-label="Go to">
@@ -52,7 +55,7 @@
   .panel { width: min(420px, 100%); height: 100%; overflow: auto; overscroll-behavior: contain; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 14px 18px 20px; background: #fff; box-shadow: -20px 0 50px -30px rgba(30, 10, 70, .6); animation: slide .2s ease-out; }
   @keyframes slide { from { transform: translateX(30px); opacity: 0; } }
   .top { display: flex; align-items: center; gap: 10px; }
-  .cmp { width: 46px; height: 46px; object-fit: contain; }
+  .cmp { width: 40px; height: 40px; object-fit: contain; }
   .top h2 { flex: 1; margin: 0; font-size: 28px; }
   h3 { margin: 4px 0 -4px; font: 700 14px var(--font-body); color: var(--muted); }
   .places { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
