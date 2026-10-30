@@ -104,7 +104,8 @@ export function islandOf(p: Profile, now = Date.now()): IslandSave {
 }
 /** The island to look at (nothing written): someone else's too, as it would look. */
 export function islandView(p: Profile): IslandSave {
-  const s = fill(structuredClone(p.island ?? empty()));
+  // (a plain copy: a screen's save is a live proxy, which structuredClone can't copy)
+  const s = fill(JSON.parse(JSON.stringify(p.island ?? empty())) as IslandSave);
   start(s, 0);
   return s;
 }
@@ -335,6 +336,17 @@ export function heartNews(s: IslandSave): { hearts: Heart[]; text: string } | nu
   return { hearts: fresh, text: `${who} visited and left ${fresh.length === 1 ? 'a heart' : 'hearts'}` };
 }
 export function seeHearts(p: Profile) { const s = islandOf(p); s.seenHearts = Math.max(s.seenHearts, ...s.hearts.map(h => h.at)); }
+
+/** A few words for Home and the menu: a heart waiting, a visitor here, or what's built. */
+export function islandLine(p: Profile, now = Date.now()): string {
+  const s = p.island;
+  if (!s?.started) return 'Build your island with shells';
+  const fresh = (s.hearts ?? []).filter(h => h.at > (s.seenHearts ?? 0));
+  if (fresh.length) return `${fresh[fresh.length - 1].name} left you a heart!`;
+  if (visitorNow(fill(JSON.parse(JSON.stringify(s)) as IslandSave), now)) return 'A visitor is here!';
+  const n = Object.keys(s.placed ?? {}).length, v = (s.postcards ?? []).length;
+  return `${n} thing${n === 1 ? '' : 's'} built · ${v} visitor${v === 1 ? '' : 's'}`;
+}
 
 // ---------- two computers ----------
 type J = any; // eslint-disable-line @typescript-eslint/no-explicit-any

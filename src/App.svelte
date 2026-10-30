@@ -42,6 +42,7 @@
   import Duel from './lib/screens/Duel.svelte';
   import Rivals from './lib/screens/Rivals.svelte';
   import GlimmerDrop from './lib/screens/GlimmerDrop.svelte';
+  import SkyIsland from './lib/screens/SkyIsland.svelte'; // My Sky Island
   import MathRun from './lib/screens/MathRun.svelte';
   import MathResults from './lib/screens/MathResults.svelte';
   import SkillRun from './lib/screens/SkillRun.svelte';
@@ -165,6 +166,7 @@
   {:else if game.screen === 'showdown'}<SpinnerShowdown />
   {:else if game.screen === 'balance'}<BalanceBeam />
   {:else if game.screen === 'drop'}<GlimmerDrop />
+  {:else if game.screen === 'island'}<SkyIsland />
   {:else if game.screen === 'arcade'}<Arcade />
   {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}
   {:else if game.screen === 'ideas'}<Ideas />

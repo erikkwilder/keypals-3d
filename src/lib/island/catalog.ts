@@ -89,7 +89,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'gem-frost', name: 'Ice Crystal', price: 0, kind: 'gift', gift: true, w: 1, d: 1, invites: { frost: 1 }, blurb: 'A gift from an icy visitor.' },
   { id: 'gem-tide', name: 'Sea Glass', price: 0, kind: 'gift', gift: true, w: 1, d: 1, invites: { tide: 1 }, blurb: 'A gift from a water visitor.' },
   { id: 'gem-stone', name: 'Geode', price: 0, kind: 'gift', gift: true, w: 1, d: 1, invites: { stone: 1 }, blurb: 'A gift from a stony visitor.' },
-  { id: 'gem-leaf', name: 'Moss Lantern', price: 0, kind: 'gift', gift: true, w: 1, d: 1, invites: { leaf: 1 }, blurb: 'A gift from a leafy visitor.' },
+  { id: 'gem-leaf', name: 'Leaf Crystal', price: 0, kind: 'gift', gift: true, w: 1, d: 1, invites: { leaf: 1 }, blurb: 'A gift from a leafy visitor.' },
 ];
 export const ITEM: Record<string, ItemDef> = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 /** the habitat of each element */
