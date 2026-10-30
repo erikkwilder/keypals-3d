@@ -167,7 +167,6 @@
   {:else if game.screen === 'topic'}{#key `${game.subject}:${game.topic}`}<Topic />{/key}
   {:else if game.screen === 'way'}{#key `${game.subject}:${game.topic}:${game.wayId}`}<WayPage />{/key}
   {:else if game.screen === 'progress'}<Progress />
-  {:else if game.screen === 'settings'}<SettingsScreen />
   {:else if game.screen === 'grownups'}<Grownups />
   {:else if game.screen === 'mathRun'}{#key game.runKey}<MathRun />{/key}
   {:else if game.screen === 'mathResults'}<MathResults />

@@ -6,13 +6,14 @@
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
 
-  type Props = { onpause?: () => void; onresume?: () => void; esc?: boolean; light?: boolean };
-  let { onpause, onresume, esc = true, light = false }: Props = $props();
+  /** `back`: for an activity opened over a page (a Learn episode over a trip): where its card's Back goes */
+  type Props = { onpause?: () => void; onresume?: () => void; esc?: boolean; light?: boolean; back?: { name: string; go: () => void } };
+  let { onpause, onresume, esc = true, light = false, back }: Props = $props();
   function pause() {
     if (game.pause) return;
     sfx.click();
     onpause?.();
-    game.openPause(() => onresume?.());
+    game.openPause(() => onresume?.(), back);
   }
   function onKey(e: KeyboardEvent) {
     if (!esc || e.key !== 'Escape' || game.modalOpen) return;
@@ -28,7 +29,7 @@
 </button>
 
 <style>
-  .pausebtn { position: fixed; top: 12px; left: 12px; z-index: 45; width: 54px; height: 54px; display: grid; place-items: center; padding: 0; border-radius: 50%; border: 2px solid #e6def5; background: rgba(255, 255, 255, .95); cursor: pointer; box-shadow: 0 4px 0 #e6def5, 0 8px 18px -10px rgba(40, 20, 80, .5); transition: transform .14s; }
+  .pausebtn { position: fixed; top: 12px; left: 12px; z-index: 45; pointer-events: auto; width: 54px; height: 54px; display: grid; place-items: center; padding: 0; border-radius: 50%; border: 2px solid #e6def5; background: rgba(255, 255, 255, .95); cursor: pointer; box-shadow: 0 4px 0 #e6def5, 0 8px 18px -10px rgba(40, 20, 80, .5); transition: transform .14s; }
   .pausebtn img { width: 36px; height: 36px; object-fit: contain; user-select: none; }
   .pausebtn:hover { transform: translateY(-2px); }
   .pausebtn:active { transform: translateY(2px); box-shadow: 0 1px 0 #e6def5; }

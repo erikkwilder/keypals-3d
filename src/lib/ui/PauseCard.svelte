@@ -10,10 +10,11 @@
 
   const base = import.meta.env.BASE_URL;
   const from = $derived(game.from);
-  const backName = $derived(from ? placeName(from) : 'Home');
-  const toHome = $derived(!from || from.screen === 'hub');
+  const over = $derived(game.pause?.back);
+  const backName = $derived(over ? over.name : from ? placeName(from) : 'Home');
+  const toHome = $derived(!over && (!from || from.screen === 'hub'));
   function keep() { sfx.click(); game.closePause(true); }
-  function leave() { sfx.click(); game.closePause(false); game.leaveActivity(); }
+  function leave() { sfx.click(); const o = over; game.closePause(false); if (o) o.go(); else game.leaveActivity(); }
   function home() { sfx.click(); game.closePause(false); game.go('hub'); }
   function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); keep(); } }
   onMount(() => { sfx.pop(); window.addEventListener('keydown', onKey, true); });

@@ -7,7 +7,7 @@
   import { sfx } from '../audio/sound';
   import Critter from '../ui/Critter.svelte';
   import Icon from '../ui/Icon.svelte';
-  import GearButton from '../ui/GearButton.svelte';
+  import Bar from '../ui/Bar.svelte';
   import Logo from '../ui/Logo.svelte';
   import SaveCodeForm from '../ui/SaveCodeForm.svelte';
   import SafeReminder from '../ui/SafeReminder.svelte';
@@ -25,9 +25,8 @@
 </script>
 
 <div class="screen players">
-  {#if game.profile}<GearButton floating />{/if}
+  <Bar title="Who's playing today?" plain back={() => game.go(game.profile ? 'hub' : 'title')} />
   <div class="top"><Logo size={40} animate={false} /></div>
-  <h2>Who's playing today?</h2>
   <div class="grid">
     {#each game.save.profiles as p, i (p.id)}
       <button class="pcard card" style:animation-delay="{i * 60}ms" onclick={() => pick(p.id)}>
@@ -52,7 +51,6 @@
   <SaveCodeForm />
   <ClassEntry /><!-- classes: "I'm in a class" and "For teachers" -->
   <div class="foot">
-    <button class="btn btn-ghost" onclick={() => game.go('title')}>Back</button>
     <button class="btn btn-ghost" onclick={() => game.openGrownups()}>Grown-ups</button>
     <!-- signing in, easy to find, and easy to see once it's done -->
     {#if cloud.online && cloud.account}
@@ -82,4 +80,7 @@
   .acct { display: inline-flex; align-items: center; gap: 6px; }
   .acct img { width: 28px; height: 28px; object-fit: contain; margin: -4px 0; }
   .acct.on { color: #0f6a48; }
+  /* the one top row: Back and the title, across the top */
+  .players { padding-top: 84px; }
+  .players > :global(header.bar) { position: absolute; top: 0; left: 0; right: 0; }
 </style>

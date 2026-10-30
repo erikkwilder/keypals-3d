@@ -10,6 +10,7 @@
   import { clearOldLine } from '../arcade/feedback';
   import { exitsOf } from '../arcade/exits';
   import ExitButtons from '../arcade/ui/ExitButtons.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { BalanceScene } from '../three/balanceScene';
@@ -45,6 +46,10 @@
   let dirRng = mulberry32(1);
   let dir: -1 | 1 = 1, jolt = 0, tries = 0, n = 0;
   let t0 = 0, last = 0, raf = 0, zAt = 0;
+  /** the Pause card (ui/PauseButton.svelte): the round's clock stops while it's open */
+  let held = 0;
+  function hold() { if (phase === 'play' && !held) held = performance.now(); }
+  function unhold() { if (!held) return; const d = performance.now() - held; t0 += d; last += d; zAt += d; held = 0; }
   let disposed = false;
   let stackTop = $state<{ x: number; y: number } | null>(null);
 
@@ -94,6 +99,7 @@
     if (!scene) return;
     stackTop = phase === 'play' && combo > 0 ? scene.stackTop() : null;
     if (phase !== 'play' || !z) return;
+    if (held) return;
     last = now;
     left = Math.max(0, ROUND_MS - (now - t0));
     if (!solved) {
@@ -170,7 +176,6 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'Escape') { e.preventDefault(); quit(); return; }
     if (phase === 'play') {
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
       else if (e.key === 'Backspace') { e.preventDefault(); back(); }
@@ -187,8 +192,8 @@
 <div class="screen beam" class:narrow style:background-image="url({base}math/algebra/bg.webp)">
   <canvas class="three" bind:this={canvas}></canvas>
 
+  <PauseButton onpause={hold} onresume={unhold} />
   <div class="top">
-    <button class="back" onclick={quit} aria-label={phase === 'play' ? 'Stop the round' : `Back to ${backTo}`}><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/algebra/tile.webp" alt="" /><b>Balance Beam</b>{#if daily}<small>Today's challenge</small>{/if}</div>
     {#if phase === 'play'}
       <div class="score"><small>Score</small><b>{score}</b></div>
@@ -373,4 +378,7 @@
   .narrow .start h1, .narrow .done h1 { font-size: 30px; }
   .narrow .lead { font-size: 15px; }
   .narrow .how li { font-size: 14px; }
+  /* the one Pause button sits top left on every activity: the title chip starts after it */
+  .top { padding-left: 76px; }
+  @media (max-width: 600px) { .top { padding-left: 62px; } }
 </style>

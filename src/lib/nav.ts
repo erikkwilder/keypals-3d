@@ -107,7 +107,6 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
     const area = WORLD_PIN[id]?.area;
     sfx.nope();
     game.say(`Play a ${partName(area)} trip first to open ${t.name}!`, 3600);
-    if (area) openSubject('math', 'practice', area);
     return;
   }
   game.update(pp => { advOf(pp).subject = 'math'; });

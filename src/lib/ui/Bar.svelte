@@ -1,4 +1,4 @@
-    if (!esc || e.key !== 'Escape' || home<script lang="ts">
+<script lang="ts">
   // The one top bar, the same on every screen that isn't an activity (state/where.ts says which are).
   // Left: on Home, the player (buddy face and name: tap to switch player); everywhere else one round Back
   // (up one level, or back to where a cross-link came from: game.back) and the page's title, with a small
@@ -20,8 +20,9 @@
   /** `overlay`: a page opened over another screen (Settings): Esc works while it's open */
   /** `trail`: a line under the title other than where the page sits (My Sky Island: its size); `esc`: false on a
    *  page that closes its own things with Esc first and then calls game.back() itself */
-  type Props = { title?: string; back?: () => void; overlay?: boolean; trail?: string; esc?: boolean };
-  let { title, back, overlay = false, trail: line, esc = true }: Props = $props();
+  /** `plain`: just Back and the title (the screens before a player is picked: the players, a new player) */
+  type Props = { title?: string; back?: () => void; overlay?: boolean; trail?: string; esc?: boolean; plain?: boolean };
+  let { title, back, overlay = false, trail: line, esc = true, plain = false }: Props = $props();
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile);
   const home = $derived(game.screen === 'hub' && !overlay);
@@ -29,7 +30,7 @@
   const name = $derived(title ?? placeName(here));
   const trail = $derived(line ?? (overlay ? '' : trailOf(here)));
   const up = $derived(game.backTo());
-  const backName = $derived(overlay ? 'where you were' : up ? placeName(up) : 'Home');
+  const backName = $derived(overlay ? 'where you were' : plain ? '' : up ? placeName(up) : 'Home');
   const shells = $derived(p ? advView(p).shells : 0);
   const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
   const inStuff = $derived(game.screen === 'mystuff' || STUFF_PAGES.has(game.screen));
@@ -58,7 +59,7 @@
         <span class="nm">{p.name}</span>
       </button>
     {:else}
-      <button class="round back" onclick={goBack} title="Back to {backName}" aria-label="Back to {backName}">
+      <button class="round back" onclick={goBack} title={backName ? `Back to ${backName}` : 'Back'} aria-label={backName ? `Back to ${backName}` : 'Back'}>
         <img src="{base}icons/back.webp" alt="" draggable="false" />
       </button>
       <div class="tt">
@@ -67,7 +68,7 @@
       </div>
     {/if}
   </div>
-  {#if p}
+  {#if p && !plain}
     <nav class="rgt" aria-label="Shells, My stuff, Ideas and help, Menu">
       <button class="shells" class:on={card} bind:this={shellEl} title="Shells: {fmt(shells)}" aria-label="Shells: {fmt(shells)}" aria-expanded={card} onclick={() => { sfx.click(); card = !card; }}>
         <img src="{base}game/icon-shell.webp" alt="" draggable="false" /><b>{fmt(shells)}</b>

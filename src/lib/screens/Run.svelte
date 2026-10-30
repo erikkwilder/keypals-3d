@@ -1,5 +1,6 @@
 <script lang="ts">
-  import MusicButton from '../ui/MusicButton.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
+  import { placeName } from '../nav';
   import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
@@ -156,10 +157,12 @@
     sfx.whoosh();
   }
 
-  function leave() {
-    phase = 'done';
-    game.go('map');
-  }
+  function leave() { phase = 'done'; game.leaveActivity(); }
+  /** where Back goes: where this was started from (a topic, its map, Home, the Arcade...) */
+  const backName = game.from ? placeName(game.from) : 'Home';
+  /** the one Pause button and its card (ui/PauseButton.svelte); a window that loses focus pauses too */
+  function pauseNow() { if (phase === 'typing') { phase = 'paused'; napped = true; } }
+  function resumeNow() { if (phase === 'paused') phase = 'typing'; }
 
   function restart() {
     game.startLesson(lesson.id, true);
@@ -189,15 +192,10 @@
     if (demo || game.modalOpen) return;
     if (phase === 'intro') {
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); begin(); }
-      else if (e.key === 'Escape') leave();
       return;
     }
-    if (phase === 'paused') {
-      if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); phase = 'typing'; }
-      return;
-    }
+    if (phase === 'paused') return;
     if (phase !== 'typing') return;
-    if (e.key === 'Escape') { phase = 'paused'; napped = true; return; }
     if (e.key.length !== 1 || e.repeat || e.isComposing) return;
     e.preventDefault();
     if (document.activeElement instanceof HTMLButtonElement || document.activeElement instanceof HTMLInputElement) document.activeElement.blur();
@@ -245,7 +243,7 @@
     }
   }
 
-  function onBlur() { if (phase === 'typing' && session.startT !== null) { phase = 'paused'; napped = true; } }
+  function onBlur() { if (phase === 'typing' && !game.pause) { pauseNow(); game.openPause(resumeNow); } }
 
   function finish() {
     if (phase === 'done') return;
@@ -378,11 +376,8 @@
     {#if bonusPop}{#key bonusPop.n}<div class="tpop" style:left="{bubbleXY.x * innerWidth + bonusPop.x}px" style:top="{bubbleXY.y * innerHeight + 40}px"><Icon name="clock" size={20} /> −0.5s</div>{/key}{/if}
     {#if loading}<div class="loading">{move === 'climb' ? 'Getting the cliff ready…' : move === 'swim' ? 'Getting the bay ready…' : move === 'slide' ? 'Getting the slope ready…' : 'Getting the island ready…'}</div>{/if}
 
+    <PauseButton onpause={pauseNow} onresume={resumeNow} />
     <div class="hud">
-      <button class="btn btn-icon pause" aria-label="Pause" onclick={() => (phase = phase === 'typing' ? 'paused' : phase)}>
-        <Icon name="pause" size={32} />
-      </button>
-      <MusicButton size={32} plain />
       <div class="title">
         <div class="region">{region.name}</div>
         <div class="lesson">{lessonTitle(lesson, layout)}</div>
@@ -481,7 +476,7 @@
           <div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore ?? Math.round(record.bestWpm)} · {move === 'run' ? 'ride' : 'top speed'}: {rideName(record.bestRide, move)}{#if record.platinum} · platinum!{/if}</div>
         {/if}
         <div class="tiles">
-          <NavTile size="md" tone="sky" kind="home" label="Home" onclick={leave} />
+          <NavTile size="md" tone="sky" kind={backName === 'Home' ? 'home' : 'map'} label="Back to {backName}" onclick={leave} />
           <NavTile size="md" tone="lilac" kind="demo" label="Watch how" onclick={() => watch(reachSteps.length ? 'lesson' : 'home')} />
           {#if record}<NavTile size="md" tone="sky" kind="chart" label="Progress" onclick={() => game.openChart(lesson.id)} />{/if}
           <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={() => { unlockAudio(); begin(); }} />
@@ -499,24 +494,7 @@
   {#if demo}<FingerCoach steps={demo.steps} title={demo.title} {layout} {look} onDone={demoDone} />{/if}
 <Caption />
 
-  {#if phase === 'paused'}
-    <div class="overlay">
-      <div class="card pausecard">
-        <Critter friend={profile.buddy} size={110} mood="sleep" />
-        <h2>Taking a breather</h2>
-        <div class="tiles">
-          <NavTile size="lg" tone="mint" kind="play" label="Keep going" hotkey="esc" onclick={() => (phase = 'typing')} />
-          <NavTile size="lg" tone="butter" kind="redo" label="Start over" onclick={restart} />
-          <NavTile size="lg" tone="sky" kind="home" label="Home" onclick={leave} />
-          <NavTile size="lg" tone="lilac" kind="settings" label="Settings" onclick={() => game.openSettings()} />
-        </div>
-        <div class="pills">
-          <label class="pill"><input type="checkbox" bind:checked={keyboardOn} onchange={() => (keyboardEverShown ||= keyboardOn)} /> Keyboard</label>
-          <label class="pill"><input type="checkbox" bind:checked={handsOn} /> Hands</label>
-        </div>
-      </div>
-    </div>
-  {/if}
+
 </div>
 
 <style>
@@ -528,7 +506,7 @@
     background: #fff; padding: 9px 14px; border-radius: 16px; font: 600 17px/1.1 var(--font-ui); color: var(--ink);
     box-shadow: var(--shadow); animation: pop-in .25s cubic-bezier(.3, .8, .4, 1.5); border: var(--panel-border);
   }
-  .hud { position: absolute; top: 14px; left: 16px; right: 16px; display: flex; align-items: center; gap: 14px; z-index: 6; }
+  .hud { position: absolute; top: 14px; left: 80px; right: 16px; display: flex; align-items: center; gap: 14px; z-index: 6; }
   .pause { flex: none; }
   .title { flex: none; background: rgba(255, 255, 255, .9); padding: 7px 14px; border-radius: 16px; box-shadow: var(--shadow-sm); border: var(--panel-border); }
   .region { font: 700 11px/1.2 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -568,7 +546,7 @@
 
   /* phones (as the math trips): the bar wraps with the trail on a row of its own, the speed ladder shows in
      the banners, and the keyboard gets the whole width (no hands) */
-  .compact .hud { top: 8px; left: 8px; right: 8px; gap: 6px 8px; flex-wrap: wrap; }
+  .compact .hud { top: 8px; left: 62px; right: 8px; gap: 6px 8px; flex-wrap: wrap; }
   .compact .title { padding: 5px 10px; }
   .compact .region { display: none; }
   .compact .lesson { font-size: 15px; }

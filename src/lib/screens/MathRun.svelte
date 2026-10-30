@@ -5,7 +5,8 @@
   // stretch along the trail, so the last one reaches the finish line; quick, right answers climb the
   // rides. A new fact comes with its trick to copy; a miss stays in the boxes in red for a moment, shows
   // the answer and its trick to type back, and the fact returns a few facts later. No countdown, no buzzer.
-  import MusicButton from '../ui/MusicButton.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
+  import { placeName } from '../nav';
   import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
@@ -274,24 +275,24 @@
     if (game.modalOpen) return;
     if (phase === 'intro') {
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); begin(); }
-      else if (e.key === 'Escape') leave();
       return;
     }
-    if (phase === 'paused') {
-      if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); phase = 'play'; }
-      return;
-    }
+    if (phase === 'paused') return;
     if (phase !== 'play') return;
-    if (e.key === 'Escape') { phase = 'paused'; napped = true; return; }
     if (e.repeat || e.isComposing) return;
     if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); back(); return; }
     if (e.key === 'Enter' && typed && !bad) { e.preventDefault(); check(performance.now()); return; }
     const d = keyDigit(e);
     if (d !== null) { e.preventDefault(); digit(d); }
   }
-  function onBlur() { if (phase === 'play') { phase = 'paused'; napped = true; } }
+  function onBlur() { if (phase === 'play' && !game.pause) { pauseNow(); game.openPause(resumeNow); } }
 
-  function leave() { phase = 'done'; game.go('map'); }
+  function leave() { phase = 'done'; game.leaveActivity(); }
+  /** where Back goes: where this was started from (a topic, its map, Home, the Arcade...) */
+  const backName = game.from ? placeName(game.from) : 'Home';
+  /** the one Pause button and its card (ui/PauseButton.svelte); a window that loses focus pauses too */
+  function pauseNow() { if (phase === 'play') { phase = 'paused'; napped = true; } }
+  function resumeNow() { if (phase === 'paused') phase = 'play'; }
   function restart() { game.startMath(lesson.id, true); }
   function setCalm(on: boolean) {
     calm = on;
@@ -366,11 +367,8 @@
     {/if}
     {#if loading}<div class="loading">Getting the island ready…</div>{/if}
 
+    <PauseButton onpause={pauseNow} onresume={resumeNow} />
     <div class="hud">
-      <button class="btn btn-icon pause" aria-label="Pause" onclick={() => (phase = phase === 'play' ? 'paused' : phase)}>
-        <Icon name="pause" size={32} />
-      </button>
-      <MusicButton size={32} plain />
       <div class="title">
         <div class="region">{regionName}</div>
         <div class="lesson">{lesson.title}</div>
@@ -477,7 +475,7 @@
         {/if}
         {#if record}<div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore} · top speed: {rideName(record.bestRide, moveOf(lesson))}</div>{/if}
         <div class="tiles">
-          <NavTile size="md" tone="sky" kind="home" label="Home" onclick={leave} />
+          <NavTile size="md" tone="sky" kind={backName === 'Home' ? 'home' : 'map'} label="Back to {backName}" onclick={leave} />
           <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={() => { unlockAudio(); begin(); }} />
         </div>
         <div class="pills">
@@ -487,19 +485,7 @@
     </div>
   {/if}
 
-  {#if phase === 'paused'}
-    <div class="overlay">
-      <div class="card pausecard">
-        <Critter friend={profile.buddy} size={110} mood="sleep" />
-        <h2>Taking a breather</h2>
-        <div class="tiles">
-          <NavTile size="lg" tone="mint" kind="play" label="Keep going" hotkey="esc" onclick={() => (phase = 'play')} />
-          <NavTile size="lg" tone="butter" kind="redo" label="Start over" onclick={restart} />
-          <NavTile size="lg" tone="sky" kind="home" label="Home" onclick={leave} />
-        </div>
-      </div>
-    </div>
-  {/if}
+
 
   {#if game.learnOverlay}
     <!-- a Learn lesson over the trip: the trip waits underneath -->
@@ -517,7 +503,7 @@
   .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
   .loading { position: absolute; left: 0; right: 0; top: 55%; text-align: center; font: 600 20px var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(40, 30, 80, .4); }
   .bubble { position: absolute; z-index: 4; white-space: nowrap; transform: translate(10%, -120%); background: #fff; padding: 9px 14px; border-radius: 16px; font: 600 17px/1.1 var(--font-ui); color: var(--ink); box-shadow: var(--shadow); animation: pop-in .25s cubic-bezier(.3, .8, .4, 1.5); border: var(--panel-border); }
-  .hud { position: absolute; top: 14px; left: 16px; right: 16px; display: flex; align-items: center; gap: 14px; z-index: 6; }
+  .hud { position: absolute; top: 14px; left: 80px; right: 16px; display: flex; align-items: center; gap: 14px; z-index: 6; }
   .pause { flex: none; }
   .title { flex: none; background: rgba(255, 255, 255, .9); padding: 7px 14px; border-radius: 16px; box-shadow: var(--shadow-sm); border: var(--panel-border); }
   .region { font: 700 11px/1.2 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -624,7 +610,7 @@
   .pausecard h2 { font-size: 30px; margin: 4px 0 6px; }
 
   /* phones and narrow windows: the question on top, the trick card under it, a calculator pad */
-  .compact .hud { top: 8px; left: 8px; right: 8px; gap: 8px; flex-wrap: wrap; }
+  .compact .hud { top: 8px; left: 62px; right: 8px; gap: 8px; flex-wrap: wrap; }
   .compact .title { padding: 5px 10px; }
   .compact .lesson { font-size: 15px; }
   .compact .region { display: none; }

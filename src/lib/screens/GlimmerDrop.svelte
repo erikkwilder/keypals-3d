@@ -17,7 +17,7 @@
   import { CHAIN, DropGame, JAR, TOP, daySeed, type DropEvent } from '../drop/engine';
   import { BALL_ART } from '../drop/art';
   import { dropOf, familyBoard, markFound, recordRound, spendPlay } from '../drop/save';
-  import GearButton from '../ui/GearButton.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
   import Critter from '../ui/Critter.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
@@ -470,9 +470,9 @@
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { keys.left = down; e.preventDefault(); }
     else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { keys.right = down; e.preventDefault(); }
     else if (down && (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowDown')) { e.preventDefault(); if (!paused) g?.drop(); }
-    else if (down && (e.key === 'p' || e.key === 'P' || e.key === 'Escape')) paused = !paused;
+    else if (down && (e.key === 'p' || e.key === 'P') && !game.pause) { paused = true; game.openPause(() => (paused = false)); }
   }
-  function onVis() { if (document.hidden && phase === 'play') paused = true; }
+  function onVis() { if (document.hidden && phase === 'play' && !paused) { paused = true; game.openPause(() => (paused = false)); } }
 
   // ---------- starting and ending ----------
   const canPlay = $derived(open && (left === null || left > 0.05));
@@ -536,14 +536,12 @@
 <svelte:window onkeydown={(e) => onKey(e, true)} onkeyup={(e) => onKey(e, false)} />
 
 <div class="drop" class:narrow>
+  <PauseButton onpause={() => (paused = true)} onresume={() => (paused = false)} />
   <div class="top">
-    <button class="back" onclick={leave} aria-label="Back to {exits.backTo}"><Icon name="back" size={30} /></button>
     <div class="title"><small>Just for fun</small><b>Glimmer Drop</b></div>
     {#if phase !== 'menu'}<span class="chip mode">{mode === 'daily' ? "Today's jar" : 'Free play'}</span>{/if}
     <span class="sp"></span>
     {#if left !== null}<span class="chip time" class:low={left < 2} title={PLAY_RULES[advView(p).settings.rule].text}><Icon name="clock" size={20} /> {Math.max(0, Math.ceil(left))}<span class="mn">&nbsp;min</span></span>{/if}
-    <!-- phones: the menu and gear fit beside the timer; music is in the gear sheet -->
-    <GearButton size={narrow ? 40 : 46} music={!narrow} />
   </div>
 
   <div class="main">
@@ -563,7 +561,6 @@
         {#if narrow}<div class="pal"><Critter friend={me.buddy} size={230} pulse={{ kind: 'joy', n: cheer }} /></div>{/if}
         {#if warning}<div class="warnpill">Too full! Merge to make room</div>{/if}
         {#if timeUp !== null}<div class="warnpill time">Play time's up: {Math.ceil(timeUp)} seconds to finish!</div>{/if}
-        {#if paused}<div class="pausebg"><div class="card pausecard"><h2>Paused</h2><button class="btn btn-primary" onclick={() => (paused = false)}>Keep going</button><ExitButtons {exits} before={spendNow} /></div></div>{/if}
       {/if}
     </div>
 
@@ -656,7 +653,7 @@
 
 <style>
   .drop { position: fixed; inset: 0; display: flex; flex-direction: column; font-family: var(--font-body); user-select: none; -webkit-user-select: none; overflow: hidden; }
-  .top { display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px; position: relative; z-index: 3; pointer-events: none; }
+  .top { display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px 78px; position: relative; z-index: 3; pointer-events: none; }
   .top > * { pointer-events: auto; }
   .back { width: 48px; height: 48px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .94); display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow-sm); }
   .title { display: flex; flex-direction: column; background: rgba(255, 255, 255, .94); border-radius: 18px; padding: 4px 16px; box-shadow: var(--shadow-sm); }
@@ -758,7 +755,7 @@
   .board.mini { width: 100%; background: #faf8fe; border-radius: 16px; padding: 6px 8px; }
   .board.mini .row b { text-align: left; }
   @media (max-width: 760px) {
-    .top { padding: 8px 8px 2px; gap: 6px; }
+    .top { padding: 8px 8px 2px 62px; gap: 6px; }
     .back { width: 42px; height: 42px; }
     .title { padding: 2px 12px; } .title b { font-size: 18px; } .title small { display: none; }
     .chip.mode { display: none; } .chip.time .mn { display: none; }

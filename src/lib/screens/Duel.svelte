@@ -83,10 +83,11 @@
     glimmer = rollGlimmer(Date.now() % 1e9);
     key++;
   }
+  /** out of a duel: back to who's playing (a Rival Ghosts battle: back to the rivals) */
   function exit() {
     if (mode === 'rival') { game.go('rivals'); return; }
     if (sides) { sides = null; return; }
-    game.go('adventure');
+    game.back();
   }
 </script>
 

@@ -13,6 +13,7 @@
   import { clearOldLine } from '../arcade/feedback';
   import { exitsOf } from '../arcade/exits';
   import ExitButtons from '../arcade/ui/ExitButtons.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { BuilderScene, type Kind } from '../three/builderScene';
@@ -56,6 +57,10 @@
   let added: Kind[] = [];
   let tries = 0;
   let t0 = 0, raf = 0, orderAt = 0;
+  /** the Pause card (ui/PauseButton.svelte): the round's clock stops while it's open */
+  let held = 0;
+  function hold() { if (phase === 'play' && !held) held = performance.now(); }
+  function unhold() { if (!held) return; const d = performance.now() - held; t0 += d; orderAt += d; held = 0; }
   let disposed = false;
 
   const rec = $derived(builderOf(p));
@@ -108,6 +113,7 @@
     trays = { h: scene.trayAt('h'), t: scene.trayAt('t'), o: scene.trayAt('o') };
     tall = scene.tall;
     if (toy || phase !== 'play') return;
+    if (held) return;
     left = Math.max(0, ROUND_MS - (now - t0));
     if (left <= 0) finish();
   }
@@ -254,7 +260,6 @@
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
     const key = e.key.toLowerCase();
-    if (e.key === 'Escape') { e.preventDefault(); quit(); return; }
     if (phase === 'play') {
       const k = ({ h: 'h', t: 't', o: 'o', '1': 'h', '2': 't', '3': 'o' } as Record<string, Kind>)[key];
       if (k) { e.preventDefault(); add(k); return; }
@@ -274,8 +279,8 @@
 <div class="screen builder" class:tall style:background-image="url({base}arcade/bg-builder.webp)">
   <canvas class="three" bind:this={canvas} onpointerdown={onPointer}></canvas>
 
+  <PauseButton onpause={hold} onresume={unhold} />
   <div class="top">
-    <button class="back" onclick={quit} aria-label={!toy && phase === 'play' ? 'Stop the round' : `Back to ${backTo}`}><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/place/ten.webp" alt="" /><b>{toy ? 'Block Table' : 'Number Builder'}</b>{#if daily}<small>Today's challenge</small>{/if}</div>
     {#if phase === 'play' && !toy}
       <div class="score"><small>Score</small><b>{score}</b></div>
@@ -513,4 +518,7 @@
     .lead { font-size: 15px; }
     .how li { font-size: 14px; }
   }
+  /* the one Pause button sits top left on every activity: the title chip starts after it */
+  .top { padding-left: 76px; }
+  @media (max-width: 600px) { .top { padding-left: 62px; } }
 </style>

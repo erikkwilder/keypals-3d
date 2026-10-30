@@ -222,8 +222,9 @@ class Game {
   /** the menu that goes anywhere in the game (the compass) */
   menuOpen = $state(false);
   /** an activity's Pause card: open, and how to keep going */
-  pause = $state<{ resume: () => void } | null>(null);
-  openPause(resume: () => void = () => {}) { this.pause = { resume }; }
+  pause = $state<{ resume: () => void; back?: { name: string; go: () => void } } | null>(null);
+  /** `back`: an activity opened over a page (a Learn episode over a trip or a Learn list) goes back to that page */
+  openPause(resume: () => void = () => {}, back?: { name: string; go: () => void }) { this.pause = { resume, back }; }
   closePause(keepGoing = true) { const p = this.pause; this.pause = null; if (keepGoing) p?.resume(); }
   openMenu() { this.menuOpen = true; }
   closeMenu() { this.menuOpen = false; }

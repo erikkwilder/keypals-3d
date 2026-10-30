@@ -4,6 +4,7 @@
   // you made (a right triangle, a trapezoid, a hexagon), its sides, corners and angles, its lines of
   // symmetry and its area. Twelve builds to try ("Build a rhombus"), each one done for good once made. No
   // clock, no score; a build you've met as a skill counts in its memory.
+  import PauseButton from '../ui/PauseButton.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { sfx, musicEnergy } from '../audio/sound';
@@ -96,10 +97,10 @@
   function undo() { if (!scene) return; sfx.click(); if (closed) { closed = false; scene.setBand(pts, false); return; } pts = pts.slice(0, -1); scene.setBand(pts, false); }
   function clearAll() { if (!scene) return; sfx.whoosh(); closed = false; pts = []; scene.setBand([], false); bubble = 'A fresh board! Tap a peg to start.'; }
   function newColour() { if (!scene) return; tintI = (tintI + 1) % tints.length; scene.tint = tints[tintI]; scene.setBand(pts, closed); sfx.click(); }
-  function back() { sfx.click(); game.mathArea = 'shapes'; game.mathOp = null; game.setHome('math'); game.go('map'); }
+  function back() { sfx.click(); game.leaveActivity(); }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if (e.key === 'Escape') { e.preventDefault(); back(); }
+    
     else if (e.key === 'Backspace') { e.preventDefault(); undo(); }
     else if (e.key === 'Enter') { e.preventDefault(); close(); }
   }
@@ -113,8 +114,8 @@
   <canvas class="three" bind:this={canvas} onpointerdown={tap}></canvas>
   {#each labels as l, i (i)}<span class="ang a-{l.k}" style:left="{l.x}px" style:top="{l.y}px">{l.text}</span>{/each}
 
+  <PauseButton />
   <div class="top">
-    <button class="back" onclick={back} aria-label="Back"><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/shapes/tile.webp" alt="" /><b>Shape Builder</b><small>{doneCount} of {BUILDS.length} builds</small></div>
   </div>
 
@@ -206,4 +207,7 @@
     .list { grid-template-columns: 1fr 1fr 1fr; }
     .bt { font-size: 11px; padding: 4px 6px; }
   }
+  /* the one Pause button sits top left on every activity: the title chip starts after it */
+  .top { padding-left: 76px; }
+  @media (max-width: 600px) { .top { padding-left: 62px; } }
 </style>

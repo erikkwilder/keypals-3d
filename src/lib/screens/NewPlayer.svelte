@@ -8,7 +8,7 @@
   import { LAYOUT_LIST, detectLayout, type LayoutId } from '../engine/layouts';
   import { sfx } from '../audio/sound';
   import Critter from '../ui/Critter.svelte';
-  import GearButton from '../ui/GearButton.svelte';
+  import Bar from '../ui/Bar.svelte';
 
   let step = $state(1);
   let name = $state('');
@@ -64,7 +64,7 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="screen np">
-  {#if game.profile}<GearButton floating />{/if}
+  <Bar title="New player" plain back={() => game.go(game.save.profiles.length ? 'players' : 'title')} />
   <div class="dots">{#each [1, 2, 3] as s}<i class:on={s <= step}></i>{/each}</div>
 
   {#if step === 1}
@@ -90,7 +90,7 @@
         {/each}
       </div>
       <p class="quirk">{BUDDIES.find(c => c.id === buddy)?.quirk}</p>
-      <div class="row"><button class="btn" onclick={() => (step = 1)}>Back</button><button class="btn btn-primary btn-big" onclick={next}>That's my buddy!</button></div>
+      <div class="row"><button class="btn" onclick={() => (step = 1)}>Change my name</button><button class="btn btn-primary btn-big" onclick={next}>That's my buddy!</button></div>
     </div>
   {:else}
     <div class="step">
@@ -112,7 +112,7 @@
         </select>
         {#if detected}<span class="muted">(looks like {LAYOUT_LIST.find(l => l.id === detected)?.name})</span>{/if}
       </label>
-      <div class="row"><button class="btn" onclick={() => (step = 2)}>Back</button><button class="btn btn-mint btn-big" onclick={finish}>Let's go!</button></div>
+      <div class="row"><button class="btn" onclick={() => (step = 2)}>Change my buddy</button><button class="btn btn-mint btn-big" onclick={finish}>Let's go!</button></div>
     </div>
   {/if}
 </div>
@@ -141,4 +141,7 @@
   .layout { display: flex; align-items: center; gap: 10px; font: 700 16px var(--font-body); }
   select { padding: 8px 12px; border-radius: 12px; border: 2px solid var(--line); background: #fff; font: 600 16px var(--font-body); }
   @media (max-width: 760px) { .buddies { grid-template-columns: repeat(3, 1fr); } }
+  /* the one top row: Back and the title, across the top */
+  .np { padding-top: 84px; }
+  .np > :global(header.bar) { position: absolute; top: 0; left: 0; right: 0; }
 </style>

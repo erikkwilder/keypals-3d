@@ -5,7 +5,6 @@
   import { sfx, startMusic, unlockAudio } from '../audio/sound';
   import { stage } from '../three/stage';
   import { ShowScene } from '../three/showScene';
-  import GearButton from '../ui/GearButton.svelte';
   import FancyAntButton from '../ui/FancyAntButton.svelte';
   import Logo from '../ui/Logo.svelte';
   import { STARTERS } from '../engine/team';
@@ -43,7 +42,6 @@
 </script>
 
 <div class="screen title" bind:clientHeight={h} bind:clientWidth={w}>
-  {#if game.profile}<GearButton floating />{/if}
   <div class="center">
     <Logo size={Math.min(78, h * 0.085, (w - 40) / 7.6)} />
     <p class="tag">{GAME_TAGLINE}</p>

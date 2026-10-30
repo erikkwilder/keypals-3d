@@ -1,7 +1,7 @@
 <script lang="ts">
   // About Keypals: what it is, who makes it, how it's made (and that its art and 3D characters are made
   // with AI tools, said plainly, as the tools' terms ask), what it's for, privacy in a line, and how to
-  // get in touch. Opened from the compass menu and Grown-ups; Back goes where it was opened from.
+  // get in touch, and How Keypals works. Opened from the Menu and Grown-ups; Back goes where it was opened from.
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
   import { STUDIO_URL } from '../config';
@@ -16,6 +16,18 @@
   <Header />
   <div class="body scroll">
     <div class="hero" style:background-image="url({base}about/header.webp)" role="img" aria-label="Dino painting a picture in a little workshop on a sky island, with two Glimmers helping"></div>
+
+    <!-- How Keypals works (it was a card on Home: Home keeps to Today and Where to?) -->
+    <section class="card blk howworks">
+      <h2>How Keypals works</h2>
+      <div class="hsteps">
+        <div><img src="{base}icons/book.webp" alt="" /><b>Learn</b><small>Your buddy shows you a trick</small></div>
+        <div><img src="{base}icons/map.webp" alt="" /><b>Practice</b><small>Trips and lessons on the map earn stars, shells and eggs</small></div>
+        <div><img src="{base}icons/arcade.webp" alt="" /><b>Play</b><small>Games, Adventure battles and My Sky Island</small></div>
+        <div><img src="{base}game/chest.webp" alt="" /><b>Collect</b><small>Buddies, things to wear, dances, stickers, Glimmers: all in My stuff</small></div>
+      </div>
+      <p class="muted">Stars open the next lesson and bring new buddies. Shells buy things in the Shop. Right answers in practice hatch eggs into Glimmers. Friendship with your buddy grows whatever you play, and opens outfits and dances.</p>
+    </section>
 
     <div class="cols">
       <section class="card blk what">
@@ -60,6 +72,13 @@
   .about { display: flex; flex-direction: column; background: linear-gradient(#fff8ee, #fbf8ff 50%); }
   .body { flex: 1; min-height: 0; padding: 18px 24px 50px; display: flex; flex-direction: column; gap: 18px; max-width: 1180px; width: 100%; margin: 0 auto; }
   .hero { flex: none; aspect-ratio: 16 / 6; border-radius: 28px; background-size: cover; background-position: center 62%; box-shadow: 0 0 0 4px #fff, 0 20px 40px -22px rgba(80, 40, 20, .6); }
+  .howworks { display: flex; flex-direction: column; gap: 10px; }
+  .hsteps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .hsteps div { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 10px; border-radius: 18px; background: #f7f4fd; }
+  .hsteps img { width: 56px; height: 56px; object-fit: contain; }
+  .hsteps b { font: 600 19px var(--font-ui); color: var(--ink); }
+  .hsteps small { font: 700 13px/1.3 var(--font-body); color: var(--muted); }
+  @media (max-width: 760px) { .hsteps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .blk { padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 8px; }
   .blk h2 { margin: 0; font-size: 24px; }

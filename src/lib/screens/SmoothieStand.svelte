@@ -12,6 +12,7 @@
   import { clearOldLine } from '../arcade/feedback';
   import { exitsOf } from '../arcade/exits';
   import ExitButtons from '../arcade/ui/ExitButtons.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { SmoothieScene } from '../three/smoothieScene';
@@ -51,6 +52,10 @@
   let faces: GlimmerId[] = [];
   let arrivals = 0, fillTips = 0, pctTips = 0;
   let t0 = 0, last = 0, raf = 0, activeAt = 0;
+  /** the Pause card (ui/PauseButton.svelte): the round's clock stops while it's open */
+  let held = 0;
+  function hold() { if (phase === 'play' && !held) held = performance.now(); }
+  function unhold() { if (!held) return; const d = performance.now() - held; t0 += d; last += d; activeAt += d; held = 0; }
   let disposed = false;
 
   const rec = $derived(standOf(p));
@@ -129,6 +134,7 @@
     if (!scene) return;
     heads = [0, 1, 2].map(i => scene!.headAt(i));
     if (phase !== 'play') return;
+    if (held) return;
     const dt = now - last; last = now;
     left = Math.max(0, ROUND_MS - (now - t0));
     const r = inRush(now - t0);
@@ -230,7 +236,6 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if (e.key === 'Escape') { e.preventDefault(); quit(); }
     if (phase === 'play') {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); blend(); }
       else if (e.key === 'Backspace') { e.preventDefault(); if (have[0]) take(0); else take(1); }
@@ -281,8 +286,8 @@
     {/if}
   {/each}
 
+  <PauseButton onpause={hold} onresume={unhold} />
   <div class="top">
-    <button class="back" onclick={quit} aria-label={phase === 'play' ? 'Stop the round' : `Back to ${backTo}`}><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/ratios/tile.webp" alt="" /><b>Smoothie Stand</b>{#if daily}<small>Today's challenge</small>{/if}</div>
     {#if phase === 'play'}
       <div class="score"><small>Score</small><b>{score}</b></div>
@@ -533,4 +538,7 @@
     .banner b { font-size: 24px; }
     .facts b { font-size: 20px; }
   }
+  /* the one Pause button sits top left on every activity: the title chip starts after it */
+  .top { padding-left: 76px; }
+  @media (max-width: 600px) { .top { padding-left: 62px; } }
 </style>

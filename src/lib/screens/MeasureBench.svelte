@@ -5,6 +5,7 @@
   // end to 0 and your buddy reads its length; put the sack on the pan and the needle swings; drag the
   // water up and down. "Something new" brings other lengths and another sack. The 3D things are the Learn
   // episodes' own (three/measureKit.ts) on the same table (three/episodeScene.ts).
+  import PauseButton from '../ui/PauseButton.svelte';
   import { onDestroy, onMount } from 'svelte';
   import type { Vector3 } from 'three';
   import { stage, type Controller } from '../three/stage';
@@ -59,7 +60,7 @@
     sfx.click(); if (full) mSfx.pour(); else mSfx.tick();
     kit.set({ ...kit.state, jug: { ...kit.state.jug, value: full ? kit.state.jug.max - 100 : 0 } });
   }
-  function leave() { sfx.click(); game.mathArea = 'measure'; game.mathOp = null; game.setHome('math'); game.go('map'); }
+  function leave() { sfx.click(); game.leaveActivity(); }
 
   function down(e: PointerEvent) { if (!kit?.pointer('down', e.clientX, e.clientY)) return; e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); }
   function move(e: PointerEvent) { if (kit?.pointer('move', e.clientX, e.clientY)) e.preventDefault(); }
@@ -67,7 +68,7 @@
   function pin(node: HTMLElement, at: () => Vector3 | null) { sc?.pin(node, at); return { update(n: () => Vector3 | null) { sc?.pin(node, n); }, destroy() { sc?.unpin(node); } }; }
   function viewFor(): View { const H = h || 1; return { top: (narrow ? 58 : 72) / H, bottom: 1 - (narrow ? 130 : 110) / H, left: 0.01, right: 0.99 }; }
   $effect(() => { void w; void h; void narrow; sc?.setView(viewFor()); });
-  function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { e.preventDefault(); leave(); } }
+  function onKey(e: KeyboardEvent) {  }
 
   onMount(() => {
     stage.use(null);
@@ -114,8 +115,8 @@
     <div class="pin" use:pin={() => kit!.waterPoint()}><span class="tag water">{read.water} mL</span></div>
     {#key bubble}<div class="pin" use:pin={() => sc!.bubbleAt()}><div class="say"><b>{FRIEND[buddy].name}</b>{bubble}</div></div>{/key}
   {/if}
+  <PauseButton />
   <div class="top">
-    <button class="back" onclick={leave} aria-label="Back to {AREA.measure.name}"><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/play-bench.webp" alt="" /><span><small>A toy · no clock</small><b>The Measuring Bench</b></span></div>
   </div>
   <div class="bottom">
@@ -159,4 +160,7 @@
   .narrow .title b { font-size: 16px; } .narrow .title img { display: none; }
   .narrow .bottom .btn { font-size: 15px; padding: 10px 14px; }
   .narrow .bottom .btn-big { font-size: 17px; }
+  /* the one Pause button sits top left on every activity: the title chip starts after it */
+  .top { padding-left: 76px; }
+  @media (max-width: 600px) { .top { padding-left: 62px; } }
 </style>

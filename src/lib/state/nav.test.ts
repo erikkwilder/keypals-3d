@@ -35,6 +35,7 @@ function pageSrc(comp: string): string {
   if (name === 'Shop') s += src('../screens/Closet.svelte');
   if (name === 'Learn') s += src('../math/ui/Episode.svelte');
   if (name === 'Duel') s += src('../screens/DuelPlay.svelte');
+  if (s.includes('<RunResults')) s += src('../ui/RunResults.svelte');
   return s;
 }
 
@@ -169,7 +170,8 @@ describe('the one frame', () => {
   it.each(ROUTES.filter(([s]) => ACTIVITIES.has(s)))('%s (%s) is an activity: no bar, the one Pause button', (_s, comp) => {
     const s = pageSrc(comp);
     expect(s).not.toMatch(/<Bar\b|<Header\b|<TopBar\b/);
-    expect(s).toMatch(/<PauseButton\b|<RunResults\b|<ArcadeResults\b/);
+    expect(s).toMatch(/<PauseButton\b/);
+    expect(s).not.toMatch(/<MusicButton\b|<GearButton\b|<MenuButton\b/);
   });
   it('the Pause card: Keep going, Back to where it started, Home (one card for every activity)', () => {
     const card = src('../ui/PauseCard.svelte');

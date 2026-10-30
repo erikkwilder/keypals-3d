@@ -147,6 +147,8 @@
     if (l) game.startSkill(l.id); else if (w.area) openTopicMap('math', w.area);
   }
 
+  /** the story cards: an X closes them (they don't come back by themselves) */
+  function closeIntro() { sfx.click(); intro = -1; game.update(pp => markSeen(pp, 'intro')); if (!advView(game.profile!).battles) mapTip = true; }
   function nextSlide() {
     sfx.pop();
     if (intro < SLIDES.length - 1) { intro++; return; }
@@ -340,13 +342,13 @@
     {@const sl = SLIDES[intro]}
     <div class="introbg">
       <div class="introcard card">
+        <span class="introx"><CloseButton onclick={closeIntro} size={40} label="Close the story" /></span>
         {#key intro}<div class="pic" style:background-image="url({base}game/{sl.img}.webp)"></div>{/key}
         <div class="it">
           <h2>{sl.title}</h2>
           <p>{sl.text}</p>
           <div class="dots">{#each SLIDES as _, i}<i class:on={i === intro}></i>{/each}</div>
           <div class="row end">
-            {#if intro > 0}<button class="btn" onclick={() => intro--}>Back</button>{/if}
             <button class="btn btn-primary big" onclick={nextSlide}>{intro < SLIDES.length - 1 ? 'Next' : `Let's go, ${FRIEND[p.buddy].name}!`}</button>
           </div>
         </div>
@@ -358,6 +360,8 @@
 
 <style>
   .adv { display: flex; flex-direction: column; background: #cfe6fb; overflow: hidden; }
+  .introcard { position: relative; }
+  .introx { position: absolute; top: 10px; right: 10px; z-index: 3; }
   .chip { display: flex; align-items: center; gap: 6px; font: 600 18px var(--font-ui); background: #fff; border-radius: 999px; padding: 4px 12px 4px 4px; box-shadow: var(--shadow-sm); border: 0; color: var(--ink); }
   .chip img { width: 30px; height: 30px; object-fit: contain; }
   .chip.help { width: 40px; height: 40px; justify-content: center; padding: 0; font-size: 22px; color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b; }

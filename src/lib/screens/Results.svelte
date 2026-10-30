@@ -48,7 +48,7 @@
     { icon: 'ride' as const, value: rideName(last.bestRide, move), label: 'top speed', badge: last.newBestRide && 'Best!' },
   ] : [];
 
-  onMount(() => { if (!last) game.go('map'); });
+  onMount(() => { if (!last) game.go('hub'); });
 </script>
 
 {#if last}
@@ -56,8 +56,7 @@
     treasureAt={grown ? TREASURE_SCORE.grown : TREASURE_SCORE.kids} treasureWhere="in a lesson" rideHint="Type faster to reach"
     goalText={goal} openedText={nextRegion ? `${nextRegion.name} is open!` : null} nextTitle={lessonTitle(nextUp, game.layout)}
     makeScene={() => RunScene.create({ buddy: p.buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: last.text.length, region: lesson.region, move, keyLen: move === 'run' ? undefined : courseKeyLen(move, last.text.length) })}
-    onretry={() => game.startLesson(lesson.id, true)} onnext={() => game.startLesson(nextUp.id)} onhome={() => game.go('hub')}
-    progress={{ label: 'Progress', kind: 'chart', onclick: () => game.openChart(lesson.id) }}>
+    onretry={() => game.startLesson(lesson.id, true)} onnext={() => game.startLesson(nextUp.id)} onhome={() => game.leaveActivity()}>
     {#snippet badges()}
       {#if final && passedRun}<button class="certbtn" onclick={() => (cert = true)}><Icon name="scroll" size={24} /> Your certificate</button>{/if}
       {#if last.ghost}<p class="ghost" class:won={last.ghost.beat}><Icon name="ghost" size={22} /> {ghostWords(last.ghost)}</p>{/if}

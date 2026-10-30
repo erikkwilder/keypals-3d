@@ -11,6 +11,7 @@
   import { clearOldLine } from '../arcade/feedback';
   import { exitsOf } from '../arcade/exits';
   import ExitButtons from '../arcade/ui/ExitButtons.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { TreasureScene } from '../three/treasureScene';
@@ -44,6 +45,10 @@
   let answers: { key: string; ok: boolean; thinkMs: number; rung?: number }[] = [];
   let nextClue = clueMaker(1, boardFor(game.profile!), ['point']);
   let t0 = 0, last = 0, raf = 0, clueAt = 0, beeped = 0;
+  /** the Pause card (ui/PauseButton.svelte): the round's clock stops while it's open */
+  let held = 0;
+  function hold() { if (phase === 'play' && !held) held = performance.now(); }
+  function unhold() { if (!held) return; const d = performance.now() - held; t0 += d; last += d; clueAt += d; held = 0; }
   let disposed = false;
   let w = $state(1280), h = $state(800);
   const narrow = $derived(w < 760);
@@ -109,6 +114,7 @@
     if (!scene) return;
     selAt = sel ? scene.screenOf(sel, 0.05) : null;
     if (phase !== 'play') return;
+    if (held) return;
     last = now;
     left = Math.max(0, ROUND_MS - (now - t0));
     if (clue && !busy) {
@@ -206,7 +212,6 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if (e.key === 'Escape') { e.preventDefault(); quit(); return; }
     if (phase === 'play') {
       const d: Record<string, [number, number]> = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
       if (d[e.key]) { e.preventDefault(); moveSel(...d[e.key]); }
@@ -228,8 +233,8 @@
     <div class="seltag" style:left="{selAt.x}px" style:top="{selAt.y}px">{pairText(sel)}<small>tap again to dig</small></div>
   {/if}
 
+  <PauseButton onpause={hold} onresume={unhold} />
   <div class="top">
-    <button class="back" onclick={quit} aria-label={phase === 'play' ? 'Stop the round' : `Back to ${backTo}`}><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/integers/tile.webp" alt="" /><b>Treasure Grid</b>{#if daily}<small>Today's challenge</small>{/if}</div>
     {#if phase === 'play'}
       <div class="score"><small>Score</small><b>{score}</b></div>
@@ -425,4 +430,7 @@
   .narrow .start h1, .narrow .done h1 { font-size: 30px; }
   .narrow .lead { font-size: 15px; }
   .narrow .how li { font-size: 14px; }
+  /* the one Pause button sits top left on every activity: the title chip starts after it */
+  .top { padding-left: 76px; }
+  @media (max-width: 600px) { .top { padding-left: 62px; } }
 </style>

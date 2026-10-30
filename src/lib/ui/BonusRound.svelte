@@ -17,13 +17,15 @@
   import SkillPrompt from '../math/skills/ui/SkillPrompt.svelte';
   import SkillInput from '../math/skills/ui/SkillInput.svelte';
   import NumPad from '../math/ui/NumPad.svelte';
-  import CloseButton from './CloseButton.svelte';
+  import PauseButton from './PauseButton.svelte';
   import Confetti from './Confetti.svelte';
   import Stars from './Stars.svelte';
   import Critter from './Critter.svelte';
 
   type Props = { island: IslandId; onclose: () => void };
   let { island, onclose }: Props = $props();
+  /** the one Pause button and card: Back goes to the Adventure map */
+  function pauseHere() { if (!game.pause) game.openPause(() => {}, { name: 'Adventure', go: onclose }); }
   const base = import.meta.env.BASE_URL;
   const p0 = game.profile!;
   const isl = ISLAND[untrack(() => island)];
@@ -89,9 +91,9 @@
     mark(ok, `It's ${answerText(it)}`);
   }
   function onKey(e: KeyboardEvent) {
-    if (phase === 'ask') { if (e.key === 'Enter') { e.preventDefault(); start(); } else if (e.key === 'Escape') onclose(); return; }
+    if (phase === 'ask') { if (e.key === 'Enter') { e.preventDefault(); start(); } else if (e.key === 'Escape') pauseHere(); return; }
     if (phase === 'done') { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); onclose(); } return; }
-    if (e.key === 'Escape') { onclose(); return; }
+    if (e.key === 'Escape') { pauseHere(); return; }
     if (!q || q.item) return;
     if (q.fact) {
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
@@ -124,7 +126,7 @@
   <div class="top">
     <div class="tt"><small>{isl.name}</small><h2>Bonus Round</h2></div>
     <div class="coins" aria-label="Your answers">{#each marks as m, i (i)}<span class:ok={m === true} class:miss={m === false} class:now={phase === 'play' && i === n}><img src="{base}treasures/gold.webp" alt="" /></span>{/each}</div>
-    <span class="x"><CloseButton onclick={onclose} size={40} label="Back to the map" /></span>
+    <PauseButton esc={false} back={{ name: 'Adventure', go: onclose }} />
   </div>
 
   <div class="room">
@@ -231,4 +233,7 @@
   .narrow .coins span { width: 30px; height: 30px; }
   .narrow .coins img { width: 25px; height: 25px; }
   .narrow .chest { width: 96px; height: 82px; }
+  /* the one Pause button sits top left: the top row starts after it */
+  .top { padding-left: 80px !important; }
+  @media (max-width: 600px) { .top { padding-left: 64px !important; } }
 </style>
