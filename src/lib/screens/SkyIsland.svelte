@@ -920,7 +920,7 @@
               </span>
               <button class="toshop" onclick={toShop} title="Everything for the island, in the Shop"><img src="{base}game/icon-shell.webp" alt="" />Shop</button>
               {#if mode === 'things'}
-                {#each KINDS as k (k.id)}<button role="tab" aria-selected={kind === k.id} class:on={kind === k.id} onclick={() => { kind = k.id; sfx.click(); }}>{k.name}</button>{/each}
+                {#each KINDS as k (k.id)}<button role="tab" aria-selected={kind === k.id} class:on={kind === k.id} title={k.name} onclick={() => { kind = k.id; sfx.click(); }}>{k.short}</button>{/each}
                 <button role="tab" aria-selected={kind === 'storage'} class:on={kind === 'storage'} onclick={() => { kind = 'storage'; sfx.click(); }}>Storage{#if stored.length}<em>{stored.reduce((t, s) => t + s.n, 0)}</em>{/if}</button>
               {:else}
                 <span class="bhint">{tool === 'build' ? (touchy ? 'Tap the grass or a block to build on it' : 'Click the grass or a block to build on it · R turns it') : tool === 'paint' ? 'Tap a block to paint it' : tool === 'turn' ? 'Tap a block to turn it' : 'Tap a block to take it away'}</span>
@@ -1144,8 +1144,8 @@
   .trayrow { display: flex; align-items: flex-end; justify-content: center; gap: 14px; width: 100%; max-width: 1220px; pointer-events: none; }
   .trayrow > * { pointer-events: auto; }
   .tray { flex: 0 1 auto; min-width: 0; padding: 8px 10px 10px; border-radius: 26px; background: rgba(255, 255, 255, .95); box-shadow: 0 0 0 4px rgba(255, 255, 255, .55), 0 18px 40px -18px rgba(80, 50, 30, .6); }
-  .tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 0 2px 6px; align-items: center; }
-  .tabs::-webkit-scrollbar { display: none; }
+  /* the tray's row of kinds: it fits, and wraps to a second line rather than run off the edge or scroll */
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; row-gap: 4px; padding: 0 2px 6px; align-items: center; }
   .tabs button { flex: none; border: 0; background: transparent; border-radius: 999px; padding: 5px 12px; font: 600 15px var(--font-ui); color: var(--ink2); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
   .tabs button.on { background: #fff1cc; color: #7a4a00; box-shadow: inset 0 0 0 2px #ffd36b; }
   .tabs em { font: 800 11px var(--font-body); font-style: normal; color: #fff; background: var(--primary); border-radius: 999px; padding: 1px 6px; }
@@ -1222,7 +1222,7 @@
   .tabs .seg button { padding: 4px 12px 4px 5px; font: 600 15px var(--font-ui); }
   .tabs .seg button img { width: 26px; height: 26px; object-fit: contain; }
   .tabs .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 2px 6px -2px rgba(80, 50, 30, .35), inset 0 0 0 2px #ffd36b; }
-  .bhint { flex: none; font: 700 14px var(--font-body); color: var(--ink2); white-space: nowrap; padding: 0 6px; }
+  .bhint { flex: 0 1 auto; min-width: 0; font: 700 14px var(--font-body); color: var(--ink2); padding: 0 6px; }
   .bcount2 { flex: none; margin-left: auto; font: 700 13px var(--font-body); color: var(--muted); white-space: nowrap; padding-right: 6px; }
   .bcount2 b { color: var(--ink); font-size: 15px; }
   .bcount2.full b { color: #d4473b; }

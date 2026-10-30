@@ -35,9 +35,11 @@ export type ItemDef = {
   trunk?: number;
 };
 
-export const KINDS: { id: ItemKind; name: string }[] = [
-  { id: 'home', name: 'Homes' }, { id: 'nature', name: 'Trees and flowers' }, { id: 'water', name: 'Water' }, { id: 'path', name: 'Paths and fences' },
-  { id: 'fun', name: 'Lights and fun' }, { id: 'habitat', name: 'Glimmer homes' }, { id: 'dream', name: 'Dream things' },
+/** each kind's name, and a short one for the island's build tray (so its row fits) */
+export const KINDS: { id: ItemKind; name: string; short: string }[] = [
+  { id: 'home', name: 'Homes', short: 'Homes' }, { id: 'nature', name: 'Trees and flowers', short: 'Trees' }, { id: 'water', name: 'Water', short: 'Water' },
+  { id: 'path', name: 'Paths and fences', short: 'Paths' }, { id: 'fun', name: 'Lights and fun', short: 'Fun' },
+  { id: 'habitat', name: 'Glimmer homes', short: 'Glimmer homes' }, { id: 'dream', name: 'Dream things', short: 'Dream things' },
 ];
 
 export const ITEMS: ItemDef[] = [
