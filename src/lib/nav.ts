@@ -7,7 +7,7 @@ import { sfx } from './audio/sound';
 import { ANYWHERE, MATH_CHIPS, SUBJECT, SUBJECTS, WAYS, thingsIn, type Anywhere, type Subject, type Thing, type WayId } from './subjects';
 import { LESSON as TYPING_LESSON, REGION, REGIONS, lessonTitle, type RegionId } from './engine/course';
 import { isUnlocked, nextLesson, passed, regionUnlocked, type Profile } from './engine/profile';
-import { MATH_LESSONS, MATH_REGION, STRAND, regionsOf } from './math/course';
+import { MATH_LESSONS, STRAND, regionsOf } from './math/course';
 import { mathOf, mathPassed, nextMathLesson } from './math/progress';
 import { isLearned } from './math/learn';
 import { AREA, areaOfOp } from './math/skills/registry';
@@ -271,17 +271,13 @@ export function openWay(s: string, topic: string | null, w: WayId) {
 export type HomeTile = { id: string; name: string; line: string; art: string; icon: string; go: () => void };
 export function homeTiles(p: Profile): HomeTile[] {
   const subj = SUBJECTS.map(s => ({
-    id: s.id, name: s.name, art: s.id === 'typing' ? `regions/${nextLesson(p).region}.webp` : `regions/${worldOfMath(p)}.webp`, icon: s.icon,
+    id: s.id, name: s.name, art: s.card, icon: s.icon,
     line: subjectLine(s.id, p), go: () => { sfx.click(); openSubjectPage(s.id); },
   }));
   const places = ANYWHERE.filter(a => a.id === 'arcade' || a.id === 'adventure' || a.id === 'island').map(a => ({
-    id: a.id, name: a.name, art: a.art, icon: a.icon, line: a.line, go: () => openAnywhere(a.id),
+    id: a.id, name: a.name, art: a.card ?? a.art, icon: a.icon, line: a.line, go: () => openAnywhere(a.id),
   }));
   return [...subj, ...places];
-}
-function worldOfMath(p: Profile): string {
-  const l = nextMathLesson(mathOf(p));
-  return l.region === 'start' ? 'village' : (MATH_REGION[l.region]?.world ?? 'village');
 }
 /** One line for a subject: where you are in it. */
 export function subjectLine(s: string, p: Profile): string {

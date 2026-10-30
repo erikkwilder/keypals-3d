@@ -298,6 +298,10 @@ describe('the people in the design, tap by tap', () => {
   });
   it('Home\'s Where to? is the subjects and the three places, one tile each', () => {
     expect(homeTiles(game.profile!).map(t => t.id)).toEqual(['typing', 'math', 'arcade', 'adventure', 'island']);
+    // each with its own picture, no two the same
+    const arts = homeTiles(game.profile!).map(t => t.art);
+    expect(new Set(arts).size).toBe(arts.length);
+    for (const a of arts) expect(a.startsWith('game/cards/'), a).toBe(true);
     expect(menuPlaces().map(m => m.name)).toEqual(['Home', 'Typing', 'Math', 'Arcade', 'Adventure', 'My Sky Island', 'My stuff', 'My path']);
   });
 });
