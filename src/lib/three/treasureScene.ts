@@ -172,7 +172,7 @@ export class TreasureScene {
     if (spec.xMin < 0) tip(X(spec.xMin) - P * 0.45, Y(ay), Math.PI);
     if (spec.yMin < 0) tip(X(ax), Y(spec.yMin) + P * 0.45, Math.PI / 2);
     // the numbers along the axes, each with a soft white edge
-    g.font = `700 ${Math.round(P * 0.38)}px "Fredoka", "Baloo 2", system-ui, sans-serif`;
+    g.font = `700 ${Math.round(P * 0.46)}px "Fredoka", "Baloo 2", system-ui, sans-serif`;
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
     const label = (s: string, x: number, y: number, col = '#5b3416') => { g.strokeStyle = 'rgba(255,248,230,0.95)'; g.lineWidth = 9; g.strokeText(s, x, y); g.fillStyle = col; g.fillText(s, x, y); };
     const txt = (n: number) => (n < 0 ? `−${-n}` : String(n));
@@ -348,7 +348,7 @@ export class TreasureScene {
     const cam = this.camera, { w, d } = this.size;
     cam.aspect = this.w / this.h; cam.fov = this.tall ? 46 : 38;
     cam.clearViewOffset();
-    const pitch = THREE.MathUtils.degToRad(this.tall ? 70 : 52);
+    const pitch = THREE.MathUtils.degToRad(this.tall ? 78 : 54);
     const dir = new THREE.Vector3(0, Math.sin(pitch), Math.cos(pitch));
     const corners = [[-1, -1], [1, -1], [-1, 1], [1, 1]].flatMap(([sx, sz]) => [new THREE.Vector3(sx * (w / 2 + 0.2), 0.18, sz * (d / 2 + 0.2)), new THREE.Vector3(sx * (w / 2 + 0.2), -0.1, sz * (d / 2 + 0.2))]);
     const box = () => { let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const c of corners) { const p = c.clone().project(cam); x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); } return { x0, x1, y0, y1 }; };
