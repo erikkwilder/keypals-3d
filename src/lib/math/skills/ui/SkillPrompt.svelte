@@ -9,6 +9,7 @@
   import FractionPic from './FractionPic.svelte';
   import BlocksPic from './BlocksPic.svelte';
   import MoneyPic from './MoneyPic.svelte';
+  import ShapePic from '../../shapes/ui/ShapePic.svelte';
   import { moneyText } from '../decimals';
   type Fill = { kind: 'number'; text: string; bad?: boolean } | { kind: 'fraction'; n: string; d: string; focus: 'n' | 'd' | null; bad?: boolean };
   type Props = { parts: Part[]; fill?: Fill | null; size?: number; picSize?: number; done?: boolean; onpick?: ((w: 'n' | 'd') => void) | null };
@@ -28,6 +29,7 @@
     {:else if p.t === 'pic'}{#if p.pic.kind === 'coins' || p.pic.kind === 'grid'}<MoneyPic pic={p.pic} size={picSize} />{:else}<FractionPic pic={p.pic} size={picSize} />{/if}
     {:else if p.t === 'money'}<span class="n money">{moneyText(p.cents, p.dollars)}</span>
     {:else if p.t === 'blocks'}<BlocksPic b={p.b} size={picSize} />
+    {:else if p.t === 'fig'}<ShapePic fig={p.fig} size={picSize * 1.25} />
     {:else if p.t === 'frac'}
       <Frac n={p.n ?? (fill?.kind === 'number' ? fill.text : null)} d={p.d ?? (fill?.kind === 'number' ? fill.text : null)} size={size * 0.82} focus={(p.n === null || p.d === null) && !done && !bad ? (p.n === null ? 'n' : 'd') : null} bad={bad ? (p.n === null ? 'n' : p.d === null ? 'd' : null) : null}
         drop={live && fill?.kind === 'number' ? (p.n === null ? { n: 'num' } : p.d === null ? { d: 'num' } : null) : null} />

@@ -2,12 +2,21 @@
   // Custom inputs an area brings (clock hands, shapes...): registered by name, given the item's spec.
   import type { Component } from 'svelte';
   import type { Answer, Item } from '../types';
-  export type CustomInputProps = { item: Item; disabled: boolean; compact: boolean; onanswer: (a: Answer) => void; onfirst: () => void };
+  export type CustomInputProps = { item: Item; disabled: boolean; compact: boolean; /** false back: that was wrong */ onanswer: (a: Answer) => unknown; onfirst: () => void };
   const CUSTOM = new Map<string, Component<CustomInputProps>>();
   export function registerInput(name: string, c: Component<CustomInputProps>) { CUSTOM.set(name, c); }
   // the inputs the areas bring
   import CoinTray from './CoinTray.svelte';
   registerInput('coins', CoinTray);
+  // shapes and angles: tap the shapes that fit, read a protractor, make an angle, make a shape on a dot grid
+  import ShapePick from '../../shapes/ui/ShapePick.svelte';
+  import Protractor from '../../shapes/ui/Protractor.svelte';
+  import AngleMaker from '../../shapes/ui/AngleMaker.svelte';
+  import DotGrid from '../../shapes/ui/DotGrid.svelte';
+  registerInput('shape-pick', ShapePick);
+  registerInput('protractor', Protractor);
+  registerInput('angle-maker', AngleMaker);
+  registerInput('dot-grid', DotGrid);
 </script>
 
 <script lang="ts">
