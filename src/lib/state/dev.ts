@@ -69,6 +69,8 @@ export function devBoot() {
   if (key === 'builder') { ensure(); import('../math/place/builder').then(b => { b.builderOpen.toy = val === 'toy'; b.builderOpen.from = val === 'toy' ? 'playground' : 'map'; game.go('builder'); }); }
   // Market Dash, the money arcade game: #market
   if (key === 'market') { ensure(); game.go('market'); }
+  // Smoothie Stand, the ratios arcade game: #smoothie
+  if (key === 'smoothie') { ensure(); game.go('smoothie'); }
   // a money Learn episode over the Decimals and money map: #market-learn=dec-coins
   if (key === 'market-learn') { ensure(); game.mathArea = 'decimals'; game.mathOp = null; game.go('map'); game.learnOverlay = val || 'dec-coins'; }
   // Glimmer Drop: #drop

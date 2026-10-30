@@ -244,6 +244,13 @@
           {/each}
         </div>
       {/if}
+      {#if area === 'ratios'}
+        <!-- the ratios arcade game (its cabinet is in the Arcade too: screen 'smoothie') -->
+        <button class="placement arcade" onclick={() => { sfx.click(); game.go('smoothie'); }}>
+          <img src="{import.meta.env.BASE_URL}math/ratios/tile.webp" alt="" />
+          <span class="ptext"><b>Smoothie Stand</b><small>Game: mix smoothies by the recipe for Glimmer customers.{(m.arcade?.['smoothie-stand']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['smoothie-stand'].best}` : ''}</small></span>
+        </button>
+      {/if}
       {#if area === 'place'}
         <!-- the place value arcade game (its cabinet is in the Arcade too) -->
         <button class="placement arcade" onclick={() => { sfx.click(); import('../math/place/builder').then(b => { b.builderOpen.toy = false; b.builderOpen.from = 'map'; game.go('builder'); }); }}>
