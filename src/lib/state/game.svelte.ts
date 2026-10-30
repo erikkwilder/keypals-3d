@@ -16,6 +16,9 @@ export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' |
   // and My stuff's own pages (the closet is the Wardrobe; Glimmers holds the Glimmer Book as its All 100 tab)
   | 'subject' | 'topic' | 'way' | 'keypals' | 'dances' | 'progress';
 
+/** the most cross-links remembered on the way back */
+const RETURNS_MAX = 24;
+
 function load(): SaveFile {
   try {
     const raw = localStorage.getItem(SAVE_KEY) ?? OLD_SAVE_KEYS.map(k => localStorage.getItem(k)).find(Boolean) ?? null;
@@ -148,14 +151,17 @@ class Game {
   /** Go to a screen, as a step up or down the levels (a tile on a page, the Menu, Back). */
   go(screen: Screen) { this.arrive(screen); }
   /** Go somewhere by a cross-link (the bar's My stuff, a Glimmers link on Adventure, the Wardrobe's Shop):
-   *  Back from there comes back here. A place above this one, or below it, is just a step. */
+   *  Back from there comes back here. A place above this one, or below it, is just a step. Cross-links
+   *  chain: the island's Shop, then the Shop's "Move and size it" to the Wardrobe, and Back unwinds them in
+   *  order (the Wardrobe, the Shop, the island). */
   visit(screen: Screen) {
     const from = this.here();
     const to = this.here(screen);
     if (samePlace(from, to)) return;
     const step = isAbove(to, from, this.from) || isAbove(from, to, this.from) || parentOf(to, this.from) === null;
-    this.arrive(screen);
+    this.arrive(screen, step ? null : from);
     if (!step) this.returns.push({ at: this.here(), to: from });
+    if (this.returns.length > RETURNS_MAX) this.returns.splice(0, this.returns.length - RETURNS_MAX);
   }
   /** Go to a place (a screen and what it shows). */
   goPlace(pl: Place) {
@@ -167,7 +173,8 @@ class Game {
   back() {
     const h = this.here();
     const top = this.returns.at(-1);
-    if (top && samePlace(top.at, h)) { this.returns.pop(); this.goPlace(top.to); return; }
+    // (back along a chain of cross-links: the ones before this one stay, to unwind next)
+    if (top && samePlace(top.at, h)) { const rest = this.returns.slice(0, -1); this.goPlace(top.to); this.returns = rest; return; }
     const up = parentOf(h, this.from);
     if (up) this.goPlace(up);
   }
@@ -180,13 +187,16 @@ class Game {
   }
   /** Leave an activity: back to where it was started from. */
   leaveActivity() { this.goPlace(this.from ?? { screen: 'hub', ctx: {} }); }
-  private arrive(next: Screen) {
+  /** `via`: arriving by a cross-link from there (the cross-links on the way back to it stay, so a chain of
+   *  them unwinds in order) */
+  private arrive(next: Screen, via: Place | null = null) {
     const was = this.here();
     if (isActivity(next) && !isActivity(this.screen)) this.from = was;
     this.screen = next;
-    // the cross-links still on the way back from here (each one's place is here or above it)
+    // the cross-links still on the way back from here (each one's place is here or above it, or the place
+    // a cross-link just left, or above that)
     const now = this.here();
-    this.returns = this.returns.filter(r => isAbove(r.at, now, this.from));
+    this.returns = this.returns.filter(r => isAbove(r.at, now, this.from) || (!!via && isAbove(r.at, via, this.from)));
   }
 
   openSheet(mode: 'settings' | 'setup' = 'settings', onClose?: () => void) {
