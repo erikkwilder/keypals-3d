@@ -243,6 +243,8 @@
     window.addEventListener('blur', onBlur);
     raf = requestAnimationFrame(frame);
     startMusic(lesson.world);
+    // (dev only, for checking the adaptive questions: the current question, the trip so far, and answering it)
+    if (import.meta.env.DEV) (window as unknown as { __skill: unknown }).__skill = { item: () => item, mode: () => mode, phase: () => phase, begin, answer, asked: () => picker.served.map(x => ({ id: x.item.id, rung: x.item.rung, reason: x.reason })) };
   });
   onDestroy(() => {
     if (!keepScene) stage.use(null);

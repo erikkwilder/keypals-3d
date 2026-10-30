@@ -54,7 +54,7 @@
               {#each ss as s (s.id)}
                 {@const st = status(s)}
                 {@const w = workingOf(m, s.id, now)}
-                <tr><td class="g">{grade(s.grade)}</td><td class="n">{s.name}</td><td>{s.plain}</td><td class="c">{s.standard}</td><td><span class="st {st.replace(' ', '-')}">{st === 'not started' ? 'Not started' : st === 'growing' ? 'Growing' : 'Solid'}</span></td>
+                <tr><td class="g">{grade(s.grade)}</td><td class="n">{s.name}</td><td>{s.plain}</td><td class="c">{s.standard}</td><td>{#if st === 'not started' && w.word !== 'not started'}<span class="st fromplace" title="Not practised yet: where it's working comes from Show What You Know">From placement</span>{:else}<span class="st {st.replace(' ', '-')}">{st === 'not started' ? 'Not started' : st === 'growing' ? 'Growing' : 'Solid'}</span>{/if}</td>
                   <td class="w">{#if w.word === 'not started'}<span class="none">Not yet</span>{:else}<span class="lad" role="img" aria-label="Working at: {WORD[w.word].toLowerCase()}, the {ORDINAL[w.rung - 1]} of six steps">{#each [1, 2, 3, 4, 5, 6] as k (k)}<i class:on={k <= w.rung} style:height="{5 + k * 2.5}px"></i>{/each}</span><span class="ww"><b>{WORD[w.word]}</b><small>{HINT[w.word]}</small></span>{/if}</td></tr>
               {/each}
             </tbody>
@@ -86,6 +86,7 @@
   td.c { font-family: ui-monospace, monospace; font-size: 13px; white-space: nowrap; }
   .st { display: inline-block; padding: 3px 10px; border-radius: 99px; font: 800 12px var(--font-body); white-space: nowrap; }
   .st.not-started { background: var(--bg2); color: var(--muted); }
+  .st.fromplace { background: #e3efff; color: #234f8f; }
   .st.growing { background: #fff0b8; color: #6a5200; }
   .st.solid { background: #c9f1dd; color: #0f5a3c; }
   .placed { margin: 0 0 8px; font: 600 14px/1.4 var(--font-body); color: var(--ink2); background: #eef6ff; border-radius: 12px; padding: 6px 10px; }
@@ -101,5 +102,9 @@
     .body { padding: 10px 10px 30px; }
     th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { display: none; }
     td.n { white-space: normal; }
+    td.w { white-space: normal; }
+    .lad { display: flex; margin: 0 0 3px; }
+    .ww small { display: none; }
+    th, td { padding: 6px 5px; }
   }
 </style>

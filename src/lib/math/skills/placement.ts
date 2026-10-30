@@ -128,16 +128,19 @@ const groupSay = (g: string) => PLUS_SAY[g] ?? MINUS_SAY[g] ?? (g[0] === 'x' ? `
 /** a group's typical fact, in rungs (the middle of its facts, leaving out the 0 and 1 rules) */
 const groupRung = (g: string) => { const rs = groupFacts(g).filter(f => !isRuleFact(f)).map(factRung).sort((a, b) => a - b); return rs.length ? rs[Math.floor(rs.length / 2)] : 1; };
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
-export type Found = { comfortable: string[]; next: string[] };
+/** `of`: how many there are in all (so "all of them" can be said plainly) */
+export type Found = { comfortable: string[]; next: string[]; of?: number };
+/** a skill's name in a sentence ("Which is bigger?" reads as "which is bigger") */
+const inSentence = (name: string) => name.replace(/\?$/, '').toLowerCase();
 /** An area's skills: comfortable (expected to get rung 3 right most of the time) and the next ones to grow. */
 export function foundInArea(h: AbilityHome, area: AreaId, now = Date.now()): Found {
-  const comfortable: string[] = [], next: string[] = [];
-  for (const x of skillLadder(area)) {
+  const comfortable: string[] = [], next: string[] = [], ladder = skillLadder(area);
+  for (const x of ladder) {
     const s = SKILL[x.skill], t = thetaOf(h, x.skill, now);
-    if (t >= 3) comfortable.push(s.name.toLowerCase());
-    else if (next.length < 2) next.push(s.name.toLowerCase());
+    if (t >= 3) comfortable.push(inSentence(s.name));
+    else if (next.length < 2) next.push(inSentence(s.name));
   }
-  return { comfortable, next };
+  return { comfortable, next, of: ladder.length };
 }
 /** A fact strand's families: comfortable (at or past their typical fact) and the next ones to grow. */
 export function foundInStrand(h: AbilityHome, op: Op, now = Date.now()): Found {
@@ -147,12 +150,13 @@ export function foundInStrand(h: AbilityHome, op: Op, now = Date.now()): Found {
     if (t >= groupRung(g)) comfortable.push(groupSay(g));
     else if (next.length < 2) next.push(groupSay(g));
   }
-  return { comfortable, next };
+  return { comfortable, next, of: groups.length };
 }
-/** The sentence for the results screen. */
+/** The sentence for the results screen and the grown-ups' report. */
 export function foundText(f: Found, name: string): string {
-  const c = f.comfortable.length ? `Comfortable with: ${list(f.comfortable)}.` : `Starting from the beginning, gently.`;
-  const n = f.next.length ? ` Next to grow: ${list(f.next)}.` : ' Everything here is comfortable: the questions will stretch further.';
+  const all = !f.next.length && f.comfortable.length > 0 && f.comfortable.length === f.of;
+  const c = all ? `Comfortable with all ${f.of} of them.` : f.comfortable.length ? `Comfortable with: ${list(f.comfortable)}.` : `Starting from the beginning, gently.`;
+  const n = f.next.length ? ` Next to grow: ${list(f.next)}.` : all ? ' The questions will stretch to the hardest versions.' : '';
   return `${c}${n} ${name}'s questions are now pitched to match, and they'll keep adjusting as ${name} plays.`;
 }
 export type { Ability };
