@@ -35,9 +35,10 @@ export function islandDemo(val: string) {
     give(leo, true);
     const la = advOf(leo); la.glimmers.mittenyeti = { level: 3, xp: 0, got: Date.now() }; la.glimmers.rainbootfrog = { level: 2, xp: 0, got: Date.now() };
     buyAndPlace(leo, 'icepool', -5, -2, 0); buyAndPlace(leo, 'palm', 4, 0, 0); buyAndPlace(leo, 'swing', 1, 3, 0);
+    // (a fresh try: the heart you left Leo today is taken back, so you can leave it again)
+    if (want.has('fresh') && leo.island) leo.island.hearts = leo.island.hearts.filter(h => h.from !== me.id);
     leo.updatedAt = Date.now();
     game.update(p => { if (!(p.island?.hearts ?? []).some(h => h.from === leo!.id)) leaveHeart(p, leo!); });
-    void me;
     game.persist();
   }
 }

@@ -31,7 +31,7 @@ import { gridTex, stones } from '../island/paint';
 /** the catalogue's pictures, drawn once a session */
 const THUMBS = new Map<string, string>();
 /** how tall a Glimmer stands on the island */
-const GLIM_H = 0.68;
+const GLIM_H = 0.8;
 /** one square of the grid, in metres */
 export const CELL = 1;
 const rand = (seed: number) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };

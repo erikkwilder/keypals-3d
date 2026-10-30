@@ -48,12 +48,14 @@
   let loading = $state(true);
   let viewEl: HTMLDivElement | undefined = $state();
   let topEl: HTMLElement | undefined = $state();
+  let sideEl: HTMLElement | undefined = $state();
   let bottomEl: HTMLElement | undefined = $state();
   let narrow = $state(innerWidth < 760 || innerHeight < 520);
   let trayOpen = $state(!(innerWidth < 760 || innerHeight < 520));
   let thumbs = $state<Record<string, string>>({});
   function viewOf() {
-    const t = topEl?.getBoundingClientRect(), b = bottomEl?.getBoundingClientRect();
+    // (on a phone the round buttons sit in a row under the bar: the island goes below them)
+    const t = (narrow ? sideEl : null)?.getBoundingClientRect() ?? topEl?.getBoundingClientRect(), b = bottomEl?.getBoundingClientRect();
     const top = (t ? t.bottom + 4 : 70) / innerHeight, bottom = (b ? b.top - 4 : innerHeight - 140) / innerHeight;
     return { top, bottom: Math.max(top + 0.25, bottom), left: 0, right: 1 };
   }
@@ -387,7 +389,7 @@
   </header>
 
   <!-- the round buttons on the left: your Glimmers, family, postcards -->
-  <nav class="side" aria-label="Island">
+  <nav class="side" aria-label="Island" bind:this={sideEl}>
     {#if !visiting}
       <button class="round" onclick={() => { sheet = 'glimmers'; sfx.pop(); }} title="Your Glimmers on the island">
         {#if out[0]}<img src={face(out[0], !!advView(me).glimmers[out[0]]?.evolved)} alt="" />{:else}<img src="{base}game/icon-grump.webp" alt="" />{/if}
@@ -603,9 +605,9 @@
 
   .bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 16px 14px; display: flex; justify-content: center; pointer-events: none; }
   .bottom > :global(*) { pointer-events: auto; }
-  .trayrow { display: flex; align-items: flex-end; gap: 14px; width: 100%; max-width: 1220px; pointer-events: none; }
+  .trayrow { display: flex; align-items: flex-end; justify-content: center; gap: 14px; width: 100%; max-width: 1220px; pointer-events: none; }
   .trayrow > * { pointer-events: auto; }
-  .tray { flex: 1; min-width: 0; padding: 8px 10px 10px; border-radius: 26px; background: rgba(255, 255, 255, .95); box-shadow: 0 0 0 4px rgba(255, 255, 255, .55), 0 18px 40px -18px rgba(80, 50, 30, .6); }
+  .tray { flex: 0 1 auto; min-width: 0; padding: 8px 10px 10px; border-radius: 26px; background: rgba(255, 255, 255, .95); box-shadow: 0 0 0 4px rgba(255, 255, 255, .55), 0 18px 40px -18px rgba(80, 50, 30, .6); }
   .tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 0 2px 6px; align-items: center; }
   .tabs::-webkit-scrollbar { display: none; }
   .tabs button { flex: none; border: 0; background: transparent; border-radius: 999px; padding: 5px 12px; font: 600 15px var(--font-ui); color: var(--ink2); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
@@ -706,7 +708,7 @@
   .narrow .backview { top: 150px; }
   .narrow .hearts { left: 10px; right: 10px; top: 150px; max-width: none; }
   .narrow .bottom { padding: 0 8px 8px; }
-  .narrow .tray { border-radius: 22px; padding: 6px 6px 8px; }
+  .narrow .tray { flex: 1; border-radius: 22px; padding: 6px 6px 8px; }
   .narrow .tabs button { font-size: 14px; padding: 4px 10px; }
   .narrow .item { width: 104px; border-radius: 16px; }
   .narrow .item .pic { height: 66px; }
