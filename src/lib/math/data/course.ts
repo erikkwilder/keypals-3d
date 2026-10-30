@@ -17,9 +17,9 @@ function region(r: Head, lessons: [string, SkillKind, string[], string[], number
 export const TENT_SKILLS = ['da-sort', 'da-picgraph', 'da-likely', 'da-bars'];
 export const RIBBON_SKILLS = ['da-lineplot', 'da-mean', 'da-middle', 'da-plots'];
 export const SQUARE_SKILLS = ['da-chance', 'da-expect', 'da-both'];
-const TENT: Head = { id: 'data-a', area: 'data', name: 'The Prize Tent', blurb: 'Sort and count the prizes, read picture graphs and bar graphs, and say how likely something is.', world: 'village' as RegionId, chip: 'Graphs', skills: TENT_SKILLS };
-const RIBBON: Head = { id: 'data-b', area: 'data', name: 'Ribbon Row', blurb: 'Line plots of ribbon lengths, the mean as a fair share, the median, mode and range, and dot plots, histograms and box plots.', world: 'treetops' as RegionId, chip: 'Mean', skills: RIBBON_SKILLS };
-const SQUARE: Head = { id: 'data-c', area: 'data', name: 'Spinner Square', blurb: 'Chance as a fraction, what should happen in an experiment, and two things at once.', world: 'shores' as RegionId, chip: '3/8', skills: SQUARE_SKILLS };
+const TENT: Head = { id: 'data-a', area: 'data', name: 'The Prize Tent', blurb: 'Sort and count the prizes, read picture graphs and bar graphs, and say how likely something is.', world: 'village' as RegionId, chip: 'Graphs', skills: TENT_SKILLS, art: 'math/data/region-tent.webp' };
+const RIBBON: Head = { id: 'data-b', area: 'data', name: 'Ribbon Row', blurb: 'Line plots of ribbon lengths, the mean as a fair share, the median, mode and range, and dot plots, histograms and box plots.', world: 'treetops' as RegionId, chip: 'Mean', skills: RIBBON_SKILLS, art: 'math/data/region-ribbon.webp' };
+const SQUARE: Head = { id: 'data-c', area: 'data', name: 'Spinner Square', blurb: 'Chance as a fraction, what should happen in an experiment, and two things at once.', world: 'shores' as RegionId, chip: '3/8', skills: SQUARE_SKILLS, art: 'math/data/region-square.webp' };
 
 export const DATA_REGIONS: SkillRegion[] = [
   region(TENT, [

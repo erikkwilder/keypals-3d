@@ -599,7 +599,7 @@ export const daExpect: Skill = {
     if (sub === 'found') {
       // an experiment: N tries, the thing came up k times (near what should happen, never exactly 0 or all)
       const k = Math.max(1, Math.min(N - 1, want + int(rng, -Math.max(1, Math.floor(want / 4)), Math.max(1, Math.floor(want / 4)))));
-      return { ...base, id: `da-expect:found:${N}:${k}:${n}/${d}`, ask: `We ${die ? 'rolled' : 'spun'} it ${N} times and got ${what} ${k} times. What fraction of the tries was ${what}?`,
+      return { ...base, id: `da-expect:found:${N}:${k}:${n}/${d}`, ask: `We ${die ? 'rolled' : 'spun'} it ${N} times. ${cap(what)} came up ${k} times. What fraction of the tries was that?`,
         prompt: [thing, pic({ kind: 'results', rows: [{ name: cap(what), n: k, color: die ? undefined : 'red' }, { name: 'Other', n: N - k, color: die ? undefined : 'blue' }], total: true }), tx(what), op('='), blank],
         input: 'fraction', answer: { kind: 'fraction', n: k, d: N },
         explain: `${k} of the ${N} tries: ${k}/${N}${gcd(k, N) > 1 ? ` (that's ${k / gcd(k, N)}/${N / gcd(k, N)})` : ''}. The chance says ${n}/${d}: close, but a real experiment wobbles.`,
@@ -608,12 +608,12 @@ export const daExpect: Skill = {
     if (sub === 'compare') {
       const off = int(rng, 1, Math.max(2, Math.floor(want / 3))) * (rng() < 0.5 ? -1 : 1);
       const got = Math.max(0, Math.min(N, want + off)), diff = Math.abs(got - want), more = got > want;
-      return { ...base, id: `da-expect:compare:${N}:${got}:${n}/${d}`, ask: `${verb} ${N} times. We got ${what} ${got} times. How many ${more ? 'more' : 'fewer'} than should happen?`,
-        prompt: [thing, tx(`${N} tries: ${what} ${got} times`), op('→'), tx(more ? 'more' : 'fewer'), blank], input: 'number', answer: nA(diff),
+      return { ...base, id: `da-expect:compare:${N}:${got}:${n}/${d}`, ask: `${verb} ${N} times. ${cap(what)} came up ${got} times. How many ${more ? 'more' : 'fewer'} times than should happen?`,
+        prompt: [thing, tx(`${cap(what)}: ${got} of ${N}`), op('→'), tx(more ? 'more' : 'fewer'), blank], input: 'number', answer: nA(diff),
         explain: `It should happen about ${n}/${d} of ${N} = ${want} times. We got ${got}: ${diff} ${more ? 'more' : 'fewer'}.`,
         trick: { name: 'Chance times tries', say: 'First work out what should happen: the chance times the number of tries. Then compare it with what really happened.' } };
     }
-    return { ...base, id: `da-expect:predict:${N}:${n}/${d}`, ask: `${verb} ${N} times. About how many times should you get ${what}?`, prompt: [thing, tx(`${N} times:`), tx(what), op('≈'), blank], input: 'number', answer: nA(want),
+    return { ...base, id: `da-expect:predict:${N}:${n}/${d}`, ask: `${verb} ${N} times. About how many times should you get ${what}?`, prompt: [thing, tx(`${N} times,`), tx(what), op('≈'), blank], input: 'number', answer: nA(want),
       explain: `The chance of ${what} is ${n}/${d}. ${n}/${d} of ${N}: ${N} ÷ ${d} = ${N / d}${n > 1 ? `, × ${n} = ${want}` : ''}. About ${want} times.`,
       trick: { name: 'Chance times tries', say: 'Share the tries by the bottom number, then times by the top: 1/4 of 40 is 10.' } };
   },

@@ -264,7 +264,7 @@
       {@const open = skillRegionOpen(m, r.id)}
       {@const done = r.lessons.filter(l => skillMovedOn(m, l)).length}
       <section class="region" class:locked={!open} data-region={r.id}>
-        <div class="art" style:background-image="url({import.meta.env.BASE_URL}regions/{r.world}.webp)"></div>
+        <div class="art" style:background-image="url({import.meta.env.BASE_URL}{r.art ?? `regions/${r.world}.webp`})"></div>
         <div class="rhead">
           <div class="rname">
             <span class="tbl" style:background={ar.color}>{r.chip}</span>

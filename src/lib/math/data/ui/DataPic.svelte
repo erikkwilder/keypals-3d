@@ -126,7 +126,7 @@
   const res = $derived(d.kind === 'results' ? d : null);
 
   /** how tall it draws, by kind (a graph needs more room than a die) */
-  const scale = $derived(({ things: 1, prize: 0.42, picgraph: 1.15, bars: 1.2, tally: 0.9, line: 1.0, hist: 1.2, box: 0.8, list: 0.36, towers: 0.95, spinner: 0.85, bag: 0.95, dice: 0.5, tree: 1.05, results: 0.7 } as Record<string, number>)[d.kind] ?? 1);
+  const scale = $derived(({ things: 1, prize: 0.42, picgraph: 1.2, bars: 1.3, tally: 0.9, line: 1.2, hist: 1.3, box: 0.9, list: 0.36, towers: 0.95, spinner: 0.85, bag: 0.95, dice: 0.5, tree: 1.1, results: 0.7 } as Record<string, number>)[d.kind] ?? 1);
   const vb = $derived.by((): [number, number] => {
     switch (d.kind) {
       case 'things': return [things!.W, things!.H];

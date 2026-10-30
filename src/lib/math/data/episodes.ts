@@ -191,7 +191,7 @@ export const DATA_LESSONS: FracLesson[] = [
       { say: '', board: bowl([5, 3, 0]), eq: '8 blocks in the bowl. Close your eyes and pick one!' },
       { say: '', board: board({ ...bowl([5, 3, 0]), dots: bowl([5, 3, 0]).dots.map(d => (d.c === 'b' ? { ...d, c: 'c' as Hue } : d)) }), eq: 'We want gold: [3] gold blocks' },
       { say: '', board: board({ ...bowl([5, 3, 0]), dots: bowl([5, 3, 0]).dots.map(d => (d.c === 'b' ? { ...d, c: 'c' as Hue } : d)), tags: [tag('top', 300, 22, '3 gold · 8 in all', 'ink', 26)] }), eq: '3 out of 8: a [3/8] chance', do: 'watch' },
-      { say: '', board: board({ ...bowl([5, 3, 0]), dots: bowl([5, 3, 0]).dots.map(d => (d.c === 'b' ? { ...d, c: 'c' as Hue } : d)), tags: [tag('top', 300, 22, '3/8 is less than half (4/8)', 'ink', 26)] }), eq: 'Less than half: [unlikely], but it can happen', do: 'watch' },
+      { say: '', board: board({ ...bowl([5, 3, 0]), dots: bowl([5, 3, 0]).dots.map(d => (d.c === 'b' ? { ...d, c: 'c' as Hue } : d)), tags: [tag('top', 300, 22, 'Less than half of them', 'ink', 26)] }), eq: 'Less than half: [unlikely], but it can happen', do: 'watch' },
     ],
     tries: [
       Q('Close your eyes and pick one. What is the chance of gold?', '2/6', 'frac', '2 gold of 6 blocks in all: 2/6.', 'Gold ones on top, ALL the blocks on the bottom.', bowl([4, 0, 2]), true),
