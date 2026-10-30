@@ -8,7 +8,7 @@ import type { Assignment } from '../teach/assignments';
 import { unitFromAssignment } from './classPath';
 import { nextOnPath, unitState, type UnitState } from './progress';
 import { addUsed, placeOf, rulesFor, type ClassSettings, type FreePlace, type Rules } from './rules';
-import type { Unit } from './units';
+import { PATH_SUBJECTS, type Unit } from './units';
 import { pathView } from './launch';
 
 /** The classes whose rules hold for a player: the ones that made the player (a family's own player linked
@@ -34,11 +34,17 @@ export const classUnitsForNotes = (p: Profile) => classesOf(p).flatMap(c => c.as
 /** The subject the path shows: the one picked there last, else the one Home plays. */
 export const pathSubject = () => pathView.subject || game.homeGame;
 /** The next thing for a player: a teacher's unit first, then the subject's own path. */
-export function nextFor(p: Profile, subject = pathSubject(), now = Date.now()) {
+export function nextFor(p: Profile, subject?: string, now = Date.now()) {
   const cu = classUnits(p, now).find(x => x.state.next);
   if (cu) return { unit: cu.state, item: cu.state.next!, teacher: cu.teacher };
-  const n = nextOnPath(p, subject, now, subject === 'math' ? playerRules(p, now).grade : null);
-  return n ? { ...n, teacher: null as string | null } : null;
+  // a subject's own page asks for that subject; Home asks for the one played last, and when that path is
+  // all done, the next subject that still has something to do
+  const order = subject ? [subject] : [pathSubject(), ...PATH_SUBJECTS().map(s => s.id).filter(id => id !== pathSubject())];
+  for (const s of order) {
+    const n = nextOnPath(p, s, now, s === 'math' ? playerRules(p, now).grade : null);
+    if (n) return { ...n, teacher: null as string | null };
+  }
+  return null;
 }
 
 // ---------- the free-time clock ----------

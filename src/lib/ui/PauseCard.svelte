@@ -42,8 +42,8 @@
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
   .btn img { width: 30px; height: 30px; object-fit: contain; }
   .big { width: 100%; font-size: 24px; padding: 14px 18px; }
-  .row { width: 100%; display: flex; gap: 8px; }
-  .row .btn { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .row .btn { width: 100%; white-space: normal; text-align: center; }
   .qt { margin-top: 4px; padding-top: 12px; border-top: 2px dashed #ece6f6; width: 100%; display: flex; justify-content: center; }
   @media (max-width: 420px) { .row { flex-direction: column; } }
 </style>

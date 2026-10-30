@@ -16,7 +16,7 @@
 <style>
   .ptabs { flex: none; position: relative; z-index: 4; display: flex; justify-content: center; gap: 6px; padding: 8px 12px; background: rgba(255, 255, 255, .72); border-bottom: 1px solid #f0ebf8; }
   button { border: 0; cursor: pointer; padding: 8px 20px; border-radius: 999px; background: #f2eefa; font: 600 18px var(--font-ui); color: var(--ink2); white-space: nowrap; }
-  button small { font: 700 13px var(--font-body); color: var(--muted); }
+  button small { font: 700 13px var(--font-body); color: var(--muted); margin-left: 6px; }
   button.on { background: var(--primary); color: #fff; box-shadow: 0 3px 0 var(--primary-edge); }
   button.on small { color: #ece6ff; }
   @media (max-width: 600px) { .ptabs { gap: 4px; padding: 6px 8px; } button { font-size: 15px; padding: 7px 12px; } }
