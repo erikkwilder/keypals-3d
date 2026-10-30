@@ -49,7 +49,7 @@
     if (!isUnlocked(p, l)) { sfx.nope(); game.say('Keep going on the typing map to open this one!'); return; }
     sfx.click(); game.setHome('typing'); game.startLesson(id);
   }
-  function quickCheck(id: string) { sfx.click(); game.learnCheck = true; game.openLearn(id, 'map'); }
+  function quickCheck(id: string) { sfx.click(); game.learnCheck = true; game.openLearn(id); }
 
   const verb = (t: Thing, done?: boolean, locked?: boolean) => locked ? (way === 'adventure' ? 'Open it' : 'Locked') : way === 'learn' ? (subject.id === 'typing' ? (done ? 'Again' : 'Try it') : done ? 'Watch again' : 'Watch') : way === 'games' ? 'Play' : 'Go';
   const keysOf = (t: Thing) => { const l = TYPING_LESSON[t.id]; return l ? lessonTitle(l, game.layout).split(' and ') : []; };
@@ -81,7 +81,7 @@
           <small>Next to learn</small>
           <h2>{heroThing.name}</h2>
           <p>{heroThing.line}</p>
-          <button class="btn btn-primary btn-big go" onclick={() => openThing(subject, way, heroThing!)}><Icon name="play" size={26} /> Watch: {heroThing.name}</button>
+          <button class="btn btn-big go" class:btn-primary={!due} onclick={() => openThing(subject, way, heroThing!)}><Icon name="play" size={26} /> Watch: {heroThing.name}</button>
         </div>
       </section>
     {/if}
@@ -107,7 +107,7 @@
                 {#if chip === 'all' && way === 'adventure'}<span class="parts">{chipNames(subject, t)}</span>{/if}
                 <div class="row">
                   {#if st.tag}<span class="tag" class:ok={st.done}>{#if st.done}<Icon name="check" size={14} />{/if}{st.tag}</span>{/if}
-                  <button class="btn small" class:btn-primary={!st.locked} onclick={() => openThing(subject, way, t)}>{verb(t, st.done, st.locked)}</button>
+                  <button class="btn small" onclick={() => openThing(subject, way, t)}>{verb(t, st.done, st.locked)}</button>
                 </div>
               </div>
             </article>

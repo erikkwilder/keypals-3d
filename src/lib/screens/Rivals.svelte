@@ -50,7 +50,7 @@
 </script>
 
 <div class="rv" style:background-image="url({backdrop})">
-  <Header title="Rival Ghosts" sub="Battle someone's ghost: it plays just like them" back={() => game.go('adventure')} />
+  <Header />
   <div class="body">
     <div class="season card" style:--lc={league.color}>
       <img class="badge" src="{base}game/league-{s.league}.webp" alt="" />
@@ -86,7 +86,7 @@
           <div class="lg"><img src="{base}game/league-{r.league}.webp" alt="" />{LEAGUES[r.league].name}</div>
           <div class="team">{#each r.team as m (m.id)}<span title={GLIMMER[m.id].name}><img src="{base}game/glimmers/face/{m.id}{m.evolved ? '-evo' : ''}.webp" alt="" /><small>{GLIMMER[m.id].name}</small></span>{:else}<small class="none">No Glimmers yet</small>{/each}</div>
           <div class="likes">{#each playsLike(r.stats) as w}<span>{w}</span>{/each}</div>
-          <button class="btn btn-primary" onclick={() => battle(r)}>{beat ? 'Battle again' : 'Battle!'}</button>
+          <button class="btn" onclick={() => battle(r)}>{beat ? 'Battle again' : 'Battle!'}</button>
           {#if beat}<span class="beat"><Icon name="check" size={16} /> Beaten this week</span>{/if}
         </div>
       {/each}

@@ -55,7 +55,7 @@ export function saveStatus(p: Profile | null): { kind: 'account' | 'code' | 'cla
   return { kind: 'local', text: 'Only on this computer: keep your progress safe', short: 'Not saved online' };
 }
 /** Open the grown-ups' "Saving online" (behind the grown-up check). */
-export function goSaveOnline() { cloud.focusAccount = true; game.go('grownups'); }
+export function goSaveOnline() { cloud.focusAccount = true; game.guSection = 'players'; game.visit('grownups'); }
 
 /** A server answer that wasn't "ok", with its status (410: a grown-up deleted that player everywhere). */
 export class ApiError extends Error {
@@ -407,6 +407,7 @@ export async function startCloud() {
       const came = game.save.profiles.filter(p => !before.has(p.id)).map(p => p.name);
       game.say(came.length ? `Signed in. Your players are saved to your account, and ${came.length === 1 ? came[0] : `${came.slice(0, -1).join(', ')} and ${came[came.length - 1]}`} came from it.` : 'Signed in. Your players are saved to your account.', 6000);
       grownupOpenUntil = Date.now() + 10 * 60000;
+      game.guSection = 'players';
       game.go('grownups');
     } else if (m[1] !== 'ok') game.say(m[1] === 'cancelled' ? 'Sign-in was cancelled.' : 'Sign-in did not work. Please try again.', 5000);
   }

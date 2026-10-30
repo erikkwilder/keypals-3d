@@ -47,7 +47,7 @@
   const grew = last?.grew ?? { bloomed: [], budded: [], sprouted: [] };
   const fmt = (f: { a: number; b: number; op?: import('../math/facts').Op }) => `${f.a} ${opSign(f)} ${f.b}`;
 
-  onMount(() => { if (!last) game.go('map'); });
+  onMount(() => { if (!last) game.go('hub'); });
 </script>
 
 {#if last && st}
@@ -55,8 +55,7 @@
     treasureAt={grown ? MATH_TREASURE.grown : MATH_TREASURE.kids} treasureWhere="on a math trip" rideHint="Quicker answers reach"
     {goalText} openedText={last.regionJustDone ? `${MATH_REGION[last.regionJustDone].name} is done!` : null} nextTitle={next.title}
     makeScene={() => RunScene.create({ buddy: p.buddy, outfit: palOf(p).outfit, dance: danceOf(p), length: 20, region: worldOf(lesson), move: moveOf(lesson), keyLen: STRIDE[moveOf(lesson)] })}
-    onretry={() => game.startMath(lesson.id, true)} onnext={() => game.startMath(next.id)} onhome={() => game.go('hub')}
-    progress={{ label: 'Garden', tone: 'mint', art: gardenArt, onclick: () => game.go('garden') }}>
+    onretry={() => game.startMath(lesson.id, true)} onnext={() => game.startMath(next.id)} onhome={() => game.leaveActivity()}>
     {#snippet extra()}
       {#if last.placed}<div class="found"><b>For grown-ups: what Show What You Know found</b><p>{foundText(last.placed, p.name)}</p></div>{/if}
       <div class="bhead"><b>This trip</b><span class="legend"><i class="fast"></i>quick <i class="slow"></i>slow <i class="miss"></i>missed <i class="new"></i>new</span></div>

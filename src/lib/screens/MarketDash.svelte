@@ -10,6 +10,7 @@
   import { clearOldLine } from '../arcade/feedback';
   import { exitsOf } from '../arcade/exits';
   import ExitButtons from '../arcade/ui/ExitButtons.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
   import { MarketScene } from '../three/marketScene';
@@ -48,6 +49,10 @@
   let faces: GlimmerId[] = [];
   let arrivals = 0;
   let t0 = 0, last = 0, raf = 0, activeAt = 0;
+  /** the Pause card (ui/PauseButton.svelte): the round's clock stops while it's open */
+  let held = 0;
+  function hold() { if (phase === 'play' && !held) held = performance.now(); }
+  function unhold() { if (!held) return; const d = performance.now() - held; t0 += d; last += d; activeAt += d; held = 0; }
   let disposed = false;
 
   const rec = $derived(dashOf(p));
@@ -133,6 +138,7 @@
     if (!scene) return;
     heads = [0, 1, 2].map(i => scene!.headAt(i));
     if (phase !== 'play') return;
+    if (held) return;
     const dt = now - last; last = now;
     left = Math.max(0, ROUND_MS - (now - t0));
     if (active !== null) {
@@ -215,7 +221,6 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if (e.key === 'Escape') { e.preventDefault(); quit(); }
     if (phase === 'play') {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pay(); }
       else if (e.key === 'Backspace') { e.preventDefault(); takeLast(); }
@@ -252,8 +257,8 @@
     {/if}
   {/each}
 
+  <PauseButton onpause={hold} onresume={unhold} />
   <div class="top">
-    <button class="back" onclick={quit} aria-label={phase === 'play' ? 'Stop the round' : `Back to ${backTo}`}><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/market/tile.webp" alt="" /><b>Market Dash</b>{#if daily}<small>Today's challenge</small>{/if}</div>
     {#if phase === 'play'}
       <div class="score"><small>Score</small><b>{score}</b></div>
@@ -304,7 +309,6 @@
           <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same shoppers all day</span><span class="tiny bonus">Beat {STAR_AT[1]} for {DAILY_SHELLS} bonus shells</span></div>
         </div>
         <div class="acts">
-          <ExitButtons {exits} />
           <button class="btn" onclick={() => start(true)}><Icon name="target" size={20} /> Today's challenge</button>
           <button class="btn btn-primary big" onclick={() => start(false)}>Play <span class="kbd">enter</span></button>
         </div>
@@ -470,4 +474,7 @@
     .lead { font-size: 15px; }
     .how li { font-size: 14px; }
   }
+  /* the one Pause button sits top left on every activity: the title chip starts after it */
+  .top { padding-left: 76px; }
+  @media (max-width: 600px) { .top { padding-left: 62px; } }
 </style>

@@ -10,8 +10,9 @@
   import { pathHolds } from './rules';
   import { startItem, pathView } from './launch';
 
-  type Props = { compact?: boolean; onPage?: boolean; subject?: string };
-  let { compact = false, onPage = false, subject }: Props = $props();
+  /** `step`: a subject's page: "Your next step" on that subject's path (its unit and day), no dots */
+  type Props = { compact?: boolean; onPage?: boolean; subject?: string; home?: boolean; step?: boolean };
+  let { compact = false, onPage = false, subject, home = false, step = false }: Props = $props();
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
   const rules = $derived(playerRules(p));
@@ -20,15 +21,20 @@
   const holds = $derived(pathHolds(p, rules));
   const dots = $derived(Array.from({ length: Math.max(t.goal, Math.min(t.done, 8)) }, (_, i) => i < t.done));
   function go() { if (next) startItem(p, next.unit.unit, next.item); }
-  function openPath() { sfx.click(); if (subject) pathView.subject = subject; game.go('path'); }
+  function openPath() { sfx.click(); if (subject) pathView.subject = subject; game.visit('path'); }
 </script>
 
 <section class="today" class:compact class:page={onPage} aria-label="Today">
   <img class="cal" src="{base}icons/daily.webp" alt="" />
   <div class="tx">
-    <h2>Today</h2>
-    <p>{t.line}</p>
-    <div class="dots" aria-hidden="true">{#each dots as d, i (i)}<i class:on={d}></i>{/each}</div>
+    {#if step}
+      <h2>Your next step</h2>
+      <p>{next ? `${next.unit.unit.name}${next.item.day ? ` · Day ${next.item.day}` : ''}` : 'The whole path is done!'}</p>
+    {:else}
+      <h2>Today</h2>
+      <p>{t.line}</p>
+      <div class="dots" aria-hidden="true">{#each dots as d, i (i)}<i class:on={d}></i>{/each}</div>
+    {/if}
     {#if holds}<small class="note">{rules.keep === 'only' ? 'Today is a path day: your path and what it starts.' : `Your path comes first today. Then everything opens!`}</small>{/if}
   </div>
   <div class="acts">
@@ -40,7 +46,7 @@
     {:else}
       <p class="fin">You finished the whole path. Play anything you like!</p>
     {/if}
-    {#if !onPage}<button class="btn mp" onclick={openPath}><img src="{base}icons/path.webp" alt="" />My path</button>{/if}
+    {#if !onPage}<button class="btn mp" onclick={openPath}><img src="{base}icons/path.webp" alt="" />{home ? 'See my path' : 'My path'}</button>{/if}
   </div>
 </section>
 

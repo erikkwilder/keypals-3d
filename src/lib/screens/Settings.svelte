@@ -89,7 +89,7 @@
 </script>
 
 <div class="screen settings" class:overlay>
-  <Header title="Settings" gear={false} sub="for {p.name}" {overlay} back={overlay ? () => game.closeSettings() : undefined} />
+  <Header title="Settings" {overlay} back={overlay ? () => game.closeSettings() : undefined} />
   <div class="body scroll">
     <section>
       <h2>Look</h2>
@@ -132,7 +132,7 @@
         <label class="row">Show the hands <input type="checkbox" checked={s.hands} onchange={(e) => set('hands', e.currentTarget.checked)} /></label>
         <label class="row">Ghost racer <input type="checkbox" checked={s.ghost !== false} onchange={(e) => set('ghost', e.currentTarget.checked)} /></label>
         <p class="hint">A see-through friend runs at three-star pace (or your best). Try to stay ahead!</p>
-        <div class="row grownrow"><span>Daily goal ({s.dailyGoalMin} min){s.grown ? ', grown-up mode' : s.easy ? ', easy mode' : ''}<small>A grown-up sets these in Grown-ups.</small></span><button class="btn" onclick={() => { game.closeSettings(); game.go('grownups'); }}><img src="{import.meta.env.BASE_URL}icons/grownups.webp" alt="" />Grown-ups</button></div>
+        <div class="row grownrow"><span>Daily goal ({s.dailyGoalMin} min){s.grown ? ', grown-up mode' : s.easy ? ', easy mode' : ''}<small>A grown-up sets these in Grown-ups.</small></span><button class="btn" onclick={() => { game.closeSettings(); game.openGrownups('time'); }}><img src="{import.meta.env.BASE_URL}icons/grownups.webp" alt="" />Grown-ups</button></div>
       </div>
       <div>
         <h2>Sound</h2>

@@ -10,6 +10,7 @@
   import { bookOf, SOURCES, type BookGroup, type BookPlace, type Standing } from '../adventure/ladder';
   import { advView } from '../adventure/state';
   import Header from '../ui/Header.svelte';
+  import GlimmerTabs from '../ui/GlimmerTabs.svelte';
   import Icon from '../ui/Icon.svelte';
 
   const base = import.meta.env.BASE_URL;
@@ -35,7 +36,7 @@
   function pick(pl: BookPlace) { sfx.pop(); sel = pl.kind === 'glimmer' ? { s: pl.s } : { world: pl.world }; }
   let scroller: HTMLDivElement | undefined = $state();
   function jump(id: string) { sfx.click(); scroller?.querySelector(`#grp-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-  function team(id: GlimmerId) { game.glimmerSel = id; game.go('glimmers'); }
+  function team(id: GlimmerId) { game.glimmerSel = id; game.glimmerTab = 'team'; }
 </script>
 
 {#snippet pic(s: Standing, big = false)}
@@ -75,7 +76,8 @@
 {/snippet}
 
 <div class="screen gb">
-  <Header title="Glimmer Book" back={() => game.go(game.bookBack === 'glimmerBook' ? 'glimmers' : game.bookBack)} sub="{book.met} of {book.total} met" />
+  <Header />
+  <GlimmerTabs />
   <div class="body scroll" bind:this={scroller}>
     <section class="hero" style:background-image="url({base}game/book-hero.webp)">
       <div class="score">

@@ -5,4 +5,4 @@
   import Closet from './Closet.svelte';
 </script>
 
-<Closet start="shop" />
+<Closet mode="shop" />

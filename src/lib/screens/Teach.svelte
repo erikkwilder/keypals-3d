@@ -11,7 +11,7 @@
   import GrownupGate from '../ui/GrownupGate.svelte';
   import { teach, act, loadMe, devSignIn, becomeTeacher, createClass, openClass } from '../teach/teacher.svelte';
   import { showClassCode } from '../teach/names';
-  import { teachBack } from '../teach/teacher.svelte';
+  import Bar from '../ui/Bar.svelte';
   import ClassPage from '../teach/ui/ClassPage.svelte';
 
   let unlocked = $state(grownupOpen());
@@ -29,7 +29,8 @@
   onMount(() => { if (!teach.loaded || !teach.me?.signedIn) void loadMe(); });
   function google() { try { sessionStorage.setItem('kp-teach-return', '1'); } catch { /* fine */ } signIn('google'); }
   async function out() { await signOut(); teach.me = { signedIn: false }; teach.classes = []; teach.current = null; }
-  function back() { if (teach.current) { teach.current = null; return; } game.go(teachBack.to); }
+  /** Back: from a class to all of them, then back to where For teachers was opened from */
+  function back() { if (teach.current) { teach.current = null; return; } game.back(); }
 </script>
 
 {#snippet waiting()}
@@ -45,14 +46,10 @@
 {/snippet}
 
 <div class="screen teach">
-  <header class="tbar">
-    <button class="tb back" onclick={back} aria-label="Back">←<span>{teach.current ? 'All classes' : 'Back to the game'}</span></button>
-    <div class="brand"><img src="{import.meta.env.BASE_URL}icons/grownups.webp" alt="" /><div><b>Keypals for teachers</b><span>Classes, class work and progress</span></div></div>
-    {#if teach.me?.teacher}
-      <span class="who">{teach.me.teacher.display}</span>
-      <button class="tb" onclick={out}>Sign out</button>
-    {/if}
-  </header>
+  <Bar title={teach.current ? 'All classes' : 'For teachers'} {back} />
+  {#if teach.me?.teacher}
+    <div class="wholine"><span class="who">{teach.me.teacher.display}</span><button class="tb" onclick={out}>Sign out</button></div>
+  {/if}
 
   {#if !unlocked}
     <GrownupGate onpass={() => (unlocked = true)} title="For teachers" note="A quick check that you're a grown-up." />
@@ -157,7 +154,7 @@
 
 <style>
   .teach { display: flex; flex-direction: column; background: #f7f5fb; color: #2b2140; }
-  .tbar { display: flex; align-items: center; gap: 14px; padding: 10px 20px; background: #fff; border-bottom: 1px solid #e8e2f3; }
+  .wholine { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 6px 20px; background: #faf8ff; }
   .tb { border: 1px solid #ddd5ee; background: #fff; border-radius: 10px; padding: 8px 12px; font: 700 14px var(--font-body); color: #3b3157; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
   .tb:hover { background: #f6f2ff; }
   .brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }

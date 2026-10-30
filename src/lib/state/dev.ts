@@ -33,12 +33,16 @@ export function addTester() {
 }
 
 export function devBoot() {
-  if (import.meta.env.DEV) (window as unknown as { __game: typeof game }).__game = game;
+  if (import.meta.env.DEV) {
+    (window as unknown as { __game: typeof game }).__game = game;
+    // the same modules the game uses, for checking screens from the browser (nav: the pages; cloud: the grown-up check)
+    void Promise.all([import('../nav'), import('./cloud.svelte'), import('../math/place/builder')]).then(([nav, cloud, builder]) => Object.assign(window, { __nav: nav, __cloud: cloud, __builder: builder }));
+  }
   const h = location.hash.slice(1);
   if (!h) return;
   const [key, val] = h.split('=');
   const ensure = () => { if (!game.profile) game.addPlayer('Tester', 'dino', false); };
-  if (key === 'map') { ensure(); game.go('map'); }
+  if (key === 'map') { ensure(); void import('../nav').then(n => n.openSubjectPage(game.homeGame)); }
   if (key === 'hub') { ensure(); game.go('hub'); }
   // every little surprise at once, for checking them (src/lib/fun): #eggs-all, #eggs-all=pumpkins|snow, #eggs-all=off
   if (key === 'eggs-all') { try { if (val === 'off') localStorage.removeItem('keypals-eggs-all'); else localStorage.setItem('keypals-eggs-all', val || '1'); } catch { /* fine */ } }
@@ -47,11 +51,11 @@ export function devBoot() {
   if (key === 'stickers') { ensure(); game.go('stickers'); }
   if (key === 'closet') { ensure(); game.go('closet'); }
   if (key === 'dances') { ensure(); game.openCloset('dances'); }
-  if (key === 'settings') { ensure(); game.go('settings'); }
-  if (key === 'grownups') { ensure(); game.go('grownups'); }
+  if (key === 'settings') { ensure(); game.go('hub'); game.openSettings(); }
+  if (key === 'grownups') { ensure(); game.openGrownups(val || null); }
   if (key === 'new') game.go('newPlayer');
   // the math game: #math (math home), #mathrun=twins-2, #garden
-  if (key === 'math') { ensure(); game.setHome('math'); game.go('map'); }
+  if (key === 'math') { ensure(); void import('../nav').then(n => n.openSubjectPage('math')); }
   if (key === 'mathrun') { ensure(); game.setHome('math'); game.startMath(val || 'twins-1'); }
   // a skill trip straight away: #skill=place-a-3 (any skill lesson id)
   if (key === 'skill') { ensure(); game.setHome('math'); game.startSkill(val || 'place-a-1'); }
@@ -81,14 +85,14 @@ export function devBoot() {
   if (key === 'showdown') { ensure(); game.go('showdown'); }
   // Balance Beam, the expressions and equations arcade game: #balance; a Star Lab episode: #alg-learn=alg-balance
   if (key === 'balance') { ensure(); game.go('balance'); }
-  if (key === 'alg-learn') { ensure(); game.mathArea = 'algebra'; game.mathOp = null; game.openLearn(val || 'alg-balance', 'map'); }
+  if (key === 'alg-learn') { ensure(); game.mathArea = 'algebra'; game.mathOp = null; game.openLearn(val || 'alg-balance'); }
   // a money Learn episode over the Decimals and money map: #market-learn=dec-coins
-  if (key === 'market-learn') { ensure(); game.mathArea = 'decimals'; game.mathOp = null; game.go('map'); game.learnOverlay = val || 'dec-coins'; }
+  if (key === 'market-learn') { ensure(); void import('../nav').then(n => { n.openWay('math', 'decimals', 'learn'); game.learnOverlay = val || 'dec-coins'; }); }
   // negative numbers: Treasure Grid, the arcade game (#treasure), Star Sketch, the Playground toy (#sketch),
   // and the area started so Below Zero Caves is open (#neg-start: a few questions met)
   if (key === 'treasure') { ensure(); game.go('treasure'); }
   if (key === 'sketch') { ensure(); game.playPick = 'sketch'; game.go('playground'); }
-  if (key === 'neg-start') { ensure(); import('../math/skills/integers').then(() => game.update(pp => { const m = (pp.math = mathOf(pp)); for (const k of ['in-plot:plot', 'in-real:temp', 'in-add:negpos', 'in-quad:plot']) (m.skills ??= {})[k] ??= { stage: 1, seen: 3, right: 3, wrong: 0, times: [3000], fastDays: [], last: Date.now(), due: 0, step: 0 }; })); game.mathArea = 'integers'; game.mathOp = null; game.setHome('math'); game.go('map'); }
+  if (key === 'neg-start') { ensure(); import('../math/skills/integers').then(() => game.update(pp => { const m = (pp.math = mathOf(pp)); for (const k of ['in-plot:plot', 'in-real:temp', 'in-add:negpos', 'in-quad:plot']) (m.skills ??= {})[k] ??= { stage: 1, seen: 3, right: 3, wrong: 0, times: [3000], fastDays: [], last: Date.now(), due: 0, step: 0 }; })); void import('../nav').then(n => n.openTopicMap('math', 'integers')); }
   // My Sky Island: #island; #island=demo gives shells and a few Glimmers to build with and watch;
   // #island=family adds a brother with an island to visit (and a heart he left)
   if (key === 'island') { ensure(); if (val) import('../island/demo').then(d => { d.islandDemo(val); game.go('island'); }); else game.go('island'); }
@@ -97,7 +101,7 @@ export function devBoot() {
   // the Arcade: #arcade (the plaza), #arcade=slalom|catch|tower (straight into a round), #arcade=daily
   if (key === 'arcade') { ensure(); game.setHome('math'); if (val === 'daily') import('../arcade/arcade').then(a => game.playArcade(a.dailyGame(), true)); else if (val) game.playArcade(val as 'slalom' | 'catch' | 'tower'); else game.go('arcade'); }
   // Learn: #learn (the list of tricks) or #learn=make-ten (that lesson)
-  if (key === 'learn') { ensure(); game.openLearn(val || null, 'map'); }
+  if (key === 'learn') { ensure(); if (val) game.openLearn(val); else void import('../nav').then(n => n.openWay('math', null, 'learn')); }
   // evolutions: #evolve=puddlepup (level 5, ready to evolve), #evolved=puddlepup,sparkmoth (grown up, on the team)
   if (key === 'evolve' || key === 'evolved') {
     ensure();
@@ -121,15 +125,15 @@ export function devBoot() {
     });
     game.openCloset('gear');
   }
-  if (key === 'tester' && import.meta.env.DEV) { addTester(); game.go('map'); history.replaceState(null, '', location.pathname + location.search); }
+  if (key === 'tester' && import.meta.env.DEV) { addTester(); game.go('hub'); history.replaceState(null, '', location.pathname + location.search); }
   // measurement and time: #measure-pics (every question's picture and input), #measure (its map)
   if (key === 'measure-pics' && import.meta.env.DEV) { ensure(); void Promise.all([import('svelte'), import('../math/measure/PicGallery.svelte')]).then(([s, m]) => { const c = s.mount(m.default, { target: document.body, props: { onclose: () => s.unmount(c) } }); }); }
   // Clock Rush, the measuring arcade game: #clockrush; the Measuring Bench toy: #bench
   if (key === 'clockrush') { ensure(); game.go('clockrush'); }
   if (key === 'bench') { ensure(); game.go('bench'); }
-  if (key === 'measure') { ensure(); game.setHome('math'); game.mathArea = 'measure'; game.mathOp = null; game.go('map'); }
+  if (key === 'measure') { ensure(); void import('../nav').then(n => n.openTopicMap('math', 'measure')); }
   // a measuring Learn episode over the Time and measuring map: #measure-learn=ms-oclock (=ms-oclock,check for its quick check)
-  if (key === 'measure-learn') { ensure(); game.setHome('math'); game.mathArea = 'measure'; game.mathOp = null; game.go('map'); const [id, c] = (val || 'ms-oclock').split(','); game.learnCheck = c === 'check'; game.learnOverlay = id; }
+  if (key === 'measure-learn') { ensure(); void import('../nav').then(n => n.openWay('math', 'measure', 'learn')); const [id, c] = (val || 'ms-oclock').split(','); game.learnCheck = c === 'check'; game.learnOverlay = id; }
   // every sound in the game, with Play buttons (works on the live site too)
   if (key === 'sounds') void Promise.all([import('svelte'), import('../ui/SoundBoard.svelte')]).then(([s, m]) => s.mount(m.default, { target: document.body }));
 }

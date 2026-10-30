@@ -83,10 +83,11 @@
     glimmer = rollGlimmer(Date.now() % 1e9);
     key++;
   }
+  /** out of a duel: back to who's playing (a Rival Ghosts battle: back to the rivals) */
   function exit() {
     if (mode === 'rival') { game.go('rivals'); return; }
     if (sides) { sides = null; return; }
-    game.go('adventure');
+    game.back();
   }
 </script>
 
@@ -94,7 +95,7 @@
   {#key key}<DuelPlay {sides} {glimmer} {mode} {rival} {first} onagain={again} onexit={exit} />{/key}
 {:else}
   <div class="setup" style:background-image="url({backdrop})">
-    <Header title="Family Duel" sub="Take turns on one screen" back={() => game.go('adventure')} />
+    <Header />
     <div class="body">
       <div class="intro card">
         <img src="{base}game/intro-duel.webp" alt="" />

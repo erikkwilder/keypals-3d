@@ -12,6 +12,7 @@
   import { clearOldLine } from '../arcade/feedback';
   import { exitsOf } from '../arcade/exits';
   import ExitButtons from '../arcade/ui/ExitButtons.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
   import { sfx, startMusic, musicEnergy, setPlaceStation } from '../audio/sound';
   import { stage } from '../three/stage';
   import { ShowdownScene } from '../three/showdownScene';
@@ -60,6 +61,10 @@
   let next = challengeMaker(1, {}, {});
   let pool: ReturnType<typeof poolFor> = {};
   let shownAt = 0, t0 = 0, last = 0, raf = 0;
+  /** the Pause card (ui/PauseButton.svelte): the round's clock stops while it's open */
+  let held = 0;
+  function hold() { if (phase === 'play' && !held) held = performance.now(); }
+  function unhold() { if (!held) return; const d = performance.now() - held; shownAt += d; t0 += d; last += d; held = 0; }
   let paused = $state(0);
   /** each challenge bumps this; anything still waiting from an older one stops ($state wraps `ch`, so
    *  it can't be compared with the challenge itself) */
@@ -220,6 +225,7 @@
     if (disposed) return;
     raf = requestAnimationFrame(tick);
     if (phase !== 'play') return;
+    if (held) return;
     last = now;
     if (!paused) left = Math.max(0, ROUND_MS - (now - t0));
     if (left <= 0) finish();
@@ -247,7 +253,6 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if (e.key === 'Escape') { e.preventDefault(); quit(); return; }
     if (phase === 'play' && step === 'explain' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); goOn(); return; }
     if (phase === 'play' && step === 'bet' && /^[1-4]$/.test(e.key)) { const c = betColors[Number(e.key) - 1]; if (c) { e.preventDefault(); void pickBet(c); } return; }
     if (phase !== 'play' && e.key === 'Enter') { e.preventDefault(); start(daily); }
@@ -262,8 +267,8 @@
 <div class="screen show" class:narrow bind:clientWidth={w} bind:clientHeight={h} style:background-image="url({base}arcade/bg-fair.webp)">
   <canvas class="three" bind:this={canvas}></canvas>
 
+  <PauseButton onpause={hold} onresume={unhold} />
   <div class="top">
-    <button class="back" onclick={quit} aria-label={phase === 'play' ? 'Stop the round' : `Back to ${backTo}`}><Icon name="back" size={26} /></button>
     <div class="title"><img src="{base}math/data/tile.webp" alt="" /><b>Spinner Showdown</b>{#if daily}<small>Today's challenge</small>{/if}</div>
     {#if phase === 'play'}
       <div class="tix" bind:this={ticketEl}><img src="{base}math/data/prize-ticket.webp" alt="" /><b>{score}</b></div>
@@ -334,7 +339,6 @@
           <div><small>Today's challenge</small><b>{todayBest || '—'}</b><span class="tiny">Same wheel all day</span><span class="tiny bonus">Beat {STAR_AT[1]} for {DAILY_SHELLS} bonus shells</span></div>
         </div>
         <div class="acts">
-          <ExitButtons {exits} />
           <button class="btn" onclick={() => start(true)}><Icon name="target" size={20} /> Today's challenge</button>
           <button class="btn btn-primary big" onclick={() => start(false)}>Play <span class="kbd">enter</span></button>
         </div>
@@ -481,4 +485,7 @@
   .narrow .start h1, .narrow .done h1 { font-size: 30px; }
   .narrow .lead { font-size: 15px; }
   .narrow .how li { font-size: 14px; }
+  /* the one Pause button sits top left on every activity: the title chip starts after it */
+  .top { padding-left: 76px; }
+  @media (max-width: 600px) { .top { padding-left: 62px; } }
 </style>

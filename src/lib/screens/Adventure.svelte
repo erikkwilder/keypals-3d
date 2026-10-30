@@ -20,6 +20,7 @@
   import { WORLD_PIN, TYPING_SOON, lastWorld, mapOf, stationOf, worldSubject, worldsFor, type WorldPin, type WorldSubject } from '../adventure/worlds';
   import { nextSkillLesson } from '../math/skills/course';
   import { AREA } from '../math/skills/registry';
+  import { openTopicMap } from '../nav';
     import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
@@ -27,9 +28,6 @@
   import Coach from '../ui/Coach.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
-  import MenuButton from '../ui/MenuButton.svelte';
-  import HelpButton from '../ui/HelpButton.svelte';
-  import { tips } from '../ui/tips';
   // WALK: the walking map layer
   import MapWalker from '../ui/MapWalker.svelte';
 
@@ -146,9 +144,11 @@
   function startArea(w: WorldPin) {
     game.setHome('math'); game.mathOp = null; game.mathArea = w.area ?? null;
     const l = w.area ? nextSkillLesson(mathOf(p), w.area) : null;
-    if (l) game.startSkill(l.id); else game.go('map');
+    if (l) game.startSkill(l.id); else if (w.area) openTopicMap('math', w.area);
   }
 
+  /** the story cards: an X closes them (they don't come back by themselves) */
+  function closeIntro() { sfx.click(); intro = -1; game.update(pp => markSeen(pp, 'intro')); if (!advView(game.profile!).battles) mapTip = true; }
   function nextSlide() {
     sfx.pop();
     if (intro < SLIDES.length - 1) { intro++; return; }
@@ -191,45 +191,28 @@
 </script>
 
 <div class="screen adv" class:tall>
-  <Header title="Adventure" back={() => game.go('hub')} sub="{met} of {GLIMMER_TOTAL} Glimmers found" gear={!tall}>
-    {#snippet right()}
-      <button class="chip help" onclick={() => { intro = 0; sfx.pop(); }} title="How Adventure works"><Icon name="help" size={28} /></button>
-      {#if !tall}<span class="chip shells" title="Shells: spend them in the shop"><img src="{base}game/icon-shell.webp" alt="" />{a.shells}</span>{/if}
-      {#if play.left !== null}<span class="chip time" class:low={play.left < 3} title={PLAY_RULES[a.settings.rule].text}><Icon name="clock" size={20} /> {Math.max(0, Math.floor(play.left))}<span class="mn">&nbsp;min</span></span>{/if}
-      {#if tall}<span class="tallbtns" use:tips><MenuButton size={30} /><HelpButton size={30} /></span>{/if}
-    {/snippet}
-  </Header>
+  <Header />
 
   <div class="mapwrap" bind:this={wrap} style:--bg="url({new URL(`${base}${wmap[kind]}`, document.baseURI).href})">
     <div class="backdrop"></div>
     <!-- WALK: the map you walk round with your buddy (trails, stops, finds, the 3D buddy): ui/MapWalker.svelte -->
     <MapWalker {world} {kind} {tall} paused={!!open || picker || intro >= 0} onopen={tap} />
-    <button class="worldbtn" class:hasnew={fresh.length > 0} onclick={openWorlds} title="Every {SUBJ_NAME[subj].toLowerCase()} world of Adventure" aria-label="World map: {nOpen} of {nAll} {SUBJ_NAME[subj].toLowerCase()} worlds open{fresh.length ? ', a new world is open' : ''}">
-      <img src="{base}game/worlds-wide.webp" alt="" />
-      <span class="wbt"><small>{SUBJ_NAME[subj]} worlds · {WORLD_PIN[world].name}</small><b>World map</b><em>{nOpen} of {nAll} open{subj === 'typing' ? ' · more coming' : ''}</em></span>
-      {#if fresh.length}<span class="newb">{fresh.length === 1 ? 'New world!' : `${fresh.length} new worlds!`}</span>{/if}
-    </button>
   </div>
 
+  <!-- the dock of three: the World map (every world), your Glimmers, your eggs. Family Duel and Rival
+       Ghosts are in the Arcade's Play together; the Shop is in My stuff. -->
   <div class="dock">
-    <NavTile label="Team" tone="lilac" badge={a.fresh.length ? 'New' : undefined} title="Your Glimmers and your team" onclick={() => game.go('glimmers')}>
+    <button class="worldbtn" class:hasnew={fresh.length > 0} onclick={openWorlds} title="Every {SUBJ_NAME[subj].toLowerCase()} world of Adventure" aria-label="World map: {nOpen} of {nAll} {SUBJ_NAME[subj].toLowerCase()} worlds open{fresh.length ? ', a new world is open' : ''}">
+      <img src="{base}game/worlds-wide.webp" alt="" />
+      <span class="wbt"><small>{SUBJ_NAME[subj]} worlds · {WORLD_PIN[world].name}</small><b>World map</b><em>{nOpen} of {nAll} open{play.left !== null ? ` · ${Math.max(0, Math.floor(play.left))} min of play left` : ''}</em></span>
+      {#if fresh.length}<span class="newb">{fresh.length === 1 ? 'New world!' : `${fresh.length} new worlds!`}</span>{/if}
+    </button>
+    <NavTile label="Glimmers" tone="lilac" badge={a.fresh.length ? 'New' : undefined} title="Your Glimmers and your team" onclick={() => { game.glimmerTab = 'team'; game.visit('glimmers'); }}>
       {#snippet art()}<span class="faces">{#each faces as t}<img class:ghost={!team.length} src="{base}game/glimmers/face/{t}{a.glimmers[t]?.evolved ? '-evo' : ''}.webp" alt="" />{/each}</span>{/snippet}
     </NavTile>
-    <NavTile label="Eggs" tone="butter" badge={ready ? `${ready} ready!` : eggs ? eggs : undefined} title="Your eggs hatch when you practice" onclick={() => game.go('eggs')}>
+    <NavTile label="Eggs" tone="butter" badge={ready ? `${ready} ready!` : eggs ? eggs : undefined} title="Your eggs hatch when you practice" onclick={() => game.visit('eggs')}>
       {#snippet art()}<img class="tileimg" src="{base}game/egg-{a.incubator.find(e => e)?.rarity ?? 'rare'}.webp" alt="" />{/snippet}
     </NavTile>
-    <!-- (on a phone the shells show on the Shop, so the bar keeps room for the compass and Ideas and help) -->
-    <NavTile label="Shop" tone="mint" badge={tall ? a.shells : undefined} title="The Island Shop: things to wear, eggs and treats. You have {a.shells} shells" onclick={() => game.openShop()}>
-      {#snippet art()}<img class="tileimg" src="{base}game/icon-shell.webp" alt="" />{/snippet}
-    </NavTile>
-    {#if a.settings.versus !== false}
-    <NavTile label="Duel" tone="sky" badge={a.seen?.includes('duel1') ? undefined : 'New'} title="Family Duel: take turns with someone on this screen" onclick={() => { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); }}>
-      {#snippet art()}<img class="tileimg" src="{base}game/tile-duel.webp" alt="" />{/snippet}
-    </NavTile>
-    <NavTile label="Rivals" tone="pink" badge={a.seen?.includes('rivals1') ? undefined : 'New'} title="Rival Ghosts: battle someone's ghost" onclick={() => game.go('rivals')}>
-      {#snippet art()}<img class="tileimg" src="{base}game/tile-rivals.webp" alt="" />{/snippet}
-    </NavTile>
-    {/if}
   </div>
 
   {#if !play.open}
@@ -260,8 +243,8 @@
           {:else}
             <p>Do one practice: a math trip, a typing lesson or a playground game. Then come back here for a reward.</p>
             <p class="muted">Practice also makes your eggs grow{a.settings.rule === 'balanced' ? ' and earns more Adventure time' : ''}.{a.settings.rule === 'open' ? ' You can skip ahead for now: the reward waits here.' : ''}</p>
-            <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>Math trip</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing lesson</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
-            {#if learnTip}<button class="learnlink" onclick={() => game.openLearn(learnTip!.id, 'adventure')}><img src="{base}learn/tile.webp" alt="" /><span><small>A new trick to learn</small><b>{learnTip.title}</b></span><em>Learn it <Icon name="play" size={16} /></em></button>{/if}
+            <div class="row"><button class="btn" class:btn-primary={subj !== 'typing'} onclick={() => goPractice('math')}>Math trip</button><button class="btn" class:btn-primary={subj === 'typing'} onclick={() => goPractice('typing')}>Typing lesson</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
+            {#if learnTip}<button class="learnlink" onclick={() => game.openLearn(learnTip!.id)}><img src="{base}learn/tile.webp" alt="" /><span><small>A new trick to learn</small><b>{learnTip.title}</b></span><em>Learn it <Icon name="play" size={16} /></em></button>{/if}
           {/if}
         {:else}
           {#if n.kind === 'champion'}
@@ -289,7 +272,7 @@
               <p class="eggline">You might win an egg too: after about 3 in 10 wins, and always after a Perfect Cheer. An egg can hatch any kind, even Legendary.</p>
             </div>
           {/if}
-          <div class="teamline"><span>Your team</span>{#each team as t}<span class="tm"><img src="{base}game/glimmers/face/{t}{a.glimmers[t]?.evolved ? '-evo' : ''}.webp" alt="" />{GLIMMER[t].name}</span>{:else}<em>No Glimmers yet: win this battle for your first!</em>{/each}{#if met > 0}<button class="linky" onclick={() => game.go('glimmers')}>Change team</button>{/if}</div>
+          <div class="teamline"><span>Your team</span>{#each team as t}<span class="tm"><img src="{base}game/glimmers/face/{t}{a.glimmers[t]?.evolved ? '-evo' : ''}.webp" alt="" />{GLIMMER[t].name}</span>{:else}<em>No Glimmers yet: win this battle for your first!</em>{/each}{#if met > 0}<button class="linky" onclick={() => { game.glimmerTab = 'team'; game.visit('glimmers'); }}>Change team</button>{/if}</div>
           {#if isl.area}<p class="areanote">{WORLD_PIN[isl.world]?.blurb ?? isl.blurb}{isl.mischief ? ` Watch out: ${isl.mischief.name.toLowerCase()}!` : ''}</p>
           {:else}<div class="subj"><span>Answer with</span>
             <button class:on={a.subject === 'math'} onclick={() => setSubject('math')}>Math</button>
@@ -359,13 +342,13 @@
     {@const sl = SLIDES[intro]}
     <div class="introbg">
       <div class="introcard card">
+        <span class="introx"><CloseButton onclick={closeIntro} size={40} label="Close the story" /></span>
         {#key intro}<div class="pic" style:background-image="url({base}game/{sl.img}.webp)"></div>{/key}
         <div class="it">
           <h2>{sl.title}</h2>
           <p>{sl.text}</p>
           <div class="dots">{#each SLIDES as _, i}<i class:on={i === intro}></i>{/each}</div>
           <div class="row end">
-            {#if intro > 0}<button class="btn" onclick={() => intro--}>Back</button>{/if}
             <button class="btn btn-primary big" onclick={nextSlide}>{intro < SLIDES.length - 1 ? 'Next' : `Let's go, ${FRIEND[p.buddy].name}!`}</button>
           </div>
         </div>
@@ -377,6 +360,8 @@
 
 <style>
   .adv { display: flex; flex-direction: column; background: #cfe6fb; overflow: hidden; }
+  .introcard { position: relative; }
+  .introx { position: absolute; top: 10px; right: 10px; z-index: 3; }
   .chip { display: flex; align-items: center; gap: 6px; font: 600 18px var(--font-ui); background: #fff; border-radius: 999px; padding: 4px 12px 4px 4px; box-shadow: var(--shadow-sm); border: 0; color: var(--ink); }
   .chip img { width: 30px; height: 30px; object-fit: contain; }
   .chip.help { width: 40px; height: 40px; justify-content: center; padding: 0; font-size: 22px; color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b; }
@@ -451,7 +436,7 @@
   .worlds.narrow .wscroll { display: block; place-items: normal; padding: 0 0 8px; }
   .worlds.narrow .wpic { width: auto; height: calc(100cqh - 8px); border-radius: 0; }
   .worlds.narrow .wtop p { display: none; }
-  .tall .worldbtn { left: 8px; top: 8px; gap: 8px; padding: 5px 12px 5px 5px; border-radius: 18px; }
+  .tall .worldbtn { gap: 8px; padding: 5px 12px 5px 5px; border-radius: 18px; }
   .tall .worldbtn img { width: 64px; height: 40px; border-radius: 12px; }
   .tall .worldbtn b { font-size: 19px; } .tall .worldbtn small { font-size: 9.5px; } .tall .worldbtn em { font-size: 11.5px; }
   .tall .newb { font-size: 12.5px; top: -10px; right: -10px; padding: 3px 8px; }
@@ -460,7 +445,8 @@
   .worlds.narrow .wtabs button { font-size: 15px; padding: 3px 10px 3px 3px; } .worlds.narrow .wtabs button img { width: 28px; height: 28px; }
   .worlds.narrow .tworlds { grid-template-columns: 1fr; padding: 6px 14px 18px; gap: 14px; }
 
-  .dock { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 12px; z-index: 4; }
+  .dock { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; z-index: 4; padding: 8px; border-radius: 30px; background: rgba(255, 255, 255, .8); box-shadow: 0 14px 30px -18px rgba(40, 20, 80, .6); }
+  .dock .worldbtn { position: relative; left: auto; top: auto; }
   .dock :global(.tile) { width: 112px; height: 112px; }
   .faces { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
   .faces img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; object-position: center 35%; box-shadow: 0 0 0 3px #fff, 0 4px 8px rgba(40, 20, 80, .3); }
@@ -538,7 +524,7 @@
   .tall .chip { font-size: 15px; padding: 2px 8px 2px 2px; } .tall .chip img { width: 24px; height: 24px; } .tall .chip.time { padding: 4px 8px; font-size: 13px; }
   /* phone header: smaller painted icons so the title keeps its room */
   .tall .chip.time { gap: 3px; padding: 4px 7px 4px 4px; } .tall .chip.time :global(.ico) { width: 16px; height: 16px; } .tall .chip.help :global(.ico) { width: 22px; height: 22px; } .tall .chip.time .mn { display: none; } .tall .chip.help { width: 32px; height: 32px; font-size: 18px; padding: 0; }
-  .tall .dock { position: static; flex: none; justify-content: center; gap: 8px; padding: 8px 8px 10px; background: rgba(255, 255, 255, .92); border-top: var(--panel-border); }
+  .tall .dock { position: static; transform: none; flex: none; justify-content: center; gap: 8px; padding: 8px 8px 10px; border-radius: 0; background: rgba(255, 255, 255, .92); border-top: var(--panel-border); box-shadow: none; }
   .tall .dock { gap: 6px; padding: 8px 6px 10px; }
   .tall .dock :global(.tile) { width: calc((100vw - 36px) / 5); max-width: 96px; min-width: 0; height: 84px; padding: 6px 2px; gap: 2px; }
   /* on a phone the picture box shrinks so the picture and its word both fit the shorter tile */

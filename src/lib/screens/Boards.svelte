@@ -35,7 +35,7 @@
 </script>
 
 <div class="screen boards">
-  <Header title="Boards" sub="This week's practice" back={() => game.go('hub')} />
+  <Header />
   <div class="body scroll">
     {#if !cloud.online}
       <p class="note">The boards need the internet.</p>

@@ -57,7 +57,7 @@ export function startAssignment(p: Profile, a: AssignmentData & { id?: string })
   const next = pr.parts.find(x => !x.done)?.id ?? pr.parts[0]?.id;
   if (!next) return;
   if (a.what === 'typing') { game.setHome('typing'); game.startLesson(next); return; }
-  if (a.what === 'learn') { game.openLearn(next, 'hub'); return; }
+  if (a.what === 'learn') { game.openLearn(next); return; }
   // Show What You Know
   const op = AREA[next as AreaId]?.op;
   game.setHome('math');

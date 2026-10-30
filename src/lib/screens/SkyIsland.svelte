@@ -30,8 +30,7 @@
   import { isClassLogin } from '../state/classHere';
   import type { Profile } from '../engine/profile';
   import Critter from '../ui/Critter.svelte';
-  import NavTile from '../ui/NavTile.svelte';
-  import MenuButton from '../ui/MenuButton.svelte';
+  import Bar from '../ui/Bar.svelte';
   import Icon from '../ui/Icon.svelte';
   import BlockTray from '../island/BlockTray.svelte';
   import SecretsSheet from '../island/SecretsSheet.svelte';
@@ -654,7 +653,7 @@
     if (blocking && (e.key === 'r' || e.key === 'R')) { turnK = (turnK + 1) % 4; sfx.click(); refreshHover(); return; }
     if (blocking && e.key === 'z' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); undo(); return; }
     if (e.key !== 'Escape') return;
-    if (moment) moment = null; else if (photo) endPhoto(); else if (card) thanks(); else if (sheet) sheet = null; else if (lockedPaint !== null) lockedPaint = null; else if (placing) cancelPlace(); else if (blocking) trayOpen = narrow ? false : (mode = 'things', true); else if (selected) choose(null); else if (owner) void goHome(); else game.backFromStuff(() => game.go(game.home));
+    if (moment) moment = null; else if (photo) endPhoto(); else if (card) thanks(); else if (sheet) sheet = null; else if (lockedPaint !== null) lockedPaint = null; else if (placing) cancelPlace(); else if (blocking) trayOpen = narrow ? false : (mode = 'things', true); else if (selected) choose(null); else if (owner) void goHome(); else game.back();
   }
   function keyUp(e: KeyboardEvent) { const d = KEYDIR[e.code]; if (d) held.delete(d); }
 
@@ -669,23 +668,11 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="view" bind:this={viewEl} onpointerdown={pdown} onpointermove={pmove} onpointerup={pup} onpointercancel={(e) => ptrs.delete(e.pointerId)} oncontextmenu={(e) => e.preventDefault()}></div>
 
-  <header class="top" bind:this={topEl}>
-    {#if game.fromStuff}<NavTile size={narrow ? 'bar' : 'sm'} tone="sky" kind="home" label="My stuff" onclick={() => game.go('mystuff')} />{:else}<NavTile size={narrow ? 'bar' : 'sm'} tone="sky" kind="home" label="Home" onclick={() => game.go('hub')} />{/if}
-    <div class="title">
-      <img src="{base}island/tile.webp" alt="" />
-      <div><b>{visiting ? `${owner?.name}'s ${narrow ? 'island' : 'Sky Island'}` : 'My Sky Island'}</b>
-        <small>{grow.next ? `Size ${grow.stage + 1} · meet ${grow.next.met} Glimmers to grow it (${grow.met} so far)` : `Size ${grow.stage + 1} · as big as it gets!`}</small></div>
-    </div>
-    <span class="sp"></span>
-    {#if !visiting && !narrow}
-      <button class="pill visitors" onclick={() => { sheet = 'postcards'; sfx.pop(); }} title="Visitors and their postcards">
-        {#if lastVisitor}<img class="vf" src={face(lastVisitor)} alt="" />{:else}<img class="vf" src="{base}icons/mail.webp" alt="" />{/if}
-        <span>Visitors: <b>{visitorsSeen}</b></span>
-      </button>
-    {/if}
-    {#if narrow && !visiting}<span class="pill shells sm"><img src="{base}game/icon-shell.webp" alt="" /><b>{fmt(shells)}</b></span>{/if}
-    <MenuButton size={narrow ? 34 : 40} />
-  </header>
+  <!-- the one top bar (its size under the title); visiting family, Back comes home to your island -->
+  <div class="top" bind:this={topEl}>
+    <Bar title={visiting ? `${owner?.name}'s Sky Island` : 'My Sky Island'} esc={false} back={visiting ? () => void goHome() : undefined}
+      trail={grow.next ? `Size ${grow.stage + 1} · meet ${grow.next.met} Glimmers to grow it (${grow.met} so far)` : `Size ${grow.stage + 1} · as big as it gets!`} />
+  </div>
 
   <!-- the round buttons on the left: your Glimmers, family, postcards -->
   <nav class="side" aria-label="Island" bind:this={sideEl}>
@@ -697,11 +684,9 @@
       {#if family.length}
         <button class="round" onclick={() => { sheet = 'family'; sfx.pop(); }} title="Visit family's islands"><img src="{base}icons/players.webp" alt="" /><span>Family</span></button>
       {/if}
-      {#if narrow}
-        <button class="round" onclick={() => { sheet = 'postcards'; sfx.pop(); }} title="Visitors and their postcards">
-          <img src={lastVisitor ? face(lastVisitor) : `${base}icons/mail.webp`} alt="" /><span>Visitors</span><em>{visitorsSeen}</em>
-        </button>
-      {/if}
+      <button class="round" onclick={() => { sheet = 'postcards'; sfx.pop(); }} title="Visitors and their postcards">
+        <img src={lastVisitor ? face(lastVisitor) : `${base}icons/mail.webp`} alt="" /><span>Visitors</span><em>{visitorsSeen}</em>
+      </button>
       <button class="round" onclick={() => { sheet = 'secrets'; sfx.pop(); void scene?.thumbs(SECRETS.map(d => d.keepsake), (id, url) => { thumbs[id] = url; }); }} title="Island secrets">
         <img src="{base}island/map.webp" alt="" /><span>Secrets</span><em>{foundCount(isl)}/{SECRETS.length}</em>
       </button>
@@ -960,7 +945,7 @@
   .view { position: absolute; inset: 0; touch-action: none; cursor: grab; }
   .view:active { cursor: grabbing; }
 
-  .top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 12px; padding: 12px 16px; pointer-events: none; }
+  .top { position: absolute; left: 0; right: 0; top: 0; z-index: 6; pointer-events: none; }
   .top > :global(*) { pointer-events: auto; }
   .sp { flex: 1; }
   .title { display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, .94); border-radius: 999px; padding: 6px 22px 6px 6px; box-shadow: 0 0 0 3px rgba(255, 255, 255, .6), 0 10px 26px -12px rgba(80, 50, 30, .5); min-width: 0; }
@@ -1175,7 +1160,7 @@
     .pill.shells.big img { width: 40px; height: 40px; }
   }
   /* phones */
-  .narrow .top { padding: 8px 10px; gap: 8px; }
+
   .narrow .title { padding: 7px 12px; gap: 6px; }
   .narrow .title img { display: none; }
   .narrow .title b { font-size: 18px; white-space: nowrap; }

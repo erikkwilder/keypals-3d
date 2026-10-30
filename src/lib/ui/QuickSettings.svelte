@@ -40,7 +40,7 @@
     if (mode === 'setup') game.update(pp => { pp.soundSetup = true; });
     game.closeSheet();
   }
-  function more() { game.closeSheet(); game.go('settings'); }
+  function more() { game.closeSheet(); game.openSettings(); }
 
   function onKey(e: KeyboardEvent) {
     // the sheet owns the keyboard while it's open
@@ -57,9 +57,9 @@
       <TileArt kind={mode === 'setup' ? 'sfx' : 'settings'} size={52} />
       <div>
         <h2>{mode === 'setup' ? 'How should Keypals sound?' : 'Settings'}</h2>
-        <p class="muted">{mode === 'setup' ? 'Tap to switch things on or off. You can change this any time with the gear button.' : 'Tap a card to switch it on or off.'}</p>
+        <p class="muted">{mode === 'setup' ? 'Tap to switch things on or off. You can change this any time in the Menu.' : 'Tap a card to switch it on or off.'}</p>
       </div>
-      {#if mode !== 'setup'}<button class="x" aria-label="Close" onclick={close}><TileArt kind="close" size={40} /></button>{/if}
+      <button class="x" aria-label="Close" onclick={close}><TileArt kind="close" size={40} /></button>
     </div>
 
     <div class="grid">

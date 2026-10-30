@@ -5,6 +5,8 @@
   // moves the buddy on (the last one over the finish line), quick right answers climb the speed steps, a
   // new kind of question comes with its trick first, a miss shows in red for a moment, then the answer and
   // its trick, and comes back a few questions later. No clock.
+  import PauseButton from '../ui/PauseButton.svelte';
+  import { placeName } from '../nav';
   import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
@@ -209,12 +211,16 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     unlockAudio();
     if (game.modalOpen) return;
-    if (phase === 'intro') { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); begin(); } else if (e.key === 'Escape') leave(); return; }
-    if (phase === 'paused') { if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); phase = 'play'; } return; }
-    if (phase === 'play' && e.key === 'Escape') { phase = 'paused'; napped = true; }
+    if (phase === 'intro') { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); begin(); } return; }
+    if (phase === 'paused') return;
   }
-  function onBlur() { if (phase === 'play') { phase = 'paused'; napped = true; } }
-  function leave() { phase = 'done'; game.go('map'); }
+  function onBlur() { if (phase === 'play' && !game.pause) { pauseNow(); game.openPause(resumeNow); } }
+  function leave() { phase = 'done'; game.leaveActivity(); }
+  /** where Back goes: where this was started from (a topic, its map, Home, the Arcade...) */
+  const backName = game.from ? placeName(game.from) : 'Home';
+  /** the one Pause button and its card (ui/PauseButton.svelte); a window that loses focus pauses too */
+  function pauseNow() { if (phase === 'play') { phase = 'paused'; napped = true; } }
+  function resumeNow() { if (phase === 'paused') phase = 'play'; }
   function restart() { game.startSkill(lesson.id, true); }
   function setCalm(on: boolean) { calm = on; game.update(pp => { pp.math = { ...mathOf(pp), calm: on }; }); }
 
@@ -270,8 +276,8 @@
   <div class="stage">
     {#if bubble && phase === 'play' && !showHelp}<div class="bubble" style:left="{bubbleXY.x * innerWidth}px" style:top="{bubbleXY.y * innerHeight}px">{bubble}</div>{/if}
     {#if loading}<div class="loading">Getting the island ready…</div>{/if}
+    <PauseButton onpause={pauseNow} onresume={resumeNow} />
     <div class="hud">
-      <button class="btn btn-icon pause" aria-label="Pause" onclick={() => (phase = phase === 'play' ? 'paused' : phase)}><Icon name="pause" size={32} /></button>
       <div class="title"><div class="region">{regionName}</div><div class="lesson">{lesson.title}</div></div>
       <div class="trail">
         <div class="bar"><div class="fill" style:width="{trip * 100}%"></div></div>
@@ -356,7 +362,6 @@
         {/if}
         {#if record}<div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore} · top speed: {rideName(record.bestRide, lesson.move)}</div>{/if}
         <div class="tiles">
-          <NavTile size="md" tone="sky" kind="home" label="Home" onclick={leave} />
           <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={() => { unlockAudio(); begin(); }} />
         </div>
         <div class="pills"><label class="pill"><input type="checkbox" checked={calm} onchange={(e) => setCalm((e.currentTarget as HTMLInputElement).checked)} /> Calm mode (no rides, no speed)</label></div>
@@ -364,19 +369,7 @@
     </div>
   {/if}
 
-  {#if phase === 'paused'}
-    <div class="overlay">
-      <div class="card pausecard">
-        <Critter friend={profile.buddy} size={110} mood="sleep" />
-        <h2>Taking a breather</h2>
-        <div class="tiles">
-          <NavTile size="lg" tone="mint" kind="play" label="Keep going" hotkey="esc" onclick={() => (phase = 'play')} />
-          <NavTile size="lg" tone="butter" kind="redo" label="Start over" onclick={restart} />
-          <NavTile size="lg" tone="sky" kind="home" label="Home" onclick={leave} />
-        </div>
-      </div>
-    </div>
-  {/if}
+
   {#if game.learnOverlay}
     <!-- a Learn episode over the trip: the trip waits underneath, and gets its 3D view back after -->
     <div class="learnlay">
@@ -397,7 +390,7 @@
   .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
   .loading { position: absolute; left: 0; right: 0; top: 55%; text-align: center; font: 600 20px var(--font-ui); color: #fff; text-shadow: 0 2px 8px rgba(40, 30, 80, .4); }
   .bubble { position: absolute; z-index: 4; white-space: nowrap; transform: translate(10%, -120%); background: #fff; padding: 9px 14px; border-radius: 16px; font: 600 17px/1.1 var(--font-ui); color: var(--ink); box-shadow: var(--shadow); animation: pop-in .25s cubic-bezier(.3, .8, .4, 1.5); border: var(--panel-border); }
-  .hud { position: absolute; top: 14px; left: 16px; right: 16px; display: flex; align-items: center; gap: 14px; z-index: 6; }
+  .hud { position: absolute; top: 14px; left: 80px; right: 16px; display: flex; align-items: center; gap: 14px; z-index: 6; }
   .pause { flex: none; }
   .title { flex: none; background: rgba(255, 255, 255, .9); padding: 7px 14px; border-radius: 16px; box-shadow: var(--shadow-sm); border: var(--panel-border); }
   .region { font: 700 11px/1.2 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -463,7 +456,7 @@
   .pill input { accent-color: var(--primary); width: 16px; height: 16px; margin: 0 2px 0 6px; }
   .pausecard { display: flex; flex-direction: column; align-items: center; }
   .pausecard h2 { font-size: 30px; margin: 4px 0 6px; }
-  .compact .hud { top: 8px; left: 8px; right: 8px; gap: 8px; flex-wrap: wrap; }
+  .compact .hud { top: 8px; left: 62px; right: 8px; gap: 8px; flex-wrap: wrap; }
   .compact .title { padding: 5px 10px; }
   .compact .lesson { font-size: 15px; }
   .compact .region { display: none; }
@@ -481,4 +474,8 @@
   .compact .announce { top: 45%; }
   .compact .banner { left: 30%; }
   .compact .bword { font-size: 34px; }
+  /* phones: Start sits right under the name of the trip, above the fold */
+  .compact .card.intro { display: flex; flex-direction: column; }
+  .compact .card.intro > .where, .compact .card.intro > h1 { order: -2; }
+  .compact .card.intro > .tiles { order: -1; margin-top: 8px; }
 </style>

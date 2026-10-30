@@ -19,7 +19,7 @@
       <span>{who.length === 1 ? `${first.name} has played on ${playDays(first)} days` : `${who.map(p => p.name).join(' and ')} have been playing`}. Right now it's saved only in this browser. A grown-up can turn on saving online so nothing is lost.</span>
     </div>
     <div class="b">
-      <button class="btn btn-primary" onclick={() => game.go('grownups')}>Grown-ups: turn it on</button>
+      <button class="btn btn-primary" onclick={() => game.openGrownups('players')}>Grown-ups: turn it on</button>
       <button class="btn btn-ghost" onclick={later}>Remind me later</button>
     </div>
   </div>

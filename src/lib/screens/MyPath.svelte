@@ -10,7 +10,8 @@
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
   import { MATH_LESSON } from '../math/course';
-  import TopBar from '../ui/TopBar.svelte';
+  import Bar from '../ui/Bar.svelte';
+  import PageTabs from '../ui/PageTabs.svelte';
   import TodayCard from '../path/TodayCard.svelte';
   import { PATH_SUBJECTS, KIND_ICON, KIND_NAME, kindColor, gradeName } from '../path/units';
   import { LEVEL_WORD, pathStates, unitLevels, type ItemState, type UnitState } from '../path/progress';
@@ -72,7 +73,6 @@
   onMount(() => { void tick().then(toCurrent); });
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if (e.key === 'Escape') game.go('hub');
     if (e.key === 'Enter' && current?.next) { e.preventDefault(); go(current, current.next); }
   }
   const statusText = (s: UnitState) => s.status === 'done' ? 'Done' : s.status === 'known' ? 'You know this' : s.status === 'current' ? "You're here" : s.status === 'earlier' ? 'Before your grade' : '';
@@ -128,18 +128,10 @@
 {/snippet}
 
 <div class="screen mypath">
-  <TopBar />
-  <header class="ph">
-    <img class="pi" src="{base}icons/path.webp" alt="" />
-    <div class="pt"><h1>My path</h1><span>{doneUnits} of {main.length} units done</span></div>
-    {#if subjects.length > 1}
-      <div class="subs" role="tablist" aria-label="Which subject">
-        {#each subjects as s (s.id)}
-          <button role="tab" aria-selected={s.id === subject} class:on={s.id === subject} style:--sc={s.color} onclick={() => pick(s.id)}><img src="{base}{s.icon}" alt="" />{s.name}</button>
-        {/each}
-      </div>
-    {/if}
-  </header>
+  <Bar trail="{doneUnits} of {main.length} units done" />
+  {#if subjects.length > 1}
+    <PageTabs label="Which subject" value={subject} onpick={pick} tabs={subjects.map(x => ({ id: x.id, label: x.name }))} />
+  {/if}
 
   <div class="body scroll" bind:this={scroller}>
     <div class="col">

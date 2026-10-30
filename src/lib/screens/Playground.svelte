@@ -21,7 +21,7 @@
   import SpinLab from '../math/play/SpinLab.svelte';
   import Scale from '../math/play/Scale.svelte';
   import NavTile from '../ui/NavTile.svelte';
-  import MenuButton from '../ui/MenuButton.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
   import Critter from '../ui/Critter.svelte';
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
@@ -62,8 +62,8 @@
     game.playPick = null;
     if (g && PLAY_GAME[g]) start(g, playNextLevel(p, g));
   });
-  /** back to the Math page, on its Games tab (the playground's toys are math games) */
-  function toMath() { sfx.click(); game.setHome('math'); game.way = { ...game.way, math: 'games' }; game.go('map'); }
+  /** back to where the playground was opened from (a topic's Play list, the Arcade...) */
+  function toMath() { sfx.click(); game.leaveActivity(); }
   onDestroy(() => { if (scene && stage.current() === scene) stage.use(null); scene?.dispose(); });
 
   function start(g: PlayGame, level: number) {
@@ -82,7 +82,6 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if (e.key === 'Escape') { if (playing || done) { backToGames(); } else toMath(); }
     if (done && e.key === 'Enter') { e.preventDefault(); const n = done.level < 5 && playUnlocked(p, done.g, done.level + 1) ? done.level + 1 : done.level; start(done.g, n); }
   }
   const WHAT: Record<PlayGame, string> = {
@@ -106,13 +105,10 @@
 <svelte:window onkeydown={onKey} onresize={onResize} />
 
 <div class="screen pg" class:world={!!playing || !!done} style:background-image={playing || done ? null : `linear-gradient(rgba(236, 244, 255, .9), rgba(250, 246, 255, .94)), url(${import.meta.env.BASE_URL}math/strand-playground.webp)`}>
+  <!-- an activity: the one Pause button (Keep going, Back to where it was opened from, Home) and the toy's name -->
+  <PauseButton />
   <header class="bar">
-    <NavTile size="sm" tone="sky" kind="home" label="Home" onclick={() => game.go('hub')} />
     <h1>{playing ? PLAY_GAME[playing.g].name : 'Number Playground'}</h1>
-    <div class="spacer"></div>
-    {#if playing}<button class="btn ghost" onclick={backToGames}>Back to games</button>
-    {:else}<button class="btn ghost withimg" onclick={toMath}><img src="{import.meta.env.BASE_URL}icons/arcade.webp" alt="" />Math games</button>{/if}
-    <MenuButton size={36} />
   </header>
 
   <div class="body scroll">
@@ -266,4 +262,7 @@
   .chip img { width: 18px; height: 18px; }
   .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
   @media (max-width: 900px) { .bar :global(.tile .lbl) { display: none; } .games { grid-template-columns: 1fr; } .body { padding: 10px 10px 20px; } .bar { padding: 8px 10px; } .bar h1 { font-size: 20px; } .hello p { font-size: 15px; } .hello :global(.critter-host) { width: 64px !important; height: 64px !important; } .toy { grid-template-columns: 1fr; } .toy > .gpic { aspect-ratio: 16 / 8; min-height: 0; } .toy .tbody { padding: 0; } }
+  /* the toy's name starts after the Pause button */
+  .bar { padding-left: 80px !important; }
+  @media (max-width: 600px) { .bar { padding-left: 64px !important; } }
 </style>

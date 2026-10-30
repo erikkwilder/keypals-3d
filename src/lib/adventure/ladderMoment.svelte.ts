@@ -6,7 +6,7 @@ import { checkLadder, ladderNeedsWrite, type LadderNews } from './ladder';
 /** Eggs that arrived and haven't had their moment yet. */
 export const moment = $state<{ queue: LadderNews[] }>({ queue: [] });
 /** Screens a moment may show over (and that look for new ones when opened). */
-export const CALM_SCREENS = new Set<Screen>(['hub', 'map', 'adventure', 'glimmers', 'glimmerBook', 'eggs', 'garden', 'arcade', 'stickers', 'closet', 'shop']);
+export const CALM_SCREENS = new Set<Screen>(['hub', 'map', 'adventure', 'glimmers', 'eggs', 'garden', 'arcade', 'stickers', 'closet', 'keypals', 'dances', 'shop', 'mystuff', 'subject', 'topic']);
 
 /** Look for goals met (free when nothing's new) and queue their eggs' moments. */
 export function lookForEggs(now = Date.now()) {

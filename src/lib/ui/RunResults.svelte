@@ -44,7 +44,8 @@
   import Confetti from './Confetti.svelte';
   import StickerCard from './StickerCard.svelte';
   import NavTile from './NavTile.svelte';
-  import GearButton from './GearButton.svelte';
+  import PauseButton from './PauseButton.svelte';
+  import { placeName } from '../nav';
   import Icon from './Icon.svelte';
   import { funEvent } from '../fun/bus';
 
@@ -61,7 +62,7 @@
     makeScene: () => Promise<RunScene>;
     onretry: () => void; onnext: () => void; onhome: () => void;
     /** the first small button: Progress for typing, the Fact Garden for math */
-    progress: { label: string; tone?: 'lilac' | 'pink' | 'mint' | 'sky' | 'butter'; kind?: 'chart'; art?: Snippet; onclick: () => void };
+    progress?: { label: string; tone?: 'lilac' | 'pink' | 'mint' | 'sky' | 'butter'; kind?: 'chart'; art?: Snippet; onclick: () => void };
     badges?: Snippet; ringExtra?: Snippet; extra?: Snippet;
     /** how the buddy travelled (the math courses name and draw their speed steps their own way) */
     move?: Move;
@@ -282,13 +283,14 @@
     sfx.pop();
   }
   const myDance = $derived(game.profile ? danceOf(game.profile, buddy) : danceOf(p));
+  /** the way out: back to where the lesson or trip was started from */
+  const backName = game.from ? placeName(game.from) : 'Home';
   const opened = performance.now();
   function onKey(e: KeyboardEvent) {
     if (detail || tdetail !== null || peek) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); detail = null; tdetail = null; peek = null; } return; }
     if (performance.now() - opened < 1200 || game.modalOpen) return;
     if (e.key === 'Enter') { e.preventDefault(); passed ? onnext() : onretry(); }
     if (e.key === ' ') { e.preventDefault(); onretry(); }
-    if (e.key === 'Escape') onhome();
   }
   const heroOutfit = $derived(wearing ?? (game.profile ? outfitOf(game.profile, buddy) : 'none'));
   const scoreHue = run.stars >= 3 ? 'gold' : run.stars === 2 ? 'mint' : run.stars === 1 ? 'sky' : 'lilac';
@@ -299,7 +301,7 @@
 
 <div class="screen results" class:narrow class:short bind:this={rootEl} bind:clientHeight={heroH} bind:clientWidth={heroW} onscroll={updateView}>
 
-  <div class="corner"><GearButton size={40} /></div>
+  <PauseButton />
 
   {#if prizeOn}
     <div class="prize" class:settled={prizeSettled} style:left="{prizeBox.x}px" style:top="{prizeBox.y}px" style:--sz="{prizeBox.size}px">
@@ -348,13 +350,12 @@
             <span class="iname">{e.m.name}</span>
             {#if e.m.tierUp && e.m.count > 1}<em class="tier" style:background={TIER_LOOK[e.m.tier].pill} style:color={TIER_LOOK[e.m.tier].ink}>{TIER_LOOK[e.m.tier].name}!</em>{:else}{@const nt = nextTier(e.m.count)}<span class="count" title={nt.title}>{nt.text}</span>{/if}
           {:else if e.kind === 'shells'}
-            <button class="ipic outfit tap shellsgot" onclick={() => game.go('adventure')} title="Spend shells in the Adventure shop"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /></button>
+            <span class="ipic outfit shellsgot"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /></span>
             <span class="iname">+{e.n} shells</span>
             <span class="count">for Adventure</span>
           {:else if e.kind === 'egg'}
-            <button class="ipic outfit tap eggready" onclick={() => game.go('eggs')} title="Hatch it in Adventure"><img src="{import.meta.env.BASE_URL}game/egg-{e.rarity}.webp" alt="" /></button>
+            <span class="ipic outfit eggready"><img src="{import.meta.env.BASE_URL}game/egg-{e.rarity}.webp" alt="" /></span>
             <span class="iname">Egg ready!</span>
-            <button class="wear" onclick={() => game.go('eggs')}>Hatch it</button>
           {:else if e.kind === 'buddy'}
             <button class="ipic outfit newbud tap" onclick={() => peekAt(e)} title="Meet {FRIEND[e.id].name}"><Critter friend={e.id} size={cell} round /></button>
             <span class="iname">{FRIEND[e.id].name} joined!</span>
@@ -422,19 +423,11 @@
     </div>
 
     <div class="tiles" class:show={showButtons}>
-      <NavTile size={big} tone="sky" kind="home" label="Home" hotkey={narrow ? undefined : 'esc'} onclick={onhome} />
+      <NavTile size={big} tone="sky" kind={backName === 'Home' ? 'home' : 'map'} label="Back to {backName}" onclick={onhome} />
       {#if passed}<NavTile size={big} tone="butter" kind="redo" label="Try again" hotkey={narrow ? undefined : 'space'} onclick={onretry} />{/if}
       <NavTile size={big} tone="mint" kind={passed ? 'play' : 'redo'} label={passed ? 'Next' : 'Try again'} hotkey={narrow ? undefined : passed ? 'enter' : 'space'} title={passed ? `Next: ${nextTitle}` : 'Try again'} onclick={passed ? onnext : onretry} />
     </div>
-    <div class="tiles small" class:show={showButtons}>
-      <NavTile size="sm" tone={progress.tone ?? 'lilac'} kind={progress.kind} art={progress.art} label={progress.label} onclick={progress.onclick} />
-      <NavTile size="sm" tone="butter" kind="stickers" label="Stickers" onclick={() => game.openStickers('stickers')} />
-      <NavTile size="sm" tone="sky" kind="medals" label="Medals" onclick={() => game.openStickers('medals')} />
-      <NavTile size="sm" tone="lilac" kind="dances" label="Dances" onclick={() => game.openCloset('dances')} />
-      <NavTile size="sm" tone="pink" label="Keypals" onclick={() => game.openCloset('outfits')}>
-        {#snippet art()}<Critter friend={buddy} size={40} round />{/snippet}
-      </NavTile>
-    </div>
+
   </div>
 
   {#if openedText && showButtons}
@@ -519,7 +512,7 @@
 <style>
   .results { background: transparent; }
   /* clear of the menu, music and gear buttons in the corner */
-  .dancebtn { display: inline-flex; align-items: center; gap: 6px; position: absolute; left: 224px; top: 2%; z-index: 8; font: 600 18px var(--font-ui); color: #fff; background: linear-gradient(135deg, #b98cff, #ff7ab8); border: 0; border-radius: 999px; padding: 10px 18px; box-shadow: 0 0 0 4px #fff, 0 10px 24px -10px rgba(124, 92, 245, .7); cursor: pointer; }
+  .dancebtn { display: inline-flex; align-items: center; gap: 6px; position: absolute; right: 24px; top: 2%; z-index: 8; font: 600 18px var(--font-ui); color: #fff; background: linear-gradient(135deg, #b98cff, #ff7ab8); border: 0; border-radius: 999px; padding: 10px 18px; box-shadow: 0 0 0 4px #fff, 0 10px 24px -10px rgba(124, 92, 245, .7); cursor: pointer; }
   /* the prize beside the buddy */
   .prize { position: absolute; z-index: 7; width: var(--sz); height: var(--sz); transform: translate(-50%, -50%); pointer-events: none; }
   .prize > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 12px 18px rgba(60, 40, 110, .35)); animation: prize-in .9s cubic-bezier(.2, .9, .3, 1.4) both, prize-bob 2.4s 1s ease-in-out infinite; }
@@ -704,7 +697,7 @@
   .narrow .hero { position: relative; order: 0; left: auto; top: auto; width: 100%; height: 42vh; flex: none; padding-bottom: 8px; }
   .narrow .hero.full { height: 42vh; }
   .narrow .ridepic { bottom: 70px; }
-  .narrow .dancebtn { left: 12px; top: 74px; font-size: 15px; padding: 7px 13px; }
+  .narrow .dancebtn { right: 12px; top: 12px; font-size: 15px; padding: 7px 13px; }
   .narrow .ehead { flex-wrap: wrap; row-gap: 0; }
   .narrow .rbicon { width: 42px; height: 42px; } .narrow .rbicon svg { width: 30px; height: 30px; }
   .narrow .ridebanner { padding: 6px 16px 6px 6px; }

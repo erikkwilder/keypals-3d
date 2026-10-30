@@ -6,7 +6,7 @@
   // sends a little rain cloud across; the other side blocks it with a quick one at the start of their
   // turn. The first to fill their bar wins the Glimmer (the other gets a last turn to tie). Everything at
   // the top can be tapped to see what it is.
-  import MusicButton from '../ui/MusicButton.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { Tween } from 'svelte/motion';
   import { fade } from 'svelte/transition';
@@ -435,11 +435,11 @@
 <svelte:window onkeydown={onKey} bind:innerHeight={vh} />
 
 <div class="duel" class:narrow class:won={ui === 'won'}>
+  <!-- the one Pause button: Keep going, Back to Family Duel (or Rival Ghosts), Home -->
+  <PauseButton back={{ name: mode === 'duel' ? 'Family Duel' : 'Rival Ghosts', go: onexit }} />
   <div class="top">
-    <button class="leave" onclick={onexit} aria-label="Leave"><Icon name="back" size={28} /></button>
     <div class="where"><small>{mode === 'duel' ? 'Family Duel' : 'Rival Ghosts'}</small><b>Who cheers up {gName}?</b></div>
     <button class="helpbtn" onclick={() => { help = true; sfx.pop(); }} aria-label="How to play"><Icon name="help" size={30} /></button>
-    <MusicButton size={32} plain />
   </div>
 
   <!-- each side's cheer bar, Finale stars and Glimmers -->
@@ -532,7 +532,7 @@
         {:else if winOut?.met?.isNew}
           <h2>{gName} joined {winSide.name}'s team!</h2>
           <p class="pw"><b>In battles it helps:</b> {g.power.text(1)}</p>
-          {#if winSide.profileId === game.profile?.id && !advView(game.profile!).team.includes(glimmer)}<button class="btn teambtn" onclick={() => { game.glimmerSel = glimmer; game.go('glimmers'); }}>Put {gName} on your team</button>{/if}
+          {#if winSide.profileId === game.profile?.id && !advView(game.profile!).team.includes(glimmer)}<button class="btn teambtn" onclick={() => { game.glimmerSel = glimmer; game.glimmerTab = 'team'; game.visit('glimmers'); }}>Put {gName} on your team</button>{/if}
         {:else if winOut?.met}
           <h2>{winSide.name}'s {gName} got stronger!</h2>
           <p class="pw">{winSide.name} already had one{winOut.met.ups ? `, so it's now level ${winOut.met.level}` : ''}.</p>
@@ -560,7 +560,7 @@
       </div>
       <div class="rbtns" class:in={step >= 2}>
         <button class="btn" onclick={onagain}>{mode === 'duel' ? 'Play again' : 'Try again'}</button>
-        <button class="btn btn-primary" onclick={onexit}>{mode === 'duel' ? 'Back to the map' : 'Back to rivals'} <span class="kbd">enter</span></button>
+        <button class="btn btn-primary" onclick={onexit}>{mode === 'duel' ? 'Back to Family Duel' : 'Back to Rival Ghosts'} <span class="kbd">enter</span></button>
       </div>
     </div>
   {/if}
@@ -646,7 +646,7 @@
   .duel { position: fixed; inset: 0; display: flex; flex-direction: column; pointer-events: none; font-family: var(--font-body); overflow: hidden; }
   .duel > * { pointer-events: auto; }
   .stage { flex: 1; min-height: 0; pointer-events: none; }
-  .top { display: flex; align-items: center; gap: 10px; padding: 12px 16px 0; }
+  .top { display: flex; align-items: center; gap: 10px; padding: 12px 16px 0 80px; }
   .leave { display: grid; place-items: center; padding: 0; width: 46px; height: 46px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .92); font: 600 30px/1 var(--font-ui); color: var(--ink2); cursor: pointer; box-shadow: var(--shadow-sm); }
   .where { display: flex; flex-direction: column; background: rgba(255, 255, 255, .9); border-radius: 16px; padding: 4px 14px; box-shadow: var(--shadow-sm); }
   .where small { font: 800 11px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
@@ -833,7 +833,7 @@
   .mstars { display: flex; gap: 1px; background: rgba(30, 22, 60, .78); padding: 4px 6px; border-radius: 999px; }
   .mstars img { width: 22px; height: 22px; object-fit: contain; }
 
-  .narrow .top { padding: 8px 10px 0; }
+  .narrow .top { padding: 8px 10px 0 62px; }
   .narrow .where b { font-size: 14px; }
   .narrow .hud { gap: 6px; padding: 8px 8px 0; }
   .narrow .pl { width: calc(50% - 3px); gap: 6px; padding: 5px 8px 5px 5px; border-radius: 20px; }

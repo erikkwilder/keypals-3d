@@ -30,7 +30,7 @@ export function startItem(p: Profile, u: Unit, it: PathItem) {
     sfx.click();
     game.setHome('math');
     game.learnCheck = false;
-    game.openLearn(a, 'path');
+    game.openLearn(a);
     return;
   }
   if (k === 'trip' || (k === 'check' && u.checkTrip)) {

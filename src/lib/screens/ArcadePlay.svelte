@@ -22,7 +22,7 @@
   import TowerStack from '../arcade/ui/TowerStack.svelte';
   import ArcadeResults from '../arcade/ui/ArcadeResults.svelte';
   import { exitsOf } from '../arcade/exits';
-  import MusicButton from '../ui/MusicButton.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
   import NavTile from '../ui/NavTile.svelte';
   import Stars from '../ui/Stars.svelte';
   import Icon from '../ui/Icon.svelte';
@@ -125,9 +125,7 @@
   function onKey(e: KeyboardEvent) {
     if (e.metaKey || e.ctrlKey || e.altKey || game.modalOpen) return;
     unlockAudio();
-    if (phase === 'intro') { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); begin(); } else if (e.key === 'Escape') leave(); return; }
-    if (phase === 'paused') { if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); resume(); } return; }
-    if (phase === 'play' && e.key === 'Escape') { e.preventDefault(); pause(); }
+    if (phase === 'intro') { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); begin(); } return; }
   }
   function onBlur() { pause(); }
 
@@ -157,10 +155,11 @@
 
   {#if phase === 'loading'}<div class="loading"><img src="{import.meta.env.BASE_URL}{G.art}" alt="" /><span>Getting {G.name} ready…</span></div>{/if}
 
+  <!-- the one Pause button (its card: Keep going, Back to where this round started from, Home) -->
+  {#if phase !== 'loading'}<PauseButton onpause={pause} onresume={resume} />{/if}
   {#if phase !== 'loading' && phase !== 'done'}
     <div class="hud">
       <div class="lft">
-        <button class="btn btn-icon pausebtn" aria-label="Pause" onclick={pause} disabled={phase !== 'play'}><Icon name="pause" size={compact ? 26 : 32} /></button>
         <div class="col">
           {#key scoreBump}<div class="score" class:bump={scoreBump > 0}><img src="{import.meta.env.BASE_URL}game/icon-star.webp" alt="" /><b>{fmt(score)}</b></div>{/key}
           {#if combo >= 2}{#key combo}<div class="combo"><img src="{import.meta.env.BASE_URL}game/icon-star.webp" alt="" />×{combo} combo!</div>{/key}{/if}
@@ -168,7 +167,6 @@
       </div>
       <div class="rgt">
         <div class="clock" class:low={left <= 10 && phase === 'play'}><Icon name="clock" size={compact ? 22 : 28} /><b>{clock}</b>{#if timePop}{#key timePop.n}<span class="tpop">{timePop.text}</span>{/key}{/if}</div>
-        <MusicButton size={compact ? 30 : 38} />
       </div>
     </div>
     {#if !compact && nextStar && phase === 'play'}<div class="nextstar"><Stars n={0} of={1} size={16} /> next star at {fmt(nextStar)}</div>{/if}
@@ -198,7 +196,6 @@
           {#if daily}<div class="dailyline"><img src="{import.meta.env.BASE_URL}icons/daily.webp" alt="" />Beat <b>{fmt(dailyGoal(id))}</b> today for <b>{DAILY_SHELLS}</b> bonus shells. Everyone gets the same course today!</div>{/if}
           <div class="best muted">{rec.plays ? `Your best: ${fmt(rec.best)}` : 'First go! Every answer counts as practice.'} · {G.maxSecs ? `${Math.round(G.secs)} seconds to start: right answers add time` : `${Math.round(G.secs)} seconds`}</div>
           <div class="tiles">
-            <NavTile size="md" tone="sky" kind="close" label="Back" onclick={() => leave()} />
             <NavTile size="lg" tone="mint" kind="play" label="Start" hotkey="space" onclick={begin} />
           </div>
         </div>
@@ -206,26 +203,11 @@
     </div>
   {/if}
 
-  {#if phase === 'paused'}
-    <div class="overlay">
-      <div class="card pausecard">
-        <h2>Paused</h2>
-        <p class="muted">Score {fmt(score)} · {clock} left</p>
-        <div class="tiles">
-          <NavTile size="lg" tone="mint" kind="play" label="Keep going" hotkey="esc" onclick={resume} />
-          <NavTile size="lg" tone="butter" kind="redo" label="Start over" onclick={() => game.playArcade(id, daily)} />
-          <NavTile size="lg" tone="lilac" label="Back to the Arcade" onclick={() => leave(exits.toArcade)}>
-            {#snippet art()}<img class="tileart" src="{import.meta.env.BASE_URL}icons/arcade.webp" alt="" style:height="80px" />{/snippet}
-          </NavTile>
-          {#if exits.other}{@const o = exits.other}<NavTile size="lg" tone="sky" kind={o.label === 'Home' ? 'home' : 'map'} label={o.text} onclick={() => leave(o.go)} />{/if}
-        </div>
-      </div>
-    </div>
-  {/if}
+
 
   {#if phase === 'done' && outcome}
     <ArcadeResults {outcome} game={G} {daily} {answered} {bestCombo} {compact}
-      onagain={() => game.playArcade(id, daily)} onarcade={exits.toArcade} other={exits.other} onhome={() => game.go('hub')} />
+      onagain={() => game.playArcade(id, daily)} backTo={exits.backTo} onback={() => leave()} />
   {/if}
 </div>
 
@@ -238,7 +220,7 @@
 
   .hud { position: absolute; top: 14px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 8; pointer-events: none; }
   .hud > * { pointer-events: auto; }
-  .lft { display: flex; gap: 10px; align-items: flex-start; }
+  .lft { display: flex; gap: 10px; align-items: flex-start; padding-left: 62px; }
   .col { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
   .score { display: flex; align-items: center; gap: 8px; padding: 6px 18px 6px 8px; border-radius: 20px; background: rgba(255, 255, 255, .95); box-shadow: 0 8px 20px -10px rgba(40, 30, 90, .45); }
   .score img { width: 38px; height: 38px; object-fit: contain; }

@@ -87,7 +87,8 @@ export function placeOf(screen: Screen, closetTab: string): FreePlace | null {
   if (screen === 'garden') return 'garden';
   if (screen === 'island') return 'island';
   if (screen === 'shop') return 'closet';
-  if (screen === 'closet') return closetTab === 'dances' ? 'dances' : 'closet';
+  if (screen === 'closet' || screen === 'keypals') return 'closet';
+  if (screen === 'dances') return 'dances';
   return null;
 }
 /** Minutes used in a place today (from the save, plus the minute being counted now). */
@@ -121,7 +122,7 @@ export const STOP: Record<FreePlace, { title: string; line: string; art: string 
 // ---------- keep to the path ----------
 /** The places a child roams to: closed while "keep to the path" holds. The path, what it starts (lessons,
  *  trips, games, battles, Learn), Home, the player's own settings and the grown-ups' screens stay open. */
-export const ROAMING: Screen[] = ['map', 'arcade', 'island', 'closet', 'shop', 'garden', 'drop', 'duel', 'rivals', 'playground', 'mystuff', 'stickers', 'glimmers', 'eggs', 'glimmerBook'];
+export const ROAMING: Screen[] = ['map', 'arcade', 'island', 'closet', 'keypals', 'dances', 'shop', 'garden', 'drop', 'duel', 'rivals', 'playground', 'mystuff', 'stickers', 'glimmers', 'eggs', 'progress', 'subject', 'topic', 'way'];
 /** Whether "keep to the path" holds right now (path first: until today's path things are done). */
 export function pathHolds(p: Profile, rules: Rules, now = Date.now()): boolean {
   if (rules.keep === 'off') return false;

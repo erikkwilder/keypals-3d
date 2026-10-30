@@ -27,7 +27,8 @@
   import FracText from './FracText.svelte';
   import Frac from '../skills/ui/Frac.svelte';
   import FractionPad from '../skills/ui/FractionPad.svelte';
-  import CloseButton from '../../ui/CloseButton.svelte';
+  import PauseButton from '../../ui/PauseButton.svelte';
+  import { placeName } from '../../nav';
   import SpeechDock from './SpeechDock.svelte';
   import Confetti from '../../ui/Confetti.svelte';
   import Icon from '../../ui/Icon.svelte';
@@ -308,6 +309,9 @@
     void speak('ep.checked');
   }
   function leave() { sfx.click(); onclose(); }
+  // the one Pause button (its card: Keep going, Back to where this was opened, Home); Esc opens it too
+  const backLabel = embedded ? 'my trip' : game.screen === 'learn' ? (game.from ? placeName(game.from) : 'Home') : placeName(game.here());
+  function pauseHere() { if (!game.pause) game.openPause(() => {}, { name: backLabel, go: leave }); }
 
   /** Enter does the obvious next thing. */
   function primary() {
@@ -330,7 +334,7 @@
     // fixing the buddy's answer: tap a card, or type the answer itself (no 1, 2, 3 keys: they'd be confused with the answers)
     if (phase === 'teach' && tsub === 'fix' && /^[0-9/.\-]$/.test(e.key)) return mine(() => typeFix(e.key));
     if (e.key === 'Enter' || e.key === ' ') return mine(primary);
-    if (e.key === 'Escape') return mine(leave);
+    if (e.key === 'Escape') return mine(pauseHere);
   }
 
   // ---------- the kid's hands: pointer events go to the 3D table ----------
@@ -438,7 +442,7 @@
 
   <!-- the top: close, progress, and the coach telling the story -->
   <div class="top">
-    <CloseButton onclick={leave} label={embedded ? 'Back to my trip' : 'Close the lesson'} size={narrow ? 40 : 46} />
+    <PauseButton esc={false} back={{ name: backLabel, go: leave }} />
     {#if check}
       <div class="prog checkhead"><Icon name="bulb" size={22} /> Quick check: {lesson.title}</div>
     {:else}
@@ -669,4 +673,7 @@
   .narrow .prize { width: 70px; height: 70px; } .narrow .prize img { width: 28px; height: 28px; } .narrow .prize b { font-size: 14px; }
   .narrow .cbtns .btn-big { font-size: 17px; padding: 12px 18px; }
   .narrow .rewatch { bottom: 370px; right: 10px; }
+  /* the one Pause button sits top left: the top row starts after it */
+  .top { padding-left: 80px !important; }
+  @media (max-width: 600px) { .top { padding-left: 64px !important; } }
 </style>

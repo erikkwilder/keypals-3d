@@ -11,6 +11,7 @@
   import { advOf, owns, xpNeed, MAX_LEVEL, advView, markSeen } from '../adventure/state';
   import { canEvolve, evolve, levelsToEvolve } from '../adventure/evolve';
   import Header from '../ui/Header.svelte';
+  import GlimmerTabs from '../ui/GlimmerTabs.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
   import Coach from '../ui/Coach.svelte';
   import Icon from '../ui/Icon.svelte';
@@ -108,9 +109,8 @@
 </script>
 
 <div class="screen gl">
-  <Header title="Your Glimmers" back={() => game.backFromStuff(() => game.go('adventure'))} sub="{owned.length} of {GLIMMER_TOTAL} found">
-    {#snippet right()}<button class="btn bookbtn" onclick={() => { sfx.click(); game.openBook(); }}><Icon name="book" size={26} /> Glimmer Book</button>{/snippet}
-  </Header>
+  <Header />
+  <GlimmerTabs />
   <div class="body">
     <!-- tap the Glimmer: it's happy to see you -->
     <div class="stagebox" bind:this={stageEl} role="button" tabindex="-1" aria-label="Pet your Glimmer" onclick={() => { if (owns(a, sel) && !evolving) { scene?.poke(); sfx.pop(); } }} onkeydown={() => {}}>

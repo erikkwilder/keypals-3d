@@ -5,6 +5,7 @@
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
   import Header from '../ui/Header.svelte';
+  import PageTabs from '../ui/PageTabs.svelte';
   import GrownupGate from '../ui/GrownupGate.svelte';
   import { call, cloud, grownupOpen } from '../state/cloud.svelte';
   import { IDEA_KINDS, browserName, setVoted, votedIds, type Idea, type IdeaKind } from '../state/feedback';
@@ -45,13 +46,13 @@
   let busy = $state(false);
   let sent = $state<Tab | null>(null);
   let formMsg = $state<string | null>(null);
-  function pick(t: Tab) { sfx.click(); tab = t; formMsg = null; if (t !== sent) sent = null; }
+  function pick(t: Tab) { tab = t; formMsg = null; if (t !== sent) sent = null; }
   async function send() {
     busy = true; formMsg = null;
     const reply = wantReply && email.trim() ? email.trim() : undefined;
     try {
       if (tab === 'suggest') await call('/ideas', { method: 'POST', body: JSON.stringify({ kind, text, email: reply }) });
-      else await call('/problems', { method: 'POST', body: JSON.stringify({ text, email: reply, screen: game.ideasBack, version: __APP_VERSION__, browser: browserName(navigator.userAgent), size: `${window.innerWidth}x${window.innerHeight}` }) });
+      else await call('/problems', { method: 'POST', body: JSON.stringify({ text, email: reply, screen: game.ideasFrom, version: __APP_VERSION__, browser: browserName(navigator.userAgent), size: `${window.innerWidth}x${window.innerHeight}` }) });
       sent = tab; text = ''; email = ''; wantReply = false; sfx.complete();
     } catch (e) { formMsg = (e as Error).message; sfx.nope(); }
     finally { busy = false; }
@@ -59,13 +60,13 @@
 </script>
 
 <div class="screen ideas">
-  <Header title="Ideas and help" back={() => game.go(game.ideasBack === 'ideas' ? 'hub' : game.ideasBack)} />
+  <Header />
+  <!-- the board is for everyone (see the ideas, heart the ones you like); suggesting and telling us about a
+       problem are for grown-ups (behind the grown-up check) -->
+  <PageTabs label="Ideas and help" value={tab} onpick={(t) => pick(t as Tab)}
+    tabs={[{ id: 'board', label: 'Ideas' }, { id: 'suggest', label: 'Suggest one', small: '(grown-ups)' }, { id: 'problem', label: 'A problem', small: '(grown-ups)' }]} />
   <div class="body scroll">
-    <div class="tabs" role="tablist">
-      <button role="tab" aria-selected={tab === 'board'} class:on={tab === 'board'} onclick={() => pick('board')}><img src="{base}icons/bulb.webp" alt="" />Ideas board</button>
-      <button role="tab" aria-selected={tab === 'suggest'} class:on={tab === 'suggest'} onclick={() => pick('suggest')}><img src="{base}icons/pencil.webp" alt="" />Suggest an idea</button>
-      <button role="tab" aria-selected={tab === 'problem'} class:on={tab === 'problem'} onclick={() => pick('problem')}><img src="{base}icons/help.webp" alt="" />Tell us about a problem</button>
-    </div>
+
 
     {#if !cloud.online}
       <div class="card pane"><p>Ideas and help need the internet. You can also write to <b>hello@fancyant.com</b>.</p></div>

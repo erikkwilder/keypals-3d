@@ -5,7 +5,7 @@
   // it. Each one that gets through takes energy (and the next is bigger), and at zero your buddy needs a
   // rest. Five right in a row lights the Finale. When it's cheered right up, the cloud bursts and the
   // Glimmer inside is revealed, with its rarity.
-  import MusicButton from '../ui/MusicButton.svelte';
+  import PauseButton from '../ui/PauseButton.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { Tween } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
@@ -204,6 +204,8 @@
     shownAt = performance.now();
   }
   function back() { if (ui === 'answer') { sel = null; ui = 'pick'; } }
+  /** Esc: put a card back (as its "Pick a different card" does), or pause (the one Pause card) */
+  function escape() { if (ui === 'answer') back(); else if (!game.pause) game.openPause(); }
   function choose(n: number) { if (!sel?.open) return; choice = n; typed = ''; shownAt = performance.now(); sfx.pop(); }
   function digit(d: string) {
     if (ui === 'block') {
@@ -262,17 +264,17 @@
     if (ui === 'won' || ui === 'lost') { if (e.key === 'Enter') { e.preventDefault(); toMap(); } return; }
     if (subject === 'math') {
       // a skill card's own input takes the keys
-      if (ui === 'answer' && sel?.item) { if (e.key === 'Escape') back(); return; }
+      if (ui === 'answer' && sel?.item) { if (e.key === 'Escape') escape(); return; }
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
       else if (e.key === 'Backspace') { e.preventDefault(); backspace(); }
       else if (ui === 'block' && blkSigned && (e.key === '-' || e.key === '−')) { e.preventDefault(); digit('-'); }
       else if (ui === 'block' && blkSigned && e.key === 'Enter') { e.preventDefault(); checkBlock(); }
-      else if (e.key === 'Escape') back();
+      else if (e.key === 'Escape') escape();
       else if ((e.key === 'f' || e.key === 'F') && finaleN >= FINALE_AT && ui === 'pick') doTheFinale();
       else if (ui === 'pick' && ['1', '2', '3', '4'].includes(e.key)) { /* digits handled above */ }
       return;
     }
-    if (e.key.length !== 1) { if (e.key === 'Escape') back(); return; }
+    if (e.key.length !== 1) { if (e.key === 'Escape') escape(); return; }
     if (ui === 'pick') {
       // start typing a card's word straight away: the card whose word starts with that letter
       const c = cards.find(x => x.word?.startsWith(e.key));
@@ -443,7 +445,7 @@
     scene?.lose(); sfx.tryAgain();
     game.update(pp => { out = applyBattle(pp, { node: node.id, subject, won: false, perfect: false, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, skillAnswers: b.skillAnswers, team: team.map(t => t.id), crystal: false, treasureNose: false, at: Date.now(), seed }); });
   }
-  function toMap() { game.go('adventure'); }
+  function toMap() { game.leaveActivity(); }
   function again() { game.battleKey++; }
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
   // after a win: your own Glimmers by their grown-up names, and any that just reached the level to evolve
@@ -461,11 +463,11 @@
 <svelte:window onkeydown={onKey} bind:innerHeight={vh} />
 
 <div class="battle" class:narrow class:won={ui === 'won'}>
+  <!-- the one Pause button (Keep going, Back to Adventure, Home); Esc puts a picked card back first -->
+  <PauseButton esc={false} />
   <div class="top">
-    <button class="leave" onclick={toMap} aria-label="Leave the battle"><Icon name="back" size={28} /></button>
     <div class="where"><small>{island.name}</small><b>{champion ? 'Champion battle' : `Battle ${node.n + 1}`}</b></div>
     <button class="helpbtn" onclick={() => { help = true; sfx.pop(); }} aria-label="How to play"><Icon name="help" size={30} /></button>
-    <MusicButton size={32} plain />
   </div>
 
   <!-- your energy over your buddy, its grumpy bar over it (on phones both sit at the top) -->
@@ -576,12 +578,12 @@
           <h2>{ownName(m.id)} joined you!</h2>
           <p class="pw"><b>In battles it helps you:</b> {GLIMMER[m.id].power.text(1 + (advView(game.profile!).glimmers[m.id]?.evolved ? EVOLVE_BOOST : 0))}</p>
           {#if advView(game.profile!).glimmers[m.id]?.evolved}<p class="pw"><b>Grown-up power:</b> {EVOLVED[m.id].perk}</p>{/if}
-          {#if !advView(game.profile!).team.includes(m.id)}<button class="btn teambtn" onclick={() => { game.glimmerSel = m.id; game.go('glimmers'); }}>Put {ownName(m.id)} on your team</button>{/if}
+          
         {:else}
           <h2>You already have {ownName(m.id)}</h2>
           <p class="pw">So yours got stronger{m.ups ? `: now level ${m.level}` : ''}! Find a new kind by playing other battles, or hatch an egg.</p>
         {/if}
-        {#each readyNow as id (id)}<div class="evoready"><img src="{base}game/glimmers/face/{id}.webp" alt="" /><b>{ownName(id)} is ready to evolve!</b><button class="btn evobtn" onclick={() => { game.glimmerSel = id; game.go('glimmers'); }}>Evolve it</button></div>{/each}
+        {#each readyNow as id (id)}<div class="evoready"><img src="{base}game/glimmers/face/{id}.webp" alt="" /><b>{ownName(id)} is ready to evolve!</b><button class="btn evobtn" onclick={() => { game.glimmerSel = id; game.leaveActivity(); game.glimmerTab = 'team'; game.visit('glimmers'); }}>Evolve it</button></div>{/each}
       </div>
       <div class="rewards" class:in={step >= 2}>
         <button class="prize" onclick={() => show({ kind: 'shells' })}><img src="{base}game/icon-shell.webp" alt="" /><b>+{out.shells}</b><small>shells</small></button>
@@ -714,7 +716,7 @@
   .battle { position: fixed; inset: 0; display: flex; flex-direction: column; pointer-events: none; font-family: var(--font-body); }
   .battle > * { pointer-events: auto; }
   .stage { flex: 1; min-height: 0; pointer-events: none; }
-  .top { display: flex; align-items: center; gap: 10px; padding: 12px 16px 0; }
+  .top { display: flex; align-items: center; gap: 10px; padding: 12px 16px 0 80px; }
   .leave { display: grid; place-items: center; padding: 0; width: 46px; height: 46px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .92); font: 600 30px/1 var(--font-ui); color: var(--ink2); cursor: pointer; box-shadow: var(--shadow-sm); }
   .where { display: flex; flex-direction: column; background: rgba(255, 255, 255, .9); border-radius: 16px; padding: 4px 14px; box-shadow: var(--shadow-sm); }
   .where small { font: 800 11px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
@@ -957,7 +959,7 @@
   .lostbox { display: flex; flex-direction: column; align-items: center; }
   .lostbox h2 { margin: 4px 0 6px; } .lostbox p { margin: 0 0 14px; font-weight: 600; color: var(--ink2); }
 
-  .narrow .top { padding: 8px 10px 0; }
+  .narrow .top { padding: 8px 10px 0 62px; }
   .narrow .where b { font-size: 15px; }
   .narrow .weak span { display: none; }
   .narrow .bar { padding: 4px 8px 4px 4px; }

@@ -12,7 +12,7 @@
   import { api } from '../teach/api';
   import { PICTURES, cleanClassCode, pictureSrc, showClassCode } from '../teach/names';
   import Critter from '../ui/Critter.svelte';
-  import Logo from '../ui/Logo.svelte';
+  import Bar from '../ui/Bar.svelte';
   import type { FriendId } from '../art/cast';
 
   let step = $state<'code' | 'name' | 'pics' | 'going' | 'google'>(classState.googleTicket ? 'google' : 'code');
@@ -91,10 +91,7 @@
 </script>
 
 <div class="screen clogin">
-  <div class="top">
-    <button class="btn btn-ghost" onclick={back}>← Back</button>
-    <Logo size={34} animate={false} />
-  </div>
+  <Bar title="I'm in a class" plain {back} />
   <div class="body scroll">
     {#if step === 'google'}
       <h1>Signing you in…</h1>

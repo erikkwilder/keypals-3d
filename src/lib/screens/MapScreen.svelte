@@ -1,8 +1,7 @@
 <script lang="ts">
-  // The Typing page: the four ways to play typing as big tabs (Learn, Practice, Games, Adventure, from
-  // subjects.ts) with the islands as chips under them (Home row, Top row...). Practice is the map: each
-  // island's lessons on a trail. Learn is the lessons that bring new keys (the finger coach shows each
-  // reach first); Games and Adventure are pages of picture cards (ui/WayPane.svelte).
+  // A typing island's Practice (Typing › Home Row Island › Practice): its lessons on a trail, and one big
+  // button at the bottom for the next one. The island's other ways (its new-key lessons, Adventure) are
+  // on the island's page (screens/Topic.svelte).
   import { onMount, tick } from 'svelte';
   import { game } from '../state/game.svelte';
   import { outfitOf } from '../engine/profile';
@@ -11,12 +10,8 @@
   import { rideName } from '../engine/rides';
   import { rideIcon } from '../art/vehicles';
   import { sfx } from '../audio/sound';
-  import TopBar from '../ui/TopBar.svelte';
-  import WaysBar from '../ui/WaysBar.svelte';
-  import ChipRow from '../ui/ChipRow.svelte';
-  import WayPane from '../ui/WayPane.svelte';
-  import { SUBJECT, wayCount, type WayId } from '../subjects';
-  import { chipOf, setChip, wayOf } from '../nav';
+  import Bar from '../ui/Bar.svelte';
+  import { chipOf, openSubjectPage } from '../nav';
 
   import Critter from '../ui/Critter.svelte';
   import Stars from '../ui/Stars.svelte';
@@ -27,13 +22,11 @@
   const next = $derived(nextLesson(p));
   const stars = $derived(totalStars(p));
   let scroller: HTMLDivElement | undefined = $state();
-  const S = SUBJECT.typing;
-  // which way to play is showing (Practice unless picked), and which island (a chip: 'all', or a region)
-  let way = $state<WayId>(wayOf('typing'));
-  let chip = $state(chipOf('typing'));
+  // the island showing (a region)
+  const chip = chipOf('typing');
   const regions = $derived(chip === 'all' ? REGIONS : REGIONS.filter(r => r.id === chip));
-  function pickWay(w: WayId) { way = w; game.way = { ...game.way, typing: w }; scroller?.scrollTo({ top: 0 }); }
-  function pickChip(id: string) { chip = id; setChip('typing', id); scroller?.scrollTo({ top: 0 }); }
+  // the next lesson on this island (or the next one anywhere, when the island is done)
+  const nextHere = $derived(regions.length === 1 ? (regions[0].lessons.find(l => !passed(p, l.id) && isUnlocked(p, l)) ?? next) : next);
 
   const PRACTICE_ICON: Record<string, 'book' | 'bulb' | 'target' | 'clock' | 'pencil'> = { story: 'book', facts: 'bulb', weak: 'target', sprint: 'clock', custom: 'pencil' };
 
@@ -70,10 +63,11 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
-    if ((e.key === 'Enter' || e.key === ' ') && way === 'practice') { e.preventDefault(); start(next); }
-    if (e.key === 'Escape') { if (chip !== 'all') pickChip('all'); else game.go('hub'); }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(nextHere); }
   }
   onMount(async () => {
+    // (the map is always one island's: with none picked, the Typing page instead)
+    if (chip === 'all') { openSubjectPage('typing'); return; }
     await tick();
     const el = chip === 'all' ? scroller?.querySelector(`[data-region="${next.region}"]`) as HTMLElement | null : null;
     if (el && scroller) scroller.scrollTo({ top: Math.max(0, el.offsetTop - scroller.offsetTop - 16), behavior: 'instant' as ScrollBehavior });
@@ -83,16 +77,9 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="screen map">
-  <TopBar />
-  <WaysBar subject={S} {way} onpick={pickWay}>
-    {#snippet right()}<span class="pill stars" title="Typing stars"><Stars n={1} of={1} size={20} /> <b>{stars}</b></span>{/snippet}
-  </WaysBar>
-  {#if wayCount(S, way)}<ChipRow chips={S.chips} {chip} onpick={pickChip} label="Which island" />{/if}
+  <Bar />
 
   <div class="scroller scroll" bind:this={scroller}>
-    {#if way !== 'practice'}
-      <WayPane subject={S} {way} {chip} />
-    {:else}
     {#each regions as r (r.id)}
       {@const ri = REGIONS.indexOf(r)}
       {@const open = regionUnlocked(p, r.id)}
@@ -114,7 +101,7 @@
           {@const pos = nodePos(i, r.lessons.length)}
           {@const unlocked = isUnlocked(p, l)}
           {@const rec = p.lessons[l.id]}
-          {@const isNext = l.id === next.id}
+          {@const isNext = l.id === nextHere.id}
           {@const mv = lessonMove(l)}
           <button class="node" class:locked={!unlocked} class:next={isNext} class:done={passed(p, l.id)} class:practice={l.practice} class:check={l.kind === 'checkpoint'}
             style:left="{pos.x}%" style:top="{pos.y}%" onclick={() => start(l)} title={lessonTitle(l, game.layout)}>
@@ -134,17 +121,14 @@
         {#if !open}<div class="lockveil"><Icon name="lock" /> Finish {REGIONS[ri - 1]?.name} to open</div>{/if}
       </section>
     {/each}
-    {/if}
     <div class="endpad"></div>
   </div>
 
-  {#if way === 'practice'}
   <div class="go">
-    <button class="btn btn-primary btn-big" onclick={() => start(next)}>
-      {passed(p, 'village-1') ? 'Keep going' : 'Start your adventure'}: {lessonTitle(next, game.layout)} <span class="kbd">enter</span>
+    <button class="btn btn-primary btn-big" onclick={() => start(nextHere)}>
+      {passed(p, 'village-1') ? 'Keep going' : 'Start your adventure'}: {lessonTitle(nextHere, game.layout)} <span class="kbd">enter</span>
     </button>
   </div>
-  {/if}
 </div>
 
 <style>

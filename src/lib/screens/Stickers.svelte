@@ -9,6 +9,7 @@
   import { renderSticker, renderMedal, TIER_LOOK } from '../art/stickerArt';
   import { sfx } from '../audio/sound';
   import Header from '../ui/Header.svelte';
+  import PageTabs from '../ui/PageTabs.svelte';
   import Critter from '../ui/Critter.svelte';
   import StickerCard from '../ui/StickerCard.svelte';
   import { rideIcon } from '../art/vehicles';
@@ -54,15 +55,9 @@
 </script>
 
 <div class="screen book">
-  <Header title="Sticker Book" sub="{p.name}: {count} of {STICKERS.length}">
-    {#snippet right()}
-      <div class="tabs">
-        <button class:on={tab === 'stickers'} onclick={() => (tab = 'stickers')}>Stickers</button>
-        <button class:on={tab === 'medals'} onclick={() => (tab = 'medals')}>Medals</button>
-        <button class:on={tab === 'rides'} onclick={() => (tab = 'rides')}>Rides</button>
-      </div>
-    {/snippet}
-  </Header>
+  <Header />
+  <PageTabs label="Sticker book" value={tab} onpick={(t) => { tab = t as typeof tab; game.stickerTab = tab; }}
+    tabs={[{ id: 'stickers', label: 'Stickers', small: `(${count})` }, { id: 'medals', label: 'Medals' }, { id: 'rides', label: 'Rides' }]} />
 
   <div class="body scroll">
     {#if tab === 'stickers'}

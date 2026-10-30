@@ -206,7 +206,7 @@
 </script>
 
 <div class="screen eggs" class:showing={!!got || !!hm}>
-  <Header title="Eggs" back={() => game.backFromStuff(() => game.go('adventure'))} sub="They hatch into new Glimmers" />
+  <Header />
   <div class="stagebox" bind:this={stageEl}></div>
 
   <div class="nests">
@@ -244,7 +244,7 @@
         <li><b>Every right answer</b> makes your eggs grow (all three at once).</li>
         <li><b>Bar full?</b> Tap <b>Hatch</b> and meet a new Glimmer!</li>
       </ol>
-      <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>Math practice</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing practice</button><button class="btn" onclick={() => game.go('playground')}>Playground</button></div>
+      <div class="row"><button class="btn" class:btn-primary={game.homeGame !== 'typing'} onclick={() => goPractice('math')}>Math practice</button><button class="btn" class:btn-primary={game.homeGame === 'typing'} onclick={() => goPractice('typing')}>Typing practice</button></div>
       <p class="muted small">You get eggs from battles (always from a Perfect Cheer or a Champion) and from the shop.</p>
     </div>
   </div>

@@ -35,7 +35,8 @@
   import { SETS } from '../episodes';
   import { fixChoices, parseTime, type MeasureLesson, type MQ, type MTask } from './episodes';
   import NumPad from '../ui/NumPad.svelte';
-  import CloseButton from '../../ui/CloseButton.svelte';
+  import PauseButton from '../../ui/PauseButton.svelte';
+  import { placeName } from '../../nav';
   import SpeechDock from '../ui/SpeechDock.svelte';
   import Confetti from '../../ui/Confetti.svelte';
   import Icon from '../../ui/Icon.svelte';
@@ -289,6 +290,9 @@
     void speak('ep.checked');
   }
   function leave() { sfx.click(); onclose(); }
+  // the one Pause button (its card: Keep going, Back to the page under it, Home); Esc opens it too
+  const backLabel = game.screen === 'learn' ? (game.from ? placeName(game.from) : 'Home') : placeName(game.here());
+  function pauseHere() { if (!game.pause) game.openPause(() => {}, { name: backLabel, go: leave }); }
 
   function primary() {
     if (phase === 'intro') { ++run; playStep(0); }
@@ -306,7 +310,7 @@
     }
     // choices are tapped (no 1, 2, 3 keys: they'd be confused with the answers)
     if (e.key === 'Enter' || e.key === ' ') return mine(primary);
-    if (e.key === 'Escape') return mine(leave);
+    if (e.key === 'Escape') return mine(pauseHere);
   }
 
   // ---------- the kid's hands: the measuring things first, then the table ----------
@@ -402,7 +406,7 @@
   {/if}
 
   <div class="top">
-    <CloseButton onclick={leave} label="Close the lesson" size={narrow ? 40 : 46} />
+    <PauseButton esc={false} back={{ name: backLabel, go: leave }} />
     {#if check}
       <div class="prog checkhead"><Icon name="bulb" size={22} /> Quick check: {L.title}</div>
     {:else}
@@ -613,4 +617,7 @@
   .choice.good { box-shadow: 0 0 0 4px #7fe0b0, 0 7px 0 #3fbf7a; }
   .turn .choices { flex-wrap: wrap; justify-content: center; }
   .narrow .qtx { font-size: .5em; }
+  /* the one Pause button sits top left: the top row starts after it */
+  .top { padding-left: 80px !important; }
+  @media (max-width: 600px) { .top { padding-left: 64px !important; } }
 </style>
