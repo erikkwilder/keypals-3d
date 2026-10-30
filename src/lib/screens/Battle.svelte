@@ -227,6 +227,8 @@
     sel = null; typed = '';
     await run(ev);
   }
+  // (for checking: the cards, the one being answered, and a way to pick and answer)
+  if (import.meta.env.DEV) (window as unknown as { __battle: object }).__battle = { ui: () => ui, cards: () => b?.cards, sel: () => sel, pick: (i: number) => { const c = b?.cards[i]; if (c) pick(c); }, answer: (a: SkillAnswer) => submitItem(a) };
   /** A skill card (a fraction to name, two to compare...): its own input checks in, the engine marks it. */
   async function submitItem(given: SkillAnswer) {
     const c = sel; if (!c?.item || ui !== 'answer') return;

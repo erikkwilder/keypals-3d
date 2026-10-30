@@ -322,10 +322,10 @@ export const daLikely: Skill = {
       const best = set.reduce((bi, f, i) => (f[0] / f[1] > set[bi][0] / set[bi][1] ? i : bi), 0);
       const ids = ['A', 'B', 'C'];
       const choices: Choice[] = set.map((f, i) => ({ id: ids[i], parts: [pic(bagOf(rng, f[0], f[1], 'blue'))] }));
-      return { ...base, id: `da-likely:best:${set.map(f => f.join('/')).join(',')}`, ask: 'Pick one marble without looking. Which bag gives you the best chance of red?', prompt: [tx('Best chance of red?')],
+      return { ...base, id: `da-likely:best:${set.map(f => f.join('/')).join(',')}`, ask: 'Pick one marble without looking. Which jar gives you the best chance of red?', prompt: [tx('Which jar?')],
         input: 'choice', choices, answer: { kind: 'choice', id: ids[best] }, weight: Math.min(5, 2 + (r >= 4 ? 2 : 0)),
         explain: `${set.map(f => `${f[0]} red of ${f[1]}`).join(', ')}. ${set[best][0]} of ${set[best][1]} is the biggest part of its bag.`,
-        trick: { name: 'Part of the whole bag', say: 'More red marbles isn\'t enough: what counts is how much of the WHOLE bag is red. Compare red to all the marbles in each bag.' } };
+        trick: { name: 'Part of the whole jar', say: 'More red marbles isn\'t enough: what counts is how much of the WHOLE jar is red. Compare red to all the marbles in each jar.' } };
     }
     // the words
     const words: Word[] = perRung(r, [['impossible', 'certain'], ['impossible', 'unlikely', 'likely', 'certain'], [...WORDS], [...WORDS], [...WORDS], [...WORDS]] as Word[][]);
