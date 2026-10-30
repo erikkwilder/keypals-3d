@@ -140,7 +140,8 @@ export function factsOf(raw: P[]): ShapeFacts {
     if (rect) family.push('rectangle');
     if (rhom) family.push('rhombus');
     if (pg) family.push('parallelogram');
-    if (trap) family.push('trapezoid');
+    // (a trapezoid has just one pair of parallel sides, as children learn it: a parallelogram isn't one)
+    if (trap && !pg) family.push('trapezoid');
     if (kite || rhom) family.push('kite');
     family.push('quadrilateral', 'polygon');
     name = rect && rhom ? 'square' : rect ? 'rectangle' : rhom ? 'rhombus' : pg ? 'parallelogram' : trap ? 'trapezoid' : kite ? 'kite' : 'quadrilateral';
