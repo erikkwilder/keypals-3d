@@ -161,7 +161,7 @@ export const shSides: Skill = {
     const dents = r >= 5 && (n === 6 || n === 7 || n === 10 || (r === 6 && n === 8)) && rng() < 0.7;
     const pts = dents ? dented(rng, n) : n <= 4 && r === 1 ? shapeOf(rng, n === 3 ? 'triangle' : 'square') : polyWith(rng, n, r >= 3);
     const corners = sub === 'corners';
-    const f = one(pts, hueOf(rng), {}, corners && r === 1 ? { dots: pts.map(p => ({ at: p })) } : {});
+    const f = one(pts, hueOf(rng), { name: `a shape with ${n} sides` }, corners && r === 1 ? { dots: pts.map(p => ({ at: p })) } : {});
     return { ...base('sh-sides', sub), id: `sh-sides:${sub}:${n}:${dents ? 'd' : r >= 3 ? 'i' : 'r'}:${idOf(pts).slice(0, 18)}`, ask: corners ? 'How many corners?' : 'How many sides?', prompt: [fig(f), op('='), blank],
       input: 'number', answer: { kind: 'number', value: n }, weight: Math.min(5, n <= 4 ? 1 : n <= 6 ? 2 : 3 + (dents ? 1 : 0)),
       explain: `Go round once: ${Array.from({ length: n }, (_, i) => i + 1).join(', ')}. It has ${n} ${corners ? 'corners' : 'sides'}${dents ? ', even the ones that point in' : ''}.`, trick };
@@ -307,7 +307,7 @@ export const shAngle: Skill = {
       const from = r <= 2 ? (left ? 180 - d : 0) : int(rng, 0, 11) * 30 + (r >= 4 ? 15 : 0);
       const aligned = r <= 2;
       return { ...base('sh-angle', sub), id: `sh-angle:measure:${d}:${from}:${left ? 'L' : 'R'}:${step}`, ask: aligned ? 'Read the protractor: how many degrees?' : 'Turn the protractor so 0 lies on one side of the angle. How many degrees?',
-        prompt: [tx('The angle is'), blank, tx('°')], input: 'custom', custom: { name: 'protractor', spec: { deg: d, from, aligned, left, step } },
+        prompt: [tx('How many degrees?')], input: 'custom', custom: { name: 'protractor', spec: { deg: d, from, aligned, left, step } },
         answer: { kind: 'number', value: d }, weight: Math.min(5, 1 + Math.floor(r / 1.5)),
         explain: `One side lies on 0. The other side crosses ${d} on the same row of numbers. The angle is ${d}°.`,
         trick: { name: 'Start at 0', say: 'Put the middle of the protractor on the corner and 0 along one side. Read the row of numbers that starts at 0, where the other side crosses.' } };

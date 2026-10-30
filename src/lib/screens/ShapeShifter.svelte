@@ -53,7 +53,8 @@
     if (canvas) ShifterScene.create(canvas).then(s => {
       if (disposed) { s.dispose(); return; }
       scene = s; s.onFell = fell;
-      if (import.meta.env.DEV) (window as unknown as { __shifter: ShifterScene }).__shifter = s;
+      // (for checking: the crystals in the sky, whether each fits, and where it is)
+      if (import.meta.env.DEV) (window as unknown as { __shifter: object }).__shifter = { scene: s, pieces: () => [...pieces.entries()].map(([id, pc]) => ({ id, fits: pc.fits, name: pc.name, at: s.screenOf(id) })) };
       raf = requestAnimationFrame(tick);
     });
     addEventListener('resize', onResize);
