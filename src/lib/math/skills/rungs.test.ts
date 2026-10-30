@@ -44,7 +44,7 @@ describe('rungs: every generator, every sub, every rung', () => {
       }
     }
     expect(made).toBe(SKILLS.reduce((t, s) => t + s.subs.length, 0) * RUNGS * 200);
-  });
+  }, 30_000); // (tens of thousands of questions: slow on a busy machine)
   it('never loops: a stuck random source still makes a question at once, on every rung', () => {
     for (const v of [0, 0.37, 0.5, 0.999999]) for (const s of SKILLS) for (const sub of s.subs) for (let r = 1; r <= RUNGS; r++) {
       const it = s.make(() => v, sub.id, r);

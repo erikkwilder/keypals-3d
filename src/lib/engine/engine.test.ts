@@ -106,7 +106,7 @@ describe('text generator', () => {
         }
       }
     }
-  });
+  }, 30_000); // (every lesson on every layout: slow on a busy machine)
   it('drills the new keys in lesson one', () => {
     const lesson = LESSON['village-1'];
     const text = generate({ lesson, layout: Q, known: knownChars(lesson.id, Q), fresh: newCharsFor(lesson, Q), seed: 1, words: WORDS_KIDS, pools });

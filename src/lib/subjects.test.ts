@@ -36,7 +36,7 @@ describe('subjects and their four ways to play', () => {
     expect(wayCount(math, 'learn')).toBeGreaterThan(30);
     expect(wayCount(math, 'practice')).toBeGreaterThan(100);
     expect(wayCount(math, 'games')).toBeGreaterThanOrEqual(10);
-    expect(wayCount(math, 'adventure')).toBe(4);
+    expect(wayCount(math, 'adventure')).toBe(5);
     const typing = SUBJECTS.find(s => s.id === 'typing')!;
     expect(wayCount(typing, 'games')).toBe(0);
     expect(wayCount(typing, 'learn')).toBeGreaterThan(10);
