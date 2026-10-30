@@ -1,10 +1,11 @@
 <script lang="ts">
   // The hatch moment, wherever a ready egg is tapped (the incubator, or a results screen's "Egg ready!"):
   // the egg rises into the light, a real 3D egg wearing its own painting (three/eggHatch.ts), and wobbles
-  // harder and harder as it cracks (real eggshell cracks you can hear): a groove runs across the shell,
-  // then the shell gives and light shines out through the gaps, chips pop off, and it bursts: the top lifts
-  // off and tumbles away, the pieces below fall open, light and sparkles pour out, and the Glimmer's card
-  // flips in. (A computer that can't draw it in 3D gets the flat painted egg with cracks drawn on.) In the incubator (which lends its 3D scene,
+  // harder and harder as it cracks (real eggshell cracks you can hear): with each crack the shell itself
+  // comes apart a little more, warm light glowing through the gaps, a chip knocked out, and it bursts: the
+  // top lifts off and tumbles away, the pieces below fall open, light and sparkles pour out, and the
+  // Glimmer's card flips in. (A computer that can't draw it in 3D gets the flat painted egg with cracks
+  // drawn on.) In the incubator (which lends its 3D scene,
   // `scene`) the Glimmer also pops up on its stone in a beam of light, its card beside it; anywhere else
   // the card comes in the middle, over the screen.
   import { onDestroy, onMount } from 'svelte';
@@ -121,7 +122,7 @@
     const t0 = performance.now();
     const tick = (now: number) => {
       if (!hm || broken) return;
-      const t = (now - t0) / 1000, amp = [3, 6, 10, 15][step] ?? 15, fr = [5, 7, 10, 14][step] ?? 14;
+      const t = (now - t0) / 1000, amp = [3, 7, 12, 18][step] ?? 18, fr = [5, 8, 11, 15][step] ?? 15;
       tilt = Math.sin(t * fr) * amp * (step === 0 ? Math.max(0, Math.sin(t * 2.4)) : 1);
       if (egg3) { egg3.tilt = tilt; egg3.squash = squash; }
       raf = requestAnimationFrame(tick);
