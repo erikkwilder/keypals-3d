@@ -8,6 +8,11 @@
   // the inputs the areas bring
   import CoinTray from './CoinTray.svelte';
   registerInput('coins', CoinTray);
+  // expressions and equations: the balance, and the number line for inequalities
+  import BalanceInput from './BalanceInput.svelte';
+  import RayInput from './RayInput.svelte';
+  registerInput('balance', BalanceInput);
+  registerInput('ray', RayInput);
 </script>
 
 <script lang="ts">

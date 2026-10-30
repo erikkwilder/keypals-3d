@@ -11,7 +11,8 @@ function sane(it: Item, where: string) {
   expect(it.weight, where).toBeGreaterThanOrEqual(1);
   expect(it.weight, where).toBeLessThanOrEqual(5);
   const a = it.answer;
-  if (a.kind === 'number') { expect(Number.isFinite(a.value), where).toBe(true); expect(a.value, where).toBeGreaterThanOrEqual(0); expect(String(a.value).split('.')[1] ?? '', where).not.toMatch(/0000|9999/); }
+  // (equations from grade 6 on can have answers below zero: the pad has a minus key for them)
+  if (a.kind === 'number') { expect(Number.isFinite(a.value), where).toBe(true); if (!it.skill.startsWith('al-')) expect(a.value, where).toBeGreaterThanOrEqual(0); expect(String(a.value).split('.')[1] ?? '', where).not.toMatch(/0000|9999/); }
   if (a.kind === 'fraction') { expect(a.d, where).toBeGreaterThan(0); expect(a.n, where).toBeGreaterThan(0); expect(Number.isInteger(a.n) && Number.isInteger(a.d), where).toBe(true); }
   if (a.kind === 'choice') expect(it.choices?.some(c => c.id === a.id), where).toBe(true);
   if (a.kind === 'point' && it.line) {
@@ -44,7 +45,8 @@ describe('rungs: every generator, every sub, every rung', () => {
       }
     }
     expect(made).toBe(SKILLS.reduce((t, s) => t + s.subs.length, 0) * RUNGS * 200);
-  });
+    // (every area's every rung: a big sweep, so it gets more than the usual few seconds)
+  }, 60_000);
   it('never loops: a stuck random source still makes a question at once, on every rung', () => {
     for (const v of [0, 0.37, 0.5, 0.999999]) for (const s of SKILLS) for (const sub of s.subs) for (let r = 1; r <= RUNGS; r++) {
       const it = s.make(() => v, sub.id, r);

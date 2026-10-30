@@ -55,7 +55,11 @@ export type Part =
   /** an amount of money: 35¢, or $1.35 from a dollar up (or when `dollars`) */
   | { t: 'money'; cents: number; dollars?: boolean }
   /** where the answer goes (a number blank) */
-  | { t: 'blank' };
+  | { t: 'blank' }
+  /** algebra: an expression written out, its letters in italics ("3n + 2", "2(x + 4)") */
+  | { t: 'expr'; s: string }
+  /** algebra: a picture (a table of x and y, a graph, a number line with a ray, a balance) */
+  | { t: 'alg'; pic: import('./algebra').AlgPic };
 
 export type Choice = { id: string; parts: Part[] };
 
