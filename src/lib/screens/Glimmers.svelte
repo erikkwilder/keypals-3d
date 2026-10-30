@@ -256,7 +256,7 @@
   .cell { position: relative; border: 0; background: none; padding: 3px; border-radius: 14px; cursor: pointer; display: grid; place-items: center; transition: transform .15s; }
   .cell:hover { transform: translateY(-3px); }
   .cell.on { background: rgba(240, 234, 255, .9); box-shadow: 0 0 0 3px var(--primary-hi); }
-  .cell .tag { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); font: 800 11px var(--font-body); background: #1f8a55; color: #fff; padding: 2px 9px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
+  .cell .tag { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); font: 800 11px var(--font-body); background: #157a52; color: #fff; padding: 2px 9px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
   .booklink { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 6px; border: 0; cursor: pointer; text-align: left; padding: 8px 14px; border-radius: 18px; background: linear-gradient(#fffaf0, #fff0d2); box-shadow: 0 0 0 2px #ffe08a, var(--shadow-sm); }
   .booklink img { width: 34px; height: 42px; object-fit: contain; flex: none; }
   .booklink span { display: flex; flex-direction: column; gap: 2px; }
