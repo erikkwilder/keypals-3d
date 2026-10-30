@@ -4,6 +4,7 @@
 //   Make Ten Bubbles pop two bubbles that make 10 (then 5, 20 and 100): number bonds
 //   Build It         build a number from hundreds, tens and ones: place value
 //   Market Stall     price your goods, then give shoppers their change: money (math/market/stall.ts)
+//   Spin Lab         pick what comes up most, then spin and watch a bar graph grow: chance (math/data/lab.ts)
 // Rounds feed the same friendship, outfits, dances, stickers and daily minutes as every other game.
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
 import { buddyPal } from '../engine/profile';
@@ -14,7 +15,7 @@ import { mathOf } from './progress';
 import type { Rng } from '../engine/rng';
 import { hasEvidence, pitch, TARGET } from './skills/ability';
 
-export type PlayGame = 'line' | 'bonds' | 'build' | 'stall';
+export type PlayGame = 'line' | 'bonds' | 'build' | 'stall' | 'chance';
 export type PlayLevel = { n: number; title: string; hint: string };
 
 export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: string; levels: PlayLevel[] }[] = [
@@ -45,6 +46,13 @@ export const PLAY_GAMES: { id: PlayGame; name: string; blurb: string; color: str
     { n: 3, title: 'Change from $1', hint: 'Count up to the next quarter, then by quarters.' },
     { n: 4, title: 'Any price, from $1', hint: 'Pennies first, up to the next 5¢.' },
     { n: 5, title: 'Two things', hint: 'Add the two prices, then count up to $1.' },
+  ] },
+  { id: 'chance', name: 'Spin Lab', blurb: 'Pick what will come up most, then spin and watch the bar graph grow. No clock, no rush.', color: '#e85d9a', levels: [
+    { n: 1, title: 'Two colours', hint: 'The colour with more parts comes up more.' },
+    { n: 2, title: 'Three colours', hint: 'Count the parts of each colour.' },
+    { n: 3, title: 'Roll a die', hint: 'Every number is as likely. Watch them even out.' },
+    { n: 4, title: 'Two dice', hint: '7 has the most ways: 1 and 6, 2 and 5, 3 and 4...' },
+    { n: 5, title: 'Mixed up', hint: 'Lots of parts: count each colour.' },
   ] },
 ];
 export const PLAY_GAME = Object.fromEntries(PLAY_GAMES.map(g => [g.id, g])) as Record<PlayGame, (typeof PLAY_GAMES)[number]>;
@@ -114,6 +122,7 @@ const PLAY_SKILL: Record<PlayGame, { skill: string; level: number[] }> = {
   bonds: { skill: 'add-facts', level: [1, 2, 2, 3, 3, 4] },
   build: { skill: 'pv-hundreds', level: [2, 3, 4, 5, 5, 5] },
   stall: { skill: 'dm-change', level: [1, 2, 3, 4, 5, 5] },
+  chance: { skill: 'da-likely', level: [1, 2, 3, 4, 5, 5] },
 };
 /** The level the child's practice says they're ready for (pitched easy: 90%), once there is practice to
  *  go by (0 before). It opens levels the way a star does and never closes one. */

@@ -149,6 +149,68 @@ function wateringCan() {
   return g;
 }
 
+// ---------- the fair booth (data and chance): a spinner on a stand, a jar of marbles, a pair of dice ----------
+const SPIN_COLORS = [0xf25c5c, 0xffcf3d, 0x4a95f2, 0x5cc96a, 0xa46cf0, 0xff9840, 0xf0679f, 0x3fc1c9];
+/** a spinner wheel of `n` equal coloured parts on a wooden stand, its pointer at the top (about 0.32 m tall) */
+export function spinnerStand(n = 8, r = 0.11) {
+  const g = new THREE.Group();
+  const wood = std(0xc98a52, { roughness: 0.55 }), gold = std(0xffc94a, { metalness: 0.55, roughness: 0.28 });
+  g.add(mesh(new THREE.CylinderGeometry(0.07, 0.085, 0.025, 24), wood, [0, 0.0125, 0]));
+  g.add(mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.16, 12), wood, [0, 0.1, 0]));
+  const wheel = new THREE.Group();
+  wheel.position.set(0, 0.17 + r, 0.012);
+  for (let i = 0; i < n; i++) {
+    const geo = new THREE.CylinderGeometry(r, r, 0.016, 10, 1, false, (i / n) * Math.PI * 2, (Math.PI * 2) / n).rotateX(Math.PI / 2);
+    wheel.add(mesh(geo, std(SPIN_COLORS[i % SPIN_COLORS.length], { roughness: 0.35 })));
+  }
+  wheel.add(mesh(new THREE.TorusGeometry(r, 0.008, 8, 40), gold));
+  wheel.add(mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 16).rotateX(Math.PI / 2), gold, [0, 0, 0.01]));
+  wheel.rotation.z = 0.3;
+  g.add(wheel);
+  // the pointer at the top
+  const ptr = mesh(new THREE.ConeGeometry(0.016, 0.04, 12).rotateZ(Math.PI), std(0xe0405a, { roughness: 0.3 }), [0, 0.17 + 2 * r + 0.012, 0.03]);
+  g.add(ptr);
+  g.userData.wheel = wheel;
+  return g;
+}
+/** a glass jar of coloured marbles */
+export function marbleJar() {
+  const g = new THREE.Group();
+  g.add(mesh(lathe([[0, 0], [0.075, 0], [0.09, 0.02], [0.09, 0.17], [0.065, 0.2], [0.06, 0.215]]), glass(), [0, 0, 0], false));
+  heap(g, 30, 0.017, 0.075, 0.01, SPIN_COLORS.slice(0, 6).map(c => std(c, { roughness: 0.12, metalness: 0.05 })));
+  for (let i = 0; i < 18; i++) {
+    const a = i * 2.39996, d = 0.02 + (i % 4) * 0.015;
+    g.add(mesh(new THREE.SphereGeometry(0.017, 12, 9), std(SPIN_COLORS[i % 6], { roughness: 0.12 }), [Math.cos(a) * d, 0.05 + Math.floor(i / 6) * 0.03, Math.sin(a) * d]));
+  }
+  g.add(mesh(new THREE.CylinderGeometry(0.066, 0.066, 0.025, 24), std(0xe0567a, { roughness: 0.4 }), [0, 0.225, 0]));
+  return g;
+}
+/** one die: a rounded white cube with dark pips (1 on top, 2 to the front, 3 to the right) */
+export function die(s = 0.07) {
+  const g = new THREE.Group();
+  g.add(mesh(new RoundedBoxGeometry(s, s, s, 3, s * 0.18), std(0xfffaf2, { roughness: 0.35 }), [0, s / 2, 0]));
+  const pip = new THREE.SphereGeometry(s * 0.085, 10, 8), dark = std(0x2c2236, { roughness: 0.4 }), red = std(0xe0405a, { roughness: 0.4 });
+  const o = s / 2 + 0.0005, q = s * 0.25;
+  const face = (n: number, place: (u: number, v: number) => [number, number, number], m = dark) => {
+    const P: Record<number, [number, number][]> = { 1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]] };
+    for (const [u, v] of P[n]) { const p = mesh(pip, m, place(u * q, v * q), false); p.scale.set(1, 1, 1); g.add(p); }
+  };
+  face(1, (u, v) => [u, s / 2 + o, v], red);
+  face(2, (u, v) => [u, s / 2 + v, o]);
+  face(3, (u, v) => [o, s / 2 + v, u]);
+  face(4, (u, v) => [-o, s / 2 + v, u]);
+  face(5, (u, v) => [u, s / 2 + v, -o]);
+  return g;
+}
+function dicePair() {
+  const g = new THREE.Group();
+  const a = die(), b = die();
+  a.rotation.y = 0.5; b.position.set(0.1, 0, 0.05); b.rotation.set(0, -0.4, 0);
+  const c = die(0.06); c.position.set(0.04, 0, -0.1); c.rotation.y = 1.2;
+  g.add(a, b, c);
+  return g;
+}
+
 /** The set's table things: one group for the left front corner, one for the right. */
 export function propsFor(id: SetId): { left: THREE.Group; right: THREE.Group } {
   const two = (a: THREE.Object3D, b: THREE.Object3D, off: [number, number]) => { const g = new THREE.Group(); b.position.set(off[0], 0, off[1]); g.add(a, b); return g; };
@@ -159,6 +221,7 @@ export function propsFor(id: SetId): { left: THREE.Group; right: THREE.Group } {
     case 'workshop': return { left: blockStack(), right: brushJar() };
     case 'garden': return { left: flowerPot(), right: wateringCan() };
     case 'cave': return { left: crystals(), right: blockStack() };
+    case 'fair': { const l = new THREE.Group(), sp = spinnerStand(); sp.position.set(-0.12, 0, -0.05); const jar = marbleJar(); jar.position.set(0.14, 0, 0.12); l.add(sp, jar); return { left: l, right: dicePair() }; }
   }
 }
 
@@ -173,6 +236,7 @@ const HERO: Record<SetId, [string, number, number][]> = {
   workshop: [['train', 0.22, 0.7], ['paints', 0.18, -0.3]],
   garden: [['flowerpot', 0.34, 0.2], ['can', 0.28, -0.8]],
   cave: [['', 0, 0], ['lantern', 0.36, -0.3]],
+  fair: [['', 0, 0], ['', 0, 0]],
 };
 /** The set's modelled things for the front corners, or null if they can't load (the simple ones stand in). */
 export async function heroProps(id: SetId): Promise<{ left: THREE.Group; right: THREE.Group } | null> {

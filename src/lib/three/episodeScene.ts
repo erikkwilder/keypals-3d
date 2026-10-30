@@ -446,6 +446,8 @@ export class EpisodeScene implements Controller {
     if (b.line && Math.abs(y - LY) < 20) return 0.04;
     return 0;
   }
+  /** a counter stacked on others (a tower of blocks) sits that many counters higher */
+  private upLift(d: { up?: number }) { return (d.up ?? 0) * this.r * (this.set.token === 'block' ? 1.3 : 1.6); }
   private get deepPlates() { return this.set.token === 'pearl' || this.set.token === 'flower' || this.set.token === 'block'; }
 
   /** Show a picture: everything moves, pops in or leaves to match it. */
@@ -468,7 +470,7 @@ export class EpisodeScene implements Controller {
     for (const d of b.dots) {
       if (d.c === 'ghost') continue;
       keep.add(d.id);
-      const at = this.boardPoint(d.x, d.y, this.liftAt(b, d.x, d.y));
+      const at = this.boardPoint(d.x, d.y, this.liftAt(b, d.x, d.y) + this.upLift(d));
       let tk = this.tokens.get(d.id);
       if (!tk) {
         tk = this.token(d.id, d.c, at, d.shape);
@@ -768,7 +770,7 @@ export class EpisodeScene implements Controller {
           if (!tk) { tk = this.token(id, d.c, at, d.shape); tk.born = this.now + i * 0.04; tk.from = at.clone().add(new THREE.Vector3(0, 0.35, 0)); tk.t0 = tk.born; tk.dur = 0.45; }
           tk.leaving = 0; tk.glow = 1;
           a.live.add(id);
-          const to = this.boardPoint(d.x, d.y, this.liftAt(next, d.x, d.y));
+          const to = this.boardPoint(d.x, d.y, this.liftAt(next, d.x, d.y) + this.upLift(d));
           a.open.set(id, to);
           this.spot('t:' + id, to, true);
         });
@@ -778,7 +780,7 @@ export class EpisodeScene implements Controller {
           const d = nd.get(id)!, tk = this.tokens.get(id);
           if (!tk) continue;
           tk.glow = 1; a.live.add(id);
-          const to = this.boardPoint(d.x, d.y, this.liftAt(next, d.x, d.y));
+          const to = this.boardPoint(d.x, d.y, this.liftAt(next, d.x, d.y) + this.upLift(d));
           a.open.set(id, to);
           this.spot('t:' + id, to, true);
         }
@@ -1530,6 +1532,7 @@ function clothTexture(id: SetId) {
   const C: Record<SetId, [string, string, string]> = {
     kitchen: ['#f7f1e6', '#5d8fd6', '#3f6fb3'], dock: ['#d9c39a', '#b89a68', '#8a6b3e'], picnic: ['#fbf6ec', '#f3d9a0', '#d6a85a'],
     workshop: ['#6f9a63', '#5f8a55', '#3f6b3a'], garden: ['#e7dcc2', '#c9b88f', '#9c8758'], cave: ['#5b6fa3', '#4c5f92', '#33446f'],
+    fair: ['#fff1f4', '#f27aa0', '#d9466f'],
   };
   const [bg, line, edge] = C[id];
   return canvasTex(256, (g, s) => {

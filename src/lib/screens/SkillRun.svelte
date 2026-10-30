@@ -25,6 +25,7 @@
   import { AREA } from '../math/skills/registry';
   import { SKILL_EPISODES, SKILL_LESSON, SKILL_REGION, tempoOf } from '../math/skills/course';
   import { FRAC_LESSON } from '../math/fracEpisodes';
+  import { DATA_LESSON } from '../math/data/episodes';
   import { isLearned } from '../math/learn';
   import Episode from '../math/ui/Episode.svelte';
   import { SkillTripPicker, type SkillPick } from '../math/skills/picker';
@@ -48,7 +49,7 @@
   const m = mathOf(profile);
   const lesson = SKILL_LESSON[game.skillLessonId] ?? SKILL_LESSON['frac-a-1'];
   /** a stop that meets a new idea: its Learn episode, to watch first */
-  const introEp = lesson.kind === 'meet' ? (lesson.learn.map(k => SKILL_EPISODES[k]).find(e => e && FRAC_LESSON[e]) ?? null) : null;
+  const introEp = lesson.kind === 'meet' ? (lesson.learn.map(k => SKILL_EPISODES[k]).find(e => e && (FRAC_LESSON[e] || DATA_LESSON[e])) ?? null) : null;
   const area = AREA[lesson.area];
   const regionName = lesson.region === 'start' ? area.name : SKILL_REGION[lesson.region].name;
   const tempo = tempoOf(lesson.area);
@@ -342,7 +343,7 @@
           <div class="meetbuddy"><Critter friend={profile.buddy} size={110} mood="dance" /></div>
           <p class="blurb">{lesson.blurb}</p>
         {/if}
-        {#if introEp}<button class="watchl" onclick={() => { sfx.click(); game.learnOverlay = introEp; }}><img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" /><span><b>{isLearned(mathOf(profile), introEp) ? 'Watch the lesson again' : 'Watch the lesson first'}</b><small>{FRAC_LESSON[introEp].title}: {buddy.name} shows you how</small></span></button>{/if}
+        {#if introEp}<button class="watchl" onclick={() => { sfx.click(); game.learnOverlay = introEp; }}><img src="{import.meta.env.BASE_URL}learn/tile.webp" alt="" /><span><b>{isLearned(mathOf(profile), introEp) ? 'Watch the lesson again' : 'Watch the lesson first'}</b><small>{(FRAC_LESSON[introEp] ?? DATA_LESSON[introEp]).title}: {buddy.name} shows you how</small></span></button>{/if}
         {#if !calm}
           <div class="goals">{#each starAt as s, i}<div class="goal"><Stars n={i + 1} of={i + 1} size={20} /><span>score {s}</span></div>{/each}</div>
           <p class="howscore">Your score is right answers a minute. Quick, right answers move you up the speed steps. No clock, so take the time you need.</p>

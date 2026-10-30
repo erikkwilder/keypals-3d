@@ -251,6 +251,13 @@
           <span class="ptext"><b>Number Builder</b><small>Game: build numbers with hundreds, tens and ones.{(m.arcade?.['number-builder']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['number-builder'].best}` : ''}</small></span>
         </button>
       {/if}
+      {#if area === 'data'}
+        <!-- the data and chance arcade game (its cabinet is in the Arcade too: screen 'showdown') -->
+        <button class="placement arcade" onclick={() => { sfx.click(); game.go('showdown'); }}>
+          <img src="{import.meta.env.BASE_URL}math/data/tile.webp" alt="" />
+          <span class="ptext"><b>Spinner Showdown</b><small>Game: spin the big wheel and win tickets with graphs and chances.{(m.arcade?.['spinner-showdown']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['spinner-showdown'].best}` : ''}</small></span>
+        </button>
+      {/if}
     </section>
 
     {#each skillRegions as r, ri (r.id)}

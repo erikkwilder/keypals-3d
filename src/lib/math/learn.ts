@@ -23,7 +23,8 @@ export type Hue = 'a' | 'b' | 'c' | 'ghost';
  *  `n`, from a whole of radius `r`, its x and y the slice's middle), a square of a chocolate bar
  *  (`w` wide), or a cupcake. */
 export type Shape = { k: 'wedge'; food: 'pie' | 'pizza'; n: number; i: number; r: number } | { k: 'chunk'; w: number } | { k: 'cupcake' };
-export type Dot = { id: string; x: number; y: number; c: Hue; /** crossed out: taken away, still shown */ out?: boolean; /** seconds to wait before moving */ d?: number; shape?: Shape };
+export type Dot = { id: string; x: number; y: number; c: Hue; /** crossed out: taken away, still shown */ out?: boolean; /** seconds to wait before moving */ d?: number; shape?: Shape;
+  /** stacked this many counters up (a tower of blocks: Data and chance) */ up?: number };
 export type Tag = { id: string; x: number; y: number; text: string; c?: Hue | 'ink'; size?: number };
 export type Board = {
   /** the dot size: every dot is drawn in a square this big */

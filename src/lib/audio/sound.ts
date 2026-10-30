@@ -979,6 +979,8 @@ type Deck = { el: HTMLAudioElement; gain: GainNode; station: StationId; track: n
 let deck: Deck | null = null;
 let stationChoice: StationChoice = 'auto';
 let place: MusicPlace = 'menu';
+/** a place's own station on Auto (setPlaceStation) */
+let placeStation: StationId | null = null;
 let where: RegionId | 'menu' = 'menu';
 let started = false;
 let fails = 0;
@@ -988,7 +990,7 @@ const listeners = new Set<(n: NowPlaying) => void>();
 
 /** The station that should be playing now (Auto follows what you're doing). */
 function currentStation(): StationId {
-  const id = stationChoice === 'auto' ? AUTO[place] : stationChoice;
+  const id = stationChoice === 'auto' ? (placeStation ?? AUTO[place]) : stationChoice;
   // a station with no recordings (or recordings that won't load) plays the island tunes instead
   return id !== 'originals' && STATION[id]?.tracks.length && fails < 3 ? id : 'originals';
 }
@@ -1069,6 +1071,13 @@ function applyMusic() {
   tell();
 }
 
+/** A place's own station while you're there, on Auto (the Chance Fair plays World: steel drums and
+ *  maracas); null goes back to the usual one for the place. */
+export function setPlaceStation(id: StationId | null) {
+  if (id === placeStation) return;
+  placeStation = id;
+  if (started) applyMusic();
+}
 /** Music for where you are: an island while you practise, 'menu' around the game, 'adventure' in
  *  Adventure. With a station picked it just keeps playing; on Auto it follows the place. */
 export function startMusic(region: RegionId | 'menu' | 'adventure') {

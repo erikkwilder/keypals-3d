@@ -80,6 +80,7 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
     if (t.kind === 'arcade') {
       if (t.id === 'pizza') game.go('pizza');
       else if (t.id === 'market') game.go('market');
+      else if (t.id === 'showdown') game.go('showdown');
       else if (t.id === 'builder') { builderOpen.toy = false; builderOpen.from = 'map'; game.go('builder'); }
       else game.playArcade(t.id as ArcadeId);
       return;

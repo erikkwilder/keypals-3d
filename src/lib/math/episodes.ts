@@ -9,8 +9,9 @@ import { LESSON, LESSONS, askText, coverOf, hideAnswer, hintFor, lessonForFact, 
 import { factRung, groupFacts, MATH_REGION, STRAND } from './course';
 import { rungFor, STRAND_SKILL, TARGET, thetaOf, type AbilityHome } from './skills/ability';
 import { FRAC_LESSON, type EpQ } from './fracEpisodes';
+import { DATA_COLOR, DATA_LESSON } from './data/episodes';
 
-export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave';
+export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'fair';
 /** what the counters are in each place */
 export type TokenKind = 'cookie' | 'pearl' | 'berry' | 'block' | 'flower';
 
@@ -40,6 +41,9 @@ export const SETS: Record<SetId, {
   // place value: the Geode Mole's workshop in the Counting Caves (a hundred is a crate of blocks)
   cave: { name: 'The Crystal Cave Workshop', backdrop: 'learn/ep/set-cave.webp', table: 'learn/ep/tex-cave.webp', star: 'geodemole', token: 'block',
     tray: { word: 'block tray', color: 0x8fa6c9, rim: 0x4f6a96 }, plate: { word: 'crate', color: 0xb98a5a, rim: 0x7a5232 }, key: 0xffe2b8, sky: 0xcfe0ff, ground: 0x5a4a6a, haze: 0xc9d6f2 },
+  // data and chance: Popcorn Puffling's game booth at the Chance Fair (math/data/episodes.ts)
+  fair: { name: 'The Fair Booth', backdrop: 'learn/ep/set-fair.webp', table: 'learn/ep/tex-fair.webp', star: 'popcornpuff', token: 'block',
+    tray: { word: 'prize tray', color: 0xe9c27a, rim: 0x9b6b2b }, plate: { word: 'bowl', color: 0xfdf3e3, rim: 0xe0567a }, key: 0xffd9a8, sky: 0xffe6f0, ground: 0x7a4a3a, haze: 0xf7cfa8 },
 };
 
 export type Episode = {
@@ -206,12 +210,12 @@ function pitchedTries(l: Lesson, rung?: number): Fact[] {
 /** The episode for a lesson id: a fact trick (learn.ts) or a fraction idea (fracEpisodes.ts); `rung`
  *  pitches a trick's own tries for the child (teachRung). */
 export function epLesson(id: string, rung?: number): EpLesson | null {
-  const f = FRAC_LESSON[id];
+  const f = FRAC_LESSON[id] ?? DATA_LESSON[id];
   if (f) {
     const all = [f.teach.q.ans, f.teach.wrong, f.teach.decoy], k = f.id.length % 3;
-    return { id, title: f.title, blurb: f.blurb, color: FRAC_COLOR, set: f.set, star: f.star, steps: f.steps, tries: f.tries,
+    return { id, title: f.title, blurb: f.blurb, color: DATA_LESSON[id] ? DATA_COLOR : FRAC_COLOR, set: f.set, star: f.star, steps: f.steps, tries: f.tries,
       teach: { q: f.teach.q, wrong: f.teach.wrong, says: f.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: f.teach.fixed },
-      cover: null, art: f.art, noun: NOUN[id] ?? 'slices' };
+      cover: null, art: f.art, noun: NOUN[id] ?? (DATA_LESSON[id] ? 'blocks' : 'slices') };
   }
   const l = LESSON[id];
   if (!l) return null;
@@ -222,7 +226,7 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
     teach: { q: q(e.teach.f), wrong: String(e.teach.wrong), says: e.teach.says, choices: fixChoices(e).map(String), fixed: `Oops! ${hintFor(l, e.teach.f)} Thank you!` },
     cover: coverOf(l), art: null };
 }
-export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!LESSON[id];
+export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!DATA_LESSON[id] || !!LESSON[id];
 
 /** The lessons in order, with their episode. */
 export const lessonWithEpisode = (l: Lesson) => ({ lesson: l, ep: episodeOf(l.id), set: setOf(l.id) });

@@ -1502,5 +1502,185 @@
   "ep.frac-unlike.card": {
     "voice": "coach",
     "ms": 5428
+  },
+  "ep.data-sort.intro": {
+    "voice": "coach",
+    "ms": 7044
+  },
+  "ep.data-sort.s0": {
+    "voice": "coach",
+    "ms": 4989
+  },
+  "ep.data-sort.s1": {
+    "voice": "coach",
+    "ms": 3836
+  },
+  "ep.data-sort.s2": {
+    "voice": "coach",
+    "ms": 2430
+  },
+  "ep.data-sort.s3": {
+    "voice": "coach",
+    "ms": 2714
+  },
+  "ep.data-sort.s4": {
+    "voice": "coach",
+    "ms": 5867
+  },
+  "ep.data-sort.card": {
+    "voice": "coach",
+    "ms": 6805
+  },
+  "ep.data-bars.intro": {
+    "voice": "coach",
+    "ms": 6805
+  },
+  "ep.data-bars.s0": {
+    "voice": "coach",
+    "ms": 3168
+  },
+  "ep.data-bars.s1": {
+    "voice": "coach",
+    "ms": 3133
+  },
+  "ep.data-bars.s2": {
+    "voice": "coach",
+    "ms": 2450
+  },
+  "ep.data-bars.s3": {
+    "voice": "coach",
+    "ms": 5408
+  },
+  "ep.data-bars.s4": {
+    "voice": "coach",
+    "ms": 5847
+  },
+  "ep.data-bars.card": {
+    "voice": "coach",
+    "ms": 6465
+  },
+  "ep.data-lineplot.intro": {
+    "voice": "coach",
+    "ms": 6465
+  },
+  "ep.data-lineplot.s0": {
+    "voice": "coach",
+    "ms": 4061
+  },
+  "ep.data-lineplot.s1": {
+    "voice": "coach",
+    "ms": 4191
+  },
+  "ep.data-lineplot.s2": {
+    "voice": "coach",
+    "ms": 4275
+  },
+  "ep.data-lineplot.s3": {
+    "voice": "coach",
+    "ms": 3088
+  },
+  "ep.data-lineplot.s4": {
+    "voice": "coach",
+    "ms": 7009
+  },
+  "ep.data-lineplot.card": {
+    "voice": "coach",
+    "ms": 7114
+  },
+  "ep.data-mean.intro": {
+    "voice": "coach",
+    "ms": 6131
+  },
+  "ep.data-mean.s0": {
+    "voice": "coach",
+    "ms": 4051
+  },
+  "ep.data-mean.s1": {
+    "voice": "coach",
+    "ms": 2993
+  },
+  "ep.data-mean.s2": {
+    "voice": "coach",
+    "ms": 4460
+  },
+  "ep.data-mean.s3": {
+    "voice": "coach",
+    "ms": 8042
+  },
+  "ep.data-mean.card": {
+    "voice": "coach",
+    "ms": 6780
+  },
+  "ep.data-median.intro": {
+    "voice": "coach",
+    "ms": 5682
+  },
+  "ep.data-median.s0": {
+    "voice": "coach",
+    "ms": 4191
+  },
+  "ep.data-median.s1": {
+    "voice": "coach",
+    "ms": 6051
+  },
+  "ep.data-median.s2": {
+    "voice": "coach",
+    "ms": 4113
+  },
+  "ep.data-median.s3": {
+    "voice": "coach",
+    "ms": 7039
+  },
+  "ep.data-median.card": {
+    "voice": "coach",
+    "ms": 6710
+  },
+  "ep.data-chance.intro": {
+    "voice": "coach",
+    "ms": 7199
+  },
+  "ep.data-chance.s0": {
+    "voice": "coach",
+    "ms": 3956
+  },
+  "ep.data-chance.s1": {
+    "voice": "coach",
+    "ms": 5119
+  },
+  "ep.data-chance.s2": {
+    "voice": "coach",
+    "ms": 4695
+  },
+  "ep.data-chance.s3": {
+    "voice": "coach",
+    "ms": 4989
+  },
+  "ep.data-chance.card": {
+    "voice": "coach",
+    "ms": 6176
+  },
+  "ep.data-both.intro": {
+    "voice": "coach",
+    "ms": 6730
+  },
+  "ep.data-both.s0": {
+    "voice": "coach",
+    "ms": 5822
+  },
+  "ep.data-both.s1": {
+    "voice": "coach",
+    "ms": 5079
+  },
+  "ep.data-both.s2": {
+    "voice": "coach",
+    "ms": 3512
+  },
+  "ep.data-both.s3": {
+    "voice": "coach",
+    "ms": 3762
+  },
+  "ep.data-both.card": {
+    "voice": "coach",
+    "ms": 5548
   }
 }

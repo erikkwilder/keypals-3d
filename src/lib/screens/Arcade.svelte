@@ -17,10 +17,12 @@
   import Icon from '../ui/Icon.svelte';
   import GearButton from '../ui/GearButton.svelte';
   import { builderOf, builderOpen } from '../math/place/builder';
+  import { showdownOf } from '../math/data/showdown';
 
   const p = $derived(game.profile!);
   const save = $derived(arcadeOf(p));
   const builderBest = $derived(builderOf(p).best);
+  const showdownBest = $derived(showdownOf(p).best);
   const shells = $derived(advView(p).shells);
   const today = dailyGame();
   const beaten = $derived(dailyBeaten(p, today));
@@ -60,12 +62,14 @@
   function openBuilder() { unlockAudio(); sfx.click(); scene?.cheer(); builderOpen.toy = false; builderOpen.from = 'arcade'; game.go('builder' as Screen); }
   /** Market Dash is the Decimals and money area's game, on its own screen too */
   function openMarket() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('market' as Screen); }
-  function hover(id: ArcadeId | 'pizza' | 'builder' | 'market' | 'drop' | null, el?: HTMLElement) {
+  /** Spinner Showdown is the Data and chance area's game, on its own screen too */
+  function openShowdown() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('showdown' as Screen); }
+  function hover(id: ArcadeId | 'pizza' | 'builder' | 'market' | 'showdown' | 'drop' | null, el?: HTMLElement) {
     if (!scene) return;
     if (!id || !el) { scene.look(null); say = 'Pick a game to play!'; return; }
     const r = el.getBoundingClientRect();
     scene.look((r.left + r.width / 2) / innerWidth);
-    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'builder' ? 'Build it with blocks!' : id === 'market' ? 'Coins! Count them up!' : id === 'drop' ? 'Squish them together!' : 'Pizza! Slice it up!';
+    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'builder' ? 'Build it with blocks!' : id === 'market' ? 'Coins! Count them up!' : id === 'showdown' ? 'Spin the big wheel!' : id === 'drop' ? 'Squish them together!' : 'Pizza! Slice it up!';
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -152,6 +156,11 @@
           <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-market.webp" alt="" />
           <span class="plate"><span class="part">Decimals and money</span><b>Market Dash</b><span class="bs">Pay and make change</span></span>
           {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 3}</span>{/if}
+        </button>
+        <!-- Spinner Showdown lives with Data and chance (its own screen and records); its cabinet stands here too -->
+        <button class="cab" style:--c="#e2468f" style:--d="{(ARCADE_GAMES.length + 2.5) * 90}ms" onclick={openShowdown} onpointerenter={(e) => hover('showdown', e.currentTarget)} onpointerleave={() => hover(null)}>
+          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-spinner.webp" alt="" />
+          <span class="plate"><span class="part">Data and chance</span><b>Spinner Showdown</b><span class="bs">{showdownBest ? `Best ${showdownBest} tickets` : 'Graphs, spinners and chances'}</span></span>
         </button>
         <!-- Glimmer Drop: not practice, just for fun, so it uses play time (the same minutes as Adventure) -->
         <button class="cab fun" style:--c="#9a6cf0" style:--d="{(ARCADE_GAMES.length + 3) * 90}ms" onclick={openDrop} onpointerenter={(e) => hover('drop', e.currentTarget)} onpointerleave={() => hover(null)}>
