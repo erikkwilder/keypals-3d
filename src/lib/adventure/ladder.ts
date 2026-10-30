@@ -343,7 +343,7 @@ export { DAY_MIN };
 
 // ---------- the Book ----------
 export type BookPlace = { kind: 'glimmer'; s: Standing } | { kind: 'slot'; world: string; area: AreaId; n: number };
-export type BookGroup = { id: GlimmerSource; name: string; blurb: string; parts: { name: string; places: BookPlace[] }[] };
+export type BookGroup = { id: GlimmerSource; name: string; blurb: string; parts: { name: string; note?: string; places: BookPlace[] }[] };
 /** All 100 places, in groups: Everywhere, Worlds (by world), Milestones, Collections, Seasons, Secrets,
  *  Legends. */
 export function bookOf(p: Profile, now = Date.now()): { groups: BookGroup[]; met: number; total: number; next: Standing[] } {
@@ -354,12 +354,13 @@ export function bookOf(p: Profile, now = Date.now()): { groups: BookGroup[]; met
   groups.push({ id: 'roll', name: SOURCES.roll.group, blurb: SOURCES.roll.blurb, parts: [{ name: '', places: [...of('roll')].sort((u, v) => rarityRank(u.rarity) - rarityRank(v.rarity)).map(g => st(g.id)) }] });
   // the worlds: the three open ones first, then the ones still to come
   const worlds = [...new Set(of('native').map(g => g.world!))];
-  const parts = worlds.map(w => ({ name: worldName(w), places: [...nativesOf(w), ...of('native').filter(g => g.world === w && g.champion)].map(g => st(g.id)) }));
+  const opens = (w: string) => (worldOpen(p, w as WorldId) ? 'Win battles here to bring them home' : `Opens when you start ${AREA[worldArea(w)!]?.name.toLowerCase() ?? 'its math'}`);
+  const parts: BookGroup['parts'] = worlds.map(w => ({ name: worldName(w), note: opens(w), places: [...nativesOf(w), ...of('native').filter(g => g.world === w && g.champion)].map(g => st(g.id)) }));
   for (const cw of COMING_WORLDS) {
     const n = worldSlots(cw.area); if (!n) continue;
     const have = parts.find(pt => pt.name === cw.name);
     const slots: BookPlace[] = Array.from({ length: n }, (_, i) => ({ kind: 'slot' as const, world: cw.name, area: cw.area, n: i }));
-    if (have) have.places.push(...slots); else parts.push({ name: cw.name, places: slots });
+    if (have) have.places.push(...slots); else parts.push({ name: cw.name, note: 'Coming soon', places: slots });
   }
   groups.push({ id: 'native', name: SOURCES.native.group, blurb: SOURCES.native.blurb, parts });
   for (const src of ['milestone', 'collection', 'season', 'secret', 'apex'] as GlimmerSource[])

@@ -26,7 +26,7 @@
   function line(s: Standing): { long: string; short: string } {
     if (s.state === 'egg') return { long: 'Its egg is waiting for you! Hatch it in Eggs.', short: 'Its egg is here!' };
     if (s.pending && s.reached) return { long: 'Goal reached! Its egg comes as soon as it\'s ready.', short: 'Goal reached!' };
-    return { long: s.hint, short: s.secret ? 'A secret' : s.short };
+    return { long: s.source === 'native' ? s.short : s.hint, short: s.secret ? 'A secret' : s.short };
   }
   const bar = (s: Standing) => s.source !== 'roll' && !s.secret && s.state === 'open';
 
@@ -44,7 +44,6 @@
     {#if s.state === 'met'}<img class="paint" src="{base}game/glimmers/{s.id}{evo(s.id) ? '-evo' : ''}.webp" alt={glimmerName(s.id, evo(s.id))} loading="lazy" />
     {:else if s.state === 'egg'}<img class="egg" src="{base}game/egg-{s.source}.webp" alt="A special egg" loading="lazy" />
     {:else if s.secret}<img class="egg hush" src="{base}game/egg-secret.webp" alt="A secret" loading="lazy" />
-    {:else if s.source === 'roll'}<img class="paint dark" src="{base}game/glimmers/{s.id}.webp" alt="Not met yet" loading="lazy" /><span class="q">?</span>
     {:else}<img class="shape" src="{base}game/glimmers/shape/{s.id}.webp" alt="Not met yet" loading="lazy" />{/if}
     {#if !s.secret || s.state === 'met'}<img class="el" src="{base}game/icon-{g.element}.webp" alt={ELEMENT[g.element].name} />{/if}
     {#if s.state === 'met'}<span class="tick"><Icon name="check" size={big ? 26 : 18} /></span>{/if}
@@ -110,10 +109,14 @@
           <img src="{base}game/{EMBLEM[g.id]}.webp" alt="" />
           <div><h2>{g.name} <small>{metIn(g)} of {places(g).length}</small></h2><p>{g.blurb}</p></div>
         </header>
-        {#each g.parts as pt (pt.name)}
-          {#if pt.name}<h3 class="part">{pt.name}</h3>{/if}
-          <div class="cards">{#each pt.places as pl, i (pl.kind === 'glimmer' ? pl.s.id : `${pl.world}-${i}`)}{@render card(pl)}{/each}</div>
-        {/each}
+        <div class="parts" class:many={g.parts.length > 1}>
+          {#each g.parts as pt (pt.name)}
+            <div class="pt">
+              {#if pt.name}<h3 class="part">{pt.name}{#if pt.note}<small>{pt.note}</small>{/if}</h3>{/if}
+              <div class="cards">{#each pt.places as pl, i (pl.kind === 'glimmer' ? pl.s.id : `${pl.world}-${i}`)}{@render card(pl)}{/each}</div>
+            </div>
+          {/each}
+        </div>
       </section>
     {/each}
     <p class="foot">A day counts when you play 10 minutes. Seasons come back every year.</p>
@@ -160,7 +163,7 @@
 
 <style>
   .gb { display: flex; flex-direction: column; background: radial-gradient(circle at 8% 0%, #ffe9f4 0, transparent 32%), radial-gradient(circle at 92% 8%, #e2f2ff 0, transparent 34%), radial-gradient(circle at 50% 100%, #fff4d6 0, transparent 40%), var(--bg); }
-  .body { flex: 1; min-height: 0; padding: 16px 22px 28px; display: flex; flex-direction: column; gap: 16px; }
+  .body { flex: 1; min-height: 0; overflow-x: hidden; padding: 16px 22px 28px; display: flex; flex-direction: column; gap: 16px; }
   /* the top: a painted banner, the count and the nearest goals */
   .hero { position: relative; flex: none; border-radius: 26px; overflow: hidden; background-size: cover; background-position: center 60%; min-height: 190px; display: flex; align-items: stretch; gap: 16px; padding: 16px; box-shadow: var(--shadow); }
   .hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255, 255, 255, .9) 0%, rgba(255, 255, 255, .72) 38%, rgba(255, 255, 255, 0) 70%); pointer-events: none; }
@@ -191,8 +194,12 @@
   .gh h2 { margin: 0; font-size: 28px; color: var(--ink); }
   .gh h2 small { font: 800 15px var(--font-body); color: var(--muted); margin-left: 6px; }
   .gh p { margin: 0; font: 600 15px/1.35 var(--font-body); color: var(--ink2); }
-  .part { margin: 4px 0 -2px; font-size: 18px; color: var(--ink2); }
+  .parts.many { display: flex; flex-wrap: wrap; gap: 14px 26px; }
+  .parts.many .pt { flex: 1 1 560px; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border-radius: 24px; background: rgba(255, 255, 255, .55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .8); }
+  .part { margin: 0; font-size: 19px; color: var(--ink); display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .part small { font: 700 13px var(--font-body); color: var(--muted); }
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .cd { min-width: 0; }
   /* a card */
   .cd { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 5px; border: 0; cursor: pointer; text-align: left; padding: 8px 8px 10px; border-radius: 22px;
     background: linear-gradient(#fff, #fbf8ff); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rc, #cfc6e6) 30%, transparent), 0 10px 22px -14px rgba(60, 40, 110, .45); transition: transform .15s, box-shadow .15s; }
@@ -204,10 +211,8 @@
   .pic { position: relative; aspect-ratio: 4 / 5; border-radius: 16px; overflow: hidden; display: grid; place-items: center;
     background: radial-gradient(circle at 50% 38%, #fff 0%, color-mix(in srgb, var(--el, #c9b8f0) 22%, #fff) 55%, color-mix(in srgb, var(--el, #c9b8f0) 42%, #f4efff) 100%); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .7), inset 0 -10px 18px -10px rgba(60, 40, 110, .25); }
   .pic .paint { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 45%; }
-  .pic .paint.dark { filter: brightness(0) saturate(0) opacity(.5); }
-  .pic .q { position: absolute; font: 600 44px var(--font-ui); color: rgba(255, 255, 255, .9); text-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
   .pic .shape { width: 92%; height: 92%; object-fit: contain; opacity: .82; filter: drop-shadow(0 2px 0 rgba(255, 255, 255, .7)); }
-  .pic .egg { height: 74%; width: auto; filter: drop-shadow(0 6px 8px rgba(60, 40, 110, .35)); animation: wob 2.4s ease-in-out infinite; transform-origin: 50% 90%; }
+  .pic .egg { position: absolute; left: 15%; top: 10%; width: 70%; height: 76%; object-fit: contain; filter: drop-shadow(0 6px 8px rgba(60, 40, 110, .35)); animation: wob 2.4s ease-in-out infinite; transform-origin: 50% 90%; }
   .pic .egg.hush { filter: drop-shadow(0 6px 8px rgba(60, 40, 110, .3)) saturate(.55) brightness(.92); animation: none; }
   @keyframes wob { 0%, 70%, 100% { transform: rotate(0); } 78% { transform: rotate(-6deg); } 86% { transform: rotate(6deg); } 94% { transform: rotate(-3deg); } }
   .pic .el { position: absolute; top: 6px; left: 6px; width: 26px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .3)); }
@@ -237,8 +242,9 @@
   .sheet .txt { padding-bottom: 50px; }
   @media (max-width: 700px) {
     .body { padding: 12px 12px 22px; gap: 12px; }
-    .hero { flex-direction: column; min-height: 0; padding: 14px; background-position: 70% 50%; }
-    .hero::before { background: linear-gradient(180deg, rgba(255, 255, 255, .88), rgba(255, 255, 255, .6)); }
+    /* the painting as a strip across the top, the count under it */
+    .hero { flex-direction: column; min-height: 0; padding: 136px 14px 14px; background-color: #fff; background-size: auto 150px; background-repeat: no-repeat; background-position: 64% 0; }
+    .hero::before { background: linear-gradient(180deg, transparent 0, transparent 104px, rgba(255, 255, 255, .96) 140px); }
     .score { width: 100%; }
     .score .big b { font-size: 52px; }
     .score p { font-size: 14px; }
@@ -247,13 +253,13 @@
     .jumps button { flex: none; font-size: 15px; }
     .gh h2 { font-size: 23px; } .gh img { width: 38px; height: 48px; }
     .gh p { font-size: 14px; }
-    .cards { grid-template-columns: repeat(3, 1fr); gap: 9px; }
+    .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+    .parts.many { gap: 10px; } .parts.many .pt { padding: 8px; flex-basis: 100%; }
     .cd { padding: 5px 5px 8px; border-radius: 16px; gap: 3px; }
     .pic { border-radius: 12px; }
     .pic .el { width: 20px; top: 4px; left: 4px; }
     .pic .tick { width: 22px; height: 22px; top: 4px; right: 4px; }
     .pic .way { font-size: 10px; padding: 2px 6px; bottom: 5px; }
-    .pic .q { font-size: 32px; }
     .nm { font-size: 13px; }
     .ln { font-size: 11px; }
     .ln .long { display: none; } .ln .short { display: inline; }

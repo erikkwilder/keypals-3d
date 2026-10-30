@@ -18,4 +18,5 @@ export function ladderDemo(p: Profile) {
   a.nodes['market-0'] = Math.max(a.nodes['market-0'] ?? 0, 3);
   // a Collection egg waiting in the nest (25 met)
   if (![...a.incubator, ...a.nest].some(e => e?.glimmer === 'gemmagpie')) a.nest.unshift({ id: 'egg-demo-gemmagpie', rarity: 'rare', need: 45, have: 45, got: now, glimmer: 'gemmagpie', kind: 'collection' });
+  L.given.gemmagpie = dayKey(now);
 }

@@ -59,6 +59,10 @@ describe('the hundred', () => {
     for (const id of ['galaxynarwhal', 'eldertreeturtle', 'seasonstanuki', 'rocketroadrunner', 'starsageowl', 'nestdragon', 'prismpeacock', 'crownedlion', 'moonrabbit', 'rainbowunicorn', 'dragonkoi'] as GlimmerId[])
       expect(['legendary', 'mythic']).toContain(GLIMMER[id].rarity);
     for (const id of ['crownedlion', 'moonrabbit', 'rainbowunicorn', 'dragonkoi'] as GlimmerId[]) expect(GLIMMER[id].rarity).toBe('mythic');
+    // every one of the 76 has an outline for the Book's unmet cards
+    for (const g of ALL_GLIMMERS) expect(existsSync(`public/game/glimmers/shape/${g.id}.webp`), g.id).toBe(true);
+    // and every kind of goal its special egg
+    for (const k of ['native', 'milestone', 'collection', 'season', 'secret', 'apex']) expect(existsSync(`public/game/egg-${k}.webp`), k).toBe(true);
     // Counting Caves and Market Isle get Champions of their own
     expect(LADDER_GLIMMERS.filter(g => g.champion).map(g => g.champion).sort()).toEqual(['caves', 'market']);
   });
