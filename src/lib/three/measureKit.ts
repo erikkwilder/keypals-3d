@@ -46,7 +46,9 @@ export class MeasureKit {
   /** words pinned to the things (numbers counted on the clock, a ruler's reading, a fence's sides) */
   pins: Pin[] = [];
   /** free play for a turn: the clock's hands or the jug's water can be moved by the kid */
-  free: 'clock' | 'pour' | null = null;
+  free: 'clock' | 'pour' | 'bench' | null = null;
+  /** the measuring bench (a toy): every thing out at once, the scale and the jug at the back, the ruler in front */
+  bench = false;
   /** the long hand's step while setting the clock on a turn (minutes) */
   freeSnap = 5;
   private s = 0.002;
@@ -125,12 +127,12 @@ export class MeasureKit {
     } else if (this.ruler) { this.drop(this.ruler); this.ruler = null; this.rulerKey = ''; this.items = []; }
     // the scale
     if (st.scale) {
-      if (!this.scale) this.buildScale(both ? 165 : 300);
+      if (!this.scale) this.buildScale(this.bench ? 150 : both ? 165 : 300, this.bench ? 150 : 205);
       this.sackGoal = st.scale.load ? 1 : 0;
       this.paintDial(st.scale);
     } else if (this.scale) { this.drop(this.scale); this.scale = null; if (this.sack) { this.drop(this.sack); this.sack = null; } }
     // the jug
-    if (st.jug) { if (!this.jug) this.buildJug(both ? 440 : 300, st.jug); }
+    if (st.jug) { if (!this.jug) this.buildJug(this.bench ? 455 : both ? 440 : 300, st.jug, this.bench ? 150 : 205); }
     else if (this.jug) { this.drop(this.jug); this.jug = null; this.water = null; }
     // the garden
     if (st.garden) {
@@ -241,7 +243,7 @@ export class MeasureKit {
     const body = mesh(new RoundedBoxGeometry(L, H, W, 2, 0.004), [side, side, top, side, side, side] as unknown as THREE.Material);
     body.position.y = H / 2;
     g.add(body);
-    g.position.copy(this.at(300, 238));
+    g.position.copy(this.at(300, this.bench ? 268 : 238));
     this.ruler = g; this.root.add(g);
     // the things lying above it: a crayon and a pencil, made in 3D at their exact lengths
     this.items = r.items.map((it, i) => {
@@ -261,7 +263,7 @@ export class MeasureKit {
   markPoint(v: number) { return this.ruler ? this.ruler.localToWorld(new THREE.Vector3(this.rulerX(v), 0.03, 30 * this.s * 0.2)) : new THREE.Vector3(); }
 
   // ---------- the scale ----------
-  private buildScale(x: number) {
+  private buildScale(x: number, y = 205) {
     const g = new THREE.Group();
     const body = mesh(new RoundedBoxGeometry(0.3, 0.26, 0.2, 4, 0.05), std(0x8fd3b0, { roughness: 0.45 }));
     body.position.y = 0.13; g.add(body);
@@ -279,7 +281,7 @@ export class MeasureKit {
     const pan = mesh(new THREE.LatheGeometry([[0, 0], [0.13, 0], [0.16, 0.02], [0.165, 0.03]].map(([a, b]) => new THREE.Vector2(a, b)), 40), std(0xd9dde6, { metalness: 0.8, roughness: 0.25, side: THREE.DoubleSide }));
     pan.position.y = 0.27; g.add(pan);
     const stem = mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.02, 12), std(0xb8bec8, { metalness: 0.7, roughness: 0.3 })); stem.position.y = 0.265; g.add(stem);
-    g.position.copy(this.at(x, 205));
+    g.position.copy(this.at(x, y));
     g.rotation.y = x < 300 ? 0.18 : 0;
     g.scale.setScalar(1.45);
     this.scale = g; this.root.add(g);
@@ -300,7 +302,7 @@ export class MeasureKit {
     this.sack = sack; this.root.add(sack);
     this.sackOn = 0;
   }
-  private sackHome() { return this.at((this.scale?.position ? this.boardX(this.scale.position.x) : 165) - 105, 250); }
+  private sackHome() { return this.bench ? this.at(285, 165) : this.at((this.scale?.position ? this.boardX(this.scale.position.x) : 165) - 105, 250); }
   private sackPan() { return this.scale ? this.scale.localToWorld(new THREE.Vector3(0, 0.275, 0)) : new THREE.Vector3(); }
   private boardX(wx: number) { const o = this.sc.boardPoint(300, 0).x; return 300 + (wx - o) / this.s; }
   private dialKey = '';
@@ -328,7 +330,7 @@ export class MeasureKit {
   dialPoint() { return this.scale ? this.scale.localToWorld(new THREE.Vector3(0, 0.27, 0.12)) : new THREE.Vector3(); }
 
   // ---------- the jug ----------
-  private buildJug(x: number, j: NonNullable<KitState['jug']>) {
+  private buildJug(x: number, j: NonNullable<KitState['jug']>, y = 205) {
     const g = new THREE.Group();
     const R = 0.1, H = 0.3; this.jugH = H;
     const glass = new THREE.MeshStandardMaterial({ color: 0xeaf6ff, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false });
@@ -354,7 +356,7 @@ export class MeasureKit {
     });
     const strip = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.006, R + 0.006, H - 0.02, 32, 1, true, -0.55, 1.1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
     strip.position.y = 0.02 + (H - 0.02) / 2; strip.renderOrder = 6; g.add(strip);
-    g.position.copy(this.at(x, 205));
+    g.position.copy(this.at(x, y));
     g.rotation.y = x > 300 ? -0.15 : 0;
     g.scale.setScalar(1.45);
     this.jug = g; this.root.add(g);
@@ -415,6 +417,24 @@ export class MeasureKit {
   }
   sidePoint(i: number) { const sp = this.sideSpots[i]; return sp ? sp.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(i === 1 ? 0.07 : i === 3 ? -0.07 : 0, 0.03, i === 0 ? -0.03 : i === 2 ? 0.05 : 0)) : new THREE.Vector3(); }
 
+  /** The bench's readings now: each thing on the ruler (from, to), the scale's needle, the jug. */
+  readings() {
+    return {
+      items: this.items.map(it => ({ from: it.from, to: it.from + it.len, len: it.len })),
+      weight: this.state.scale?.load ? this.state.scale.value : 0,
+      water: this.state.jug?.value ?? 0,
+    };
+  }
+  itemPoint(i: number) { const it = this.items[i]; return it ? it.g.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(it.len * this.rulerU * (i ? 0.78 : 0.22), 0.05 + i * 0.03, -0.02)) : new THREE.Vector3(); }
+  /** set the things on the ruler to new lengths, and the sack to a new weight (the bench's "something else") */
+  restock(lens: number[], weight: number) {
+    const r = this.state.ruler; if (!r) return;
+    this.rulerKey = '';
+    const st: KitState = { ...this.state, ruler: { ...r, items: r.items.map((it, i) => ({ ...it, from: it.from, to: it.from + (lens[i] ?? it.to - it.from) })) } };
+    if (st.scale) st.scale = { ...st.scale, value: weight };
+    this.set(st);
+  }
+
   /** over the work, a little above it (where the shortcut shows) */
   overPoint(): THREE.Vector3 {
     if (this.clock) return this.at(300, 322, 0.03);
@@ -469,6 +489,7 @@ export class MeasureKit {
     const t = this.task;
     if (this.free === 'clock') return this.handTip('minute');
     if (this.free === 'pour') return this.waterPoint();
+    if (this.free === 'bench') return null;
     if (!t) return null;
     switch (t.kind) {
       case 'hand': return this.handTip(t.hand);
@@ -550,7 +571,14 @@ export class MeasureKit {
       const hit = this.ray.intersectObject(this.sack, true)[0];
       if (hit) { this.drag = { kind: 'sack', plane: new THREE.Plane(new THREE.Vector3(0, 0, 1), -this.sack.position.z) }; return true; }
     }
-    if ((t?.kind === 'pour' || free === 'pour') && this.jug) {
+    if (free === 'bench') {
+      for (let i = 0; i < this.items.length; i++) {
+        const it = this.items[i];
+        if (this.ray.intersectObject(it.g, true)[0]) { const plane = new THREE.Plane(UP, -(TY + 0.02)); const p = this.ray.ray.intersectPlane(plane, new THREE.Vector3()); if (p) { this.drag = { kind: 'item', plane, item: i, offset: this.ruler!.worldToLocal(p.clone()).x - this.rulerX(it.from) }; mSfx.tick(); return true; } }
+      }
+      if (this.sack && this.ray.intersectObject(this.sack, true)[0]) { this.drag = { kind: 'sack', plane: new THREE.Plane(new THREE.Vector3(0, 0, 1), -this.sack.position.z) }; return true; }
+    }
+    if ((t?.kind === 'pour' || free === 'pour' || free === 'bench') && this.jug) {
       const hit = this.ray.intersectObject(this.jug, true)[0];
       if (hit) { const n = stage.camera.getWorldDirection(new THREE.Vector3()).negate(); this.drag = { kind: 'water', plane: new THREE.Plane().setFromNormalAndCoplanarPoint(n, this.jug.localToWorld(new THREE.Vector3(0, 0, 0.1))) }; this.moveDrag(); return true; }
     }
@@ -593,7 +621,7 @@ export class MeasureKit {
     if (d.kind === 'item' && this.ruler) {
       const it = this.items[d.item!], l = this.ruler.worldToLocal(p.clone()).x - (d.offset ?? 0);
       const v = Math.max(0, Math.min(this.state.ruler!.len - it.len, Math.round(((l + this.rulerL / 2 - 20 * this.s) / this.rulerU) * 2) / 2));
-      if (v !== it.from) { it.from = v; mSfx.tick(); }
+      if (v !== it.from) { it.from = v; mSfx.tick(); this.onChange?.(); }
       const t = this.task;
       if (t?.kind === 'slide' && v === t.to) { this.dropDrag(); mSfx.chime(); this.finish(); }
       return;
@@ -602,7 +630,7 @@ export class MeasureKit {
       this.sack.position.set(p.x, Math.max(TY, p.y - 0.06), this.sack.position.z);
       // over the pan (on the page): it drops in
       const pan = this.toScreen(this.sackPan().add(new THREE.Vector3(0, 0.06, 0)));
-      if (Math.hypot(pan.x - this.px.x, pan.y - this.px.y) < Math.max(40, innerHeight * 0.06)) { this.dropDrag(); this.finish(); }
+      if (this.free !== 'bench' && Math.hypot(pan.x - this.px.x, pan.y - this.px.y) < Math.max(40, innerHeight * 0.06)) { this.dropDrag(); this.finish(); }
       return;
     }
     if (d.kind === 'water' && this.jug && this.state.jug) {
@@ -637,7 +665,13 @@ export class MeasureKit {
       } else { tile.visible = false; }
       this.onChange?.();
     }
-    if (d?.kind === 'sack' && this.sack && this.task?.kind === 'load' && this.sackGoal === 0) { /* back home in update */ }
+    if (d?.kind === 'sack' && this.sack && this.free === 'bench') {
+      const pan = this.toScreen(this.sackPan().add(new THREE.Vector3(0, 0.06, 0)));
+      const on = Math.hypot(pan.x - this.px.x, pan.y - this.px.y) < Math.max(60, innerHeight * 0.09);
+      this.sackGoal = on ? 1 : 0; this.sackOn = on ? 0.6 : 0.4; if (on) mSfx.thud();
+      if (this.state.scale) this.state = { ...this.state, scale: { ...this.state.scale, load: on } };
+      this.onChange?.();
+    }
   }
 
   // ---------- each frame ----------

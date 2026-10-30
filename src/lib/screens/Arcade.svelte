@@ -58,14 +58,16 @@
   function openDrop() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('drop'); }
   /** Number Builder is the Place value area's game, on its own screen too */
   function openBuilder() { unlockAudio(); sfx.click(); scene?.cheer(); builderOpen.toy = false; builderOpen.from = 'arcade'; game.go('builder' as Screen); }
+  /** Clock Rush is the Measurement and time area's game, on its own screen too */
+  function openClock() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('clockrush' as Screen); }
   /** Market Dash is the Decimals and money area's game, on its own screen too */
   function openMarket() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('market' as Screen); }
-  function hover(id: ArcadeId | 'pizza' | 'builder' | 'market' | 'drop' | null, el?: HTMLElement) {
+  function hover(id: ArcadeId | 'pizza' | 'builder' | 'market' | 'clockrush' | 'drop' | null, el?: HTMLElement) {
     if (!scene) return;
     if (!id || !el) { scene.look(null); say = 'Pick a game to play!'; return; }
     const r = el.getBoundingClientRect();
     scene.look((r.left + r.width / 2) / innerWidth);
-    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'builder' ? 'Build it with blocks!' : id === 'market' ? 'Coins! Count them up!' : id === 'drop' ? 'Squish them together!' : 'Pizza! Slice it up!';
+    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'builder' ? 'Build it with blocks!' : id === 'market' ? 'Coins! Count them up!' : id === 'clockrush' ? 'Tick-tock, catch the clocks!' : id === 'drop' ? 'Squish them together!' : 'Pizza! Slice it up!';
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -75,7 +77,8 @@
     if (n === ARCADE_GAMES.length + 1) openPizza();
     if (n === ARCADE_GAMES.length + 2) openBuilder();
     if (n === ARCADE_GAMES.length + 3) openMarket();
-    if (n === ARCADE_GAMES.length + 4) openDrop();
+    if (n === ARCADE_GAMES.length + 4) openClock();
+    if (n === ARCADE_GAMES.length + 5) openDrop();
     if (e.key === 'd' || e.key === 'D') play(today, true);
   }
 
@@ -153,12 +156,17 @@
           <span class="plate"><span class="part">Decimals and money</span><b>Market Dash</b><span class="bs">Pay and make change</span></span>
           {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 3}</span>{/if}
         </button>
+        <button class="cab" style:--c="#8a6bd6" style:--d="{(ARCADE_GAMES.length + 3) * 90}ms" onclick={openClock} onpointerenter={(e) => hover('clockrush', e.currentTarget)} onpointerleave={() => hover(null)}>
+          <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-clock.webp" alt="" />
+          <span class="plate"><span class="part">Time and measuring</span><b>Clock Rush</b><span class="bs">Catch the clocks</span></span>
+          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 4}</span>{/if}
+        </button>
         <!-- Glimmer Drop: not practice, just for fun, so it uses play time (the same minutes as Adventure) -->
-        <button class="cab fun" style:--c="#9a6cf0" style:--d="{(ARCADE_GAMES.length + 3) * 90}ms" onclick={openDrop} onpointerenter={(e) => hover('drop', e.currentTarget)} onpointerleave={() => hover(null)}>
+        <button class="cab fun" style:--c="#9a6cf0" style:--d="{(ARCADE_GAMES.length + 4) * 90}ms" onclick={openDrop} onpointerenter={(e) => hover('drop', e.currentTarget)} onpointerleave={() => hover(null)}>
           <span class="ribbon fun">Just for fun</span>
           <img class="art" src="{import.meta.env.BASE_URL}arcade/cab-drop.webp" alt="" />
           <span class="plate"><b>Glimmer Drop</b><span class="bs">{drop.best ? `Best score ${fmt(drop.best)}` : 'New! Give it a go'}</span><span class="pt" class:out={!time.open}>{playText}</span></span>
-          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 4}</span>{/if}
+          {#if !compact}<span class="kbd">{ARCADE_GAMES.length + 5}</span>{/if}
         </button>
       </div>
       <p class="note">Math games count as practice: every answer helps your Fact Garden grow, and you earn shells and treasure. Typing games are coming soon. Glimmer Drop is just for fun and uses play time.</p>

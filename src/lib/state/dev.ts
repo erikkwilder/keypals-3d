@@ -103,6 +103,9 @@ export function devBoot() {
   if (key === 'tester') { addTester(); game.go('map'); history.replaceState(null, '', location.pathname + location.search); }
   // measurement and time: #measure-pics (every question's picture and input), #measure (its map)
   if (key === 'measure-pics' && import.meta.env.DEV) { ensure(); void Promise.all([import('svelte'), import('../math/measure/PicGallery.svelte')]).then(([s, m]) => { const c = s.mount(m.default, { target: document.body, props: { onclose: () => s.unmount(c) } }); }); }
+  // Clock Rush, the measuring arcade game: #clockrush; the Measuring Bench toy: #bench
+  if (key === 'clockrush') { ensure(); game.go('clockrush'); }
+  if (key === 'bench') { ensure(); game.go('bench'); }
   if (key === 'measure') { ensure(); game.setHome('math'); game.mathArea = 'measure'; game.mathOp = null; game.go('map'); }
   // a measuring Learn episode over the Measurement and time map: #measure-learn=ms-oclock (=ms-oclock,check for its quick check)
   if (key === 'measure-learn') { ensure(); game.setHome('math'); game.mathArea = 'measure'; game.mathOp = null; game.go('map'); const [id, c] = (val || 'ms-oclock').split(','); game.learnCheck = c === 'check'; game.learnOverlay = id; }
