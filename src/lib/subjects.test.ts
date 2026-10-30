@@ -70,7 +70,7 @@ describe('subjects and their four ways to play', () => {
   });
 
   it('lists the places that take every subject', () => {
-    expect(ANYWHERE.map(a => a.id)).toEqual(['arcade', 'adventure', 'drop', 'duel', 'rivals']);
+    expect(ANYWHERE.map(a => a.id)).toEqual(['arcade', 'adventure', 'drop', 'island', 'duel', 'rivals']);
     for (const a of ANYWHERE) { expect(pub(a.icon), a.icon).toBe(true); expect(pub(a.art), a.art).toBe(true); }
   });
 });

@@ -158,11 +158,13 @@ export function linksFor(s: Subject, chip: string): Partial<Record<WayId, Thing>
 
 /** The places that take every subject: on Home under "Play anywhere", and in the compass menu.
  *  `fun` ones are just for fun and use play time; `versus` ones show when the grown-ups allow them. */
-export type Anywhere = { id: 'arcade' | 'adventure' | 'drop' | 'duel' | 'rivals'; name: string; line: string; icon: string; art: string; contain?: boolean; fun?: boolean; versus?: boolean };
+export type Anywhere = { id: 'arcade' | 'adventure' | 'drop' | 'island' | 'duel' | 'rivals'; name: string; line: string; icon: string; art: string; contain?: boolean; fun?: boolean; versus?: boolean };
 export const ANYWHERE: Anywhere[] = [
   { id: 'arcade', name: 'Arcade', line: 'Every game in one place', icon: 'icons/arcade.webp', art: 'arcade/bg-plaza.webp' },
   { id: 'adventure', name: 'Adventure', line: 'Every world, battles and Glimmers', icon: 'game/icon-grump.webp', art: 'game/door-adventure.webp' },
   { id: 'drop', name: 'Glimmer Drop', line: 'Just for fun · uses play time', icon: 'drop/tile.webp', art: 'arcade/cab-drop.webp', contain: true, fun: true },
+  // My Sky Island (screens/SkyIsland.svelte): where shells go and rewards live; open any time, no play time
+  { id: 'island', name: 'My Sky Island', line: 'Build your island with shells', icon: 'island/tile.webp', art: 'island/card.webp' },
   { id: 'duel', name: 'Family Duel', line: 'Two players, one screen', icon: 'game/tile-duel.webp', art: 'game/intro-duel.webp', versus: true },
   { id: 'rivals', name: 'Rival Ghosts', line: 'Race a ghost, climb the leagues', icon: 'game/tile-rivals.webp', art: 'game/intro-rivals.webp', versus: true },
 ];

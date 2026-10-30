@@ -88,6 +88,9 @@ export function devBoot() {
   if (key === 'treasure') { ensure(); game.go('treasure'); }
   if (key === 'sketch') { ensure(); game.playPick = 'sketch'; game.go('playground'); }
   if (key === 'neg-start') { ensure(); import('../math/skills/integers').then(() => game.update(pp => { const m = (pp.math = mathOf(pp)); for (const k of ['in-plot:plot', 'in-real:temp', 'in-add:negpos', 'in-quad:plot']) (m.skills ??= {})[k] ??= { stage: 1, seen: 3, right: 3, wrong: 0, times: [3000], fastDays: [], last: Date.now(), due: 0, step: 0 }; })); game.mathArea = 'integers'; game.mathOp = null; game.setHome('math'); game.go('map'); }
+  // My Sky Island: #island; #island=demo gives shells and a few Glimmers to build with and watch;
+  // #island=family adds a brother with an island to visit (and a heart he left)
+  if (key === 'island') { ensure(); if (val) import('../island/demo').then(d => { d.islandDemo(val); game.go('island'); }); else game.go('island'); }
   // Glimmer Drop: #drop
   if (key === 'drop') { ensure(); game.go('drop'); }
   // the Arcade: #arcade (the plaza), #arcade=slalom|catch|tower (straight into a round), #arcade=daily

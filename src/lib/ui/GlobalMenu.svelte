@@ -27,6 +27,7 @@
   import { openAnywhere, openSubject, wayOf } from '../nav';
   import { arcadeOf, arcadeStars } from '../arcade/arcade';
   import { dropOf } from '../drop/save';
+  import { islandLine } from '../island/save'; // My Sky Island
   import { FRIEND } from '../art/cast';
   import Critter from './Critter.svelte';
   import SaveChip from './SaveChip.svelte';
@@ -82,6 +83,7 @@
   function anyLine(id: string): string {
     if (id === 'arcade') return arcBest ? `${arcStars} stars · best ${fmt(arcBest)}` : 'Every game in one place';
     if (id === 'adventure') return `${found}/${GLIMMER_TOTAL} Glimmers · ${world}`;
+    if (id === 'island') return islandLine(p); // My Sky Island
     if (id === 'drop') return drop.best ? `Best ${fmt(drop.best)} · uses play time` : 'Just for fun · uses play time';
     if (id === 'duel') return duels.played ? `${duels.won} won of ${duels.played}` : 'Two players, one screen';
     return league;

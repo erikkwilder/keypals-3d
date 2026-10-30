@@ -16,6 +16,7 @@
 import type { Profile } from '../engine/profile';
 import { levelFromXp } from '../engine/stickers';
 import { mergeAbility } from '../math/skills/ability';
+import { mergeIsland } from '../island/save'; // My Sky Island
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
@@ -238,6 +239,8 @@ function mergeWith(mine: Profile, theirs: Profile, base?: Profile | null): Profi
   out.soundSetup = or(m.soundSetup, t.soundSetup); out.allBuddies = or(m.allBuddies, t.allBuddies);
   if (m.math || t.math) out.math = m.math && t.math ? math(m.math, t.math, b?.math, mineNewer) : m.math ?? t.math;
   if (m.adventure || t.adventure) out.adventure = m.adventure && t.adventure ? adventure(m.adventure, t.adventure, b?.adventure, mineNewer) : m.adventure ?? t.adventure;
+  // My Sky Island: things owned add up, put-away things stay away, visitors and hearts from both (island/save.ts)
+  if (m.island || t.island) out.island = m.island && t.island ? mergeIsland(m.island, t.island, b?.island, mineNewer, add) : m.island ?? t.island;
   // undefined fields stay out of the save
   clean(out);
   out.id = mine.id; out.cloud = mine.cloud;

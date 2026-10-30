@@ -16,6 +16,7 @@
   import { advView, markSeen, playLeft } from '../adventure/state';
   import { ARCADE, dailyGame } from '../arcade/arcade';
   import { dropOf } from '../drop/save';
+  import { islandLine } from '../island/save'; // My Sky Island
   import { seasonView } from '../adventure/versus';
   import { LEAGUES } from '../adventure/ghosts';
   import { GLIMMER_TOTAL } from '../adventure/glimmers';
@@ -71,6 +72,7 @@
   function anyLine(id: string): string {
     if (id === 'arcade') return `Today's challenge: ${ARCADE[today0].name}`;
     if (id === 'adventure') return advReady ? `${advReady} egg${advReady === 1 ? '' : 's'} ready to hatch!` : `${worldName} · ${found}/${GLIMMER_TOTAL} Glimmers`;
+    if (id === 'island') return islandLine(p);
     if (id === 'drop') { const b = dropOf(p).best; return !play.open ? 'Play time is used up today' : b ? `Best ${fmt(b)} · uses play time` : 'Just for fun · uses play time'; }
     if (id === 'duel') { const d = adv.duels ?? { played: 0, won: 0 }; return d.played ? `${d.won} won of ${d.played}` : 'Two players, one screen'; }
     return LEAGUES[seasonView(p).league]?.name ?? LEAGUES[0].name;
