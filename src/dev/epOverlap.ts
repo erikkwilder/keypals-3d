@@ -141,7 +141,7 @@ export async function epOverlap(only?: string[], buddy?: FriendId): Promise<{ co
     for (const [k, b] of steps.entries()) { s.show(b, true); t = settle(s, t); pictures++; issues.push(...checkNow(s, id, `step ${k + 1}`)); }
     const pics: [string, Board | undefined][] = [['buddy\'s go', l.teach.q.pic], ...l.tries.map((q, k) => [`try ${k + 1}`, q.pic] as [string, Board | undefined])];
     for (const [name, b] of pics) { if (!b) continue; s.fitBoards([b]); s.show(b, true); t = settle(s, t); pictures++; issues.push(...checkNow(s, id, name)); }
-    s.show({ ...steps[0], dots: [], frames: [], plates: [], dishes: [], line: undefined, chart: undefined, beam: undefined, tags: [] } as Board, true);
+    s.show({ ...steps[0], dots: [], frames: [], plates: [], dishes: [], line: null, chart: undefined, beam: undefined, tags: [] } as Board, true);
   }
   for (const s of scenes.values()) s.dispose();
   // the measuring episodes: their things on the table (math/measure/MeasureEpisode.svelte)
