@@ -11,6 +11,7 @@ import { dayKey, type Profile } from '../engine/profile';
 import { parseFact } from '../math/facts';
 import { splitKey } from '../math/skills/registry';
 import { SKILL_LESSON } from '../math/skills/course';
+import { ISLAND, NODE } from '../adventure/state';
 
 export type EventKind = 'skill' | 'facts' | 'typing' | 'arcade' | 'game' | 'play' | 'learn' | 'battle';
 /** One activity. Short keys: there are a few hundred of these in a save. */
@@ -30,6 +31,8 @@ export type ClassEvent = {
   st?: number;
   /** finished it (to the end) */
   f?: number;
+  /** a battle won: the world it was in (a stop on its map cleared), for My path and a teacher's units */
+  w?: string;
 };
 export type ClassWork = { ev: Record<string, ClassEvent> };
 /** Board settings a grown-up chose for this player (Grown-ups screen). */
@@ -68,7 +71,7 @@ export function activityOf(before: Profile | undefined, after: Profile, now = Da
   deltas(ma?.facts, mb?.facts, factSkillOf, s);
   const today = dayKey(now);
   const dayMs = Math.max(0, (after.days?.[today]?.ms ?? 0) - (before?.days?.[today]?.ms ?? 0));
-  let k: EventKind | null = null, l = '', ms = dayMs, r = 0, n = 0, st: number | undefined, f: number | undefined;
+  let k: EventKind | null = null, l = '', ms = dayMs, r = 0, n = 0, st: number | undefined, f: number | undefined, w: string | undefined;
 
   const th = after.history?.[after.history.length - 1];
   const mh = ma?.history?.[ma.history.length - 1];
@@ -102,6 +105,10 @@ export function activityOf(before: Profile | undefined, after: Profile, now = Da
         const same = db && db.key === da.key;
         ms = dayMs || Math.max(0, da.ms - (same ? db.ms : 0));
         if (!Object.keys(s).length) { r = Math.max(0, da.right - (same ? db.right : 0)); n = Math.max(0, da.answers - (same ? db.answers : 0)); }
+        // won: a stop on the map cleared, and which world it was in
+        const nb = before?.adventure?.nodes ?? {}, na = after.adventure?.nodes ?? {};
+        const node = Object.keys(na).find(id => (na[id] ?? 0) > (nb[id] ?? 0));
+        if (node && NODE[node]) w = ISLAND[NODE[node].island]?.world;
       }
       else if (JSON.stringify(ma?.play ?? {}) !== JSON.stringify(mb?.play ?? {})) { k = 'play'; l = 'playground'; }
       else if (Object.keys(s).length) { k = 'game'; l = 'practice'; }
@@ -113,6 +120,7 @@ export function activityOf(before: Profile | undefined, after: Profile, now = Da
   if (Object.keys(s).length) ev.s = s;
   if (st) ev.st = st;
   if (f) ev.f = f;
+  if (w) ev.w = w;
   return ev;
 }
 
@@ -132,7 +140,7 @@ export function activityBase(p: Profile, now = Date.now()): Profile {
       facts: lite(m.facts), skills: lite(m.skills), history: m.history?.length ? [m.history[m.history.length - 1]] : [],
       lessons: finishes(m.lessons), arcade: plays(m.arcade), play: JSON.parse(JSON.stringify(m.play ?? {})), learned: [...(m.learned ?? [])],
     } : undefined,
-    adventure: a ? { day: { ...a.day } } : undefined,
+    adventure: a ? { day: { ...a.day }, nodes: { ...(a.nodes ?? {}) } } : undefined,
   } as unknown as Profile;
 }
 

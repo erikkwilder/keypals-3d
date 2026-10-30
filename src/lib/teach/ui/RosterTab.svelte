@@ -64,7 +64,7 @@
               {:else}<button class="namebtn" onclick={() => (teach.studentId = s.id)}>{s.name}</button>{/if}
             </td>
             <td><PicturePass pics={s.pics} size={34} /></td>
-            <td class="muted">{s.home ? 'From home (the family keeps it)' : 'Made by the class'}</td>
+            <td class="muted">{s.home ? 'From home (the family keeps it)' : 'Made by the class'}{s.google ? ' · signs in with Google' : ''}</td>
             <td class="r">
               {#if removing === s.id}
                 <span class="sure">Remove {s.name}?{s.home ? '' : ' Their class player and progress are deleted.'}</span>

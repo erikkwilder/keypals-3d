@@ -1,5 +1,7 @@
 <script lang="ts">
-  // Keypals for teachers: sign in with Google, say "I'm a teacher" once, then classes. A class has a code
+  // Keypals for teachers: sign in with Google, say "I'm a teacher" once, then classes. A school Google
+  // account's classes are on straight away; a plain Gmail account can set up, and its classes turn on once
+  // we've said yes (a banner says so). A class has a code
   // students type (or scan from their login card), a roster of first names, class work, a gradebook,
   // reports and the class's boards. Built for a desktop or a tablet, in light colours and plain words.
   // Behind the grown-up check like the Grown-ups screen, so a child at a shared computer can't wander in.
@@ -22,13 +24,25 @@
   const GRADES = ['K', '1', '2', '3', '4', '5', '6', '7', '8'];
   const active = $derived(teach.classes.filter(c => !c.archived));
   const archived = $derived(teach.classes.filter(c => c.archived));
+  const status = $derived(teach.me?.teacher?.status ?? 'approved');
 
   onMount(() => { if (!teach.loaded || !teach.me?.signedIn) void loadMe(); });
   function google() { try { sessionStorage.setItem('kp-teach-return', '1'); } catch { /* fine */ } signIn('google'); }
-  function microsoft() { try { sessionStorage.setItem('kp-teach-return', '1'); } catch { /* fine */ } signIn('microsoft'); }
   async function out() { await signOut(); teach.me = { signedIn: false }; teach.classes = []; teach.current = null; }
   function back() { if (teach.current) { teach.current = null; return; } game.go(teachBack.to); }
 </script>
+
+{#snippet waiting()}
+  <section class="panel wait" class:no={status === 'declined'}>
+    {#if status === 'declined'}
+      <h2>We couldn't turn on classes for this account</h2>
+      <p>Students can't log in to these classes. If you're a teacher, sign in with your school Google account and your classes are on straight away, or write to us from Ideas and help.</p>
+    {:else}
+      <h2>We'll turn on your classes soon</h2>
+      <p>You signed in with a personal Google account, so we check first that you're a teacher (usually within a day). You can set everything up now: add students, print cards and give class work. Students can log in once your classes are on. With a school Google account they're on straight away.</p>
+    {/if}
+  </section>
+{/snippet}
 
 <div class="screen teach">
   <header class="tbar">
@@ -59,20 +73,26 @@
             <ul class="facts">
               <li>Free, with no ads.</li>
               <li>For each child we keep only the first name or nickname you type, their game progress and their picture password.</li>
-              <li>You sign in with your school or personal Google account. Children never sign in.</li>
+              <li>Teachers sign in with Google. A school Google account is best: its classes are on straight away. With a personal Gmail account you can set everything up, and we turn your classes on once we've checked (usually within a day).</li>
+              <li>Students log in with the class code and pictures, or with their own school Google account. They never give us an email.</li>
             </ul>
             <div class="row">
               {#if cloud.google}<button class="btn btn-primary" onclick={google}>Sign in with Google</button>{/if}
-              {#if cloud.microsoft}<button class="btn" onclick={microsoft}>Sign in with Microsoft</button>{/if}
-              {#if !cloud.google && !cloud.microsoft && !teach.dev}<p class="muted">Sign-in isn't set up on this copy of Keypals.</p>{/if}
+              {#if !cloud.google && !teach.dev}<p class="muted">Sign-in isn't set up on this copy of Keypals.</p>{/if}
             </div>
             {#if teach.dev}
               <div class="dev">
                 <b>Test sign-in (this computer only)</b>
-                <p>For trying the teacher pages on a test server. It doesn't exist on the real site.</p>
-                <div class="row"><input bind:value={devName} aria-label="Test teacher's name" /><button class="btn" onclick={() => devSignIn(devName)}>Sign in for a test</button></div>
+                <p>For trying the teacher pages on a test server. It doesn't exist on the real site. A school account's classes are on straight away; a Gmail account's wait for an admin.</p>
+                <div class="row"><input bind:value={devName} aria-label="Test teacher's name" /><button class="btn" onclick={() => devSignIn(devName)}>Test: school account</button><button class="btn" onclick={() => devSignIn(devName, true)}>Test: Gmail account</button></div>
               </div>
             {/if}
+          </section>
+        {:else if !teach.me.teacher && teach.me.canTeach === false}
+          <section class="panel">
+            <h2>Teachers sign in with Google</h2>
+            <p>You're signed in with {teach.me.account?.provider === 'microsoft' ? 'Microsoft' : 'another account'}. To make classes, sign out and sign in with a Google account: a school one is best, so your classes are on straight away.</p>
+            <div class="row"><button class="btn btn-primary" onclick={out}>Sign out</button></div>
           </section>
         {:else if !teach.me.teacher}
           <section class="panel">
@@ -94,8 +114,10 @@
             <div class="row"><button class="btn btn-primary" disabled={!display.trim() || !agree || teach.busy} onclick={() => act(() => becomeTeacher(display, agree))}>Continue</button></div>
           </section>
         {:else if teach.current}
+          {#if status !== 'approved'}{@render waiting()}{/if}
           <ClassPage />
         {:else}
+          {#if status !== 'approved'}{@render waiting()}{/if}
           <section class="panel">
             <div class="h2row"><h2>Your classes</h2></div>
             {#if active.length}
@@ -177,6 +199,9 @@
   .link { background: none; border: 0; padding: 12px 0 0; font: 700 14px var(--font-body); color: #6a4fe0; cursor: pointer; text-decoration: underline; }
   .msg { font: 700 14.5px var(--font-body); color: #6a4fe0; }
   .muted { color: #7a7092; }
+  .wait { background: #fff8e6; border-color: #f2d88a; }
+  .wait h2 { font-size: 22px; }
+  .wait.no { background: #fff4f4; border-color: #f1c6c9; }
   @media (max-width: 700px) {
     .tbar { padding: 8px 10px; gap: 8px; }
     .tb span, .brand span, .who { display: none; }

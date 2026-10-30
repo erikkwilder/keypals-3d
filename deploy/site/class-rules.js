@@ -86,3 +86,46 @@ export function cleanWeek(b) {
  *  src/lib/arcade/arcade.ts). Anything above is not put on the world board. */
 export const WORLD_GAMES = { slalom: 75000, catch: 16500, tower: 30000 };
 export const worldScoreOk = (game, score) => Object.hasOwn(WORLD_GAMES, game) && Number.isInteger(score) && score > 0 && score <= WORLD_GAMES[game];
+
+// ---------- a class's path and time rules, and students' Google sign-in (src/lib/path/rules.ts) ----------
+/** Keep students on My path: off, path first (the rest opens once today's path things are done), path only. */
+export const KEEPS = ['off', 'first', 'only'];
+/** A daily limit for a free-time place: off, minutes, or earned by practice. */
+export const LIMITS = ['off', '10', '15', '20', '30', 'earned'];
+export const FREE_PLACES = ['garden', 'island', 'closet', 'dances'];
+/** A school's internet domain ("school.org"), or null. */
+export function cleanDomain(raw) {
+  const d = String(raw ?? '').trim().toLowerCase().replace(/^.*@/, '');
+  return d.length <= 80 && /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) ? d : null;
+}
+/** A class's settings, checked, on top of what it had: keep (to the path), goal (path things a day),
+ *  limits (per free-time place), google (students may sign in with Google: on or off) and domain (only
+ *  Google accounts from this school domain, or null for any). */
+export function cleanClassSettings(raw, was = {}) {
+  const b = raw && typeof raw === 'object' ? raw : {};
+  const out = { keep: 'off', goal: 3, limits: {}, google: 'on', domain: null, ...was };
+  if (KEEPS.includes(b.keep)) out.keep = b.keep;
+  if (b.goal !== undefined) out.goal = Math.max(1, Math.min(6, Math.round(Number(b.goal) || 3)));
+  if (b.limits && typeof b.limits === 'object') {
+    const l = { ...out.limits };
+    for (const k of FREE_PLACES) if (LIMITS.includes(b.limits[k])) l[k] = b.limits[k];
+    out.limits = l;
+  }
+  if (b.google === 'on' || b.google === 'off') out.google = b.google;
+  if (b.domain !== undefined) out.domain = b.domain === null || b.domain === '' ? null : cleanDomain(b.domain);
+  return out;
+}
+/** A Google account's school domain: Google's own `hd` (a school or company account), else nothing. */
+export const googleDomain = (me) => (me && typeof me.hd === 'string' ? cleanDomain(me.hd) : null);
+/** Whether an account from `hd` may join a class kept to `domain` (the domain itself or a part of it). */
+export const domainOk = (hd, domain) => !domain || (!!hd && (hd === domain || hd.endsWith(`.${domain}`)));
+/**
+ * Whether a new teacher's classes are on straight away: a Google account from a school or company (Google
+ * Workspace: it has a domain, `hd`) is approved; a plain Gmail account waits for an admin to say yes; the
+ * people who look after Keypals are approved. Other sign-ins (Microsoft) can't become new teachers: null.
+ */
+export function teacherStatusFor({ provider, hd, admin = false }) {
+  if (admin) return 'approved';
+  if (provider !== 'google' && provider !== 'dev') return null;
+  return hd ? 'approved' : 'pending';
+}

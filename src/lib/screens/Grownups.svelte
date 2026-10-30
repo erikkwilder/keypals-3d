@@ -11,6 +11,10 @@
   import { addTester } from '../state/dev';
   import { advOf, advView, PLAY_RULES, type AdvSettings, type PlayRule } from '../adventure/state';
   import { AREAS } from '../math/skills/registry';
+  // My path's rules for a home player: things a day, keep to the path, where the math path starts, and
+  // daily limits for the free-time places (path/rules.ts)
+  import { FREE_PLACES, KEEPS, KEEP_TEXT, LIMITS, LIMIT_NAME, PLACE_NAME, homeRules, setHomeRules, usedMs, type FreePlace, type Keep, type Limit } from '../path/rules';
+  import { gradeName } from '../path/units';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, addFromAccount, addAllFromAccount, grownupOpen, showCode } from '../state/cloud.svelte';
@@ -88,6 +92,7 @@
   }
   const adv = $derived(p ? advView(p) : null);
   const practiceToday = $derived(p ? (p.days[dayKey(Date.now())]?.ms ?? 0) : 0);
+  const hr = $derived(p ? homeRules(p) : {} as ReturnType<typeof homeRules>);
   function setAdv(patch: Partial<AdvSettings>) {
     game.save.profiles.forEach(x => { if (x.id === selected) { const a = advOf(x); a.settings = { ...a.settings, ...patch }; } });
     game.persist();
@@ -243,6 +248,29 @@
               <input type="checkbox" checked={!!p.settings.easy} onchange={(e) => { const v = e.currentTarget.checked; setFor(x => { x.settings.easy = v; }); }} />
             </label>
           {/if}
+          <div class="grow">
+            <span class="gl"><b>My path: things a day</b><small>My path suggests what to do next. Home shows how many of today's things are done ("2 of 3 things done today").</small></span>
+            <div class="seg">{#each [1, 2, 3, 4, 5] as n (n)}<button class:on={(hr.goal ?? 3) === n} onclick={() => setFor(x => setHomeRules(x, { goal: n }))}>{n}</button>{/each}</div>
+          </div>
+          <div class="grow">
+            <span class="gl"><b>Keep to the path</b><small>{KEEP_TEXT[hr.keep ?? 'off'].text}</small></span>
+            <div class="seg">{#each KEEPS as k (k)}<button class:on={(hr.keep ?? 'off') === k} onclick={() => setFor(x => setHomeRules(x, { keep: k as Keep }))}>{KEEP_TEXT[k].name}</button>{/each}</div>
+          </div>
+          <label class="grow">
+            <span class="gl"><b>Math path starts at</b><small>The units before it stay open, but the path begins here. A class's grade counts first for a class player.</small></span>
+            <select class="gsel" value={hr.grade ?? -1} onchange={(e) => { const v = Number((e.currentTarget as HTMLSelectElement).value); setFor(x => setHomeRules(x, { grade: v < 0 ? null : v })); }}>
+              <option value={-1}>The beginning</option>{#each [0, 1, 2, 3, 4, 5, 6, 7, 8] as g (g)}<option value={g}>{gradeName(g)}</option>{/each}
+            </select>
+          </label>
+          <div class="grow limits">
+            <span class="gl"><b>Free-time limits</b><small>A daily limit for the just-for-fun places. When the time's up, the door says so kindly and points to the path. Earned: 5 minutes, plus a minute for every minute of practice.</small></span>
+            <div class="lims">
+              {#each FREE_PLACES as pl (pl)}
+                <label>{PLACE_NAME[pl as FreePlace]}<select value={hr.limits?.[pl as FreePlace] ?? 'off'} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value as Limit; setFor(x => setHomeRules(x, { limits: { [pl]: v } })); }}>{#each LIMITS as l (l)}<option value={l}>{LIMIT_NAME(l as Limit)}</option>{/each}</select>
+                  <small>{Math.round(usedMs(p, pl as FreePlace) / 60000)} min today</small></label>
+              {/each}
+            </div>
+          </div>
         </div>
         <div class="card pane advset">
           <h3>Adventure: play time</h3>
@@ -350,6 +378,13 @@
   .gl b { font: 600 17px var(--font-ui); color: var(--ink); }
   .gl small { font: 600 13px/1.35 var(--font-body); color: var(--muted); }
   .grow input[type='checkbox'] { width: 22px; height: 22px; accent-color: var(--primary); flex: none; }
+  .gsel { font: 600 15px var(--font-body); padding: 6px 10px; border-radius: 10px; border: 2px solid #e6dff5; flex: none; }
+  .limits { flex-wrap: wrap; }
+  .lims { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 12px; flex: 1 1 520px; }
+  .lims label { display: flex; flex-direction: column; gap: 3px; font: 700 13px var(--font-body); color: var(--ink2); }
+  .lims select { font: 600 14px var(--font-body); padding: 6px 8px; border-radius: 10px; border: 2px solid #e6dff5; }
+  .lims small { font: 700 11.5px var(--font-body); color: var(--muted); }
+  @media (max-width: 760px) { .lims { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .seg { display: flex; gap: 4px; background: var(--bg2); padding: 4px; border-radius: 14px; flex: none; }
   .seg button { border: 0; background: none; padding: 7px 10px; border-radius: 10px; font: 700 13px var(--font-body); color: var(--muted); cursor: pointer; }
   .seg button.on { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }

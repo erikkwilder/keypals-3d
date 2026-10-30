@@ -14,13 +14,25 @@
 // your two pictures) hands the game that player; "Done for today" takes it off a shared computer again.
 // A family can link a player from home to a class (the teacher says yes first), and unlink it later.
 //
+// Becoming a teacher takes a Google sign-in. A Google account from a school or company (Google Workspace:
+// Google tells us its domain, `hd`) is approved straight away; a plain Gmail account can set up classes,
+// but students can't log in to them until an admin says yes (Grown-ups → Admin → Teachers). Teachers from
+// before this check, and the people who look after Keypals, are approved.
+//
+// Students with a school Google account (like Gimkit): "Sign in with Google" on the class login, then the
+// class code once (and, if they're on the list already, their two pictures): next time Google alone takes
+// them to their player, on any computer. We keep a hash of the Google account's id and the first name,
+// never the email; a class can be kept to one school domain. A class also keeps its My path rules (keep
+// students on the path, path things a day, time limits for the free-time places: src/lib/path/rules.ts).
+//
 // A test sign-in exists for checking the teacher side on a computer: only when KP_DEV_SIGNIN is "1" (a
-// variable never set on the live site) AND the address is 127.0.0.1 or localhost.
+// variable never set on the live site) AND the address is 127.0.0.1 or localhost. (&gmail=1: a plain
+// Gmail account; otherwise a school account.) Students have one too (/class/google/dev).
 
-import { CLASS_WORDS, MAX_CLASSES, MAX_STUDENTS, PICTURE_COUNT, START_BUDDIES, cleanClassName, cleanStudentName, cleanTeacherName, cleanWeek, isAlias, isBuddyId, isDay, isWeek, splitNames, worldScoreOk } from './class-rules.js';
+import { CLASS_WORDS, MAX_CLASSES, MAX_STUDENTS, PICTURE_COUNT, START_BUDDIES, cleanClassName, cleanClassSettings, cleanStudentName, cleanTeacherName, cleanWeek, domainOk, googleDomain, isAlias, isBuddyId, isDay, isWeek, splitNames, teacherStatusFor, worldScoreOk } from './class-rules.js';
 
 /** Tables for the weekly backup (worker.js backup): table and its key. The world boards aren't kept. */
-export const CLASS_TABLES = { teachers: 'account', classes: 'id', students: 'id', assignments: 'id', player_week: 'id', challenges: 'id', challenge_classes: 'id' };
+export const CLASS_TABLES = { teachers: 'account', classes: 'id', students: 'id', assignments: 'id', player_week: 'id', challenges: 'id', challenge_classes: 'id', teacher_status: 'account', class_settings: 'class', student_google: 'gid', account_domains: 'account' };
 
 const DAY = 86400000;
 const newId = (h) => h.randomToken(9);
@@ -99,6 +111,35 @@ async function teacherOf(env, request, h) {
   if (!t) return { error: h.fail(403, 'Say "I\'m a teacher" first.') };
   return { acct, teacher: t };
 }
+/** A teacher's status: approved, pending (a plain Gmail account, waiting for an admin) or declined. No
+ *  row: a teacher from before the check, approved. Never fails (before the schema has the table: approved). */
+async function statusOf(env, account) {
+  try { return (await env.DB.prepare('SELECT status FROM teacher_status WHERE account = ?').bind(account).first())?.status ?? 'approved'; } catch { return 'approved'; }
+}
+/** A class students can use: not archived, and its teacher's classes are on. */
+const classOn = async (env, c) => !c.archived && (await statusOf(env, c.teacher)) === 'approved';
+const NOT_ON = "This class isn't open yet. Your teacher will hear from us soon.";
+/** A class's settings (cleaned, with the usual for anything not set). */
+async function settingsOf(env, classId) {
+  let row = null;
+  try { row = await env.DB.prepare('SELECT data FROM class_settings WHERE class = ?').bind(classId).first(); } catch { /* before the schema: the usual */ }
+  let d = {}; try { d = row ? JSON.parse(row.data) : {}; } catch { /* the usual */ }
+  return cleanClassSettings(d);
+}
+/** What students' games need of the settings (not how they sign in). */
+const playSettings = (s) => ({ keep: s.keep, goal: s.goal, limits: s.limits });
+/** The school domain Google gave an account at sign-in (null: a plain Gmail account, or none). */
+async function domainOf(env, account) {
+  try { return (await env.DB.prepare('SELECT hd FROM account_domains WHERE account = ?').bind(account).first())?.hd ?? null; } catch { return null; }
+}
+/** worker.js, after a grown-up signs in: keep the school domain Google gave (or forget an old one). */
+export async function noteSignIn(env, account, provider, me) {
+  const hd = provider === 'google' || provider === 'dev' ? googleDomain(me) : null;
+  try {
+    if (hd) await env.DB.prepare('INSERT INTO account_domains (account, hd, updated) VALUES (?, ?, ?) ON CONFLICT(account) DO UPDATE SET hd = excluded.hd, updated = excluded.updated').bind(account, hd, Date.now()).run();
+    else await env.DB.prepare('DELETE FROM account_domains WHERE account = ?').bind(account).run();
+  } catch { /* before the schema: nothing to keep */ }
+}
 const ownClass = (env, acct, id) => env.DB.prepare('SELECT * FROM classes WHERE id = ? AND teacher = ?').bind(id, acct).first();
 async function ownStudent(env, acct, id) {
   return env.DB.prepare('SELECT s.* FROM students s JOIN classes c ON c.id = s.class WHERE s.id = ? AND c.teacher = ?').bind(id, acct).first();
@@ -106,7 +147,7 @@ async function ownStudent(env, acct, id) {
 const classView = (c, extra = {}) => ({ id: c.id, name: c.name, grade: c.grade, code: c.code, board: !!c.board, goal: c.goal, archived: !!c.archived, created: c.created, ...extra });
 
 // ---------- assignments: kept as the game describes them, checked and trimmed ----------
-const WHAT = ['skills', 'typing', 'learn', 'check'];
+const WHAT = ['skills', 'typing', 'learn', 'check', 'unit'];
 const GOALS = ['right', 'minutes', 'comfortable', 'finish'];
 const SCORING = ['completion', 'accuracy', 'both'];
 const ids = (x, max = 60) => (Array.isArray(x) ? x.filter(s => typeof s === 'string' && /^[\w.:-]{1,40}$/.test(s)).slice(0, max) : []);
@@ -124,8 +165,16 @@ export function cleanAssignment(d) {
     due: Number.isFinite(d.due) ? Math.round(d.due) : null,
     students: Array.isArray(d.students) ? ids(d.students, 60) : null,
   };
-  const n = { skills: out.skills, typing: out.lessons, learn: out.episodes, check: out.areas }[out.what];
-  return n.length ? out : null;
+  if (out.what === 'unit') {
+    // a unit: its items in order (My path's: ep:, trip:, skill:, game:, battle:, check), and the path unit it
+    // came from, if any
+    out.items = ids(d.items, 40).filter(x => /^(ep|trip|skill|game|battle):[\w.-]+$|^check$/.test(x));
+    if (typeof d.unit === 'string' && /^[\w:.-]{1,40}$/.test(d.unit)) out.unit = d.unit;
+    if (d.subject === 'math' || d.subject === 'typing') out.subject = d.subject;
+    out.goal = { type: 'finish', n: 1 };
+  }
+  const n = { skills: out.skills, typing: out.lessons, learn: out.episodes, check: out.areas, unit: out.items }[out.what];
+  return n && n.length ? out : null;
 }
 
 // ---------- the boards ----------
@@ -161,12 +210,61 @@ async function dropStudents(env, rows, teacher = '') {
       st.push(env.DB.prepare('DELETE FROM players WHERE code = ? AND (account IS NULL OR account = ?)').bind(s.player, teacher));
       st.push(env.DB.prepare('DELETE FROM player_week WHERE player = ? AND player NOT IN (SELECT code FROM players)').bind(s.player));
     }
+    st.push(env.DB.prepare('DELETE FROM student_google WHERE student = ?').bind(s.id));
     st.push(env.DB.prepare('DELETE FROM students WHERE id = ?').bind(s.id));
   }
   if (st.length) await env.DB.batch(st);
 }
 
 const devReady = (env, url) => env.KP_DEV_SIGNIN === '1' && (url.hostname === '127.0.0.1' || url.hostname === 'localhost');
+
+/** A student's two pictures: null when right; else the answer to send (wrong, or resting after too many). */
+async function picturesWrong(env, h, s, pics) {
+  const key = `pics:${s.id}`;
+  if (await blocked(env, key, PIC_TRIES)) return h.fail(429, "Let's take a little break. Ask your teacher to check your pictures.");
+  const given = Array.isArray(pics) ? pics.map(Number) : [];
+  const want = picsOf(s.pics);
+  if (given.length !== 2 || given[0] !== want[0] || given[1] !== want[1]) {
+    await count(env, key, PIC_REST_MIN);
+    return h.json({ error: 'Not quite! Try your two pictures again.', wrong: true }, 403);
+  }
+  await env.DB.prepare('DELETE FROM limits WHERE key = ?').bind(key).run();
+  return null;
+}
+/** A logged-in student's player, as saved (sent on as it is), made fresh if it was tidied away. */
+async function playerFor(env, s, extra = '') {
+  let row = await env.DB.prepare('SELECT data, updated FROM players WHERE code = ?').bind(s.player).first();
+  if (!row) {
+    // the player was tidied away or deleted: a fresh one with the same name
+    const now = Date.now(), data = starterProfile(s.name, randomBuddy(), now);
+    await env.DB.prepare('INSERT OR REPLACE INTO players (code, data, updated, created, opened) VALUES (?, ?, ?, ?, ?)').bind(s.player, data, now, now, now).run();
+    row = { data, updated: now };
+  } else await env.DB.prepare('UPDATE players SET opened = ? WHERE code = ?').bind(Date.now(), s.player).run();
+  return new Response(`{${extra}"code":${JSON.stringify(s.player)},"name":${JSON.stringify(s.name)},"updated":${Number(row.updated)},"profile":${row.data}}`, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+}
+
+// ---------- students signing in with their school Google account ----------
+/** The hash we keep for a Google account (never its id or email). */
+export const googleKey = (h, sub) => h.sha256(`kp-student:${sub}`);
+/**
+ * worker.js, back from Google for a student (never a grown-up's account, no sign-in cookie): a one-time
+ * ticket for the next ten minutes, holding only the hashed id, the first name and the school domain, and
+ * back to the game with it after a `#` (never sent to a server by the browser).
+ */
+export async function studentGoogleBack(env, url, base, me, h) {
+  const back = (frag) => Response.redirect(`${url.origin}${base}/#${frag}`, 302);
+  if (!me || !me.sub) return back('classgoogle-no');
+  const now = Date.now(), ticket = h.randomToken(24);
+  const first = cleanStudentName(me.given_name || String(me.name ?? '').split(' ')[0]);
+  await env.DB.prepare('DELETE FROM google_tickets WHERE expires < ?').bind(now).run();
+  await env.DB.prepare('INSERT INTO google_tickets (hash, gid, name, hd, expires) VALUES (?, ?, ?, ?, ?)').bind(await h.sha256(ticket), await googleKey(h, me.sub), first, googleDomain(me), now + 10 * 60000).run();
+  return back(`classgoogle=${ticket}`);
+}
+async function ticketOf(env, h, ticket) {
+  if (typeof ticket !== 'string' || ticket.length < 16 || ticket.length > 64) return null;
+  const t = await env.DB.prepare('SELECT * FROM google_tickets WHERE hash = ?').bind(await h.sha256(ticket)).first();
+  return t && t.expires > Date.now() ? t : null;
+}
 
 /**
  * Our part of the API, or null when the path isn't ours. `h` is worker.js's toolbox: json, fail,
@@ -183,9 +281,12 @@ export async function classApi(request, env, url, path, h) {
   if (path === '/auth/dev' && method === 'GET') {
     if (!devReady(env, url)) return h.fail(404, 'Not found.');
     const name = cleanTeacherName(url.searchParams.get('name')) || 'Test Teacher';
-    const sub = `dev-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, now = Date.now();
+    const gmail = url.searchParams.get('gmail') === '1';
+    const sub = `dev-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}${gmail ? '-gmail' : ''}`, now = Date.now();
     let acct = await DB.prepare("SELECT id FROM accounts WHERE provider = 'dev' AND sub = ?").bind(sub).first();
     if (!acct) { acct = { id: h.randomToken(12) }; await DB.prepare("INSERT INTO accounts (id, provider, sub, email, name, created, seen) VALUES (?, 'dev', ?, NULL, ?, ?, ?)").bind(acct.id, sub, name, now, now).run(); }
+    // a test school account has a school domain; a test Gmail account has none
+    await noteSignIn(env, acct.id, 'dev', gmail ? {} : { hd: 'school.test' });
     const token = h.randomToken(32);
     await DB.prepare('INSERT INTO sessions (hash, account, expires) VALUES (?, ?, ?)').bind(await h.sha256(token), acct.id, now + DAY).run();
     const base = h.base ?? '/keypals';
@@ -205,7 +306,8 @@ export async function classApi(request, env, url, path, h) {
     const acct = await h.currentAccount(env, request);
     if (!acct) return h.json({ signedIn: false });
     const t = await DB.prepare('SELECT display, agreed FROM teachers WHERE account = ?').bind(acct.id).first();
-    return h.json({ signedIn: true, account: { name: acct.name }, teacher: t ? { display: t.display, agreed: t.agreed } : null });
+    const canTeach = !!t || teacherStatusFor({ provider: acct.provider, hd: null, admin: h.isAdmin?.(env, acct) }) !== null;
+    return h.json({ signedIn: true, account: { name: acct.name, provider: acct.provider, domain: await domainOf(env, acct.id) }, canTeach, teacher: t ? { display: t.display, agreed: t.agreed, status: await statusOf(env, acct.id) } : null });
   }
   if (path === '/teach/me' && method === 'POST') {
     const acct = await h.currentAccount(env, request);
@@ -214,9 +316,39 @@ export async function classApi(request, env, url, path, h) {
     const display = cleanTeacherName(body.display);
     if (!display) return h.fail(400, 'Type the name your students call you.');
     if (body.agree !== true) return h.fail(400, 'Please read and agree to the note first.');
+    const was = await DB.prepare('SELECT account FROM teachers WHERE account = ?').bind(acct.id).first();
     const now = Date.now();
+    let status = was ? await statusOf(env, acct.id) : null;
+    if (!was) {
+      // a new teacher: a Google sign-in; a school account is on straight away, a plain Gmail waits for us
+      const hd = await domainOf(env, acct.id);
+      status = teacherStatusFor({ provider: acct.provider, hd, admin: h.isAdmin?.(env, acct) });
+      if (!status) return h.fail(403, 'Teachers sign in with a Google account (a school account works best). Sign out, then sign in with Google.');
+      await DB.prepare('INSERT OR REPLACE INTO teacher_status (account, status, hd, created, decided, decided_by) VALUES (?, ?, ?, ?, ?, ?)').bind(acct.id, status, hd, now, status === 'approved' ? now : null, status === 'approved' ? (hd ? 'domain' : 'admin') : null).run();
+    }
     await DB.prepare('INSERT INTO teachers (account, display, agreed, created) VALUES (?, ?, ?, ?) ON CONFLICT(account) DO UPDATE SET display = excluded.display, agreed = excluded.agreed').bind(acct.id, display, now, now).run();
-    return h.json({ teacher: { display, agreed: now } });
+    return h.json({ teacher: { display, agreed: now, status } });
+  }
+
+  // ---------------- the people who look after Keypals: new teachers to say yes to ----------------
+  if (path === '/admin/teachers' && method === 'GET') {
+    const acct = await h.currentAccount(env, request);
+    if (!h.isAdmin?.(env, acct)) return h.fail(403, 'This is only for the people who look after Keypals.');
+    const r = await DB.prepare(`SELECT t.account, t.display, t.created, s.status, s.hd, s.decided, a.name, a.email, a.provider,
+      (SELECT COUNT(*) FROM classes c WHERE c.teacher = t.account) AS classes,
+      (SELECT COUNT(*) FROM students x JOIN classes c ON c.id = x.class WHERE c.teacher = t.account AND x.status = 'active') AS students
+      FROM teacher_status s JOIN teachers t ON t.account = s.account LEFT JOIN accounts a ON a.id = s.account
+      ORDER BY CASE s.status WHEN 'pending' THEN 0 WHEN 'declined' THEN 1 ELSE 2 END, s.created DESC LIMIT 300`).all();
+    return h.json({ teachers: (r.results ?? []).map(x => ({ account: x.account, display: x.display, name: x.name, email: x.email, provider: x.provider, hd: x.hd, status: x.status, created: x.created, decided: x.decided, classes: x.classes, students: x.students })) });
+  }
+  m = path.match(/^\/admin\/teachers\/([\w-]+)$/);
+  if (m && method === 'POST') {
+    const acct = await h.currentAccount(env, request);
+    if (!h.isAdmin?.(env, acct)) return h.fail(403, 'This is only for the people who look after Keypals.');
+    const body = await h.readBody(request) || {};
+    if (!['approved', 'declined', 'pending'].includes(body.status)) return h.fail(400, 'Approve or turn down?');
+    const r = await DB.prepare('UPDATE teacher_status SET status = ?, decided = ?, decided_by = ? WHERE account = ?').bind(body.status, Date.now(), 'admin', m[1]).run();
+    return r.meta.changes ? h.json({ ok: true, status: body.status }) : h.fail(404, 'That teacher was not found.');
   }
 
   if (path.startsWith('/teach/')) {
@@ -254,9 +386,11 @@ export async function classApi(request, env, url, path, h) {
         const week = isWeek(url.searchParams.get('week')) ? url.searchParams.get('week') : null;
         const st = await DB.prepare('SELECT id, name, pics, home, status, claims, buddy, created FROM students WHERE class = ? ORDER BY status, name').bind(c.id).all();
         const as = await DB.prepare('SELECT id, data, created, archived FROM assignments WHERE class = ? ORDER BY created').bind(c.id).all();
-        const students = (st.results ?? []).map(s => ({ id: s.id, name: s.name, pics: picsOf(s.pics), home: !!s.home, status: s.status, claims: s.claims, buddy: s.buddy, created: s.created }));
+        let google = new Set();
+        try { google = new Set(((await DB.prepare('SELECT student FROM student_google WHERE class = ?').bind(c.id).all()).results ?? []).map(x => x.student)); } catch { /* before the schema: none */ }
+        const students = (st.results ?? []).map(s => ({ id: s.id, name: s.name, pics: picsOf(s.pics), home: !!s.home, status: s.status, claims: s.claims, buddy: s.buddy, created: s.created, google: google.has(s.id) }));
         const assignments = (as.results ?? []).map(a => ({ id: a.id, ...JSON.parse(a.data), created: a.created, archived: !!a.archived }));
-        return h.json({ class: classView(c), students, assignments, week: week ? await classWeek(env, c.id, week) : [], challenge: await challengeOf(env, c.id) });
+        return h.json({ class: classView(c), students, assignments, week: week ? await classWeek(env, c.id, week) : [], challenge: await challengeOf(env, c.id), settings: await settingsOf(env, c.id), teacher: { status: await statusOf(env, acct), domain: await domainOf(env, acct) } });
       }
       if (rest === '' && method === 'PATCH') {
         const body = await h.readBody(request) || {};
@@ -267,7 +401,13 @@ export async function classApi(request, env, url, path, h) {
         const goal = body.goal !== undefined ? Math.max(0, Math.min(1000000, Math.round(Number(body.goal) || 0))) : c.goal;
         const archived = body.archived !== undefined ? (body.archived ? 1 : 0) : c.archived;
         await DB.prepare('UPDATE classes SET name = ?, grade = ?, board = ?, goal = ?, archived = ? WHERE id = ?').bind(name, grade, board, goal, archived, c.id).run();
-        return h.json({ class: classView({ ...c, name, grade, board, goal, archived }) });
+        // My path and time rules, and students' Google sign-in
+        let settings;
+        if (body.settings && typeof body.settings === 'object') {
+          settings = cleanClassSettings(body.settings, await settingsOf(env, c.id));
+          await DB.prepare('INSERT INTO class_settings (class, data, updated) VALUES (?, ?, ?) ON CONFLICT(class) DO UPDATE SET data = excluded.data, updated = excluded.updated').bind(c.id, JSON.stringify(settings), Date.now()).run();
+        }
+        return h.json({ class: classView({ ...c, name, grade, board, goal, archived }), ...(settings ? { settings } : {}) });
       }
       if (rest === '' && method === 'DELETE') {
         // a typed confirmation: the class's name
@@ -278,6 +418,8 @@ export async function classApi(request, env, url, path, h) {
         await DB.batch([
           DB.prepare('DELETE FROM assignments WHERE class = ?').bind(c.id),
           DB.prepare('DELETE FROM challenge_classes WHERE class = ?').bind(c.id),
+          DB.prepare('DELETE FROM class_settings WHERE class = ?').bind(c.id),
+          DB.prepare('DELETE FROM student_google WHERE class = ?').bind(c.id),
           DB.prepare('DELETE FROM classes WHERE id = ?').bind(c.id),
         ]);
         return h.json({ ok: true, removed: (st.results ?? []).filter(s => !s.home).length });
@@ -421,6 +563,7 @@ export async function classApi(request, env, url, path, h) {
     const player = h.cleanCode(body.player);
     const c = await DB.prepare('SELECT * FROM classes WHERE code = ? AND archived = 0').bind(h.cleanCode(body.code)).first();
     if (!c) return h.fail(404, "That class code wasn't found. Check the words and number.");
+    if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
     const p = await DB.prepare('SELECT code, data FROM players WHERE code = ?').bind(player).first();
     if (!p) return h.fail(404, 'Save this player online first.');
     const dup = await DB.prepare('SELECT id, status FROM students WHERE class = ? AND player = ?').bind(c.id, player).first();
@@ -457,7 +600,7 @@ export async function classApi(request, env, url, path, h) {
     const classes = [], pending = [];
     for (const r of rows) {
       if (r.status !== 'active') { pending.push({ id: r.id, name: r.name, teacher: r.display }); continue; }
-      if (r.archived) continue;
+      if (!(await classOn(env, r))) continue;
       const as = (await DB.prepare('SELECT id, data, created FROM assignments WHERE class = ? AND archived = 0 ORDER BY created').bind(r.id).all()).results ?? [];
       const assignments = as.map(a => ({ id: a.id, ...JSON.parse(a.data), created: a.created })).filter(a => !a.students || a.students.includes(r.sid));
       const wk = week ? await classWeek(env, r.id, week) : [];
@@ -467,6 +610,7 @@ export async function classApi(request, env, url, path, h) {
         week: { right: wk.reduce((t, x) => t + x.right, 0), ms: wk.reduce((t, x) => t + x.ms, 0), played: wk.filter(x => x.right || x.ms).length, students: wk.length },
         rows: r.board ? wk.map(x => ({ name: x.name, buddy: x.buddy, right: x.right, ms: x.ms, me: x.id === r.sid })) : [],
         challenge: await challengeOf(env, r.id),
+        settings: playSettings(await settingsOf(env, r.id)),
       });
     }
     return h.json({ classes, pending });
@@ -489,40 +633,99 @@ export async function classApi(request, env, url, path, h) {
     if (buddy) await DB.prepare('UPDATE students SET buddy = ? WHERE player = ?').bind(buddy, code).run();
     return h.json({ ok: true });
   }
+  // ---------------- a student's school Google account ----------------
+  if (path === '/class/google/dev' && method === 'GET') {
+    // the test sign-in for a student (this computer only): as if Google had said who it is
+    if (!devReady(env, url)) return h.fail(404, 'Not found.');
+    const name = cleanStudentName(url.searchParams.get('name')) || 'Sam';
+    return studentGoogleBack(env, url, h.base ?? '/keypals', { sub: String(url.searchParams.get('sub') || `dev-${name}`).slice(0, 60), given_name: name, hd: url.searchParams.get('hd') || 'school.test' }, h);
+  }
+  if (path === '/class/google' && method === 'POST') {
+    // back from Google: straight in if this account is in a class already, else "type your class code"
+    if (await h.limited(env, request, 'cls-google', 1200, 60)) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
+    const body = await h.readBody(request, 2000) || {};
+    const t = await ticketOf(env, h, body.ticket);
+    if (!t) return h.fail(410, 'That sign-in ran out. Sign in with Google again.');
+    const s = await DB.prepare("SELECT s.id, s.name, s.player, s.class, c.archived, c.teacher FROM student_google g JOIN students s ON s.id = g.student JOIN classes c ON c.id = s.class WHERE g.gid = ? AND s.status = 'active'").bind(t.gid).first();
+    if (s && await classOn(env, { archived: s.archived, teacher: s.teacher })) {
+      await DB.prepare('DELETE FROM google_tickets WHERE hash = ?').bind(t.hash).run();
+      return playerFor(env, s, '"status":"in",');
+    }
+    return h.json({ status: 'code', first: t.name ?? null });
+  }
+  if (path === '/class/google/join' && method === 'POST') {
+    // the class code once: as a new student (the first name Google gave), or as someone on the list already
+    // (their two pictures say so); from then on, Google alone
+    if (await h.limited(env, request, 'cls-google', 1200, 60)) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
+    const body = await h.readBody(request, 2000) || {};
+    const t = await ticketOf(env, h, body.ticket);
+    if (!t) return h.fail(410, 'That sign-in ran out. Sign in with Google again.');
+    const c = await DB.prepare('SELECT * FROM classes WHERE code = ?').bind(h.cleanCode(body.code)).first();
+    if (!c) return h.fail(404, "That class code wasn't found. Check the words and number.");
+    if (c.archived) return h.fail(410, 'This class is closed. Ask your teacher.');
+    if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
+    const set = await settingsOf(env, c.id);
+    if (set.google === 'off') return h.fail(403, "Your teacher hasn't turned on Google sign-in for this class. Use your class code and pictures.");
+    if (!domainOk(t.hd, set.domain)) return h.fail(403, `This class is for school accounts from ${set.domain}. Sign in with your school Google account.`);
+    const had = await DB.prepare('SELECT g.student, s.class FROM student_google g LEFT JOIN students s ON s.id = g.student WHERE g.gid = ?').bind(t.gid).first();
+    if (had && had.class && had.class !== c.id) return h.fail(409, 'This Google account is in another class already. Ask your teacher.');
+    let s = null;
+    if (body.student) {
+      s = await DB.prepare("SELECT id, name, player, pics FROM students WHERE id = ? AND class = ? AND status = 'active'").bind(String(body.student), c.id).first();
+      if (!s) return h.fail(404, "That name isn't in this class.");
+      const taken = await DB.prepare('SELECT gid FROM student_google WHERE student = ?').bind(s.id).first();
+      if (taken && taken.gid !== t.gid) return h.fail(409, `Someone already signs in with Google as ${s.name}. Ask your teacher.`);
+      const wrong = await picturesWrong(env, h, s, body.pics);
+      if (wrong) return wrong;
+    } else if (had?.student) {
+      s = await DB.prepare("SELECT id, name, player, pics FROM students WHERE id = ? AND status = 'active'").bind(had.student).first();
+    }
+    if (!s) {
+      // a new student: the first name Google gave (or the one typed, if Google gave none)
+      const name = t.name || cleanStudentName(body.name);
+      if (!name) return h.json({ error: 'Type your first name.', needName: true }, 400);
+      const have = await DB.prepare("SELECT COUNT(*) AS n FROM students WHERE class = ? AND status = 'active'").bind(c.id).first();
+      if ((have?.n ?? 0) >= MAX_STUDENTS) return h.fail(400, 'That class is full. Ask your teacher.');
+      const now = Date.now(), buddy = randomBuddy();
+      let code = null;
+      for (let tries = 0; tries < 5 && !code; tries++) {
+        const cand = h.newCode();
+        const r = await DB.prepare('INSERT OR IGNORE INTO players (code, data, updated, created, opened) VALUES (?, ?, ?, ?, ?)').bind(cand, starterProfile(name, buddy, now), now, now, now).run();
+        if (r.meta.changes) code = cand;
+      }
+      if (!code) return h.fail(500, 'Could not add you. Try again.');
+      s = { id: newId(h), name, player: code };
+      await DB.prepare("INSERT INTO students (id, class, name, player, pics, home, status, buddy, created) VALUES (?, ?, ?, ?, ?, 0, 'active', ?, ?)").bind(s.id, c.id, name, code, newPics(), buddy, now).run();
+    }
+    await DB.batch([
+      DB.prepare('INSERT OR REPLACE INTO student_google (gid, student, class, created) VALUES (?, ?, ?, ?)').bind(t.gid, s.id, c.id, Date.now()),
+      DB.prepare('DELETE FROM google_tickets WHERE hash = ?').bind(t.hash),
+    ]);
+    return playerFor(env, s, '"status":"in",');
+  }
+
   m = path.match(/^\/class\/([^/]+)\/login$/);
   if (m && method === 'POST') {
     if (await h.limited(env, request, 'cls-login', 1200, 60)) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
-    const c = await DB.prepare('SELECT id, archived FROM classes WHERE code = ?').bind(h.cleanCode(decodeURIComponent(m[1]))).first();
+    const c = await DB.prepare('SELECT id, archived, teacher FROM classes WHERE code = ?').bind(h.cleanCode(decodeURIComponent(m[1]))).first();
     if (!c) return h.fail(404, "That class code wasn't found.");
     if (c.archived) return h.fail(410, 'This class is closed. Ask your teacher.');
+    if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
     const body = await h.readBody(request) || {};
     const s = await DB.prepare("SELECT id, name, player, pics FROM students WHERE id = ? AND class = ? AND status = 'active'").bind(String(body.student ?? ''), c.id).first();
     if (!s) return h.fail(404, "That name isn't in this class.");
-    const key = `pics:${s.id}`;
-    if (await blocked(env, key, PIC_TRIES)) return h.fail(429, "Let's take a little break. Ask your teacher to check your pictures.");
-    const given = Array.isArray(body.pics) ? body.pics.map(Number) : [];
-    const want = picsOf(s.pics);
-    if (given.length !== 2 || given[0] !== want[0] || given[1] !== want[1]) {
-      await count(env, key, PIC_REST_MIN);
-      return h.json({ error: 'Not quite! Try your two pictures again.', wrong: true }, 403);
-    }
-    await DB.prepare('DELETE FROM limits WHERE key = ?').bind(key).run();
-    let row = await DB.prepare('SELECT data, updated FROM players WHERE code = ?').bind(s.player).first();
-    if (!row) {
-      // the player was tidied away or deleted: a fresh one with the same name
-      const now = Date.now(), data = starterProfile(s.name, randomBuddy(), now);
-      await DB.prepare('INSERT OR REPLACE INTO players (code, data, updated, created, opened) VALUES (?, ?, ?, ?, ?)').bind(s.player, data, now, now, now).run();
-      row = { data, updated: now };
-    } else await DB.prepare('UPDATE players SET opened = ? WHERE code = ?').bind(Date.now(), s.player).run();
-    return new Response(`{"code":${JSON.stringify(s.player)},"name":${JSON.stringify(s.name)},"updated":${Number(row.updated)},"profile":${row.data}}`, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+    const wrong = await picturesWrong(env, h, s, body.pics);
+    if (wrong) return wrong;
+    return playerFor(env, s);
   }
   m = path.match(/^\/class\/([^/]+)$/);
   if (m && method === 'GET') {
     // a class code: the class and its students' names, to tap your own
     if (await h.limited(env, request, 'cls-open', 600, 60)) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
-    const c = await DB.prepare('SELECT c.id, c.name, c.grade, c.archived, t.display FROM classes c LEFT JOIN teachers t ON t.account = c.teacher WHERE c.code = ?').bind(h.cleanCode(decodeURIComponent(m[1]))).first();
+    const c = await DB.prepare('SELECT c.id, c.name, c.grade, c.archived, c.teacher, t.display FROM classes c LEFT JOIN teachers t ON t.account = c.teacher WHERE c.code = ?').bind(h.cleanCode(decodeURIComponent(m[1]))).first();
     if (!c) return h.fail(404, "That class code wasn't found. Check the words and number.");
     if (c.archived) return h.fail(410, 'This class is closed. Ask your teacher.');
+    if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
     const st = await DB.prepare("SELECT id, name, buddy FROM students WHERE class = ? AND status = 'active' ORDER BY name").bind(c.id).all();
     return h.json({ class: { name: c.name, grade: c.grade, teacher: c.display ?? 'Your teacher' }, students: (st.results ?? []).map(s => ({ id: s.id, name: s.name, buddy: s.buddy })) });
   }
@@ -578,4 +781,6 @@ export async function tidyClasses(env) {
   await env.DB.prepare('DELETE FROM player_week WHERE week < ?').bind(day(now - 400 * DAY)).run();
   await env.DB.prepare("DELETE FROM students WHERE status = 'pending' AND created < ?").bind(now - 60 * DAY).run();
   await env.DB.prepare('DELETE FROM challenge_classes WHERE class NOT IN (SELECT id FROM classes)').run();
+  await env.DB.prepare('DELETE FROM google_tickets WHERE expires < ?').bind(now).run();
+  await env.DB.prepare('DELETE FROM student_google WHERE student NOT IN (SELECT id FROM students)').run();
 }

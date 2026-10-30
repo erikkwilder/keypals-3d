@@ -8,17 +8,25 @@ import { api, send } from './api';
 import { weekKey } from './activity';
 import type { Assignment, AssignmentData } from './assignments';
 import type { Challenge } from './student.svelte';
+import type { ClassSettings } from '../path/rules';
+import { classUrl } from './names';
 
 export type ClassSummary = { id: string; name: string; grade: number; code: string; board: boolean; goal: number; archived: boolean; created: number; students?: number; pending?: number };
-export type Student = { id: string; name: string; pics: number[]; home: boolean; status: 'active' | 'pending'; claims: string | null; buddy: string | null; created: number };
+/** `google`: the student signs in with their school Google account too */
+export type Student = { id: string; name: string; pics: number[]; home: boolean; status: 'active' | 'pending'; claims: string | null; buddy: string | null; created: number; google?: boolean };
 export type WeekRow = { id: string; name: string; buddy: string | null; right: number; ms: number; stars: number };
-export type ClassDetail = { class: ClassSummary; students: Student[]; assignments: Assignment[]; week: WeekRow[]; challenge: Challenge | null };
+/** a teacher's status: approved (classes on), pending (a plain Gmail account, waiting for us) or declined */
+export type TeacherStatus = 'approved' | 'pending' | 'declined';
+export type ClassDetail = { class: ClassSummary; students: Student[]; assignments: Assignment[]; week: WeekRow[]; challenge: Challenge | null;
+  /** My path and time rules, and how students may sign in with Google */
+  settings?: ClassSettings & { keep: string; goal: number; google: 'on' | 'off'; domain: string | null };
+  teacher?: { status: TeacherStatus; domain: string | null } };
 export type Tab = 'overview' | 'students' | 'work' | 'gradebook' | 'skills' | 'standards' | 'boards' | 'settings';
 
 export const teach = $state({
   loaded: false,
   dev: false,
-  me: null as null | { signedIn: boolean; account?: { name: string | null }; teacher?: { display: string; agreed: number } | null },
+  me: null as null | { signedIn: boolean; account?: { name: string | null; provider?: string; domain?: string | null }; canTeach?: boolean; teacher?: { display: string; agreed: number; status?: TeacherStatus } | null },
   classes: [] as ClassSummary[],
   current: null as ClassDetail | null,
   /** students' progress, by student id (null: not saved online yet) */
@@ -51,10 +59,11 @@ export async function loadMe() {
   teach.loaded = true;
   if (me?.teacher) await loadClasses();
 }
-/** The test sign-in (only on a test computer: the server refuses it anywhere else). */
-export function devSignIn(name: string) { location.href = `api/auth/dev?name=${encodeURIComponent(name)}`; }
+/** The test sign-in (only on a test computer: the server refuses it anywhere else): a school account, or a
+ *  plain Gmail one (its classes wait for an admin). */
+export function devSignIn(name: string, gmail = false) { location.href = `api/auth/dev?name=${encodeURIComponent(name)}${gmail ? '&gmail=1' : ''}`; }
 export async function becomeTeacher(display: string, agree: boolean) {
-  const r = await send<{ teacher: { display: string; agreed: number } }>('/teach/me', 'POST', { display, agree });
+  const r = await send<{ teacher: { display: string; agreed: number; status: TeacherStatus } }>('/teach/me', 'POST', { display, agree });
   teach.me = { ...(teach.me ?? { signedIn: true }), teacher: r.teacher };
   await loadClasses();
 }
@@ -169,6 +178,29 @@ export async function leaveChallenge() {
   const c = teach.current!;
   await send(`/teach/classes/${c.class.id}/challenge`, 'DELETE');
   c.challenge = null;
+}
+
+/** A class's My path, time and Google sign-in settings. */
+export async function saveSettings(patch: Partial<NonNullable<ClassDetail['settings']>>) {
+  const c = teach.current!;
+  const r = await send<{ class: ClassSummary; settings?: ClassDetail['settings'] }>(`/teach/classes/${c.class.id}`, 'PATCH', { settings: patch });
+  if (r.settings) c.settings = r.settings;
+}
+
+// ---------- Google Classroom ----------
+/** Google Classroom's free share button, as a link: the teacher picks a class and posts it there (no
+ *  sign-in to Keypals or Classroom access needed). */
+export function classroomShare(url: string, title: string, body = '') {
+  const q = new URLSearchParams({ url, title, ...(body ? { body } : {}) });
+  window.open(`https://classroom.google.com/share?${q}`, '_blank', 'noopener,width=640,height=600');
+}
+/** Share a class's login link (students tap it, then their name and pictures, or Sign in with Google). */
+export function shareClass(c: ClassSummary) {
+  classroomShare(classUrl(c.code), `Join ${c.name} on Keypals`, 'Open the link, then tap your name and your two pictures, or Sign in with Google.');
+}
+/** Share one piece of class work (the class's link: it's on each student's Class work card). */
+export function shareWork(c: ClassSummary, a: Assignment) {
+  classroomShare(classUrl(c.code), `Keypals: ${a.title}`, `Open Keypals and log in. "${a.title}" is on your Class work card${a.due ? `, due ${new Date(a.due).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}` : ''}.`);
 }
 
 // ---------- getting here ----------

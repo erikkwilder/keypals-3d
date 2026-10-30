@@ -1,6 +1,8 @@
 // Class work: what a teacher assigns, and how far each child has got. An assignment is some math skills
 // (picked by area, skill or Common Core standard), typing lessons, Learn episodes, or a Show What You
-// Know; a goal (right answers, minutes, reaching "comfortable" on the skills, or finishing each one); a
+// Know, or a whole unit (a list of My path items: Learn, practice, a game, a battle and a check, from one of
+// the path's units or put together by hand, path/classPath.ts); a goal (right answers, minutes, reaching
+// "comfortable" on the skills, or finishing each one); a
 // due date; the whole class or chosen students; and how it's scored (finishing it, accuracy, or both).
 // Progress is counted from the child's own activity entries (activity.ts) since the assignment was made,
 // so practising the same skills from the map counts too, not only the Class work card.
@@ -17,8 +19,11 @@ import { SKILL_PLACEMENTS } from '../math/skills/course';
 import type { AreaId } from '../math/skills/types';
 import { eventsOf, type ClassEvent } from './activity';
 import { atLeast, workingLevel } from './level';
+import { unitFromAssignment } from '../path/classPath';
+import { describe as describeItem } from '../path/units';
+import { unitState } from '../path/progress';
 
-export type What = 'skills' | 'typing' | 'learn' | 'check';
+export type What = 'skills' | 'typing' | 'learn' | 'check' | 'unit';
 export type GoalType = 'right' | 'minutes' | 'comfortable' | 'finish';
 export type Scoring = 'completion' | 'accuracy' | 'both';
 export type AssignmentData = {
@@ -31,6 +36,9 @@ export type AssignmentData = {
   episodes: string[];
   /** areas for a Show What You Know (what: check) */
   areas: string[];
+  /** a unit's items, in order (what: unit; path/units.ts: ep:, trip:, skill:, game:, battle:, check), the
+   *  path unit it was made from (if any) and its subject */
+  items?: string[]; unit?: string; subject?: string;
   /** how the skills were picked, in words ("Fractions", "3.NF.A.1") */
   by: string;
   goal: { type: GoalType; n: number };
@@ -58,7 +66,7 @@ export type Progress = {
 };
 
 /** The goals each kind of assignment can have (the first is the usual one). */
-export const GOALS_FOR: Record<What, GoalType[]> = { skills: ['right', 'minutes', 'comfortable'], typing: ['finish', 'minutes', 'right'], learn: ['finish'], check: ['finish'] };
+export const GOALS_FOR: Record<What, GoalType[]> = { skills: ['right', 'minutes', 'comfortable'], typing: ['finish', 'minutes', 'right'], learn: ['finish'], check: ['finish'], unit: ['finish'] };
 export const GOAL_DEFAULT: Record<GoalType, number> = { right: 30, minutes: 20, comfortable: 1, finish: 1 };
 
 // ---------- names, for screens and the gradebook ----------
@@ -76,19 +84,20 @@ export function partName(a: Pick<AssignmentData, 'what'>, id: string): string {
   if (a.what === 'skills') return SKILL[id]?.name ?? id;
   if (a.what === 'typing') return TYPING[id] ?? id;
   if (a.what === 'learn') return EPISODE[id] ?? id;
+  if (a.what === 'unit') return describeItem(id).name;
   return AREA[id as AreaId]?.name ?? id;
 }
-export const partsOf = (a: Pick<AssignmentData, 'what' | 'skills' | 'lessons' | 'episodes' | 'areas'>) => ({ skills: a.skills, typing: a.lessons, learn: a.episodes, check: a.areas })[a.what] ?? [];
+export const partsOf = (a: Pick<AssignmentData, 'what' | 'skills' | 'lessons' | 'episodes' | 'areas' | 'items'>) => ({ skills: a.skills, typing: a.lessons, learn: a.episodes, check: a.areas, unit: a.items ?? [] })[a.what] ?? [];
 export function goalText(a: Pick<AssignmentData, 'goal' | 'what'>): string {
   const n = a.goal.n;
   switch (a.goal.type) {
     case 'right': return a.what === 'typing' ? `${n} words typed right` : `${n} right answers`;
     case 'minutes': return `${n} minutes`;
     case 'comfortable': return 'Comfortable on every skill';
-    default: return a.what === 'learn' ? 'Watch each one' : a.what === 'check' ? 'Finish each one' : 'Finish each lesson';
+    default: return a.what === 'learn' ? 'Watch each one' : a.what === 'check' ? 'Finish each one' : a.what === 'unit' ? 'Every part of the unit' : 'Finish each lesson';
   }
 }
-export const WHAT_NAME: Record<What, string> = { skills: 'Math skills', typing: 'Typing lessons', learn: 'Learn episodes', check: 'Show What You Know' };
+export const WHAT_NAME: Record<What, string> = { skills: 'Math skills', typing: 'Typing lessons', learn: 'Learn episodes', check: 'Show What You Know', unit: 'A unit' };
 export const STATUS_NAME: Record<Status, string> = { 'not started': 'Not started', started: 'Started', done: 'Done', late: 'Late' };
 /** A due date as people say it: "Fri, Oct 31". */
 export const dueText = (due: number | null) => (due ? new Date(due).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'No due date');
@@ -172,6 +181,18 @@ export function progressOf(p: Profile, a: Assignment | AssignmentData, now = Dat
     // learned on a day: counted as the end of that day (episodes from before the assignment count as done)
     if (done >= 1) finishedAt = Math.max(...ids.map(id => { const d = on[id]; if (!d) return a.start; const [y, mo, dd] = d.split('-').map(Number); return Math.max(a.start, new Date(y, mo - 1, dd, 23, 59).getTime()); }));
     if (finishedAt !== null && dayKey(finishedAt) === dayKey(now)) finishedAt = Math.min(finishedAt, now);
+  } else if (a.what === 'unit') {
+    // a unit: each item done the My path way, games, battles and skill practice counted since it was given
+    const u = unitFromAssignment({ id: 'id' in a ? a.id : 'new', title: a.title, items: a.items, unit: a.unit, subject: a.subject });
+    const st = unitState(p, u, { now, since: a.start, events: evs });
+    parts = st.items.map(it => ({ id: it.ref, name: it.name, done: it.done }));
+    done = st.done / Math.max(1, st.of);
+    const trips = new Set(st.items.filter(i => i.ref.startsWith('trip:')).map(i => i.ref.slice(5)));
+    const skills = new Set([...u.skills, ...st.items.filter(i => i.ref.startsWith('skill:')).map(i => i.ref.slice(6))]);
+    const mine = evs.filter(e => trips.has(e.l) || Object.keys(e.s ?? {}).some(k => skills.has(k)) || (e.k === 'battle' && !!e.w));
+    for (const e of mine) { right += e.r; answered += e.n; ms += e.ms; }
+    any = mine.length > 0 || st.done > 0;
+    if (done >= 1) finishedAt = mine.length ? mine[mine.length - 1].at : Math.max(a.start, Math.min(now, a.start));
   } else {
     const want = ids.map(area => ({ area, id: placementOf(area) }));
     const mine = evs.filter(e => want.some(w => w.id === e.l));

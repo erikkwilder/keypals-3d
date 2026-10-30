@@ -8,7 +8,8 @@ import { LAYOUTS } from '../engine/layouts';
 export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market' | 'ideas' | 'teach' | 'classLogin' | 'boards' | 'clockrush' | 'bench' | 'shifter' | 'shapebuilder'
   | 'glimmerBook' | 'smoothie' | 'treasure' | 'showdown' | 'balance' // the 100-Glimmer ladder's book (screens/GlimmerBook.svelte)
   | 'island' // My Sky Island (screens/SkyIsland.svelte)
-  | 'mystuff' | 'about'; // everything that's yours in one place (screens/MyStuff.svelte), and About Keypals (screens/About.svelte)
+  | 'mystuff' | 'about' // everything that's yours in one place (screens/MyStuff.svelte), and About Keypals (screens/About.svelte)
+  | 'path'; // My path: each subject's units, what's done and what's next (screens/MyPath.svelte)
 
 function load(): SaveFile {
   try {

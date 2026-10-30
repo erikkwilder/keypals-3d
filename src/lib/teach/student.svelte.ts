@@ -10,6 +10,9 @@ import { api, send } from './api';
 import { activityBase, noteActivity, weekKey, weekStats } from './activity';
 import { worldEntry, type BoardRow } from './boards';
 import type { Assignment } from './assignments';
+import type { ClassSettings } from '../path/rules';
+import { notePath, startPath, pathSave, type PathProfile } from '../path/progress';
+import { unitFromAssignment } from '../path/classPath';
 
 export type Challenge = { code: string; week: string; ends: number; classes: { id: string; name: string; students: number; avg: number }[] };
 export type StudentClass = {
@@ -18,6 +21,8 @@ export type StudentClass = {
   board: boolean; goal: number; assignments: Assignment[];
   week: { right: number; ms: number; played: number; students: number };
   rows: BoardRow[]; challenge: Challenge | null;
+  /** the class's path and time rules (path/rules.ts) */
+  settings?: ClassSettings;
 };
 type Mine = { classes: StudentClass[]; pending: { id: string; name: string; teacher: string | null }[]; at: number };
 
@@ -26,6 +31,8 @@ export const classState = $state({
   byCode: {} as Record<string, Mine>,
   /** the class login in progress: the code from a link (keypals.org/#class=...) */
   loginCode: null as string | null,
+  /** back from signing in with a school Google account: the one-time ticket the server gave */
+  googleTicket: null as string | null,
 });
 
 // ---------- a player's classes ----------
@@ -62,6 +69,7 @@ function place(code: string, raw: Record<string, unknown>, updated: number): Pro
   if (here) { game.save.activeId = here.id; game.persist(); return here; }
   const id = `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const prof = migrate({ version: 1, activeId: null, profiles: [{ ...raw, id }] }).profiles[0];
+  if (!pathSave(prof).done) startPath(prof);
   prof.cloud = { code, at: updated };
   prof.updatedAt = updated;
   try { localStorage.setItem(`kp-cloud-base:${code}`, JSON.stringify({ ...raw, updatedAt: updated })); } catch { /* combining falls back to "the higher of the two" */ }
@@ -74,6 +82,32 @@ function place(code: string, raw: Record<string, unknown>, updated: number): Pro
 /** Log in: the class code, the student, the two pictures in order. Throws with a gentle message. */
 export async function loginStudent(classCode: string, student: string, pics: number[]): Promise<Profile> {
   const r = await send<{ code: string; name: string; updated: number; profile: Record<string, unknown> }>(`/class/${encodeURIComponent(classCode)}/login`, 'POST', { student, pics });
+  const p = place(r.code, r.profile, r.updated);
+  setShared([...sharedCodes(), r.code]);
+  void loadClasses(p, true);
+  return p;
+}
+
+// ---------- students with their own school Google sign-in ----------
+type LoginReply = { code: string; name: string; updated: number; profile: Record<string, unknown> };
+/** Start "Sign in with Google" for a student (the server never keeps the email: classes.js). */
+export function studentGoogle() { location.href = 'api/auth/google/student'; }
+/** The test sign-in for a student (a test computer only: the server refuses it anywhere else). */
+export function studentGoogleDev(name: string) { location.href = `api/class/google/dev?name=${encodeURIComponent(name)}&sub=${encodeURIComponent(`test-${name.toLowerCase()}`)}`; }
+/** Back from Google: straight in if this Google account is in a class already; otherwise the server says
+ *  so (`code`: type your class code once), with the first name Google gave. */
+export async function googleLogin(ticket: string): Promise<{ in: Profile } | { code: true; name: string | null }> {
+  const r = await send<LoginReply & { status: 'in' | 'code'; first?: string | null }>('/class/google', 'POST', { ticket });
+  if (r.status === 'code') return { code: true, name: r.first ?? null };
+  return { in: arrive(r) };
+}
+/** Join a class with the Google account: as a new student (the first name Google gave), or as someone on
+ *  the class list already (their two pictures say it's them). Next time Google is enough. */
+export async function googleJoin(ticket: string, classCode: string, student?: { id: string; pics: number[] }, name?: string): Promise<Profile> {
+  const r = await send<LoginReply>('/class/google/join', 'POST', { ticket, code: classCode, ...(student ? { student: student.id, pics: student.pics } : {}), ...(name ? { name } : {}) });
+  return arrive(r);
+}
+function arrive(r: LoginReply): Profile {
   const p = place(r.code, r.profile, r.updated);
   setShared([...sharedCodes(), r.code]);
   void loadClasses(p, true);
@@ -137,7 +171,15 @@ function worldBest(before: Profile | undefined, after: Profile) {
 
 /** Every finished activity (game.replaceProfile): note it, and later send the week and any world best. */
 export function onActivity(before: Profile | undefined, after: Profile) {
-  noteActivity(before, after);
+  // a player the path hasn't met yet: what was already done counts, but not as today's
+  if (!pathSave(after).done) {
+    // (from the player as it was, when that's the whole player: replaceProfile hands it over)
+    if (before && 'settings' in before) { startPath(before); (after as PathProfile).path = { ...(after as PathProfile).path, done: { ...pathSave(before).done } }; }
+    else startPath(after);
+  }
+  const ev = noteActivity(before, after);
+  // My path: the items this finished (a teacher's units count from when they were given)
+  if (ev) notePath(after, ev.at, classesOf(after).flatMap(c => c.assignments.filter(a => a.what === 'unit' && !a.archived).map(a => ({ unit: unitFromAssignment(a), since: a.start }))));
   worldBest(before, after);
   soon(after.id);
 }
@@ -147,10 +189,17 @@ export function onActivity(before: Profile | undefined, after: Profile) {
 export function startClasses() {
   game.onActivity = onActivity;
   game.watchActivity = (p) => { const before = activityBase(p); return () => onActivity(before, p); };
+  // every player on this computer: what's already done on My path counts, but not as today's
+  let met = false;
+  for (const p of game.save.profiles) if (!pathSave(p).done) { startPath(p); met = true; }
+  if (met) game.persist();
   const route = () => {
     const h = location.hash;
     const m = h.match(/^#class=([A-Za-z0-9 %-]+)/);
-    if (m) { classState.loginCode = decodeURIComponent(m[1]); history.replaceState(null, '', location.pathname + location.search); game.go('classLogin'); }
+    const g = h.match(/^#classgoogle=([\w-]+)/);
+    if (g) { classState.googleTicket = g[1]; history.replaceState(null, '', location.pathname + location.search); game.go('classLogin'); }
+    else if (h.startsWith('#classgoogle-no')) { history.replaceState(null, '', location.pathname + location.search); game.say('Signing in with Google did not work. Try again, or use your class code.', 5000); game.go('classLogin'); }
+    else if (m) { classState.loginCode = decodeURIComponent(m[1]); history.replaceState(null, '', location.pathname + location.search); game.go('classLogin'); }
     else if (h === '#teach') { history.replaceState(null, '', location.pathname + location.search); game.go('teach'); }
   };
   route();

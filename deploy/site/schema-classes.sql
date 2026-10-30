@@ -94,3 +94,50 @@ CREATE TABLE IF NOT EXISTS world_scores (
   at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS world_scores_day ON world_scores(game, day, score);
+
+-- (added for My path and safer teacher sign-in; each statement is safe to run again)
+-- teacher_status: whether a teacher's classes are on. A Google account from a school or company (Google
+-- Workspace: it has a domain) is approved straight away; a plain Gmail account waits for an admin
+-- (pending, then approved or declined). A teacher with no row here is from before this check: approved.
+CREATE TABLE IF NOT EXISTS teacher_status (
+  account TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  hd TEXT,
+  created INTEGER NOT NULL,
+  decided INTEGER,
+  decided_by TEXT
+);
+CREATE INDEX IF NOT EXISTS teacher_status_status ON teacher_status(status);
+-- account_domains: the school or company domain Google gave a grown-up's account at sign-in (Google's
+-- `hd`; plain Gmail accounts have none)
+CREATE TABLE IF NOT EXISTS account_domains (
+  account TEXT PRIMARY KEY,
+  hd TEXT NOT NULL,
+  updated INTEGER NOT NULL
+);
+-- class_settings: a class's path and time rules and students' Google sign-in (deploy/site/class-rules.js
+-- cleanClassSettings), as JSON
+CREATE TABLE IF NOT EXISTS class_settings (
+  class TEXT PRIMARY KEY,
+  data TEXT NOT NULL,
+  updated INTEGER NOT NULL
+);
+-- student_google: a student who signs in with their school Google account: a hash of the Google account's
+-- id (never the id itself, never an email), and which student it is
+CREATE TABLE IF NOT EXISTS student_google (
+  gid TEXT PRIMARY KEY,
+  student TEXT NOT NULL,
+  class TEXT NOT NULL,
+  created INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS student_google_student ON student_google(student);
+CREATE INDEX IF NOT EXISTS student_google_class ON student_google(class);
+-- google_tickets: the ten minutes between Google and the game: a hash of a one-time ticket, the hashed
+-- Google id, the first name Google gave and the school domain (deleted when used, or after ten minutes)
+CREATE TABLE IF NOT EXISTS google_tickets (
+  hash TEXT PRIMARY KEY,
+  gid TEXT NOT NULL,
+  name TEXT,
+  hd TEXT,
+  expires INTEGER NOT NULL
+);

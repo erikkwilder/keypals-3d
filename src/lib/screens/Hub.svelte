@@ -5,7 +5,8 @@
   // Practice, Games, Adventure) and one big Keep going button; then "Play anywhere", the places that
   // take every subject (the Arcade, Adventure, Glimmer Drop, Family Duel and Rival Ghosts); then how it
   // all fits together as a little loop of pictures. Where your progress is saved shows by the hello,
-  // and if a grown-up's sign-in ran out, a banner says so.
+  // and if a grown-up's sign-in ran out, a banner says so. Today (path/TodayCard.svelte) sits on top: how
+  // much of today's path is done, the minutes and the unit, and one Continue button.
   import { game } from '../state/game.svelte';
   import { ALL_LESSONS, REGION } from '../engine/course';
   import { outfitOf, passed, todayMs, totalStars } from '../engine/profile';
@@ -30,6 +31,7 @@
   import Critter from '../ui/Critter.svelte';
   import Icon from '../ui/Icon.svelte';
   import ClassWorkCard from '../ui/ClassWorkCard.svelte';
+  import TodayCard from '../path/TodayCard.svelte'; // My path: today's things and one Continue
   import { buddyPicture, storedPicture } from '../three/buddyPic';
   import { dressOf } from '../adventure/wardrobe';
 
@@ -132,6 +134,7 @@
       </div>
     {/if}
 
+    <TodayCard compact={sw < 600} /><!-- My path: where you are today, and Continue -->
     <ClassWorkCard compact={sw < 600} /><!-- classes: class work for a player in a class -->
 
     <!-- the subjects: each with the same four ways to play, and the next thing to do -->

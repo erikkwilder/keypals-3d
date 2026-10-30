@@ -13,6 +13,7 @@ import { SKILL_LESSON, SKILL_PLACEMENTS, skillRegionsOf, type SkillLesson } from
 import type { AreaId } from '../math/skills/types';
 import { eventsOf } from './activity';
 import { progressOf, type AssignmentData } from './assignments';
+import { startUnitWork } from '../path/launch';
 
 /** A skill trip on exactly these skills (one area's). Meets a skill not started yet with its trick first. */
 export function classLesson(skills: string[], title: string, p: Profile): SkillLesson | null {
@@ -39,7 +40,9 @@ function rightSince(p: Profile, a: AssignmentData, id: string) {
 }
 
 /** Open the activity for an assignment. */
-export function startAssignment(p: Profile, a: AssignmentData) {
+export function startAssignment(p: Profile, a: AssignmentData & { id?: string }) {
+  // a unit: its next item, the My path way
+  if (a.what === 'unit') { startUnitWork(p, a); return; }
   const pr = progressOf(p, a);
   if (a.what === 'skills') {
     const order = [...a.skills].filter(id => SKILL[id]).sort((x, y) => rightSince(p, a, x) - rightSince(p, a, y));

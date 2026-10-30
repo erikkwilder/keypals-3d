@@ -1,8 +1,9 @@
 <script lang="ts">
   // The Admin section of the Grown-ups screen, for the people who look after Keypals (ADMIN_EMAILS on the
   // server, Google sign-ins only; the server checks every request): approve, hide, merge and mark ideas,
-  // read the problems people told us about or the game reported by itself, and see the numbers (how many
-  // play and what they play, counted without identifiers).
+  // read the problems people told us about or the game reported by itself, see the numbers (how many
+  // play and what they play, counted without identifiers), and say yes to new teachers who signed in with
+  // a plain Gmail account (a school Google account is approved by itself: deploy/site/classes.js).
   import { call } from '../state/cloud.svelte';
   import { IDEA_KINDS, type IdeaKind, type IdeaStatus } from '../state/feedback';
 
@@ -10,7 +11,15 @@
   type Problem = { id: number; kind: 'told' | 'auto'; text: string; email: string | null; stack: string | null; screen: string; version: string; browser: string; size: string; times: number; status: 'new' | 'read' | 'done'; created: number; lastseen: number };
 
   import StatsDash from './StatsDash.svelte';
-  let tab = $state<'ideas' | 'problems' | 'numbers'>('ideas');
+  type AdminTeacher = { account: string; display: string; name: string | null; email: string | null; provider: string; hd: string | null; status: 'pending' | 'approved' | 'declined'; created: number; decided: number | null; classes: number; students: number };
+  let tab = $state<'ideas' | 'problems' | 'numbers' | 'teachers'>('ideas');
+  let teachers = $state<AdminTeacher[]>([]);
+  let showDecided = $state(false);
+  async function loadTeachers() { try { teachers = (await call<{ teachers: AdminTeacher[] }>('/admin/teachers')).teachers; } catch (e) { msg = (e as Error).message; } }
+  $effect(() => { void loadTeachers(); });
+  const setTeacher = (account: string, status: AdminTeacher['status']) => act(async () => { await call(`/admin/teachers/${account}`, { method: 'POST', body: JSON.stringify({ status }) }); await loadTeachers(); });
+  const waitingTeachers = $derived(teachers.filter(t => t.status === 'pending').length);
+  const shownTeachers = $derived(showDecided ? teachers : teachers.filter(t => t.status === 'pending'));
   let ideas = $state<AdminIdea[]>([]);
   let problems = $state<Problem[]>([]);
   let msg = $state<string | null>(null);
@@ -49,12 +58,29 @@
     <button class:on={tab === 'ideas'} onclick={() => (tab = 'ideas')}>Ideas{#if waiting}<span class="n">{waiting} waiting</span>{/if}</button>
     <button class:on={tab === 'problems'} onclick={() => (tab = 'problems')}>Problems{#if openProblems.length}<span class="n">{openProblems.length} open</span>{/if}</button>
     <button class:on={tab === 'numbers'} onclick={() => (tab = 'numbers')}>Numbers</button>
-    {#if tab !== 'numbers'}<button class="ghost" onclick={load}>Refresh</button>{/if}
+    <button class:on={tab === 'teachers'} onclick={() => (tab = 'teachers')}>Teachers{#if waitingTeachers}<span class="n">{waitingTeachers} waiting</span>{/if}</button>
+    {#if tab !== 'numbers'}<button class="ghost" onclick={() => (tab === 'teachers' ? loadTeachers() : load())}>Refresh</button>{/if}
   </div>
   {#if msg}<p class="msg">{msg}</p>{/if}
 
   {#if tab === 'numbers'}
     <StatsDash />
+  {:else if tab === 'teachers'}
+    <p class="muted small">New teachers who signed in with a personal Gmail account. They can set up classes, but students can't log in until you approve them. School Google accounts are approved by themselves.</p>
+    <label class="muted small"><input type="checkbox" bind:checked={showDecided} /> Show approved and turned-down ones too</label>
+    {#if !shownTeachers.length}<p class="muted small">{showDecided ? 'No new teachers yet.' : 'Nobody waiting.'}</p>{/if}
+    <ul class="rows">
+      {#each shownTeachers as t (t.account)}
+        <li class="row {t.status === 'pending' ? 'new' : t.status === 'declined' ? 'hidden' : ''}">
+          <div class="head"><span class="st">{t.status === 'pending' ? 'Waiting' : t.status === 'approved' ? 'Approved' : 'Turned down'}</span><b>{t.display}</b><span class="muted">{t.name ?? ''}{t.email ? ` · ${t.email}` : ''}{t.hd ? ` · school: ${t.hd}` : ' · personal Gmail'} · since {when(t.created)}</span></div>
+          <p class="text">{t.classes} class{t.classes === 1 ? '' : 'es'}, {t.students} student{t.students === 1 ? '' : 's'}</p>
+          <div class="btns">
+            {#if t.status !== 'approved'}<button class="btn btn-primary" onclick={() => setTeacher(t.account, 'approved')}>Approve</button>{/if}
+            {#if t.status !== 'declined'}<button class="btn" onclick={() => setTeacher(t.account, 'declined')}>Turn down</button>{/if}
+          </div>
+        </li>
+      {/each}
+    </ul>
   {:else if tab === 'ideas'}
     {#if !ideas.length}<p class="muted small">No ideas yet.</p>{/if}
     <ul class="rows">

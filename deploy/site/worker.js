@@ -19,7 +19,7 @@
 // Once a week (from the daily tidy-up) the players and accounts are copied to the R2 bucket bound as
 // BACKUPS, kept 90 days by the bucket's own rule (restore: deploy/site/RESTORE.md).
 
-import { classApi, classPlayerLimited, tidyClasses, CLASS_TABLES } from './classes.js'; // classes for teachers, and the boards
+import { classApi, classPlayerLimited, tidyClasses, CLASS_TABLES, noteSignIn, studentGoogleBack } from './classes.js'; // classes for teachers, and the boards
 
 const WORDS = ('apple acorn anchor arrow badger bamboo banana basket beach beaver berry bird biscuit blossom boat bramble breeze brick bubble bucket bunny cactus camel candle canoe canyon carrot castle cedar cherry cloud clover coconut comet coral cotton crab crayon cricket crystal daisy desert dingo dolphin donut dragon drum duck eagle earth echo elm ember fable falcon feather fern fiddle finch flame flower forest fossil fox frog galaxy garden gecko ginger glacier globe goose grape gull hammock harbor harp hazel hedge heron hill honey hoop iceberg igloo island ivy jelly jungle kayak kettle kite kiwi koala ladder lagoon lake lantern lark leaf lemon lilac lily lime llama lotus lunar maple marble meadow melon meteor mint mitten moon moose moss mountain mouse muffin nectar nest noodle nutmeg oak oasis ocean olive orbit orchid otter owl paddle panda parrot peach peanut pear pebble pelican pepper petal piano pickle pine pixel planet plum pond poppy prairie pretzel puffin pumpkin quail quartz rabbit radish rain rainbow raven reef ribbon river robin rocket rose ruby saddle sail salmon sandal sapphire scarf seal seed shell sky sloth snail snow sparrow spruce squid star stone storm sugar summer sun swan taco tide tiger toad topaz tortoise trail tulip tuna turnip turtle tulip umbrella valley velvet violet volcano waffle walnut walrus water wave whale willow wind wombat yak yarn zebra zinnia').split(' ').filter((w, i, a) => a.indexOf(w) === i);
 const DAY = 86400000;
@@ -91,11 +91,13 @@ async function currentAccount(env, request) {
   return row;
 }
 
-async function startSignIn(env, url, p, base) {
+/** `student`: a student signing in with a school Google account (classes.js): the same return address, but
+ *  it never becomes a grown-up's account */
+async function startSignIn(env, url, p, base, student = false) {
   if (!ready(env, p)) return fail(503, 'This sign-in is not set up yet.');
   const P = PROVIDERS[p], state = randomToken(18), verifier = randomToken(48);
   await env.DB.prepare('DELETE FROM sign_ins WHERE created < ?').bind(Date.now() - 15 * 60000).run();
-  await env.DB.prepare('INSERT INTO sign_ins (state, verifier, provider, created) VALUES (?, ?, ?, ?)').bind(state, verifier, p, Date.now()).run();
+  await env.DB.prepare('INSERT INTO sign_ins (state, verifier, provider, created) VALUES (?, ?, ?, ?)').bind(state, verifier, student ? `${p}:student` : p, Date.now()).run();
   const q = new URLSearchParams({
     client_id: P.id(env), redirect_uri: callbackUrl(url, p, base), response_type: 'code', scope: 'openid email profile',
     state, code_challenge: await sha256(verifier), code_challenge_method: 'S256', ...P.extra,
@@ -110,7 +112,8 @@ async function finishSignIn(env, url, p, base) {
   if (!code || !state) return back('cancelled');
   const si = await env.DB.prepare('SELECT verifier, provider, created FROM sign_ins WHERE state = ?').bind(state).first();
   await env.DB.prepare('DELETE FROM sign_ins WHERE state = ?').bind(state).run();
-  if (!si || si.provider !== p || si.created < Date.now() - 15 * 60000) return back('expired');
+  const student = !!si && si.provider === `${p}:student`;
+  if (!si || (si.provider !== p && !student) || si.created < Date.now() - 15 * 60000) return back('expired');
   const P = PROVIDERS[p];
   const tok = await fetch(P.token, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -118,6 +121,9 @@ async function finishSignIn(env, url, p, base) {
   }).then(r => r.json()).catch(() => null);
   if (!tok || !tok.access_token) return back('failed');
   const me = await fetch(P.userinfo, { headers: { authorization: `Bearer ${tok.access_token}` } }).then(r => r.json()).catch(() => null);
+  // a student's school Google account: a one-time ticket back to the game; nothing is kept but a hash of the
+  // account's id and the first name (classes.js), and there's no sign-in cookie
+  if (student) return studentGoogleBack(env, url, base, me, { sha256, randomToken });
   if (!me || !me.sub) return back('failed');
   const now = Date.now();
   let acct = await env.DB.prepare('SELECT id FROM accounts WHERE provider = ? AND sub = ?').bind(p, me.sub).first();
@@ -126,6 +132,9 @@ async function finishSignIn(env, url, p, base) {
     acct = { id: randomToken(12) };
     await env.DB.prepare('INSERT INTO accounts (id, provider, sub, email, name, created, seen) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(acct.id, p, me.sub, me.email || null, me.name || null, now, now).run();
   }
+  // the school domain Google gives a school or company account (classes.js: a teacher from a school is
+  // approved straight away)
+  await noteSignIn(env, acct.id, p, me);
   const token = randomToken(32);
   await env.DB.prepare('INSERT INTO sessions (hash, account, expires) VALUES (?, ?, ?)').bind(await sha256(token), acct.id, now + SESSION_DAYS * DAY).run();
   return new Response(null, { status: 302, headers: { location: `${url.origin}${base}/#signin=ok`, 'set-cookie': cookie('kp_session', token, SESSION_DAYS * 86400, base) } });
@@ -148,13 +157,16 @@ async function api(request, env, url, base) {
   const path = url.pathname.slice(`${base}/api`.length);
   const method = request.method;
   // classes, class work and the boards (classes.js): its own paths, null for everything else
-  const cls = await classApi(request, env, url, path, { json, fail, currentAccount, limited, readBody, sha256, randomToken, cookie, cleanCode, newCode, base }); if (cls) return cls;
+  const cls = await classApi(request, env, url, path, { json, fail, currentAccount, limited, readBody, sha256, randomToken, cookie, cleanCode, newCode, base, isAdmin }); if (cls) return cls;
   // which sign-ins are available
   if (path === '/config' && method === 'GET') return json({ google: ready(env, 'google'), microsoft: ready(env, 'microsoft') });
 
   // sign in and out
-  let m = path.match(/^\/auth\/(google|microsoft)\/(start|callback)$/);
-  if (m && method === 'GET') return m[2] === 'start' ? startSignIn(env, url, m[1], base) : finishSignIn(env, url, m[1], base);
+  let m = path.match(/^\/auth\/(google|microsoft)\/(start|callback|student)$/);
+  if (m && method === 'GET') {
+    if (m[2] === 'student' && m[1] !== 'google') return fail(404, 'Not found.');
+    return m[2] === 'callback' ? finishSignIn(env, url, m[1], base) : startSignIn(env, url, m[1], base, m[2] === 'student');
+  }
   if (path === '/auth/logout' && method === 'POST') {
     const c = (request.headers.get('cookie') || '').match(/(?:^|;\s*)kp_session=([^;]+)/);
     if (c) await env.DB.prepare('DELETE FROM sessions WHERE hash = ?').bind(await sha256(c[1])).run();

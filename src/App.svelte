@@ -68,6 +68,19 @@
     const p = game.profile, s = game.screen;
     if (p && s !== 'title' && s !== 'players' && s !== 'newPlayer') untrack(() => countPlayer(p));
   });
+  // My path, and the doors grown-ups and teachers can close (the free-time places' daily time, the path first)
+  import MyPath from './lib/screens/MyPath.svelte';
+  import Door from './lib/path/Door.svelte';
+  import { doorFor } from './lib/path/rules';
+  import { freeClock, playerRules, watchFree } from './lib/path/player.svelte';
+  import { loadClasses } from './lib/teach/student.svelte';
+  import { cloud } from './lib/state/cloud.svelte';
+  // a class player's class rules (and class work) as soon as the server answers, whatever screen is open
+  $effect(() => { const on = cloud.online, id = game.profile?.id; if (on && id) untrack(() => void loadClasses(game.profile)); });
+  // (a Learn episode opened over a subject page, as the market's and the clockmaker's are, is Learn)
+  const door = $derived(game.profile ? doorFor(game.screen === 'map' && game.learnOverlay ? 'learn' : game.screen, game.closetTab, game.profile, playerRules(game.profile), Date.now(), freeClock.running) : null);
+  // minutes count while a free-time place is open (not while its door is shut)
+  $effect(() => { const s = game.screen, t = game.closetTab, id = game.profile?.id ?? null, shut = !!door; untrack(() => watchFree(shut ? 'hub' : s, t, id)); });
   import Teach from './lib/screens/Teach.svelte';
   import ClassLogin from './lib/screens/ClassLogin.svelte';
   import Boards from './lib/screens/Boards.svelte';
@@ -130,7 +143,8 @@
 <SvgDefs />
 <canvas class="stage3d" bind:this={canvas} aria-hidden="true"></canvas>
 <main class="app">
-  {#if game.screen === 'title'}<Title />
+  {#if door}<Door {door} />
+  {:else if game.screen === 'title'}<Title />
   {:else if game.screen === 'players'}<Players />
   {:else if game.screen === 'newPlayer'}<NewPlayer />
   {:else if game.screen === 'hub'}<Hub />
@@ -178,6 +192,7 @@
   {:else if game.screen === 'classLogin'}<ClassLogin />
   {:else if game.screen === 'boards'}<Boards />
   {:else if game.screen === 'glimmerBook'}<GlimmerBook />
+  {:else if game.screen === 'path'}<MyPath />
   {/if}
   <LadderMoment />
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}

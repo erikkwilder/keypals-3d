@@ -1,6 +1,7 @@
 <script lang="ts">
-  // Class work: every assignment with how many are done, and making, changing, archiving or deleting one.
-  import { teach, act, saveAssignment, deleteAssignment } from '../teacher.svelte';
+  // Class work: every assignment with how many are done, and making, changing, archiving or deleting one,
+  // or sharing it to Google Classroom.
+  import { teach, act, saveAssignment, deleteAssignment, shareWork, shareClass } from '../teacher.svelte';
   import { WHAT_NAME, dueText, goalText, isFor, progressOf, type Assignment } from '../assignments';
   import type { Kid } from '../reports';
   import AssignEditor from './AssignEditor.svelte';
@@ -26,7 +27,7 @@
   {#key editing?.id ?? 'new'}<AssignEditor {editing} done={() => { making = false; editing = null; }} />{/key}
 {:else}
   <div class="tp">
-    <div class="top"><h3>Class work</h3><button class="btn btn-primary" onclick={() => (making = true)}>New class work</button></div>
+    <div class="top"><h3>Class work</h3><span class="tr"><button class="btn" onclick={() => shareClass(c.class)}>Share the class to Google Classroom</button><button class="btn btn-primary" onclick={() => (making = true)}>New class work</button></span></div>
     {#if !current.length}
       <p class="muted">Nothing assigned yet. Class work shows at the top of each student's Home screen, with a progress bar and the due date, and starts the right practice when they tap it.</p>
     {:else}
@@ -36,7 +37,7 @@
           {#each current as a (a.id)}
             {@const s = summary(a)}
             <tr>
-              <td><b>{a.title}</b><br /><span class="muted">{WHAT_NAME[a.what]}{a.by ? ` · ${a.by}` : ''} · scored by {a.scoring === 'completion' ? 'finishing it' : a.scoring === 'accuracy' ? 'accuracy' : 'finishing and accuracy'}</span></td>
+              <td><b>{a.title}</b><br /><span class="muted">{WHAT_NAME[a.what]}{a.what === 'unit' ? ` · ${a.items?.length ?? 0} parts` : ''}{a.by ? ` · ${a.by}` : ''} · scored by {a.scoring === 'completion' ? 'finishing it' : a.scoring === 'accuracy' ? 'accuracy' : 'finishing and accuracy'}</span></td>
               <td>{goalText(a)}</td>
               <td class:past={a.due && a.due < Date.now()}>{dueText(a.due)}</td>
               <td>{a.students ? `${a.students.length} student${a.students.length === 1 ? '' : 's'}` : 'Whole class'}</td>
@@ -45,6 +46,7 @@
                 {#if deleting === a.id}
                   <button class="sbtn warn" onclick={() => act(() => deleteAssignment(a.id), 'Deleted.').then(() => (deleting = null))}>Delete</button><button class="sbtn" onclick={() => (deleting = null)}>Keep</button>
                 {:else}
+                  <button class="sbtn" onclick={() => shareWork(c.class, a)} title="Post it in Google Classroom">Share to Classroom</button>
                   <button class="sbtn" onclick={() => (editing = a)}>Change</button>
                   <button class="sbtn" onclick={() => archive(a, true)}>Archive</button>
                   <button class="sbtn warn" onclick={() => (deleting = a.id)}>Delete</button>
@@ -67,7 +69,8 @@
 {/if}
 
 <style>
-  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .tr { display: inline-flex; gap: 8px; flex-wrap: wrap; }
   .bar { width: 120px; height: 10px; border-radius: 99px; background: #efedf3; overflow: hidden; margin-bottom: 3px; }
   .bar i { display: block; height: 100%; background: #4fcf9f; }
   .past { color: #b4541b; }
