@@ -148,6 +148,35 @@ const OVERRIDE: Record<string, Partial<LessonSpec>> = {
   'g7-add-negatives': { skill: keys('in-add:negpos', 'in-add:posneg', 'in-add:negneg') },
 };
 
+// ---------- unit titles for what is on the path today ----------
+/** A unit's title says what is in it now: the plan's title is for the whole unit, and while only some of
+ *  its lessons are built the rest would promise things that aren't there ("Flat shapes" holding only
+ *  "Sort and count"). Back to the plan's title as its lessons arrive. */
+export const UNIT_TITLE: Record<string, string> = {
+  'GK-U3': 'Sort and count',
+  'GK-U5': 'Partners of 10, facts to 5',
+  'G1-U1': 'Adding, taking away and sorting',
+  'G1-U2': 'Find the missing number',
+  'G1-U7': 'Halves, quarters and clocks',
+  'G2-U2': 'Adding and taking away to 100',
+  'G2-U7': 'Adding and taking away to 1,000',
+  'G3-U2': 'Area, the 4s and the 3s',
+  'G3-U3': 'Adding, taking away and rounding',
+  'G3-U6': 'Time, weight, liquid and line plots',
+  'G3-U7': 'Fences: a missing side',
+  'G4-U1': 'Patterns from a rule',
+  'G4-U3': 'Adding, taking away and times with fractions',
+  'G4-U5': 'Give change',
+  'G5-U1': 'Volume, and brackets first',
+  'G5-U2': 'A fraction of a number',
+  'G6-U4': 'Boxes with fraction edges',
+  'G6-U5': 'Adding and taking away decimals',
+  'G7-U7': 'Shapes made of pieces',
+  'G7-U8': 'Chance',
+  'G8-U1': "A triangle's angles",
+};
+export const unitTitle = (u: { id: string; kidTitle: string }) => UNIT_TITLE[u.id] ?? u.kidTitle;
+
 /** The spec for a lesson: the plan's own skills and Learn, changed where OVERRIDE says. */
 export function specOf(l: CurLesson): LessonSpec {
   const o = OVERRIDE[l.id] ?? {};

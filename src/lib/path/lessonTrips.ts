@@ -12,7 +12,7 @@ import type { SkillLesson, SkillRegion } from '../math/skills/course';
 import type { Op } from '../math/facts';
 import type { AreaId } from '../math/skills/types';
 import { CUR_LESSONS, CUR_UNITS, type CurLesson } from './curriculum';
-import { SPEC, type Band, type LessonSpec } from './lessonSpecs';
+import { SPEC, unitTitle, type Band, type LessonSpec } from './lessonSpecs';
 
 export const OP_NAME: Record<Op, string> = { '+': 'plus', '-': 'minus', x: 'times', '/': 'share' };
 const FACT_SKILL: Record<Op, string> = { '+': 'add-facts', '-': 'sub-facts', x: 'mult-facts', '/': 'div-facts' };
@@ -102,7 +102,7 @@ export function skillLessonTrips(regions: SkillRegion[]): SkillLesson[] {
     const skills = [...new Set(ls.flatMap(l => skillPart(l.id)!.skills))];
     const home = homeOf(skills[0], regions);
     if (!home) continue;
-    out.push({ id: `unit-${u.id}`, region: 'start', area: home.area, n: 1, title: short(`Unit check: ${u.kidTitle}`), kind: 'check', skills, learn: [], goal: home.goal, move: home.move, world: home.world,
+    out.push({ id: `unit-${u.id}`, region: 'start', area: home.area, n: 1, title: short(`Unit check: ${unitTitle(u)}`), kind: 'check', skills, learn: [], goal: home.goal, move: home.move, world: home.world,
       blurb: 'Every kind of question in this unit. Show you\'re comfortable with all of it.', subs: keys, ep: null });
   }
   return out;
@@ -136,7 +136,7 @@ export function swykTrips(regions: SkillRegion[]): SkillLesson[] {
   for (let g = 0; g <= 8; g++) make(gradeScope(g), g === 0 ? 'Kindergarten' : `grade ${g}`, CUR_LESSONS.filter(l => l.grade === g));
   for (const u of CUR_UNITS) {
     const ls = CUR_LESSONS.filter(l => l.unit === u.id);
-    if (ls.length >= 2) make(u.id, `this unit: ${u.kidTitle.toLowerCase()}`, ls);
+    if (ls.length >= 2) make(u.id, `this unit: ${unitTitle(u).toLowerCase()}`, ls);
   }
   return out;
 }
@@ -164,7 +164,7 @@ export function factLessonTrips(goalOf: (op: Op) => number, stops: (trip: string
     const op = ops.sort((a, b) => parts.filter(f => f.op === b).length - parts.filter(f => f.op === a).length)[0];
     if (!op) continue;
     const groups = [...new Set(parts.filter(f => f.op === op).flatMap(f => f.groups))].filter(gr => gr !== 'x0' && gr !== 'x1');
-    out.push(mk(`unit-${u.id}`, `Unit check: ${u.kidTitle}`, 'check', op, groups, 'Every kind of question in this unit. Show you\'re comfortable with all of it.', 16));
+    out.push(mk(`unit-${u.id}`, `Unit check: ${unitTitle(u)}`, 'check', op, groups, 'Every kind of question in this unit. Show you\'re comfortable with all of it.', 16));
   }
   return out;
 }

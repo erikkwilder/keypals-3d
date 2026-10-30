@@ -35,7 +35,8 @@ import { STRAND_SKILL } from '../math/skills/ability';
 import type { AreaId } from '../math/skills/types';
 import { SUBJECT, SUBJECTS, WAY, type Subject, type Thing, type WayId } from '../subjects';
 import { CUR_LESSONS, CUR_UNITS } from './curriculum';
-import { LEARN_TEACHES, SPEC } from './lessonSpecs';
+import { LEARN_TEACHES, SPEC, unitTitle } from './lessonSpecs';
+import { ARCADE_GAMES } from '../arcade/arcade';
 import { checkTrips, factPart, lessonById, practiceTrips, skillPart, sourceTrips } from './lessonTrips';
 import { WORLD_PIN, WORLD_PINS } from '../adventure/worlds';
 import { nodesOf, type WorldId } from '../adventure/state';
@@ -153,6 +154,43 @@ export function lessonArea(id: string): AreaId {
   const f = factPart(id, regionGroups)[0];
   return f ? areaOfOp(f.op) : 'place';
 }
+// ---------- what each lesson, game and world is about ----------
+/** A lesson's topic, finer than its area where the games and worlds are: measuring is time (Clock Rush,
+ *  Clockwork Isle), measuring with rulers, scales and jugs (Clockwork Isle), or area, perimeter and volume
+ *  (shapes: Shape Shifter, Shape Peaks); the four fact strands are one topic (the Arcade's fact games, the
+ *  Sky Islands). */
+export type Topic = 'facts' | 'fractions' | 'place' | 'decimals' | 'time' | 'measuring' | 'area' | 'shapes' | 'ratios' | 'integers' | 'algebra' | 'data';
+const SKILL_TOPIC: Record<string, Topic> = {
+  'ms-hour': 'time', 'ms-five': 'time', 'ms-minute': 'time', 'ms-elapsed': 'time',
+  'ms-ruler': 'measuring', 'ms-compare': 'measuring', 'ms-mass': 'measuring', 'ms-convert': 'measuring',
+  'ms-area': 'area', 'ms-perim': 'area', 'ms-volume': 'area', 'sh-area': 'area', 'sh-volume': 'area', 'ms-ratio': 'ratios',
+};
+export function lessonTopic(id: string): Topic {
+  const sk = skillPart(id)?.skills[0];
+  if (sk && SKILL_TOPIC[sk]) return SKILL_TOPIC[sk];
+  const a = lessonArea(id);
+  return a === 'plus' || a === 'minus' || a === 'times' || a === 'share' ? 'facts' : a === 'measure' ? 'measuring' : (a as Topic);
+}
+/** The topics each arcade game and each Adventure world asks about. */
+export const GAME_TOPICS: Record<string, Topic[]> = {
+  pizza: ['fractions'], builder: ['place'], market: ['decimals'], clockrush: ['time'], shifter: ['shapes', 'area'], smoothie: ['ratios'],
+  treasure: ['integers'], showdown: ['data'], balance: ['algebra'], ...Object.fromEntries(ARCADE_GAMES.map(g => [g.id, ['facts'] as Topic[]])),
+};
+export const WORLD_TOPICS: Record<string, Topic[]> = {
+  sky: ['facts'], falls: ['fractions'], caves: ['place'], peaks: ['shapes', 'area'], market: ['decimals'], clockwork: ['time', 'measuring'],
+  stars: ['algebra'], frost: ['integers'], jungle: ['ratios'], fair: ['data'],
+};
+/** The one that fits most of a unit's lessons (ties: the one for its first lesson, then taking turns). */
+function bestFit(options: string[], topics: Record<string, Topic[]>, ls: Topic[], turn: number): string | undefined {
+  const score = (o: string) => ls.filter(t => topics[o]?.includes(t)).length;
+  const top = Math.max(0, ...options.map(score));
+  if (!top) return undefined;
+  let best = options.filter(o => score(o) === top);
+  const first = best.filter(o => topics[o].includes(ls[0]));
+  if (first.length) best = first;
+  return best[turn % best.length];
+}
+
 /** Every lesson on the math path, in order. */
 export const PATH_LESSONS = CUR_LESSONS.filter(l => SPEC[l.id] && (practiceTrips(l.id).length > 0));
 export const PATH_LESSON_IDS = PATH_LESSONS.map(l => l.id);
@@ -185,9 +223,12 @@ function curriculumUnits(): Unit[] {
     const count: Partial<Record<AreaId, number>> = {};
     for (const id of ids) { const a = lessonArea(id); count[a] = (count[a] ?? 0) + 1; }
     const area = (Object.entries(count) as [AreaId, number][]).sort((a, b) => b[1] - a[1])[0][0];
-    const games = gamesForArea(area), world = worldForArea(area);
-    const sameArea = out.filter(u => u.area === area).length;
-    const game = games.length ? games[sameArea % games.length]?.id : undefined;
+    // its game and world: the ones about most of its lessons (a unit with no game on its topics, like
+    // rulers, battles every day)
+    const topics = ids.map(lessonTopic);
+    const arcade = (SUBJECT.math?.ways.games.things ?? []).filter(t => t.kind === 'arcade' && !t.soon).map(t => t.id);
+    const game = bestFit(arcade, GAME_TOPICS, topics, out.filter(u => u.area === area).length);
+    const world = bestFit(WORLD_PINS.map(w => w.id), WORLD_TOPICS, topics, 0) ?? worldForArea(area);
     let turn = 0, firstGame: number | undefined, firstWin: number | undefined;
     const play = (): string => {
       const wantGame = !!game && turn++ % 2 === 0;
@@ -216,13 +257,28 @@ function curriculumUnits(): Unit[] {
     const skills = [...new Set(ids.flatMap(id => skillPart(id)?.skills ?? factPart(id, regionGroups).map(f => f.skill)))];
     const facts = ids.every(id => !skillPart(id)) ? [...new Set(ids.flatMap(id => factPart(id, regionGroups).flatMap(f => f.groups)))] : undefined;
     out.push({
-      id: `math:${cu.id}`, subject: 'math', area, n: cu.n, name: cu.kidTitle, part: AREA[area].name, blurb: ls.map(l => l.kidTitle).join(' · '), grade: cu.grade,
+      id: `math:${cu.id}`, subject: 'math', area, n: cu.n, name: unitTitle(cu), part: AREA[area].name, blurb: ls.map(l => l.kidTitle).join(' · '), grade: cu.grade,
       color: AREA[area].color, art: ids.map(artOf).find(Boolean) ?? `regions/${world}.webp`, skills, groups: facts, checkTrip,
       gameNeed: firstGame, battleNeed: firstWin, lessons: ids, items,
     });
   }
   return out;
 }
+/** A math topic's grades, from its lessons on the path ("K–7"), or null when it has none. */
+export function areaGrades(area: string): string | null {
+  const gs = PATH_LESSONS.filter(l => lessonArea(l.id) === area).map(l => l.grade);
+  if (!gs.length) return null;
+  const k = (g: number) => (g === 0 ? 'K' : String(g)), lo = Math.min(...gs), hi = Math.max(...gs);
+  return lo === hi ? k(lo) : `${k(lo)}–${k(hi)}`;
+}
+/** The grades of the lessons a Learn episode teaches ("Grade 7", "Grades 3–4"), or null. */
+export function learnGrades(ep: string): string | null {
+  const gs = PATH_LESSONS.filter(l => lessonLearn(l.id) === ep).map(l => l.grade);
+  if (!gs.length) return null;
+  const k = (g: number) => (g === 0 ? 'K' : String(g)), lo = Math.min(...gs), hi = Math.max(...gs);
+  return lo === hi ? (lo === 0 ? 'Kindergarten' : `Grade ${lo}`) : `Grades ${k(lo)}–${k(hi)}`;
+}
+
 /** The units the path used to have (one per island, `math:<region>`) and the new unit each one's work is
  *  in now, so a teacher's unit made from an old one, and anything else that kept an old id, still finds
  *  its unit: the unit holding most of the island's old trips' lessons. */

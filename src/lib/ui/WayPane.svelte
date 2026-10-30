@@ -13,6 +13,7 @@
   import { epLesson, isEpisode } from '../math/episodes';
   import { sfx } from '../audio/sound';
   import Icon from './Icon.svelte';
+  import { learnGrades } from '../path/units';
 
   type Props = { subject: Subject; way: WayId; chip: string };
   let { subject, way, chip }: Props = $props();
@@ -104,6 +105,7 @@
               <div class="tx">
                 <b>{t.kind === 'keys' ? `New keys: ${keysOf(t).join(' and ')}` : t.name}</b>
                 <span class="ln">{t.line}</span>
+                {#if subject.id === 'math' && way === 'learn' && learnGrades(t.id)}<span class="gr">{learnGrades(t.id)}</span>{/if}
                 {#if chip === 'all' && way === 'adventure'}<span class="parts">{chipNames(subject, t)}</span>{/if}
                 <div class="row">
                   {#if st.tag}<span class="tag" class:ok={st.done}>{#if st.done}<Icon name="check" size={14} />{/if}{st.tag}</span>{/if}
@@ -173,6 +175,8 @@
   .ln { font: 600 13.5px/1.3 var(--font-body); color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .parts { align-self: flex-start; font: 800 11.5px var(--font-body); color: var(--wd); background: var(--wt); padding: 2px 8px; border-radius: 999px; }
   .row { margin-top: auto; padding-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  /* the grade of the lessons this Learn teaches (the curriculum's), small */
+  .gr { align-self: flex-start; font: 800 11px var(--font-body); letter-spacing: .03em; text-transform: uppercase; color: var(--muted); }
   .tag { display: inline-flex; align-items: center; gap: 3px; font: 800 12px var(--font-body); padding: 3px 10px; border-radius: 999px; background: var(--wt); color: var(--wd); white-space: nowrap; }
   .tag.ok { background: #d9f7e8; color: #1f7a54; }
   .btn.small { padding: 7px 16px; font-size: 16px; }

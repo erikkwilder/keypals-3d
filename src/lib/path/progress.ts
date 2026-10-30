@@ -160,8 +160,9 @@ export function itemDone(p: Profile, u: Unit, it: PathItem, o: { now?: number; s
 }
 
 // ---------- a unit, and the whole path ----------
-/** `skip`: not to do now: its lesson is known already ("You know this") or done, or a warm-up with
- *  nothing to warm up on yet (`skip: 'nothing'`: not shown, not counted) */
+/** `skip`: not to do now: its lesson is known already ("You know this") or done; `'nothing'`: not shown,
+ *  not counted (a warm-up with nothing to warm up on yet, or the warm-up and play of a lesson's day when
+ *  the lesson is known) */
 export type ItemState = PathItem & { done: boolean; skip?: 'known' | 'nothing' };
 export type LessonState = { id: string; title: string; ticks: LessonTicks };
 /** earlier: before the grade the path starts at (open, not needed) */
@@ -183,7 +184,9 @@ export function unitState(p: Profile, u: Unit, o: { now?: number; since?: number
     const done = itemDone(p, u, it, { ...o, now, events });
     if (done) return { ...it, done };
     if (it.ref.startsWith('warm:') && !warmKeys(p, it.ref.slice(5), now).length) return { ...it, done, skip: 'nothing' as const };
-    if (it.lesson && settled.has(it.lesson) && it.kind !== 'check') return { ...it, done, skip: 'known' as const };
+    // a lesson known (or done) already: its own steps say "You know this"; its day's warm-up and play
+    // aren't needed, so they aren't shown ("You know this" is about lessons, not a game or a warm-up)
+    if (it.lesson && settled.has(it.lesson) && it.kind !== 'check') return { ...it, done, skip: it.kind === 'warmup' || it.kind === 'game' || it.kind === 'battle' ? 'nothing' as const : 'known' as const };
     return { ...it, done };
   });
   const counted = items.filter(i => i.skip !== 'nothing');

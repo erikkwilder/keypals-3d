@@ -14,7 +14,9 @@ import { advOf } from '../adventure/state';
 import { CUR_LESSONS, CUR_UNITS } from './curriculum';
 import { LEARN_TEACHES, SPEC } from './lessonSpecs';
 import { checkTrips, gradeScope, isFactSkill, practiceTrips, skillPart, swykId } from './lessonTrips';
-import { PATH_LESSON_IDS, lessonLearn, learnFits, lessonKeys, oldUnit, pathOf, unitById } from './units';
+import { GAME_TOPICS, PATH_LESSON_IDS, WORLD_TOPICS, areaGrades, learnGrades, lessonLearn, learnFits, lessonKeys, lessonTopic, oldUnit, pathOf, unitById } from './units';
+import { UNIT_TITLE } from './lessonSpecs';
+import { trailOf } from '../nav';
 import { lessonTicks } from './lessonProgress';
 import { nextOnPath, notePath, pathSave, pathStates, startPath, unitState, type PathProfile } from './progress';
 import { unitFromAssignment } from './classPath';
@@ -176,6 +178,43 @@ describe('days on the path', () => {
   });
 });
 
+describe('what a unit is called, and its game and world', () => {
+  it('a unit\'s title says what is in it today (the plan\'s title where its lessons all fit it)', () => {
+    expect(unitById('math:GK-U3')!.name).toBe('Sort and count');
+    expect(unitById('math:G6-U4')!.name).toBe('Boxes with fraction edges');
+    expect(unitById('math:G3-U5')!.name).toBe('Fractions');
+    for (const id of Object.keys(UNIT_TITLE)) expect(unitById(`math:${id}`), id).not.toBeNull();
+    // the unit check and Show What You Know use the same name
+    expect(SKILL_LESSON['unit-G6-U4'].title).toBe('Unit check: Boxes with fraction edges');
+  });
+  it('no unit\'s game or world is about something none of its lessons are', () => {
+    for (const u of math()) {
+      const topics = new Set(u.lessons!.map(lessonTopic));
+      const game = u.items.find(i => i.kind === 'game')?.ref.split(':')[1];
+      const world = u.items.find(i => i.kind === 'battle')?.ref.split(':')[1];
+      if (game) expect(GAME_TOPICS[game].some(t => topics.has(t)), `${u.id} ${game}`).toBe(true);
+      if (world) expect(WORLD_TOPICS[world].some(t => topics.has(t)), `${u.id} ${world}`).toBe(true);
+      expect(!!(game || world), u.id).toBe(true);
+    }
+    // area and the 4s: the shapes game and Shape Peaks, not the clocks; time and weight: the clocks
+    const area = unitById('math:G3-U2')!, time = unitById('math:G3-U6')!;
+    expect(area.items.find(i => i.kind === 'game')!.ref).toMatch(/^game:shifter:/);
+    expect(area.items.find(i => i.kind === 'battle')!.ref).toMatch(/^battle:peaks:/);
+    expect(time.items.find(i => i.kind === 'game')!.ref).toMatch(/^game:clockrush:/);
+    expect(time.items.find(i => i.kind === 'battle')!.ref).toMatch(/^battle:clockwork:/);
+    // rulers: no game is about measuring with a ruler, so its day's play is a Clockwork Isle battle
+    expect(unitById('math:G2-U3')!.items.filter(i => i.kind === 'game' || i.kind === 'battle').map(i => i.ref.split(':')[1])).toEqual(['clockwork']);
+  });
+  it('topic pages\' grades come from the lessons: How likely? is grade 7', () => {
+    expect(areaGrades('data')).toBe('K–7');
+    expect(areaGrades('ratios')).toBe('6–7');
+    expect(areaGrades('algebra')).toBe('1–7');
+    expect(learnGrades('data-chance')).toBe('Grade 7');
+    expect(learnGrades('sh-sides')).toBe('Grade 2');
+    expect(trailOf({ screen: 'topic', ctx: { subject: 'math', topic: 'data' } } as never)).toBe('Math › Data and chance · Grades K–7');
+  });
+});
+
 describe('ticks, Show What You Know, warm-ups', () => {
   it('a new Kindergartner starts at the very first lesson; four ticks fill in from real play', () => {
     const p = kid();
@@ -217,6 +256,8 @@ describe('ticks, Show What You Know, warm-ups', () => {
     const st = pathStates(q, 'math', MON, 3);
     const items = st.flatMap(s => s.items);
     expect(items.filter(i => i.skip === 'known').length).toBeGreaterThan(5);
+    // "You know this" is only ever on a lesson's own steps, never a warm-up, a game or a battle
+    expect(items.filter(i => i.skip === 'known').every(i => i.kind === 'learn' || i.kind === 'practice' || i.kind === 'quick')).toBe(true);
   });
   it('a warm-up asks a few met questions from earlier lessons, and is skipped when there is nothing to warm up on', () => {
     const p = kid();
