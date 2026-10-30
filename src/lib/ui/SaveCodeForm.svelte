@@ -1,7 +1,7 @@
 <script lang="ts">
   // "Already play on another computer?": type a save code to bring that player here, or a grown-up signs
   // in to bring every player in their account. Shown only where online saving works
-  // (fancyant.com/keypals).
+  // (keypals.org and fancyant.com/keypals).
   import { game } from '../state/game.svelte';
   import { cloud, openCode, signIn } from '../state/cloud.svelte';
   import { sfx } from '../audio/sound';

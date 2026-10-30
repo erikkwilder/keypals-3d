@@ -40,6 +40,16 @@
   import FactGarden from './lib/screens/FactGarden.svelte';
   import Arcade from './lib/screens/Arcade.svelte';
   import ArcadePlay from './lib/screens/ArcadePlay.svelte';
+  import Ideas from './lib/screens/Ideas.svelte';
+  import { installProblemReports } from './lib/state/reports';
+  import { countScreen, countPlayer } from './lib/state/counting';
+  import { untrack } from 'svelte';
+  // counting visits (no identifiers: counts.ts): every screen opened, and each player's first visit today
+  $effect(() => { const s = game.screen; untrack(() => countScreen(s)); });
+  $effect(() => {
+    const p = game.profile, s = game.screen;
+    if (p && s !== 'title' && s !== 'players' && s !== 'newPlayer') untrack(() => countPlayer(p));
+  });
   import { stage } from './lib/three/stage';
   import QuickSettings from './lib/ui/QuickSettings.svelte';
   import FunLayer from './lib/fun/FunLayer.svelte';
@@ -83,6 +93,7 @@
   onMount(() => {
     if (canvas) stage.mount(canvas, game.settings.graphics === 'low');
     stage.onAutoSmooth = () => game.say('Switched to smooth mode so the game runs better on this computer. You can change it in Settings.', 6000);
+    installProblemReports();
     devBoot();
     startCloud();
     const unlock = () => unlockAudio();
@@ -125,6 +136,7 @@
   {:else if game.screen === 'drop'}<GlimmerDrop />
   {:else if game.screen === 'arcade'}<Arcade />
   {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}
+  {:else if game.screen === 'ideas'}<Ideas />
   {/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
   {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}

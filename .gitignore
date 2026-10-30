@@ -18,6 +18,7 @@ docs/round*/
 
 # built copies of both games for publishing (deploy/site/deploy.sh)
 deploy/site/public/
+deploy/site/public-org/
 deploy/site/.wrangler/
 
 # licensed music (Envato Elements, for Keypals only): never in this public repository. It lives in

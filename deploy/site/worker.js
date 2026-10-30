@@ -1,7 +1,11 @@
-// fancyant.com/keypals: files are served straight from storage before this ever runs. This script only
-// sees what isn't a file:
-//   /keypals2/...          the 3D game's old test address, forwarded to /keypals
-//   /keypals/api/...       saves and sign-in (data in the D1 database bound as DB)
+// fancyant.com/keypals and keypals.org: files are served straight from storage before this ever runs. This
+// script only sees what isn't a file. The same script runs as three Workers:
+//   fancyant-keypals (wrangler.toml, BASE "/keypals"): fancyant.com/keypals/api/... and /keypals2 (the 3D
+//     game's old test address, forwarded to /keypals); it also runs the daily tidy-up and weekly backup
+//   keypals-org (wrangler-org.toml, BASE ""): keypals.org/api/..., the game at the root of the address
+//   keypals-www (wrangler-www.toml, REDIRECT_TO): www.keypals.org sends everyone to keypals.org
+// Both game addresses share one database (D1, bound as DB), so a save code or a grown-up's account works on
+// either. BASE sets where the API lives, the sign-in cookie's Path and the sign-in return addresses.
 //
 // Saves: any player can get a save code (three words and a number). The code holds the game's own
 // profile: a nickname, the chosen buddy, progress and settings. No emails or real names from
@@ -65,10 +69,12 @@ const PROVIDERS = {
   },
 };
 const ready = (env, p) => !!(PROVIDERS[p] && PROVIDERS[p].id(env) && PROVIDERS[p].secret(env));
-const callbackUrl = (url, p) => `${url.origin}/keypals/api/auth/${p}/callback`;
+/** where this Worker's game lives: "/keypals" on fancyant.com, "" (the root) on keypals.org */
+const baseOf = (env) => String(env.BASE ?? '/keypals').replace(/\/+$/, '');
+const callbackUrl = (url, p, base) => `${url.origin}${base}/api/auth/${p}/callback`;
 
-function cookie(name, value, maxAgeS) {
-  return `${name}=${value}; Path=/keypals; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeS}`;
+function cookie(name, value, maxAgeS, base) {
+  return `${name}=${value}; Path=${base || '/'}; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeS}`;
 }
 async function currentAccount(env, request) {
   const m = (request.headers.get('cookie') || '').match(/(?:^|;\s*)kp_session=([^;]+)/);
@@ -79,20 +85,20 @@ async function currentAccount(env, request) {
   return row;
 }
 
-async function startSignIn(env, url, p) {
+async function startSignIn(env, url, p, base) {
   if (!ready(env, p)) return fail(503, 'This sign-in is not set up yet.');
   const P = PROVIDERS[p], state = randomToken(18), verifier = randomToken(48);
   await env.DB.prepare('DELETE FROM sign_ins WHERE created < ?').bind(Date.now() - 15 * 60000).run();
   await env.DB.prepare('INSERT INTO sign_ins (state, verifier, provider, created) VALUES (?, ?, ?, ?)').bind(state, verifier, p, Date.now()).run();
   const q = new URLSearchParams({
-    client_id: P.id(env), redirect_uri: callbackUrl(url, p), response_type: 'code', scope: 'openid email profile',
+    client_id: P.id(env), redirect_uri: callbackUrl(url, p, base), response_type: 'code', scope: 'openid email profile',
     state, code_challenge: await sha256(verifier), code_challenge_method: 'S256', ...P.extra,
   });
   return Response.redirect(`${P.authorize}?${q}`, 302);
 }
 
-async function finishSignIn(env, url, p) {
-  const back = (msg) => Response.redirect(`${url.origin}/keypals/#signin=${msg}`, 302);
+async function finishSignIn(env, url, p, base) {
+  const back = (msg) => Response.redirect(`${url.origin}${base}/#signin=${msg}`, 302);
   if (!ready(env, p)) return back('unavailable');
   const code = url.searchParams.get('code'), state = url.searchParams.get('state');
   if (!code || !state) return back('cancelled');
@@ -102,7 +108,7 @@ async function finishSignIn(env, url, p) {
   const P = PROVIDERS[p];
   const tok = await fetch(P.token, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: P.id(env), client_secret: P.secret(env), code, code_verifier: si.verifier, grant_type: 'authorization_code', redirect_uri: callbackUrl(url, p) }),
+    body: new URLSearchParams({ client_id: P.id(env), client_secret: P.secret(env), code, code_verifier: si.verifier, grant_type: 'authorization_code', redirect_uri: callbackUrl(url, p, base) }),
   }).then(r => r.json()).catch(() => null);
   if (!tok || !tok.access_token) return back('failed');
   const me = await fetch(P.userinfo, { headers: { authorization: `Bearer ${tok.access_token}` } }).then(r => r.json()).catch(() => null);
@@ -116,29 +122,35 @@ async function finishSignIn(env, url, p) {
   }
   const token = randomToken(32);
   await env.DB.prepare('INSERT INTO sessions (hash, account, expires) VALUES (?, ?, ?)').bind(await sha256(token), acct.id, now + SESSION_DAYS * DAY).run();
-  return new Response(null, { status: 302, headers: { location: `${url.origin}/keypals/#signin=ok`, 'set-cookie': cookie('kp_session', token, SESSION_DAYS * 86400) } });
+  return new Response(null, { status: 302, headers: { location: `${url.origin}${base}/#signin=ok`, 'set-cookie': cookie('kp_session', token, SESSION_DAYS * 86400, base) } });
 }
 
 // ---------- players (save codes) ----------
+/** A player deleted everywhere by a grown-up answers "gone" (410) with when, so a computer that still has
+ *  a copy removes it instead of keeping or re-sending it. */
+async function goneAnswer(env, code) {
+  const g = await env.DB.prepare('SELECT at FROM gone WHERE code = ?').bind(code).first();
+  return g ? json({ code, gone: true, at: g.at, error: 'A grown-up deleted this player.' }, 410) : null;
+}
 async function readBody(request, maxBytes = 400000) {
   const text = await request.text();
   if (text.length > maxBytes) return null;
   try { return JSON.parse(text); } catch { return null; }
 }
 
-async function api(request, env, url) {
-  const path = url.pathname.replace(/^\/keypals\/api/, '');
+async function api(request, env, url, base) {
+  const path = url.pathname.slice(`${base}/api`.length);
   const method = request.method;
   // which sign-ins are available
   if (path === '/config' && method === 'GET') return json({ google: ready(env, 'google'), microsoft: ready(env, 'microsoft') });
 
   // sign in and out
   let m = path.match(/^\/auth\/(google|microsoft)\/(start|callback)$/);
-  if (m && method === 'GET') return m[2] === 'start' ? startSignIn(env, url, m[1]) : finishSignIn(env, url, m[1]);
+  if (m && method === 'GET') return m[2] === 'start' ? startSignIn(env, url, m[1], base) : finishSignIn(env, url, m[1], base);
   if (path === '/auth/logout' && method === 'POST') {
     const c = (request.headers.get('cookie') || '').match(/(?:^|;\s*)kp_session=([^;]+)/);
     if (c) await env.DB.prepare('DELETE FROM sessions WHERE hash = ?').bind(await sha256(c[1])).run();
-    return json({ ok: true }, 200, { 'set-cookie': cookie('kp_session', '', 0) });
+    return json({ ok: true }, 200, { 'set-cookie': cookie('kp_session', '', 0, base) });
   }
 
   // a new save code for a player
@@ -149,7 +161,8 @@ async function api(request, env, url) {
     const now = Date.now();
     for (let tries = 0; tries < 5; tries++) {
       const code = newCode();
-      const r = await env.DB.prepare('INSERT OR IGNORE INTO players (code, data, updated, created, opened) VALUES (?, ?, ?, ?, ?)').bind(code, JSON.stringify(body.profile), now, now, now).run();
+      // (never a code that was deleted everywhere: computers may still be told it's gone)
+      const r = await env.DB.prepare('INSERT OR IGNORE INTO players (code, data, updated, created, opened) SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM gone WHERE code = ?)').bind(code, JSON.stringify(body.profile), now, now, now, code).run();
       if (r.meta.changes) {
         const acct = await currentAccount(env, request);
         if (acct) await env.DB.prepare('UPDATE players SET account = ? WHERE code = ?').bind(acct.id, code).run();
@@ -166,7 +179,7 @@ async function api(request, env, url) {
       // guessing codes is slow: a few dozen tries an hour from one address
       if (await limited(env, request, 'open', 60, 60)) return fail(429, 'Too many tries from here. Try again later.');
       const row = await env.DB.prepare('SELECT data, updated FROM players WHERE code = ?').bind(code).first();
-      if (!row) return fail(404, "That save code wasn't found. Check the words and number.");
+      if (!row) return (await goneAnswer(env, code)) ?? fail(404, "That save code wasn't found. Check the words and number.");
       await env.DB.prepare('UPDATE players SET opened = ? WHERE code = ?').bind(Date.now(), code).run();
       return json({ code, profile: JSON.parse(row.data), updated: row.updated });
     }
@@ -175,7 +188,8 @@ async function api(request, env, url) {
       const body = await readBody(request);
       if (!body || typeof body.profile !== 'object') return fail(400, 'No player to save.');
       const row = await env.DB.prepare('SELECT updated FROM players WHERE code = ?').bind(code).first();
-      if (!row) return fail(404, 'That save code no longer exists.');
+      // deleted everywhere by a grown-up: an old copy can't bring it back
+      if (!row) return (await goneAnswer(env, code)) ?? fail(404, 'That save code no longer exists.');
       // always later than the copy it replaces, so the next save's `base` is unique
       const at = Math.max(Number(body.updated) || Date.now(), row.updated + 1);
       const data = JSON.stringify(body.profile);
@@ -213,7 +227,9 @@ async function api(request, env, url) {
     if (!acct) return fail(401, 'Not signed in.');
     const rows = await env.DB.prepare('SELECT code, data, updated FROM players WHERE account = ? ORDER BY updated DESC').bind(acct.id).all();
     const players = rows.results.map(r => { const d = JSON.parse(r.data); return { code: r.code, name: d.name, buddy: d.buddy, updated: r.updated }; });
-    return json({ account: { name: acct.name, email: acct.email, provider: acct.provider }, players });
+    // players this grown-up deleted everywhere: every computer signed in removes its copy
+    const gone = (await env.DB.prepare('SELECT code, at FROM gone WHERE account = ? ORDER BY at DESC LIMIT 500').bind(acct.id).all()).results;
+    return json({ account: { name: acct.name, email: acct.email, provider: acct.provider, admin: isAdmin(env, acct) }, players, gone });
   }
   if (path === '/me' && method === 'DELETE') {
     const acct = await currentAccount(env, request);
@@ -222,8 +238,36 @@ async function api(request, env, url) {
     if (body.players) await env.DB.prepare('DELETE FROM players WHERE account = ?').bind(acct.id).run();
     else await env.DB.prepare('UPDATE players SET account = NULL WHERE account = ?').bind(acct.id).run();
     await env.DB.prepare('DELETE FROM sessions WHERE account = ?').bind(acct.id).run();
+    await env.DB.prepare('UPDATE gone SET account = NULL WHERE account = ?').bind(acct.id).run();
     await env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(acct.id).run();
-    return json({ ok: true }, 200, { 'set-cookie': cookie('kp_session', '', 0) });
+    return json({ ok: true }, 200, { 'set-cookie': cookie('kp_session', '', 0, base) });
+  }
+  // a player in the account, in full (for bringing it to this computer: no code guessing to slow down here)
+  m = path.match(/^\/me\/players\/([^/]+)$/);
+  if (m && method === 'GET') {
+    const acct = await currentAccount(env, request);
+    if (!acct) return fail(401, 'Not signed in.');
+    if (await limited(env, request, 'sync', 600, 60)) return fail(429, 'Too many tries from here. Try again later.');
+    const code = cleanCode(decodeURIComponent(m[1]));
+    const row = await env.DB.prepare('SELECT data, updated FROM players WHERE code = ? AND account = ?').bind(code, acct.id).first();
+    if (!row) return (await goneAnswer(env, code)) ?? fail(404, 'That player was not found.');
+    await env.DB.prepare('UPDATE players SET opened = ? WHERE code = ?').bind(Date.now(), code).run();
+    return json({ code, profile: JSON.parse(row.data), updated: row.updated });
+  }
+  // delete a player everywhere: the saved copy goes, and a tombstone (the code and when, no data) tells
+  // every other computer to remove its copy too
+  m = path.match(/^\/me\/players\/([^/]+)\/everywhere$/);
+  if (m && method === 'DELETE') {
+    const acct = await currentAccount(env, request);
+    if (!acct) return fail(401, 'Not signed in.');
+    const code = cleanCode(decodeURIComponent(m[1]));
+    const row = await env.DB.prepare('SELECT account FROM players WHERE code = ?').bind(code).first();
+    if (!row || row.account !== acct.id) return (await goneAnswer(env, code)) ?? fail(404, 'That player was not found in your account.');
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM players WHERE code = ? AND account = ?').bind(code, acct.id),
+      env.DB.prepare('INSERT OR REPLACE INTO gone (code, account, at) VALUES (?, ?, ?)').bind(code, acct.id, Date.now()),
+    ]);
+    return json({ ok: true });
   }
   m = path.match(/^\/me\/players\/([^/]+)$/);
   if (m && (method === 'PUT' || method === 'DELETE')) {
@@ -233,7 +277,163 @@ async function api(request, env, url) {
     const r = await env.DB.prepare('UPDATE players SET account = ? WHERE code = ? AND (account IS NULL OR account = ?)').bind(method === 'PUT' ? acct.id : null, code, acct.id).run();
     return r.meta.changes ? json({ ok: true }) : fail(404, 'That player was not found.');
   }
-  return fail(404, 'Not found.');
+  return (await helpApi(request, env, url, path, method)) ?? fail(404, 'Not found.');
+}
+
+// ---------- ideas and help ----------
+// Ideas: a grown-up suggests one (behind the grown-up check in the game). It waits for an admin to approve
+// it before it shows on the Ideas board, where anyone can vote with a heart: once per idea per computer
+// (remembered on that computer), and the server keeps only the count, limited per address. Problems: a
+// grown-up describes one, or the game sends one by itself when something breaks (the message, a trimmed
+// stack, the screen, game version, browser and screen size; never player data), the same error counted
+// rather than stored again. An email is kept only if the grown-up asks for a reply, and is cleared after
+// 180 days. Admins (ADMIN_EMAILS, Google sign-ins only) approve, hide, merge and mark ideas, and read the
+// problems, on the Grown-ups screen.
+const IDEA_KINDS = ['game', 'better', 'other'];
+const IDEA_STATUS = ['new', 'shown', 'planned', 'done', 'hidden'];
+const clip = (v, n) => String(v ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim().slice(0, n);
+const emailOf = (v) => { const e = clip(v, 120); return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null; };
+const ideaOut = (r) => ({ id: r.id, kind: r.kind, text: r.text, status: r.status, votes: r.votes, created: r.created });
+function isAdmin(env, acct) {
+  if (!acct || acct.provider !== 'google' || !acct.email) return false;
+  const list = String(env.ADMIN_EMAILS || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
+  return list.includes(String(acct.email).toLowerCase());
+}
+/** the first line of a stack that points at code (file:line:col), for telling one error from another */
+const firstFrame = (stack) => stack.split('\n').find(l => /:\d+:\d+/.test(l)) ?? '';
+
+// ---------- counting visits, with no identifiers ----------
+// The game sends only counts it decided on the device ("one more player today", "a math trip of 3-5
+// minutes"), batched, at most every 30 seconds (src/lib/state/counts.ts). They're added into daily
+// totals: a row is (day, event, key, n). The only thing added here is the country (from Cloudflare's
+// CF-IPCountry, country only) for each game opening. No address, browser string, name, code or id is
+// stored. The device's own date is used for the day (that's the day its "first visit today" means), if
+// it's within a day of the server's.
+const COUNT_EVENTS = new Set(['open', 'player_day', 'player_week', 'player_month', 'player_new', 'back', 'screen', 'game', 'subject', 'area', 'game_min', 'stars', 'play_sec', 'signin']);
+const isoDay = (t) => new Date(t).toISOString().slice(0, 10);
+async function takeCounts(request, env) {
+  // generous (a school shares one address), and over the limit the counts are just dropped
+  if (await limited(env, request, 'count', 1500, 60)) return new Response(null, { status: 204 });
+  const body = await readBody(request, 20000);
+  if (!body || !Array.isArray(body.counts) || body.counts.length > 80) return fail(400, 'Not counts.');
+  const now = Date.now();
+  const day = [isoDay(now - DAY), isoDay(now), isoDay(now + DAY)].includes(body.day) ? body.day : isoDay(now);
+  const rows = new Map();
+  const add = (e, k, n) => { const id = `${e}\u0000${k}`; rows.set(id, [e, k, (rows.get(id)?.[2] ?? 0) + n]); };
+  for (const c of body.counts) {
+    if (!c || !COUNT_EVENTS.has(c.e)) continue;
+    const k = String(c.k ?? '');
+    const n = Math.floor(Number(c.n));
+    if (!/^[a-z0-9:+._<-]{0,40}$/.test(k) || !(n >= 1) || n > (c.e === 'play_sec' ? 4 * 3600 : 500)) continue;
+    add(c.e, k, n);
+    if (c.e === 'open') add('country', /^[A-Z]{2}$/.test(request.cf?.country ?? '') ? request.cf.country : (/^[A-Z]{2}$/.test(request.headers.get('cf-ipcountry') ?? '') ? request.headers.get('cf-ipcountry') : 'XX'), n);
+  }
+  if (rows.size) {
+    await env.DB.batch([...rows.values()].map(([e, k, n]) => env.DB.prepare('INSERT INTO counts (day, event, key, n) VALUES (?, ?, ?, ?) ON CONFLICT(day, event, key) DO UPDATE SET n = n + excluded.n').bind(day, e, k, n)));
+  }
+  return new Response(null, { status: 204 });
+}
+
+async function helpApi(request, env, url, path, method) {
+  if (path === '/count' && method === 'POST') return takeCounts(request, env);
+  // the Ideas board: approved ideas only, top or newest first
+  if (path === '/ideas' && method === 'GET') {
+    const order = url.searchParams.get('sort') === 'new' ? 'created DESC' : 'votes DESC, created DESC';
+    const rows = await env.DB.prepare(`SELECT id, kind, text, status, votes, created FROM ideas WHERE status IN ('shown', 'planned', 'done') ORDER BY ${order} LIMIT 200`).all();
+    return json({ ideas: rows.results.map(ideaOut) });
+  }
+  if (path === '/ideas' && method === 'POST') {
+    if (await limited(env, request, 'idea', 5, 60)) return fail(429, 'Thank you! That is a lot of ideas from here for one hour. Please try again later.');
+    const body = await readBody(request, 4000);
+    const text = clip(body?.text, 500);
+    if (text.length < 3) return fail(400, 'Write a few words about your idea.');
+    const now = Date.now();
+    const r = await env.DB.prepare("INSERT INTO ideas (kind, text, email, status, votes, created, updated) VALUES (?, ?, ?, 'new', 0, ?, ?)")
+      .bind(IDEA_KINDS.includes(body.kind) ? body.kind : 'other', text, emailOf(body.email), now, now).run();
+    return json({ ok: true, id: r.meta.last_row_id });
+  }
+  let m = path.match(/^\/ideas\/(\d+)\/vote$/);
+  if (m && method === 'POST') {
+    if (await limited(env, request, 'vote', 60, 60)) return fail(429, 'So many hearts from here! Try again in a little while.');
+    const body = (await readBody(request, 1000)) || {};
+    const id = Number(m[1]);
+    const r = await env.DB.prepare("UPDATE ideas SET votes = MAX(0, votes + ?) WHERE id = ? AND status IN ('shown', 'planned', 'done')").bind(body.up === false ? -1 : 1, id).run();
+    if (!r.meta.changes) return fail(404, 'That idea is not on the board.');
+    return json({ ok: true, votes: (await env.DB.prepare('SELECT votes FROM ideas WHERE id = ?').bind(id).first()).votes });
+  }
+  if (path === '/problems' && method === 'POST') {
+    const body = await readBody(request, 12000);
+    if (!body) return fail(400, 'Nothing to send.');
+    const now = Date.now();
+    const meta = [clip(body.screen, 40), clip(body.version, 30), clip(body.browser, 60), clip(body.size, 20)];
+    if (body.auto) {
+      // something broke in the game: the same error again only adds to its count
+      if (await limited(env, request, 'auto', 20, 60)) return fail(429, 'Too many reports from here.');
+      const text = clip(body.message, 300), stack = clip(body.stack, 1500);
+      if (!text) return fail(400, 'Nothing to send.');
+      const sig = (await sha256(`${text}|${firstFrame(stack)}|${meta[1]}`)).slice(0, 24);
+      await env.DB.prepare(`INSERT INTO problems (kind, text, sig, stack, screen, version, browser, size, times, status, created, lastseen)
+        VALUES ('auto', ?, ?, ?, ?, ?, ?, ?, 1, 'new', ?, ?)
+        ON CONFLICT(sig) DO UPDATE SET times = times + 1, lastseen = excluded.lastseen, screen = excluded.screen, browser = excluded.browser, size = excluded.size,
+          status = CASE WHEN status = 'done' THEN 'new' ELSE status END`)
+        .bind(text, sig, stack, ...meta, now, now).run();
+      return json({ ok: true });
+    }
+    if (await limited(env, request, 'told', 5, 60)) return fail(429, 'Thank you! That is a lot of messages from here for one hour. Please try again later.');
+    const text = clip(body.text, 1000);
+    if (text.length < 3) return fail(400, 'Write a few words about what went wrong.');
+    await env.DB.prepare("INSERT INTO problems (kind, text, email, screen, version, browser, size, times, status, created, lastseen) VALUES ('told', ?, ?, ?, ?, ?, ?, 1, 'new', ?, ?)")
+      .bind(text, emailOf(body.email), ...meta, now, now).run();
+    return json({ ok: true });
+  }
+
+  // ---- admins only ----
+  if (!path.startsWith('/admin/')) return null;
+  const acct = await currentAccount(env, request);
+  if (!isAdmin(env, acct)) return fail(403, 'This is only for the people who look after Keypals.');
+  if (path === '/admin/ideas' && method === 'GET') {
+    const rows = await env.DB.prepare("SELECT * FROM ideas ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'shown' THEN 1 WHEN 'planned' THEN 2 WHEN 'done' THEN 3 ELSE 4 END, votes DESC, created DESC LIMIT 500").all();
+    return json({ ideas: rows.results });
+  }
+  m = path.match(/^\/admin\/ideas\/(\d+)$/);
+  if (m && method === 'POST') {
+    const id = Number(m[1]), body = (await readBody(request, 4000)) || {}, now = Date.now();
+    const idea = await env.DB.prepare('SELECT id, votes FROM ideas WHERE id = ?').bind(id).first();
+    if (!idea) return fail(404, 'No such idea.');
+    if (body.into !== undefined) {
+      // merge: the votes move to the other idea, and this one stops showing
+      const into = Number(body.into);
+      if (into === id || !(await env.DB.prepare('SELECT id FROM ideas WHERE id = ?').bind(into).first())) return fail(400, 'Pick another idea to merge into.');
+      await env.DB.batch([
+        env.DB.prepare('UPDATE ideas SET votes = votes + ?, updated = ? WHERE id = ?').bind(idea.votes, now, into),
+        env.DB.prepare("UPDATE ideas SET status = 'merged', merged_into = ?, votes = 0, updated = ? WHERE id = ?").bind(into, now, id),
+      ]);
+      return json({ ok: true });
+    }
+    if (body.status !== undefined && !IDEA_STATUS.includes(body.status)) return fail(400, 'Unknown status.');
+    const text = body.text === undefined ? null : clip(body.text, 500);
+    await env.DB.prepare('UPDATE ideas SET status = COALESCE(?, status), text = COALESCE(?, text), updated = ? WHERE id = ?').bind(body.status ?? null, text || null, now, id).run();
+    return json({ ok: true });
+  }
+  if (m && method === 'DELETE') { await env.DB.prepare('DELETE FROM ideas WHERE id = ?').bind(Number(m[1])).run(); return json({ ok: true }); }
+  if (path === '/admin/problems' && method === 'GET') {
+    const rows = await env.DB.prepare("SELECT * FROM problems ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'read' THEN 1 ELSE 2 END, lastseen DESC LIMIT 300").all();
+    return json({ problems: rows.results });
+  }
+  m = path.match(/^\/admin\/problems\/(\d+)$/);
+  if (m && method === 'POST') {
+    const body = (await readBody(request, 1000)) || {};
+    if (!['new', 'read', 'done'].includes(body.status)) return fail(400, 'Unknown status.');
+    await env.DB.prepare('UPDATE problems SET status = ? WHERE id = ?').bind(body.status, Number(m[1])).run();
+    return json({ ok: true });
+  }
+  if (m && method === 'DELETE') { await env.DB.prepare('DELETE FROM problems WHERE id = ?').bind(Number(m[1])).run(); return json({ ok: true }); }
+  // the daily totals for the Admin numbers: the last 60 days (30 shown, and 30 more for "back after 30 days")
+  if (path === '/admin/stats' && method === 'GET') {
+    const rows = await env.DB.prepare('SELECT day, event, key, n FROM counts WHERE day >= ? ORDER BY day').bind(isoDay(Date.now() - 61 * DAY)).all();
+    return json({ today: isoDay(Date.now()), rows: rows.results });
+  }
+  return null;
 }
 
 /** Once a day: forget players nobody has opened in 18 months, and expired sessions (see the privacy notice). */
@@ -243,6 +443,13 @@ async function tidy(env) {
   await env.DB.prepare('DELETE FROM sessions WHERE expires < ?').bind(now).run();
   await env.DB.prepare('DELETE FROM limits WHERE reset < ?').bind(now).run();
   await env.DB.prepare('DELETE FROM accounts WHERE seen < ?').bind(now - 3 * 365 * DAY).run();
+  await env.DB.prepare('DELETE FROM gone WHERE at < ?').bind(now - 3 * 365 * DAY).run();
+  // ideas and help: an email for a reply is kept 180 days; a problem not seen for 180 days goes
+  await env.DB.prepare('UPDATE ideas SET email = NULL WHERE email IS NOT NULL AND created < ?').bind(now - 180 * DAY).run();
+  await env.DB.prepare('UPDATE problems SET email = NULL WHERE email IS NOT NULL AND created < ?').bind(now - 180 * DAY).run();
+  await env.DB.prepare('DELETE FROM problems WHERE lastseen < ?').bind(now - 180 * DAY).run();
+  // visit counts: daily totals kept two years
+  await env.DB.prepare('DELETE FROM counts WHERE day < ?').bind(isoDay(now - 730 * DAY)).run();
   await env.DB.prepare('UPDATE players SET account = NULL WHERE account IS NOT NULL AND account NOT IN (SELECT id FROM accounts)').run();
 }
 
@@ -284,10 +491,13 @@ async function backup(env, force = false) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const old = url.pathname.match(/^\/keypals2(\/.*)?$/);
+    // www.keypals.org (and anything else pointed at the redirecting Worker): the one true address
+    if (env.REDIRECT_TO) return Response.redirect(`${env.REDIRECT_TO}${url.pathname}${url.search}`, 301);
+    const base = baseOf(env);
+    const old = base === '/keypals' && url.pathname.match(/^\/keypals2(\/.*)?$/);
     if (old) return Response.redirect(`${url.origin}/keypals${old[1] || '/'}${url.search}`, 302);
-    if (url.pathname.startsWith('/keypals/api/')) {
-      try { return await api(request, env, url); } catch (e) { return fail(500, 'Something went wrong. Try again.'); }
+    if (url.pathname.startsWith(`${base}/api/`)) {
+      try { return await api(request, env, url, base); } catch (e) { return fail(500, 'Something went wrong. Try again.'); }
     }
     return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
   },

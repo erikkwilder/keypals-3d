@@ -16,5 +16,5 @@ export default defineConfig({
   server: { port: 5192, strictPort: true, host: '127.0.0.1', proxy: { '/api': { target: 'https://fancyant.com', changeOrigin: true, rewrite: (p) => '/keypals' + p } } },
   preview: { port: 8799, strictPort: true, host: '127.0.0.1', allowedHosts: ['shmergles-mac-mini.tail88c58e.ts.net'], proxy: { '/api': { target: 'https://fancyant.com', changeOrigin: true, rewrite: (p) => '/keypals' + p } } },
   build: { target: 'es2022', chunkSizeWarningLimit: 2000 },
-  test: { include: ['src/**/*.test.ts'], environment: 'node' },
+  test: { include: ['src/**/*.test.ts', 'deploy/site/**/*.test.js'], environment: 'node' },
 });

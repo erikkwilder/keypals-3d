@@ -5,7 +5,7 @@ import { emptySave, migrate, newProfile, type Profile, type RunOutcome, type Sav
 import type { FriendId } from '../art/cast';
 import { LAYOUTS } from '../engine/layouts';
 
-export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market';
+export type Screen = 'title' | 'players' | 'newPlayer' | 'hub' | 'map' | 'run' | 'results' | 'stickers' | 'closet' | 'settings' | 'grownups' | 'mathRun' | 'mathResults' | 'garden' | 'playground' | 'adventure' | 'battle' | 'glimmers' | 'eggs' | 'learn' | 'duel' | 'rivals' | 'shop' | 'skillRun' | 'skillResults' | 'skills' | 'pizza' | 'builder' | 'drop' | 'arcade' | 'arcadePlay' | 'market' | 'ideas';
 
 function load(): SaveFile {
   try {
@@ -137,6 +137,14 @@ class Game {
   musicOpen = $state(false);
   openMusic() { this.musicOpen = true; }
   closeMusic() { this.musicOpen = false; }
+  /** Ideas and help: which part opens first, and where Back goes */
+  ideasTab = $state<'board' | 'suggest' | 'problem'>('board');
+  ideasBack = $state<Screen>('hub');
+  openIdeas(tab: 'board' | 'suggest' | 'problem' = 'board') {
+    if (this.screen !== 'ideas') this.ideasBack = this.screen;
+    this.ideasTab = tab;
+    this.screen = 'ideas';
+  }
   /** the menu that goes anywhere in the game (and shows everything you've earned) */
   menuOpen = $state(false);
   openMenu() { this.menuOpen = true; }
@@ -172,6 +180,7 @@ class Game {
     this.save.profiles.push(p);
     this.save.activeId = p.id;
     this.persist();
+    this.onPlayerAdded?.();
     return p;
   }
 
@@ -205,6 +214,8 @@ class Game {
 
   /** told after a player changes (online saving sends the new copy) */
   onProfileChange: (() => void) | null = null;
+  /** told after a player is made (a grown-up signed in here files it under the account) */
+  onPlayerAdded: (() => void) | null = null;
 
   /** replaying a lesson skips its intro card and starts right away */
   quickStart = false;

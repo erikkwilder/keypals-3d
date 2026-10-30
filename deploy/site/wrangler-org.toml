@@ -1,0 +1,34 @@
+# keypals.org: the same 3D game as fancyant.com/keypals, at the root of its own address. Files are served
+# straight from Cloudflare's file storage (free and unlimited; the script never runs for them). The script
+# (worker.js, BASE "") only sees the save, sign-in, ideas and counting API under /api/. It shares the
+# database and the backup bucket with fancyant.com/keypals, so save codes and grown-up accounts work on
+# both addresses. The daily tidy-up and weekly backup run once, from the fancyant.com Worker.
+# Deployed by deploy.sh (npx wrangler deploy -c wrangler-org.toml). www.keypals.org: wrangler-www.toml.
+name = "keypals-org"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+routes = [
+  { pattern = "keypals.org", custom_domain = true },
+]
+
+[vars]
+BASE = ""
+
+[assets]
+directory = "./public-org"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "none"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "keypals"
+database_id = "ba6dd151-6b6e-4df7-8850-043c3920d749"
+
+[[r2_buckets]]
+binding = "BACKUPS"
+bucket_name = "keypals-backups"
+
+# Secrets, set on this Worker too (set-signin-secrets.sh does both Workers): GOOGLE_CLIENT_ID,
+# GOOGLE_CLIENT_SECRET, MS_CLIENT_ID, MS_CLIENT_SECRET, ADMIN_EMAILS.

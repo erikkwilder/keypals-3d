@@ -11,6 +11,11 @@ routes = [
   { pattern = "www.fancyant.com/keypals*", zone_name = "fancyant.com" },
 ]
 
+# where the game lives on this address (the API, the sign-in cookie and return addresses); keypals.org's
+# Worker (wrangler-org.toml) has BASE = "" for the root
+[vars]
+BASE = "/keypals"
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
@@ -23,7 +28,9 @@ database_name = "keypals"
 database_id = "ba6dd151-6b6e-4df7-8850-043c3920d749"
 
 # Sign-in needs these secrets (set with set-signin-secrets.sh): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-# MS_CLIENT_ID, MS_CLIENT_SECRET. Without them the game simply doesn't offer that sign-in.
+# MS_CLIENT_ID, MS_CLIENT_SECRET. Without them the game simply doesn't offer that sign-in. ADMIN_EMAILS
+# (a secret too, so it isn't in this public repository): the grown-ups who see the Admin section, comma
+# separated, Google sign-ins only.
 
 # weekly copies of the players and accounts (worker.js backup), kept 90 days by the bucket's lifecycle
 # rule (made with: npx wrangler r2 bucket create keypals-backups; npx wrangler r2 bucket lifecycle add
