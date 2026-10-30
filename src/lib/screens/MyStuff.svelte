@@ -39,17 +39,20 @@
   const blooms = $derived(stageCounts(m, ALL_GARDEN_IDS)[3]);
   const growing = $derived.by(() => { const c = stageCounts(m, ALL_GARDEN_IDS); return c[1] + c[2]; });
 
-  type Tile = { id: string; name: string; count: string; line: string; img: string; bg?: string; tone: string; hot?: boolean; buddy?: boolean; go: () => void };
+  // each section's own picture (public/game/cards/), plus a live badge where it tells you something: your
+  // team's faces on Glimmers, and the egg you're warming on Eggs (it bounces when it's ready to hatch)
+  type Tile = { id: string; name: string; count: string; line: string; pic: string; badge?: string; tone: string; hot?: boolean; go: () => void };
+  const warming = $derived(a.incubator.find(e => e));
   const tiles = $derived<Tile[]>([
-    { id: 'keypals', name: 'Keypals', count: `${buddies}`, line: `${buddies === 1 ? 'buddy' : 'buddies'} · Friendship ${lvl.level} with ${FRIEND[p.buddy].name}`, img: '', bg: 'game/intro-keypals.webp', tone: '#e2468f', go: STUFF_GO.keypals },
-    { id: 'closet', name: 'Wardrobe', count: `${owned}`, line: 'things to wear', img: 'icons/outfits.webp', tone: '#c2417f', go: STUFF_GO.closet },
-    { id: 'shop', name: 'Shop', count: fmt(a.shells), line: 'shells to spend', img: 'game/icon-shell.webp', tone: '#2e9e6e', go: STUFF_GO.shop },
-    { id: 'dances', name: 'Dances', count: `${dances}`, line: `open for ${FRIEND[p.buddy].name}`, img: 'game/icon-dances.webp', tone: '#7c5cf5', go: STUFF_GO.dances },
-    { id: 'stickers', name: 'Sticker book', count: `${stickers}`, line: `stickers · ${medals} kinds of medal`, img: 'game/icon-stickers.webp', bg: 'game/intro-stickers.webp', tone: '#e6a817', go: STUFF_GO.stickers },
-    { id: 'glimmers', name: 'Glimmers', count: `${found}`, line: `of ${GLIMMER_TOTAL} met${team.length ? ` · ${team.length} on your team` : ''}`, img: '', bg: 'game/intro-glimmers.webp', tone: '#2e9e6e', go: STUFF_GO.glimmers },
-    { id: 'eggs', name: 'Eggs', count: `${eggsAll}`, line: eggsReady ? `${eggsReady} ready to hatch!` : eggsAll ? 'warming up' : 'practice hatches eggs', img: `game/egg-${a.incubator.find(e => e)?.rarity ?? 'rare'}.webp`, tone: '#b4561a', hot: eggsReady > 0, go: STUFF_GO.eggs },
-    { id: 'garden', name: 'Fact Garden', count: `${blooms}`, line: `in bloom · ${growing} growing`, img: 'icons/garden.webp', tone: '#1f7a50', go: STUFF_GO.garden },
-    { id: 'progress', name: 'My progress', count: fmt(totalStars(p) + mathStarsTotal(m)), line: "stars, what's going well, and what you earned", img: 'icons/chart.webp', tone: '#5b3fd0', go: STUFF_GO.progress },
+    { id: 'keypals', name: 'Keypals', count: `${buddies}`, line: `${buddies === 1 ? 'buddy' : 'buddies'} · Friendship ${lvl.level} with ${FRIEND[p.buddy].name}`, pic: 'keypals', tone: '#e2468f', go: STUFF_GO.keypals },
+    { id: 'closet', name: 'Wardrobe', count: `${owned}`, line: 'things to wear', pic: 'wardrobe', tone: '#c2417f', go: STUFF_GO.closet },
+    { id: 'shop', name: 'Shop', count: fmt(a.shells), line: 'shells to spend', pic: 'shop', tone: '#2e9e6e', go: STUFF_GO.shop },
+    { id: 'dances', name: 'Dances', count: `${dances}`, line: `open for ${FRIEND[p.buddy].name}`, pic: 'dances', tone: '#7c5cf5', go: STUFF_GO.dances },
+    { id: 'stickers', name: 'Sticker book', count: `${stickers}`, line: `stickers · ${medals} kinds of medal`, pic: 'stickers', tone: '#e6a817', go: STUFF_GO.stickers },
+    { id: 'glimmers', name: 'Glimmers', count: `${found}`, line: `of ${GLIMMER_TOTAL} met${team.length ? ` · ${team.length} on your team` : ''}`, pic: 'glimmers', tone: '#2e9e6e', go: STUFF_GO.glimmers },
+    { id: 'eggs', name: 'Eggs', count: `${eggsAll}`, line: eggsReady ? `${eggsReady} ready to hatch!` : eggsAll ? 'warming up' : 'practice hatches eggs', pic: 'eggs', badge: warming ? `game/egg-${warming.rarity}.webp` : undefined, tone: '#b4561a', hot: eggsReady > 0, go: STUFF_GO.eggs },
+    { id: 'garden', name: 'Fact Garden', count: `${blooms}`, line: `in bloom · ${growing} growing`, pic: 'garden', tone: '#1f7a50', go: STUFF_GO.garden },
+    { id: 'progress', name: 'My progress', count: fmt(totalStars(p) + mathStarsTotal(m)), line: "stars, what's going well, and what you earned", pic: 'progress', tone: '#5b3fd0', go: STUFF_GO.progress },
   ]);
   function go(f: () => void) { sfx.click(); f(); }
 </script>
@@ -61,9 +64,9 @@
       {#each tiles as t (t.id)}
         <div class="tile" class:hot={t.hot} style:--tc={t.tone}>
           <button class="main" onclick={() => go(t.go)}>
-            <span class="art" class:bg={!!t.bg} style:background-image={t.bg ? `url(${base}${t.bg})` : null}>
-              {#if t.id === 'glimmers'}{#if team.length}<span class="faces">{#each team.map(g => `${g.id}${g.evolved ? '-evo' : ''}`) as f (f)}<img src="{base}game/glimmers/face/{f}.webp" alt="" />{/each}</span>{/if}
-              {:else if t.img}<img class="pic" src="{base}{t.img}" alt="" />{/if}
+            <span class="art" style:background-image="url({base}game/cards/{t.pic}.webp)">
+              {#if t.id === 'glimmers' && team.length}<span class="faces">{#each team.map(g => `${g.id}${g.evolved ? '-evo' : ''}`) as f (f)}<img src="{base}game/glimmers/face/{f}.webp" alt="" />{/each}</span>
+              {:else if t.badge}<span class="badge"><img src="{base}{t.badge}" alt="" /></span>{/if}
             </span>
             <span class="txt">
               <b>{t.name}</b>
@@ -92,11 +95,12 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--tc) 22%, #fff), 0 6px 0 color-mix(in srgb, var(--tc) 28%, #fff), 0 18px 30px -18px rgba(40, 20, 80, .45); transition: transform .14s; }
   .tile:hover { transform: translateY(-3px); }
   .main { display: flex; flex-direction: column; border: 0; padding: 0; background: none; cursor: pointer; text-align: left; font: inherit; flex: 1; }
-  .art { position: relative; display: grid; place-items: center; height: 132px; background: linear-gradient(135deg, color-mix(in srgb, var(--tc) 14%, #fff), color-mix(in srgb, var(--tc) 30%, #fff)); }
-  .art.bg { background-size: cover; background-position: center; }
-  .pic { width: 104px; height: 104px; object-fit: contain; filter: drop-shadow(0 8px 8px rgba(40, 20, 80, .3)); transition: transform .2s; }
-  .art.bg .pic { width: 84px; height: 84px; position: absolute; left: 12px; bottom: 10px; }
-  .tile:hover .pic { transform: scale(1.06) rotate(-4deg); }
+  /* the section's picture fills the top of the tile (the tone shows only while it loads); it keeps the
+     pictures' own wide shape, so a big screen's wider tiles get taller pictures instead of cropped ones */
+  .art { position: relative; display: block; aspect-ratio: 3.4; min-height: 120px; max-height: 200px; background: color-mix(in srgb, var(--tc) 16%, #fff) center / cover no-repeat; }
+  .badge { position: absolute; left: 12px; bottom: 10px; display: grid; place-items: center; width: 62px; height: 62px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #fff, 0 4px 10px rgba(40, 20, 80, .35); transition: transform .2s; }
+  .badge img { width: 78%; height: 78%; object-fit: contain; }
+  .tile:hover .badge { transform: scale(1.06) rotate(-4deg); }
   .faces { position: absolute; left: 12px; bottom: 10px; display: flex; }
   .faces img { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; object-position: center 35%; box-shadow: 0 0 0 3px #fff, 0 4px 10px rgba(40, 20, 80, .35); }
   .faces img + img { margin-left: -16px; }
@@ -107,7 +111,7 @@
   .cnt small { font: 700 14px/1.3 var(--font-body); color: var(--muted); }
   .extra { position: absolute; right: 12px; top: 12px; border: 0; cursor: pointer; padding: 6px 14px; border-radius: 999px; background: #fff; color: var(--tc); font: 600 15px var(--font-ui); box-shadow: 0 3px 0 color-mix(in srgb, var(--tc) 35%, #fff), 0 6px 14px -6px rgba(40, 20, 80, .45); }
   .extra:hover { transform: translateY(-1px); }
-  .tile.hot .pic { animation: hot 1.4s ease-in-out infinite; }
+  .tile.hot .badge { animation: hot 1.4s ease-in-out infinite; }
   @keyframes hot { 50% { transform: scale(1.08) rotate(-4deg); } }
 
   .progress { scroll-margin-top: 10px; }
@@ -135,17 +139,18 @@
 
   @media (max-width: 1100px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .subjects { grid-template-columns: 1fr 1fr; } .subj.week { grid-column: 1 / -1; } }
   /* short laptop screens: shorter pictures, so more fits before it scrolls */
-  @media (max-height: 800px) and (min-width: 760px) { .art { height: 104px; } .pic { width: 84px; height: 84px; } .art.bg .pic { width: 70px; height: 70px; } .tiles { gap: 12px; } }
+  @media (max-height: 800px) and (min-width: 760px) { .art { aspect-ratio: auto; min-height: 0; height: 104px; } .badge, .faces img { width: 52px; height: 52px; } .tiles { gap: 12px; } }
   @media (max-width: 760px) {
     .body { padding: 12px 12px 40px; gap: 14px; }
     .me h2 { font-size: 20px; }
     .me :global(.critter-host) { width: 56px !important; height: 56px !important; }
     .jump { display: none; }
     .tiles { gap: 10px; }
-    .art { height: 92px; }
-    .pic { width: 70px; height: 70px; }
-    .art.bg .pic { width: 56px; height: 56px; left: 8px; bottom: 6px; }
-    .faces img { width: 44px; height: 44px; }
+    .art { aspect-ratio: auto; min-height: 0; height: 92px; }
+    .badge { width: 38px; height: 38px; left: 6px; bottom: 6px; }
+    .faces { left: 6px; bottom: 6px; }
+    .faces img { width: 38px; height: 38px; }
+    .faces img + img { margin-left: -10px; }
     .txt { padding: 8px 10px 10px; }
     .txt b { font-size: 17px; }
     .cnt em { font-size: 21px; }

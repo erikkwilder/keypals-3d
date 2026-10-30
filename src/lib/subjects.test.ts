@@ -18,6 +18,8 @@ describe('subjects and their four ways to play', () => {
     for (const s of SUBJECTS) {
       expect(Object.keys(s.ways).sort()).toEqual(['adventure', 'games', 'learn', 'practice']);
       expect(pub(s.icon), s.icon).toBe(true);
+      // its own picture on Home's Where to? tile
+      expect(s.card.startsWith('game/cards/') && pub(s.card), s.card).toBe(true);
       const chips = new Set(s.chips.map(c => c.id));
       for (const w of WAYS) {
         const c = s.ways[w.id];
@@ -73,6 +75,8 @@ describe('subjects and their four ways to play', () => {
   it('lists the places that take every subject', () => {
     expect(ANYWHERE.map(a => a.id)).toEqual(['arcade', 'adventure', 'drop', 'island', 'duel', 'rivals']);
     for (const a of ANYWHERE) { expect(pub(a.icon), a.icon).toBe(true); expect(pub(a.art), a.art).toBe(true); }
+    // the three on Home each have their own picture
+    for (const a of ANYWHERE.filter(x => x.id === 'arcade' || x.id === 'adventure' || x.id === 'island')) expect(a.card && pub(a.card), a.id).toBeTruthy();
   });
 
   it('gives every world a subject, so a typing adventure shows typing worlds and math shows math', () => {

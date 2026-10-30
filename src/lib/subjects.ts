@@ -45,6 +45,8 @@ export type Subject = {
   id: string; name: string; tag: string; icon: string; color: string;
   /** the shade over its picture on Home */
   shade: string;
+  /** its picture on Home's "Where to?" tile (public/game/cards/) */
+  card: string;
   chips: Chip[];
   ways: Record<WayId, WayContent>;
 };
@@ -115,7 +117,7 @@ const typingWorlds: Thing[] = [
 
 export const SUBJECTS: Subject[] = [
   {
-    id: 'typing', name: 'Typing', tag: 'All ten fingers, no peeking', icon: 'game/icon-typing.webp', color: '#7c5cf5', shade: 'rgba(84, 52, 190, .88)',
+    id: 'typing', name: 'Typing', tag: 'All ten fingers, no peeking', icon: 'game/icon-typing.webp', color: '#7c5cf5', shade: 'rgba(84, 52, 190, .88)', card: 'game/cards/typing.webp',
     chips: TYPING_CHIPS,
     ways: {
       learn: { things: typingLearn, unit: 'new-key lessons' },
@@ -125,7 +127,7 @@ export const SUBJECTS: Subject[] = [
     },
   },
   {
-    id: 'math', name: 'Math', tag: 'Add, take away, times, share and more', icon: 'game/icon-math.webp', color: '#ef7d2b', shade: 'rgba(214, 96, 24, .88)',
+    id: 'math', name: 'Math', tag: 'Add, take away, times, share and more', icon: 'game/icon-math.webp', color: '#ef7d2b', shade: 'rgba(214, 96, 24, .88)', card: 'game/cards/math.webp',
     chips: MATH_CHIPS,
     ways: {
       learn: { things: mathLearn, unit: 'videos' },
@@ -162,13 +164,14 @@ export function linksFor(s: Subject, chip: string): Partial<Record<WayId, Thing>
 
 /** The places that take every subject: on Home under "Play anywhere", and in the Menu.
  *  `fun` ones are just for fun and use play time; `versus` ones show when the grown-ups allow them. */
-export type Anywhere = { id: 'arcade' | 'adventure' | 'drop' | 'island' | 'duel' | 'rivals'; name: string; line: string; icon: string; art: string; contain?: boolean; fun?: boolean; versus?: boolean };
+/** `card`: its picture on Home's "Where to?" tile (public/game/cards/), for the places Home shows */
+export type Anywhere = { id: 'arcade' | 'adventure' | 'drop' | 'island' | 'duel' | 'rivals'; name: string; line: string; icon: string; art: string; card?: string; contain?: boolean; fun?: boolean; versus?: boolean };
 export const ANYWHERE: Anywhere[] = [
-  { id: 'arcade', name: 'Arcade', line: 'Every game in one place', icon: 'icons/arcade.webp', art: 'arcade/bg-plaza.webp' },
-  { id: 'adventure', name: 'Adventure', line: 'Every world, battles and Glimmers', icon: 'game/icon-grump.webp', art: 'game/door-adventure.webp' },
+  { id: 'arcade', name: 'Arcade', line: 'Every game in one place', icon: 'icons/arcade.webp', art: 'arcade/bg-plaza.webp', card: 'game/cards/arcade.webp' },
+  { id: 'adventure', name: 'Adventure', line: 'Every world, battles and Glimmers', icon: 'game/icon-grump.webp', art: 'game/door-adventure.webp', card: 'game/cards/adventure.webp' },
   { id: 'drop', name: 'Glimmer Drop', line: 'Just for fun · uses play time', icon: 'drop/tile.webp', art: 'arcade/cab-drop.webp', contain: true, fun: true },
   // My Sky Island (screens/SkyIsland.svelte): where shells go and rewards live; open any time, no play time
-  { id: 'island', name: 'My Sky Island', line: 'Build your island with shells', icon: 'island/tile.webp', art: 'island/card.webp' },
+  { id: 'island', name: 'My Sky Island', line: 'Build your island with shells', icon: 'island/tile.webp', art: 'island/card.webp', card: 'game/cards/island.webp' },
   { id: 'duel', name: 'Family Duel', line: 'Two players, one screen', icon: 'game/tile-duel.webp', art: 'game/intro-duel.webp', versus: true },
   { id: 'rivals', name: 'Rival Ghosts', line: 'Race a ghost, climb the leagues', icon: 'game/tile-rivals.webp', art: 'game/intro-rivals.webp', versus: true },
 ];
