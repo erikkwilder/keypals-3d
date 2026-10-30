@@ -107,6 +107,8 @@ export type Profile = {
   math?: import('../math/progress').MathProgress;
   /** Adventure: the battle mode (Glimmers, eggs, shells, the map); absent until first opened */
   adventure?: import('../adventure/state').Adventure;
+  /** My Sky Island (island/save.ts): what's built, the Glimmers living there, visitors and family hearts */
+  island?: import('../island/save').IslandSave;
 };
 
 export type HistoryItem = { at: number; lessonId: string; wpm: number; acc: number; stars: number; ride: number; ms: number; score?: number };

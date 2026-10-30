@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { newProfile, type Profile } from '../engine/profile';
 import { advOf } from '../adventure/state';
 import { mergeProfile } from './merge';
+import { buyAndPlace, islandOf, leaveHeart, move, putAway, storedOf } from '../island/save'; // My Sky Island
 
 /** a player both computers had, then each played on its own */
 function start(): Profile {
@@ -152,6 +153,45 @@ describe('combining two computers', () => {
     expect(m.adventure!.shells).toBe(65);
     expect(m.adventure!.nest.map(e => e.id)).toEqual(['x1']);
     expect(m.book!.stickers['goal-1']).toBeTruthy();
+  });
+
+  // My Sky Island (island/save.ts): bought things add up, put-away things stay away, moves keep the newer
+  it('the Sky Island: buying on both adds up, putting away on one sticks, the newer move wins, hearts and visitors from both', () => {
+    const base = start();
+    advOf(base).shells = 1000;
+    const pond = buyAndPlace(base, 'pond', 2, 1, 0, 1000);
+    const bench = buyAndPlace(base, 'bench', -3, 2, 0, 1000);
+    if (!pond.ok || !bench.ok) throw new Error('setup');
+    const shells0 = advOf(base).shells;
+    // the laptop: buys flowers and places them, moves the pond, and Leo leaves a heart there
+    const laptop = copy(base); laptop.updatedAt = 2000;
+    buyAndPlace(laptop, 'flowers', 3, -2, 0, 1900);
+    move(laptop, pond.uid!, 1, 2, 0, 1950);
+    leaveHeart(laptop, { ...newProfile('Leo', 'koala'), id: 'leo' }, 1960);
+    // the tablet, offline: buys a lamp for storage, puts the bench away, moves the pond earlier
+    const tablet = copy(base); tablet.updatedAt = 1800;
+    islandOf(tablet).owned.lamp = 1; advOf(tablet).shells -= 50;
+    putAway(tablet, bench.uid!);
+    move(tablet, pond.uid!, 3, 1, 1, 1700);
+    islandOf(tablet).visits.push({ id: 'sunsnail', at: 1750, gift: { kind: 'postcard' }, met: false }); islandOf(tablet).postcards.push('sunsnail');
+
+    const m = mergeProfile(laptop, tablet, base);
+    const s = m.island!;
+    expect(s.owned.flowers).toBe(1);
+    expect(s.owned.lamp).toBe(1);
+    expect(s.owned.pond).toBe(1); // bought once before they split: not doubled
+    expect(m.adventure!.shells).toBe(shells0 - 20 - 50);
+    expect(s.placed[bench.uid!]).toBeUndefined(); // put away on the tablet
+    expect(storedOf(s, 'bench')).toBe(1);
+    expect(s.placed[pond.uid!]).toMatchObject({ x: 1, z: 2 }); // the laptop moved it later
+    expect(Object.values(s.placed).some(pl => pl.item === 'flowers')).toBe(true);
+    expect(s.hearts.map(h => h.name)).toEqual(['Leo']);
+    expect(s.visits.map(v => v.id)).toEqual(['sunsnail']);
+    expect(s.postcards).toEqual(['sunsnail']);
+    expect(s.started).toBe(true);
+    // with no island on one side, the other's is kept whole
+    const fresh = copy(start()); fresh.updatedAt = 900;
+    expect(mergeProfile(laptop, fresh, null).island!.owned.flowers).toBe(1);
   });
 
   it('fields this file does not know yet still merge sensibly', () => {
