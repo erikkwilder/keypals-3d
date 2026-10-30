@@ -17,8 +17,14 @@ export type Wearable = {
   model?: string;
   /** feet: 'wear/tile-<id>.webp', a painted tile for the shoe shell */
   shoeTile?: string;
-  /** head: width as a share of the head's; face: of the face's; neck: of the shoulders' (joint to joint); back: of the back's; hand: height as a share of the buddy's */
+  /** head: width as a share of the head's; face: of the face's; neck: of the shoulders' (joint to joint);
+   *  back: height as a share of the back's length (shoulders to hips); hand: height as a share of the buddy's */
   size: number;
+  /** back: never wider than this share of the shoulders (joint to joint); 1.35 if not given */
+  wide?: number;
+  /** back: its size before back pieces were sized by the body (a share of the spine's own width), for
+   *  turning a size saved then into the same look now */
+  oldSize?: number;
   /** head: how far it slides down over the head, as a share of its own height */
   sink?: number;
   /** 'wear/<id>.webp' */
@@ -98,19 +104,19 @@ export const WEARABLES: Wearable[] = [
   { id: 'banana_chain', name: 'Banana Bling', slot: 'neck', rarity: 'rare', price: 260, vibe: 'goofy', size: 0.8,
     model: 'wear/banana_chain.glb', icon: 'wear/banana_chain.webp', text: 'A gold chain. With a banana. Because why not.' },
   // ---------- back ----------
-  { id: 'toaster_pack', name: 'Toaster Backpack', slot: 'back', rarity: 'rare', price: 300, vibe: 'goofy', size: 1.7,
+  { id: 'toaster_pack', name: 'Toaster Backpack', slot: 'back', rarity: 'rare', price: 300, vibe: 'goofy', size: 1.3, oldSize: 1.7,
     model: 'wear/toaster_pack.glb', icon: 'wear/toaster_pack.webp', text: 'Pops out warm toast when you finish a lesson. Butter not included.' },
-  { id: 'turtle_pack', name: 'Turtle Shell Pack', slot: 'back', rarity: 'uncommon', price: 150, vibe: 'cosy', size: 1.75,
+  { id: 'turtle_pack', name: 'Turtle Shell Pack', slot: 'back', rarity: 'uncommon', price: 150, vibe: 'cosy', size: 1.45, oldSize: 1.75,
     model: 'wear/turtle_pack.glb', icon: 'wear/turtle_pack.webp', text: 'Slow and steady wins the lesson. Also it is comfy.' },
-  { id: 'dragon_wings', name: 'Dragon Wings', slot: 'back', rarity: 'epic', price: 450, vibe: 'magic', size: 3.2,
+  { id: 'dragon_wings', name: 'Dragon Wings', slot: 'back', rarity: 'epic', price: 450, vibe: 'magic', size: 1.7, wide: 3.6, oldSize: 3.2,
     model: 'wear/dragon_wings.glb', icon: 'wear/dragon_wings.webp', text: 'Flap flap. You can almost take off. Almost.' },
-  { id: 'soda_jetpack', name: 'Soda Jetpack', slot: 'back', rarity: 'epic', price: 400, vibe: 'goofy', size: 1.8,
+  { id: 'soda_jetpack', name: 'Soda Jetpack', slot: 'back', rarity: 'epic', price: 400, vibe: 'goofy', size: 1.5, oldSize: 1.8,
     model: 'wear/soda_jetpack.glb', icon: 'wear/soda_jetpack.webp', text: 'Two fizzy bottles. One big whoosh. Please shake responsibly.' },
-  { id: 'teddy_pack', name: 'Hug Bear Backpack', slot: 'back', rarity: 'common', price: 90, vibe: 'cosy', size: 1.6,
+  { id: 'teddy_pack', name: 'Hug Bear Backpack', slot: 'back', rarity: 'common', price: 90, vibe: 'cosy', size: 1.5, oldSize: 1.6,
     model: 'wear/teddy_pack.glb', icon: 'wear/teddy_pack.webp', text: 'A teddy that hugs you all day long. Best friend energy.' },
-  { id: 'rock_guitar', name: 'Rock Star Guitar', slot: 'back', rarity: 'rare', price: 320, vibe: 'cool', size: 1.2,
+  { id: 'rock_guitar', name: 'Rock Star Guitar', slot: 'back', rarity: 'rare', price: 320, vibe: 'cool', size: 2.6, wide: 2.2, oldSize: 1.2,
     model: 'wear/rock_guitar.glb', icon: 'wear/rock_guitar.webp', text: 'One chord. Huge crowd. You are ready.' },
-  { id: 'snail_shell', name: 'Snail Shell', slot: 'back', rarity: 'uncommon', price: 120, vibe: 'goofy', size: 1.7,
+  { id: 'snail_shell', name: 'Snail Shell', slot: 'back', rarity: 'uncommon', price: 120, vibe: 'goofy', size: 1.45, oldSize: 1.7,
     model: 'wear/snail_shell.glb', icon: 'wear/snail_shell.webp', text: 'Your very own tiny house. Very slow delivery.' },
   // ---------- hand ----------
   { id: 'rubber_chicken', name: 'Rubber Chicken', slot: 'hand', rarity: 'common', price: 50, vibe: 'goofy', size: 0.45,

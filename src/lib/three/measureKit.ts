@@ -97,7 +97,11 @@ export class MeasureKit {
   private sideSpots: THREE.Mesh[] = [];
   private held: THREE.Mesh | null = null;
 
-  constructor(private sc: EpisodeScene) { sc.root.add(this.root); }
+  constructor(private sc: EpisodeScene) {
+    sc.root.add(this.root);
+    // (the friends and the corner props keep clear of the measuring things; the sack is a thing to carry)
+    sc.extraWork = () => this.root.children.filter(c => c !== this.sack);
+  }
 
   async load() {
     const [grass, wood] = await Promise.all([loadTexture('math/measure/grass.webp', { repeat: true }), loadTexture('world/planks.webp', { repeat: true })]);
@@ -171,7 +175,8 @@ export class MeasureKit {
     tilt.position.y = R * 1.16;
     // a little brass stand: two legs and a foot
     const legM = brass();
-    for (const sx of [-1, 1]) { const leg = mesh(new THREE.CylinderGeometry(0.012, 0.016, R * 1.0, 10), legM); leg.position.set(sx * R * 0.45, R * 0.42, -R * 0.12); leg.rotation.z = sx * 0.28; g.add(leg); }
+    // (their feet on the stand's foot: they used to reach down through the table)
+    for (const sx of [-1, 1]) { const leg = mesh(new THREE.CylinderGeometry(0.012, 0.016, R * 1.0, 10), legM); leg.position.set(sx * R * 0.45, R * 0.5, -R * 0.12); leg.rotation.z = sx * 0.28; g.add(leg); }
     const foot = mesh(new RoundedBoxGeometry(R * 1.5, 0.03, R * 0.5, 3, 0.012), std(0x7a4a24, { roughness: 0.55 })); foot.position.y = 0.015; g.add(foot);
     g.add(tilt);
     g.userData.tilt = tilt;
@@ -310,7 +315,8 @@ export class MeasureKit {
     this.sack = sack; this.root.add(sack);
     this.sackOn = 0;
   }
-  private sackHome() { return this.bench ? this.at(285, 165) : this.at((this.scale?.position ? this.boardX(this.scale.position.x) : 165) - 105, 250); }
+  // (in front of the scale and to its left: beside it, it pressed into the scale and the corner's toy)
+  private sackHome() { return this.bench ? this.at(285, 165) : this.at((this.scale?.position ? this.boardX(this.scale.position.x) : 165) - 70, 305); }
   private sackPan() { return this.scale ? this.scale.localToWorld(new THREE.Vector3(0, 0.275, 0)) : new THREE.Vector3(); }
   private boardX(wx: number) { const o = this.sc.boardPoint(300, 0).x; return 300 + (wx - o) / this.s; }
   private dialKey = '';

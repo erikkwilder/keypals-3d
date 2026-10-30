@@ -12,6 +12,7 @@ import { vehicle, type Vehicle } from './rides3d';
 import { reach } from './ik';
 import { sitOnSled } from './sledSeat';
 import { dressUp } from './dress';
+import { climbKit, type ClimbKit } from './gear3d';
 import { RIDES } from '../engine/rides';
 import type { FriendId } from '../art/cast';
 import type { RegionId } from '../engine/course';
@@ -101,6 +102,8 @@ export class RunScene implements Controller {
   /** where the swim course's steps start and end (only on the swim course) */
   private swimExit(): [number, number] { return (this.island.root.userData.exitAt as (() => [number, number]) | undefined)?.() ?? [this.finishS - 0.2, this.finishS - 0.2]; }
   private lastTier = 0;
+  /** the climbing kit (the cliff course only): boots with boosters, a harness, and speed you can see */
+  private kit: ClimbKit | null = null;
   private get pace() { return this.opts.pace ?? TYPING_PACE; }
 
   private constructor(island: Island, me: Character, opts: Opts) {
@@ -141,6 +144,7 @@ export class RunScene implements Controller {
       }
     }
     if (!course) sc.preloadRides();
+    if (course === 'climb') void climbKit(me).then(k => { if (sc.gone) k?.dispose(); else sc.kit = k; });
     return sc;
   }
 
@@ -317,6 +321,8 @@ export class RunScene implements Controller {
       if (rideTier >= 2) this.swapRide(rideTier);
       else if (this.veh) { this.veh.group.removeFromParent(); this.veh = null; this.vehTier = 0; this.puff.burst(me.root.position, 10); }
     }
+    // (the climbing kit at rest when the climb isn't on: no flames, no speed lines)
+    if (this.kit && !(this.course && (this.phase === 'run' || this.phase === 'arrive'))) this.kit.update(dt, t, 0, 0);
     if (this.course && (this.phase === 'run' || this.phase === 'arrive')) this.onCourse(dt, f, t, now);
     else if (this.veh && rideTier >= 2) this.mounted(dt, f, t);
     else {
@@ -425,6 +431,8 @@ export class RunScene implements Controller {
     me.update(dt);
     me.root.updateMatrixWorld(true);
     if (kind === 'slide' && sled) sitOnSled(me, sled, dt);
+    // the boots light up and the speed lines rush past as the climber speeds up (not walking over the top)
+    if (kind === 'climb') { const overAt = (this.island.root.userData.overAt as (() => number) | undefined)?.() ?? this.finishS; this.kit?.update(dt, t, this.pos > overAt + 0.02 ? 0 : this.tier, v); }
   }
 
   /** The ghost racer on a course, beside the buddy and moving the same way: up the cliff a little to the
@@ -607,7 +615,10 @@ export class RunScene implements Controller {
 
   focus() { return this.me.root.position; }
 
+  private gone = false;
   dispose() {
+    this.gone = true;
+    this.kit?.dispose(); this.kit = null;
     this.island.gateSolid(1);
     world.run = false;
     if (this.course) this.island.dispose();

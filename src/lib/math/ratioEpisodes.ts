@@ -36,8 +36,8 @@ function batches(k: number, mix: [FruitKind, number][], tags: Tag[] = []): Board
 }
 /** n of a fruit shared onto k plates (`gold`: those plates' fruit glow) */
 function shared(f: FruitKind, n: number, k: number, gold: number[] = [], prefix = 'm'): Board {
-  const xs = Array.from({ length: k }, (_, i) => 300 + (i - (k - 1) / 2) * Math.min(150, 560 / k));
-  const pr = Math.min(70, 280 / k);
+  // (spaced so their rims never run into each other)
+  const pr = Math.min(70, 280 / k), gap = Math.max(Math.min(150, 560 / k), pr * 2.04 + 6), xs = Array.from({ length: k }, (_, i) => 300 + (i - (k - 1) / 2) * gap);
   const per = n / k;
   return board({ cell: per > 4 ? 34 : 40, plates: xs.map((x, i) => plate(`pl${i}`, x, 190, pr)), dots: xs.flatMap((x, i) => heap(`${prefix}${i}-`, many(f, per), { x, y: 190 }, per > 4 ? 30 : 36, per > 4 ? 3 : 2, () => (gold.includes(i) ? 'c' : 'a'))) });
 }

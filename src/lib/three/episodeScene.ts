@@ -283,6 +283,13 @@ export class EpisodeScene implements Controller {
     // the hero things at the table's front corners (modelled), or simple ones if they didn't load
     const pr = hero ?? propsFor(this.setId);
     this.propL = pr.left; this.propR = pr.right;
+    // (standing on the table, not sunk into it: some are made reaching a little below their foot)
+    [pr.left, pr.right].forEach((g, i) => {
+      const b = new THREE.Box3().setFromObject(g);
+      if (b.isEmpty()) return;
+      if (b.min.y < -0.002) for (const c of g.children) c.position.y -= b.min.y;
+      this.propHalf[i] = Math.max(0.05, (b.max.x - b.min.x) / 2);
+    });
     for (const g of [pr.left, pr.right]) { g.traverse(o => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true; } }); g.add(this.blob(0.5)); }
     this.root.add(pr.left, pr.right);
     // the counters' shapes, by place
@@ -337,6 +344,92 @@ export class EpisodeScene implements Controller {
   /** a phone held upright: always framed the phone's way (the friends at the top, the work big under them),
    *  even when the page's box for the picture is short and wide over a number pad */
   private get phone() { return (innerWidth || 1) < 760 && (innerHeight || 1) > (innerWidth || 1); }
+  /** each friend's body round the table's height, in its own space (from its first few frames) */
+  private bands = new Map<THREE.Object3D, { pts: Float32Array; at: number; big: number }>();
+  private posedFrames = 0;
+  /** How far a friend standing at `at` reaches toward the kid (+z) from its middle, between heights y0 and
+   *  y1, turned as it is now; and how far it reaches to each side there. */
+  private reach(root: THREE.Object3D, at: THREE.Vector3, y0w: number, y1w: number): { z: number; x0: number; x1: number } {
+    const had = this.bands.get(root);
+    // (measured again every second or so, keeping the biggest: a Glimmer pops in small; and not before it
+    // has been posed and placed a few times: before that it's in its making pose)
+    if (this.posedFrames >= 4 && (!had || this.posedFrames - had.at >= 30)) {
+      root.updateMatrixWorld(true);
+      // (a Glimmer's hops, squashes and popping in are on its inner group: measured inside that, it's the
+      // Glimmer at rest)
+      const frame = root === this.pal.root ? ((this.pal as unknown as { inner?: THREE.Object3D }).inner ?? root) : root;
+      const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert(), v = new THREE.Vector3(), out: number[] = [];
+      let big = 0;
+      root.traverse(o => {
+        const m = o as THREE.SkinnedMesh;
+        if (!m.isMesh || !m.castShadow || !m.geometry?.attributes.position) return;
+        const p = m.geometry.attributes.position, step = Math.max(1, Math.floor(p.count / 1500));
+        for (let i = 0; i < p.count; i += step) {
+          if (m.isSkinnedMesh) m.getVertexPosition(i, v); else v.fromBufferAttribute(p, i);
+          v.applyMatrix4(m.matrixWorld).applyMatrix4(inv);
+          out.push(v.x, v.y, v.z); big = Math.max(big, Math.hypot(v.x, v.z));
+        }
+      });
+      // (the last few measurements together: a flipper or a tail sways further now and then)
+      if (!had || big < had.big * 0.6) this.bands.set(root, { pts: Float32Array.from(out), at: this.posedFrames, big });
+      else if (big >= had.big * 0.9) { const keep = had.pts.length > out.length * 3 ? had.pts.subarray(had.pts.length - out.length * 2) : had.pts; this.bands.set(root, { pts: Float32Array.from([...keep, ...out]), at: this.posedFrames, big: Math.max(big, had.big) }); }
+      else had.at = this.posedFrames;
+    }
+    const pts = this.bands.get(root)?.pts;
+    if (!pts) return { z: 0.15, x0: -0.2, x1: 0.2 };
+    const s = root.scale.x, y0 = (y0w - at.y) / s, y1 = (y1w - at.y) / s, c = Math.cos(root.rotation.y), sn = Math.sin(root.rotation.y);
+    let z = 0, x0 = 0, x1 = 0;
+    for (let i = 0; i < pts.length; i += 3) {
+      const py = pts[i + 1]; if (py < y0 || py > y1) continue;
+      const wx = (pts[i] * c + pts[i + 2] * sn) * s, wz = (-pts[i] * sn + pts[i + 2] * c) * s;
+      z = Math.max(z, wz); x0 = Math.min(x0, wx); x1 = Math.max(x1, wx);
+    }
+    return { z, x0, x1 };
+  }
+  /** Move a friend standing at `at` so nothing of it is in the table (its back edge at `back`) or in a
+   *  thing on the table (a bowl or a balance near the back): back from the table's edge; and out to its
+   *  side (`side` -1 left, 1 right) of anything tall it would stand behind, so it isn't hidden or cut by it
+   *  (Prism Hornback stood in the crystal workshop's big bowl); back from anything low. */
+  private clearOf(root: THREE.Object3D, at: THREE.Vector3, back: number, side: number) {
+    at.z = Math.min(at.z, back - this.reach(root, at, TY - 0.13, TY + 0.01).z - 0.035);
+    // (the tall ones first, from the inside out, so stepping aside clears each in turn)
+    const boxes = [...this.workBoxes].sort((p, q) => side * ((p.min.x + p.max.x) - (q.min.x + q.max.x)));
+    for (const b of boxes) {
+      const r = this.reach(root, at, TY - 0.13, b.max.y);
+      if (at.x + r.x1 < b.min.x - 0.02 || at.x + r.x0 > b.max.x + 0.02) continue;
+      const gap = b.min.z - (at.z + r.z), bowl = b.max.y > TY + 0.08 && b.max.y < TY + 0.3;
+      if (bowl && gap < 0.5) at.x = side > 0 ? Math.max(at.x, b.max.x - r.x0 + 0.03) : Math.min(at.x, b.min.x - r.x1 - 0.03);
+      else if (gap < 0.02) at.z = Math.min(at.z, b.min.z - r.z - 0.02);
+    }
+  }
+  /** how far the things on the table reach, left and right, and each one's box (the friends keep clear) */
+  private workX: [number, number] = [0, 0];
+  private workBoxes: THREE.Box3[] = [];
+  /** other things on the table (the measuring things: three/measureKit.ts), for the friends and the corner
+   *  props to keep clear of */
+  extraWork: () => THREE.Object3D[] = () => [];
+  private workT = 0;
+  /** the corner props' half widths */
+  private propHalf: [number, number] = [0.15, 0.15];
+  /** the tins, plates, dishes and balances on the table (they grow in and shrink away) */
+  private pieceGroups() { const out = new Set<THREE.Object3D>(); for (const map of [this.trays, this.plates, this.dishes, this.balances]) for (const p of map.values()) out.add(p.g); return out; }
+  private measureWork() {
+    const all = new THREE.Box3(), b = new THREE.Box3();
+    this.workBoxes = [];
+    const one = (g: THREE.Object3D) => {
+      const box = new THREE.Box3();
+      // (a tin or a plate at full size, as a new one is still growing in; anything else as it is)
+      const sc = g.scale.clone(), grown = this.pieceGroups().has(g);
+      if (grown) g.scale.setScalar(1);
+      g.updateMatrixWorld(true);
+      g.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh && m.castShadow && m.geometry) { m.geometry.computeBoundingBox(); b.copy(m.geometry.boundingBox!).applyMatrix4(m.matrixWorld); box.union(b); } });
+      g.scale.copy(sc); g.updateMatrixWorld(true);
+      if (!box.isEmpty()) { this.workBoxes.push(box); all.union(box); }
+    };
+    for (const map of [this.trays, this.plates, this.dishes, this.balances]) for (const p of map.values()) if (!p.leaving) one(p.g);
+    for (const o of [this.plank, this.chartMesh, ...this.extraWork()]) if (o) one(o);
+    this.workX = all.isEmpty() ? [0, 0] : [all.min.x, all.max.x];
+  }
   /** Where the buddy and the Glimmer stand: closer together on a tall screen. */
   private layout() {
     const W = innerWidth || 1, Hh = innerHeight || 1;
@@ -353,15 +446,22 @@ export class EpisodeScene implements Controller {
     this.buddyAt.set(compact ? -0.34 : Math.min(-0.62, a.x0 + inset), 0, back - 0.15 - far);
     this.palHome.set(compact ? 0.4 : Math.max(0.66, a.x1 - inset), TY - 0.17, back - 0.2 - far);
     if (this.together) this.palHome.set(this.buddyAt.x + (compact ? 0.66 : 1.0), TY - 0.17, back - 0.2);
+    // ...but never in it: each friend stands back far enough that no part of it at the table's height
+    // reaches over the table's back edge (a round tummy, a long Glimmer: Prism Hornback was cut in two by
+    // the table), nor into a tall thing on the table's back (the Star Lab's balance)
+    this.clearOf(this.me.root, this.buddyAt, back, -1);
+    this.clearOf(this.pal.root, this.palHome, back, 1);
     this.backZ += (back - this.backZ) * 0.08;
     this.table.position.z = this.backZ + 1.6; this.pool.position.z = this.backZ + 1.6;
     // the cloth under the work
     this.cloth.position.set((a.x0 + a.x1) / 2, TY + 0.002, (a.z0 + a.z1) / 2 + 0.02);
     this.cloth.visible = !this.close;
     this.cloth.scale.set(a.x1 - a.x0 + (compact ? 0.14 : 0.24), 1, a.z1 - a.z0 + (compact ? 0.1 : 0.16));
-    // the hero things at the table's front corners, just outside the work
-    this.propL?.position.set(a.x0 - (compact ? 0.05 : 0.28), TY, a.z1 + (compact ? 0.3 : 0.02));
-    this.propR?.position.set(a.x1 + (compact ? 0.05 : 0.3), TY, a.z1 + (compact ? 0.3 : 0));
+    // the hero things at the table's front corners, just outside the work (and outside the things the work
+    // is on: a big plate can reach past the picture's own edge)
+    const pk = compact ? 0.7 : 0.85, w0 = Math.min(a.x0, this.workX[0]), w1 = Math.max(a.x1, this.workX[1]);
+    this.propL?.position.set(Math.min(a.x0 - (compact ? 0.05 : 0.28), w0 - this.propHalf[0] * pk - 0.03), TY, a.z1 + (compact ? 0.3 : 0.02));
+    this.propR?.position.set(Math.max(a.x1 + (compact ? 0.05 : 0.3), w1 + this.propHalf[1] * pk + 0.03), TY, a.z1 + (compact ? 0.3 : 0));
     this.propL?.scale.setScalar(compact ? 0.7 : 0.85); this.propR?.scale.setScalar(compact ? 0.7 : 0.85);
   }
   /** Buddy moves (the clips it has), and gestures done with its arms. */
@@ -409,9 +509,11 @@ export class EpisodeScene implements Controller {
   /** The same for a fraction picture with its things either side (a pie and a plate, two pizzas): the
    *  right-hand one goes under the left, so both are big enough to share onto. */
   private stackFrac = false;
+  private stackDy = 250;
   private mv<T extends { x: number; y: number }>(o: T, b: Board): T {
-    if (this.stackFrac) return o.x >= 300 ? { ...o, x: o.x - 250, y: o.y + 250 } : o;
-    if (this.stack && b.frames.length === 2) return o.x >= 300 ? { ...o, x: o.x - 256, y: o.y + FC * 2 + 26 } : o;
+    if (this.stackFrac) return o.x >= 300 ? { ...o, x: o.x - 250, y: o.y + this.stackDy } : o;
+    // (the second tin under the first, its rim clear of the first one's)
+    if (this.stack && b.frames.length === 2) return o.x >= 300 ? { ...o, x: o.x - (b.frames[1].x - b.frames[0].x), y: o.y + FC * 2 + 30 } : o;
     return o;
   }
   private tf(b: Board): Board {
@@ -427,6 +529,10 @@ export class EpisodeScene implements Controller {
     const things = (b: Board) => [...b.plates.map(p => ({ x: p.x, h: p.r })), ...(b.dishes ?? []).map(p => ({ x: p.x, h: p.kind === 'foil' ? (p.w ?? 0) / 2 : p.r }))];
     this.stackFrac = this.stack && this.close && boards.every(b => !b.line && !b.frames.length && things(b).every(p => p.x + p.h * 0.5 < 300 || p.x - p.h * 0.5 > 300))
       && boards.some(b => things(b).some(p => p.x >= 300));
+    // (the right half goes under the left: far enough down that nothing of it lands on what's there, a
+    // plate under a pie on the left reached into the pie that came down from the right)
+    const ext = (b: Board) => [...b.plates.map(p => ({ x: p.x, y: p.y, h: p.r * 1.05 })), ...(b.dishes ?? []).map(p => ({ x: p.x, y: p.y, h: p.kind === 'foil' ? (p.h ?? 0) / 2 : p.r * 1.07 }))];
+    this.stackDy = Math.max(250, ...boards.map(b => { const e = ext(b), l = e.filter(p => p.x < 300), r = e.filter(p => p.x >= 300); return l.length && r.length ? Math.max(...l.map(p => p.y + p.h)) - Math.min(...r.map(p => p.y - p.h)) + 14 : 0; }));
     this.fit(boundsOf(boards.map(b => this.tf(b))));
   }
   /** where a word of the picture on the table now sits */
@@ -514,9 +620,12 @@ export class EpisodeScene implements Controller {
     for (const d of b.dots) if (d.c === 'ghost' && !this.spots.has('g:' + d.id)) this.spot('g:' + d.id, this.boardPoint(d.x, d.y), false, instant);
     for (const [k, s] of this.spots) if (k.startsWith('g:') && !ghosts.has(k.slice(2)) && !s.leaving) s.leaving = t;
     // ten frames and plates
-    this.pieces(this.trays, b.frames.map(f => ({ id: f.id, make: () => this.tray(f.x, f.y) })), instant);
-    this.pieces(this.plates, b.plates.map(p => ({ id: p.id, make: () => this.plate(p.x, p.y, p.r, !!p.empty) })), instant);
-    this.pieces(this.dishes, (b.dishes ?? []).map(p => ({ id: p.id, make: () => {
+    // (each one is known by where it is and its size too: one that moves or changes between pictures is
+    // made again there. The 10 crates of a thousand kept the 3 crates of 300 where they were, under them)
+    const at = (p: { id: string; x: number; y: number }, ...more: (number | string | undefined)[]) => `${p.id}@${Math.round(p.x)},${Math.round(p.y)},${more.join(',')}`;
+    this.pieces(this.trays, b.frames.map(f => ({ id: at(f), make: () => this.tray(f.x, f.y) })), instant);
+    this.pieces(this.plates, b.plates.map(p => ({ id: at(p, p.r, p.empty ? 1 : 0), make: () => this.plate(p.x, p.y, p.r, !!p.empty) })), instant);
+    this.pieces(this.dishes, (b.dishes ?? []).map(p => ({ id: at(p, p.kind, p.r, p.w, p.h), make: () => {
       const { g, lift } = makeDish(p.kind, p.r, p.w ?? 0, p.h ?? 0, this.map.s, DEPTH, this.plankTex);
       this.dishLift.set(p.id, lift);
       g.add(this.blob(p.kind === 'foil' ? (p.w ?? 100) * this.map.s * 1.1 : p.r * this.map.s * 2.4));
@@ -550,6 +659,7 @@ export class EpisodeScene implements Controller {
       this.clearStars(); this.hopsDrawn = 0;
       if (this.palAt.distanceTo(this.palHome) > 0.01) this.hopPal(this.palHome.clone(), instant);
     }
+    this.measureWork();
     this.onChange?.();
   }
 
@@ -775,7 +885,7 @@ export class EpisodeScene implements Controller {
   /** the plank's width (a fraction's plank is a broad one, to see its equal parts) */
   private get plankDepth() { return this.close ? 0.17 : 0.09; }
   /** where the Glimmer stands for number n: just behind the plank, so the numbers stay in sight */
-  private standAt(n: number) { return this.linePoint(n).add(new THREE.Vector3(0, 0, -this.plankDepth / 2 - 0.005)); }
+  private standAt(n: number) { return this.linePoint(n).add(new THREE.Vector3(0, this.close ? 0.024 : 0.004, -this.plankDepth / 2 - 0.005)); }
   linePoint(n: number): THREE.Vector3 {
     const ln = this.board?.line;
     const x = ln ? LX0 + ((n - ln.from) / Math.max(1, ln.to - ln.from)) * (LX1 - LX0) : BW / 2;
@@ -1178,6 +1288,8 @@ export class EpisodeScene implements Controller {
       if (s.leaving && t - s.leaving > 0.3) { s.mesh.removeFromParent(); s.mesh.geometry.dispose(); m.dispose(); this.spots.delete(k); }
     }
     for (const s of this.stars) { const k = clamp01((t - (s.userData.born as number)) / 0.3); s.scale.setScalar(Math.max(0.001, (s.userData.size as number) * backOut(k))); }
+    // (the things on the table looked at again now and then: some change without a new picture)
+    if ((this.workT -= dt) <= 0) { this.workT = 0.4; this.measureWork(); }
     this.characters(dt, t);
     this.camera(dt, t);
     this.backdropFollow();
@@ -1302,6 +1414,7 @@ export class EpisodeScene implements Controller {
     // the Glimmer faces the kid too, turned a little toward the work
     pal.face = cam.position.clone().lerp(this.focusPoint(), 0.25).setY(this.palAt.y);
     pal.update(dt, t);
+    this.posedFrames++;
     this.gest = this.gest.filter(g => t - g.at < g.for);
   }
 

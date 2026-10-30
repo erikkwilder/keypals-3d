@@ -1,8 +1,11 @@
 <script lang="ts">
   // The hatch moment, wherever a ready egg is tapped (the incubator, or a results screen's "Egg ready!"):
-  // the egg rises into the light, wobbles harder and harder as cracks glow across it (real eggshell cracks
-  // you can hear), then bursts: the shell flies apart in pieces cut from the egg's own painting, light and
-  // sparkles pour out, and the Glimmer's card flips in. In the incubator (which lends its 3D scene,
+  // the egg rises into the light, a real 3D egg wearing its own painting (three/eggHatch.ts), and wobbles
+  // harder and harder as it cracks (real eggshell cracks you can hear): with each crack the shell itself
+  // comes apart a little more, warm light glowing through the gaps, a chip knocked out, and it bursts: the
+  // top lifts off and tumbles away, the pieces below fall open, light and sparkles pour out, and the
+  // Glimmer's card flips in. (A computer that can't draw it in 3D gets the flat painted egg with cracks
+  // drawn on.) In the incubator (which lends its 3D scene,
   // `scene`) the Glimmer also pops up on its stone in a beam of light, its card beside it; anywhere else
   // the card comes in the middle, over the screen.
   import { onDestroy, onMount } from 'svelte';
@@ -12,6 +15,7 @@
   import { GLIMMER, RARITY, rarityRank } from '../adventure/glimmers';
   import { advView, hatch, type Hatch, type Egg } from '../adventure/state';
   import GlimmerCard from './GlimmerCard.svelte';
+  import { EggHatch } from '../three/eggHatch';
   import Confetti from './Confetti.svelte';
 
   type View = { top: number; bottom: number; left: number; right: number };
@@ -60,6 +64,10 @@
   let broken = $state(false); let flash = $state(false);
   let pieces = $state<Piece[]>([]); let sparks = $state<Spark[]>([]);
   let crackCanvas: HTMLCanvasElement | undefined = $state();
+  // the 3D egg (null: the flat one), and its canvas over the screen
+  let egg3: EggHatch | null = null;
+  let eggCanvas: HTMLCanvasElement | undefined = $state();
+  let is3d = $state(false);
   let eggImg: HTMLImageElement | null = null;
   let raf = 0;
   const RCOL: Record<string, string> = { common: '#fff3c4', uncommon: '#9dffb8', rare: '#9fd4ff', epic: '#e2b8ff', legendary: '#ffe08a', mythic: '#ffb8e2' };
@@ -114,12 +122,22 @@
     const t0 = performance.now();
     const tick = (now: number) => {
       if (!hm || broken) return;
-      const t = (now - t0) / 1000, amp = [3, 6, 10, 15][step] ?? 15, fr = [5, 7, 10, 14][step] ?? 14;
+      const t = (now - t0) / 1000, amp = [3, 7, 12, 18][step] ?? 18, fr = [5, 8, 11, 15][step] ?? 15;
       tilt = Math.sin(t * fr) * amp * (step === 0 ? Math.max(0, Math.sin(t * 2.4)) : 1);
+      if (egg3) { egg3.tilt = tilt; egg3.squash = squash; }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
   }
+  /** light and sparkles pouring out */
+  function burstSparks() {
+    if (!hm) return;
+    const W = hm.w;
+    let id = 0;
+    sparks = Array.from({ length: 30 }, () => { const a = Math.random() * Math.PI * 2, d = W * (0.9 + Math.random() * 1.6); return { id: id++, dx: Math.cos(a) * d, dy: Math.sin(a) * d * 0.8 - W * 0.3, s: 8 + Math.random() * 18, d: Math.random() * 0.15, star: Math.random() < 0.55 }; });
+  }
+  /** the egg is gone: let the 3D one go too */
+  function dropEgg() { hm = null; is3d = false; egg3?.dispose(); egg3 = null; }
   function burstShell() {
     if (!hm) return;
     const W = hm.w, H = hm.h;
@@ -127,8 +145,7 @@
       const cx = p.poly.reduce((a, q) => a + q[0], 0) / p.poly.length, cy = p.poly.reduce((a, q) => a + q[1], 0) / p.poly.length;
       return { poly: pct(p.poly), x: 0, y: 0, vx: p.vx * W * (0.9 + Math.random() * 0.3), vy: p.vy * H * (0.9 + Math.random() * 0.3), r: 0, w: p.w, o: 1, cx: cx * 100, cy: cy * 100 };
     });
-    let id = 0;
-    sparks = Array.from({ length: 30 }, () => { const a = Math.random() * Math.PI * 2, d = W * (0.9 + Math.random() * 1.6); return { id: id++, dx: Math.cos(a) * d, dy: Math.sin(a) * d * 0.8 - W * 0.3, s: 8 + Math.random() * 18, d: Math.random() * 0.15, star: Math.random() < 0.55 }; });
+    burstSparks();
     broken = true; flash = true;
     const t0 = performance.now(); let last = t0;
     const tick = (now: number) => {
@@ -161,13 +178,19 @@
     const v = HATCH_VIEW();
     const W = narrowNow() ? 160 : Math.round(Math.min(250, innerHeight * 0.3)), H = Math.round(W * (eggImg.naturalHeight || 420) / (eggImg.naturalWidth || 328));
     hm = { rarity: egg.rarity, src, w: W, h: H, x: ((v.left + v.right) / 2) * innerWidth, y: ((v.top + v.bottom) / 2) * innerHeight };
+    // the 3D egg, if this computer can draw it (each egg cracks its own way)
+    is3d = true; await tick();
+    egg3 = eggCanvas && eggImg?.naturalWidth ? await EggHatch.create(eggCanvas, eggImg, RCOL[egg.rarity] ?? '#fff3c4', Math.floor(Math.random() * 1e6)) : null;
+    if (closed) { egg3?.dispose(); egg3 = null; return; }
+    if (egg3) { egg3.place(hm.x, hm.y, H); egg3.start(); } else is3d = false;
+    if (import.meta.env.DEV) (window as unknown as { __egg: EggHatch | null }).__egg = egg3;
     rise = 0; await tick(); rise = 1;
     sfx.pop();
     wobbleLoop();
     await wait(1100);
     // three cracks, each bigger, each with a squash and more light leaking out
     for (let i = 1; i <= 3; i++) {
-      step = i; growTo(i); sfx.crack(i); glow = i / 3;
+      step = i; if (egg3) egg3.crack(i); else growTo(i); sfx.crack(i); glow = i / 3;
       squash = 0.93; setTimeout(() => (squash = 1), 110);
       await wait(i < 3 ? 650 : 750);
     }
@@ -176,12 +199,13 @@
     game.update(pp => { h = hatch(pp, slot); });
     const res = h as Hatch | null;
     cancelAnimationFrame(raf);
-    sfx.crack(4); burstShell();
-    if (!res) { await wait(900); hm = null; onhatched?.(null); onclose(); return; }
+    sfx.crack(4); if (egg3) { egg3.burst(); broken = true; flash = true; burstSparks(); } else burstShell();
+    if (!res) { await wait(900); dropEgg(); onhatched?.(null); onclose(); return; }
     sfx.reveal(rarityRank(res.rarity)); burst++;
     scene?.show(res.id, true);
-    await wait(scene ? 1500 : 700);
-    hm = null;
+    // (the 3D shell takes a moment longer to fall away)
+    await wait(scene ? 1500 : egg3 ? 1250 : 700);
+    dropEgg();
     // the card flips in once the Glimmer has popped up on its stone (beside it, so it stays in view)
     got = res;
     if (scene) scene.view = CARD_VIEW();
@@ -202,7 +226,7 @@
     preloadSfx('egg-crack-1', 'egg-crack-2', 'egg-crack-3', 'egg-crack-4');
     void run();
   });
-  onDestroy(() => { closed = true; cancelAnimationFrame(raf); removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize); });
+  onDestroy(() => { closed = true; cancelAnimationFrame(raf); egg3?.dispose(); egg3 = null; removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize); });
 </script>
 
 <div class="hatchwrap" class:own={!scene}>
@@ -212,7 +236,8 @@
       <div class="hdim"></div>
       <div class="hglow" style:left="{H.x}px" style:top="{H.y}px" style:opacity={broken ? 0 : 0.35 + glow * 0.65} style:--k={1 + glow * 0.6}></div>
       {#if broken}<div class="hrays" style:left="{H.x}px" style:top="{H.y}px"></div>{/if}
-      <div class="hegg" style:left="{H.x}px" style:top="{H.y}px" style:width="{H.w}px" style:height="{H.h}px"
+      {#if is3d}<canvas class="egg3d" bind:this={eggCanvas}></canvas>{/if}
+      <div class="hegg" class:gone={is3d} style:left="{H.x}px" style:top="{H.y}px" style:width="{H.w}px" style:height="{H.h}px"
         style:transform="translate(-50%, {rise ? '-50%' : '40%'}) scale({rise ? 1 : 0.55})">
         {#if !broken}
           <div class="hwob" style:transform="rotate({tilt}deg) scaleY({squash})">
@@ -268,6 +293,8 @@
   .hrays { position: absolute; width: 900px; height: 900px; margin: -450px 0 0 -450px; background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--rc) 70%, transparent) 0 7deg, transparent 7deg 20deg); mask: radial-gradient(circle, #000 10%, transparent 58%); -webkit-mask: radial-gradient(circle, #000 10%, transparent 58%); animation: rays 1.4s ease-out forwards; }
   @keyframes rays { 0% { opacity: 0; transform: scale(.2) rotate(0); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.1) rotate(40deg); } }
   .hegg { position: absolute; transition: transform .55s cubic-bezier(.2, 1.3, .4, 1); }
+  .hegg.gone { visibility: hidden; }
+  .egg3d { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .hwob { position: absolute; inset: 0; transform-origin: 50% 90%; }
   .hegg img, .hegg canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   .hegg img { filter: drop-shadow(0 14px 18px rgba(0, 0, 0, .35)); }

@@ -54,6 +54,9 @@ REF_COACH = ("Hello there, friend! Today we're going to count, add, and look at 
              "together. Take your time. Are you ready? Let's begin.")
 REF_KID = ("Hmm, let me think about it. Six plus three? I'll count it out on my fingers. "
            "Six, seven, eight, nine. So it's nine! That was fun.")
+# The coach again (cloned from refs/coach.wav, seed 42), saying an upbeat line: her own voice, brighter.
+REF_BRIGHT = ("Hello there, friend! Today we're going to count and add the numbers together, and it's going "
+              "to be so much fun! You're doing great! Are you ready? Let's go!")
 
 # ---- voice table -------------------------------------------------------------------------
 VOICES = {
@@ -62,6 +65,20 @@ VOICES = {
     "coach": {"engine": "omnivoice", "ref": "refs/coach.wav", "ref_text": REF_COACH,
               "design": "instruct 'female, middle-aged', seed 14"},
     # Coach runners-up
+    # The coach, happier (2026-10-30: Erik heard the Learn lines bend down at the end of every sentence,
+    # "sounding disinterested"). Her own voice from a brighter take of hers (refs/coach-bright.wav), her
+    # sentences said as exclamations ("exclaim": a statement's full stop becomes "!" for the model only;
+    # the words shown don't change), and the end of each sentence lifted a little ("lift": semitones the
+    # last third of a second glides up by, so it doesn't drop away). The variants were auditioned side by
+    # side (keypals-voice-happier.html).
+    "coach-happy": {"engine": "omnivoice", "ref": "refs/coach-bright.wav", "ref_text": REF_BRIGHT, "exclaim": True, "lift": 1.5,
+                    "design": "coach cloned on her own upbeat take, exclamations, endings lifted 1.5 st"},
+    "coach-happy-nolift": {"engine": "omnivoice", "ref": "refs/coach-bright.wav", "ref_text": REF_BRIGHT, "exclaim": True,
+                           "design": "coach cloned on her own upbeat take, exclamations"},
+    "coach-bright": {"engine": "omnivoice", "ref": "refs/coach-bright.wav", "ref_text": REF_BRIGHT,
+                     "design": "coach cloned on her own upbeat take"},
+    "coach-exclaim": {"engine": "omnivoice", "ref": "refs/coach.wav", "ref_text": REF_COACH, "exclaim": True,
+                      "design": "coach, exclamations"},
     "coach-omni": {"engine": "omnivoice", "ref": "refs/coach-omni.wav", "ref_text": REF_COACH,
                    "design": "instruct 'female, young adult', seed 14 (brighter, 213-242 Hz)"},
     "coach-sarah": {"engine": "kokoro", "voice": "af_sarah", "speed": 0.95},  # most pitch movement of the Kokoro voices
@@ -92,6 +109,53 @@ def respell(text, engine):
     for a, b in RESPELL.get(engine, {}).items():
         text = re.sub(rf"\b{re.escape(a)}\b", b, text)
     return text
+
+
+def exclaim(text):
+    """A statement said as an exclamation: its full stops become "!" (questions stay questions)."""
+    import re
+    return re.sub(r"\.(?=\s|$)", "!", text)
+
+
+def lift_ends(a, semis):
+    """Lift the end of each sentence: over the last ~0.32 s before every pause (and the very end), the
+    pitch glides up by `semis` semitones (read a little faster there, so it also gets a touch shorter),
+    instead of dropping away. Continuous at both ends of each glide, so there's no click."""
+    if not semis:
+        return a
+    hop = int(0.01 * SR)
+    n = len(a) // hop
+    e = np.array([np.sqrt(np.mean(a[i * hop:(i + 1) * hop] ** 2)) for i in range(n)])
+    edb = 20 * np.log10(e + 1e-9)
+    speech = edb > edb.max() - 35
+    # the end of each stretch of speech that a pause of 150 ms or more (or the end) follows
+    ends, i = [], 0
+    while i < n:
+        if speech[i]:
+            j = i
+            while j < n and (speech[j] or speech[j:j + 15].any()):
+                j += 1
+            last = j - 1
+            while last > i and not speech[last]:
+                last -= 1
+            ends.append((last + 1) * hop)
+            i = j
+        else:
+            i += 1
+    L = int(0.32 * SR)
+    out, pos = [], 0
+    for end in ends:
+        s0 = max(pos, end - L)
+        out.append(a[pos:s0])
+        # read [s0, end) at a rate that rises smoothly from 1 to 2^(semis/12)
+        k = np.linspace(0, 1, end - s0, endpoint=False)
+        rate = 2 ** (semis * (k * k * (3 - 2 * k)) / 12)
+        p = s0 + np.concatenate([[0], np.cumsum(rate)[:-1]])
+        p = p[p < end - 1]
+        out.append(np.interp(p, np.arange(len(a)), a))
+        pos = end
+    out.append(a[pos:])
+    return np.concatenate(out)
 
 
 # ---- Kokoro ------------------------------------------------------------------------------
@@ -214,7 +278,9 @@ def main():
             t_load += time.time() - t
             print(f"loaded {e} in {time.time() - t:.1f}s", flush=True)
         t = time.time()
-        audio = engines[e].synth(respell(j["text"], e), v, j)
+        text = respell(j["text"], e)
+        audio = engines[e].synth(exclaim(text) if v.get("exclaim") else text, v, j)
+        audio = lift_ends(audio, float(v.get("lift", 0) if v.get("engine") == "omnivoice" else 0)).astype(np.float32)
         dt = time.time() - t
         t_syn += dt
         secs += len(audio) / SR

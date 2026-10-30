@@ -13,13 +13,13 @@ import { loadTexture } from './assets';
 import { stage } from './stage';
 import { FRIEND } from '../art/cast';
 import { loadGltf } from './assets';
-import { NO_NUDGE, type Nudge, type WearSlot } from '../adventure/gear';
+import { NO_NUDGE, nudgeNow, type Nudge, type WearSlot } from '../adventure/gear';
 import { LIB } from '../adventure/wardrobe';
 import { VIBE } from '../adventure/vibes';
 import { COLOUR, colourSoon } from '../adventure/colours';
 type Slot = WearSlot;
 
-type Worn = { id: string; objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void; nz: { v: Nudge }; onNudge: (() => void)[]; follow: (() => void)[] };
+type Worn = { id: string; objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void; nz: { v: Nudge }; onNudge: (() => void)[]; follow: (() => void)[]; conv?: number };
 type Rig = { worn: Partial<Record<Slot, Worn>>; t: number; tick: (dt: number) => void; want: Partial<Record<Slot, string | null>> };
 const rigs = new WeakMap<Character, Rig>();
 
@@ -28,7 +28,7 @@ type Pts = THREE.Vector3[];
 type Fit = {
   /** bind units in a metre (the model is scaled down to its height) */
   unit: number; minY: number; H: number;
-  back: { cx: number; top: number; z: number; w: number; shoulder: number; span: number } | null;
+  back: { cx: number; top: number; z: number; w: number; shoulder: number; span: number; hips: number } | null;
   /** the back's outline seen from the side, from the shoulders down: the backmost point at each height
    *  (a backpack, a shell, a tail's root), so a cape can drape over it instead of hanging off it */
   backLine: { top: number; bottom: number; z: number[] } | null;
@@ -125,7 +125,9 @@ function fitOf(c: Character): Fit {
   const H = maxY - minY;
   const unit = 1 / c.scale;
   // the back: the upper spine's vertices
-  const torso = points(c, ['Spine01', 'Spine02']);
+  // (a few buddies' upper spine moves too few vertices on its own: then the whole spine, more loosely)
+  let torso = points(c, ['Spine01', 'Spine02']);
+  if (torso.length <= 20) torso = points(c, ['Spine', 'Spine01', 'Spine02', 'neck'], 0.25);
   let back: Fit['back'] = null;
   if (torso.length > 20) {
     // the shoulder line: where the upper arms join (the spine's own vertices stop lower on some buddies)
@@ -143,7 +145,10 @@ function fitOf(c: Character): Fit {
     // vertices are only the middle of the back, far too narrow on a buddy in a puffy coat)
     const jx = ['LeftArm', 'RightArm'].map(n => { const bn = c.bones[n], sk = bn && skinned(c).find(m => m.skeleton.bones.includes(bn)); return sk ? new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(sk.skeleton.boneInverses[sk.skeleton.bones.indexOf(bn)]).invert()).x : null; }).filter((x): x is number => x !== null);
     const span = jx.length === 2 ? Math.max(w, Math.abs(jx[0] - jx[1])) : w * 1.6;
-    back = { cx, top, shoulder, z: pct((near.length > 10 ? near : torso).map(p => p.z), 0.02), w, span };
+    // the hips joint: with the shoulders, how long the body is (what a backpack covers)
+    const hb = c.bones.Hips, hsk = hb && skinned(c).find(m => m.skeleton.bones.includes(hb));
+    const hipY = hsk ? new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(hsk.skeleton.boneInverses[hsk.skeleton.bones.indexOf(hb)]).invert()).y : shoulder - H * 0.17;
+    back = { cx, top, shoulder, z: pct((near.length > 10 ? near : torso).map(p => p.z), 0.02), w, span, hips: Math.min(hipY, shoulder - H * 0.1) };
   }
   let backLine: Fit['backLine'] = null;
   if (back) {
@@ -260,7 +265,10 @@ function latheFromPicture(height: number, prof: [number, number][], aspect: numb
 // ---------- moving a piece (the Wardrobe's Move it) ----------
 /** Everything a builder needs: the buddy, its measurements, the piece, and its nudge (a box, so a new
  *  nudge reaches the piece without building it again; bone-held pieces register how to re-apply it). */
-type Ctx = { c: Character; f: Fit; id: string; nz: { v: Nudge }; onNudge: (() => void)[]; /** groups that follow the skin, set each frame */ follow: (() => void)[] };
+type Ctx = { c: Character; f: Fit; id: string; nz: { v: Nudge }; onNudge: (() => void)[]; /** groups that follow the skin, set each frame */ follow: (() => void)[];
+  /** a size saved before back pieces were sized by the body (no `v`) times this is the same size now */
+  conv?: number };
+
 type Built = { objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void };
 const _a = new THREE.Matrix4(), _b = new THREE.Matrix4();
 /** T(pivot + offset) · turn · tip · tilt · size · T(−pivot): moved, turned round (about up), tipped forward
@@ -283,7 +291,7 @@ function nudged(x: Ctx, g: THREE.Group, pivot: THREE.Vector3) {
   const inner = new THREE.Group();
   inner.matrixAutoUpdate = false;
   g.add(inner);
-  const apply = () => { nudgeMatrix(inner.matrix, pivot, x.nz.v, x.f.H); inner.matrixWorldNeedsUpdate = true; };
+  const apply = () => { nudgeMatrix(inner.matrix, pivot, nudgeNow(x.nz.v, x.conv), x.f.H); inner.matrixWorldNeedsUpdate = true; };
   apply(); x.onNudge.push(apply);
   return inner;
 }
@@ -812,6 +820,56 @@ function lineAt(l: { top: number; bottom: number; z: number[] } | null, y: numbe
  *  behind); a held thing at its grip (its origin, if that's inside it, else a third of the way up).
  *  `size` is its width as a share of the head (face, neck) or the back, or its height as a share of
  *  the buddy (hand). */
+/** The back's surface (bind space): the backmost point of the body in each little square of the back
+ *  seen from behind (the spine and hips only: hair hanging down or arms don't count). */
+const backDepth = new WeakMap<Character, { cell: number; z: Map<string, number> }>();
+function backDepthOf(c: Character, f: Fit) {
+  let d = backDepth.get(c);
+  if (d) return d;
+  const cell = f.H * 0.025, z = new Map<string, number>();
+  for (const p of points(c, ['Hips', 'Spine', 'Spine01', 'Spine02', 'neck'], 0.35)) {
+    const key = `${Math.round(p.x / cell)},${Math.round(p.y / cell)}`, was = z.get(key);
+    if (was === undefined || p.z < was) z.set(key, p.z);
+  }
+  d = { cell, z };
+  backDepth.set(c, d);
+  return d;
+}
+/** How far a back piece placed at `at` (turned round, scaled by k about `anchor`) can move forward (+z)
+ *  until its own back meets the body's, a little into it so no light shows between (negative: back). Its
+ *  bottom quarter doesn't count (a tail or a bottom sticking out there would push it away). */
+function restOnBack(c: Character, f: Fit, obj: THREE.Object3D, anchor: THREE.Vector3, k: number, at: THREE.Vector3) {
+  const d = backDepthOf(c, f), v = new THREE.Vector3();
+  obj.updateMatrixWorld(true);
+  const pts: THREE.Vector3[] = [];
+  obj.traverse(o => {
+    const m = o as THREE.Mesh, p = m.isMesh ? m.geometry.attributes.position : null;
+    if (!p) return;
+    const step = Math.max(1, Math.floor(p.count / 1500));
+    for (let i = 0; i < p.count; i += step) {
+      v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld).sub(anchor).multiplyScalar(k);
+      // turned round (about up), then put in place
+      pts.push(new THREE.Vector3(at.x - v.x, at.y + v.y, at.z - v.z));
+    }
+  });
+  if (!pts.length) return 0;
+  let y0 = Infinity, y1 = -Infinity;
+  for (const p of pts) { y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+  const low = y0 + (y1 - y0) * 0.25;
+  let room = Infinity;
+  for (const p of pts) {
+    if (p.y < low) continue;
+    const bz = d.z.get(`${Math.round(p.x / d.cell)},${Math.round(p.y / d.cell)}`);
+    if (bz !== undefined) room = Math.min(room, bz - p.z);
+  }
+  return Number.isFinite(room) ? room + f.H * 0.004 : 0;
+}
+/** How much a back piece from the library is scaled on this buddy: its height `size` times the back's
+ *  length (shoulders to hips), but never wider than `wide` times the shoulders (joint to joint). */
+function backScale(f: Fit, lib: { size: number; wide?: number }, size: THREE.Vector3) {
+  const b = f.back!, len = Math.max(f.H * 0.12, b.shoulder - b.hips);
+  return Math.min((lib.size * len) / Math.max(1e-6, size.y), ((lib.wide ?? 1.35) * b.span) / Math.max(1e-6, size.x));
+}
 async function libModel(x: Ctx): Promise<Built | null> {
   const { c, f, id } = x, lib = LIB[id];
   if (!lib?.model) return null;
@@ -845,7 +903,7 @@ async function libModel(x: Ctx): Promise<Built | null> {
   }
   // everything else rides a bone, placed in bind space
   const hd = f.head, b = f.back;
-  let bone = 'Head', at: THREE.Vector3 | null = null, anchor = new THREE.Vector3(), width = 0, turn = 0;
+  let bone = 'Head', at: THREE.Vector3 | null = null, anchor = new THREE.Vector3(), width = 0, turn = 0, k = 0;
   if (lib.slot === 'face' && hd) {
     at = new THREE.Vector3(hd.fx, hd.eyes, hd.front); width = hd.face;
     anchor.set(mid.x, mid.y, box.min.z);
@@ -872,22 +930,33 @@ async function libModel(x: Ctx): Promise<Built | null> {
     else at = new THREE.Vector3(hd.cx, y, front + f.H * 0.004);
   } else if (lib.slot === 'back' && b) {
     // centred on the upper back, between the shoulder blades, facing out; it rests on whatever is
-    // furthest back over its height (a backpack, a shell), so nothing of the buddy's own hides it
+    // furthest back over its height (a backpack, a shell), so nothing of the buddy's own hides it.
+    // Sized by the body: its height a share of the back's length (shoulders to hips), never wider than
+    // its share of the shoulders (it used to be a share of the spine's own skin, which is a narrow strip
+    // on some buddies and wide on others: a backpack was a matchbox on Ember and a house on Sloth)
     bone = 'Spine02';
-    const y = Math.max(b.top, b.shoulder) - f.H * 0.09, k = (lib.size * b.w) / Math.max(1e-6, size.x), half = (size.y * k) / 2;
+    k = backScale(f, lib, size);
+    // (a size saved on the old scale keeps its look: see nudgeNow)
+    x.conv = ((lib.oldSize ?? lib.size) * b.w / Math.max(1e-6, size.x)) / k;
+    const y = Math.max(b.top, b.shoulder) - f.H * 0.09, half = (size.y * k) / 2;
     let z = Infinity;
     for (let t = -1; t <= 1; t += 0.25) z = Math.min(z, lineAt(f.backLine, y + t * half, b.z));
     at = new THREE.Vector3(b.cx, y, (Number.isFinite(z) ? z : b.z) - f.H * 0.01); width = b.w; turn = Math.PI;
     anchor.set(mid.x, mid.y, box.min.z);
+    // then settle it right onto the back: as far forward as its own shape lets it go before it meets the
+    // body (the outline above is the backmost point in a strip down the middle: a dinosaur's spikes there
+    // left a big pack hanging in the air behind its jacket)
+    at.z += restOnBack(x.c, f, obj, anchor, k, at);
   }
   if (!at || !width) return null;
+  if (!k) k = (lib.size * width) / Math.max(1e-6, size.x);
   // the neck and the back move with the skin right under the piece (the neck bends away from the chest
   // when a buddy dances, so a scarf held by the chest alone slid off to one side); the face rides the head
   const hb = lib.slot === 'neck' ? skinHeld(x, at, at, NECK_BONES, bone) : lib.slot === 'back' ? skinHeld(x, at, at, BACK_BONES, bone) : boneHeld(x, bone, at);
   if (!hb) return null;
   obj.position.copy(anchor).negate();
   const piece = new THREE.Group(); piece.add(obj);
-  piece.scale.setScalar((lib.size * width) / Math.max(1e-6, size.x));
+  piece.scale.setScalar(k);
   // a back thing faces backwards (its front +Z is the side people see behind the buddy)
   piece.rotation.y = turn;
   piece.position.copy(at);
@@ -1069,7 +1138,7 @@ export async function wearGear(c: Character, slot: Slot, id: string | null, nudg
   if (built) {
     // tagged, so a tap on the buddy in the Wardrobe can tell what was touched (wornAt)
     for (const o of built.objs) o.userData.wear = { slot, id };
-    rig.worn[slot] = { id, ...built, nz: x.nz, onNudge: x.onNudge, follow: x.follow };
+    rig.worn[slot] = { id, ...built, nz: x.nz, onNudge: x.onNudge, follow: x.follow, conv: x.conv };
   }
 }
 /** What a ray hits first of what a buddy wears (the Wardrobe: tap a thing on the buddy to move it). The
@@ -1129,8 +1198,184 @@ export function highlightWorn(c: Character, slot: Slot | null) {
 export async function wearKit(c: Character, kit: Partial<Record<Slot, string>>, nudge: Record<string, Nudge> = {}) {
   await Promise.all((['face', 'neck', 'back', 'hand', 'feet', 'vibe', 'colour'] as Slot[]).map(s => { const id = kit[s] ?? null; return wearGear(c, s, id, id ? nudge[id] ?? null : null); }));
 }
+/** The nudge a worn piece is drawn with now, on today's scale (the Wardrobe starts Move it from this,
+ *  so a size saved on the old scale doesn't jump when it's moved). */
+export function wornNudge(c: Character, slot: Slot, n: Nudge): Nudge {
+  const w = rigs.get(c)?.worn[slot];
+  return nudgeNow(n, w?.conv ?? 1);
+}
 /** Live nudge while moving a piece in the Wardrobe (no rebuild). */
 export function nudgeGear(c: Character, slot: Slot, n: Nudge) {
   const w = rigs.get(c)?.worn[slot];
   if (w) { w.nz.v = n; w.onNudge.forEach(f => f()); }
+}
+
+// ---------- the climbing kit (the cliff course: three/runScene.ts) ----------
+/** What a climber wears up the cliff, and how fast it shows it's going. `update` with the speed step (0
+ *  Hold On .. 5 Rocket Boots) and how fast the buddy is moving (m/s). */
+export type ClimbKit = { update(dt: number, t: number, step: number, speed: number): void; dispose(): void };
+/**
+ * Climbing gear on a buddy: chunky climbing boots on its own feet, with a little booster on each heel; a
+ * harness belt round its waist with a chalk bag at the back and two gold clips; and speed you can see.
+ * The boosters light as the climber gets quicker: a flicker at Speed Climber, real flames at Super
+ * Climber, big flames and sparks at Rocket Boots. Speed lines rush past either side from Quick Climber on,
+ * more and longer the faster it goes, and chalk puffs from the bag on a fast climb. The boots and belt
+ * ride the bones (bind space, like everything worn); the speed lines and sparks ride the buddy's root.
+ */
+export async function climbKit(c: Character): Promise<ClimbKit | null> {
+  const f = fitOf(c);
+  if (!f.feet.length) return null;
+  const [boot, rocket, flameMap, dot] = await Promise.all([
+    painted('gear/tile-sneaker_rocket.webp', { repeat: true }), painted('gear/tex-rocket.webp'), loadTexture('gear/tex-flame.webp'), loadTexture('vibes/dot.webp'),
+  ]);
+  boot.roughness = 0.55;
+  const objs: THREE.Object3D[] = [], s = hw(c) * f.unit, H = f.H;
+  const flames: { g: THREE.Group; outer: number }[] = [];
+  // the boots: the feet's own shells (a little bigger, over any shoes it has on), a booster up each heel,
+  // nose up, its flame pointing down
+  const fmat = new THREE.MeshBasicMaterial({ map: flameMap, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+  const heelSpots: THREE.Object3D[] = [];
+  for (const ft of f.feet) {
+    const g = onBone(c, `${ft.side}Foot`);
+    if (!g) continue;
+    objs.push(g);
+    const mid = new THREE.Vector3(ft.cx, ft.sole, (ft.heel + ft.toe) / 2);
+    if (ft.geo) { const shell = new THREE.Mesh(ft.geo, boot); shell.position.copy(mid).multiplyScalar(-0.04); shell.scale.setScalar(1.04); g.add(shell); }
+    const outer = ft.side === 'Left' ? 1 : -1, bh = s * 0.1;
+    const holder = new THREE.Group();
+    holder.add(new THREE.Mesh(latheFromPicture(bh, ROCKET, ROCKET_ASPECT, 14), rocket));
+    holder.position.set(ft.cx + outer * ft.w * 0.18, ft.sole + bh * 0.62, ft.heel - bh * 0.12);
+    const fl = new THREE.Group();
+    for (const turn of [0, Math.PI / 2]) {
+      const fg = new THREE.PlaneGeometry(bh * 0.55, bh * 1.1); fg.translate(0, -bh * 0.55, 0); fg.rotateY(turn);
+      fl.add(new THREE.Mesh(fg, fmat));
+    }
+    fl.position.y = -bh * 0.5; fl.scale.setScalar(0.001);
+    holder.add(fl); g.add(holder);
+    flames.push({ g: fl, outer });
+    const spot = new THREE.Object3D(); spot.position.y = -bh * 0.7; holder.add(spot); heelSpots.push(spot);
+  }
+  // the harness: a belt round the waist (the body's own shape there, a little out), a chalk bag at the
+  // back, and two gold clips on the sides
+  const hipsB = c.bones.Hips, hsk = hipsB && skinned(c).find(m => m.skeleton.bones.includes(hipsB));
+  let bag: THREE.Object3D | null = null;
+  if (hsk && f.back) {
+    const hipY = new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(hsk.skeleton.boneInverses[hsk.skeleton.bones.indexOf(hipsB)]).invert()).y;
+    const y = hipY + H * 0.035, band = points(c, Object.keys(c.bones), 0).filter(p => Math.abs(p.y - y) < H * 0.025);
+    if (band.length > 20) {
+      const cx = pct(band.map(p => p.x), 0.5), x0 = pct(band.map(p => p.x), 0.04), x1 = pct(band.map(p => p.x), 0.96);
+      const z0 = pct(band.map(p => p.z), 0.04), z1 = pct(band.map(p => p.z), 0.96), cz = (z0 + z1) / 2;
+      const rx = (x1 - x0) / 2 * 1.06 + H * 0.006, rz = (z1 - z0) / 2 * 1.08 + H * 0.006;
+      const ring = new THREE.CatmullRomCurve3(Array.from({ length: 40 }, (_, i) => { const a = (i / 40) * Math.PI * 2; return new THREE.Vector3(cx + Math.sin(a) * rx, y, cz + Math.cos(a) * rz); }), true);
+      const g = onBone(c, 'Hips');
+      if (g) {
+        objs.push(g);
+        const strap = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.75 });
+        const belt = new THREE.Mesh(new THREE.TubeGeometry(ring, 80, H * 0.012, 8, true), strap);
+        belt.scale.set(1, 1.6, 1); belt.position.y = -y * 0.6; // (flattened into a strap, about its own height)
+        g.add(belt);
+        // the chalk bag: a little teal pot with a fluffy white rim, hanging at the back of the belt
+        bag = new THREE.Group();
+        const pot = new THREE.Mesh(new THREE.CylinderGeometry(H * 0.03, H * 0.026, H * 0.055, 14), new THREE.MeshStandardMaterial({ color: 0x23b5a8, roughness: 0.8 }));
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(H * 0.03, H * 0.008, 8, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }));
+        rim.rotation.x = Math.PI / 2; rim.position.y = H * 0.028;
+        bag.add(pot, rim);
+        bag.position.set(cx, y - H * 0.03, cz - rz - H * 0.028);
+        g.add(bag);
+        // two gold clips on the sides
+        const gold = new THREE.MeshStandardMaterial({ color: 0xffc23d, roughness: 0.3, metalness: 0.6 });
+        for (const sd of [-1, 1]) {
+          const clip = new THREE.Mesh(new THREE.TorusGeometry(H * 0.016, H * 0.004, 6, 14), gold);
+          clip.scale.set(0.7, 1.15, 1); clip.position.set(cx + sd * rx * 0.92, y - H * 0.022, cz - rz * 0.35); clip.rotation.y = sd * 0.9;
+          g.add(clip);
+        }
+      }
+    }
+  }
+  objs.forEach(shadows);
+  // speed you can see: lines rushing down past either side, and sparks from the boosters (on the root, in
+  // metres: the buddy faces the wall, +z, with the camera behind it)
+  const Hm = hw(c), fx = new THREE.Group(); c.root.add(fx);
+  const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  // (a soft-ended streak: brighter in the middle)
+  const lg = new THREE.PlaneGeometry(1, 1, 1, 4); { const p = lg.attributes.position as THREE.BufferAttribute, col: number[] = []; for (let i = 0; i < p.count; i++) { const k = 1 - Math.abs(p.getY(i)) * 2; col.push(k, k, k); } lg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); }
+  lineMat.vertexColors = true;
+  const lines = Array.from({ length: 14 }, (_, i) => {
+    const m = new THREE.Mesh(lg, lineMat), side = i % 2 ? 1 : -1;
+    m.userData = { side, x: side * Hm * (0.42 + Math.random() * 0.45), z: -Hm * (0.05 + Math.random() * 0.3), y: Math.random() * 2 - 0.5, sp: 0.8 + Math.random() * 0.5 };
+    m.visible = false; fx.add(m); return m;
+  });
+  const sparks = Array.from({ length: 16 }, () => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: dot, color: 0xffd36b, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    sp.visible = false; sp.userData = { life: 9, v: new THREE.Vector3() }; fx.add(sp); return sp;
+  });
+  const chalk = Array.from({ length: 6 }, () => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: dot, color: 0xffffff, transparent: true, depthWrite: false, opacity: 0 }));
+    sp.visible = false; sp.userData = { life: 9, v: new THREE.Vector3() }; fx.add(sp); return sp;
+  });
+  let flame = 0, sparkT = 0, chalkT = 0;
+  const tmp = new THREE.Vector3();
+  return {
+    update(dt, t, step, speed) {
+      // the boosters: off below Speed Climber, then a flicker, flames, big flames
+      const want = step >= 5 ? 1 : step >= 4 ? 0.72 : step >= 3 ? 0.4 : 0;
+      flame += (want * Math.min(1, speed / 0.25) - flame) * Math.min(1, dt * 6);
+      for (const fl of flames) {
+        const on = flame > 0.02, k = flame * 1.7 * (0.8 + 0.3 * Math.abs(Math.sin(t * 23 + fl.outer))), w = 0.7 + 0.6 * flame;
+        fl.g.scale.set(on ? w : 0.001, Math.max(0.001, k), on ? w : 0.001);
+      }
+      // speed lines: from Quick Climber on, more, brighter and longer the faster it goes
+      const lk = Math.max(0, Math.min(1, (step - 1) / 4)) * Math.min(1, speed / 0.3), shown = Math.round(lines.length * lk);
+      lineMat.opacity = 0.18 + 0.32 * lk;
+      lines.forEach((m, i) => {
+        const u = m.userData as { side: number; x: number; z: number; y: number; sp: number };
+        m.visible = i < shown;
+        if (!m.visible) return;
+        u.y -= dt * u.sp * (1.2 + 3.5 * lk);
+        if (u.y < -0.6) { u.y = 1.6 + Math.random() * 0.4; u.x = u.side * Hm * (0.42 + Math.random() * 0.45); }
+        const len = Hm * (0.25 + 0.55 * lk);
+        m.position.set(u.x, u.y * Hm, u.z); m.scale.set(Hm * 0.016, len, 1);
+      });
+      // sparks from the boosters at Super Climber and Rocket Boots
+      sparkT -= dt;
+      if (flame > 0.6 && sparkT <= 0 && heelSpots.length) {
+        sparkT = 0.05 / flame;
+        const sp = sparks.find(x => (x.userData.life as number) > 0.5) ?? sparks[0], from = heelSpots[Math.floor(Math.random() * heelSpots.length)];
+        from.getWorldPosition(tmp); c.root.worldToLocal(tmp);
+        sp.position.copy(tmp); sp.userData.life = 0; (sp.userData.v as THREE.Vector3).set((Math.random() - 0.5) * 0.6, -1.4 - Math.random(), -(Math.random() * 0.4)).multiplyScalar(Hm);
+        sp.visible = true;
+      }
+      for (const sp of sparks) {
+        const u = sp.userData as { life: number; v: THREE.Vector3 };
+        if (!sp.visible) continue;
+        u.life += dt;
+        if (u.life > 0.5) { sp.visible = false; continue; }
+        sp.position.addScaledVector(u.v, dt); sp.scale.setScalar(Hm * 0.05 * (1 - u.life * 1.6));
+      }
+      // a puff of chalk from the bag now and then on a quick climb
+      chalkT -= dt;
+      if (bag && step >= 2 && speed > 0.2 && chalkT <= 0) {
+        chalkT = 0.6 / Math.max(0.5, step - 1);
+        const sp = chalk.find(x => (x.userData.life as number) > 0.9) ?? chalk[0];
+        bag.getWorldPosition(tmp); c.root.worldToLocal(tmp);
+        sp.position.copy(tmp); sp.userData.life = 0; (sp.userData.v as THREE.Vector3).set((Math.random() - 0.5) * 0.3, -0.4, -0.25).multiplyScalar(Hm);
+        sp.visible = true;
+      }
+      for (const sp of chalk) {
+        const u = sp.userData as { life: number; v: THREE.Vector3 };
+        if (!sp.visible) continue;
+        u.life += dt;
+        if (u.life > 0.9) { sp.visible = false; continue; }
+        sp.position.addScaledVector(u.v, dt); sp.scale.setScalar(Hm * (0.06 + u.life * 0.12)); (sp.material as THREE.SpriteMaterial).opacity = 0.7 * (1 - u.life / 0.9);
+      }
+    },
+    dispose() {
+      for (const o of [...objs, fx]) {
+        o.removeFromParent();
+        o.traverse(x => { const m = x as THREE.Mesh; if (m.geometry && m.geometry !== f.feet[0]?.geo && m.geometry !== f.feet[1]?.geo) m.geometry.dispose(); });
+      }
+      boot.dispose(); rocket.dispose(); fmat.dispose(); lineMat.dispose(); lg.dispose();
+      for (const sp of [...sparks, ...chalk]) (sp.material as THREE.SpriteMaterial).dispose();
+    },
+  };
 }

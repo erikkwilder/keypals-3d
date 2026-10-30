@@ -50,6 +50,9 @@ export type Landmarks = {
   ears?: [V3, V3][];
   /** a jelly's tentacles: root ... tip each */
   tentacles?: V3[][];
+  /** the middle of each eye, on its skin (-x first): the face round them rides the head bone alone, so
+   *  the eyes keep their shape whatever moves near them */
+  eyes?: V3[];
 };
 
 export type Role = 'root' | 'spine' | 'neck' | 'head' | 'tail' | 'leg' | 'arm' | 'wing' | 'fin' | 'ear' | 'tentacle';
@@ -448,6 +451,25 @@ export function skinWeights(rig: Rig, pos: Float32Array): { index: Uint16Array; 
   const ab = bones.map(b => b.end.clone().sub(b.at)), l2 = ab.map(x => x.lengthSq());
   const near = bones.map((b, i) => bones.map((c, j) => i === j || b.parent === j || c.parent === i));
   const sd = new Float64Array(B), ck = new Float64Array(B), w = new Float64Array(B), p = new THREE.Vector3(), band = 0.03 * H;
+  // the eyes: each rides the head, or the part of it it's on (a snail's eye on its stalk); eyes on the head
+  // get a stiff zone round the line from one to the other, eyes on stalks a ball each
+  const hi = bones.findIndex(b => b.role === 'head'), eyes = (rig.lm.eyes ?? []).map(v);
+  const onHead = (j: number): boolean => j === hi || (j >= 0 && bones[j].parent >= 0 && onHead(bones[j].parent));
+  const eyeBone = eyes.map(e => {
+    let best = hi, bd = Infinity;
+    bones.forEach((b, j) => { if (!onHead(j)) return; const d = segD(e, b.at, b.end, ab[j], l2[j]) / b.r; if (d < bd) { bd = d; best = j; } });
+    return best;
+  });
+  const together = eyes.length > 0 && eyeBone.every(j => j === eyeBone[0]);
+  const eyeA = hi >= 0 && eyes.length ? eyes[0] : null, eyeB = eyeA ? eyes[eyes.length - 1] : null;
+  const eyeAB = eyeA && eyeB ? eyeB.clone().sub(eyeA) : null, eyeL2 = eyeAB ? eyeAB.lengthSq() : 0;
+  /** how much point q is an eye (or the face round the eyes), and which bone it rides */
+  const eyeOf = (q: THREE.Vector3): [number, number] => {
+    if (together) return [sstep(EYE_ZONE[1] * H, EYE_ZONE[0] * H, segD(q, eyeA!, eyeB!, eyeAB!, eyeL2)), eyeBone[0]];
+    let f = 0, j = hi;
+    eyes.forEach((e, k) => { const g = sstep(EYE_BALL[1] * H, EYE_BALL[0] * H, q.distanceTo(e)); if (g > f) { f = g; j = eyeBone[k]; } });
+    return [f, j];
+  };
   for (let i = 0; i < n; i++) {
     p.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
     let best = 0, bs = Infinity;
@@ -467,10 +489,29 @@ export function skinWeights(rig: Rig, pos: Float32Array): { index: Uint16Array; 
     let s = weight[i * 4] + weight[i * 4 + 1] + weight[i * 4 + 2] + weight[i * 4 + 3];
     if (!(s > 0)) { weight[i * 4] = 1; weight[i * 4 + 1] = weight[i * 4 + 2] = weight[i * 4 + 3] = 0; index[i * 4] = 0; s = 1; }
     for (let k = 0; k < 4; k++) weight[i * 4 + k] /= s;
+    // the eyes and the face between and round them ride the head and nothing else (an owl's eyes sit
+    // right where its head meets its body, beside its wings' roots: they bent as it moved)
+    if (eyeA) { const [f, j] = eyeOf(p); if (f > 0) pin(index, weight, i, j, f); }
   }
   return { index, weight };
 }
 
+/** round the eyes: all of it rides the head this close (a share of the Glimmer's height), none past this */
+export const EYE_ZONE: [number, number] = [0.1, 0.16];
+/** an eye on a stalk: the ball round it that rides the stalk's tip */
+export const EYE_BALL: [number, number] = [0.06, 0.09];
+const sstep = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+/** Tie point i to bone `to` by share f more (the others give up that share). */
+function pin(index: Uint16Array, weight: Float32Array, i: number, to: number, f: number) {
+  for (let k = 0; k < 4; k++) weight[i * 4 + k] *= 1 - f;
+  let at = -1;
+  for (let k = 0; k < 4; k++) if (index[i * 4 + k] === to && (weight[i * 4 + k] > 0 || at < 0)) at = k;
+  if (at < 0) { at = 0; for (let k = 1; k < 4; k++) if (weight[i * 4 + k] < weight[i * 4 + at]) at = k; }
+  index[i * 4 + at] = to; weight[i * 4 + at] += f;
+  let s = 0;
+  for (let k = 0; k < 4; k++) s += weight[i * 4 + k];
+  for (let k = 0; k < 4; k++) weight[i * 4 + k] /= s;
+}
 /** How freely each limb can move (BoneSpec.free). Image-to-3D models are one skin, so a hand resting on
  *  the belly, a wing folded against the side or a tail curled round a foot is fused to that part: moved
  *  fully, it would drag that part's skin with it. For each limb, the share of its outer half that is
@@ -555,7 +596,7 @@ export function dropSkin(key: string) { skins.delete(key); }
 /** The meta.json "rig" entry for these landmarks: rounded, in a fixed order. */
 export function landmarksJson(lm: Landmarks): Landmarks {
   const out: Landmarks = { plan: lm.plan, head: lm.head };
-  for (const k of ['chest', 'hips', 'tail', 'feet', 'hands', 'wings', 'fins', 'ears', 'tentacles'] as const) if (lm[k]) (out as Record<string, unknown>)[k] = round(lm[k]);
+  for (const k of ['chest', 'hips', 'tail', 'feet', 'hands', 'wings', 'fins', 'ears', 'tentacles', 'eyes'] as const) if (lm[k]) (out as Record<string, unknown>)[k] = round(lm[k]);
   return out;
 }
 const round = (x: unknown): unknown => (Array.isArray(x) ? x.map(round) : typeof x === 'number' ? r3(x) : x);

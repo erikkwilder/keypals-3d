@@ -61,7 +61,8 @@ const board = (b: Partial<Board>): Board => ({ cell: 48, dots: [], frames: [], p
 
 // ten frames: two side by side
 export const FC = 48;
-const FX = [52, 308], FY = 128;
+// (far enough apart that their tins, 26 wider than the cells, stand clear of each other)
+const FX = [40, 320], FY = 128;
 const inFrame = (i: number, frame = 0) => ({ x: FX[frame] + (i % 5) * FC + FC / 2, y: FY + Math.floor(i / 5) * FC + FC / 2 });
 const frameDots = (n: number, c: Hue, prefix: string, frame = 0, from = 0, d = 0.06): Dot[] =>
   Array.from({ length: n }, (_, i) => ({ id: `${prefix}${i}`, ...inFrame(from + i, frame), c, d: i * d }));
