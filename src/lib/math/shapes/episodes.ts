@@ -20,11 +20,23 @@ function tile(id: string, pts: P[], c: Hue, tint?: Tint, more: { dx?: number; dy
   return { id, x: cx + (more.dx ?? 0), y: cy + (more.dy ?? 0), c, d: more.d, rot: more.rot, shape: { k: 'tile', pts: pts.map(([x, y]) => [x - cx, y - cy] as P), tint, h: more.h } };
 }
 const poly = (n: number, r: number, cx: number, cy: number, rot = 0): P[] => Array.from({ length: n }, (_, i) => { const a = ((rot - 90 + (360 * i) / n) * Math.PI) / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as P; });
-/** words just outside each corner, numbered 1, 2, 3... */
+/** numbers just outside each corner, 1, 2, 3..., well clear of the corner and of each other (the kid taps
+ *  each corner to count, so they come one at a time) */
 const cornerTags = (prefix: string, pts: P[]): Tag[] => {
   const [cx, cy] = centre(pts);
-  return pts.map(([x, y], i) => { const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy) || 1; return tag(`${prefix}${i}`, x + (dx / d) * 30, y + (dy / d) * 30 + 8, String(i + 1), 'c', 30); });
+  // (the table is seen from above at a slant, so a step towards or away from you looks shorter: those get
+  // a little more. A corner at the back gets its number beside it, not behind it, where the words over the
+  // table and the Glimmer stand.)
+  return pts.map(([x, y], i) => {
+    const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy) || 1;
+    if (dy / d < -0.3) return tag(`${prefix}${i}`, x + (dx >= 0 ? 26 : -26), y + 6, String(i + 1), 'c', 28);
+    return tag(`${prefix}${i}`, x + (dx / d) * 26, y + (dy / d) * 34 + 8, String(i + 1), 'c', 28);
+  });
 };
+/** a shape already counted: its corner numbers go, and its last one (the total) moves into its middle, so
+ *  only the shape being counted has numbers round it and no number ever sits by another shape's corner
+ *  (the same word, moved: it isn't a new spot to tap) */
+const counted = (prefix: string, pts: P[]): Tag => { const [cx, cy] = centre(pts); return tag(`${prefix}${pts.length - 1}`, cx, cy + 12, String(pts.length), 'c', 34); };
 /** a fan (an angle's corner) with its point at (vx, vy), from flat to `deg` degrees up and round */
 const fan = (vx: number, vy: number, R: number, from: number, deg: number): P[] => [[vx, vy], ...Array.from({ length: 13 }, (_, i) => { const a = ((from + (deg * i) / 12) * Math.PI) / 180; return [vx + R * Math.cos(a), vy - R * Math.sin(a)] as P; })];
 /** a turn of a board point about the origin, anticlockwise as seen from above (board y points down) */
@@ -33,9 +45,11 @@ const Q = (text: string, ans: string, input: EpQ['input'], hint: string, hidden:
 const one = (id: string, pts: P[], tint: Tint, tags: Tag[] = [], c: Hue = 'a') => board({ dots: [tile(id, pts, c, tint)], tags });
 
 // ---------- 1. sides and corners ----------
-const TRI: P[] = [[150, 104], [212, 212], [88, 212]];
-const SQ: P[] = [[247, 104], [353, 104], [353, 210], [247, 210]];
-const HEX = poly(6, 60, 455, 158, 30);
+// (spread out across the front of the table, so each shape's numbers have room round it and none sit
+// up by the words at the back or behind the Glimmer)
+const TRI: P[] = [[120, 140], [180, 248], [60, 248]];
+const SQ: P[] = [[240, 142], [342, 142], [342, 244], [240, 244]];
+const HEX = poly(6, 54, 474, 194, 30);
 const threeShapes = (tags: Tag[]) => board({ dots: [tile('tri', TRI, 'a', 'violet'), tile('sq', SQ, 'a', 'teal'), tile('hex', HEX, 'a', 'sky')], tags });
 const PENT = poly(5, 105, 300, 172), OCT = poly(8, 105, 300, 172, 22.5);
 const ARROW: P[] = [[150, 140], [300, 140], [300, 80], [450, 172], [300, 264], [300, 204], [150, 204]];
@@ -123,9 +137,9 @@ export const SHAPE_LESSONS: FracLesson[] = [
     steps: [
       { say: '', board: threeShapes([]), eq: 'Every shape has sides and corners' },
       { say: '', board: threeShapes(cornerTags('t', TRI)), eq: '[3] corners: a triangle' },
-      { say: '', board: threeShapes([...cornerTags('t', TRI), ...cornerTags('s', SQ)]), eq: '[4] corners: a square' },
-      { say: '', board: threeShapes([...cornerTags('t', TRI), ...cornerTags('s', SQ), ...cornerTags('h', HEX)]), eq: '[6] corners: a hexagon' },
-      { say: '', board: threeShapes([tag('n3', 150, 250, '3 sides', 'a', 26), tag('n4', 300, 250, '4 sides', 'a', 26), tag('n6', 455, 250, '6 sides', 'a', 26)]), eq: 'as many sides as [corners]', do: 'watch' },
+      { say: '', board: threeShapes([counted('t', TRI), ...cornerTags('s', SQ)]), eq: '[4] corners: a square' },
+      { say: '', board: threeShapes([counted('t', TRI), counted('s', SQ), ...cornerTags('h', HEX)]), eq: '[6] corners: a hexagon' },
+      { say: '', board: threeShapes([tag('n3', 120, 292, '3 sides', 'a', 26), tag('n4', 291, 292, '4 sides', 'a', 26), tag('n6', 474, 292, '6 sides', 'a', 26)]), eq: 'as many sides as [corners]', do: 'watch' },
     ],
     tries: [
       Q('How many corners?', '5', 'num', 'Touch one corner and go round: 1, 2, 3, 4, 5.', 'Touch one corner and go round, counting each one once.', one('p', PENT, 'violet')),

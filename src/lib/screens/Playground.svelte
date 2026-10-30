@@ -26,6 +26,7 @@
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
+  import RewardTap from '../ui/RewardTap.svelte';
   import { builderOpen } from '../math/place/builder';
 
   const p = $derived(game.profile!);
@@ -185,12 +186,13 @@
         </div>
         {#if done.out.shells || done.out.eggsReady?.length || done.out.rewards.length || done.out.stickers.length || done.out.medals.length || done.out.buddies.length}
           <div class="news">
-            {#if done.out.shells}<span class="chip"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /> +{done.out.shells} shells</span>{/if}
+            <!-- the shells and a ready egg open when tapped (the shells card, the hatch) -->
+            {#if done.out.shells}{@const sh = done.out.shells}<RewardTap kind="shells" n={sh}>{#snippet children(tap)}<button class="chip tap" onclick={tap} title="Your shells"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /> +{sh} shells</button>{/snippet}</RewardTap>{/if}
             {#each done.out.medals as m}<span class="chip"><Icon name="medal" size={18} /> {m.name}</span>{/each}
             {#each done.out.rewards as r}<span class="chip"><Icon name={r.kind === 'dance' ? 'dance' : 'hanger'} dance={r.id} size={18} /> New {r.kind}: {r.name}</span>{/each}
             {#each done.out.stickers as s}<span class="chip"><Icon name="sticker" size={18} /> Sticker: {s.name}</span>{/each}
             {#each done.out.buddies as b}<span class="chip new"><Icon name="popper" size={18} /> {FRIEND[b].name} joined your team!</span>{/each}
-            {#if done.out.eggsReady?.length}<span class="chip"><Icon name="gift" size={18} /> An egg is ready to hatch!</span>{/if}
+            {#if done.out.eggsReady?.length}{@const egg = done.out.eggsReady[0]}<RewardTap kind="egg">{#snippet children(tap)}<button class="chip tap egg" onclick={tap}><img src="{import.meta.env.BASE_URL}game/egg-{egg}.webp" alt="" /> An egg is ready: hatch it!</button>{/snippet}</RewardTap>{/if}
           </div>
         {/if}
         <div class="acts">
@@ -260,6 +262,11 @@
   .chip { display: inline-flex; align-items: center; gap: 4px; font: 700 13px var(--font-body); background: #f6f1ff; border-radius: 999px; padding: 4px 10px; }
   .chip.new { background: #fff3c4; }
   .chip img { width: 18px; height: 18px; }
+  /* the ones that open when tapped: buttons with a raised edge that lift on hover */
+  .chip.tap { border: 0; cursor: pointer; color: var(--ink); box-shadow: inset 0 -2px 0 rgba(90, 60, 150, .18); transition: transform .12s; }
+  .chip.tap:hover { transform: translateY(-2px); }
+  .chip.egg { background: #e2f7ee; color: #0f5a3c; }
+  .chip.egg img { height: 22px; object-fit: contain; }
   .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
   @media (max-width: 900px) { .bar :global(.tile .lbl) { display: none; } .games { grid-template-columns: 1fr; } .body { padding: 10px 10px 20px; } .bar { padding: 8px 10px; } .bar h1 { font-size: 20px; } .hello p { font-size: 15px; } .hello :global(.critter-host) { width: 64px !important; height: 64px !important; } .toy { grid-template-columns: 1fr; } .toy > .gpic { aspect-ratio: 16 / 8; min-height: 0; } .toy .tbody { padding: 0; } }
   /* the toy's name starts after the Pause button */

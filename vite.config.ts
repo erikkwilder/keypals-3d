@@ -8,6 +8,20 @@ export default defineConfig({
     svelte(),
     // the dance check page's motion clips (public/devmotions, ~100 MB) are for development only
     { name: 'drop-dev-files', apply: 'build', closeBundle() { rmSync(new URL('./dist/devmotions', import.meta.url), { recursive: true, force: true }); } },
+    // the game's styles load after the loading screen in index.html, so that screen paints while they come
+    // down (the game's code still waits for them, so nothing shows unstyled)
+    {
+      name: 'loading-screen-first', apply: 'build',
+      transformIndexHtml: {
+        order: 'post',
+        handler(html: string) {
+          const links = html.match(/<link rel="stylesheet"[^>]*>/g) ?? [];
+          for (const l of links) html = html.replace(l, '');
+          // (at the very end of the page: the start-up check's script above it isn't held up by them either)
+          return html.replace('</body>', `${links.join('\n')}\n</body>`);
+        },
+      },
+    },
   ],
   define: { __APP_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version) },
   clearScreen: false,

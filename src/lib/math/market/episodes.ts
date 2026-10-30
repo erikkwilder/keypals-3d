@@ -11,7 +11,7 @@ import type { GlimmerId } from '../../adventure/glimmers';
 import type { Board, Dot, Hue, Step, Tag } from '../learn';
 import type { EpQ } from '../fracEpisodes';
 import type { SetId } from '../episodes';
-import { COIN_D, type CoinKind } from '../../three/coinShapes';
+import { COIN_D, type CoinKind } from './coins';
 import { moneyText } from '../skills/decimals';
 
 export type MarketLesson = {

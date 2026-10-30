@@ -19,6 +19,10 @@ import type { AssignmentData } from '../teach/assignments';
 
 /** the subject My path shows when it opens again (after a Learn episode, from Home) */
 export const pathView = { subject: '' };
+/** the path item started last and the activity it opened ("lesson:<id>", "learn:<id>"), so that
+ *  activity's end card can offer the next one (path/next.ts) */
+export const pathRun: { cur: { ref: string; subject: string; unit: string; activity: string } | null } = { cur: null };
+const ran = (u: Unit, it: PathItem, activity: string) => { pathRun.cur = { ref: it.ref, subject: u.subject, unit: u.id, activity }; };
 
 export function startItem(p: Profile, u: Unit, it: PathItem) {
   const [k, a, b] = it.ref.split(':');
@@ -26,16 +30,18 @@ export function startItem(p: Profile, u: Unit, it: PathItem) {
   if (k === 'ep') {
     const t = SUBJECT.math.ways.learn.things.find(x => x.id === a);
     // the market and the clockmaker's episodes open over their area's map, like from the Learn tab
-    if (t && t.kind !== 'episode') { openThing(SUBJECT.math, 'learn', t); return; }
+    if (t && t.kind !== 'episode') { ran(u, it, `learn:${a}`); openThing(SUBJECT.math, 'learn', t); return; }
     sfx.click();
     game.setHome('math');
     game.learnCheck = false;
+    ran(u, it, `learn:${a}`);
     game.openLearn(a);
     return;
   }
   if (k === 'trip' || (k === 'check' && u.checkTrip)) {
     const id = k === 'trip' ? a : u.checkTrip!;
     sfx.click();
+    ran(u, it, `lesson:${id}`);
     if (TYPING_LESSON[id] && (u.subject === 'typing' || (!MATH_LESSON[id] && !SKILL_LESSON[id]))) { game.setHome('typing'); game.startLesson(id); return; }
     game.setHome('math');
     if (MATH_LESSON[id]) game.startMath(id);
@@ -46,14 +52,15 @@ export function startItem(p: Profile, u: Unit, it: PathItem) {
     // a teacher's unit: a trip on its skills
     const skills = u.items.filter(x => x.ref.startsWith('skill:')).map(x => x.ref.slice(6));
     const l = classLesson(skills, u.name, p);
-    if (l) { sfx.click(); game.setHome('math'); game.startSkill(l.id); }
+    if (l) { sfx.click(); game.setHome('math'); ran(u, it, `lesson:${l.id}`); game.startSkill(l.id); }
     return;
   }
   if (k === 'skill') {
     const l = classLesson([a], it.name, p);
-    if (l) { sfx.click(); game.setHome('math'); game.startSkill(l.id); }
+    if (l) { sfx.click(); game.setHome('math'); ran(u, it, `lesson:${l.id}`); game.startSkill(l.id); }
     return;
   }
+  pathRun.cur = null;
   if (k === 'game') {
     const t = SUBJECT.math.ways.games.things.find(x => x.id === a);
     if (t) openThing(SUBJECT.math, 'games', t);

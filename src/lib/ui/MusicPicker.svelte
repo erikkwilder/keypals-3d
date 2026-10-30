@@ -94,7 +94,8 @@
 </div>
 
 <style>
-  .wrap { position: fixed; inset: 0; z-index: 85; display: grid; place-items: center; padding: 16px; background: rgba(60, 40, 110, .32); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  /* (over the Pause card too: it opens the picker) */
+  .wrap { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; background: rgba(60, 40, 110, .32); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
   .sheet { width: min(880px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 18px 20px 16px; animation: pop-in .3s cubic-bezier(.3, .8, .4, 1.3); }
   .head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
   .tt { flex: 1; min-width: 0; }

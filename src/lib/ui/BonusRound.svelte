@@ -21,6 +21,7 @@
   import Confetti from './Confetti.svelte';
   import Stars from './Stars.svelte';
   import Critter from './Critter.svelte';
+  import RewardTap from './RewardTap.svelte';
 
   type Props = { island: IslandId; onclose: () => void };
   let { island, onclose }: Props = $props();
@@ -169,9 +170,11 @@
         <h3>{stars === 3 ? 'All five! A full chest!' : stars ? 'The chest opens!' : 'A few coins for you!'}</h3>
         <Stars n={stars} size={46} animate />
         {#if out}
-          <p class="won">+{out.settled.shells + out.chest.shells} shells{out.chest.egg ? ' and an egg!' : ''}</p>
+          <!-- the shells and a ready egg open when tapped (the shells card, the hatch) -->
+          {@const o = out}
+          <RewardTap kind="shells" n={o.settled.shells + o.chest.shells}>{#snippet children(tap)}<button class="won tap" onclick={tap} title="Your shells"><img src="{base}game/icon-shell.webp" alt="" />+{o.settled.shells + o.chest.shells} shells{o.chest.egg ? ' and an egg!' : ''}</button>{/snippet}</RewardTap>
           {#if out.chest.egg}<img class="egg" src="{base}game/egg-{out.chest.egg.rarity}.webp" alt="" />{/if}
-          {#if out.settled.eggsReady.length}<p class="small">An egg is ready to hatch!</p>{/if}
+          {#if out.settled.eggsReady.length}<RewardTap kind="egg">{#snippet children(tap)}<button class="small tap hatchit" onclick={tap}><img src="{base}game/egg-{o.settled.eggsReady[0]}.webp" alt="" />An egg is ready: hatch it!</button>{/snippet}</RewardTap>{/if}
         {:else}<p class="won">You played this one today already.</p>{/if}
         <button class="btn btn-primary big" onclick={onclose}>Back to the map</button>
       </div>
@@ -204,6 +207,11 @@
   @keyframes pop { from { transform: scale(.9); opacity: 0; } }
   .won { margin: 0; font: 600 22px var(--font-ui); color: #a86a00; }
   .small { margin: 0; font: 700 14px var(--font-body); color: var(--ink2); }
+  /* the ones that open when tapped: buttons with a raised edge that lift on hover */
+  .tap { display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer; border-radius: 999px; padding: 4px 14px 4px 6px; background: #fff6d8; box-shadow: inset 0 -2px 0 rgba(168, 106, 0, .25); transition: transform .12s; }
+  .tap:hover { transform: translateY(-2px); }
+  .tap img { width: 28px; height: 28px; object-fit: contain; }
+  .hatchit { background: #e2f7ee; color: #0f5a3c; }
   .egg { width: 60px; height: 72px; object-fit: contain; animation: burstin .6s .3s both cubic-bezier(.3, .8, .4, 1.6); }
   .big { font-size: 22px; padding: 12px 24px; }
 

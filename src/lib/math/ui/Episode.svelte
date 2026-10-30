@@ -32,6 +32,9 @@
   import SpeechDock from './SpeechDock.svelte';
   import Confetti from '../../ui/Confetti.svelte';
   import Icon from '../../ui/Icon.svelte';
+  import RewardTap from '../../ui/RewardTap.svelte';
+  import PathNextButton from '../../path/PathNextButton.svelte';
+  import { pathNext, startPathNext, type PathNext } from '../../path/next';
 
   type Props = { id: string; embedded?: boolean; check?: boolean; onclose: () => void; onpractice?: () => void; onwatch?: () => void };
   let { id, embedded = false, check = false, onclose, onpractice, onwatch }: Props = $props();
@@ -287,6 +290,8 @@
     let res = { first: false, shells: 0, eggs: 0 };
     game.update(pp => { const x = finishLesson(pp, id); res = { first: x.first, shells: x.shells, eggs: x.eggsReady.length }; });
     result = res;
+    // started from My path (or the Today card): the path's next thing, straight from here
+    if (!embedded) pn = pathNext(game.profile, `learn:${id}`);
     // the table clears (the card shows the picture), and the friends celebrate together
     s.show(CLEAR); shown = null;
     s.gather(true); s.shot('pals'); s.dance(danceOf(game.profile!)); s.party(); s.palDo('happy');
@@ -309,6 +314,8 @@
     void speak('ep.checked');
   }
   function leave() { sfx.click(); onclose(); }
+  let pn = $state<PathNext | null>(null);
+  function home() { sfx.click(); game.learnId = null; game.learnOverlay = null; game.go('hub'); }
   // the one Pause button (its card: Keep going, Back to where this was opened, Home); Esc opens it too
   const backLabel = embedded ? 'my trip' : game.screen === 'learn' ? (game.from ? placeName(game.from) : 'Home') : placeName(game.here());
   function pauseHere() { if (!game.pause) game.openPause(() => {}, { name: backLabel, go: leave }); }
@@ -318,6 +325,7 @@
     if (phase === 'intro') { ++run; playStep(0); }
     else if (phase === 'step' && stepDone) nextStep();
     else if (phase === 'teach' && tsub === 'fixed') { sfx.click(); startTurn(0); }
+    else if (phase === 'card' && pn && game.profile) { sfx.click(); startPathNext(game.profile, pn); }
     else if (phase === 'card' || phase === 'checked') leave();
   }
   function onKey(e: KeyboardEvent) {
@@ -513,15 +521,22 @@
       </div>
       {#if phase === 'card'}
         <div class="prizes">
-          {#if result?.shells}<span class="prize"><img src="{base}game/icon-shell.webp" alt="" /><b>+{result.shells}</b><small>shells</small></span>{/if}
+          <!-- the shells and a ready egg open when tapped (the shells card, the hatch) -->
+          {#if result?.shells}{@const n = result.shells}<RewardTap kind="shells" {n}>{#snippet children(tap)}<button class="prize tap" onclick={tap} title="Your shells"><img src="{base}game/icon-shell.webp" alt="" /><b>+{n}</b><small>shells</small></button>{/snippet}</RewardTap>{/if}
           <span class="prize"><Icon name="bulb" size={34} /><b>Trick</b><small>for battles</small></span>
-          <span class="prize"><img src="{base}game/egg-common.webp" alt="" /><b>{result?.eggs ? 'Ready!' : 'Grew'}</b><small>eggs</small></span>
+          {#if result?.eggs}<RewardTap kind="egg">{#snippet children(tap)}<button class="prize tap" onclick={tap} title="Hatch it!"><img class="wob" src="{base}game/egg-common.webp" alt="" /><b>Ready!</b><small>hatch it</small></button>{/snippet}</RewardTap>
+          {:else}<span class="prize"><img src="{base}game/egg-common.webp" alt="" /><b>Grew</b><small>eggs</small></span>{/if}
           {#if result?.first}<span class="prize"><Icon name="clock" size={34} /><b>Tomorrow</b><small>quick check</small></span>{/if}
         </div>
       {/if}
       <div class="cbtns">
         {#if embedded}
           <button class="btn btn-primary btn-big" onclick={leave}>Back to my trip <span class="kbd">enter</span></button>
+        {:else if pn && phase === 'card'}
+          <!-- started from My path: its next thing is the main button; back where it came from, or Home -->
+          <PathNextButton next={pn} hotkey={narrow ? undefined : 'enter'} compact={narrow} />
+          <button class="btn btn-big" onclick={leave}>Back to {backLabel}</button>
+          {#if backLabel !== 'Home'}<button class="btn btn-big" onclick={home}>Home</button>{/if}
         {:else}
           {#if onpractice && phase === 'card'}<button class="btn btn-big" onclick={() => { sfx.click(); onpractice?.(); }}>Practise it now</button>{/if}
           <button class="btn btn-primary btn-big" onclick={leave}>More tricks <span class="kbd">enter</span></button>
@@ -644,6 +659,12 @@
   .prize b { font: 600 17px/1 var(--font-ui); color: var(--ink); }
   .prize small { font: 700 11px var(--font-body); color: var(--muted); }
   .cbtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .cbtns :global(.pn) { flex: 1 1 100%; justify-content: center; }
+  /* the ones that open when tapped: a button's raised edge, and they lift on hover */
+  .prize.tap { border: 0; font: inherit; cursor: pointer; box-shadow: 0 0 0 3px #ffd36b, 0 5px 0 #f0c24a, var(--shadow-sm); transition: transform .12s; }
+  .prize.tap:hover { transform: translateY(-3px); }
+  .prize .wob { animation: ep-wob .7s ease-in-out infinite; }
+  @keyframes ep-wob { 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
   .rewatch { position: absolute; right: 18px; bottom: 360px; z-index: 4; display: inline-flex; gap: 6px; align-items: center; }
 
   /* phones: smaller words, the card over the bottom half */

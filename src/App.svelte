@@ -1,65 +1,94 @@
 <script lang="ts">
-  import MusicPicker from './lib/ui/MusicPicker.svelte';
-  import GlobalMenu from './lib/ui/GlobalMenu.svelte';
   import { onMount } from 'svelte';
   import { game } from './lib/state/game.svelte';
   import { configureSound, startMusic, unlockAudio, setMusicStyle, setMusicStation, setPlaceStation } from './lib/audio/sound';
   import { lastWorld, stationOf } from './lib/adventure/worlds';
   import { NODE, ISLAND } from './lib/adventure/state';
   import SvgDefs from './lib/ui/SvgDefs.svelte';
+  // the title is the only screen that comes with the first page; every other screen (its 3D scene, its
+  // games, its data) loads when it first opens (ui/lazy.svelte.ts), so the first download is small
   import Title from './lib/screens/Title.svelte';
-  import Players from './lib/screens/Players.svelte';
-  import NewPlayer from './lib/screens/NewPlayer.svelte';
-  import MapScreen from './lib/screens/MapScreen.svelte';
-  import Run from './lib/screens/Run.svelte';
-  import Results from './lib/screens/Results.svelte';
-  import Stickers from './lib/screens/Stickers.svelte';
-  import Closet from './lib/screens/Closet.svelte';
-  import Shop from './lib/screens/Shop.svelte';
-  import { setDressSource } from './lib/three/dress';
-  import { dressOf } from './lib/adventure/wardrobe';
-  import SettingsScreen from './lib/screens/Settings.svelte';
-  import Grownups from './lib/screens/Grownups.svelte';
-  import MathMap from './lib/screens/MathMap.svelte';
-  import Hub from './lib/screens/Hub.svelte';
-  import Playground from './lib/screens/Playground.svelte';
-  import Adventure from './lib/screens/Adventure.svelte';
-  import Battle from './lib/screens/Battle.svelte';
-  import PizzaRush from './lib/screens/PizzaRush.svelte';
-  import NumberBuilder from './lib/screens/NumberBuilder.svelte';
-  import MarketDash from './lib/screens/MarketDash.svelte';
-  import ClockRush from './lib/screens/ClockRush.svelte';
-  import MeasureBench from './lib/screens/MeasureBench.svelte';
-  import ShapeShifter from './lib/screens/ShapeShifter.svelte';
-  import ShapeBuilder from './lib/screens/ShapeBuilder.svelte';
-  import SmoothieStand from './lib/screens/SmoothieStand.svelte';
-  import TreasureGrid from './lib/screens/TreasureGrid.svelte';
-  import SpinnerShowdown from './lib/screens/SpinnerShowdown.svelte';
-  import BalanceBeam from './lib/screens/BalanceBeam.svelte';
-  import Glimmers from './lib/screens/Glimmers.svelte';
-  import Eggs from './lib/screens/Eggs.svelte';
-  import Learn from './lib/screens/Learn.svelte';
-  import Duel from './lib/screens/Duel.svelte';
-  import Rivals from './lib/screens/Rivals.svelte';
-  import GlimmerDrop from './lib/screens/GlimmerDrop.svelte';
-  import SkyIsland from './lib/screens/SkyIsland.svelte'; // My Sky Island
-  import MathRun from './lib/screens/MathRun.svelte';
-  import MathResults from './lib/screens/MathResults.svelte';
-  import SkillRun from './lib/screens/SkillRun.svelte';
-  import SkillResults from './lib/screens/SkillResults.svelte';
-  import SkillsReport from './lib/screens/SkillsReport.svelte';
-  import FactGarden from './lib/screens/FactGarden.svelte';
-  import Arcade from './lib/screens/Arcade.svelte';
-  import ArcadePlay from './lib/screens/ArcadePlay.svelte';
-  import Ideas from './lib/screens/Ideas.svelte';
-  import MyStuff from './lib/screens/MyStuff.svelte';
-  import About from './lib/screens/About.svelte';
-  // the 100-Glimmer ladder: its book, and the special eggs' moments (looked for on the calm screens)
-  import LadderMoment from './lib/ui/LadderMoment.svelte';
+  import Loading from './lib/ui/Loading.svelte';
+  import { lazy, preloadWhenIdle, type Lazy } from './lib/ui/lazy.svelte';
+  // the 100-Glimmer ladder's special eggs' moments (looked for on the calm screens)
   import { CALM_SCREENS, lookForEggs } from './lib/adventure/ladderMoment.svelte';
   import { installProblemReports } from './lib/state/reports';
   import { countScreen, countPlayer } from './lib/state/counting';
   import { untrack } from 'svelte';
+  // My path, and the doors grown-ups and teachers can close (the free-time places' daily time, the path first)
+  import { doorFor } from './lib/path/rules';
+  import { freeClock, playerRules, watchFree } from './lib/path/player.svelte';
+  import { loadClasses, startClasses } from './lib/teach/student.svelte';
+  import { cloud, startCloud } from './lib/state/cloud.svelte';
+  import FancyAntIntro, { introDue } from './lib/ui/FancyAntIntro.svelte';
+
+  const S = {
+    players: lazy(() => import('./lib/screens/Players.svelte')),
+    newPlayer: lazy(() => import('./lib/screens/NewPlayer.svelte')),
+    hub: lazy(() => import('./lib/screens/Hub.svelte')),
+    mapScreen: lazy(() => import('./lib/screens/MapScreen.svelte')),
+    mathMap: lazy(() => import('./lib/screens/MathMap.svelte')),
+    run: lazy(() => import('./lib/screens/Run.svelte')),
+    results: lazy(() => import('./lib/screens/Results.svelte')),
+    stickers: lazy(() => import('./lib/screens/Stickers.svelte')),
+    closet: lazy(() => import('./lib/screens/Closet.svelte')),
+    shop: lazy(() => import('./lib/screens/Shop.svelte')),
+    subject: lazy(() => import('./lib/screens/Subject.svelte')),
+    topic: lazy(() => import('./lib/screens/Topic.svelte')),
+    way: lazy(() => import('./lib/screens/WayPage.svelte')),
+    progress: lazy(() => import('./lib/screens/Progress.svelte')),
+    grownups: lazy(() => import('./lib/screens/Grownups.svelte')),
+    mathRun: lazy(() => import('./lib/screens/MathRun.svelte')),
+    mathResults: lazy(() => import('./lib/screens/MathResults.svelte')),
+    skillRun: lazy(() => import('./lib/screens/SkillRun.svelte')),
+    skillResults: lazy(() => import('./lib/screens/SkillResults.svelte')),
+    skills: lazy(() => import('./lib/screens/SkillsReport.svelte')),
+    garden: lazy(() => import('./lib/screens/FactGarden.svelte')),
+    playground: lazy(() => import('./lib/screens/Playground.svelte')),
+    adventure: lazy(() => import('./lib/screens/Adventure.svelte')),
+    battle: lazy(() => import('./lib/screens/Battle.svelte')),
+    glimmers: lazy(() => import('./lib/screens/Glimmers.svelte')),
+    glimmerBook: lazy(() => import('./lib/screens/GlimmerBook.svelte')), // Glimmers' All 100 tab
+    eggs: lazy(() => import('./lib/screens/Eggs.svelte')),
+    learn: lazy(() => import('./lib/screens/Learn.svelte')),
+    duel: lazy(() => import('./lib/screens/Duel.svelte')),
+    rivals: lazy(() => import('./lib/screens/Rivals.svelte')),
+    pizza: lazy(() => import('./lib/screens/PizzaRush.svelte')),
+    builder: lazy(() => import('./lib/screens/NumberBuilder.svelte')),
+    market: lazy(() => import('./lib/screens/MarketDash.svelte')),
+    clockrush: lazy(() => import('./lib/screens/ClockRush.svelte')),
+    bench: lazy(() => import('./lib/screens/MeasureBench.svelte')),
+    shifter: lazy(() => import('./lib/screens/ShapeShifter.svelte')),
+    shapebuilder: lazy(() => import('./lib/screens/ShapeBuilder.svelte')),
+    smoothie: lazy(() => import('./lib/screens/SmoothieStand.svelte')),
+    treasure: lazy(() => import('./lib/screens/TreasureGrid.svelte')),
+    showdown: lazy(() => import('./lib/screens/SpinnerShowdown.svelte')),
+    balance: lazy(() => import('./lib/screens/BalanceBeam.svelte')),
+    drop: lazy(() => import('./lib/screens/GlimmerDrop.svelte')),
+    island: lazy(() => import('./lib/screens/SkyIsland.svelte')), // My Sky Island
+    arcade: lazy(() => import('./lib/screens/Arcade.svelte')),
+    arcadePlay: lazy(() => import('./lib/screens/ArcadePlay.svelte')),
+    ideas: lazy(() => import('./lib/screens/Ideas.svelte')),
+    mystuff: lazy(() => import('./lib/screens/MyStuff.svelte')),
+    about: lazy(() => import('./lib/screens/About.svelte')),
+    teach: lazy(() => import('./lib/screens/Teach.svelte')),
+    classLogin: lazy(() => import('./lib/screens/ClassLogin.svelte')),
+    boards: lazy(() => import('./lib/screens/Boards.svelte')),
+    path: lazy(() => import('./lib/screens/MyPath.svelte')),
+    door: lazy(() => import('./lib/path/Door.svelte')),
+  };
+  // the layers over the screens
+  const O = {
+    settings: lazy(() => import('./lib/screens/Settings.svelte')),
+    chart: lazy(() => import('./lib/ui/LessonChart.svelte')),
+    sheet: lazy(() => import('./lib/ui/QuickSettings.svelte')),
+    music: lazy(() => import('./lib/ui/MusicPicker.svelte')),
+    menu: lazy(() => import('./lib/ui/GlobalMenu.svelte')),
+    pause: lazy(() => import('./lib/ui/PauseCard.svelte')),
+    ladder: lazy(() => import('./lib/ui/LadderMoment.svelte')),
+    fun: lazy(() => import('./lib/fun/FunLayer.svelte')),
+  };
+
   $effect(() => { const s = game.screen, id = game.profile?.id; if (id && CALM_SCREENS.has(s)) untrack(() => setTimeout(() => { if (game.screen === s) lookForEggs(); }, 700)); });
   // counting visits (no identifiers: counts.ts): every screen opened, and each player's first visit today
   $effect(() => { const s = game.screen; untrack(() => countScreen(s)); });
@@ -67,42 +96,17 @@
     const p = game.profile, s = game.screen;
     if (p && s !== 'title' && s !== 'players' && s !== 'newPlayer') untrack(() => countPlayer(p));
   });
-  // My path, and the doors grown-ups and teachers can close (the free-time places' daily time, the path first)
-  import MyPath from './lib/screens/MyPath.svelte';
-  // the one way around (state/where.ts): a subject's page, a topic, a way of a topic, My stuff's pages, and
-  // the one Pause card every activity opens
-  import Subject from './lib/screens/Subject.svelte';
-  import Topic from './lib/screens/Topic.svelte';
-  import WayPage from './lib/screens/WayPage.svelte';
-  import Progress from './lib/screens/Progress.svelte';
-  import PauseCard from './lib/ui/PauseCard.svelte';
-  import GlimmerBook from './lib/screens/GlimmerBook.svelte'; // Glimmers' All 100 tab
-  import Door from './lib/path/Door.svelte';
-  import { doorFor } from './lib/path/rules';
-  import { freeClock, playerRules, watchFree } from './lib/path/player.svelte';
-  import { loadClasses } from './lib/teach/student.svelte';
-  import { cloud } from './lib/state/cloud.svelte';
   // a class player's class rules (and class work) as soon as the server answers, whatever screen is open
   $effect(() => { const on = cloud.online, id = game.profile?.id; if (on && id) untrack(() => void loadClasses(game.profile)); });
   // (a Learn episode opened over a subject page, as the market's and the clockmaker's are, is Learn)
   const door = $derived(game.profile ? doorFor((game.screen === 'map' || game.screen === 'way') && game.learnOverlay ? 'learn' : game.screen, game.closetTab, game.profile, playerRules(game.profile), Date.now(), freeClock.running) : null);
   // minutes count while a free-time place is open (not while its door is shut)
   $effect(() => { const s = game.screen, t = game.closetTab, id = game.profile?.id ?? null, shut = !!door; untrack(() => watchFree(shut ? 'hub' : s, t, id)); });
-  import Teach from './lib/screens/Teach.svelte';
-  import ClassLogin from './lib/screens/ClassLogin.svelte';
-  import Boards from './lib/screens/Boards.svelte';
-  import { startClasses } from './lib/teach/student.svelte';
-  import { stage } from './lib/three/stage';
-  import QuickSettings from './lib/ui/QuickSettings.svelte';
-  import FunLayer from './lib/fun/FunLayer.svelte';
-  import LessonChart from './lib/ui/LessonChart.svelte';
-  import FancyAntIntro, { introDue } from './lib/ui/FancyAntIntro.svelte';
   // the FancyAnt film plays once a visit when the game opens (not on dev shortcuts like #run=)
   let intro = $state(!location.hash && introDue());
-  import { devBoot } from './lib/state/dev';
-  import { startCloud } from './lib/state/cloud.svelte';
   // every 3D buddy dresses from the player's save: its hat, everything else it has on, and its nudges
-  setDressSource(b => (game.profile ? dressOf(game.profile, b) : null));
+  // (the 3D code comes after the first page: it's set before any screen that dresses a buddy can load)
+  void Promise.all([import('./lib/three/dress'), import('./lib/adventure/wardrobe')]).then(([d, w]) => d.setDressSource(b => (game.profile ? w.dressOf(game.profile, b) : null)));
 
   $effect(() => {
     const s = game.settings;
@@ -134,12 +138,37 @@
     if (scr !== 'showdown') setPlaceStation(scr === 'adventure' ? stationOf(lastWorld.id) : node ? stationOf(ISLAND[node.island]?.world) : null);
   });
 
+  // the next screens a player is likely to open come down while the title is up (one at a time, when the
+  // computer is quiet); from Home, the pages it leads to
+  preloadWhenIdle([S.players, S.newPlayer, S.hub, O.pause]);
+  let homeSeen = false;
+  $effect(() => { if (game.screen === 'hub' && !homeSeen) { homeSeen = true; untrack(() => preloadWhenIdle([S.subject, S.topic, S.way, S.path, S.mystuff, O.menu, O.music, O.ladder, O.fun], 2500)); } });
+
+  // the loading screen's picture (index.html) stays under the title until the 3D island is on screen, or
+  // until another screen opens; then it fades away
+  function bootGone() {
+    const b = document.getElementById('kp-boot');
+    if (!b || b.classList.contains('gone')) return;
+    b.classList.add('gone');
+    setTimeout(() => b.remove(), 700);
+  }
+  $effect(() => { if (game.screen !== 'title') untrack(bootGone); });
+
   let canvas: HTMLCanvasElement | undefined = $state();
   onMount(() => {
-    if (canvas) stage.mount(canvas, game.settings.graphics === 'low');
-    stage.onAutoSmooth = () => game.say('Switched to smooth mode so the game runs better on this computer. You can change it in Settings.', 6000);
+    if (canvas) {
+      const c = canvas;
+      const mo = new MutationObserver(() => { if (c.style.visibility === 'visible') { mo.disconnect(); bootGone(); } });
+      mo.observe(c, { attributes: true, attributeFilter: ['style'] });
+    }
+    // the 3D stage (three.js) comes after the first page too: the title's words and button don't need it
+    void import('./lib/three/stage').then(({ stage }) => {
+      if (canvas) stage.mount(canvas, game.settings.graphics === 'low');
+      stage.onAutoSmooth = () => game.say('Switched to smooth mode so the game runs better on this computer. You can change it in Settings.', 6000);
+    });
     installProblemReports();
-    devBoot();
+    // the dev shortcuts (#run=..., #tester) only when asked for
+    if (import.meta.env.DEV || location.hash) void import('./lib/state/dev').then(m => m.devBoot());
     startCloud();
     startClasses();
     const unlock = () => unlockAudio();
@@ -147,73 +176,80 @@
   });
 </script>
 
+{#snippet screen(l: Lazy, props: Record<string, unknown> = {})}
+  {#if l.c}{@const C = l.c}<C {...props} />{:else}<Loading failed={l.failed} retry={l.retry} />{/if}
+{/snippet}
+{#snippet layer(l: Lazy, props: Record<string, unknown> = {})}
+  {#if l.c}{@const C = l.c}<C {...props} />{/if}
+{/snippet}
+
 <SvgDefs />
 <canvas class="stage3d" bind:this={canvas} aria-hidden="true"></canvas>
 <main class="app">
-  {#if door}<Door {door} />
+  {#if door}{@render screen(S.door, { door })}
   {:else if game.screen === 'title'}<Title />
-  {:else if game.screen === 'players'}<Players />
-  {:else if game.screen === 'newPlayer'}<NewPlayer />
-  {:else if game.screen === 'hub'}<Hub />
-  {:else if game.screen === 'map'}{#key `${game.subject}:${game.topic}`}{#if game.subject === 'typing'}<MapScreen />{:else}<MathMap />{/if}{/key}
-  {:else if game.screen === 'run'}{#key game.runKey}<Run />{/key}
-  {:else if game.screen === 'results'}<Results />
-  {:else if game.screen === 'stickers'}<Stickers />
-  {:else if game.screen === 'closet'}{#key 'wardrobe'}<Closet mode="wardrobe" />{/key}
-  {:else if game.screen === 'keypals'}{#key 'keypals'}<Closet mode="keypals" />{/key}
-  {:else if game.screen === 'dances'}{#key 'dances'}<Closet mode="dances" />{/key}
-  {:else if game.screen === 'shop'}<Shop />
-  {:else if game.screen === 'subject'}{#key game.subject}<Subject />{/key}
-  {:else if game.screen === 'topic'}{#key `${game.subject}:${game.topic}`}<Topic />{/key}
-  {:else if game.screen === 'way'}{#key `${game.subject}:${game.topic}:${game.wayId}`}<WayPage />{/key}
-  {:else if game.screen === 'progress'}<Progress />
-  {:else if game.screen === 'grownups'}<Grownups />
-  {:else if game.screen === 'mathRun'}{#key game.runKey}<MathRun />{/key}
-  {:else if game.screen === 'mathResults'}<MathResults />
-  {:else if game.screen === 'skillRun'}{#key game.runKey}<SkillRun />{/key}
-  {:else if game.screen === 'skillResults'}<SkillResults />
-  {:else if game.screen === 'skills'}<SkillsReport />
-  {:else if game.screen === 'garden'}<FactGarden />
-  {:else if game.screen === 'playground'}<Playground />
-  {:else if game.screen === 'adventure'}<Adventure />
-  {:else if game.screen === 'battle'}{#key game.battleKey}<Battle />{/key}
-  {:else if game.screen === 'glimmers'}{#if game.glimmerTab === 'all'}<GlimmerBook />{:else}<Glimmers />{/if}
-  {:else if game.screen === 'eggs'}<Eggs />
-  {:else if game.screen === 'learn'}<Learn />
-  {:else if game.screen === 'duel'}{#key game.duelKey}<Duel />{/key}
-  {:else if game.screen === 'rivals'}<Rivals />
-  {:else if game.screen === 'pizza'}<PizzaRush />
-  {:else if game.screen === 'builder'}<NumberBuilder />
-  {:else if game.screen === 'market'}<MarketDash />
-  {:else if game.screen === 'clockrush'}<ClockRush />
-  {:else if game.screen === 'bench'}<MeasureBench />
-  {:else if game.screen === 'shifter'}<ShapeShifter />
-  {:else if game.screen === 'shapebuilder'}<ShapeBuilder />
-  {:else if game.screen === 'smoothie'}<SmoothieStand />
-  {:else if game.screen === 'treasure'}<TreasureGrid />
-  {:else if game.screen === 'showdown'}<SpinnerShowdown />
-  {:else if game.screen === 'balance'}<BalanceBeam />
-  {:else if game.screen === 'drop'}<GlimmerDrop />
-  {:else if game.screen === 'island'}<SkyIsland />
-  {:else if game.screen === 'arcade'}<Arcade />
-  {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}<ArcadePlay />{/key}
-  {:else if game.screen === 'ideas'}<Ideas />
-  {:else if game.screen === 'mystuff'}<MyStuff />
-  {:else if game.screen === 'about'}<About />
-  {:else if game.screen === 'teach'}<Teach />
-  {:else if game.screen === 'classLogin'}<ClassLogin />
-  {:else if game.screen === 'boards'}<Boards />
-  {:else if game.screen === 'path'}<MyPath />
+  {:else if game.screen === 'players'}{@render screen(S.players)}
+  {:else if game.screen === 'newPlayer'}{@render screen(S.newPlayer)}
+  {:else if game.screen === 'hub'}{@render screen(S.hub)}
+  {:else if game.screen === 'map'}{#key `${game.subject}:${game.topic}`}{#if game.subject === 'typing'}{@render screen(S.mapScreen)}{:else}{@render screen(S.mathMap)}{/if}{/key}
+  {:else if game.screen === 'run'}{#key game.runKey}{@render screen(S.run)}{/key}
+  {:else if game.screen === 'results'}{@render screen(S.results)}
+  {:else if game.screen === 'stickers'}{@render screen(S.stickers)}
+  {:else if game.screen === 'closet'}{#key 'wardrobe'}{@render screen(S.closet, { mode: 'wardrobe' })}{/key}
+  {:else if game.screen === 'keypals'}{#key 'keypals'}{@render screen(S.closet, { mode: 'keypals' })}{/key}
+  {:else if game.screen === 'dances'}{#key 'dances'}{@render screen(S.closet, { mode: 'dances' })}{/key}
+  {:else if game.screen === 'shop'}{@render screen(S.shop)}
+  {:else if game.screen === 'subject'}{#key game.subject}{@render screen(S.subject)}{/key}
+  {:else if game.screen === 'topic'}{#key `${game.subject}:${game.topic}`}{@render screen(S.topic)}{/key}
+  {:else if game.screen === 'way'}{#key `${game.subject}:${game.topic}:${game.wayId}`}{@render screen(S.way)}{/key}
+  {:else if game.screen === 'progress'}{@render screen(S.progress)}
+  {:else if game.screen === 'grownups'}{@render screen(S.grownups)}
+  {:else if game.screen === 'mathRun'}{#key game.runKey}{@render screen(S.mathRun)}{/key}
+  {:else if game.screen === 'mathResults'}{@render screen(S.mathResults)}
+  {:else if game.screen === 'skillRun'}{#key game.runKey}{@render screen(S.skillRun)}{/key}
+  {:else if game.screen === 'skillResults'}{@render screen(S.skillResults)}
+  {:else if game.screen === 'skills'}{@render screen(S.skills)}
+  {:else if game.screen === 'garden'}{@render screen(S.garden)}
+  {:else if game.screen === 'playground'}{@render screen(S.playground)}
+  {:else if game.screen === 'adventure'}{@render screen(S.adventure)}
+  {:else if game.screen === 'battle'}{#key game.battleKey}{@render screen(S.battle)}{/key}
+  {:else if game.screen === 'glimmers'}{#if game.glimmerTab === 'all'}{@render screen(S.glimmerBook)}{:else}{@render screen(S.glimmers)}{/if}
+  {:else if game.screen === 'eggs'}{@render screen(S.eggs)}
+  {:else if game.screen === 'learn'}{@render screen(S.learn)}
+  {:else if game.screen === 'duel'}{#key game.duelKey}{@render screen(S.duel)}{/key}
+  {:else if game.screen === 'rivals'}{@render screen(S.rivals)}
+  {:else if game.screen === 'pizza'}{@render screen(S.pizza)}
+  {:else if game.screen === 'builder'}{@render screen(S.builder)}
+  {:else if game.screen === 'market'}{@render screen(S.market)}
+  {:else if game.screen === 'clockrush'}{@render screen(S.clockrush)}
+  {:else if game.screen === 'bench'}{@render screen(S.bench)}
+  {:else if game.screen === 'shifter'}{@render screen(S.shifter)}
+  {:else if game.screen === 'shapebuilder'}{@render screen(S.shapebuilder)}
+  {:else if game.screen === 'smoothie'}{@render screen(S.smoothie)}
+  {:else if game.screen === 'treasure'}{@render screen(S.treasure)}
+  {:else if game.screen === 'showdown'}{@render screen(S.showdown)}
+  {:else if game.screen === 'balance'}{@render screen(S.balance)}
+  {:else if game.screen === 'drop'}{@render screen(S.drop)}
+  {:else if game.screen === 'island'}{@render screen(S.island)}
+  {:else if game.screen === 'arcade'}{@render screen(S.arcade)}
+  {:else if game.screen === 'arcadePlay'}{#key game.arcadeKey}{@render screen(S.arcadePlay)}{/key}
+  {:else if game.screen === 'ideas'}{@render screen(S.ideas)}
+  {:else if game.screen === 'mystuff'}{@render screen(S.mystuff)}
+  {:else if game.screen === 'about'}{@render screen(S.about)}
+  {:else if game.screen === 'teach'}{@render screen(S.teach)}
+  {:else if game.screen === 'classLogin'}{@render screen(S.classLogin)}
+  {:else if game.screen === 'boards'}{@render screen(S.boards)}
+  {:else if game.screen === 'path'}{@render screen(S.path)}
   {/if}
-  <LadderMoment />
+  {#if game.profile}{@render layer(O.ladder)}{/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
-  {#if game.settingsOpen && game.profile}<div class="settings-layer"><SettingsScreen overlay /></div>{/if}
-  {#if game.chartLesson && game.profile}{#key game.chartLesson}<LessonChart />{/key}{/if}
-  {#if game.sheet}<QuickSettings />{/if}
-  {#if game.musicOpen}<MusicPicker />{/if}
-  {#if game.menuOpen && game.profile}<GlobalMenu />{/if}
-  {#if game.pause}<PauseCard />{/if}
-  <FunLayer />
+  {#if game.settingsOpen && game.profile}<div class="settings-layer">{@render layer(O.settings, { overlay: true })}</div>{/if}
+  {#if game.chartLesson && game.profile}{#key game.chartLesson}{@render layer(O.chart)}{/key}{/if}
+  {#if game.sheet}{@render layer(O.sheet)}{/if}
+  {#if game.musicOpen}{@render layer(O.music)}{/if}
+  {#if game.menuOpen && game.profile}{@render layer(O.menu)}{/if}
+  {#if game.pause}{@render layer(O.pause)}{/if}
+  {#if game.profile}{@render layer(O.fun)}{/if}
   {#if game.toast}<div class="toast">{game.toast}</div>{/if}
 </main>
 

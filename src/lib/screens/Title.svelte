@@ -3,8 +3,8 @@
   import { game } from '../state/game.svelte';
   import { GAME_TAGLINE } from '../config';
   import { sfx, startMusic, unlockAudio } from '../audio/sound';
-  import { stage } from '../three/stage';
-  import { ShowScene } from '../three/showScene';
+  // the 3D island and buddies load after the title's words and button are up (they're the slow part)
+  import type { ShowScene } from '../three/showScene';
   import FancyAntButton from '../ui/FancyAntButton.svelte';
   import Logo from '../ui/Logo.svelte';
   import { STARTERS } from '../engine/team';
@@ -12,6 +12,7 @@
   let h = $state(800);
   let w = $state(1280);
   let scene: ShowScene | null = null;
+  let stage: typeof import('../three/stage').stage | null = null;
   let disposed = false;
   function go() {
     unlockAudio();
@@ -30,13 +31,14 @@
     // everyone stands on the island under the title, waving and dancing now and then
     // the six you can start with; the rest join as you play
     const cast = STARTERS;
-    ShowScene.create({ buddies: cast, view: { top: 0.5, bottom: 0.97, left: 0.08, right: 0.92 }, spot: 8, orbit: true })
-      .then(sc => { if (disposed) { sc.dispose(); return; } scene = sc; stage.use(sc); });
+    void Promise.all([import('../three/stage'), import('../three/showScene')])
+      .then(([st, sh]) => { stage = st.stage; return disposed ? null : sh.ShowScene.create({ buddies: cast, view: { top: 0.5, bottom: 0.97, left: 0.08, right: 0.92 }, spot: 8, orbit: true }); })
+      .then(sc => { if (!sc) return; if (disposed) { sc.dispose(); return; } scene = sc; stage?.use(sc); });
     window.addEventListener('keydown', onKey);
   });
   onDestroy(() => {
     disposed = true;
-    if (scene && stage.current() === scene) stage.use(null);
+    if (scene && stage?.current() === scene) stage?.use(null);
     window.removeEventListener('keydown', onKey);
   });
 </script>

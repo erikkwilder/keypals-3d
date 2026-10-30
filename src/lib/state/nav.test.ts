@@ -8,6 +8,8 @@ import { ACTIVITIES, START_SCREENS, levelOf, parentOf, type Place } from './wher
 import { homeTiles, menuMore, menuPlaces, openTopic, openSubjectPage, placeName, STUFF_GO, topicGroups, topicWays, trailOf } from '../nav';
 import { nextFor } from '../path/player.svelte';
 import { startItem } from '../path/launch';
+import { pathNext } from '../path/next';
+import { mathOf } from '../math/progress';
 import { classState } from '../teach/student.svelte';
 import type { Assignment } from '../teach/assignments';
 
@@ -25,7 +27,9 @@ function fresh(name = 'Nav') {
 
 // ---------- every screen the game routes (App.svelte), and which component draws it ----------
 const app = src('../../App.svelte');
-const ROUTES: [Screen, string][] = [...app.matchAll(/game\.screen === '(\w+)'\}(?:\{#key [^}]+\})?(?:\{#if [^}]+\})?<(\w+)/g)].map(m => [m[1] as Screen, m[2]]);
+// (screens load when first opened: App's list S names each one's file, `{@render screen(S.hub)}` draws it)
+const LAZY: Record<string, string> = Object.fromEntries([...app.matchAll(/(\w+): lazy\(\(\) => import\('\.\/lib\/\w+\/(\w+)\.svelte'\)\)/g)].map(m => [m[1], m[2]]));
+const ROUTES: [Screen, string][] = [...app.matchAll(/game\.screen === '(\w+)'\}(?:\{#key [^}]+\})?(?:\{#if [^}]+\})?(?:<(\w+)|\{@render screen\(S\.(\w+))/g)].map(m => [m[1] as Screen, m[2] ?? LAZY[m[3]]]);
 const ALL: Screen[] = [...new Set([...ROUTES.map(r => r[0]), 'hub' as Screen])];
 const FILE: Record<string, string> = { Hub: 'Hub', MapScreen: 'MapScreen', MathMap: 'MathMap', SettingsScreen: 'Settings' };
 /** a component's source, with the components it draws its page with (the Shop is the Closet, Learn is an episode) */
@@ -178,7 +182,8 @@ describe('the one frame', () => {
     expect(card).toMatch(/Keep going/);
     expect(card).toMatch(/Back to \{backName\}/);
     expect(card).toMatch(/>Home</);
-    expect(app).toMatch(/\{#if game\.pause\}<PauseCard \/>/);
+    expect(app).toMatch(/\{#if game\.pause\}\{@render layer\(O\.pause\)\}/);
+    expect(LAZY.pause).toBe('PauseCard');
   });
 });
 
@@ -190,6 +195,21 @@ describe('the people in the design, tap by tap', () => {
     startItem(p, n.unit.unit, n.item); // tap 1
     expect(ACTIVITIES.has(game.screen)).toBe(true);
     expect(game.from?.screen).toBe('hub');
+  });
+  it('"Keep going": the end of something started from the path offers the path\'s next thing, 1 tap', () => {
+    const n = nextFor(game.profile!, 'math')!;
+    const [k, id] = n.item.ref.split(':');
+    expect(k).toBe('trip');
+    startItem(game.profile!, n.unit.unit, n.item); // tap 1: a practice trip
+    expect(ACTIVITIES.has(game.screen)).toBe(true);
+    // not passed yet: no "next" (the same trip is still next, and Try again is the way on)
+    expect(pathNext(game.profile, `lesson:${id}`)).toBeNull();
+    game.update(pp => { (pp.math ??= mathOf(pp)).lessons[id] = { stars: 2, bestScore: 10, bestFpm: 10, bestAcc: 0.9, bestRide: 1, attempts: 1, finishes: 1, passes: 1, lastAt: Date.now() } as never; });
+    const after = pathNext(game.profile, `lesson:${id}`)!;
+    expect(after).not.toBeNull();
+    expect(after.item.ref).not.toBe(n.item.ref);
+    // only for the activity it started (a trip started somewhere else doesn't offer it)
+    expect(pathNext(game.profile, 'lesson:frac-a-9')).toBeNull();
   });
   it('"My teacher set something": the Today card shows the class work first, 1 tap', () => {
     const p = game.profile!;

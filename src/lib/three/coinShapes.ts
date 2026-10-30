@@ -4,15 +4,10 @@
 // drags, taps and counts them), drawn by fracShapes.ts's shapeGeo and shapeMats.
 import * as THREE from 'three';
 import type { Hue } from '../math/learn';
-
-export type CoinKind = 'penny' | 'nickel' | 'dime' | 'quarter' | 'dollar' | 'bill';
-/** what each is worth, in cents */
-export const CENTS: Record<CoinKind, number> = { penny: 1, nickel: 5, dime: 10, quarter: 25, dollar: 100, bill: 100 };
-/** across, in board units (a quarter is 24.26 mm; the rest in proportion); a bill is long and flat */
-export const COIN_D: Record<CoinKind, number> = { penny: 60, nickel: 67, dime: 56, quarter: 76, dollar: 83, bill: 160 };
+import { COIN_D, type CoinKind } from '../math/market/coins';
+// (the plain numbers live with the market's episodes, so its pages don't need three.js)
+export { CENTS, COIN_D, COIN_FILES, type CoinKind } from '../math/market/coins';
 const EDGE: Record<CoinKind, number> = { penny: 0xb8683a, nickel: 0xb9bcc2, dime: 0xc4c7cc, quarter: 0xc2c5ca, dollar: 0xd6a83e, bill: 0x9fbf8c };
-/** the painted faces (and the bill), loaded by the episode */
-export const COIN_FILES: Record<CoinKind, string> = { penny: 'math/money/penny.webp', nickel: 'math/money/nickel.webp', dime: 'math/money/dime.webp', quarter: 'math/money/quarter.webp', dollar: 'math/money/dollar.webp', bill: 'math/money/bill.webp' };
 export type CoinTex = Partial<Record<CoinKind, THREE.Texture | null>>;
 
 /** A coin (or bill) in counter units: two material groups, its face (0) and its edge (1). */

@@ -13,6 +13,7 @@
   import NavTile from '../../ui/NavTile.svelte';
   import Confetti from '../../ui/Confetti.svelte';
   import Icon from '../../ui/Icon.svelte';
+  import RewardTap from '../../ui/RewardTap.svelte';
 
   /** `backTo`/`onback`: where the round was started from (the Arcade, a topic, Home): the one way out here */
   type Props = { outcome: ArcadeOutcome; game: ArcadeGame; daily: boolean; answered: Answered[]; bestCombo: number; compact: boolean; onagain: () => void; backTo: string; onback: () => void };
@@ -77,13 +78,14 @@
     {/if}
 
     <div class="earned" class:on={step >= 2}>
+      <!-- the treasure, the shells and a ready egg open when tapped (its card, the shells card, the hatch) -->
       {#if o.treasure >= 0}
-        <div class="prize" title={TREASURES[o.treasure].desc}>
+        <RewardTap kind="treasure" n={o.treasure}>{#snippet children(tap)}<button class="prize tap" onclick={tap} title="What is it?">
           <img src="{import.meta.env.BASE_URL}treasures/{TREASURES[o.treasure].id}.webp" alt="" />
           <span><small>{o.newBestTreasure ? 'New best treasure!' : 'Found'}</small><b>{TREASURES[o.treasure].name}</b></span>
-        </div>
+        </button>{/snippet}</RewardTap>
       {/if}
-      {#if shells}<div class="got"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><b>+{shells}</b><span>shells</span></div>{/if}
+      {#if shells}<RewardTap kind="shells" n={shells}>{#snippet children(tap)}<button class="got tap" onclick={tap} title="Your shells"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /><b>+{shells}</b><span>shells</span></button>{/snippet}</RewardTap>{/if}
       <div class="got"><Icon name="heart" size={30} /><b>+{o.xp.gained}</b><span>friendship{#if o.xp.after.level > o.xp.before.level}<em>Level {o.xp.after.level}!</em>{/if}</span></div>
     </div>
     {#if step >= 3 && (o.medals.length || o.stickers.length || o.buddies.length || o.eggsReady.length)}
@@ -91,7 +93,7 @@
         {#each o.medals as m (m.id)}<span class="new medal"><Icon name="medal" size={20} />{m.name}</span>{/each}
         {#each o.stickers as s (s.id)}<span class="new sticker"><Icon name="sticker" size={20} />{s.name}</span>{/each}
         {#each o.buddies as b (b)}<span class="new buddy"><Icon name="heart" size={20} />{FRIEND[b].name} joined the team!</span>{/each}
-        {#if o.eggsReady.length}<span class="new egg"><Icon name="gift" size={20} />An egg is ready to hatch!</span>{/if}
+        {#if o.eggsReady.length}<RewardTap kind="egg">{#snippet children(tap)}<button class="new egg tap" onclick={tap}><img src="{import.meta.env.BASE_URL}game/egg-{o.eggsReady[0]}.webp" alt="" />An egg is ready: hatch it!</button>{/snippet}</RewardTap>{/if}
       </div>
     {/if}
     {#if step >= 3 && missed.length}
@@ -143,6 +145,12 @@
   .new { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px 4px 6px; border-radius: 999px; font: 700 13.5px var(--font-body); background: #efe9ff; color: #4a2ea8; animation: pop-in .35s cubic-bezier(.3, .8, .4, 1.5); }
   .new.sticker { background: #ffeaf2; color: #8a1f4a; }
   .new.buddy, .new.egg { background: #e2f7ee; color: #0f5a3c; }
+  .new.egg img { width: 20px; height: 24px; object-fit: contain; }
+  /* the ones that open when tapped: buttons with a raised edge that lift on hover */
+  .tap { border: 0; font: inherit; cursor: pointer; transition: transform .12s; }
+  .tap:hover { transform: translateY(-2px); }
+  .got.tap { background: var(--bg2); border-radius: 999px; padding: 4px 14px 4px 6px; box-shadow: inset 0 -2px 0 rgba(90, 60, 150, .18); }
+  .new.tap { box-shadow: inset 0 -2px 0 rgba(15, 90, 60, .25); }
   .practise { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; font: 700 14px var(--font-body); }
   .practise > b { font: 600 17px var(--font-ui); margin-right: 2px; }
   .practise span { background: #fff7d6; border-radius: 10px; padding: 2px 8px; }

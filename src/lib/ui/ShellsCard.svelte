@@ -7,8 +7,9 @@
   import { shellNotes } from '../state/shellLog.svelte';
   import Popover from './Popover.svelte';
 
-  type Props = { anchor: HTMLElement | null; onclose: () => void };
-  let { anchor, onclose }: Props = $props();
+  /** `earned`: opened from a results screen, the shells this round brought */
+  type Props = { anchor: HTMLElement | null; onclose: () => void; earned?: number };
+  let { anchor, onclose, earned = 0 }: Props = $props();
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
   const shells = $derived(advView(p).shells);
@@ -34,6 +35,7 @@
     <img src="{base}game/icon-shell.webp" alt="" />
     <div><b>{fmt(shells)} shells</b><span>Yours to spend on things to wear and your island</span></div>
   </div>
+  {#if earned}<p class="now"><em>+{fmt(earned)}</em> from this round</p>{/if}
   <h3>How you earn them</h3>
   <ul class="ways">
     {#each WAYS as w (w.img)}<li><img src="{base}{w.img}" alt="" />{w.text}</li>{/each}
@@ -59,6 +61,8 @@
   .head b { font: 600 26px/1.1 var(--font-ui); color: var(--ink); }
   .head span { font: 700 13px/1.3 var(--font-body); color: var(--muted); }
   h3 { margin: 12px 0 6px; font-size: 16px; color: #a86a00; }
+  .now { margin: 10px 0 0; padding: 6px 12px; border-radius: 14px; background: #e6f8ee; font: 700 15px var(--font-body); color: var(--ink); }
+  .now em { font: 600 20px var(--font-ui); font-style: normal; color: #1f8a55; }
   ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
   .ways li { display: flex; align-items: center; gap: 8px; font: 700 14px/1.25 var(--font-body); color: var(--ink2); }
   .ways img { width: 30px; height: 30px; object-fit: contain; flex: none; }

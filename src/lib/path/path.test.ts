@@ -14,7 +14,10 @@ import { applyPlacement, skillLadder } from '../math/skills/placement';
 import { advOf, nodesOf } from '../adventure/state';
 import { addEvent, noteActivity, activityBase } from '../teach/activity';
 import { gradebookCsv, progressOf, type Assignment } from '../teach/assignments';
-import { KIND_NAME, pathOf, PATH_SUBJECTS, unitById } from './units';
+import { KIND_NAME, episodeSkill, episodeSkills, pathOf, PATH_SUBJECTS, unitById } from './units';
+import { SKILL_LESSON } from '../math/skills/course';
+import { MATH_LESSON } from '../math/course';
+import { lessonForStop } from '../math/learn';
 import { doneToday, itemDone, nextOnPath, notePath, pathSave, pathStates, startPath, todayLine, unitLevel, unitState, type PathProfile } from './progress';
 import { addUsed, allowed, doorFor, pathHolds, placeOf, rulesFor, setHomeRules, timeLeft, usedMs, type ClassSettings } from './rules';
 import { unitFromAssignment } from './classPath';
@@ -99,6 +102,29 @@ describe('the units', () => {
     }
     const pie = unitById('math:frac-a')!;
     expect(pie.items.map(i => i.kind).slice(0, 6)).toEqual(['learn', 'practice', 'game', 'learn', 'practice', 'battle']);
+  });
+  it('every Learn on the path is followed straight away by practice on the same skill', () => {
+    let pairs = 0, own = 0;
+    for (const u of pathOf('math')) u.items.forEach((it, i) => {
+      const [k, ep] = it.ref.split(':');
+      if (k !== 'ep') return;
+      const [nk, id] = (u.items[i + 1]?.ref ?? '').split(':');
+      const where = `${u.id}: ${it.name} -> ${u.items[i + 1]?.name}`;
+      pairs++;
+      // a fact trick: its own Meet (or rules) stop
+      if (nk === 'trip' && MATH_LESSON[id]) { expect(lessonForStop(MATH_LESSON[id])?.id, where).toBe(ep); own++; return; }
+      // a skill episode: a trip whose main skill it teaches, or a "Try it" of its skill
+      const teaches = episodeSkills(ep), main = nk === 'trip' ? SKILL_LESSON[id]?.skills[0] : nk === 'skill' ? id : undefined;
+      expect(['trip', 'skill'], where).toContain(nk);
+      expect(teaches, where).toContain(main);
+      if (main === episodeSkill(ep)) own++;
+    });
+    expect(pairs).toBeGreaterThan(60);
+    // nearly all on the episode's own skill (the rest on a skill it teaches that the unit has instead)
+    expect(own / pairs).toBeGreaterThan(0.9);
+    // Sides and Corners (counting sides and corners) goes with the Sides and Corners trip, not Meet the Shapes
+    const sh = unitById('math:shapes-a')!.items, at = sh.findIndex(i => i.ref === 'ep:sh-sides');
+    expect(sh[at + 1].ref).toBe('trip:shapes-a-2');
   });
 });
 

@@ -232,6 +232,16 @@ describe('Shapes Learn episodes', () => {
     }
     expect(SHAPE_LESSON['sh-sides'].steps[1].board.tags).toHaveLength(3);
   });
+  it('Sides and Corners: the numbers never crowd; only the shape being counted has them, tapped one at a time', () => {
+    const steps = SHAPE_LESSON['sh-sides'].steps;
+    for (const st of steps) {
+      const t = st.board.tags;
+      for (let a = 0; a < t.length; a++) for (let b = a + 1; b < t.length; b++) expect(Math.hypot(t[a].x - t[b].x, t[a].y - t[b].y), `${st.eq}: ${t[a].text} and ${t[b].text}`).toBeGreaterThan(55);
+    }
+    // each shape's corners are a new count to tap (the shapes counted before show just their total)
+    expect(taskFor(steps[1].board, steps[2].board)).toEqual({ kind: 'label', ids: ['s0', 's1', 's2', 's3'] });
+    expect(taskFor(steps[2].board, steps[3].board)).toEqual({ kind: 'label', ids: ['h0', 'h1', 'h2', 'h3', 'h4', 'h5'] });
+  });
 });
 
 describe('Shape Shifter', () => {

@@ -12,6 +12,8 @@
     eggsReady?: import('../adventure/glimmers').Rarity[];
     /** Adventure shells this practice earned */
     shells?: number;
+    /** the lesson or trip this was (an end card started from My path offers the path's next thing) */
+    lessonId?: string;
   };
   /** One of the four chips under the score: speed, accuracy, goal, top ride. */
   export type ResultsChip = { icon: 'clock' | 'target' | 'trophy' | 'ride'; value: string | number; label: string; badge?: string | false };
@@ -45,6 +47,9 @@
   import StickerCard from './StickerCard.svelte';
   import NavTile from './NavTile.svelte';
   import PauseButton from './PauseButton.svelte';
+  import RewardTap from './RewardTap.svelte';
+  import PathNextButton from '../path/PathNextButton.svelte';
+  import { pathNext, startPathNext } from '../path/next';
   import { placeName } from '../nav';
   import Icon from './Icon.svelte';
   import { funEvent } from '../fun/bus';
@@ -285,11 +290,14 @@
   const myDance = $derived(game.profile ? danceOf(game.profile, buddy) : danceOf(p));
   /** the way out: back to where the lesson or trip was started from */
   const backName = game.from ? placeName(game.from) : 'Home';
+  // started from My path (or the Today card): the path's next thing is the main button, Back and Home the others
+  const pn = pathNext(game.profile, `lesson:${run.lessonId ?? ''}`);
+  function home() { game.go('hub'); }
   const opened = performance.now();
   function onKey(e: KeyboardEvent) {
     if (detail || tdetail !== null || peek) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); detail = null; tdetail = null; peek = null; } return; }
     if (performance.now() - opened < 1200 || game.modalOpen) return;
-    if (e.key === 'Enter') { e.preventDefault(); passed ? onnext() : onretry(); }
+    if (e.key === 'Enter') { e.preventDefault(); if (pn) startPathNext(p, pn); else if (passed) onnext(); else onretry(); }
     if (e.key === ' ') { e.preventDefault(); onretry(); }
   }
   const heroOutfit = $derived(wearing ?? (game.profile ? outfitOf(game.profile, buddy) : 'none'));
@@ -307,9 +315,11 @@
     <div class="prize" class:settled={prizeSettled} style:left="{prizeBox.x}px" style:top="{prizeBox.y}px" style:--sz="{prizeBox.size}px">
       <div class="prays"></div>
       <div class="pglow"></div>
-      <img src={tsrc(treasure)} alt={TREASURES[treasure].name} />
+      <button class="pimg" onclick={() => showTreasure(treasure)} title="What is it?"><img src={tsrc(treasure)} alt={TREASURES[treasure].name} /></button>
       {#each Array(10) as _, i}<i class="spark" style:--a="{i * 36}deg" style:--d="{(i % 3) * 0.12}s"></i>{/each}
-      <div class="pribbon"><small>{run.newBestTreasure ? 'Your best yet!' : 'You found'}</small><b>{run.newBestTreasure ? TREASURES[treasure].name + '!' : 'a ' + TREASURES[treasure].name + '!'}</b><span class="pworth"><img src={shellArt} alt="" />worth {treasureWorth(treasure)} shells</span></div>
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="pribbon" onclick={() => showTreasure(treasure)}><small>{run.newBestTreasure ? 'Your best yet!' : 'You found'}</small><b>{run.newBestTreasure ? TREASURES[treasure].name + '!' : 'a ' + TREASURES[treasure].name + '!'}</b><span class="pworth"><img src={shellArt} alt="" />worth {treasureWorth(treasure)} shells</span></div>
       <div class="pladder">
         <div class="pdots">{#each TREASURES as tr, i}<button class:got={i <= treasure} class:now={i === treasure} title={tr.name} aria-label={tr.name} onclick={() => showTreasure(i)}><img src={tsrc(i)} alt="" /></button>{/each}</div>
         {#if nextT}<div class="pnext">Score {nextT.at} for a {nextT.name}</div>{:else}<div class="pnext">The best treasure there is!</div>{/if}
@@ -350,12 +360,16 @@
             <span class="iname">{e.m.name}</span>
             {#if e.m.tierUp && e.m.count > 1}<em class="tier" style:background={TIER_LOOK[e.m.tier].pill} style:color={TIER_LOOK[e.m.tier].ink}>{TIER_LOOK[e.m.tier].name}!</em>{:else}{@const nt = nextTier(e.m.count)}<span class="count" title={nt.title}>{nt.text}</span>{/if}
           {:else if e.kind === 'shells'}
-            <span class="ipic outfit shellsgot"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /></span>
+            <!-- shells and a ready egg open like everything else here: the shells card, the egg hatching -->
+            <RewardTap kind="shells" n={e.n}>{#snippet children(tap)}<button class="ipic outfit shellsgot tap" onclick={tap} title="Your shells"><img src="{import.meta.env.BASE_URL}game/icon-shell.webp" alt="" /></button>{/snippet}</RewardTap>
             <span class="iname">+{e.n} shells</span>
-            <span class="count">for Adventure</span>
+            <span class="count">to spend</span>
           {:else if e.kind === 'egg'}
-            <span class="ipic outfit eggready"><img src="{import.meta.env.BASE_URL}game/egg-{e.rarity}.webp" alt="" /></span>
-            <span class="iname">Egg ready!</span>
+            <RewardTap kind="egg">{#snippet children(tap, done)}
+              <button class="ipic outfit eggready tap" class:done onclick={tap} title={done ? 'It hatched!' : 'Hatch it!'}><img src="{import.meta.env.BASE_URL}game/egg-{e.rarity}.webp" alt="" /></button>
+              <span class="iname">{done ? 'Hatched!' : 'Egg ready!'}</span>
+              <button class="wear" onclick={tap} disabled={done}>{done ? 'Hatched' : 'Hatch it'}</button>
+            {/snippet}</RewardTap>
           {:else if e.kind === 'buddy'}
             <button class="ipic outfit newbud tap" onclick={() => peekAt(e)} title="Meet {FRIEND[e.id].name}"><Critter friend={e.id} size={cell} round /></button>
             <span class="iname">{FRIEND[e.id].name} joined!</span>
@@ -422,10 +436,17 @@
     {#if goalText && showButtons}<p class="goal">{goalText}</p>{/if}
     </div>
 
-    <div class="tiles" class:show={showButtons}>
-      <NavTile size={big} tone="sky" kind={backName === 'Home' ? 'home' : 'map'} label="Back to {backName}" onclick={onhome} />
-      {#if passed}<NavTile size={big} tone="butter" kind="redo" label="Try again" hotkey={narrow ? undefined : 'space'} onclick={onretry} />{/if}
-      <NavTile size={big} tone="mint" kind={passed ? 'play' : 'redo'} label={passed ? 'Next' : 'Try again'} hotkey={narrow ? undefined : passed ? 'enter' : 'space'} title={passed ? `Next: ${nextTitle}` : 'Try again'} onclick={passed ? onnext : onretry} />
+    <div class="tiles" class:show={showButtons} class:withpath={!!pn}>
+      {#if pn}
+        <NavTile size="md" tone="sky" kind={backName === 'Home' ? 'home' : 'map'} label="Back to {backName}" onclick={onhome} />
+        {#if backName !== 'Home'}<NavTile size="md" tone="butter" kind="home" label="Home" onclick={home} />
+        {:else}<NavTile size="md" tone="butter" kind="redo" label="Try again" hotkey={narrow ? undefined : 'space'} onclick={onretry} />{/if}
+        <PathNextButton next={pn} hotkey={narrow ? undefined : 'enter'} compact={narrow || short} />
+      {:else}
+        <NavTile size={big} tone="sky" kind={backName === 'Home' ? 'home' : 'map'} label="Back to {backName}" onclick={onhome} />
+        {#if passed}<NavTile size={big} tone="butter" kind="redo" label="Try again" hotkey={narrow ? undefined : 'space'} onclick={onretry} />{/if}
+        <NavTile size={big} tone="mint" kind={passed ? 'play' : 'redo'} label={passed ? 'Next' : 'Try again'} hotkey={narrow ? undefined : passed ? 'enter' : 'space'} title={passed ? `Next: ${nextTitle}` : 'Try again'} onclick={passed ? onnext : onretry} />
+      {/if}
     </div>
 
   </div>
@@ -515,11 +536,13 @@
   .dancebtn { display: inline-flex; align-items: center; gap: 6px; position: absolute; right: 24px; top: 2%; z-index: 8; font: 600 18px var(--font-ui); color: #fff; background: linear-gradient(135deg, #b98cff, #ff7ab8); border: 0; border-radius: 999px; padding: 10px 18px; box-shadow: 0 0 0 4px #fff, 0 10px 24px -10px rgba(124, 92, 245, .7); cursor: pointer; }
   /* the prize beside the buddy */
   .prize { position: absolute; z-index: 7; width: var(--sz); height: var(--sz); transform: translate(-50%, -50%); pointer-events: none; }
-  .prize > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 12px 18px rgba(60, 40, 110, .35)); animation: prize-in .9s cubic-bezier(.2, .9, .3, 1.4) both, prize-bob 2.4s 1s ease-in-out infinite; }
+  /* the prize and its ribbon can be tapped to see what it is (like everything else on this screen) */
+  .pimg { position: absolute; inset: 0; padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto; border-radius: 50%; }
+  .pimg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 12px 18px rgba(60, 40, 110, .35)); animation: prize-in .9s cubic-bezier(.2, .9, .3, 1.4) both, prize-bob 2.4s 1s ease-in-out infinite; }
   .prays { position: absolute; left: -45%; top: -45%; width: 190%; height: 190%; border-radius: 50%; background: repeating-conic-gradient(rgba(255, 245, 200, .75) 0 9deg, rgba(255, 245, 200, 0) 9deg 18deg); mask: radial-gradient(circle, #000 12%, transparent 62%); -webkit-mask: radial-gradient(circle, #000 12%, transparent 62%); animation: spin 9s linear infinite, prays-in .8s ease both; }
   .pglow { position: absolute; left: -15%; top: -15%; width: 130%; height: 130%; border-radius: 50%; background: radial-gradient(circle, rgba(255, 252, 230, .95), rgba(255, 236, 150, .55) 35%, transparent 68%); animation: glow-pulse 1.6s ease-in-out infinite alternate; }
   .spark { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px; background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); transform: rotate(var(--a)) translateY(calc(var(--sz) * -0.62)) scale(0); animation: spark 1.6s var(--d) ease-out infinite; }
-  .pribbon { position: absolute; left: 50%; top: calc(100% - 6px); transform: translateX(-50%); white-space: nowrap; display: flex; flex-direction: column; align-items: center; padding: 6px 20px 8px; border-radius: 999px; color: #fff; background: linear-gradient(135deg, #f7b733, #ff6fae); box-shadow: 0 0 0 4px #fff, 0 10px 24px -10px rgba(200, 80, 120, .7); animation: pop-in .5s .45s cubic-bezier(.3, .8, .4, 1.5) both; }
+  .pribbon { pointer-events: auto; cursor: pointer; position: absolute; left: 50%; top: calc(100% - 6px); transform: translateX(-50%); white-space: nowrap; display: flex; flex-direction: column; align-items: center; padding: 6px 20px 8px; border-radius: 999px; color: #fff; background: linear-gradient(135deg, #f7b733, #ff6fae); box-shadow: 0 0 0 4px #fff, 0 10px 24px -10px rgba(200, 80, 120, .7); animation: pop-in .5s .45s cubic-bezier(.3, .8, .4, 1.5) both; }
   .pribbon small { font: 800 11px var(--font-body); letter-spacing: .1em; text-transform: uppercase; opacity: .95; }
   .pribbon b { font: 600 clamp(22px, 3.2vh, 32px)/1.05 var(--font-ui); }
   .pworth { display: flex; align-items: center; gap: 4px; font: 700 12px var(--font-body); opacity: .95; }
@@ -603,6 +626,7 @@
   .wear:disabled { background: #eee8f7; color: var(--muted); cursor: default; }
   .shellsgot img { width: 80%; height: 80%; object-fit: contain; }
   .eggready img { width: 86%; height: 86%; object-fit: contain; animation: eggwob .7s ease-in-out infinite; }
+  .eggready.done img { animation: none; opacity: .45; filter: grayscale(.6); }
   @keyframes eggwob { 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
   .wear.off { background: #fff; color: var(--ink2); box-shadow: inset 0 0 0 2px #e6dff5; }
   .ehead .trying { display: inline-flex; align-items: center; gap: 6px; font: 600 13px var(--font-body); color: var(--ink2); background: #f4effc; border-radius: 999px; padding: 3px 4px 3px 12px; }
@@ -660,6 +684,11 @@
   .tiles.small :global(.tile) { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 2px; padding: 6px 4px 7px; }
   .tiles.small :global(.tile .lbl) { font-size: 15px; white-space: nowrap; }
   .tiles.show { opacity: 1; transform: none; pointer-events: auto; }
+  /* the path's next thing beside the two small ways out; on a phone it takes its own row, first */
+  .tiles.withpath { align-items: stretch; }
+  .tiles.withpath :global(.pn) { flex: 1 1 auto; }
+  .narrow .tiles.withpath { flex-wrap: wrap; }
+  .narrow .tiles.withpath :global(.pn) { order: -1; flex: 1 1 100%; }
   .opened { position: absolute; top: 18px; left: 0; right: 0; margin: 0 auto; width: max-content; z-index: 7; font: 600 24px var(--font-ui); background: var(--lemon); color: var(--ink); padding: 10px 20px; border-radius: 999px; box-shadow: var(--shadow); animation: pop-in .5s cubic-bezier(.3, .8, .4, 1.5); }
 
   /* short windows (1280 by 720, 1366 by 768): a smaller card head, ring and buttons; the rows of all ten

@@ -21,7 +21,15 @@
 import { REGIONS, LESSON as TYPING_LESSON, type Lesson as TypingLesson } from '../engine/course';
 import { MATH_REGIONS, MATH_LESSON, STRAND, regionsOf, type MathRegion } from '../math/course';
 import { LESSON as TRICK, lessonForStop } from '../math/learn';
-import { SKILL_EPISODES, SKILL_LESSON, SKILL_REGIONS, type SkillRegion } from '../math/skills/course';
+import { FRAC_LESSONS } from '../math/fracEpisodes';
+import { SHAPE_LESSONS } from '../math/shapes/episodes';
+import { RATIO_LESSONS } from '../math/ratioEpisodes';
+import { NEG_LESSONS } from '../math/integers/episodes';
+import { DATA_LESSONS } from '../math/data/episodes';
+import { ALG_LESSONS } from '../math/algebra/episodes';
+import { MARKET_LESSONS } from '../math/market/episodes';
+import { MEASURE_LESSONS } from '../math/measure/episodes';
+import { SKILL_EPISODES, SKILL_LESSON, SKILL_REGIONS, type SkillLesson, type SkillRegion } from '../math/skills/course';
 import { AREA, AREAS, SKILL, areaOfOp } from '../math/skills/registry';
 import { STRAND_SKILL } from '../math/skills/ability';
 import type { AreaId } from '../math/skills/types';
@@ -165,30 +173,72 @@ function typingDrafts(): Draft[] {
   });
 }
 
-/** The Learn episode a trip goes with: a fact trip's trick, or the episode for a skill trip's first skill. */
+/** The Learn episode a fact trip goes with: its Meet (or rules) stop's trick. */
 function epForTrip(id: string): string | null {
   const f = MATH_LESSON[id];
-  if (f) return f.kind === 'meet' || f.kind === 'rules' ? lessonForStop(f)?.id ?? null : null;
-  const l = SKILL_LESSON[id];
-  if (l && l.kind === 'meet') for (const sk of l.skills) { const ep = SKILL_EPISODES[sk]; if (ep) return ep; }
-  return null;
+  return f && (f.kind === 'meet' || f.kind === 'rules') ? lessonForStop(f)?.id ?? null : null;
+}
+/** The skills a Learn episode teaches: each skill that SKILL_EPISODES points at it. */
+export function episodeSkills(ep: string): string[] {
+  return Object.keys(SKILL_EPISODES).filter(s => SKILL_EPISODES[s] === ep);
+}
+/** Each skill episode's own skill, the one it is about (its `skill`, or the first of its `skills`). */
+const OWN_SKILL: Record<string, string> = Object.fromEntries(
+  ([...FRAC_LESSONS, ...SHAPE_LESSONS, ...RATIO_LESSONS, ...NEG_LESSONS, ...DATA_LESSONS, ...ALG_LESSONS, ...MARKET_LESSONS, ...MEASURE_LESSONS] as { id: string; skill?: string; skills?: string[] }[])
+    .map(l => [l.id, l.skill ?? l.skills?.[0] ?? '']).filter(([, s]) => s),
+);
+/** The one skill an episode is about: its own, else the first it teaches. */
+export const episodeSkill = (ep: string): string | undefined => OWN_SKILL[ep] ?? episodeSkills(ep)[0];
+
+/** The practice trip that goes with a Learn episode in a unit (null: none practises it well). A fact
+ *  trick goes with its own Meet (or rules) stop. A skill episode goes with a trip whose main skill (its
+ *  first) is one the episode teaches: best of all its own skill, then a Meet before a practice round (a
+ *  mix of everything last), then the trip that is most about the episode. Each trip follows one episode. */
+function tripForEp(ep: string, trips: string[], taken: Set<string>): string | null {
+  const fact = trips.find(t => !taken.has(t) && epForTrip(t) === ep);
+  if (fact) return fact;
+  const teaches = new Set(episodeSkills(ep)), own = episodeSkill(ep);
+  // compared in order: its own skill, a Meet, how much of the trip is about the episode, how many skills shared
+  const rank = (l: SkillLesson) => {
+    const shared = l.skills.filter(s => teaches.has(s)).length;
+    return [l.skills[0] === own ? 1 : 0, l.kind === 'meet' ? 2 : l.kind === 'mix' ? 0 : 1, shared / l.skills.length, shared];
+  };
+  const beats = (a: number[], b: number[]) => { const i = a.findIndex((v, k) => v !== b[k]); return i >= 0 && a[i] > b[i]; };
+  let best: string | null = null, bestRank: number[] = [];
+  for (const t of trips) {
+    const l = SKILL_LESSON[t];
+    if (!l || taken.has(t) || !teaches.has(l.skills[0])) continue;
+    const r = rank(l);
+    if (!best || beats(r, bestRank)) { best = t; bestRank = r; }
+  }
+  return best;
+}
+/** The one skill a "Try it" practises after an episode no trip here practises. */
+function trySkill(ep: string): string {
+  return episodeSkill(ep) ?? ep;
 }
 
-/** A unit's learning in order: each Learn episode just before the first trip that uses it (so its practice
- *  comes straight after), any episode with no trip of its own spread among the trips. */
+/** A unit's learning in order: each Learn episode just before the trip that practises what it teaches (so
+ *  its practice comes straight after); an episode that no trip in the unit practises gets a short "Try it"
+ *  of its skill straight after instead, spread among the trips. */
 function learningOrder(d: Draft): string[] {
-  const out: string[] = [], placed = new Set<string>();
+  const taken = new Set<string>(), before = new Map<string, string>(), alone: string[] = [];
+  for (const e of d.eps) {
+    const t = tripForEp(e, d.trips, taken);
+    if (t) { taken.add(t); before.set(t, e); }
+    else if (episodeSkills(e).length) alone.push(e);
+  }
+  const out: string[] = [];
   for (const t of d.trips) {
-    const e = epForTrip(t);
-    if (e && d.eps.includes(e) && !placed.has(e)) { out.push(`ep:${e}`); placed.add(e); }
+    const e = before.get(t);
+    if (e) out.push(`ep:${e}`);
     out.push(`trip:${t}`);
   }
-  const loose = d.eps.filter(e => !placed.has(e));
-  loose.forEach((e, i) => {
+  alone.forEach((e, i) => {
     // before the 1st, 3rd, 5th... trip that isn't already right after a Learn
-    const trips = out.map((r, k) => ({ r, k })).filter(x => x.r.startsWith('trip:') && !out[x.k - 1]?.startsWith('ep:'));
-    const at = trips[Math.min(trips.length - 1, i * 2)]?.k ?? out.length;
-    out.splice(at, 0, `ep:${e}`);
+    const free = out.map((r, k) => ({ r, k })).filter(x => x.r.startsWith('trip:') && !out[x.k - 1]?.startsWith('ep:'));
+    const at = free[Math.min(free.length - 1, i * 2)]?.k ?? out.length;
+    out.splice(at, 0, `ep:${e}`, `skill:${trySkill(e)}`);
   });
   return out;
 }
@@ -234,7 +284,8 @@ function finish(drafts: Draft[]): Unit[] {
     const tail = lastDay && lastDay.length >= 2 && kindOf(lastDay[lastDay.length - 1]) !== 'learn' && kindOf(lastDay[lastDay.length - 2]) !== 'learn' ? lastDay.pop()! : null;
     const items: PathItem[] = [];
     days.forEach((day, k) => {
-      for (const r of day) items.push({ ...itemOf(r, d.subject), day: k + 1 });
+      // (a "Try it" after an episode: a short practice of that one skill)
+      for (const r of day) items.push({ ...itemOf(r, d.subject), ...(r.startsWith('skill:') ? { line: 'Try it: 10 right answers' } : {}), day: k + 1 });
       const r = play(k);
       if (r) items.push({ ...itemOf(r, d.subject), day: k + 1 });
     });
