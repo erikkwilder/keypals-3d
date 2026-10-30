@@ -25,6 +25,8 @@
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
   import MenuButton from '../ui/MenuButton.svelte';
+  // WALK: the walking map layer
+  import MapWalker from '../ui/MapWalker.svelte';
 
   const base = import.meta.env.BASE_URL;
   // Learn: the next trick not learned yet, offered on a practice stop
@@ -169,28 +171,8 @@
 
   <div class="mapwrap" bind:this={wrap} style:--bg="url({new URL(`${base}${wmap[kind]}`, document.baseURI).href})">
     <div class="backdrop"></div>
-    <div class="map" style:width="{box.w}px" style:height="{box.h}px" style:left="{box.x}px" style:top="{box.y}px" style:background-image="url({base}{wmap[kind]})">
-      <svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d={pathD} /></svg>
-      {#each nodes as n (n.id)}
-        {@const done = cleared(a, n.id)}
-        {@const ok = nodeOpen(a, n)}
-        {@const here = cur?.id === n.id}
-        <button class="node {n.kind}" class:done class:here class:locked={!ok} style:left="{spots[n.id][0]}%" style:top="{spots[n.id][1]}%" onclick={() => tap(n)} aria-label="{ISLAND[n.island].name}: {kindName[n.kind]}">
-          <img src="{base}game/node-{!ok ? 'lock' : n.kind}.webp" alt="" draggable="false" />
-          {#if done && n.kind !== 'practice'}<span class="tick"><Icon name="check" size={26} /></span>{/if}
-          {#if n.kind === 'practice' && practiceDone(a, n.id) && !cleared(a, n.id)}<span class="gift"><Icon name="gift" size={30} /></span>{/if}
-          {#if n.kind === 'champion' && ok && !done}<span class="crown">Champion</span>{/if}
-        </button>
-      {/each}
-      {#if cur}
-        <span class="me" style:left="{spots[cur.id][0]}%" style:top="{spots[cur.id][1]}%"><Critter friend={p.buddy} size={tall ? 54 : 84} mood="idle" /></span>
-        <span class="next" style:left="{spots[cur.id][0]}%" style:top="{spots[cur.id][1]}%">Next!</span>
-      {/if}
-      {#each islands as isl}
-        {@const first = spots[`${isl.id}-0`]}
-        <span class="iname" style:left="{first[0]}%" style:top="{first[1] + (tall ? 5.5 : 9)}%">{isl.name}</span>
-      {/each}
-    </div>
+    <!-- WALK: the map you walk round with your buddy (trails, stops, finds, the 3D buddy): ui/MapWalker.svelte -->
+    <MapWalker {world} {kind} {tall} paused={!!open || picker || intro >= 0} onopen={tap} />
     <button class="worldbtn" onclick={openWorlds} title="Every world of Adventure"><img src="{base}game/worlds-wide.webp" alt="" /><span><small>{WORLD_PIN[world].name}</small><b>World map</b></span></button>
   </div>
 
@@ -327,24 +309,9 @@
   .chip.time { padding: 4px 12px 4px 6px; font-size: 15px; }
   .chip.time.low { background: #fff0f2; color: #b02a48; }
   .mapwrap { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+  /* WALK: the map, its stops and the buddy are drawn by ui/MapWalker.svelte */
   .backdrop { position: absolute; inset: -40px; background: var(--bg) center / cover; filter: blur(22px) saturate(1.1); }
-  .map { position: absolute; background-size: 100% 100%; box-shadow: 0 0 60px rgba(255, 255, 255, .25); }
-  .path { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-  .path path { fill: none; stroke: rgba(255, 255, 255, .9); stroke-dasharray: 1 1.2; vector-effect: non-scaling-stroke; stroke-width: 4; stroke-linecap: round; filter: drop-shadow(0 1px 1px rgba(80, 50, 20, .45)); }
-  .node { position: absolute; transform: translate(-50%, -60%); width: clamp(48px, 4.4vw, 72px); aspect-ratio: 1; border: 0; padding: 0; background: none; cursor: pointer; transition: transform .15s; }
-  .node img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 6px rgba(60, 30, 10, .4)); }
-  .node.champion { width: clamp(64px, 6vw, 98px); }
-  .node:hover { transform: translate(-50%, -66%) scale(1.08); }
-  .node.done img { filter: drop-shadow(0 4px 4px rgba(60, 30, 10, .35)) saturate(.8); }
-  .node.here img { animation: glow 1.4s ease-in-out infinite; }
-  @keyframes glow { 50% { filter: drop-shadow(0 0 14px #fff) drop-shadow(0 0 22px #ffd36b); } }
-  .tick { position: absolute; right: -6px; top: -6px; line-height: 0; filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff); }
-  .gift { position: absolute; right: -10px; top: -14px; line-height: 0; animation: hop 1s ease-in-out infinite; }
-  .me { position: absolute; transform: translate(-50%, -100%); margin-top: -18px; pointer-events: none; filter: drop-shadow(0 8px 6px rgba(40, 20, 10, .45)); animation: hop 1.1s ease-in-out infinite; }
-  .next { position: absolute; transform: translate(-50%, 0); margin-top: 22px; font: 600 14px var(--font-ui); color: #fff; background: var(--primary); padding: 2px 10px; border-radius: 999px; box-shadow: 0 0 0 3px #fff; pointer-events: none; }
   @keyframes hop { 50% { translate: 0 -6px; } }
-  .crown { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); font: 800 11px var(--font-body); color: #7a5200; background: #fff3c4; padding: 2px 8px; border-radius: 999px; box-shadow: 0 0 0 2px #ffd36b; white-space: nowrap; }
-  .iname { position: absolute; transform: translateX(-50%); font: 600 clamp(14px, 1.5vw, 20px) var(--font-ui); color: #fff; text-shadow: 0 2px 6px rgba(60, 30, 10, .85); white-space: nowrap; pointer-events: none; }
 
   .worldbtn { position: absolute; left: 14px; top: 12px; z-index: 3; display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; background: rgba(255, 255, 255, .94); border-radius: 18px; padding: 5px 14px 5px 5px; box-shadow: 0 0 0 3px #ffd36b, var(--shadow-sm); text-align: left; transition: transform .15s; }
   .worldbtn:hover { transform: scale(1.04); }
