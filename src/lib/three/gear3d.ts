@@ -13,13 +13,13 @@ import { loadTexture } from './assets';
 import { stage } from './stage';
 import { FRIEND } from '../art/cast';
 import { loadGltf } from './assets';
-import { NO_NUDGE, type Nudge, type WearSlot } from '../adventure/gear';
+import { NO_NUDGE, nudgeNow, type Nudge, type WearSlot } from '../adventure/gear';
 import { LIB } from '../adventure/wardrobe';
 import { VIBE } from '../adventure/vibes';
 import { COLOUR, colourSoon } from '../adventure/colours';
 type Slot = WearSlot;
 
-type Worn = { id: string; objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void; nz: { v: Nudge }; onNudge: (() => void)[]; follow: (() => void)[] };
+type Worn = { id: string; objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void; nz: { v: Nudge }; onNudge: (() => void)[]; follow: (() => void)[]; conv?: number };
 type Rig = { worn: Partial<Record<Slot, Worn>>; t: number; tick: (dt: number) => void; want: Partial<Record<Slot, string | null>> };
 const rigs = new WeakMap<Character, Rig>();
 
@@ -28,7 +28,7 @@ type Pts = THREE.Vector3[];
 type Fit = {
   /** bind units in a metre (the model is scaled down to its height) */
   unit: number; minY: number; H: number;
-  back: { cx: number; top: number; z: number; w: number; shoulder: number; span: number } | null;
+  back: { cx: number; top: number; z: number; w: number; shoulder: number; span: number; hips: number } | null;
   /** the back's outline seen from the side, from the shoulders down: the backmost point at each height
    *  (a backpack, a shell, a tail's root), so a cape can drape over it instead of hanging off it */
   backLine: { top: number; bottom: number; z: number[] } | null;
@@ -125,7 +125,9 @@ function fitOf(c: Character): Fit {
   const H = maxY - minY;
   const unit = 1 / c.scale;
   // the back: the upper spine's vertices
-  const torso = points(c, ['Spine01', 'Spine02']);
+  // (a few buddies' upper spine moves too few vertices on its own: then the whole spine, more loosely)
+  let torso = points(c, ['Spine01', 'Spine02']);
+  if (torso.length <= 20) torso = points(c, ['Spine', 'Spine01', 'Spine02', 'neck'], 0.25);
   let back: Fit['back'] = null;
   if (torso.length > 20) {
     // the shoulder line: where the upper arms join (the spine's own vertices stop lower on some buddies)
@@ -143,7 +145,10 @@ function fitOf(c: Character): Fit {
     // vertices are only the middle of the back, far too narrow on a buddy in a puffy coat)
     const jx = ['LeftArm', 'RightArm'].map(n => { const bn = c.bones[n], sk = bn && skinned(c).find(m => m.skeleton.bones.includes(bn)); return sk ? new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(sk.skeleton.boneInverses[sk.skeleton.bones.indexOf(bn)]).invert()).x : null; }).filter((x): x is number => x !== null);
     const span = jx.length === 2 ? Math.max(w, Math.abs(jx[0] - jx[1])) : w * 1.6;
-    back = { cx, top, shoulder, z: pct((near.length > 10 ? near : torso).map(p => p.z), 0.02), w, span };
+    // the hips joint: with the shoulders, how long the body is (what a backpack covers)
+    const hb = c.bones.Hips, hsk = hb && skinned(c).find(m => m.skeleton.bones.includes(hb));
+    const hipY = hsk ? new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(hsk.skeleton.boneInverses[hsk.skeleton.bones.indexOf(hb)]).invert()).y : shoulder - H * 0.17;
+    back = { cx, top, shoulder, z: pct((near.length > 10 ? near : torso).map(p => p.z), 0.02), w, span, hips: Math.min(hipY, shoulder - H * 0.1) };
   }
   let backLine: Fit['backLine'] = null;
   if (back) {
@@ -260,7 +265,10 @@ function latheFromPicture(height: number, prof: [number, number][], aspect: numb
 // ---------- moving a piece (the Wardrobe's Move it) ----------
 /** Everything a builder needs: the buddy, its measurements, the piece, and its nudge (a box, so a new
  *  nudge reaches the piece without building it again; bone-held pieces register how to re-apply it). */
-type Ctx = { c: Character; f: Fit; id: string; nz: { v: Nudge }; onNudge: (() => void)[]; /** groups that follow the skin, set each frame */ follow: (() => void)[] };
+type Ctx = { c: Character; f: Fit; id: string; nz: { v: Nudge }; onNudge: (() => void)[]; /** groups that follow the skin, set each frame */ follow: (() => void)[];
+  /** a size saved before back pieces were sized by the body (no `v`) times this is the same size now */
+  conv?: number };
+
 type Built = { objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void };
 const _a = new THREE.Matrix4(), _b = new THREE.Matrix4();
 /** T(pivot + offset) · turn · tip · tilt · size · T(−pivot): moved, turned round (about up), tipped forward
@@ -283,7 +291,7 @@ function nudged(x: Ctx, g: THREE.Group, pivot: THREE.Vector3) {
   const inner = new THREE.Group();
   inner.matrixAutoUpdate = false;
   g.add(inner);
-  const apply = () => { nudgeMatrix(inner.matrix, pivot, x.nz.v, x.f.H); inner.matrixWorldNeedsUpdate = true; };
+  const apply = () => { nudgeMatrix(inner.matrix, pivot, nudgeNow(x.nz.v, x.conv), x.f.H); inner.matrixWorldNeedsUpdate = true; };
   apply(); x.onNudge.push(apply);
   return inner;
 }
@@ -812,6 +820,56 @@ function lineAt(l: { top: number; bottom: number; z: number[] } | null, y: numbe
  *  behind); a held thing at its grip (its origin, if that's inside it, else a third of the way up).
  *  `size` is its width as a share of the head (face, neck) or the back, or its height as a share of
  *  the buddy (hand). */
+/** The back's surface (bind space): the backmost point of the body in each little square of the back
+ *  seen from behind (the spine and hips only: hair hanging down or arms don't count). */
+const backDepth = new WeakMap<Character, { cell: number; z: Map<string, number> }>();
+function backDepthOf(c: Character, f: Fit) {
+  let d = backDepth.get(c);
+  if (d) return d;
+  const cell = f.H * 0.025, z = new Map<string, number>();
+  for (const p of points(c, ['Hips', 'Spine', 'Spine01', 'Spine02', 'neck'], 0.35)) {
+    const key = `${Math.round(p.x / cell)},${Math.round(p.y / cell)}`, was = z.get(key);
+    if (was === undefined || p.z < was) z.set(key, p.z);
+  }
+  d = { cell, z };
+  backDepth.set(c, d);
+  return d;
+}
+/** How far a back piece placed at `at` (turned round, scaled by k about `anchor`) can move forward (+z)
+ *  until its own back meets the body's, a little into it so no light shows between (negative: back). Its
+ *  bottom quarter doesn't count (a tail or a bottom sticking out there would push it away). */
+function restOnBack(c: Character, f: Fit, obj: THREE.Object3D, anchor: THREE.Vector3, k: number, at: THREE.Vector3) {
+  const d = backDepthOf(c, f), v = new THREE.Vector3();
+  obj.updateMatrixWorld(true);
+  const pts: THREE.Vector3[] = [];
+  obj.traverse(o => {
+    const m = o as THREE.Mesh, p = m.isMesh ? m.geometry.attributes.position : null;
+    if (!p) return;
+    const step = Math.max(1, Math.floor(p.count / 1500));
+    for (let i = 0; i < p.count; i += step) {
+      v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld).sub(anchor).multiplyScalar(k);
+      // turned round (about up), then put in place
+      pts.push(new THREE.Vector3(at.x - v.x, at.y + v.y, at.z - v.z));
+    }
+  });
+  if (!pts.length) return 0;
+  let y0 = Infinity, y1 = -Infinity;
+  for (const p of pts) { y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+  const low = y0 + (y1 - y0) * 0.25;
+  let room = Infinity;
+  for (const p of pts) {
+    if (p.y < low) continue;
+    const bz = d.z.get(`${Math.round(p.x / d.cell)},${Math.round(p.y / d.cell)}`);
+    if (bz !== undefined) room = Math.min(room, bz - p.z);
+  }
+  return Number.isFinite(room) ? room + f.H * 0.004 : 0;
+}
+/** How much a back piece from the library is scaled on this buddy: its height `size` times the back's
+ *  length (shoulders to hips), but never wider than `wide` times the shoulders (joint to joint). */
+function backScale(f: Fit, lib: { size: number; wide?: number }, size: THREE.Vector3) {
+  const b = f.back!, len = Math.max(f.H * 0.12, b.shoulder - b.hips);
+  return Math.min((lib.size * len) / Math.max(1e-6, size.y), ((lib.wide ?? 1.35) * b.span) / Math.max(1e-6, size.x));
+}
 async function libModel(x: Ctx): Promise<Built | null> {
   const { c, f, id } = x, lib = LIB[id];
   if (!lib?.model) return null;
@@ -845,7 +903,7 @@ async function libModel(x: Ctx): Promise<Built | null> {
   }
   // everything else rides a bone, placed in bind space
   const hd = f.head, b = f.back;
-  let bone = 'Head', at: THREE.Vector3 | null = null, anchor = new THREE.Vector3(), width = 0, turn = 0;
+  let bone = 'Head', at: THREE.Vector3 | null = null, anchor = new THREE.Vector3(), width = 0, turn = 0, k = 0;
   if (lib.slot === 'face' && hd) {
     at = new THREE.Vector3(hd.fx, hd.eyes, hd.front); width = hd.face;
     anchor.set(mid.x, mid.y, box.min.z);
@@ -872,22 +930,33 @@ async function libModel(x: Ctx): Promise<Built | null> {
     else at = new THREE.Vector3(hd.cx, y, front + f.H * 0.004);
   } else if (lib.slot === 'back' && b) {
     // centred on the upper back, between the shoulder blades, facing out; it rests on whatever is
-    // furthest back over its height (a backpack, a shell), so nothing of the buddy's own hides it
+    // furthest back over its height (a backpack, a shell), so nothing of the buddy's own hides it.
+    // Sized by the body: its height a share of the back's length (shoulders to hips), never wider than
+    // its share of the shoulders (it used to be a share of the spine's own skin, which is a narrow strip
+    // on some buddies and wide on others: a backpack was a matchbox on Ember and a house on Sloth)
     bone = 'Spine02';
-    const y = Math.max(b.top, b.shoulder) - f.H * 0.09, k = (lib.size * b.w) / Math.max(1e-6, size.x), half = (size.y * k) / 2;
+    k = backScale(f, lib, size);
+    // (a size saved on the old scale keeps its look: see nudgeNow)
+    x.conv = ((lib.oldSize ?? lib.size) * b.w / Math.max(1e-6, size.x)) / k;
+    const y = Math.max(b.top, b.shoulder) - f.H * 0.09, half = (size.y * k) / 2;
     let z = Infinity;
     for (let t = -1; t <= 1; t += 0.25) z = Math.min(z, lineAt(f.backLine, y + t * half, b.z));
     at = new THREE.Vector3(b.cx, y, (Number.isFinite(z) ? z : b.z) - f.H * 0.01); width = b.w; turn = Math.PI;
     anchor.set(mid.x, mid.y, box.min.z);
+    // then settle it right onto the back: as far forward as its own shape lets it go before it meets the
+    // body (the outline above is the backmost point in a strip down the middle: a dinosaur's spikes there
+    // left a big pack hanging in the air behind its jacket)
+    at.z += restOnBack(x.c, f, obj, anchor, k, at);
   }
   if (!at || !width) return null;
+  if (!k) k = (lib.size * width) / Math.max(1e-6, size.x);
   // the neck and the back move with the skin right under the piece (the neck bends away from the chest
   // when a buddy dances, so a scarf held by the chest alone slid off to one side); the face rides the head
   const hb = lib.slot === 'neck' ? skinHeld(x, at, at, NECK_BONES, bone) : lib.slot === 'back' ? skinHeld(x, at, at, BACK_BONES, bone) : boneHeld(x, bone, at);
   if (!hb) return null;
   obj.position.copy(anchor).negate();
   const piece = new THREE.Group(); piece.add(obj);
-  piece.scale.setScalar((lib.size * width) / Math.max(1e-6, size.x));
+  piece.scale.setScalar(k);
   // a back thing faces backwards (its front +Z is the side people see behind the buddy)
   piece.rotation.y = turn;
   piece.position.copy(at);
@@ -1069,7 +1138,7 @@ export async function wearGear(c: Character, slot: Slot, id: string | null, nudg
   if (built) {
     // tagged, so a tap on the buddy in the Wardrobe can tell what was touched (wornAt)
     for (const o of built.objs) o.userData.wear = { slot, id };
-    rig.worn[slot] = { id, ...built, nz: x.nz, onNudge: x.onNudge, follow: x.follow };
+    rig.worn[slot] = { id, ...built, nz: x.nz, onNudge: x.onNudge, follow: x.follow, conv: x.conv };
   }
 }
 /** What a ray hits first of what a buddy wears (the Wardrobe: tap a thing on the buddy to move it). The
@@ -1128,6 +1197,12 @@ export function highlightWorn(c: Character, slot: Slot | null) {
 /** Wear everything for every slot but the head (missing slots are taken off), with the nudges. */
 export async function wearKit(c: Character, kit: Partial<Record<Slot, string>>, nudge: Record<string, Nudge> = {}) {
   await Promise.all((['face', 'neck', 'back', 'hand', 'feet', 'vibe', 'colour'] as Slot[]).map(s => { const id = kit[s] ?? null; return wearGear(c, s, id, id ? nudge[id] ?? null : null); }));
+}
+/** The nudge a worn piece is drawn with now, on today's scale (the Wardrobe starts Move it from this,
+ *  so a size saved on the old scale doesn't jump when it's moved). */
+export function wornNudge(c: Character, slot: Slot, n: Nudge): Nudge {
+  const w = rigs.get(c)?.worn[slot];
+  return nudgeNow(n, w?.conv ?? 1);
 }
 /** Live nudge while moving a piece in the Wardrobe (no rebuild). */
 export function nudgeGear(c: Character, slot: Slot, n: Nudge) {

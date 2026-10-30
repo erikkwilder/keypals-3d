@@ -23,9 +23,9 @@
   import { joinProgress, onTeam, UNLOCKS } from '../engine/team';
   import { BUDDY_ROLE, GLIMMER, RARITY, ROLE } from '../adventure/glimmers';
   import { advView, buy, EGG_ODDS, ISLAND, markSeen, SHOP, teamOf } from '../adventure/state';
-  import { NO_NUDGE, SETS, SET_IDS, SLOT_NAME, WEAR_SLOTS, setItems, setsOn, lookView, type Nudge, type SetId, type WearSlot } from '../adventure/gear';
+  import { NO_NUDGE, SETS, SET_IDS, SIZE_MAX, SIZE_MIN, SLOT_NAME, WEAR_SLOTS, setItems, setsOn, lookView, type Nudge, type SetId, type WearSlot } from '../adventure/gear';
   import { CATALOG, CAT, VIBES, bestFriendship, buyItem, howText, nudgeItem, nudgeOf, ownsItem, wearItem, wornIn, type CatalogItem, type Vibe } from '../adventure/wardrobe';
-  import { highlightWorn, nudgeGear, wornAt } from '../three/gear3d';
+  import { highlightWorn, nudgeGear, wornAt, wornNudge } from '../three/gear3d';
   import { colourSoon } from '../adventure/colours';
   import Coach from '../ui/Coach.svelte';
   import { sfx } from '../audio/sound';
@@ -253,7 +253,8 @@
     if (!id || sl === 'colour' || !joined) return;
     // whatever is only being tried on comes off first: what you move is what you have on
     await dropTryOn();
-    const n = nudgeOf(p, who, id);
+    // (on today's scale: a size saved before back pieces were sized by the body looks the same and doesn't jump)
+    const c3 = scene?.char(who), n = c3 ? wornNudge(c3, sl, nudgeOf(p, who, id)) : { ...nudgeOf(p, who, id), v: 2 };
     moving = { slot: sl, id, n, was: { ...n } };
     if (isSlot(cat) || side === 'mine') cat = sl;
     sfx.pop();
@@ -297,7 +298,7 @@
     const n = moving.n, lim = (v: number) => Math.max(-0.35, Math.min(0.35, v));
     const next: Nudge = {
       x: lim(n.x + (d.x ?? 0) * STEP * k), y: lim(n.y + (d.y ?? 0) * STEP * k), z: lim(n.z + (d.z ?? 0) * STEP * k),
-      s: Math.max(0.4, Math.min(2.5, n.s * (d.s ? Math.pow(1.06, d.s) : 1))), r: n.r + (d.r ?? 0) * 0.15,
+      s: Math.max(SIZE_MIN, Math.min(SIZE_MAX, n.s * (d.s ? Math.pow(1.06, d.s) : 1))), r: n.r + (d.r ?? 0) * 0.15, v: 2,
       // tip forward or back and tilt to the side: up to a quarter turn each way
       p: Math.max(-1.57, Math.min(1.57, (n.p ?? 0) + (d.p ?? 0) * 0.1)), t: Math.max(-1.57, Math.min(1.57, (n.t ?? 0) + (d.t ?? 0) * 0.1)),
     };

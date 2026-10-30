@@ -20,8 +20,20 @@ export const SLOT_NAME: Record<WearSlot, string> = { head: 'Head', face: 'Face',
 /** A nudge from the Move it tool: x, y, z as a share of the buddy's height (x to the buddy's left, y up,
  *  z forward), s a size multiplier, r a turn round (about up) in radians, and p a tip forward or back,
  *  t a tilt to the side (older saves have neither: no tip, no tilt). */
-export type Nudge = { x: number; y: number; z: number; s: number; r: number; p?: number; t?: number };
+/** A worn thing moved in the Wardrobe: moved (shares of the buddy's height), sized (`s`, times its own
+ *  size), turned (`r`), tipped (`p`) and tilted (`t`). `v` 2: sized on today's scale (back pieces are sized
+ *  by the body since then: a saved size without it is turned into the same look, three/gear3d.ts nudgeNow). */
+export type Nudge = { x: number; y: number; z: number; s: number; r: number; p?: number; t?: number; v?: number };
 export const NO_NUDGE: Nudge = { x: 0, y: 0, z: 0, s: 1, r: 0 };
+/** how small and how big Move it can make a thing (times its own size) */
+export const SIZE_MIN = 0.4, SIZE_MAX = 3;
+/** The nudge as it means now: a size saved before back pieces were sized by the body (a nudge with no
+ *  `v`, sized away from 1) times `conv` (that piece's old size over its new one, on this buddy) is the same
+ *  size on today's scale, so it looks just as it did. A nudge never sized gets today's size. */
+export function nudgeNow(n: Nudge, conv = 1): Nudge {
+  if (n.v === 2 || conv === 1 || Math.abs(n.s - 1) < 1e-6) return { ...n, v: 2 };
+  return { ...n, s: Math.max(SIZE_MIN, Math.min(SIZE_MAX, n.s * conv)), v: 2 };
+}
 /** Everything a 3D buddy needs to get dressed: its hat, what's on each other slot, and the nudges. */
 export type Dress = { hat: string; on: Partial<Record<WearSlot, string>>; nudge: Record<string, Nudge> };
 
@@ -175,7 +187,7 @@ export function setNudge(a: Adventure, buddy: string, id: string, n: Nudge | nul
   const l = lookOfBuddy(a, buddy);
   l.nudge ??= {};
   if (!n || (n.x === 0 && n.y === 0 && n.z === 0 && n.s === 1 && n.r === 0 && !n.p && !n.t)) delete l.nudge[id];
-  else l.nudge[id] = { x: n.x, y: n.y, z: n.z, s: n.s, r: n.r, ...(n.p ? { p: n.p } : {}), ...(n.t ? { t: n.t } : {}) };
+  else l.nudge[id] = { x: n.x, y: n.y, z: n.z, s: n.s, r: n.r, ...(n.p ? { p: n.p } : {}), ...(n.t ? { t: n.t } : {}), ...(n.v ? { v: n.v } : {}) };
 }
 /** A Champion beaten: its piece is the player's (if not already), and the buddy who beat it puts it on
  *  if that slot is free. */
