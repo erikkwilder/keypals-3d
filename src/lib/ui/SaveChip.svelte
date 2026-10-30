@@ -22,7 +22,7 @@
   .chip { display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer; border-radius: 999px; padding: 3px 12px 3px 4px; font: 700 14px var(--font-body); white-space: nowrap; max-width: 100%; }
   .chip img { width: 30px; height: 30px; object-fit: contain; flex: none; }
   .chip span { overflow: hidden; text-overflow: ellipsis; }
-  .account, .code { background: #eafff3; color: #0f6a48; box-shadow: inset 0 0 0 2px #b8ebcf; }
+  .account, .code, .class { background: #eafff3; color: #0f6a48; box-shadow: inset 0 0 0 2px #b8ebcf; }
   .local { background: #fff4e0; color: #8a4a00; box-shadow: inset 0 0 0 2px #ffd59a; }
   .local img { filter: grayscale(.8) opacity(.75); }
   .go { font: 800 12px var(--font-body); background: #ff9f1a; color: #fff; padding: 2px 9px; border-radius: 999px; margin-left: 2px; }

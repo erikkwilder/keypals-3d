@@ -276,6 +276,43 @@ describe('families linking a player from home', () => {
   });
 });
 
+describe('a whole class on one school address', () => {
+  it('class players open and save by their own code; anonymous traffic keeps the address limits', async () => {
+    const cookie = await teacher();
+    const c = await classWith(cookie, Array.from({ length: 32 }, (_, i) => `Kid${String.fromCharCode(65 + (i % 26))}${i}`).map(n => n.replace(/\d+/, '')).join('\n'));
+    expect(c.students.length).toBeGreaterThanOrEqual(26);
+    const codes: string[] = [];
+    for (const s of c.students) codes.push((await login(c.code, s.id, s.pics, '10.9.9.9')).json.code);
+    // every child opens their player three times and saves ten times, all from the school's one address
+    const school = { ip: '10.9.9.9' };
+    let opened = 0, saved = 0;
+    for (const code of codes) {
+      for (let i = 0; i < 3; i++) if ((await call('GET', `/players/${code}`, undefined, school)).status === 200) opened++;
+      for (let i = 0; i < 10; i++) if ((await call('PUT', `/players/${code}`, { profile: { name: 'x', buddy: 'dino' } }, school)).status === 200) saved++;
+    }
+    expect(opened).toBe(codes.length * 3);
+    expect(saved).toBe(codes.length * 10);
+    // a player that isn't in a class still counts by address: guessing codes stays slow
+    const plain = (await call('POST', '/players', { profile: { name: 'Lulu', buddy: 'koala' } }, { ip: '10.7.7.7' })).json.code;
+    let ok = 0;
+    for (let i = 0; i < 70; i++) if ((await call('GET', `/players/${plain}`, undefined, { ip: '10.7.7.7' })).status === 200) ok++;
+    expect(ok).toBe(60);
+  });
+  it("a class's own player is never filed under a grown-up's account; a family's linked player is", async () => {
+    const cookie = await teacher();
+    const c = await classWith(cookie, 'Maria');
+    const school = (await login(c.code, c.students[0].id, c.students[0].pics)).json.code;
+    const filed = await call('PUT', `/me/players/${school}`, undefined, { cookie });
+    expect(filed.status).toBe(409);
+    expect(env.DB.rows('players').find(p => p.code === school)!.account).toBeNull();
+    const home = (await call('POST', '/players', { profile: { name: 'Lulu', buddy: 'koala' } })).json.code;
+    await call('POST', '/class/link', { code: c.code, player: home, name: 'Lulu' });
+    const pending = (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie })).json.students.find((s: { status: string }) => s.status === 'pending');
+    await call('POST', `/teach/students/${pending.id}/approve`, {}, { cookie });
+    expect((await call('PUT', `/me/players/${home}`, undefined, { cookie })).status).not.toBe(409);
+  });
+});
+
 describe('the daily tidy-up and the weekly backup', () => {
   it('runs with the class tables, and the backup keeps them', async () => {
     const cookie = await teacher();

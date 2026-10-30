@@ -1,7 +1,6 @@
 <script lang="ts">
-  // The standards view: every Common Core standard Keypals covers, with how many students are
-  // comfortable, growing or not started on it (a student's level on a standard is their lowest on its
-  // skills). Open one to see the names.
+  // The standards view: every Common Core standard Keypals covers, with how many students work at each
+  // level on it (a student's level on a standard is their lowest on its skills). Open one to see the names.
   import { teach } from '../teacher.svelte';
   import { standardsReport, type Kid } from '../reports';
   import { LEVELS, LEVEL_COLOR } from '../level';
@@ -30,7 +29,7 @@
           <td>{r.skills.map(s => s.name).join(', ')} <span class="muted">({r.skills[0]?.area})</span></td>
           <td class="w">
             <div class="stack">{#each [...LEVELS].reverse() as l (l)}<i style:width="{(r.counts[l] / n) * 100}%" style:background={LEVEL_COLOR[l].bg} title="{LEVEL_COLOR[l].label}: {r.counts[l]}"></i>{/each}</div>
-            <span class="muted">{r.counts.comfortable} comfortable · {r.counts.growing} growing · {r.counts['not started']} not started</span>
+            <span class="muted">{[...LEVELS].reverse().filter(l => r.counts[l]).map(l => `${r.counts[l]} ${LEVEL_COLOR[l].label.toLowerCase()}`).join(' · ')}</span>
           </td>
           <td><button class="sbtn" onclick={() => (open = open === r.code ? null : r.code)}>{open === r.code ? 'Hide' : 'Names'}</button></td>
         </tr>

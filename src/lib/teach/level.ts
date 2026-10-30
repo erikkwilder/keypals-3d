@@ -1,39 +1,34 @@
 // Where a child is on a math skill, for teachers: the one place class reports, "needs help" groups and
-// "reach comfortable" goals read it. Today it comes from the skill's status (math/skills/progress.ts:
-// not started, growing, solid; solid shows as "comfortable"). When skills get their own adaptive levels,
-// point workingLevel at them and everything in src/lib/teach follows.
+// "reach comfortable" goals read it. It's the game's own adaptive ability (math/skills/ability.ts: an
+// estimate per skill and fact strand, from every answer in every mode), in the same words and six-step
+// ladder as the grown-ups' skills report's "Working at" column: getting started, comfortable, strong,
+// stretching (or not started, with nothing to go on yet).
 import type { Profile } from '../engine/profile';
 import { mathOf } from '../math/progress';
-import { groupFacts } from '../math/course';
-import { factId } from '../math/facts';
 import { SKILL } from '../math/skills/registry';
-import { skillStatus } from '../math/skills/progress';
+import { workingOf, type Working } from '../math/skills/ability';
 
-export type WorkingLevel = 'not started' | 'growing' | 'comfortable';
+export type WorkingLevel = Working;
 /** Lowest first. */
-export const LEVELS: WorkingLevel[] = ['not started', 'growing', 'comfortable'];
+export const LEVELS: WorkingLevel[] = ['not started', 'getting started', 'comfortable', 'strong', 'stretching'];
 export const levelRank = (l: WorkingLevel) => LEVELS.indexOf(l);
-/** The level an assignment's "comfortable" goal asks for. */
+/** The level an assignment's "comfortable" goal asks for (strong and stretching count too). */
 export const GOAL_LEVEL: WorkingLevel = 'comfortable';
 export const atLeast = (l: WorkingLevel, goal: WorkingLevel = GOAL_LEVEL) => levelRank(l) >= levelRank(goal);
-/** Colours for the grids (light backgrounds with dark text). */
-export const LEVEL_COLOR: Record<WorkingLevel, { bg: string; ink: string; label: string }> = {
-  'not started': { bg: '#efedf3', ink: '#6d6680', label: 'Not started' },
-  growing: { bg: '#fff0b8', ink: '#6a5200', label: 'Growing' },
-  comfortable: { bg: '#c9f1dd', ink: '#0f5a3c', label: 'Comfortable' },
+/** Colours for the grids (light backgrounds with dark text), and the words SkillsReport.svelte uses. */
+export const LEVEL_COLOR: Record<WorkingLevel, { bg: string; ink: string; label: string; hint: string }> = {
+  'not started': { bg: '#efedf3', ink: '#6d6680', label: 'Not started', hint: 'nothing to go on yet' },
+  'getting started': { bg: '#fff0b8', ink: '#6a5200', label: 'Getting started', hint: 'the gentlest questions, with pictures' },
+  comfortable: { bg: '#c9f1dd', ink: '#0f5a3c', label: 'Comfortable', hint: 'grade-level questions' },
+  strong: { bg: '#bfe6fb', ink: '#0f4a6a', label: 'Strong', hint: 'bigger numbers, more steps' },
+  stretching: { bg: '#e3d6ff', ink: '#4b2aa8', label: 'Stretching', hint: 'the hardest versions' },
 };
 
-/** A child's working level on one skill. Fact strands (adding to 20, the times tables...) read the fact
- *  memory the way the grown-ups' skills report does; every other skill its own memory. */
-export function workingLevel(p: Profile, skillId: string): WorkingLevel {
-  const m = mathOf(p);
-  const s = SKILL[skillId];
-  if (!s) return 'not started';
-  let st: 'not started' | 'growing' | 'solid';
-  if (s.facts) {
-    const ids = s.subs.flatMap(sb => groupFacts(sb.id)).map(factId);
-    const stages = ids.map(id => m.facts[id]?.stage ?? 0);
-    st = stages.every(x => x === 0) ? 'not started' : stages.filter(x => x === 3).length >= ids.length * 0.8 && stages.every(x => x >= 2) ? 'solid' : 'growing';
-  } else st = skillStatus(m, skillId);
-  return st === 'solid' ? 'comfortable' : st;
+/** A child's working level on one skill (or fact strand: add-facts...), with the rung of six it's on (0:
+ *  not started), from the adaptive ability. */
+export function workingStep(p: Profile, skillId: string, now = Date.now()): { rung: number; word: WorkingLevel } {
+  if (!SKILL[skillId]) return { rung: 0, word: 'not started' };
+  return workingOf(mathOf(p), skillId, now);
 }
+/** A child's working level on one skill. */
+export const workingLevel = (p: Profile, skillId: string, now = Date.now()): WorkingLevel => workingStep(p, skillId, now).word;

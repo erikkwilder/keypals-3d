@@ -3,10 +3,11 @@
 // daily challenge, and "Done for today" on a shared school computer.
 import { game } from '../state/game.svelte';
 import { cloud } from '../state/cloud.svelte';
+import { classHereCodes, isClassLogin, setClassHere } from '../state/classHere';
 import { migrate, type Profile } from '../engine/profile';
 import { dayKey } from '../engine/profile';
 import { api, send } from './api';
-import { noteActivity, weekKey, weekStats } from './activity';
+import { activityBase, noteActivity, weekKey, weekStats } from './activity';
 import { worldEntry, type BoardRow } from './boards';
 import type { Assignment } from './assignments';
 
@@ -49,10 +50,10 @@ export type ClassLook = { class: { name: string; grade: number; teacher: string 
 export const lookupClass = (code: string) => api<ClassLook>(`/class/${encodeURIComponent(code)}`);
 
 /** Players who logged in with a class code on this computer (they can go again with "Done for today"). */
-const HERE = 'kp-class-here';
-function sharedCodes(): string[] { try { return JSON.parse(localStorage.getItem(HERE) ?? '[]'); } catch { return []; } }
-function setShared(codes: string[]) { try { localStorage.setItem(HERE, JSON.stringify([...new Set(codes)])); } catch { /* private window */ } }
-export const loggedInHere = (p: Profile | null) => !!p?.cloud && sharedCodes().includes(p.cloud.code);
+// (kept in state/classHere.ts, which saving online reads too: these players are never filed under a
+// grown-up's account)
+const sharedCodes = classHereCodes, setShared = setClassHere;
+export const loggedInHere = (p: Profile | null) => isClassLogin(p);
 
 /** Put a class player on this computer, as saving online does for a save code (its copy is the one both
  *  sides agree on, for combining later; the key is the one state/cloud.svelte.ts uses). */
@@ -145,6 +146,7 @@ export function onActivity(before: Profile | undefined, after: Profile) {
 /** At start: count every activity from now on, and open the teacher area or the class login from a link. */
 export function startClasses() {
   game.onActivity = onActivity;
+  game.watchActivity = (p) => { const before = activityBase(p); return () => onActivity(before, p); };
   const route = () => {
     const h = location.hash;
     const m = h.match(/^#class=([A-Za-z0-9 %-]+)/);

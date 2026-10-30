@@ -12,7 +12,7 @@ import { parseFact } from '../math/facts';
 import { splitKey } from '../math/skills/registry';
 import { SKILL_LESSON } from '../math/skills/course';
 
-export type EventKind = 'skill' | 'facts' | 'typing' | 'arcade' | 'game' | 'play';
+export type EventKind = 'skill' | 'facts' | 'typing' | 'arcade' | 'game' | 'play' | 'learn' | 'battle';
 /** One activity. Short keys: there are a few hundred of these in a save. */
 export type ClassEvent = {
   /** when it ended */
@@ -91,7 +91,18 @@ export function activityOf(before: Profile | undefined, after: Profile, now = Da
     else {
       const gb = mb?.arcade ?? {}, ga = ma?.arcade ?? {};
       const g = Object.keys(ga).find(id => (ga[id]?.plays ?? 0) > (gb[id]?.plays ?? 0));
+      const learnedNow = (ma?.learned ?? []).find(id => !(mb?.learned ?? []).includes(id));
+      const db = before?.adventure?.day, da = after.adventure?.day;
+      const battled = !!da && da.answers > (db && db.key === da.key ? db.answers : 0);
       if (g) { k = 'game'; l = g; f = 1; }
+      else if (learnedNow) { k = 'learn'; l = learnedNow; f = 1; }
+      else if (battled) {
+        // a battle (or a duel): its answers, and its minutes from the Adventure's own clock
+        k = 'battle'; l = 'adventure';
+        const same = db && db.key === da.key;
+        ms = dayMs || Math.max(0, da.ms - (same ? db.ms : 0));
+        if (!Object.keys(s).length) { r = Math.max(0, da.right - (same ? db.right : 0)); n = Math.max(0, da.answers - (same ? db.answers : 0)); }
+      }
       else if (JSON.stringify(ma?.play ?? {}) !== JSON.stringify(mb?.play ?? {})) { k = 'play'; l = 'playground'; }
       else if (Object.keys(s).length) { k = 'game'; l = 'practice'; }
     }
@@ -103,6 +114,26 @@ export function activityOf(before: Profile | undefined, after: Profile, now = Da
   if (st) ev.st = st;
   if (f) ev.f = f;
   return ev;
+}
+
+/** What activityOf reads from the player as it was, copied small (for game.update, which changes the
+ *  player in place: battles, Learn episodes, duels). */
+export function activityBase(p: Profile, now = Date.now()): Profile {
+  const lite = (r?: Record<string, { right?: number; wrong?: number }>) => (r ? Object.fromEntries(Object.entries(r).map(([k, v]) => [k, { right: v?.right ?? 0, wrong: v?.wrong ?? 0 }])) : undefined);
+  const plays = (r?: Record<string, { plays?: number } | undefined>) => (r ? Object.fromEntries(Object.entries(r).map(([k, v]) => [k, { plays: v?.plays ?? 0 }])) : undefined);
+  const finishes = (r?: Record<string, { finishes?: number }>) => Object.fromEntries(Object.entries(r ?? {}).map(([k, v]) => [k, { finishes: v?.finishes ?? 0 }]));
+  const today = dayKey(now), m = p.math, a = p.adventure;
+  return {
+    history: p.history?.length ? [p.history[p.history.length - 1]] : [],
+    totals: { words: p.totals?.words ?? 0 }, lessons: finishes(p.lessons),
+    days: p.days?.[today] ? { [today]: { ms: p.days[today].ms } } : {},
+    arcade: plays(p.arcade as Record<string, { plays?: number }>),
+    math: m ? {
+      facts: lite(m.facts), skills: lite(m.skills), history: m.history?.length ? [m.history[m.history.length - 1]] : [],
+      lessons: finishes(m.lessons), arcade: plays(m.arcade), play: JSON.parse(JSON.stringify(m.play ?? {})), learned: [...(m.learned ?? [])],
+    } : undefined,
+    adventure: a ? { day: { ...a.day } } : undefined,
+  } as unknown as Profile;
 }
 
 /** The player's entries, oldest first. */

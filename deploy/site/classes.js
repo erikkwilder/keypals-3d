@@ -57,6 +57,40 @@ async function count(env, key, minutes) {
 /** Wrong pictures: five tries, then a ten-minute rest for that child. */
 export const PIC_TRIES = 5, PIC_REST_MIN = 10;
 
+/** One more for a key: true when it's already at `max` this window (the same rule as worker.js limited()). */
+async function hit(env, key, max, minutes) {
+  const now = Date.now();
+  const row = await env.DB.prepare('SELECT n, reset FROM limits WHERE key = ?').bind(key).first();
+  if (!row || row.reset < now) { await env.DB.prepare('INSERT OR REPLACE INTO limits (key, n, reset) VALUES (?, 1, ?)').bind(key, now + minutes * 60000).run(); return false; }
+  if (row.n >= max) return true;
+  await env.DB.prepare('UPDATE limits SET n = n + 1 WHERE key = ?').bind(key).run();
+  return false;
+}
+/** The class of an active student's player (null: not a class player). Saving players must never fail
+ *  because of classes: before schema-classes.sql is applied there's simply no class to find. */
+async function classOfPlayer(env, code, any = false) {
+  try {
+    return await env.DB.prepare(any ? 'SELECT class FROM students WHERE player = ? AND home = 0 LIMIT 1' : "SELECT class FROM students WHERE player = ? AND status = 'active' LIMIT 1").bind(code).first();
+  } catch { return null; }
+}
+/** A whole class plays on one school address, so opening and saving a class player count by the player's
+ *  own code (an hour's worth each) and by its class (room for a big class), never by the address. */
+export const CLASS_PLAYER_LIMITS = { open: 120, save: 900 };
+export const CLASS_ROOM = 45;
+/**
+ * The limit for opening or saving a player (worker.js /players/<code>): for a class player (an active
+ * student), true or false by its code and class; for anyone else null, and worker.js applies its own
+ * limits by address (guessing codes stays slow: a code that isn't a class player's gains nothing here).
+ */
+export async function classPlayerLimited(env, what, code, sha256) {
+  const max = CLASS_PLAYER_LIMITS[what];
+  if (!max || !code) return null;
+  const s = await classOfPlayer(env, code);
+  if (!s) return null;
+  if (await hit(env, `${what}:player:${await sha256(code)}`, max, 60)) return true;
+  return hit(env, `${what}:class:${s.class}`, max * CLASS_ROOM, 60);
+}
+
 // ---------- who's asking ----------
 async function teacherOf(env, request, h) {
   const acct = await h.currentAccount(env, request);
@@ -136,7 +170,8 @@ const devReady = (env, url) => env.KP_DEV_SIGNIN === '1' && (url.hostname === '1
 
 /**
  * Our part of the API, or null when the path isn't ours. `h` is worker.js's toolbox: json, fail,
- * currentAccount, limited, readBody, sha256, randomToken, cookie, cleanCode, newCode.
+ * currentAccount, limited, readBody, sha256, randomToken, cookie, cleanCode, newCode, and base (the game's
+ * path: /keypals on fancyant.com, empty on keypals.org).
  */
 export async function classApi(request, env, url, path, h) {
   const method = request.method;
@@ -153,7 +188,16 @@ export async function classApi(request, env, url, path, h) {
     if (!acct) { acct = { id: h.randomToken(12) }; await DB.prepare("INSERT INTO accounts (id, provider, sub, email, name, created, seen) VALUES (?, 'dev', ?, NULL, ?, ?, ?)").bind(acct.id, sub, name, now, now).run(); }
     const token = h.randomToken(32);
     await DB.prepare('INSERT INTO sessions (hash, account, expires) VALUES (?, ?, ?)').bind(await h.sha256(token), acct.id, now + DAY).run();
-    return new Response(null, { status: 302, headers: { location: "/keypals/#teach", 'set-cookie': h.cookie('kp_session', token, 86400) } });
+    const base = h.base ?? '/keypals';
+    return new Response(null, { status: 302, headers: { location: `${base}/#teach`, 'set-cookie': h.cookie('kp_session', token, 86400, base) } });
+  }
+
+  // ---------------- a class's own players stay with the class ----------------
+  // never filed under a grown-up's account (a teacher signed in at a classroom computer, a parent at home);
+  // a family's player linked to a class is the family's, and files as usual
+  m = path.match(/^\/me\/players\/([^/]+)$/);
+  if (m && method === 'PUT') {
+    if (await classOfPlayer(env, h.cleanCode(decodeURIComponent(m[1])), true)) return h.fail(409, 'This player belongs to a class, so it stays with the class.');
   }
 
   // ---------------- teachers ----------------

@@ -6,7 +6,7 @@ import { mathOf } from '../math/progress';
 import { AREA, SKILL } from '../math/skills/registry';
 import type { AreaId } from '../math/skills/types';
 import { eventsOf, lastWeeks, weekKey, weekStats } from './activity';
-import { LEVELS, atLeast, workingLevel, type WorkingLevel } from './level';
+import { LEVELS, atLeast, workingLevel, workingStep, type WorkingLevel } from './level';
 import { LIVE_SKILLS, STANDARDS, isFor, progressOf, type Assignment, type Progress } from './assignments';
 
 export type Kid = { id: string; name: string; profile: Profile | null };
@@ -31,9 +31,12 @@ export function classWeekReport(kids: Kid[], week: string) {
 export function skillsForGrade(grade: number): string[] {
   return LIVE_SKILLS.filter(s => s.facts || Math.abs(s.grade - grade) <= 1).map(s => s.id);
 }
-/** Students by skills, each cell a working level. */
-export function skillsGrid(kids: Kid[], skills: string[]): { id: string; name: string; levels: WorkingLevel[] }[] {
-  return kids.map(k => ({ id: k.id, name: k.name, levels: skills.map(s => (k.profile ? workingLevel(k.profile, s) : 'not started')) }));
+/** Students by skills, each cell a working level and the rung of six it's on (0: not started). */
+export function skillsGrid(kids: Kid[], skills: string[], now = Date.now()): { id: string; name: string; levels: WorkingLevel[]; rungs: number[] }[] {
+  return kids.map(k => {
+    const cells = skills.map(s => (k.profile ? workingStep(k.profile, s, now) : { rung: 0, word: 'not started' as WorkingLevel }));
+    return { id: k.id, name: k.name, levels: cells.map(c => c.word), rungs: cells.map(c => c.rung) };
+  });
 }
 
 /** Each Common Core standard the game covers: how many students are at each level on it (a student's
@@ -52,7 +55,8 @@ export function standardsReport(kids: Kid[], only?: string[]) {
   });
 }
 
-/** For each skill in the class's current assignments: who isn't comfortable on it yet. */
+/** For each skill in the class's current assignments: who isn't comfortable on it yet (getting started, or
+ *  not started at all). */
 export function needsHelp(kids: Kid[], assignments: Assignment[]) {
   const skillIds = [...new Set(assignments.filter(a => !a.archived && a.what === 'skills').flatMap(a => a.skills))];
   return skillIds.map(id => {
@@ -60,11 +64,11 @@ export function needsHelp(kids: Kid[], assignments: Assignment[]) {
     const level = (k: Kid) => (k.profile ? workingLevel(k.profile, id) : 'not started');
     return {
       skill: id, name: SKILL[id]?.name ?? id, standard: SKILL[id]?.standard ?? '', plain: SKILL[id]?.plain ?? '',
-      growing: assigned.filter(k => level(k) === 'growing').map(k => k.name),
+      starting: assigned.filter(k => level(k) === 'getting started').map(k => k.name),
       notStarted: assigned.filter(k => level(k) === 'not started').map(k => k.name),
       comfortable: assigned.filter(k => atLeast(level(k))).length, of: assigned.length,
     };
-  }).filter(g => g.growing.length || g.notStarted.length);
+  }).filter(g => g.starting.length || g.notStarted.length);
 }
 
 /** One student's page: weeks (minutes, right answers, accuracy), skills, and every assignment. */

@@ -14,6 +14,7 @@
 import { game } from './game.svelte';
 import { migrate, type Profile } from '../engine/profile';
 import { mergeProfile } from './merge';
+import { isClassLogin } from './classHere';
 import { planSync, goneNote, notHereCodes, markNotHere, clearNotHere, localOnlyIds, markLocalOnly, clearLocalOnly, type Tombstone } from './sync';
 import { movedCodes, moveUrl } from './move';
 import { count, startCounting } from './counting';
@@ -45,8 +46,10 @@ export function staySignedOut() { forgetSignIn(); cloud.signedOut = null; }
 
 /** Where a player's progress is kept, in words for the save chip: online in the grown-up's account, online
  *  with a save code, only on this computer, or here because saving online isn't available here. */
-export function saveStatus(p: Profile | null): { kind: 'account' | 'code' | 'local' | 'here'; text: string; short: string } {
+export function saveStatus(p: Profile | null): { kind: 'account' | 'code' | 'class' | 'local' | 'here'; text: string; short: string } {
   if (!cloud.online) return { kind: 'here', text: 'Saved on this computer', short: 'Saved here' };
+  // logged in with a class code and pictures: saved with the class, whoever is signed in here
+  if (p?.cloud && isClassLogin(p)) return { kind: 'class', text: 'Saved with your class', short: 'Saved with your class' };
   if (p?.cloud && cloud.account) { const who = cloud.account.name?.split(' ')[0] ?? cloud.account.email ?? 'your grown-up'; return { kind: 'account', text: `Saved online as ${who}`, short: 'Saved online' }; }
   if (p?.cloud) return { kind: 'code', text: 'Saved online with a save code', short: 'Saved online' };
   return { kind: 'local', text: 'Only on this computer: keep your progress safe', short: 'Not saved online' };
@@ -160,7 +163,7 @@ export async function openCode(raw: string, activate = true) {
   const code = cleanCode(raw);
   clearNotHere(code);
   const prof = await bring(code, activate);
-  if (cloud.account && prof.cloud && !viaAccount(prof.cloud.code)) {
+  if (cloud.account && prof.cloud && !viaAccount(prof.cloud.code) && !isClassLogin(prof)) {
     await call(`/me/players/${prof.cloud.code}`, { method: 'PUT' }).catch(() => null);
     await refreshAccount();
   }
@@ -286,7 +289,8 @@ const linkTried = new Set<string>();
 async function doCatchUp(everyCode: boolean) {
   lastCatch = Date.now();
   await refreshAccount();
-  const local = game.save.profiles.map(p => ({ id: p.id, name: p.name, code: p.cloud?.code, at: p.cloud?.at, localOnly: keepLocal(p) }));
+  // (a player who logged in through a class belongs to the class: never filed under whoever is signed in here)
+  const local = game.save.profiles.map(p => ({ id: p.id, name: p.name, code: p.cloud?.code, at: p.cloud?.at, localOnly: keepLocal(p) || isClassLogin(p) }));
   const plan = planSync(local, cloud.account ? cloud.players : null, accountGone, notHereCodes(), everyCode);
   const gone: { id: string; name: string }[] = [...plan.remove];
   for (const code of plan.pull) {

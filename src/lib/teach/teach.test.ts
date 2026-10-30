@@ -2,16 +2,19 @@
 // "after a run" code, the activity entries they leave, assignment progress, scores and statuses, the
 // gradebook spreadsheet, working levels, and the boards (no typed names on the world board).
 import { describe, expect, it } from 'vitest';
-import { applyRun, newProfile, type Profile } from '../engine/profile';
+import { applyRun, dayKey, newProfile, type Profile } from '../engine/profile';
+import { finishLesson } from '../math/learn';
+import { newStat } from '../math/facts';
+import { advOf } from '../adventure/state';
 import { LAYOUTS } from '../engine/layouts';
 import { applyMathRun } from '../math/progress';
 import { MATH_LESSONS } from '../math/course';
 import { applySkillRun, type SkillResult } from '../math/skills/progress';
 import { tripStats, type FactResult } from '../math/meter';
 import { applyArcade } from '../arcade/arcade';
-import { activityOf, eventsOf, noteActivity, weekKey, weekStats, addEvent, EVENT_CAP, type ClassProfile } from './activity';
+import { activityBase, activityOf, eventsOf, noteActivity, weekKey, weekStats, addEvent, EVENT_CAP, type ClassProfile } from './activity';
 import { gradebookCsv, progressOf, scoreOf, statusOf, type Assignment } from './assignments';
-import { workingLevel } from './level';
+import { workingLevel, workingStep } from './level';
 import { classWeekReport, needsHelp, skillsGrid, standardsReport, studentReport } from './reports';
 import { ranked, setWorldBoards, trophy, worldEntry } from './boards';
 import { classUrl, newAlias, showClassCode, cleanClassCode } from './names';
@@ -66,6 +69,18 @@ describe('activity entries from real play', () => {
     const ev = activityOf(p0, out.profile, MON + H)!;
     expect(ev).toMatchObject({ k: 'arcade', l: 'slalom', r: 1, n: 2 });
     expect(ev.s).toEqual({ 'add-facts': { r: 1, n: 2 } });
+  });
+  it('a Learn episode and a battle, changed in place (game.update), leave entries too; a settings change none', () => {
+    const p = newProfile('Ava', 'dino');
+    let base = activityBase(p, MON + H);
+    p.settings.sound = false;
+    expect(activityOf(base, p, MON + H)).toBeNull();
+    finishLesson(p, 'frac-parts', MON + H);
+    expect(activityOf(base, p, MON + H)).toMatchObject({ k: 'learn', l: 'frac-parts', f: 1 });
+    base = activityBase(p, MON + 2 * H);
+    advOf(p).day = { key: dayKey(MON + 2 * H), ms: 90000, answers: 6, right: 5 };
+    p.math!.facts['3+4'] = { ...newStat(), stage: 1, seen: 6, right: 5, wrong: 1 };
+    expect(activityOf(base, p, MON + 2 * H)).toMatchObject({ k: 'battle', l: 'adventure', ms: 90000, r: 5, n: 6, s: { 'add-facts': { r: 5, n: 6 } } });
   });
   it('nothing played: no entry; the newest few hundred are kept', () => {
     const p = newProfile('Ed', 'dino');
@@ -124,16 +139,23 @@ describe('assignment progress, scores and statuses', () => {
     expect(mins.ms).toBeGreaterThan(0);
     expect(mins.done).toBeCloseTo(mins.ms / (8 * 60000));
   });
-  it('reach comfortable reads working levels', () => {
+  it('reach comfortable reads the adaptive working level (strong and stretching count too)', () => {
     const p = newProfile('Cy', 'dino');
     expect(workingLevel(p, 'fr-name')).toBe('not started');
     const a = asg({ goal: { type: 'comfortable', n: 1 } });
     expect(progressOf(p, a, MON + H).done).toBe(0);
-    // every denominator in bloom: comfortable
+    // every denominator in bloom: past comfortable, strong
     const q = structuredClone(p) as Profile;
     q.math = { home: 'math', facts: {}, lessons: {}, history: [], totals: { trips: 0, facts: 0, ms: 0 }, skills: Object.fromEntries(['2', '3', '4', '5', '6', '8', '10', '12'].map(d => [`fr-name:${d}`, { stage: 3, seen: 9, right: 9, wrong: 0, times: [], fastDays: [], last: MON, due: 0, step: 0 }])) };
-    expect(workingLevel(q, 'fr-name')).toBe('comfortable');
+    expect(workingLevel(q, 'fr-name')).toBe('strong');
     expect(progressOf(q, a, MON + H).done).toBe(1);
+    // the game's own estimate decides once there is one: a low one is "getting started", not done
+    const r = structuredClone(q) as Profile;
+    r.math!.ability = { 'fr-name': { t: 1.2, n: 30, at: MON } };
+    expect(workingStep(r, 'fr-name', MON + H)).toEqual({ rung: 1, word: 'getting started' });
+    expect(progressOf(r, a, MON + H).done).toBe(0);
+    r.math!.ability = { 'fr-name': { t: 6, n: 30, at: MON } };
+    expect(workingLevel(r, 'fr-name', MON + H)).toBe('stretching');
   });
   it('Learn episodes and Show What You Know', () => {
     const p = newProfile('Dee', 'dino');
@@ -161,12 +183,13 @@ describe('the gradebook and reports', () => {
     const kids = [{ id: 's1', name: 'Maria', profile: kidA() }, { id: 's2', name: 'Sam', profile: kidB() }, { id: 's3', name: 'Ava', profile: null }];
     const wk = classWeekReport(kids, '2026-10-26');
     expect(wk).toMatchObject({ right: 25, played: 2, total: 3, notPlayed: ['Ava'] });
-    const grid = skillsGrid(kids, ['fr-name', 'mult-facts']);
-    expect(grid[0].levels).toEqual(['growing', 'not started']);
+    const grid = skillsGrid(kids, ['fr-name', 'mult-facts'], MON + 2 * H);
+    expect(grid.map(g => g.levels)).toEqual([['comfortable', 'not started'], ['getting started', 'not started'], ['not started', 'not started']]);
+    expect(grid[0].rungs).toEqual([3, 0]);
     const std = standardsReport(kids, ['3.NF.A.1']);
-    expect(std[0].counts['not started'] + std[0].counts.growing + std[0].counts.comfortable).toBe(3);
+    expect(Object.values(std[0].counts).reduce((t, n) => t + n, 0)).toBe(3);
     const help = needsHelp(kids, [asg({})]);
-    expect(help[0]).toMatchObject({ skill: 'fr-name', growing: ['Maria', 'Sam'], notStarted: ['Ava'], of: 3 });
+    expect(help[0]).toMatchObject({ skill: 'fr-name', starting: ['Sam'], notStarted: ['Ava'], comfortable: 1, of: 3 });
     const page = studentReport(kids[0], [asg({})], 4, MON + 2 * H);
     expect(page.weeks.at(-1)).toMatchObject({ week: '2026-10-26', right: 20 });
     expect(page.work[0].pr.done).toBe(1);

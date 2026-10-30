@@ -56,7 +56,7 @@
           <p class="plain">{g.plain}</p>
           <div class="bar"><i style:width="{(g.comfortable / Math.max(1, g.of)) * 100}%"></i></div>
           <span class="muted">{g.comfortable} of {g.of} comfortable</span>
-          {#if g.growing.length}<p><span class="chip grow">Growing</span> {g.growing.join(', ')}</p>{/if}
+          {#if g.starting.length}<p><span class="chip grow">Getting started</span> {g.starting.join(', ')}</p>{/if}
           {#if g.notStarted.length}<p><span class="chip ns">Not started</span> {g.notStarted.join(', ')}</p>{/if}
         </div>
       {/each}

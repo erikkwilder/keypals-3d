@@ -8,6 +8,8 @@ const plain = (r) => (r ? { ...r } : null);
 export function makeD1(schemaFile = new URL('../schema.sql', import.meta.url)) {
   const db = new DatabaseSync(':memory:');
   db.exec(readFileSync(schemaFile, 'utf8'));
+  // the classes' tables, as on the live database (deploy.sh applies both)
+  db.exec(readFileSync(new URL('../schema-classes.sql', import.meta.url), 'utf8'));
   const stmt = (sql, args = []) => ({
     sql,
     bind: (...a) => stmt(sql, a),

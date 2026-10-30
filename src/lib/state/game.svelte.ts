@@ -198,7 +198,9 @@ class Game {
   update(fn: (p: Profile) => void) {
     const p = this.profile;
     if (!p) return;
+    const played = this.watchActivity?.(p); // class work counts battles and Learn too (teach/student.svelte.ts)
     fn(p);
+    played?.();
     p.updatedAt = Date.now();
     this.persist();
     this.onProfileChange?.();
@@ -219,6 +221,8 @@ class Game {
   onPlayerAdded: (() => void) | null = null;
   /** told when an activity ends, with the player before and after (classes: teach/student.svelte.ts) */
   onActivity: ((before: Profile | undefined, after: Profile) => void) | null = null;
+  /** the same for changes made in place (game.update): looks at the player first, and after */
+  watchActivity: ((p: Profile) => () => void) | null = null;
 
   /** replaying a lesson skips its intro card and starts right away */
   quickStart = false;

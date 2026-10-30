@@ -4,7 +4,7 @@
   import { teach } from '../teacher.svelte';
   import { studentReport, type Kid } from '../reports';
   import { LEVEL_COLOR } from '../level';
-  import { STATUS_NAME, dueText, goalText, type Status } from '../assignments';
+  import { STATUS_NAME, dueText, goalText, partName, type Status } from '../assignments';
   import { MATH_LESSON } from '../../math/course';
   import { SKILL_LESSON } from '../../math/skills/course';
   import { LESSON as TYPING } from '../../engine/course';
@@ -19,7 +19,7 @@
   const r = $derived(studentReport(kid, teach.current!.assignments.filter(a => !a.archived)));
   const maxMin = $derived(Math.max(10, ...r.weeks.map(w => w.minutes)));
   const COLORS: Record<Status, string> = { done: '#c9f1dd', started: '#fff0b8', late: '#ffd6cf', 'not started': '#efedf3' };
-  const what = (l: string, k: string) => (k === 'typing' ? TYPING[l]?.title : k === 'arcade' ? ARCADE[l as keyof typeof ARCADE]?.name : SKILL_LESSON[l]?.title ?? MATH_LESSON[l]?.title) ?? (l.startsWith('class-') ? 'Class work trip' : l);
+  const what = (l: string, k: string) => (k === 'typing' ? TYPING[l]?.title : k === 'arcade' ? ARCADE[l as keyof typeof ARCADE]?.name : k === 'learn' ? `Learn: ${partName({ what: 'learn' }, l)}` : k === 'battle' ? 'Adventure battle' : SKILL_LESSON[l]?.title ?? MATH_LESSON[l]?.title) ?? (l.startsWith('class-') ? 'Class work trip' : l);
   const when = (t: number) => new Date(t).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 </script>
 
