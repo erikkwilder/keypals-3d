@@ -22,6 +22,7 @@ import { FRIEND, type FriendId } from '../art/cast';
 import { sfx } from '../audio/sound';
 import { BW, FC, boundsOf, type Board, type Hue, type Shape, type Tag } from '../math/learn';
 import { extraMat, makeDish, shapeGeo, shapeKey, shapeMats, type FracTex } from './fracShapes';
+import { makeBalance } from './algebraProps';
 import { SETS, type SetId, type Task, type TokenKind } from '../math/episodes';
 import type { GlimmerId } from '../adventure/glimmers';
 
@@ -132,6 +133,8 @@ export class EpisodeScene implements Controller {
   /** pie dishes, pizza boards and foil (fractions), and how high each one's floor is */
   private dishes = new Map<string, Piece>();
   private dishLift = new Map<string, number>();
+  /** the Star Lab's golden balance between two pans (a board's `beam`) */
+  private balances = new Map<string, Piece>();
   private fracTex: FracTex = { pie: null, pizza: null, choc: null };
   /** the fraction episodes: one pie or bar big on a bare wooden table, the camera in close */
   private close = false;
@@ -456,7 +459,7 @@ export class EpisodeScene implements Controller {
     const t = this.now;
     if (this.refit) {
       this.refit = false;
-      for (const map of [this.trays, this.plates, this.dishes]) { for (const p of map.values()) { p.g.removeFromParent(); dispose(p.g); } map.clear(); }
+      for (const map of [this.trays, this.plates, this.dishes, this.balances]) { for (const p of map.values()) { p.g.removeFromParent(); dispose(p.g); } map.clear(); }
       this.trayRects.clear();
       if (this.plank) { this.plank.removeFromParent(); dispose(this.plank); this.plank = null; }
       this.lineKey = '';
@@ -497,6 +500,8 @@ export class EpisodeScene implements Controller {
       g.position.copy(this.boardPoint(p.x, p.y));
       return g;
     } })), instant);
+    const pa = b.beam && b.plates.find(p => p.id === b.beam!.a), pb = b.beam && b.plates.find(p => p.id === b.beam!.b);
+    this.pieces(this.balances, pa && pb ? [{ id: `${pa.id}~${pb.id}`, make: () => makeBalance(this.boardPoint(pa.x, pa.y), this.boardPoint(pb.x, pb.y), pa.r * this.map.s) }] : [], instant);
     // the number line
     const lk = b.line ? `${b.line.from}-${b.line.to}` : '';
     if (lk !== this.lineKey) {
@@ -1096,7 +1101,7 @@ export class EpisodeScene implements Controller {
     if (innerHeight !== this.lastH) { this.lastH = innerHeight; this.fx.setScale(innerHeight * Math.min(2, devicePixelRatio || 1), stage.camera.fov); }
     this.layout();
     this.tokensUpdate(dt);
-    this.piecesUpdate(this.trays); this.piecesUpdate(this.plates); this.piecesUpdate(this.dishes);
+    this.piecesUpdate(this.trays); this.piecesUpdate(this.plates); this.piecesUpdate(this.dishes); this.piecesUpdate(this.balances);
     // rings: fade in, pulse, fade out
     for (const [k, s] of this.spots) {
       const m = s.mesh.material as THREE.MeshBasicMaterial;
@@ -1529,7 +1534,7 @@ function ringTexture() {
 function clothTexture(id: SetId) {
   const C: Record<SetId, [string, string, string]> = {
     kitchen: ['#f7f1e6', '#5d8fd6', '#3f6fb3'], dock: ['#d9c39a', '#b89a68', '#8a6b3e'], picnic: ['#fbf6ec', '#f3d9a0', '#d6a85a'],
-    workshop: ['#6f9a63', '#5f8a55', '#3f6b3a'], garden: ['#e7dcc2', '#c9b88f', '#9c8758'], cave: ['#5b6fa3', '#4c5f92', '#33446f'],
+    workshop: ['#6f9a63', '#5f8a55', '#3f6b3a'], garden: ['#e7dcc2', '#c9b88f', '#9c8758'], cave: ['#5b6fa3', '#4c5f92', '#33446f'], lab: ['#4a3a8c', '#6a58b8', '#e2b34a'],
   };
   const [bg, line, edge] = C[id];
   return canvasTex(256, (g, s) => {

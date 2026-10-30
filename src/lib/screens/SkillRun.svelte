@@ -25,6 +25,7 @@
   import { AREA } from '../math/skills/registry';
   import { SKILL_EPISODES, SKILL_LESSON, SKILL_REGION, tempoOf } from '../math/skills/course';
   import { FRAC_LESSON } from '../math/fracEpisodes';
+  import { ALG_LESSON } from '../math/algebra/episodes';
   import { isLearned } from '../math/learn';
   import Episode from '../math/ui/Episode.svelte';
   import { SkillTripPicker, type SkillPick } from '../math/skills/picker';
@@ -48,7 +49,7 @@
   const m = mathOf(profile);
   const lesson = SKILL_LESSON[game.skillLessonId] ?? SKILL_LESSON['frac-a-1'];
   /** a stop that meets a new idea: its Learn episode, to watch first */
-  const introEp = lesson.kind === 'meet' ? (lesson.learn.map(k => SKILL_EPISODES[k]).find(e => e && FRAC_LESSON[e]) ?? null) : null;
+  const introEp = lesson.kind === 'meet' ? (lesson.learn.map(k => SKILL_EPISODES[k]).find(e => e && (FRAC_LESSON[e] || ALG_LESSON[e])) ?? null) : null;
   const area = AREA[lesson.area];
   const regionName = lesson.region === 'start' ? area.name : SKILL_REGION[lesson.region].name;
   const tempo = tempoOf(lesson.area);

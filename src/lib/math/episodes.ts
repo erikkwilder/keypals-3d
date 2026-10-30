@@ -9,8 +9,9 @@ import { LESSON, LESSONS, askText, coverOf, hideAnswer, hintFor, lessonForFact, 
 import { factRung, groupFacts, MATH_REGION, STRAND } from './course';
 import { rungFor, STRAND_SKILL, TARGET, thetaOf, type AbilityHome } from './skills/ability';
 import { FRAC_LESSON, type EpQ } from './fracEpisodes';
+import { ALG_LESSON } from './algebra/episodes';
 
-export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave';
+export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'lab';
 /** what the counters are in each place */
 export type TokenKind = 'cookie' | 'pearl' | 'berry' | 'block' | 'flower';
 
@@ -40,6 +41,9 @@ export const SETS: Record<SetId, {
   // place value: the Geode Mole's workshop in the Counting Caves (a hundred is a crate of blocks)
   cave: { name: 'The Crystal Cave Workshop', backdrop: 'learn/ep/set-cave.webp', table: 'learn/ep/tex-cave.webp', star: 'geodemole', token: 'block',
     tray: { word: 'block tray', color: 0x8fa6c9, rim: 0x4f6a96 }, plate: { word: 'crate', color: 0xb98a5a, rim: 0x7a5232 }, key: 0xffe2b8, sky: 0xcfe0ff, ground: 0x5a4a6a, haze: 0xc9d6f2 },
+  // expressions and equations: the Comet Cat's workshop in the Star Lab (pans of a golden balance, brass weights, mystery boxes)
+  lab: { name: 'The Star Lab', backdrop: 'learn/ep/set-lab.webp', table: 'learn/ep/tex-workshop.webp', star: 'cometcat', token: 'block',
+    tray: { word: 'tray', color: 0x8a6fc9, rim: 0x5a3fa0 }, plate: { word: 'pan', color: 0xd9a441, rim: 0x8a5a1a }, key: 0xffe2b8, sky: 0xd8ccff, ground: 0x5a4a7a, haze: 0xd9cdf5 },
 };
 
 export type Episode = {
@@ -213,6 +217,14 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
       teach: { q: f.teach.q, wrong: f.teach.wrong, says: f.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: f.teach.fixed },
       cover: null, art: f.art, noun: NOUN[id] ?? 'slices' };
   }
+  const g = ALG_LESSON[id];
+  if (g) {
+    // the Star Lab: the counters are weights and boxes on a real table (not the close-up of a pie), its card a painting
+    const all = [g.teach.q.ans, g.teach.wrong, g.teach.decoy], k = g.id.length % 3;
+    return { id, title: g.title, blurb: g.blurb, color: '#6c5ce7', set: g.set, star: g.star, steps: g.steps, tries: g.tries,
+      teach: { q: g.teach.q, wrong: g.teach.wrong, says: g.teach.says, choices: [...all.slice(k), ...all.slice(0, k)], fixed: g.teach.fixed },
+      cover: g.steps.at(-1)!.board, art: g.art, noun: g.noun ?? 'weights' };
+  }
   const l = LESSON[id];
   if (!l) return null;
   const e = episodeOf(id);
@@ -222,7 +234,7 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
     teach: { q: q(e.teach.f), wrong: String(e.teach.wrong), says: e.teach.says, choices: fixChoices(e).map(String), fixed: `Oops! ${hintFor(l, e.teach.f)} Thank you!` },
     cover: coverOf(l), art: null };
 }
-export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!LESSON[id];
+export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!LESSON[id] || !!ALG_LESSON[id];
 
 /** The lessons in order, with their episode. */
 export const lessonWithEpisode = (l: Lesson) => ({ lesson: l, ep: episodeOf(l.id), set: setOf(l.id) });

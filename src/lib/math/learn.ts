@@ -22,7 +22,9 @@ export type Hue = 'a' | 'b' | 'c' | 'ghost';
 /** A counter with a shape of its own (the fraction episodes): a slice of a pie or pizza (piece `i` of
  *  `n`, from a whole of radius `r`, its x and y the slice's middle), a square of a chocolate bar
  *  (`w` wide), or a cupcake. */
-export type Shape = { k: 'wedge'; food: 'pie' | 'pizza'; n: number; i: number; r: number } | { k: 'chunk'; w: number } | { k: 'cupcake' };
+export type Shape = { k: 'wedge'; food: 'pie' | 'pizza'; n: number; i: number; r: number } | { k: 'chunk'; w: number } | { k: 'cupcake' }
+  /** the Star Lab (algebra): a mystery box, a brass weight (three/algebraProps.ts) */
+  | { k: 'box' } | { k: 'weight' };
 export type Dot = { id: string; x: number; y: number; c: Hue; /** crossed out: taken away, still shown */ out?: boolean; /** seconds to wait before moving */ d?: number; shape?: Shape };
 export type Tag = { id: string; x: number; y: number; text: string; c?: Hue | 'ink'; size?: number };
 export type Board = {
@@ -38,6 +40,8 @@ export type Board = {
   line: { from: number; to: number; at: number; hops: { a: number; b: number; label: string }[]; den?: number } | null;
   /** dishes under whole things (fractions): a pie dish, a pizza board, a chocolate bar's foil, by their middle */
   dishes?: { id: string; x: number; y: number; r: number; kind: 'pie' | 'pizza' | 'foil'; w?: number; h?: number }[];
+  /** the Star Lab's golden balance standing between two plates (its pans), by their ids */
+  beam?: { a: string; b: string };
   tags: Tag[];
 };
 /** the picture's size; it scales to fit */
