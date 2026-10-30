@@ -67,6 +67,7 @@ export class MeasureKit {
   private faceKind: Face | null = null;
   private hourHand = new THREE.Group(); private minHand = new THREE.Group();
   private clockR = 0.27;
+  private tall = false;
   private clockT = 0; private clockShow = 0;
   private numSpots: THREE.Mesh[] = [];
   // the ruler
@@ -175,6 +176,7 @@ export class MeasureKit {
     g.add(tilt);
     g.userData.tilt = tilt;
     g.position.copy(this.at(300, 190));
+    if (this.tall) { g.scale.setScalar(0.92); g.position.copy(this.at(300, 245)); }
     this.clock = g; this.root.add(g);
     this.clockShow = this.clockT;
     // the twelve number spots (a "tap the numbers" step): glowing rings on the face
@@ -284,6 +286,7 @@ export class MeasureKit {
     g.position.copy(this.at(x, y));
     g.rotation.y = x < 300 ? 0.18 : 0;
     g.scale.setScalar(1.45);
+    if (this.tall) g.scale.setScalar(1.1);
     this.scale = g; this.root.add(g);
     // the sack of carrots, waiting beside it
     const sack = new THREE.Group();
@@ -359,6 +362,7 @@ export class MeasureKit {
     g.position.copy(this.at(x, y));
     g.rotation.y = x > 300 ? -0.15 : 0;
     g.scale.setScalar(1.45);
+    if (this.tall) g.scale.setScalar(1.1);
     this.jug = g; this.root.add(g);
     this.waterShow = 0;
   }
@@ -678,6 +682,14 @@ export class MeasureKit {
   update(dt: number, t: number) {
     this.now = t;
     const cam = stage.camera;
+    // on a tall screen (a phone) the friends stand close together: the things come a little smaller and
+    // nearer the kid, so they sit between the friends instead of in front of them
+    const tall = (innerWidth || 1) / (innerHeight || 1) < 0.9;
+    if (tall !== this.tall) {
+      this.tall = tall;
+      if (this.clock) { this.clock.scale.setScalar(tall ? 0.92 : 1); this.clock.position.copy(this.at(300, tall ? 245 : 190)); }
+      for (const g of [this.scale, this.jug]) if (g) g.scale.setScalar(tall ? 1.1 : 1.45);
+    }
     // the clock leans back to face the kid, and its hands turn smoothly to the time
     if (this.clock) {
       const f = this.faceGroup()!, c = f.getWorldPosition(new THREE.Vector3()), v = cam.position.clone().sub(c);

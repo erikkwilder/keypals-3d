@@ -11,6 +11,9 @@ import { SPOTS } from './mapSpots';
 import { GLIMMER, GLIMMERS } from './glimmers';
 import { CLOCKWORK_GLIMMERS } from './clockwork';
 import { STATION } from '../audio/stations';
+import type { Pool } from './battle';
+
+type MathPool = Extract<Pool, { subject: 'math' }>;
 
 const pub = (f: string) => existsSync(new URL(`../../../public/${f}`, import.meta.url));
 
@@ -31,13 +34,13 @@ describe('Clockwork Isle', () => {
   });
   it('deals only measuring questions in its battles', () => {
     const p = newProfile('Kid', 'dino');
-    const pool = mathPool(p, ISLAND.clockwork.area);
+    const pool = mathPool(p, ISLAND.clockwork.area) as MathPool;
     expect(pool.mix).toBe(1);
     expect(pool.skills!.length).toBeGreaterThan(0);
     for (const s of pool.skills!) expect(SKILL[splitKey(s.key).skill].area).toBe('measure');
     const st = (stage: number) => ({ stage, seen: 3, times: [2000, 3000] }) as never;
     p.math = { ...mathOf(p), skills: { 'ms-hour:oclock': st(2), 'ms-ruler:read': st(1), 'dm-coins:small': st(3) } };
-    const pool2 = mathPool(p, 'measure');
+    const pool2 = mathPool(p, 'measure') as MathPool;
     expect(pool2.skills!.map(s => s.key).sort()).toEqual(['ms-hour:oclock', 'ms-ruler:read']);
   });
   it('has a Champion at the clock tower and cuckoo clocks for weather', () => {
