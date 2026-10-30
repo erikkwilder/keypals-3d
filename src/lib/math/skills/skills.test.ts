@@ -14,9 +14,9 @@ const T0 = new Date('2026-11-02T16:00:00').getTime();
 const DAY = 86_400_000;
 
 describe('skills registry', () => {
-  it('lists every K-8 area, the four fact strands, fractions and decimals live', () => {
+  it('lists every K-8 area, the four fact strands, fractions, decimals and measurement live', () => {
     expect(AREAS.length).toBe(13);
-    expect(AREAS.filter(a => a.live).map(a => a.id)).toEqual(['plus', 'minus', 'times', 'share', 'fractions', 'place', 'decimals']);
+    expect(AREAS.filter(a => a.live).map(a => a.id)).toEqual(['plus', 'minus', 'times', 'share', 'fractions', 'place', 'decimals', 'measure']);
     expect(skillsOf('fractions').map(s => s.id)).toEqual(['fr-name', 'fr-unit', 'fr-set', 'fr-line', 'fr-compare', 'fr-equal', 'fr-add', 'fr-sub', 'fr-mixed', 'fr-times', 'fr-unlike']);
     for (const s of SKILLS) { expect(s.standard).toMatch(/^\d\.[A-Z]+\./); expect(s.subs.length).toBeGreaterThan(0); }
   });

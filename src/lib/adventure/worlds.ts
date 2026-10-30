@@ -4,6 +4,7 @@
 // next. Each open world has its own painted map, wide (desktop) and tall (phones).
 import type { AreaId } from '../math/skills/types';
 import type { WorldId } from './state';
+import type { StationChoice, StationId } from '../audio/stations';
 
 export type WorldMap = { wide: string; tall: string; size: { wide: readonly [number, number]; tall: readonly [number, number] } };
 export type WorldPin = {
@@ -17,6 +18,8 @@ export type WorldPin = {
   map?: WorldMap;
   /** a math world's area (it opens once the area is started) */
   area?: AreaId;
+  /** its own music station, played there while the player's station is Auto (audio/stations.ts) */
+  station?: StationId;
 };
 
 export const WORLD_PINS: WorldPin[] = [
@@ -30,13 +33,17 @@ export const WORLD_PINS: WorldPin[] = [
   { id: 'peaks', name: 'Shape Peaks', blurb: 'Shapes, angles and crystals.', at: [89, 31], area: 'shapes' },
   { id: 'market', name: 'Market Isle', blurb: 'A floating bazaar. Every battle card is money or decimals.', at: [33, 60], area: 'decimals',
     map: { wide: 'game/map-market-wide.webp', tall: 'game/map-market-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Clocks, lengths and weights.', at: [60, 55], area: 'measure' },
+  { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Cuckoo clocks, gears and a great balance scale. Every battle card is time or measuring.', at: [60, 55], area: 'measure', station: 'storybook',
+    map: { wide: 'game/map-clock-wide.webp', tall: 'game/map-clock-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   { id: 'stars', name: 'Star Lab', blurb: 'Expressions and equations.', at: [88, 57], area: 'algebra' },
   { id: 'frost', name: 'Below Zero Caves', blurb: 'Negative numbers, under the ice.', at: [37, 87], area: 'integers' },
   { id: 'fair', name: 'Chance Fair', blurb: 'Graphs, chance and data.', at: [73, 86], area: 'data' },
 ];
 export const WORLD_PIN = Object.fromEntries(WORLD_PINS.map(w => [w.id, w])) as Record<string, WorldPin>;
 export const mapOf = (w: WorldId) => WORLD_PIN[w].map!;
+
+/** The station to play in a world: its own while the player's choice is Auto, else the player's. */
+export const worldStation = (id: string, mine: StationChoice): StationChoice => (mine === 'auto' ? WORLD_PIN[id]?.station ?? mine : mine);
 
 /** The world the Adventure map last showed, so coming back from a battle lands on the same world. */
 export const lastWorld: { id: WorldId } = { id: 'sky' };

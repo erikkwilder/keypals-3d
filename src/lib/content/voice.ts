@@ -424,5 +424,47 @@ export const FRACTION_LINES: Line[] = [
   coach("ep.frac-unlike.card", "You won the Match the Bottoms card! Different bottoms? Make them match first, then add."),
 ];
 
+// the measurement and time episodes (math/measure/episodes.ts, the same words): the coach tells each
+// story at the clockmaker's table, says each step, and hands over the card.
+export const MEASURE_EPISODE_LINES: Line[] = [
+  coach("ep.ms-oclock.intro", "Sunny Snail is never in a hurry, but the party starts at 3 o'clock! Let's learn to read the clock."),
+  coach("ep.ms-oclock.s0", "A clock has two hands. The short hand tells the hour. The long hand tells the minutes."),
+  coach("ep.ms-oclock.s1", "Drag the short hand to the 3. The long hand points straight up at 12, so it's 3 o'clock!"),
+  coach("ep.ms-oclock.s2", "Now drag the long hand half way round, to the 6. Watch the short hand move too!"),
+  coach("ep.ms-oclock.s3", "The short hand is half way between 3 and 4. It hasn't reached 4 yet, so it's still half past 3!"),
+  coach("ep.ms-oclock.card", "You won the O'clock card! The short hand says the hour. The long hand on 12 is o'clock, on 6 is half past."),
+  coach("ep.ms-fives.intro", "Sunny Snail's train leaves at 20 past 7. Where does the long hand go? Let's count the minutes by fives."),
+  coach("ep.ms-fives.s0", "It's 7 o'clock. The long hand is on 12, at the very start of the hour."),
+  coach("ep.ms-fives.s1", "Each number is 5 more minutes. Tap the numbers to count by fives!"),
+  coach("ep.ms-fives.s2", "Now drag the long hand to the 4. That's 20 minutes past 7!"),
+  coach("ep.ms-fives.s3", "The little marks between the numbers are one minute each. Two marks past the 4 is 22 minutes: 7:22!"),
+  coach("ep.ms-fives.card", "You won the Count by Fives card! Each number on the clock is 5 more minutes. The little marks are 1 minute each."),
+  coach("ep.ms-jump.intro", "Teakettle Dragon put a cake in the oven at 2:40. It bakes for 35 minutes. When will it be ready?"),
+  coach("ep.ms-jump.s0", "The cake went in at 2:40. We need to add 35 minutes."),
+  coach("ep.ms-jump.s1", "First, jump to the next o'clock. Turn the long hand on to the 12. That's 20 minutes, and now it's 3:00!"),
+  coach("ep.ms-jump.s2", "35 take away 20 leaves 15 more minutes. Turn the long hand on to the 3."),
+  coach("ep.ms-jump.s3", "20 minutes and 15 minutes make 35. The cake is ready at 3:15!"),
+  coach("ep.ms-jump.card", "You won the Jump to the Hour card! Jump to the next o'clock first, then add the minutes that are left."),
+  coach("ep.ms-zero.intro", "Mushroom Mouse found a crayon and a pencil. Which one is longer, and by how much? Let's measure them!"),
+  coach("ep.ms-zero.s0", "Here's a ruler. The crayon isn't lined up yet, so we can't read it."),
+  coach("ep.ms-zero.s1", "Slide the crayon along so its end sits on the 0 line."),
+  coach("ep.ms-zero.s2", "Now read the other end. Tap the glowing mark!"),
+  coach("ep.ms-zero.s3", "Now line up the pencil with 0 too. It ends at 9!"),
+  coach("ep.ms-zero.s4", "9 take away 6 is 3. The pencil is 3 centimetres longer!"),
+  coach("ep.ms-zero.card", "You won the Start at Zero card! Line one end up with 0, then read the number at the other end."),
+  coach("ep.ms-marks.intro", "Geode Mole is making soup! It needs 600 grams of carrots and 400 millilitres of water."),
+  coach("ep.ms-marks.s0", "Look at the scale. The numbers go up by 200, and every mark is 100 grams."),
+  coach("ep.ms-marks.s1", "Drag the sack of carrots onto the scale. Watch the needle!"),
+  coach("ep.ms-marks.s2", "Now the water. Drag the water in the jug up to the 400 line."),
+  coach("ep.ms-marks.s3", "Find the number just below, then count the marks up. 400, then 500, then 600. Soup time!"),
+  coach("ep.ms-marks.card", "You won the Read the Marks card! Find the number just below, then count the marks up."),
+  coach("ep.ms-rows.intro", "Pebble Tortoise wants a garden 4 squares long and 3 squares wide. How many grass tiles will it need?"),
+  coach("ep.ms-rows.s0", "Here is the garden bed: 4 squares long and 3 squares wide."),
+  coach("ep.ms-rows.s1", "Drag grass tiles into the first row!"),
+  coach("ep.ms-rows.s2", "Now fill the other rows. Drag a tile, and the rest will follow!"),
+  coach("ep.ms-rows.s3", "3 rows of 4 is 12 squares. That is the area: length times width, 4 times 3!"),
+  coach("ep.ms-rows.s4", "Now a fence goes all the way round. Tap each side to measure it!"),
+  coach("ep.ms-rows.card", "You won the Rows of Squares card! Area is rows times how many in a row. Perimeter is all the way round."),
+];
 
-export const ALL_LINES: Line[] = [...HOME_TUTORIAL, ...LESSON_LINES, ...FINGER_LINES, ...REGION_LINES, ...COACH_BARKS, ...FRIEND_LINES, ...EPISODE_LINES, ...MARKET_EPISODE_LINES, ...FRACTION_LINES];
+export const ALL_LINES: Line[] = [...HOME_TUTORIAL, ...LESSON_LINES, ...FINGER_LINES, ...REGION_LINES, ...COACH_BARKS, ...FRIEND_LINES, ...EPISODE_LINES, ...MARKET_EPISODE_LINES, ...FRACTION_LINES, ...MEASURE_EPISODE_LINES];

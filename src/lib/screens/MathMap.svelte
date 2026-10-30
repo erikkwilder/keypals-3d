@@ -32,6 +32,8 @@
   import type { AreaId } from '../math/skills/types';
   import { MARKET_LESSON, MARKET_LESSONS } from '../math/market/episodes';
   import MarketEpisode from '../math/market/MarketEpisode.svelte';
+  import { MEASURE_LESSON, MEASURE_LESSONS } from '../math/measure/episodes';
+  import MeasureEpisode from '../math/measure/MeasureEpisode.svelte';
 
   const p = $derived(game.profile!);
   const m = $derived(mathOf(p));
@@ -129,6 +131,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if game.learnOverlay && MARKET_LESSON[game.learnOverlay]}<MarketEpisode lesson={MARKET_LESSON[game.learnOverlay]} onclose={() => (game.learnOverlay = null)} />{/if}
+{#if game.learnOverlay && MEASURE_LESSON[game.learnOverlay]}{#key game.learnOverlay}<MeasureEpisode lesson={MEASURE_LESSON[game.learnOverlay]} check={game.learnCheck} onclose={() => { game.learnOverlay = null; game.learnCheck = false; }} />{/key}{/if}
 
 <!-- one part of math on the other tabs (and its garden): Learn it, Games, World -->
 {#snippet partLinks(id: string, garden: boolean)}
@@ -141,7 +144,7 @@
   </div>
 {/snippet}
 
-<div class="screen map">
+<div class="screen map" class:behind={!!(game.learnOverlay && MEASURE_LESSON[game.learnOverlay])}>
   <TopBar />
   <WaysBar subject={S} {way} onpick={pickWay}>
     {#snippet right()}<span class="pill stars" title="Math stars"><Stars n={1} of={1} size={20} /> <b>{stars}</b></span>{/snippet}
@@ -244,6 +247,20 @@
           {/each}
         </div>
       {/if}
+      {#if area === 'measure'}
+        <!-- the measuring arcade game (its cabinet is in the Arcade too: screen 'clockrush') and the measuring bench -->
+        <button class="placement arcade" onclick={() => { sfx.click(); game.go('clockrush'); }}>
+          <img src="{import.meta.env.BASE_URL}math/measure/tile.webp" alt="" />
+          <span class="ptext"><b>Clock Rush</b><small>Game: set the clocks before they tick past.{(m.arcade?.['clock-rush']?.best ?? 0) > 0 ? ` Best: ${m.arcade!['clock-rush'].best}` : ''}</small></span>
+        </button>
+        <!-- the measuring Learn episodes, in the clockmaker's workshop (open over the map: game.learnOverlay) -->
+        <div class="learnrow">
+          <span class="lrh"><Icon name="book" size={20} /> Learn it</span>
+          {#each MEASURE_LESSONS as l (l.id)}
+            <button class="lchip" class:done={isLearned(m, l.id)} onclick={() => { sfx.click(); game.learnCheck = false; game.learnOverlay = l.id; }}>{l.title}{#if isLearned(m, l.id)} <Icon name="check" size={16} />{/if}</button>
+          {/each}
+        </div>
+      {/if}
       {#if area === 'place'}
         <!-- the place value arcade game (its cabinet is in the Arcade too) -->
         <button class="placement arcade" onclick={() => { sfx.click(); import('../math/place/builder').then(b => { b.builderOpen.toy = false; b.builderOpen.from = 'map'; game.go('builder'); }); }}>
@@ -257,7 +274,7 @@
       {@const open = skillRegionOpen(m, r.id)}
       {@const done = r.lessons.filter(l => skillMovedOn(m, l)).length}
       <section class="region" class:locked={!open} data-region={r.id}>
-        <div class="art" style:background-image="url({import.meta.env.BASE_URL}regions/{r.world}.webp)"></div>
+        <div class="art" style:background-image="url({import.meta.env.BASE_URL}{r.art ?? `regions/${r.world}.webp`})"></div>
         <div class="rhead">
           <div class="rname">
             <span class="tbl" style:background={ar.color}>{r.chip}</span>
@@ -370,6 +387,8 @@
 
 <style>
   .choose { max-width: 1280px; margin: 0 auto; padding: 4px 0 30px; }
+  /* a measuring Learn episode plays in 3D over the map: the map steps out of the way meanwhile */
+  .map.behind { visibility: hidden; }
   .choose h1 { font-size: 34px; margin: 4px 0 14px; text-align: center; }
   .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
   .scard { background: #fff; border-radius: 26px; overflow: hidden; box-shadow: 0 16px 36px -22px rgba(60, 40, 110, .55), 0 0 0 4px #fff; display: flex; flex-direction: column; transition: transform .15s; }

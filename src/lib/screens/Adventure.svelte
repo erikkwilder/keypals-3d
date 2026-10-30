@@ -6,7 +6,7 @@
   import CloseButton from '../ui/CloseButton.svelte';
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { sfx } from '../audio/sound';
+  import { sfx, setMusicStation } from '../audio/sound';
   import { nextLesson } from '../engine/profile';
   import { mathOf, nextMathLesson } from '../math/progress';
   import { nextToLearn } from '../math/learn';
@@ -15,7 +15,7 @@
   import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, islandsOf, markSeen, nodesOf, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, worldOpen, type MapNode, type WorldId, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
   import { DuelScene } from '../three/duelScene';
-  import { WORLD_PIN, WORLD_PINS, lastWorld, mapOf, type WorldPin } from '../adventure/worlds';
+  import { WORLD_PIN, WORLD_PINS, lastWorld, mapOf, worldStation, type WorldPin } from '../adventure/worlds';
   import { nextSkillLesson } from '../math/skills/course';
     import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
@@ -115,6 +115,7 @@
     sfx.pop(); picker = false; open = null;
     if (id === world) return;
     world = id; lastWorld.id = id;
+    setMusicStation(worldStation(id, game.settings.musicStation ?? 'auto'));
     reach(id);
     if (id !== 'sky' && !a.seen?.includes(`world-${id}`)) { game.say(`Welcome to ${w.name}! ${w.blurb}`); game.update(pp => markSeen(pp, `world-${id}`)); }
   }

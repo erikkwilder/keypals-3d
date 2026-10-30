@@ -67,6 +67,7 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
   game.setHome('math');
   if (w === 'learn') {
     if (t.kind === 'market') { game.mathOp = null; game.mathArea = 'decimals'; game.go('map'); game.learnOverlay = t.id; return; }
+    if (t.kind === 'measure') { game.mathOp = null; game.mathArea = 'measure'; game.learnCheck = false; game.go('map'); game.learnOverlay = t.id; return; }
     game.learnCheck = false;
     game.openLearn(t.id, from);
     return;
@@ -80,11 +81,13 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
     if (t.kind === 'arcade') {
       if (t.id === 'pizza') game.go('pizza');
       else if (t.id === 'market') game.go('market');
+      else if (t.id === 'clockrush') game.go('clockrush');
       else if (t.id === 'builder') { builderOpen.toy = false; builderOpen.from = 'map'; game.go('builder'); }
       else game.playArcade(t.id as ArcadeId);
       return;
     }
     if (t.id === 'blocks') { builderOpen.toy = true; builderOpen.from = 'map'; game.go('builder'); return; }
+    if (t.id === 'bench') { game.go('bench'); return; }
     game.playPick = t.id;
     game.go('playground');
     return;
@@ -132,9 +135,9 @@ export function statusOf(s: Subject, w: WayId, t: Thing, p: Profile): { tag: str
   if (w === 'learn') return isLearned(m, t.id) ? { tag: 'Learned', done: true } : { tag: 'New' };
   if (w === 'games') {
     const best = t.kind === 'arcade'
-      ? (t.id === 'builder' ? builderOf(p).best : t.id === 'pizza' ? m.arcade?.['pizza-rush']?.best ?? 0 : t.id === 'market' ? m.arcade?.['market-dash']?.best ?? 0 : arcadeOf(p)[t.id as ArcadeId]?.best ?? 0)
-      : t.id === 'blocks' ? 0 : (playOf(p, t.id as PlayGame).stars.filter(Boolean).length);
-    if (t.kind === 'toy') return t.id === 'blocks' ? { tag: 'Build anything' } : best ? { tag: `Level ${playNextLevel(p, t.id as PlayGame)} next`, done: true } : { tag: 'No clock' };
+      ? (t.id === 'builder' ? builderOf(p).best : t.id === 'pizza' ? m.arcade?.['pizza-rush']?.best ?? 0 : t.id === 'market' ? m.arcade?.['market-dash']?.best ?? 0 : t.id === 'clockrush' ? m.arcade?.['clock-rush']?.best ?? 0 : arcadeOf(p)[t.id as ArcadeId]?.best ?? 0)
+      : t.id === 'blocks' || t.id === 'bench' ? 0 : (playOf(p, t.id as PlayGame).stars.filter(Boolean).length);
+    if (t.kind === 'toy') return t.id === 'blocks' ? { tag: 'Build anything' } : t.id === 'bench' ? { tag: 'Measure anything' } : best ? { tag: `Level ${playNextLevel(p, t.id as PlayGame)} next`, done: true } : { tag: 'No clock' };
     return best ? { tag: `Best ${Math.round(best).toLocaleString('en-US')}`, done: true } : { tag: 'New! Give it a go' };
   }
   if (w === 'adventure') { const a = WORLD_PIN[t.id]?.area; return t.id === 'sky' || worldOpen(p, t.id as WorldId) ? { tag: 'Open', done: true } : { tag: `Opens with a ${partName(a)} trip`, locked: true }; }

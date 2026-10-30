@@ -15,7 +15,9 @@ export type SkillLesson = {
   goal: number; blurb: string;
   move: MathMove; world: RegionId;
 };
-export type SkillRegion = { id: string; area: AreaId; name: string; blurb: string; world: RegionId; chip: string; skills: string[]; lessons: SkillLesson[] };
+export type SkillRegion = { id: string; area: AreaId; name: string; blurb: string; world: RegionId; chip: string; skills: string[]; lessons: SkillLesson[];
+  /** its own painted strip for the map (else the world's: regions/<world>.webp) */
+  art?: string };
 
 const L = (r: Omit<SkillRegion, 'lessons'>, n: number, title: string, kind: SkillKind, skills: string[], learn: string[], goal: number, move: MathMove, blurb: string): SkillLesson =>
   ({ id: `${r.id}-${n}`, region: r.id, area: r.area, n, title, kind, skills, learn, goal, blurb, move, world: r.world });
@@ -99,6 +101,41 @@ const DECIMAL_REGIONS = [
     ['Counting House Run', 'check', HOUSE_SKILLS, [], 5, 'swim', 'Every kind of question on this island. Already know them? Start here.'],
   ]),
 ];
+// Measurement and time, grades 1 to 6, on three islands: Tick-Tock Square (o'clock and half past,
+// longer or shorter, five minutes, a ruler), the Measuring Mill (to the minute, how long things take,
+// scales and jugs) and the Builder's Yard (area, perimeter, changing units, volume, units and rates).
+const TICK_SKILLS = ['ms-hour', 'ms-compare', 'ms-five', 'ms-ruler'];
+const MILL_M_SKILLS = ['ms-minute', 'ms-elapsed', 'ms-mass'];
+const YARD_SKILLS = ['ms-area', 'ms-perim', 'ms-convert', 'ms-volume', 'ms-ratio'];
+const TICK: Omit<SkillRegion, 'lessons'> = { id: 'meas-a', area: 'measure', name: 'Tick-Tock Square', blurb: "O'clock and half past, longer or shorter, five minutes, and a ruler.", world: 'village', chip: '3:00', skills: TICK_SKILLS, art: 'math/measure/region-time.webp' };
+const MILL_M: Omit<SkillRegion, 'lessons'> = { id: 'meas-b', area: 'measure', name: 'Measuring Mill', blurb: 'Time to the minute, how long things take, and scales and jugs.', world: 'shores', chip: 'kg mL', skills: MILL_M_SKILLS, art: 'math/measure/region-length.webp' };
+const YARD: Omit<SkillRegion, 'lessons'> = { id: 'meas-c', area: 'measure', name: "Builder's Yard", blurb: 'Area, perimeter, changing units, the volume of a box, and rates.', world: 'cliffs', chip: '4 × 3', skills: YARD_SKILLS, art: 'math/measure/region-build.webp' };
+const MEASURE_REGIONS = [
+  region(TICK, [
+    ["O'clock", 'meet', ['ms-hour'], ['ms-hour'], 6, 'run', "The short hand says the hour. The long hand on 12 is o'clock, on 6 is half past."],
+    ['Longer or Shorter', 'meet', ['ms-compare', 'ms-hour'], ['ms-compare'], 6, 'swim', 'Line up the ends to compare. Count cubes end to end, with no gaps.'],
+    ['Five Minutes', 'meet', ['ms-five', 'ms-hour'], ['ms-five'], 5, 'climb', 'Every number on the clock is 5 more minutes: count by fives.'],
+    ['Use a Ruler', 'meet', ['ms-ruler', 'ms-compare'], ['ms-ruler'], 5, 'slide', 'Line one end up with 0, then read the number at the other end.'],
+    ['Tick-Tock Mix', 'mix', TICK_SKILLS, [], 5, 'run', 'Everything so far, all mixed up.'],
+    ['Tick-Tock Square Run', 'check', TICK_SKILLS, [], 6, 'climb', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(MILL_M, [
+    ['To the Minute', 'meet', ['ms-minute', 'ms-five'], ['ms-minute'], 5, 'run', 'Count by fives to the last number, then on by ones for the little marks.'],
+    ['How Long?', 'meet', ['ms-elapsed', 'ms-minute'], ['ms-elapsed'], 4, 'climb', "Jump to the next o'clock, then add the minutes that are left."],
+    ['Weigh and Pour', 'meet', ['ms-mass'], ['ms-mass'], 5, 'swim', 'Find the number just below, then count the marks up.'],
+    ['Mill Mix', 'mix', [...MILL_M_SKILLS, 'ms-five'], [], 5, 'slide', 'This island and the last, all mixed up.'],
+    ['Measuring Mill Run', 'check', MILL_M_SKILLS, [], 5, 'run', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(YARD, [
+    ['Area', 'meet', ['ms-area'], ['ms-area'], 5, 'climb', 'Squares come in equal rows: length times width.'],
+    ['Perimeter', 'meet', ['ms-perim', 'ms-area'], ['ms-perim'], 5, 'run', 'All the way round the fence: add every side.'],
+    ['Change the Units', 'meet', ['ms-convert'], ['ms-convert'], 5, 'swim', 'Big unit to small: times. Small unit to big: divide.'],
+    ['Volume', 'meet', ['ms-volume', 'ms-area'], ['ms-volume'], 4, 'slide', 'Cubes in the bottom layer, times the number of layers.'],
+    ['Units and Rates', 'meet', ['ms-ratio', 'ms-convert'], ['ms-ratio'], 4, 'climb', 'Find how much for one first, then times.'],
+    ["Builder's Mix", 'mix', YARD_SKILLS, [], 4, 'run', 'Everything on this island, all mixed up.'],
+    ["Builder's Yard Run", 'check', YARD_SKILLS, [], 5, 'swim', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+];
 export const SKILL_REGIONS: SkillRegion[] = [
   region(PIE, [
     ['Meet Fractions', 'meet', ['fr-name'], ['fr-name'], 6, 'run', 'The bottom number is how many equal parts; the top is how many you have.'],
@@ -126,11 +163,13 @@ export const SKILL_REGIONS: SkillRegion[] = [
   ]),
   ...PLACE_REGIONS,
   ...DECIMAL_REGIONS,
+  ...MEASURE_REGIONS,
 ];
 
 export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
   place: { id: 'start-place', region: 'start', area: 'place', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...STEPS_SKILLS, ...MINE_SKILLS, ...VAULT_SKILLS], learn: [], goal: 7, move: 'run', world: 'burrows', blurb: 'A quick mix of counting, tens and hundreds, and big numbers. Answer what you know and skip ahead!' },
   decimals: { id: 'start-decimals', region: 'start', area: 'decimals', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...COIN_SKILLS, ...CHOC_SKILLS, ...HOUSE_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of money and decimals. Answer what you know and skip ahead!' },
+  measure: { id: 'start-measure', region: 'start', area: 'measure', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...TICK_SKILLS, ...MILL_M_SKILLS, ...YARD_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of clocks, rulers, scales, area and units. Answer what you know and skip ahead!' },
   fractions: { id: 'start-fractions', region: 'start', area: 'fractions', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...PIE_SKILLS, ...BAKER_SKILLS, ...MILL_SKILLS], learn: [], goal: 6, move: 'run', world: 'village', blurb: 'A quick mix of fractions. Answer what you know and skip ahead!' },
 };
 /** The Learn episode that teaches each fraction skill (a hook for math/learn.ts: an episode added with
@@ -145,6 +184,9 @@ export const SKILL_EPISODES: Record<string, string> = {
   // hundredths, lining up the point to compare and to add
   'dm-coins': 'dec-coins', 'dm-make': 'dec-coins', 'dm-change': 'dec-change', 'dm-tenths': 'dec-tenths', 'dm-hund': 'dec-hundredths',
   'dm-compare': 'dec-compare', 'dm-add': 'dec-add', 'dm-sub': 'dec-add',
+  // measurement and time (the clockmaker's workshop: math/measure/episodes.ts)
+  'ms-hour': 'ms-oclock', 'ms-five': 'ms-fives', 'ms-minute': 'ms-fives', 'ms-elapsed': 'ms-jump', 'ms-ruler': 'ms-zero', 'ms-compare': 'ms-zero',
+  'ms-mass': 'ms-marks', 'ms-area': 'ms-rows', 'ms-perim': 'ms-rows',
 };
 export const SKILL_LESSONS: SkillLesson[] = SKILL_REGIONS.flatMap(r => r.lessons);
 export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS].map(l => [l!.id, l!]));
@@ -153,7 +195,7 @@ export const skillRegionsOf = (area: AreaId) => SKILL_REGIONS.filter(r => r.area
 export const isSkillLesson = (id: string) => !!SKILL_LESSON[id];
 /** How much longer a skill question takes than a fact: speeds, treasure and rides are scaled by it so a
  *  good fraction trip feels as fast as a good times-table trip. */
-export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5 };
+export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5, measure: 2.8 };
 export const tempoOf = (area: AreaId) => TEMPO[area] ?? 2;
 
 // ---------- what's open ----------

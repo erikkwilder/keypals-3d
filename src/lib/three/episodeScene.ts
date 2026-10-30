@@ -1530,6 +1530,7 @@ function clothTexture(id: SetId) {
   const C: Record<SetId, [string, string, string]> = {
     kitchen: ['#f7f1e6', '#5d8fd6', '#3f6fb3'], dock: ['#d9c39a', '#b89a68', '#8a6b3e'], picnic: ['#fbf6ec', '#f3d9a0', '#d6a85a'],
     workshop: ['#6f9a63', '#5f8a55', '#3f6b3a'], garden: ['#e7dcc2', '#c9b88f', '#9c8758'], cave: ['#5b6fa3', '#4c5f92', '#33446f'],
+    clockshop: ['#3d6f6a', '#2f5f5a', '#c9a24a'],
   };
   const [bg, line, edge] = C[id];
   return canvasTex(256, (g, s) => {

@@ -10,7 +10,7 @@ import { factRung, groupFacts, MATH_REGION, STRAND } from './course';
 import { rungFor, STRAND_SKILL, TARGET, thetaOf, type AbilityHome } from './skills/ability';
 import { FRAC_LESSON, type EpQ } from './fracEpisodes';
 
-export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave';
+export type SetId = 'kitchen' | 'dock' | 'picnic' | 'workshop' | 'garden' | 'cave' | 'clockshop';
 /** what the counters are in each place */
 export type TokenKind = 'cookie' | 'pearl' | 'berry' | 'block' | 'flower';
 
@@ -40,6 +40,9 @@ export const SETS: Record<SetId, {
   // place value: the Geode Mole's workshop in the Counting Caves (a hundred is a crate of blocks)
   cave: { name: 'The Crystal Cave Workshop', backdrop: 'learn/ep/set-cave.webp', table: 'learn/ep/tex-cave.webp', star: 'geodemole', token: 'block',
     tray: { word: 'block tray', color: 0x8fa6c9, rim: 0x4f6a96 }, plate: { word: 'crate', color: 0xb98a5a, rim: 0x7a5232 }, key: 0xffe2b8, sky: 0xcfe0ff, ground: 0x5a4a6a, haze: 0xc9d6f2 },
+  // measurement and time: the clockmaker's workshop high in a clock tower (math/measure/episodes.ts)
+  clockshop: { name: "The Clockmaker's Workshop", backdrop: 'learn/ep/set-clockshop.webp', table: 'learn/ep/tex-workshop.webp', star: 'sunsnail', token: 'block',
+    tray: { word: 'tile tray', color: 0xc48a52, rim: 0x86572b }, plate: { word: 'pan', color: 0xd8dde4, rim: 0x8a96a6 }, key: 0xffd8a0, sky: 0xffe8c8, ground: 0x6e4a2c, haze: 0xf2c690 },
 };
 
 export type Episode = {

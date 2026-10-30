@@ -1502,5 +1502,157 @@
   "ep.frac-unlike.card": {
     "voice": "coach",
     "ms": 5428
+  },
+  "ep.ms-oclock.intro": {
+    "voice": "coach",
+    "ms": 5682
+  },
+  "ep.ms-oclock.s0": {
+    "voice": "coach",
+    "ms": 5343
+  },
+  "ep.ms-oclock.s1": {
+    "voice": "coach",
+    "ms": 5084
+  },
+  "ep.ms-oclock.s2": {
+    "voice": "coach",
+    "ms": 5373
+  },
+  "ep.ms-oclock.s3": {
+    "voice": "coach",
+    "ms": 5937
+  },
+  "ep.ms-oclock.card": {
+    "voice": "coach",
+    "ms": 7004
+  },
+  "ep.ms-fives.intro": {
+    "voice": "coach",
+    "ms": 6850
+  },
+  "ep.ms-fives.s0": {
+    "voice": "coach",
+    "ms": 4665
+  },
+  "ep.ms-fives.s1": {
+    "voice": "coach",
+    "ms": 4116
+  },
+  "ep.ms-fives.s2": {
+    "voice": "coach",
+    "ms": 3812
+  },
+  "ep.ms-fives.s3": {
+    "voice": "coach",
+    "ms": 8092
+  },
+  "ep.ms-fives.card": {
+    "voice": "coach",
+    "ms": 7034
+  },
+  "ep.ms-jump.intro": {
+    "voice": "coach",
+    "ms": 6371
+  },
+  "ep.ms-jump.s0": {
+    "voice": "coach",
+    "ms": 3452
+  },
+  "ep.ms-jump.s1": {
+    "voice": "coach",
+    "ms": 7523
+  },
+  "ep.ms-jump.s2": {
+    "voice": "coach",
+    "ms": 4969
+  },
+  "ep.ms-jump.s3": {
+    "voice": "coach",
+    "ms": 4445
+  },
+  "ep.ms-jump.card": {
+    "voice": "coach",
+    "ms": 5957
+  },
+  "ep.ms-zero.intro": {
+    "voice": "coach",
+    "ms": 6291
+  },
+  "ep.ms-zero.s0": {
+    "voice": "coach",
+    "ms": 3886
+  },
+  "ep.ms-zero.s1": {
+    "voice": "coach",
+    "ms": 3033
+  },
+  "ep.ms-zero.s2": {
+    "voice": "coach",
+    "ms": 2629
+  },
+  "ep.ms-zero.s3": {
+    "voice": "coach",
+    "ms": 2919
+  },
+  "ep.ms-zero.s4": {
+    "voice": "coach",
+    "ms": 4086
+  },
+  "ep.ms-zero.card": {
+    "voice": "coach",
+    "ms": 5822
+  },
+  "ep.ms-marks.intro": {
+    "voice": "coach",
+    "ms": 5792
+  },
+  "ep.ms-marks.s0": {
+    "voice": "coach",
+    "ms": 5278
+  },
+  "ep.ms-marks.s1": {
+    "voice": "coach",
+    "ms": 3223
+  },
+  "ep.ms-marks.s2": {
+    "voice": "coach",
+    "ms": 3657
+  },
+  "ep.ms-marks.s3": {
+    "voice": "coach",
+    "ms": 7453
+  },
+  "ep.ms-marks.card": {
+    "voice": "coach",
+    "ms": 4625
+  },
+  "ep.ms-rows.intro": {
+    "voice": "coach",
+    "ms": 6086
+  },
+  "ep.ms-rows.s0": {
+    "voice": "coach",
+    "ms": 3722
+  },
+  "ep.ms-rows.s1": {
+    "voice": "coach",
+    "ms": 2300
+  },
+  "ep.ms-rows.s2": {
+    "voice": "coach",
+    "ms": 3826
+  },
+  "ep.ms-rows.s3": {
+    "voice": "coach",
+    "ms": 6780
+  },
+  "ep.ms-rows.s4": {
+    "voice": "coach",
+    "ms": 3577
+  },
+  "ep.ms-rows.card": {
+    "voice": "coach",
+    "ms": 6406
   }
 }

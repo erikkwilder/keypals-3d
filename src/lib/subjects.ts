@@ -8,6 +8,7 @@ import { MATH_LESSONS, STRAND } from './math/course';
 import { LESSONS } from './math/learn';
 import { FRAC_LESSONS } from './math/fracEpisodes';
 import { MARKET_LESSONS } from './math/market/episodes';
+import { MEASURE_LESSONS } from './math/measure/episodes';
 import { setOf, SETS } from './math/episodes';
 import { AREAS, areaOfOp } from './math/skills/registry';
 import { SKILL_LESSONS } from './math/skills/course';
@@ -61,6 +62,7 @@ const mathLearn: Thing[] = [
   }),
   ...FRAC_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: l.art, face: faceOf(l.star ?? SETS[l.set].star), areas: ['fractions'], kind: 'episode' })),
   ...MARKET_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: 'learn/market.webp', face: faceOf(l.star), areas: ['decimals'], kind: 'market' })),
+  ...MEASURE_LESSONS.map(l => ({ id: l.id, name: l.title, line: l.blurb, art: 'math/measure/learn.webp', face: faceOf(l.star), areas: ['measure'], kind: 'measure' })),
 ];
 const mathPractice: Thing[] = [
   ...live.map(a => ({ id: a.id, name: a.op ? STRAND[a.op].name : a.name, line: a.op ? STRAND[a.op].blurb : a.blurb, art: a.op ? STRAND[a.op].art : a.art, areas: [a.id], kind: 'trail' })),
@@ -73,8 +75,10 @@ const mathGames: Thing[] = [
   { id: 'pizza', name: 'Pizza Rush', line: 'Serve fraction pizzas to hungry Glimmers.', art: 'arcade/cab-pizza.webp', areas: ['fractions'], kind: 'arcade' },
   { id: 'builder', name: 'Number Builder', line: 'Build numbers with hundreds, tens and ones.', art: 'arcade/cab-builder.webp', areas: ['place'], kind: 'arcade' },
   { id: 'market', name: 'Market Dash', line: 'Pay and give change to Glimmer shoppers.', art: 'arcade/cab-market.webp', areas: ['decimals'], kind: 'arcade' },
+  { id: 'clockrush', name: 'Clock Rush', line: 'Read and set the clocks before they ring.', art: 'arcade/cab-clock.webp', areas: ['measure'], kind: 'arcade' },
   ...PLAY_GAMES.map(g => ({ id: g.id, name: g.name, line: g.blurb, art: PLAY_ART[g.id] ?? 'math/strand-playground.webp', areas: [PLAY_AREA[g.id] ?? 'plus'], kind: 'toy' })),
   { id: 'blocks', name: 'Block Table', line: 'Build anything with blocks. No questions, no clock.', art: 'math/play-blocks.webp', areas: ['place'], kind: 'toy' },
+  { id: 'bench', name: 'The Measuring Bench', line: 'Measure toys with rulers, weigh them on the balance, pour water. No clock.', art: 'math/play-bench.webp', areas: ['measure'], kind: 'toy' },
 ];
 const mathWorlds: Thing[] = WORLD_PINS.map(w => ({
   id: w.id, name: w.name, line: w.blurb, art: w.map ? w.map.wide : 'game/worlds-wide.webp',

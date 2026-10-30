@@ -106,7 +106,7 @@ describe('text generator', () => {
         }
       }
     }
-  });
+  }, 30_000); // (about 4 s on its own: next to the other heavy tests running at once it needs more than the default 5 s)
   it('drills the new keys in lesson one', () => {
     const lesson = LESSON['village-1'];
     const text = generate({ lesson, layout: Q, known: knownChars(lesson.id, Q), fresh: newCharsFor(lesson, Q), seed: 1, words: WORDS_KIDS, pools });
