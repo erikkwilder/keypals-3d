@@ -55,7 +55,9 @@ export type Part =
   /** an amount of money: 35¢, or $1.35 from a dollar up (or when `dollars`) */
   | { t: 'money'; cents: number; dollars?: boolean }
   /** where the answer goes (a number blank) */
-  | { t: 'blank' };
+  | { t: 'blank' }
+  /** a ratios picture: fruit on plates, a table, a graph, a map strip (skills/ratioPic.ts) */
+  | { t: 'rpic'; pic: import('./ratioPic').RatioPic };
 
 export type Choice = { id: string; parts: Part[] };
 

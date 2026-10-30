@@ -15,7 +15,9 @@ export type SkillLesson = {
   goal: number; blurb: string;
   move: MathMove; world: RegionId;
 };
-export type SkillRegion = { id: string; area: AreaId; name: string; blurb: string; world: RegionId; chip: string; skills: string[]; lessons: SkillLesson[] };
+export type SkillRegion = { id: string; area: AreaId; name: string; blurb: string; world: RegionId; chip: string; skills: string[]; lessons: SkillLesson[];
+  /** its own painted picture on the map (else the island's, regions/<world>.webp) */
+  art?: string };
 
 const L = (r: Omit<SkillRegion, 'lessons'>, n: number, title: string, kind: SkillKind, skills: string[], learn: string[], goal: number, move: MathMove, blurb: string): SkillLesson =>
   ({ id: `${r.id}-${n}`, region: r.id, area: r.area, n, title, kind, skills, learn, goal, blurb, move, world: r.world });
@@ -99,6 +101,41 @@ const DECIMAL_REGIONS = [
     ['Counting House Run', 'check', HOUSE_SKILLS, [], 5, 'swim', 'Every kind of question on this island. Already know them? Start here.'],
   ]),
 ];
+// Ratios and percents, grades 6 and 7, in the Juice Jungle: the Fruit Stall (ratio words, ratio tables, double
+// number lines, unit rates), the Mango Grove (percents, percent of a number, the whole, converting units) and
+// the Canopy Juice Bar (proportional or not, percent up and down, sales, tax and tips, scale drawings).
+const STALL_SKILLS = ['rt-ratio', 'rt-table', 'rt-dnl', 'rt-rate'];
+const GROVE_SKILLS = ['rt-pct', 'rt-pctof', 'rt-whole', 'rt-units'];
+const CANOPY_SKILLS = ['rt-prop', 'rt-change', 'rt-shop', 'rt-scale'];
+const STALL: Omit<SkillRegion, 'lessons'> = { id: 'ratio-a', area: 'ratios', name: 'The Fruit Stall', blurb: 'Ratios: for every 2 strawberries, 3 bananas. Ratio tables, double number lines and the price of one.', world: 'treetops', chip: '2 : 3', skills: STALL_SKILLS, art: 'math/ratios/region-stall.webp' };
+const GROVE: Omit<SkillRegion, 'lessons'> = { id: 'ratio-b', area: 'ratios', name: 'Mango Grove', blurb: 'Percents: out of 100, a percent of a number, finding the whole, and changing units.', world: 'village', chip: '25%', skills: GROVE_SKILLS, art: 'math/ratios/region-grove.webp' };
+const CANOPY: Omit<SkillRegion, 'lessons'> = { id: 'ratio-c', area: 'ratios', name: 'Canopy Juice Bar', blurb: 'Proportional or not, percent up and down, sales, tax and tips, and scale drawings.', world: 'shores', chip: 'y = kx', skills: CANOPY_SKILLS, art: 'math/ratios/region-canopy.webp' };
+const RATIO_REGIONS = [
+  region(STALL, [
+    ['For Every', 'meet', ['rt-ratio'], ['rt-ratio'], 6, 'run', 'For every 2 strawberries, 3 bananas: that ratio is 2 : 3. Order matters.'],
+    ['Ratio Tables', 'meet', ['rt-table', 'rt-ratio'], ['rt-table'], 5, 'climb', 'Bigger batches of the same mix: times both numbers by the same number.'],
+    ['Two Lines', 'meet', ['rt-dnl', 'rt-table'], ['rt-dnl'], 5, 'swim', 'A double number line counts both together, step for step.'],
+    ['The Price of One', 'meet', ['rt-rate', 'rt-table'], ['rt-rate'], 5, 'slide', 'A unit rate is how much for ONE. Then the better buy is easy.'],
+    ['Fruit Stall Mix', 'mix', STALL_SKILLS, [], 5, 'run', 'Everything so far, all mixed up.'],
+    ['Fruit Stall Run', 'check', STALL_SKILLS, [], 6, 'climb', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(GROVE, [
+    ['Out of 100', 'meet', ['rt-pct'], ['rt-pct'], 6, 'run', 'Percent means out of 100: 35 of 100 squares is 35%.'],
+    ['Percent Of', 'meet', ['rt-pctof', 'rt-pct'], ['rt-pctof'], 5, 'swim', '50% is half, 10% is a tenth, 25% is half of a half.'],
+    ['The Whole Crate', 'meet', ['rt-whole', 'rt-pctof'], ['rt-whole'], 5, 'climb', '12 is 25% of the crate? Times up to 100%: 48.'],
+    ['Changing Units', 'meet', ['rt-units', 'rt-rate'], ['rt-units'], 5, 'slide', '1 foot is 12 inches. Bigger to smaller: times. Smaller to bigger: divide.'],
+    ['Mango Grove Mix', 'mix', [...GROVE_SKILLS, 'rt-table'], [], 5, 'run', 'This island and the last, all mixed up.'],
+    ['Mango Grove Run', 'check', GROVE_SKILLS, [], 5, 'swim', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+  region(CANOPY, [
+    ['Proportional?', 'meet', ['rt-prop', 'rt-table'], ['rt-prop'], 5, 'climb', 'Proportional: y is always the same number times x. A straight line through 0.'],
+    ['Up and Down', 'meet', ['rt-change', 'rt-pctof'], ['rt-change'], 5, 'slide', 'Find the percent, then add it on or take it away.'],
+    ['Sales and Tips', 'meet', ['rt-shop', 'rt-pctof'], ['rt-shop'], 4, 'run', '25% off, 15% tip, 5% tax: find the percent of the price first.'],
+    ['Scale Maps', 'meet', ['rt-scale', 'rt-rate'], ['rt-scale'], 5, 'swim', '1 cm on the map is 5 km for real: 4 cm is 20 km.'],
+    ['Canopy Mix', 'mix', [...CANOPY_SKILLS, 'rt-pctof', 'rt-rate'], [], 5, 'climb', 'This island and the last, all mixed up.'],
+    ['Canopy Juice Bar Run', 'check', CANOPY_SKILLS, [], 5, 'slide', 'Every kind of question on this island. Already know them? Start here.'],
+  ]),
+];
 export const SKILL_REGIONS: SkillRegion[] = [
   region(PIE, [
     ['Meet Fractions', 'meet', ['fr-name'], ['fr-name'], 6, 'run', 'The bottom number is how many equal parts; the top is how many you have.'],
@@ -126,10 +163,12 @@ export const SKILL_REGIONS: SkillRegion[] = [
   ]),
   ...PLACE_REGIONS,
   ...DECIMAL_REGIONS,
+  ...RATIO_REGIONS,
 ];
 
 export const SKILL_PLACEMENTS: Partial<Record<AreaId, SkillLesson>> = {
   place: { id: 'start-place', region: 'start', area: 'place', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...STEPS_SKILLS, ...MINE_SKILLS, ...VAULT_SKILLS], learn: [], goal: 7, move: 'run', world: 'burrows', blurb: 'A quick mix of counting, tens and hundreds, and big numbers. Answer what you know and skip ahead!' },
+  ratios: { id: 'start-ratios', region: 'start', area: 'ratios', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...STALL_SKILLS, ...GROVE_SKILLS, ...CANOPY_SKILLS], learn: [], goal: 5, move: 'run', world: 'treetops', blurb: 'A quick mix of ratios and percents. Answer what you know and skip ahead!' },
   decimals: { id: 'start-decimals', region: 'start', area: 'decimals', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...COIN_SKILLS, ...CHOC_SKILLS, ...HOUSE_SKILLS], learn: [], goal: 5, move: 'run', world: 'village', blurb: 'A quick mix of money and decimals. Answer what you know and skip ahead!' },
   fractions: { id: 'start-fractions', region: 'start', area: 'fractions', n: 1, title: 'Show What You Know', kind: 'placement', skills: [...PIE_SKILLS, ...BAKER_SKILLS, ...MILL_SKILLS], learn: [], goal: 6, move: 'run', world: 'village', blurb: 'A quick mix of fractions. Answer what you know and skip ahead!' },
 };
@@ -145,6 +184,9 @@ export const SKILL_EPISODES: Record<string, string> = {
   // hundredths, lining up the point to compare and to add
   'dm-coins': 'dec-coins', 'dm-make': 'dec-coins', 'dm-change': 'dec-change', 'dm-tenths': 'dec-tenths', 'dm-hund': 'dec-hundredths',
   'dm-compare': 'dec-compare', 'dm-add': 'dec-add', 'dm-sub': 'dec-add',
+  // ratios and percents (the Jungle Juice Bar: math/ratioEpisodes.ts)
+  'rt-ratio': 'rt-for-every', 'rt-table': 'rt-batches', 'rt-dnl': 'rt-two-lines', 'rt-rate': 'rt-one-each', 'rt-units': 'rt-one-each',
+  'rt-pct': 'rt-out-of-100', 'rt-pctof': 'rt-percent-of', 'rt-whole': 'rt-percent-of', 'rt-shop': 'rt-percent-off', 'rt-change': 'rt-percent-off',
 };
 export const SKILL_LESSONS: SkillLesson[] = SKILL_REGIONS.flatMap(r => r.lessons);
 export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS].map(l => [l!.id, l!]));
@@ -153,7 +195,7 @@ export const skillRegionsOf = (area: AreaId) => SKILL_REGIONS.filter(r => r.area
 export const isSkillLesson = (id: string) => !!SKILL_LESSON[id];
 /** How much longer a skill question takes than a fact: speeds, treasure and rides are scaled by it so a
  *  good fraction trip feels as fast as a good times-table trip. */
-export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5 };
+export const TEMPO: Partial<Record<AreaId, number>> = { fractions: 2.5, place: 2, decimals: 2.5, ratios: 2.5 };
 export const tempoOf = (area: AreaId) => TEMPO[area] ?? 2;
 
 // ---------- what's open ----------

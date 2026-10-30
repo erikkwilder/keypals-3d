@@ -8,6 +8,13 @@
   // the inputs the areas bring
   import CoinTray from './CoinTray.svelte';
   registerInput('coins', CoinTray);
+  // ratios and percents: a ratio table, a double number line, a percent bar
+  import RatioTable from './RatioTable.svelte';
+  import DoubleLine from './DoubleLine.svelte';
+  import PercentBar from './PercentBar.svelte';
+  registerInput('ratiotable', RatioTable);
+  registerInput('dnl', DoubleLine);
+  registerInput('pctbar', PercentBar);
 </script>
 
 <script lang="ts">

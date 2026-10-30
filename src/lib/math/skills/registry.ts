@@ -7,6 +7,7 @@ import { factRung, groupFacts, trickOf } from '../course';
 import { checkAnswer, FRACTION_SKILLS } from './fractions';
 import { PLACE_SKILLS } from './place';
 import { DECIMAL_SKILLS } from './decimals';
+import { RATIO_SKILLS } from './ratios';
 import { rungOf, type Area, type AreaId, type Item, type Skill } from './types';
 
 const base = 'math/';
@@ -20,7 +21,7 @@ export const AREAS: Area[] = [
   { id: 'decimals', name: 'Decimals and money', grades: '2-5', blurb: 'Coins and change, tenths and hundredths, adding decimals and rounding.', color: '#d9a21b', art: `${base}area-decimals.webp`, sign: '¢', live: true },
   { id: 'measure', name: 'Measurement and time', grades: '1-5', blurb: 'Clocks, lengths, weights, area and perimeter.', color: '#8a6bd6', art: `${base}area-fractions.webp`, live: false },
   { id: 'shapes', name: 'Shapes and angles', grades: 'K-8', blurb: 'Shapes, symmetry, angles, area and volume.', color: '#2fb3a0', art: `${base}area-fractions.webp`, live: false },
-  { id: 'ratios', name: 'Ratios and percents', grades: '6-7', blurb: 'Ratios, rates, percents.', color: '#f07a3a', art: `${base}area-fractions.webp`, live: false },
+  { id: 'ratios', name: 'Ratios and percents', grades: '6-7', blurb: 'Ratios and rates, ratio tables and double number lines, percents, sales and tips, and scale drawings.', color: '#f07a3a', art: `${base}area-ratios.webp`, sign: '%', live: true },
   { id: 'integers', name: 'Negative numbers', grades: '6-7', blurb: 'Below zero and the coordinate plane.', color: '#3d7fc4', art: `${base}area-fractions.webp`, live: false },
   { id: 'algebra', name: 'Expressions and equations', grades: '6-8', blurb: 'Order of operations, equations, slope.', color: '#6c5ce7', art: `${base}area-fractions.webp`, live: false },
   { id: 'data', name: 'Data and chance', grades: '3-8', blurb: 'Graphs, mean and median, probability.', color: '#e85d9a', art: `${base}area-fractions.webp`, live: false },
@@ -65,7 +66,7 @@ const FACT_SKILLS: Skill[] = [
   factSkill('div-facts', '/', 3, '3.OA.C.7', 'Sharing (dividing)', 'Knows the division facts that undo the times tables.', ['/2', '/10', '/5', '/4', '/3', '/9', '/6', '/8', '/7']),
 ];
 
-export const SKILLS: Skill[] = [...FACT_SKILLS, ...FRACTION_SKILLS, ...PLACE_SKILLS, ...DECIMAL_SKILLS];
+export const SKILLS: Skill[] = [...FACT_SKILLS, ...FRACTION_SKILLS, ...PLACE_SKILLS, ...DECIMAL_SKILLS, ...RATIO_SKILLS];
 export const SKILL: Record<string, Skill> = Object.fromEntries(SKILLS.map(s => [s.id, s]));
 export const skillsOf = (area: AreaId) => SKILLS.filter(s => s.area === area);
 /** A memory key's skill and sub: `fr-name:4` -> fr-name, 4. */

@@ -47,7 +47,7 @@ export type Subject = {
 /** The short chip names for math's areas; an area added to the skills registry shows with its own name. */
 const AREA_CHIP: Partial<Record<AreaId, string>> = {
   plus: 'Plus', minus: 'Minus', times: 'Times', share: 'Share', fractions: 'Fractions', place: 'Place value', decimals: 'Decimals and money',
-  measure: 'Time and measuring', shapes: 'Shapes', ratios: 'Percents', integers: 'Below zero', algebra: 'Equations', data: 'Graphs and chance',
+  measure: 'Time and measuring', shapes: 'Shapes', ratios: 'Ratios and percents', integers: 'Below zero', algebra: 'Equations', data: 'Graphs and chance',
 };
 const FACT_AREAS: AreaId[] = ['plus', 'minus', 'times', 'share'];
 const live = AREAS.filter(a => a.live);
