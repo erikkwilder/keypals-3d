@@ -11,10 +11,10 @@
 // from the ladder (skills well below the level start high, skills above it start at the edge). Nothing is
 // locked or marked done by this: the trip's own test-out rule still opens stops as before.
 import type { Rng } from '../../engine/rng';
-import { factRung, groupFacts, MATH_REGIONS, regionsOf } from '../course';
+import { factRung, groupFacts, regionsOf } from '../course';
 import { isRuleFact, type Op } from '../facts';
 import { decayed, expected, hasEvidence, ladderOf, STRAND_SKILL, thetaOf, type Ability, type AbilityHome } from './ability';
-import { AREA, SKILL } from './registry';
+import { SKILL } from './registry';
 import type { AreaId } from './types';
 
 export type Rung = { skill: string; base: number };
@@ -155,6 +155,4 @@ export function foundText(f: Found, name: string): string {
   const n = f.next.length ? ` Next to grow: ${list(f.next)}.` : ' Everything here is comfortable: the questions will stretch further.';
   return `${c}${n} ${name}'s questions are now pitched to match, and they'll keep adjusting as ${name} plays.`;
 }
-/** (for the grown-ups' view) an area's or strand's name */
-export const placeName = (key: string) => AREA[key as AreaId]?.name ?? MATH_REGIONS.find(r => r.op === key)?.name ?? key;
 export type { Ability };

@@ -19,7 +19,7 @@
 import type { Rng } from '../../engine/rng';
 import { factRung, factRungSpec } from '../course';
 import { FAST_MS, parseFact, type Fact, type FactStat, type Op } from '../facts';
-import { SKILL, SKILLS, skillsOf, splitKey } from './registry';
+import { SKILL, skillsOf, splitKey } from './registry';
 import { RUNGS, rungOf, type AreaId, type Item, type Skill } from './types';
 
 /** theta (rung units), how many answers it rests on, when it was last used */
@@ -228,13 +228,6 @@ export function workingOf(h: AbilityHome, skill: string, now = Date.now()): { ru
   const t = thetaOf(h, skill, now), rung = rungFor(t, TARGET.practice);
   return { rung, word: t < 2 ? 'getting started' : t < 3.5 ? 'comfortable' : t < 5 ? 'strong' : 'stretching' };
 }
-export const WORKING_SAY: Record<Working, string> = {
-  'not started': 'Not started',
-  'getting started': 'Getting started: the gentlest questions, with pictures',
-  comfortable: 'Comfortable: grade-level questions',
-  strong: 'Strong: bigger numbers and more steps',
-  stretching: 'Stretching: the hardest versions',
-};
 
 // ---------- merging two computers' estimates (state/merge.ts) ----------
 /** The estimate with clearly more evidence behind it (twice as many answers and then some), else the newer. */
@@ -243,6 +236,3 @@ export function mergeAbility(a: Ability, b: Ability): Ability {
   if (b.n >= 2 * a.n + 5) return b;
   return a.at >= b.at ? a : b;
 }
-
-/** (tests, grown-ups' view) every skill id with an estimate or a start */
-export const ALL_SKILL_IDS = SKILLS.map(s => s.id);
