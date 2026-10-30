@@ -12,7 +12,7 @@
   import { mulberry32, shuffle } from '../engine/rng';
   import type { Profile } from '../engine/profile';
   import { GLIMMERS, type GlimmerId } from '../adventure/glimmers';
-  import { BANK, GOODS, ROUND_MS, STAR_AT, applyDash, comboMult, dailyBestOf, dailySeed, dashOf, kindsFor, oneWay, orderMaker, orderScore, servedRight, starsFor, type DashOutcome, type Order } from '../math/market/dash';
+  import { BANK, GOODS, ROUND_MS, STAR_AT, applyDash, comboMult, dailyBestOf, dailySeed, dashOf, kindsFor, levelsFor, oneWay, orderMaker, orderScore, servedRight, starsFor, type DashOutcome, type Order } from '../math/market/dash';
   import { COIN_ART, COIN_NAME, moneyText } from '../math/skills/decimals';
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
@@ -39,7 +39,7 @@
   let burst = $state(0);
   let canvas: HTMLCanvasElement | undefined = $state();
   let scene: MarketScene | null = null;
-  let answers: { key: string; ok: boolean; thinkMs: number }[] = [];
+  let answers: { key: string; ok: boolean; thinkMs: number; rung?: number }[] = [];
   let nextOrder = orderMaker(1, ['exact']);
   let faces: GlimmerId[] = [];
   let arrivals = 0;
@@ -66,7 +66,7 @@
     sfx.whoosh();
     daily = isDaily;
     const seed = isDaily ? dailySeed(Date.now()) : Math.floor(Math.random() * 1e9);
-    nextOrder = orderMaker(seed, kindsFor(p));
+    nextOrder = orderMaker(seed, kindsFor(p), levelsFor(p));
     // the shoppers: every Glimmer but the Champions, in a shuffled line (today's is the same for everyone)
     faces = shuffle(mulberry32(seed ^ 0x51ed27), GLIMMERS.filter(g => g.rarity !== 'legendary' && g.rarity !== 'mythic').map(g => g.id));
     arrivals = 0; changeTips = 0;
@@ -164,7 +164,7 @@
     const c = slots[active]; if (!c || c.leaving) return;
     if (!scene.count) { sfx.nope(); say(c.order.paid === null ? 'Tap coins into the tray first!' : 'Put the change in the tray first!'); return; }
     const o = c.order, have = scene.total, ok = servedRight(o, have), ms = performance.now() - activeAt;
-    if (!c.tries) answers.push({ key: o.key, ok, thinkMs: ms });
+    if (!c.tries) answers.push({ key: o.key, ok, thinkMs: ms, rung: o.rung });
     if (ok) {
       const pts = orderScore(o, combo, ms);
       score += pts; combo++; bestCombo = Math.max(bestCombo, combo); served++;

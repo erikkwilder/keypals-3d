@@ -21,6 +21,7 @@
   import { FactMeter, mathGoal, mathStars, tripStats } from '../math/meter';
   import { mathOf } from '../math/progress';
   import { SKILL } from '../math/skills/registry';
+  import { makeAt, pitch, TARGET } from '../math/skills/ability';
   import { AREA } from '../math/skills/registry';
   import { SKILL_EPISODES, SKILL_LESSON, SKILL_REGION, tempoOf } from '../math/skills/course';
   import { FRAC_LESSON } from '../math/fracEpisodes';
@@ -51,7 +52,7 @@
   const area = AREA[lesson.area];
   const regionName = lesson.region === 'start' ? area.name : SKILL_REGION[lesson.region].name;
   const tempo = tempoOf(lesson.area);
-  const picker = new SkillTripPicker({ lesson, mem: m.skills ?? {}, now: Date.now() });
+  const picker = new SkillTripPicker({ lesson, mem: m.skills ?? {}, now: Date.now(), math: m, grown: !!grown });
   // some questions are asked as choices (likely mistakes to pick from): often while a kind is new
   const mix = mulberry32(Date.now() % 1e9);
   /** this question was turned into choices */
@@ -65,9 +66,9 @@
   const STRETCH = STRIDE[lesson.move];
   // one stretch per question to the finish line (a miss brought back shares the way out a little finer)
   const stretches = picker.length;
-  // the Meet card's example: the first new kind of question, gently
+  // the Meet card's example: the first new kind of question, pitched easy for this child (a teach: 90%)
   // (a seeded source, never a constant one: generators draw again until two numbers differ)
-  const example = lesson.learn[0] ? SKILL[lesson.learn[0]].make(mulberry32(37), SKILL[lesson.learn[0]].subs[Math.min(2, SKILL[lesson.learn[0]].subs.length - 1)].id, 1) : null;
+  const example = lesson.learn[0] ? makeAt(SKILL[lesson.learn[0]], mulberry32(37), SKILL[lesson.learn[0]].subs[Math.min(2, SKILL[lesson.learn[0]].subs.length - 1)].id, pitch(m, lesson.learn[0], TARGET.teach, { grown: !!grown })) : null;
 
   let phase = $state<'intro' | 'play' | 'paused' | 'done'>('intro');
   const replaying = game.quickStart;
@@ -129,7 +130,7 @@
     // a question asked as choices: the right choice (its own check might look for a typed answer)
     const ok = choiced ? a.kind === 'choice' && a.id === CHOICE_RIGHT : skill.check(item, a);
     if (a.kind === 'choice') { marked = { id: a.id, ok }; clearTimeout(markTimer); if (!ok) markTimer = setTimeout(() => { marked = null; }, WRONG_MS); }
-    const base = { id: item.id, key: item.key, label: shortText(item) };
+    const base = { id: item.id, key: item.key, label: shortText(item), rung: item.rung, choice: choiced };
     if (mode === 'ask') {
       const thinkMs = (firstAt ?? t) - shownAt;
       if (ok) {
@@ -137,11 +138,11 @@
         // picking from choices counts as right, but only a typed answer grows a bloom
         results.push({ ...base, ok: true, speed: choiced && speed === 'fast' ? 'slow' : speed, thinkMs, ms: t - shownAt, intro: false });
         eggWarm++;
-        picker.answer(true);
+        picker.answer(true, thinkMs);
         meter.push(true, (t - shownAt) / tempo);
         stepOn(speed === 'fast');
       } else {
-        picker.answer(false);
+        picker.answer(false, thinkMs);
         missThink = thinkMs;
         mode = 'fix'; feedback = 'wrong'; shake++; streak = 0;
         sfx.miss(); scene?.key(false, steps);
@@ -250,6 +251,8 @@
     window.addEventListener('blur', onBlur);
     raf = requestAnimationFrame(frame);
     startMusic(lesson.world);
+    // (dev only, for checking the adaptive questions: the current question, the trip so far, and answering it)
+    if (import.meta.env.DEV) (window as unknown as { __skill: unknown }).__skill = { item: () => item, mode: () => mode, phase: () => phase, begin, answer, asked: () => picker.served.map(x => ({ id: x.item.id, rung: x.item.rung, reason: x.reason })) };
   });
   onDestroy(() => {
     if (!keepScene) stage.use(null);

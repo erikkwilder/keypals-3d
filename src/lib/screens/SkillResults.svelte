@@ -14,6 +14,7 @@
   import { AREA, keyLabel } from '../math/skills/registry';
   import { SKILL_LESSON, SKILL_REGION, nextSkillLesson, tempoOf } from '../math/skills/course';
   import RunResults from '../ui/RunResults.svelte';
+  import { foundText } from '../math/skills/placement';
 
   const last = game.skillLast;
   const p = game.profile!;
@@ -55,6 +56,7 @@
     onretry={() => game.startSkill(lesson.id, true)} onnext={() => game.startSkill(next.id)} onhome={() => game.go('hub')}
     progress={{ label: 'Garden', tone: 'mint', art: gardenArt, onclick: () => { game.mathArea = lesson.area; game.mathOp = null; game.go('garden'); } }}>
     {#snippet extra()}
+      {#if last.placed}<div class="found"><b>For grown-ups: what Show What You Know found</b><p>{foundText(last.placed, p.name)}</p></div>{/if}
       <div class="bhead"><b>This trip</b><span class="legend"><i class="fast"></i>quick <i class="slow"></i>slow <i class="miss"></i>missed <i class="new"></i>new</span></div>
       <div class="strip">{#each strip as f, i (i)}<span class="fc {f.kind}" style:--d="{i * 40}ms">{f.text}</span>{/each}</div>
       {#if practise.length || grew.bloomed.length || grew.budded.length || grew.sprouted.length}
@@ -76,6 +78,9 @@
 {#snippet gardenArt()}<img class="gst big" src="{import.meta.env.BASE_URL}icons/garden.webp" alt="" />{/snippet}
 
 <style>
+  .found { background: #eef6ff; border: 2px solid #cfe3ff; border-radius: 16px; padding: 8px 12px; margin: 2px 0 10px; }
+  .found b { display: block; font: 600 16px var(--font-ui); color: var(--ink); margin-bottom: 2px; }
+  .found p { margin: 0; font: 600 14px/1.4 var(--font-body); color: var(--ink2); }
   .bhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 4px 0 5px; }
   .bhead b { font: 600 17px var(--font-ui); }
   .legend { font: 700 12px var(--font-body); color: var(--muted); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }

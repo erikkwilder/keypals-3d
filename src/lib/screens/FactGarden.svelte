@@ -21,6 +21,7 @@
   import MenuButton from '../ui/MenuButton.svelte';
   import { mulberry32 } from '../engine/rng';
   import { AREA, AREAS, SKILL, skillsOf, splitKey } from '../math/skills/registry';
+  import { makeAt, pitch, TARGET } from '../math/skills/ability';
   import { SKILL_REGIONS } from '../math/skills/course';
   import { skillMem } from '../math/skills/progress';
   import type { AreaId } from '../math/skills/types';
@@ -274,7 +275,8 @@
   const pk = $derived(pickedKey ? { ...splitKey(pickedKey) } : null);
   const pkSkill = $derived(pk ? SKILL[pk.skill] : null);
   const pkSub = $derived(pk && pkSkill ? pkSkill.subs.find(sb => sb.id === pk.sub)?.label ?? pk.sub : '');
-  const pkExample = $derived(pk && pkSkill ? pkSkill.make(mulberry32(11), pk.sub, 1) : null);
+  // an example at the child's own level (pitched like a practice question)
+  const pkExample = $derived(pk && pkSkill ? makeAt(pkSkill, mulberry32(11), pk.sub, pitch(m, pkSkill.id, TARGET.practice, { grown: !!p.settings.grown })) : null);
   /** Why a skill plant is where it is, in a child's words. */
   function keyStory(k: string): string {
     const s = skillMem(m)[k], sk = SKILL[splitKey(k).skill];

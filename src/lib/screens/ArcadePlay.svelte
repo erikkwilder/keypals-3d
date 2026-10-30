@@ -30,7 +30,7 @@
   const p0 = $state.snapshot(game.profile!) as Profile;
   const mp = mathPool(p0), pool = mp.subject === 'math' ? mp.facts : [];
   const rng = seeded(daily ? dailySeed(id) : Math.floor(Math.random() * 2 ** 31));
-  const deck = new FactDeck(pool, rng);
+  const deck = new FactDeck(pool, rng, mp.subject === 'math' ? mp.theta : undefined);
   const fastMs = mathOf(p0).fastMs ?? FAST_MS;
   const rec = recordOf(p0, id);
   const again = lastDone === id;

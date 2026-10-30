@@ -3,11 +3,11 @@
 // same way; their memory, picker and garden stay the facts' own. New areas add their skills here.
 import type { Rng } from '../../engine/rng';
 import { answerOf, factId, opSign, type Fact, type Op } from '../facts';
-import { groupFacts, trickOf } from '../course';
+import { factRung, groupFacts, trickOf } from '../course';
 import { checkAnswer, FRACTION_SKILLS } from './fractions';
 import { PLACE_SKILLS } from './place';
 import { DECIMAL_SKILLS } from './decimals';
-import type { Area, AreaId, Item, Skill } from './types';
+import { rungOf, type Area, type AreaId, type Item, type Skill } from './types';
 
 const base = 'math/';
 export const AREAS: Area[] = [
@@ -38,11 +38,23 @@ export function factItem(skill: string, f: Fact): Item {
     explain: `${f.a} ${opSign(f)} ${f.b} = ${ans}.`, trick: { name: tr.name, say: tr.say },
   };
 }
+/** A fact strand as a skill. Its rungs are the facts' own (math/course.ts factRung): a fact of the group
+ *  at or under the rung, the ones nearest it most often (the trip pickers do the real choosing, with each
+ *  fact's memory: math/picker.ts). */
 function factSkill(id: string, op: Op, grade: number, standard: string, name: string, plain: string, groups: string[]): Skill {
   return {
     id, area: areaOfOp(op), grade, standard, name, plain, input: 'number', fastMs: 3000, facts: op,
     subs: groups.map(g => ({ id: g, label: g })),
-    make(rng: Rng, sub: string) { const fs = groupFacts(sub); return factItem(id, fs[Math.floor(rng() * fs.length)] ?? { a: 1, b: 1, op }); },
+    make(rng: Rng, sub: string, rung: number) {
+      const fs = groupFacts(sub), r = rungOf(rung);
+      const under = fs.filter(f => factRung(f) <= r);
+      const from = under.length ? under : fs;
+      const top = Math.max(...from.map(factRung));
+      const near = from.filter(f => factRung(f) === top);
+      const pool = rng() < 0.6 && near.length ? near : from;
+      const f = pool[Math.floor(rng() * pool.length)] ?? { a: 1, b: 1, op };
+      return { ...factItem(id, f), weight: Math.min(5, factRung(f)) };
+    },
     check: (it, a) => checkAnswer(it.answer, a),
   };
 }

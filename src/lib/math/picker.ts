@@ -6,12 +6,23 @@
 // - a missed fact comes back 2 to 4 facts later (and the trip runs on a little if it was near the end);
 // - a table that has all bloomed doesn't get ground over: its facts weigh little, and facts due for
 //   review from other tables fill the trip.
-// Checkpoints ask every fact of the region (times tables both ways round); the placement trips sample
-// every group of their strand. Everything works the same for +, −, × and ÷: facts come in groups.
+// Checkpoints ask every fact of the region (times tables both ways round); the placement trips (Show
+// What You Know) are an adaptive staircase over the whole strand's facts (skills/placement.ts).
+// Everything works the same for +, −, × and ÷: facts come in groups.
+//
+// How hard the mix is comes from the child's ability on the strand (skills/ability.ts, pitched at about
+// 80% right), learned answer by answer: each fact has a rung of its own (course.ts factRung), so the facts
+// near the child's rung come up most, easier ones less, harder ones rarely; at higher rungs more of the
+// rest of the strand is mixed back in and a Meet brings in a new fact or two more; at rung 1 the dot
+// picture shows with the question (course.ts FACT_RUNGS). Four right in a row tries a rung up, two misses
+// one down. Which fact still comes from each fact's own memory.
 
-import { groupFacts, MATH_REGIONS, ruleFacts, type MathLesson } from './course';
+import { factRung, factRungSpec, groupFacts, MATH_REGIONS, ruleFacts, type MathLesson } from './course';
 import { factId, isDue, isRuleFact, partnerOf, sameFact, weakness, type Fact, type FactStat } from './facts';
 import { mulberry32, shuffle, type Rng } from '../engine/rng';
+import { factFit, learn, pitchRung, priorOf, STRAND_SKILL, TARGET, thetaOf, type AbilityHome } from './skills/ability';
+import { PLACE_FACT_N, placeStart, Staircase, strandLadder } from './skills/placement';
+import { Streak } from './skills/picker';
 
 /** Take one from each list in turn: a region learning ÷ 2, ÷ 10 and ÷ 5 meets one of each first. */
 function interleave<T>(lists: T[][]): T[] {
@@ -30,14 +41,19 @@ export const MAX_NEW: Record<MathLesson['kind'], number> = { meet: 3, practice: 
 /** after its first time, a new fact comes back after 1, then 3, then 6 other facts */
 const REPEAT_AFTER = [2, 6, 13];
 /** where the new facts come in (planned positions) */
-const INTRO_AT = [1, 5, 9];
+const INTRO_AT = [1, 5, 9, 12, 15];
 /** a trip runs on at most this many facts past 20 to bring back late misses */
 const MAX_EXTRA = 3;
 
 export type Reason = 'new' | 'repeat' | 'known' | 'review' | 'retry' | 'test';
-export type Item = { fact: Fact; reason: Reason };
+/** `rung`: the trip's rung when it was asked (for the speed target) */
+export type Item = { fact: Fact; reason: Reason; rung?: number };
 
-type Opts = { lesson: MathLesson; facts: Record<string, FactStat>; now: number; seed?: number; length?: number; fastMs?: number };
+type Opts = { lesson: MathLesson; facts: Record<string, FactStat>; now: number; seed?: number; length?: number; fastMs?: number; math?: AbilityHome; grown?: boolean };
+
+export { factFit };
+/** a Meet, practice or mix brings in this many more new facts at the top rungs */
+const extraNew = (rung: number) => (rung >= 6 ? 2 : rung >= 5 ? 1 : 0);
 
 export class TripPicker {
   readonly lesson: MathLesson;
@@ -56,6 +72,15 @@ export class TripPicker {
   private retries: { fact: Fact; at: number }[] = [];
   private current: Item | null = null;
   private pool: { fact: Fact; w: number; due: boolean }[] = [];
+  /** facts from the rest of the strand the child knows, mixed back in at the higher rungs */
+  private older: Fact[] = [];
+  /** the child's abilities, learning as the trip goes (a working copy) */
+  readonly home: AbilityHome;
+  readonly skill: string;
+  readonly streak = new Streak();
+  /** the placement's staircase */
+  readonly stairs: Staircase | null = null;
+  private readonly grown: boolean;
 
   constructor(o: Opts) {
     this.lesson = o.lesson;
@@ -63,10 +88,21 @@ export class TripPicker {
     this.now = o.now;
     this.rng = mulberry32(o.seed ?? Math.floor(Math.random() * 1e9));
     this.fastMs = o.fastMs;
+    this.grown = !!o.grown;
+    this.home = { facts: o.facts, skills: o.math?.skills, ability: { ...(o.math?.ability ?? {}) } };
+    this.skill = STRAND_SKILL[o.lesson.op];
     this.length = o.length ?? TRIP_LENGTH;
     const stat = (f: Fact) => o.facts[factId(f)];
 
-    if (o.lesson.kind === 'check' || o.lesson.kind === 'placement' || o.lesson.kind === 'rules') {
+    if (o.lesson.kind === 'placement') {
+      const ladder = strandLadder(o.lesson.op);
+      this.stairs = new Staircase(ladder, placeStart(this.home, ladder, o.now), PLACE_FACT_N, this.rng);
+      this.newFacts = [];
+      this.plan = [];
+      this.length = PLACE_FACT_N;
+      return;
+    }
+    if (o.lesson.kind === 'check' || o.lesson.kind === 'rules') {
       this.newFacts = [];
       this.plan = this.testPlan().map(fact => ({ fact, reason: 'test' as const }));
       this.length = this.plan.length;
@@ -75,7 +111,9 @@ export class TripPicker {
 
     // new facts: the facts of the groups being learned not met yet, in teaching order (rule facts are easy
     // fillers instead: 0 and 1, plus 0, take away 0, divide by 1 come up on their own)
-    this.newFacts = interleave(o.lesson.learn.map(g => groupFacts(g).filter(f => !isRuleFact(f) && (stat(f)?.stage ?? 0) === 0))).slice(0, MAX_NEW[o.lesson.kind]);
+    // (a child working at the top rungs meets a fact or two more at a time)
+    const most = MAX_NEW[o.lesson.kind] + (MAX_NEW[o.lesson.kind] ? extraNew(this.tripRung()) : 0);
+    this.newFacts = interleave(o.lesson.learn.map(g => groupFacts(g).filter(f => !isRuleFact(f) && (stat(f)?.stage ?? 0) === 0))).slice(0, most);
     this.plan = Array.from({ length: this.length }, () => null);
     this.newFacts.forEach((fact, j) => {
       const at = INTRO_AT[j];
@@ -83,7 +121,14 @@ export class TripPicker {
       for (const d of REPEAT_AFTER) this.place(at + d, { fact, reason: 'repeat' });
     });
     this.pool = this.knownPool();
+    const mine = new Set(o.lesson.groups.flatMap(groupFacts).map(factId));
+    this.older = strandGroups(o.lesson.op).flatMap(groupFacts).filter(f => !mine.has(factId(f)) && !isRuleFact(f) && (stat(f)?.stage ?? 0) > 0);
   }
+
+  /** The trip's rung now: the strand's ability pitched at about 80%, moved by the streak (no jitter). */
+  tripRung(): number { return pitchRung(thetaOf(this.home, this.skill, this.now, this.grown), TARGET.practice, undefined, this.streak.bump); }
+  /** What the trip's rung means here (the dot picture, the speed target, how much older work mixes in). */
+  get spec() { return factRungSpec(this.tripRung()); }
 
   /** Put a fixed fact at a planned position, or the next free one after it (or drop it past the end). */
   private place(at: number, item: Item) {
@@ -149,14 +194,16 @@ export class TripPicker {
   }
 
   get done(): boolean {
+    if (this.stairs) return this.stairs.done;
     return this.planned >= this.plan.length && (this.retries.length === 0 || this.served.length >= this.plan.length + MAX_EXTRA);
   }
 
   /** How far through the trip (0..1). */
-  get progress(): number { return Math.min(1, this.planned / Math.max(1, this.plan.length)); }
+  get progress(): number { return this.stairs ? this.stairs.answers.length / this.length : Math.min(1, this.planned / Math.max(1, this.plan.length)); }
   /** How many more facts this trip asks after the one showing: the rest of the plan and the misses waiting
    *  to come back (as many as the trip runs on for). It grows when a miss is to come back. */
   get left(): number {
+    if (this.stairs) return Math.max(0, this.length - this.stairs.answers.length - 1);
     const ats = this.retries.map(r => r.at).sort((a, b) => a - b);
     let pos = this.served.length, planned = this.planned, n = 0;
     // next() without the facts: a waiting miss when its turn comes, else the plan, else the misses left
@@ -169,9 +216,24 @@ export class TripPicker {
     return n;
   }
 
+  /** The placement's next fact: one of the strand's facts at the staircase's rung (not the 0 and 1 rules,
+   *  none asked already). */
+  private placeFact(): Item | null {
+    const pr = this.stairs!.next();
+    if (!pr) return null;
+    const asked = new Set(this.served.map(x => factId(x.fact)));
+    const all = strandGroups(this.lesson.op).flatMap(groupFacts).filter(f => !isRuleFact(f) && !asked.has(factId(f)));
+    const at = (r: number) => all.filter(f => factRung(f) === r);
+    let from = at(pr.rung);
+    for (let k = 1; !from.length && k < 6; k++) from = [...at(pr.rung - k), ...at(pr.rung + k)];
+    const f = from.length ? from[Math.floor(this.rng() * from.length)] : groupFacts(this.lesson.groups[0])[0];
+    return { fact: f, reason: 'test', rung: factRung(f) };
+  }
+
   /** The next fact to ask, or null when the trip is over. */
   next(): Item | null {
     if (this.done) return (this.current = null);
+    if (this.stairs) { const it = this.placeFact(); if (it) this.served.push(it); return (this.current = it); }
     const pos = this.served.length;
     // a missed fact coming back takes priority
     const r = this.retries.findIndex(x => x.at <= pos);
@@ -189,14 +251,22 @@ export class TripPicker {
       const x = this.retries.shift();
       item = x ? { fact: x.fact, reason: 'retry' } : null;
     }
-    if (item) this.served.push(item);
+    if (item) { item = { ...item, rung: this.tripRung() }; this.served.push(item); }
     return (this.current = item);
   }
 
-  /** A fact the player knows, by need, never the same as either of the last two. */
+  /** A fact the player knows, by need and by how well it suits the trip's rung, never the same as either
+   *  of the last two; at the higher rungs, now and then one from the rest of the strand. */
   private pickKnown(): Item {
     const recent = this.served.slice(-2).map(i => factId(i.fact));
     const upcoming = this.plan[this.planned] ? factId(this.plan[this.planned]!.fact) : null;
+    const rung = pitchRung(thetaOf(this.home, this.skill, this.now, this.grown), TARGET.practice, this.rng, this.streak.bump);
+    const spec = factRungSpec(rung);
+    const older = this.older.filter(f => !recent.includes(factId(f)) && factId(f) !== upcoming);
+    if (older.length && this.rng() < spec.older) {
+      let r = this.rng() * older.reduce((a, f) => a + factFit(factRung(f), rung), 0);
+      for (const f of older) { r -= factFit(factRung(f), rung); if (r <= 0) return { fact: f, reason: 'known' }; }
+    }
     let pool = this.pool.filter(x => !recent.includes(factId(x.fact)) && factId(x.fact) !== upcoming);
     if (!pool.length) pool = this.pool.filter(x => !recent.includes(factId(x.fact)));
     if (!pool.length) {
@@ -204,19 +274,30 @@ export class TripPicker {
       const back = this.newFacts.find(f => !recent.includes(factId(f))) ?? this.newFacts[0] ?? lessonFacts0(this.lesson);
       return { fact: back, reason: 'repeat' };
     }
-    let r = this.rng() * pool.reduce((a, x) => a + x.w, 0);
+    const w = (x: { fact: Fact; w: number }) => x.w * factFit(factRung(x.fact), rung);
+    let r = this.rng() * pool.reduce((a, x) => a + w(x), 0);
     for (const x of pool) {
-      r -= x.w;
+      r -= w(x);
       if (r <= 0) { x.w *= 0.45; return { fact: x.fact, reason: x.due ? 'review' : 'known' }; }
     }
     const x = pool[pool.length - 1];
     return { fact: x.fact, reason: x.due ? 'review' : 'known' };
   }
 
-  /** The answer to the current fact: a miss brings it back 2 or 3 facts later (4 at the most). */
-  answer(ok: boolean) {
+  /** The answer to the current fact (first try): the strand's ability learns from it (the fact's own
+   *  rung; quick by the trip rung's speed target), the streak moves, and a miss brings it back 2 or 3
+   *  facts later (4 at the most). The placement only steps its staircase. */
+  answer(ok: boolean, thinkMs?: number) {
     const cur = this.current;
-    if (!cur || ok) return;
+    if (!cur) return;
+    if (this.stairs) { this.stairs.answer(ok); return; }
+    if (cur.reason !== 'new') {
+      const ab = (this.home.ability ??= {}), prev = ab[this.skill];
+      const fastMs = (this.fastMs ?? 3000) * factRungSpec(cur.rung ?? 1).speed;
+      ab[this.skill] = learn(prev, prev ? 0 : priorOf(this.home, this.skill, this.now, this.grown), { rung: factRung(cur.fact), ok, thinkMs, fastMs, at: this.now, source: 'trip' });
+      this.streak.answer(ok);
+    }
+    if (ok) return;
     const pos = this.served.length - 1;
     if (this.retries.some(x => sameFact(x.fact, cur.fact))) return;
     // the retry takes the place of a planned repeat coming up too soon

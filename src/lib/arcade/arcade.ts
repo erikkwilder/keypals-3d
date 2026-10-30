@@ -8,6 +8,7 @@ import { settlePractice, type Settled } from '../engine/settle';
 import { earnShells } from '../adventure/state';
 import { mathOf } from '../math/progress';
 import { answerOf, factId, FAST_MS, opSign, seedPartner, updateFact, type Fact, type Op } from '../math/facts';
+import { factAnswers, factFitFor, noteAbility, pitchRung, strandOf, TARGET } from '../math/skills/ability';
 import { mulberry32, type Rng } from '../engine/rng';
 
 export type ArcadeId = 'slalom' | 'catch' | 'tower';
@@ -78,17 +79,21 @@ export const dailyBeaten = (p: Profile, id: ArcadeId, day = dayKey(Date.now())) 
 
 // ---------- questions: the player's own facts, the shaky ones more often ----------
 export type PoolFact = { f: Fact; stage: number; w?: number };
-/** Deals facts from the player's pool: weak ones up to three times as likely, never the same one twice
- *  close together. */
+/** Deals facts from the player's pool: weak ones up to three times as likely, the ones that suit the
+ *  player's rung most (pitched at about 90% right: these are quick, timed answers; `theta` is the pool's
+ *  ability per strand, math/skills/ability.ts), never the same one twice close together. */
 export class FactDeck {
   private recent: string[] = [];
-  constructor(readonly facts: PoolFact[], readonly rng: Rng) {}
+  constructor(readonly facts: PoolFact[], readonly rng: Rng, readonly theta?: Record<string, number>) {}
   next(avoid: (f: Fact) => boolean = () => false): Fact {
     const ok = this.facts.filter(x => !this.recent.includes(factId(x.f)) && !avoid(x.f));
     const from = ok.length ? ok : this.facts;
-    const tot = from.reduce((a, x) => a + 1 + 2 * (x.w ?? 0), 0);
+    const rungs: Record<string, number> = {};
+    for (const x of from) { const s = strandOf(x.f); if (this.theta?.[s] !== undefined && !rungs[s]) rungs[s] = pitchRung(this.theta[s], TARGET.quick, this.rng); }
+    const wt = (x: PoolFact) => (1 + 2 * (x.w ?? 0)) * factFitFor(this.theta, x.f, rungs);
+    const tot = from.reduce((a, x) => a + wt(x), 0);
     let r = this.rng() * tot, pick = from[from.length - 1];
-    for (const x of from) { r -= 1 + 2 * (x.w ?? 0); if (r <= 0) { pick = x; break; } }
+    for (const x of from) { r -= wt(x); if (r <= 0) { pick = x; break; } }
     this.recent.push(factId(pick.f));
     if (this.recent.length > Math.min(4, Math.max(1, this.facts.length - 2))) this.recent.shift();
     return pick.f;
@@ -132,6 +137,8 @@ export function applyArcade(p0: Profile, run: ArcadeRun): ArcadeOutcome {
   // every answer counts for the fact memory, as in a trip
   const m = (p.math = mathOf(p)), dk = dayKey(run.at), fastMs = m.fastMs ?? FAST_MS;
   for (const a of run.answered) { const id = factId(a.f); m.facts[id] = updateFact(m.facts[id], { ok: a.ok, thinkMs: a.thinkMs, day: dk, at: run.at, fastMs }); seedPartner(m.facts, a.f); }
+  // and how hard the questions are (a little: a timed game is noisier than a trip)
+  noteAbility(m, factAnswers(run.answered, run.at, fastMs), 'game', grown);
   // the record and the daily challenge
   const save = (p.arcade ??= {});
   const was = save[run.id] ?? { best: 0, stars: 0, plays: 0 };

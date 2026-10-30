@@ -8,11 +8,14 @@
 //   copy, the higher of the two;
 // - eggs: both computers' new eggs are kept, an egg hatched on either is gone, warmth adds up;
 // - a fact's stage comes from the computer that asked it last (a slip after a bloom is real);
+// - how hard a skill's questions are (its ability estimate) comes from the copy with clearly more
+//   answers behind it, or else the newer one;
 // - choices (settings, the team, who's wearing what, the name) come from whichever copy changed last.
 // Fields this file doesn't know yet fall back to: objects merged key by key, numbers the higher, lists of
 // words joined, anything else from the newer copy.
 import type { Profile } from '../engine/profile';
 import { levelFromXp } from '../engine/stickers';
+import { mergeAbility } from '../math/skills/ability';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
@@ -124,6 +127,11 @@ function math(m: J, t: J, b: J, mineNewer: boolean): J {
     ...generic(m, t, b, mineNewer),
     home: n.home ?? o.home, calm: n.calm ?? o.calm, fastMs: n.fastMs ?? o.fastMs, strand: n.strand ?? o.strand, gardenSeen: newerObj(n.gardenSeen, o.gardenSeen),
     facts: keyed(m.facts, t.facts, b?.facts, (a, c, bb) => fact(a, c, bb, mineNewer)),
+    // the skill areas' memory works like the facts'; each skill's ability estimate comes from the copy
+    // with clearly more answers behind it, else the newer one (math/skills/ability.ts)
+    skills: keyed(m.skills, t.skills, b?.skills, (a, c, bb) => fact(a, c, bb, mineNewer)),
+    ability: keyed(m.ability, t.ability, b?.ability, (a, c) => mergeAbility(a, c)),
+    placed: keyed(m.placed, t.placed, b?.placed, (a, c) => ((a.at ?? 0) >= (c.at ?? 0) ? a : c)),
     lessons: keyed(m.lessons, t.lessons, b?.lessons, (a, c, bb) => lessonRec(a, c, bb, mineNewer)),
     history: timeline(m.history, t.history, x => `${x.at}|${x.lessonId}`, 300),
     totals: keyed(m.totals, t.totals, b?.totals, (a, c, bb) => add(a, c, bb)),

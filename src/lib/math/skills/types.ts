@@ -3,6 +3,27 @@
 // says how an item is answered (a number pad, a fraction pad, choices, a number line, a grid, or a custom
 // input an area adds). Each skill has small "subs" (a denominator, a kind of comparison): memory, the
 // picker and the garden work per sub, the way facts work per fact.
+//
+// ---- for whoever adds an area: rungs, ability and pitch() ----
+// RUNGS. A skill's difficulty is a ladder of six rungs: `make(rng, sub, rung)` with rung 1..6. Rung 1 is
+// the gentlest version of the skill (small numbers, helper pictures), rung 3 the full grade-level range,
+// and rungs 4 to 6 stretch it inside the same standard (bigger numbers, more steps, missing parts, closer
+// choices, fewer helper pictures). Rungs never change WHICH sub is asked (memory picks that): they change
+// how hard that sub's question is. Write what each rung means in a comment on the skill, take the rung
+// through `rungOf()` (it clamps and rounds, and old saves' level 1 and 2 come in as rungs 1 and 2), and
+// keep the rule every generator follows: never draw again "until it's different", so a question is made
+// in one go whatever the random numbers are. The fuzz test (skills/rungs.test.ts) makes 200 items of
+// every sub at every rung and checks each one with its own answer.
+// ABILITY. Per player and per skill (fact strands too: add-facts, sub-facts, mult-facts, div-facts) the
+// game keeps an estimate in rung units, `{ t, n, at }` (theta, how many answers it rests on, last used),
+// in MathProgress.ability (skills/ability.ts). At theta = rung a child gets about 80% right:
+// p = 1 / (1 + exp(-(1.4 * (theta - rung) + 1.39))). Every answer in every mode moves it (an Elo update
+// with response time folded in); an unseen skill starts from the area's other skills (adjusted by grade
+// order), from the grade the child plays at elsewhere, or gently.
+// PITCH. Nothing calls `make` with a made-up level: everything asks `pitch(math, skill, target)` (or
+// `pitchItem` for a memory key), which returns the rung whose expected success is closest to the target
+// (practice 0.8, quick timed answers 0.9, placement 0.5), with a one-step jitter now and then. A new area
+// gets all of this for free: give its skills a grade, write their six rungs, register them.
 import type { Rng } from '../../engine/rng';
 import type { Op } from '../facts';
 
@@ -65,6 +86,8 @@ export type Item = {
   answer: Answer;
   /** how hard, 1 (gentle) to 5: a battle card's cheer comes from it */
   weight: number;
+  /** the rung it was made at (1..6), stamped by pitch() so the answer can move the ability */
+  rung?: number;
   /** after a miss: the answer in words, and the trick */
   explain: string;
   trick?: { name: string; say: string };
@@ -88,8 +111,8 @@ export type Skill = {
   subs: SubSkill[];
   /** quick means starting to answer within this long (fractions take longer than facts) */
   fastMs: number;
-  /** a new item: `level` 1 is gentle, 2 the full range */
-  make(rng: Rng, sub: string, level: 1 | 2): Item;
+  /** a new item at a rung, 1 (gentlest) to 6 (the stretch); see the top of this file */
+  make(rng: Rng, sub: string, rung: number): Item;
   /** right? (equal fractions count: 2/4 for 1/2 is right unless the item asks for its own picture) */
   check(item: Item, given: Answer): boolean;
   /** fact strands keep their own memory and picker; this skill only describes them */
@@ -107,3 +130,10 @@ export type Area = {
   /** the fact strand it is (the first four areas) */
   op?: Op;
 };
+
+/** The number of rungs on every skill's ladder. */
+export const RUNGS = 6;
+/** A rung as a whole number 1..6 (anything else is clamped; old level 1 and 2 come in as rungs 1 and 2). */
+export const rungOf = (r: number): number => Math.max(1, Math.min(RUNGS, Math.round(Number.isFinite(r) ? r : 1)));
+/** One value per rung: `perRung(r, [a, b, c])` is a at rung 1, b at 2, and c from rung 3 up. */
+export const perRung = <T>(r: number, xs: readonly T[]): T => xs[Math.min(xs.length, rungOf(r)) - 1];

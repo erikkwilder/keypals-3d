@@ -91,6 +91,30 @@ describe('combining two computers', () => {
     expect(m.math!.facts['3x4'].wrong).toBe(2);
   });
 
+  it('ability estimates: the one with clearly more answers wins, else the newer; skill memory merges like facts', () => {
+    const base = start();
+    base.math!.ability = { 'fr-name': { t: 2, n: 10, at: 900 }, 'pv-add': { t: 3, n: 30, at: 900 } };
+    base.math!.skills = { 'fr-name:4': { stage: 2, seen: 4, right: 3, wrong: 1, times: [5000], fastDays: [], last: 900, due: 0, step: 0 } };
+    // the tablet played a long fraction trip (many answers); the laptop, later, a few on its own
+    const tablet = copy(base); tablet.updatedAt = 2000;
+    tablet.math!.ability!['fr-name'] = { t: 4.2, n: 40, at: 1900 };
+    tablet.math!.ability!['pv-add'] = { t: 3.4, n: 34, at: 1900 };
+    Object.assign(tablet.math!.skills!['fr-name:4'], { stage: 3, seen: 9, right: 8, last: 1900 });
+    const laptop = copy(base); laptop.updatedAt = 2100;
+    laptop.math!.ability!['fr-name'] = { t: 2.5, n: 12, at: 2050 };
+    laptop.math!.ability!['pv-add'] = { t: 3.1, n: 32, at: 2050 };
+    laptop.math!.ability!['dm-coins'] = { t: 1.8, n: 3, at: 2050 };
+    const m = mergeProfile(laptop, tablet, base);
+    expect(m.math!.ability!['fr-name']).toEqual({ t: 4.2, n: 40, at: 1900 }); // clearly more evidence
+    expect(m.math!.ability!['pv-add']).toEqual({ t: 3.1, n: 32, at: 2050 }); // about the same: the newer
+    expect(m.math!.ability!['dm-coins'].n).toBe(3); // only one side had it
+    expect(m.math!.skills!['fr-name:4'].stage).toBe(3);
+    expect(m.math!.skills!['fr-name:4'].seen).toBe(9);
+    // and an old save with no estimates at all merges with a new one
+    const old = copy(base); delete old.math!.ability; old.updatedAt = 900;
+    expect(mergeProfile(old, laptop, null).math!.ability!['pv-add'].t).toBe(3.1);
+  });
+
   it('choices come from the copy that changed last', () => {
     const base = start();
     const a = copy(base); a.updatedAt = 2000; a.settings.volume = 0.3; advOf(a).team = ['puddlepup', null];

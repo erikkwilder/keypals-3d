@@ -53,7 +53,7 @@ describe('skill cards in battles', () => {
     const ev = play(b, c.id, { ok: true, value: 0, thinkMs: 3000, given: c.item!.answer });
     expect(ev[0]).toMatchObject({ k: 'cast', ok: true, value: c.value });
     expect(b.foe.grump).toBe(before - c.value!);
-    expect(b.skillAnswers).toEqual([{ key: c.item!.key, ok: true, thinkMs: 3000 }]);
+    expect(b.skillAnswers).toEqual([{ key: c.item!.key, ok: true, thinkMs: 3000, rung: c.item!.rung }]);
     // block whatever came, then miss one on purpose
     if (b.phase === 'block') { b.phase = 'pick'; b.block = null; }
     const c2 = b.cards[0], wrong = c2.item!.answer.kind === 'choice' ? { kind: 'choice' as const, id: 'nope' } : { kind: 'number' as const, value: -99 };
