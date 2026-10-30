@@ -197,6 +197,9 @@ export class GardenScene implements Controller {
   onNear: ((id: string | null) => void) | null = null;
   /** the player's own camera (drag, pinch, the arrows), or null: the garden frames itself */
   private free: { target: THREE.Vector3; yaw: number; pitch: number; dist: number } | null = null;
+  /** going to another garden: the camera keeps its zoom and angle (this offset from where it looks) and
+   *  follows the buddy there, then rests on that garden (Erik: "don't change the zoom level") */
+  private hold: { off: THREE.Vector3 } | null = null;
   /** the stage clock time the scene showed (growth pops in after) */
   private sun: THREE.DirectionalLight;
   private clouds: THREE.Object3D[] = [];
@@ -786,6 +789,9 @@ export class GardenScene implements Controller {
   /** Look at a plot (and one bed of it, or the whole plot). */
   show(plot: number, bed: number | null) {
     if (plot === this.plot && bed === this.bed && !this.free && this.walk.mode !== 'drive') return;
+    // to another garden (the whole of it): keep the zoom and angle the camera has now; a bed is framed up close
+    if (bed !== null) this.hold = null;
+    else if (plot !== this.plot && this.camReady) this.hold = { off: this.camPos.clone().sub(this.camAim) };
     this.plot = plot; this.bed = bed; this.free = null; this.follow = false;
     this.input.x = this.input.z = 0; this.goto = null;
     this.near.plot = plot; this.near.bed = bed;
@@ -834,7 +840,7 @@ export class GardenScene implements Controller {
     this.walk.check = this.now; this.walk.checkAt.copy(at);
   }
   /** The garden frames itself again (the "back to the bed" button). */
-  resetView() { this.free = null; this.follow = false; }
+  resetView() { this.free = null; this.follow = false; this.hold = null; }
   /** Is the buddy being walked by you? */
   get walking() { return this.walk.mode === 'drive'; }
 
@@ -882,6 +888,7 @@ export class GardenScene implements Controller {
     if (this.free) return this.free;
     const v = this.camPos.clone().sub(this.camAim), dist = Math.max(1, v.length());
     this.free = { target: this.camAim.clone(), dist, pitch: Math.asin(Math.min(1, Math.max(-1, v.y / dist))), yaw: Math.atan2(v.x, v.z) };
+    this.hold = null;
     return this.free;
   }
   /** Drag: turn round the spot you're looking at (pixels). */
@@ -1175,6 +1182,25 @@ export class GardenScene implements Controller {
       pos.y = Math.max(0.45, pos.y);
       const k = 1 - Math.exp(-dt * 9);
       this.camPos.lerp(pos, k); this.camAim.lerp(f.target, k);
+      cam.position.copy(this.camPos); cam.lookAt(this.camAim);
+      return;
+    }
+    if (this.hold) {
+      // off to another garden at the zoom you had: follow the buddy on the way, then rest on the garden
+      const off = this.hold.off, dist = off.length();
+      const c = this.walk.mode === 'travel' && this.me
+        ? this.me.root.position.clone().setY(0.6)
+        : new THREE.Vector3(X - 0.3, 0.3, Z0 - ((nb - 1) * ROW) / 2 + 0.9);
+      // (the same shift for the view band as below, so the garden sits where the screen leaves room)
+      const look = off.clone().negate().normalize(), ndcX = (v.left + v.right) - 1, ndcY = 1 - (v.top + v.bottom);
+      const right = new THREE.Vector3().crossVectors(look, new THREE.Vector3(0, 1, 0)).normalize(), up = new THREE.Vector3().crossVectors(right, look).normalize();
+      const aim = c.addScaledVector(right, -ndcX * dist * tanH * cam.aspect).addScaledVector(up, -ndcY * dist * tanH);
+      const k = 1 - Math.exp(-dt * (this.walk.mode === 'travel' ? 3.2 : 2.2));
+      this.camAim.lerp(aim, k);
+      // never so far behind that the buddy runs off the screen (however close the camera is)
+      const lag = this.camAim.distanceTo(aim), most = 0.35 * dist * tanH;
+      if (lag > most) this.camAim.lerp(aim, 1 - most / lag);
+      this.camPos.copy(this.camAim).add(off);
       cam.position.copy(this.camPos); cam.lookAt(this.camAim);
       return;
     }
