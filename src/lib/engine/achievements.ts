@@ -29,7 +29,7 @@ const B = (id: string, name: string, desc: string, icon: Icon, hue: number, extr
 
 const ALL_MEDALS: AwardDef[] = [
   M('clean', 'Clean Sweep', 'Finish a lesson or trip with no mistakes at all.', 'sparkle', 160, { game: 'any' }),
-  M('sharp', 'Sharp Eyes', 'Finish with 97% or better.', 'target', 200, { game: 'any' }),
+  M('sharp', 'Sharp Eyes', 'Finish a lesson 97% right or better (a perfect one is a Clean Sweep).', 'target', 200, { game: 'typing' }),
   M('steady', 'Steady Paws', 'Keep a nice, even rhythm.', 'wave', 228),
   M('pb', 'Personal Best', 'Beat your best: type faster than ever, or ride faster than ever on a trip.', 'trophy', 48, { game: 'any' }),
   M('ride-record', 'Ride Record', 'Ride faster than ever on a lesson.', 'ride', 290, { game: 'any' }),
@@ -37,9 +37,9 @@ const ALL_MEDALS: AwardDef[] = [
   M('streak-25', 'Hot Streak', '25 keys or more in a row without a slip.', 'bolt', 52),
   M('streak-50', 'Blazing Streak', '50 keys in a row without a slip.', 'bolt', 330),
   M('streak-100', 'Unstoppable', '100 keys in a row without a slip.', 'bolt', 268),
-  M('comeback', 'Comeback Kid', 'Shake off a few slips and finish strong.', 'heart', 345),
-  M('nopeek', 'No Peeking', 'Finish with the keyboard hidden.', 'eye', 250),
-  M('hands-free', 'Hands Free', 'Finish with the hands guide hidden.', 'hand', 300),
+  M('comeback', 'Comeback Kid', 'Make a few slips, then finish strong: the last 15 keys or 8 answers all right.', 'heart', 345, { game: 'any' }),
+  M('nopeek', 'No Peeking', 'Finish a lesson with the keyboard picture hidden.', 'eye', 250),
+  M('hands-free', 'Hands Free', 'Finish a lesson with the hands guide hidden.', 'hand', 300),
   M('touch-typist', 'Touch Typist', 'Keyboard and hands both hidden, 95% or better.', 'crown', 268),
   M('firsttry', 'First Try', 'Pass a lesson or trip on your first go.', 'star', 52, { game: 'any' }),
   M('three', 'Triple Star', 'Earn all three stars on a lesson or trip.', 'stars', 48, { game: 'any' }),
@@ -51,10 +51,17 @@ const ALL_MEDALS: AwardDef[] = [
 ];
 
 // Pared down (2026-10-28): a good run used to win six or seven medals at once, many saying the same
-// thing. These are no longer won; old counts stay in saved games, and the book no longer shows them.
-const RETIRED_MEDALS = new Set(['sharp', 'steady', 'ride-record', ...RIDES.slice(1).map(r => `ride-${r.id}`), 'streak-50', 'streak-100',
-  'comeback', 'nopeek', 'hands-free', 'speedy', 'marathon']);
-/** the medals a run can win: nine of them */
+// thing. These are no longer won; old counts stay in saved games, and the book no longer shows them:
+// Steady Paws (an even rhythm: hard to see or aim for), Speeding Up (Personal Best says it), the five ride
+// medals and Ride Record (the speed-step stickers and Personal Best say them), Long Haul (it paid for a
+// long lesson, not for anything the child did).
+// Brought back (2026-10-30), each the next step of a skill, and a run wins only the top one of each family
+// (typingMedals and mathComeback below): Sharp Eyes under Clean Sweep (97% right: the accuracy most kids
+// can reach on a long lesson); Blazing Streak and Unstoppable over Hot Streak (50 and 100 keys in a row);
+// No Peeking and Hands Free under Touch Typist (the first steps of typing without looking); and Comeback
+// Kid (slips, then a strong finish: it pays for not giving up, in typing and math).
+const RETIRED_MEDALS = new Set(['steady', 'ride-record', ...RIDES.slice(1).map(r => `ride-${r.id}`), 'speedy', 'marathon']);
+/** the medals a run can win: fifteen of them */
 export const MEDALS: AwardDef[] = ALL_MEDALS.filter(m => !RETIRED_MEDALS.has(m.id));
 
 export const BADGES: AwardDef[] = [
@@ -87,3 +94,34 @@ export const BADGES: AwardDef[] = [
 ];
 
 export const AWARD: Record<string, AwardDef> = Object.fromEntries([...ALL_MEDALS, ...BADGES].map(a => [a.id, a]));
+
+/** A typing lesson's medals, at most one of each family: no slips (Clean Sweep, else Sharp Eyes), a
+ *  streak (Unstoppable, else Blazing Streak, else Hot Streak), typing without looking (Touch Typist, else
+ *  No Peeking, else Hands Free); plus Comeback Kid, Personal Best, First Try and Triple Star. */
+export function typingMedals(r: {
+  finished: boolean; chars: number; errors: number; acc: number; maxStreak: number; finalStreak: number;
+  keyboardHidden: boolean; handsHidden: boolean; passedNow: boolean; firstGo: boolean; personalBest: boolean; stars: number;
+}): string[] {
+  const m: string[] = [];
+  if (r.finished && r.chars >= 15 && r.errors === 0) m.push('clean');
+  else if (r.finished && r.chars >= 50 && r.acc >= 0.97) m.push('sharp');
+  if (r.personalBest) m.push('pb');
+  if (r.maxStreak >= 100) m.push('streak-100');
+  else if (r.maxStreak >= 50) m.push('streak-50');
+  else if (r.maxStreak >= 25) m.push('streak-25');
+  if (r.finished && r.errors >= 3 && r.finalStreak >= 15) m.push('comeback');
+  if (r.finished && r.keyboardHidden && r.handsHidden && r.acc >= 0.95) m.push('touch-typist');
+  else if (r.finished && r.keyboardHidden) m.push('nopeek');
+  else if (r.finished && r.handsHidden) m.push('hands-free');
+  if (r.passedNow && r.firstGo) m.push('firsttry');
+  if (r.stars === 3) m.push('three');
+  return m;
+}
+
+/** Comeback Kid in a math trip: three or more missed, and the last eight answers all right. */
+export function mathComeback(results: { ok: boolean; intro?: boolean }[], finished: boolean): boolean {
+  const scored = results.filter(r => !r.intro);
+  let tail = 0;
+  for (let i = scored.length - 1; i >= 0 && scored[i].ok; i--) tail++;
+  return finished && scored.length - scored.filter(r => r.ok).length >= 3 && tail >= 8;
+}

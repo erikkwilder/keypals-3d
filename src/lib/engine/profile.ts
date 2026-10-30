@@ -5,7 +5,7 @@
 import { BUDDIES, type FriendId, type Look } from '../art/cast';
 import { ALL_LESSONS, LESSON, REGIONS, knownChars, lessonIndex, lessonMove, type Lesson, type RegionId } from './course';
 import type { Layout, LayoutId } from './layouts';
-import type { AwardDef } from './achievements';
+import { typingMedals, type AwardDef } from './achievements';
 import { STICKERS, newPalProgress, type PalProgress, type StickerDef } from './stickers';
 import { teamBuddies } from './team';
 import { REWARDS, forBuddy, treasureFor, type Reward } from './rewards';
@@ -378,14 +378,12 @@ export function applyRun(p0: Profile, run: RunInput, layout: Layout): RunOutcome
   if (p.history.length > 300) p.history.splice(0, p.history.length - 300);
 
   // medals for this run (reaching today's goal adds the goal medal)
-  const medals: string[] = [];
-  if (run.finished && s.chars >= 15 && s.errors === 0) medals.push('clean');
-  if (passedNow && before && before.bestWpm > 0 && s.wpm > before.bestWpm) medals.push('pb');
-  if (s.maxStreak >= 25) medals.push('streak-25');
-  const comeback = run.finished && s.errors >= 3 && s.finalStreak >= 15;
-  if (run.finished && run.keyboardHidden && run.handsHidden && s.acc >= 0.95) medals.push('touch-typist');
-  if (passedNow && prev.attempts === 0) medals.push('firsttry');
-  if (run.stars === 3) medals.push('three');
+  const medals = typingMedals({
+    finished: run.finished, chars: s.chars, errors: s.errors, acc: s.acc, maxStreak: s.maxStreak, finalStreak: s.finalStreak,
+    keyboardHidden: !!run.keyboardHidden, handsHidden: !!run.handsHidden, passedNow, firstGo: prev.attempts === 0,
+    personalBest: passedNow && !!before && before.bestWpm > 0 && s.wpm > before.bestWpm, stars: run.stars,
+  });
+  const comeback = medals.includes('comeback');
 
   // this Keypal's own counters (the stickers read them)
   const pal: PalProgress = buddyPal(p);

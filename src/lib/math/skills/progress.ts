@@ -5,6 +5,7 @@ import type { Profile } from '../../engine/profile';
 import { buddyPal, dayKey } from '../../engine/profile';
 import type { PalProgress } from '../../engine/stickers';
 import { settlePractice, type Settled } from '../../engine/settle';
+import { mathComeback } from '../../engine/achievements';
 import { newStat, updateFact, type FactStat, type Stage } from '../facts';
 import { mathTreasureFor, type FactResult, type TripStats } from '../meter';
 import { mathOf, tripXp, type MathLessonRecord, type MathProgress } from '../progress';
@@ -136,6 +137,7 @@ export function applySkillRun(p0: Profile, run: SkillRunInput): SkillOutcome {
   if (grew.bloomed.length) medals.push('bloom');
   if (passedNow && prev.attempts === 0) medals.push('firsttry');
   if (run.stars === 3) medals.push('three');
+  if (mathComeback(run.results, run.finished)) medals.push('comeback');
   const pal: PalProgress = buddyPal(p);
   pal.runs++;
   if (run.stars === 3) pal.stars3++;

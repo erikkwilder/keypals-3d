@@ -10,9 +10,11 @@ import { STICKERS, type StickerDef, type StickerPose, type StickerShape } from '
 import { MEDALS, type AwardDef } from '../engine/achievements';
 import { iconUrl, medalArtUrl, stickerArtUrl } from './icons';
 
-/** The stickers and medals in the book have painted art; any other (retired ones in old saved games) is drawn. */
+/** The stickers and medals in the book have painted art; any other (retired ones in old saved games, and the
+ *  medals brought back on 2026-10-30 until their paintings are made) is drawn. */
 const PAINTED_STICKERS = new Set(STICKERS.map(s => s.id));
-const PAINTED_MEDALS = new Set(MEDALS.map(m => m.id));
+export const PAINTED_MEDAL_IDS = ['clean', 'pb', 'streak-25', 'touch-typist', 'firsttry', 'three', 'goal', 'quickdraw', 'bloom'];
+const PAINTED_MEDALS = new Set(PAINTED_MEDAL_IDS.filter(id => MEDALS.some(m => m.id === id)));
 /** Not won yet: the painted art in soft grey. */
 const greyFilter = (id: string) => `<filter id="${id}grey" color-interpolation-filters="sRGB"><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncR type="linear" slope=".5" intercept=".46"/><feFuncG type="linear" slope=".5" intercept=".45"/><feFuncB type="linear" slope=".5" intercept=".5"/></feComponentTransfer></filter>`;
 /** A painted sparkle that twinkles (the legendary stickers, the gold and rainbow medals). */

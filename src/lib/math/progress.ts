@@ -8,6 +8,7 @@ import { dayKey, buddyPal } from '../engine/profile';
 import { newPalProgress, type PalProgress, type StickerDef } from '../engine/stickers';
 import type { Reward } from '../engine/rewards';
 import { settlePractice } from '../engine/settle';
+import { mathComeback } from '../engine/achievements';
 import { groupFacts, moveOf, MATH_LESSON, MATH_LESSONS, MATH_REGION, PLACEMENTS, regionsOf, type MathLesson, type MathRegionId } from './course';
 import { factId, familyOf, isRuleFact, newStat, parseFact, seedPartner, updateFact, FAST_MS, type FactStat, type Op, type Stage } from './facts';
 import { mathTreasureFor, type FactResult, type TripStats } from './meter';
@@ -273,6 +274,7 @@ export function applyMathRun(p0: Profile, run: MathRunInput): MathOutcome {
   if (grew.bloomed.length) medals.push('bloom');
   if (passedNow && prev.attempts === 0) medals.push('firsttry');
   if (run.stars === 3) medals.push('three');
+  if (mathComeback(run.results, run.finished)) medals.push('comeback');
 
   // ---- the buddy's own counters (the stickers read them) ----
   const pal: PalProgress = buddyPal(p);

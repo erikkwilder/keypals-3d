@@ -7,7 +7,7 @@ import { Session } from './session';
 import { computeStats, lessonGoal, runTitle, starsFor } from './scoring';
 import { RideMeter } from './rides';
 import { STICKERS, newPalProgress } from './stickers';
-import { MEDALS } from './achievements';
+import { MEDALS, mathComeback, typingMedals } from './achievements';
 import { RIDES, RIDE_SCORE } from './rides';
 import type { Profile } from './profile';
 import { applyRun, isUnlocked, lookOf, newProfile, nextLesson, migrate, knownFor, palOf, bookView, buddyPal, allPals } from './profile';
@@ -258,8 +258,9 @@ describe('profiles and progress', () => {
     const s = typeOut('ask dad all salads ask dad all salads ask a lass', 250);
     const out = applyRun(p, { lessonId: 'village-1', stats: computeStats(s), stars: 3, bestRide: 4, keyboardHidden: true, finished: true, at: Date.now() }, Q);
     const ids = out.medals.map(m => m.id);
-    expect(ids).toEqual(expect.arrayContaining(['clean', 'three', 'firsttry', 'streak-25']));
-    for (const gone of ['steady', 'nopeek', 'ride-car', 'sharp', 'marathon']) expect(ids).not.toContain(gone);
+    expect(ids).toEqual(expect.arrayContaining(['clean', 'three', 'firsttry', 'streak-25', 'nopeek']));
+    // retired ones never; brought-back ones only as the top of their family (Clean Sweep, not Sharp Eyes too)
+    for (const gone of ['steady', 'ride-car', 'sharp', 'marathon', 'hands-free', 'touch-typist', 'streak-50']) expect(ids).not.toContain(gone);
     expect(ids.length).toBeLessThanOrEqual(5);
     p = out.profile;
   });
@@ -319,7 +320,7 @@ describe('six rides', () => {
       expect(STICKERS.some(s => s.id === `ridestar-${r.id}`), r.id).toBe(true);
       expect(MEDALS.some(m => m.id === `ride-${r.id}`), r.id).toBe(false);
     }
-    expect(MEDALS).toHaveLength(9);
+    expect(MEDALS).toHaveLength(15);
     expect(STICKERS).toHaveLength(39);
     expect(RIDE_SCORE.kids).toHaveLength(RIDES.length);
     expect(RIDE_SCORE.grown).toHaveLength(RIDES.length);
@@ -428,5 +429,44 @@ describe('the treasure ladder', () => {
     const won = checkStickers(p, 1);
     expect(won.map(s => s.id)).toEqual(expect.arrayContaining(['treasure-3', 'treasure-6']));
     expect(won.map(s => s.id)).not.toContain('treasure-9');
+  });
+});
+
+describe('medals brought back, one of each family', () => {
+  const base = { finished: true, chars: 200, errors: 0, acc: 1, maxStreak: 200, finalStreak: 200, keyboardHidden: false, handsHidden: false, passedNow: true, firstGo: false, personalBest: false, stars: 2 };
+  it('a perfect run is a Clean Sweep, not Sharp Eyes too; 97% is Sharp Eyes', () => {
+    expect(typingMedals(base)).toContain('clean');
+    expect(typingMedals(base)).not.toContain('sharp');
+    expect(typingMedals({ ...base, errors: 4, acc: 0.98 })).toContain('sharp');
+    expect(typingMedals({ ...base, errors: 4, acc: 0.98, chars: 30 })).not.toContain('sharp'); // too short to count
+  });
+  it('only the longest streak medal', () => {
+    const ids = (n: number) => typingMedals({ ...base, maxStreak: n }).filter(m => m.startsWith('streak'));
+    expect(ids(24)).toEqual([]);
+    expect(ids(30)).toEqual(['streak-25']);
+    expect(ids(60)).toEqual(['streak-50']);
+    expect(ids(140)).toEqual(['streak-100']);
+  });
+  it('typing without looking: Touch Typist, else No Peeking, else Hands Free', () => {
+    const look = (k: boolean, h: boolean, acc = 1) => typingMedals({ ...base, keyboardHidden: k, handsHidden: h, acc }).filter(m => ['touch-typist', 'nopeek', 'hands-free'].includes(m));
+    expect(look(true, true)).toEqual(['touch-typist']);
+    expect(look(true, true, 0.9)).toEqual(['nopeek']);
+    expect(look(true, false)).toEqual(['nopeek']);
+    expect(look(false, true)).toEqual(['hands-free']);
+    expect(look(false, false)).toEqual([]);
+  });
+  it('Comeback Kid: slips, then a strong finish (typing and math)', () => {
+    expect(typingMedals({ ...base, errors: 3, acc: 0.97, finalStreak: 20 })).toContain('comeback');
+    expect(typingMedals({ ...base, errors: 3, acc: 0.97, finalStreak: 5 })).not.toContain('comeback');
+    const r = (ok: boolean) => ({ ok });
+    expect(mathComeback([r(false), r(false), r(true), r(false), ...Array(8).fill(r(true))], true)).toBe(true);
+    expect(mathComeback([r(false), r(false), r(false), ...Array(7).fill(r(true))], true)).toBe(false);
+    expect(mathComeback([r(false), r(false), ...Array(10).fill(r(true))], true)).toBe(false);
+  });
+  it('every medal in the book has its picture: painted, or drawn', async () => {
+    const { PAINTED_MEDAL_IDS, renderMedal } = await import('../art/stickerArt');
+    const { existsSync } = await import('node:fs');
+    for (const id of PAINTED_MEDAL_IDS) for (const t of [0, 1, 2, 3]) expect(existsSync(`public/icons/medals/${id}-${t}.webp`), `${id}-${t}`).toBe(true);
+    for (const m of MEDALS) expect(renderMedal(m, 0), m.id).toMatch(/<svg/);
   });
 });
