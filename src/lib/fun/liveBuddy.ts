@@ -1,7 +1,9 @@
-// Your buddy for real on Home, when it's tickled: Home shows a picture of the buddy, so a tickle swaps in
-// the 3D buddy (its own little renderer, laid exactly over the picture and framed the way the picture
-// was made, src/dev/portraits.ts) and its whole body squirms, giggles and sneezes on its bones
-// (character.ts tickle and sneeze). After a while with no tickles it hands back to the picture.
+// Your buddy for real on Home: Home paints a picture of the buddy first (fast), and as soon as the 3D code
+// is ready the real buddy takes its place by itself (its own little renderer, laid exactly over the
+// picture and framed the way the picture was made, src/dev/portraits.ts): standing, breathing, glancing
+// about, now and then a little hop or fist pump. A tickle makes its whole body squirm, giggle and sneeze
+// on its bones (character.ts tickle and sneeze). `stay: false` (the old way) hands back to the picture
+// after a while with no tickles.
 import * as THREE from 'three';
 import { Character } from '../three/character';
 import { dressUp } from '../three/dress';
@@ -15,6 +17,14 @@ export class LiveBuddy {
   private last = 0;
   private idleFor = 0;
   private gone = false;
+  /** Home's buddy, live from the start: never hands back to the picture by itself, and moves now and then */
+  private stay = false;
+  private calm = 0;
+  private nextMove = 6;
+  private move: string | null = null;
+  private turn = { now: -0.38, goal: -0.38 };
+  /** no little moves (Settings: less motion) */
+  quiet = false;
   /** called when it hands back to the picture by itself */
   onEnd: (() => void) | null = null;
 
@@ -45,18 +55,22 @@ export class LiveBuddy {
   }
 
   /** The 3D buddy over the picture in `el` (null if it can't be drawn here). */
-  static async create(id: FriendId, el: HTMLElement): Promise<LiveBuddy | null> {
+  static async create(id: FriendId, el: HTMLElement, o: { stay?: boolean; quiet?: boolean } = {}): Promise<LiveBuddy | null> {
     try {
       const c = await Character.create(id);
       if (!c) return null;
       c.play('idle', 0);
       await dressUp(c).catch(() => null);
+      // (the little moves come a moment later; idling needs nothing more)
+      if (o.stay) void c.loadMoves().catch(() => null);
       const canvas = document.createElement('canvas');
       canvas.className = 'fun-livebuddy';
       canvas.setAttribute('aria-hidden', 'true');
       Object.assign(canvas.style, { position: 'fixed', pointerEvents: 'none', zIndex: '4' });
-      document.body.appendChild(canvas);
+      // inside the page (not over the whole app): the top bar and any card opened over Home stay on top of it
+      (el.closest('.screen') ?? document.body).appendChild(canvas);
       const lb = new LiveBuddy(c, el, canvas);
+      lb.stay = !!o.stay; lb.quiet = !!o.quiet;
       el.classList.add('fun-live');
       return lb;
     } catch { return null; }
@@ -81,12 +95,30 @@ export class LiveBuddy {
     const px = this.renderer.getPixelRatio();
     if (this.canvas.width !== Math.round(W * px) || this.canvas.height !== Math.round(Hh * px)) this.renderer.setSize(W, Hh, false);
     this.cam.setViewOffset(r.width, r.height, -padX, -padT, W, Hh);
+    if (this.stay) this.ambient(dt);
     this.c.update(dt);
     this.renderer.render(this.scene, this.cam);
     this.idleFor += dt;
-    // a while after the last tickle, back to the picture
-    if (this.idleFor > 9 && !this.c.acting) { this.end(); return; }
+    // a while after the last tickle, back to the picture (not Home's buddy: it stays)
+    if (!this.stay && this.idleFor > 9 && !this.c.acting) { this.end(); return; }
     this.raf = requestAnimationFrame(this.frame);
+  }
+
+  /** Home's buddy, between tickles: a glance one way or the other, and now and then a little move */
+  private ambient(dt: number) {
+    const c = this.c;
+    if (this.move && c.finished(this.move)) { c.play('idle', 0.4); this.move = null; }
+    this.turn.now += (this.turn.goal - this.turn.now) * (1 - Math.exp(-dt * 2.5));
+    c.root.rotation.y = this.turn.now;
+    if (c.acting || this.move) { this.calm = 0; return; }
+    this.calm += dt;
+    if (this.calm < this.nextMove) return;
+    this.calm = 0;
+    this.nextMove = 5 + Math.random() * 6;
+    // mostly a glance (toward you, or a little to the side); sometimes a hop or a fist pump
+    const moves = this.quiet ? [] : ['jump', 'fistpump'].filter(n => c.has(n));
+    if (moves.length && Math.random() < 0.35) { const n = moves[Math.floor(Math.random() * moves.length)]; if (c.play(n, 0.3)) { c.actions[n]?.reset(); this.move = n; } }
+    else this.turn.goal = [-0.38, -0.1, -0.62][Math.floor(Math.random() * 3)];
   }
 
   private end() { if (this.gone) return; this.dispose(); this.onEnd?.(); }

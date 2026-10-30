@@ -1,7 +1,8 @@
 <script lang="ts">
   // The little surprises on the screen, on top of every game. None of them blocks anything or costs
   // anything; most are rare, and some only happen if you poke around:
-  // - Home: tickle your buddy (tap it) and the real 3D buddy squirms and giggles (liveBuddy.ts), says
+  // - Home: your buddy is the real 3D buddy as soon as it can be (liveBuddy.ts: the picture shows first, so
+  //   Home paints at once), idling and glancing about; tickle it (tap it) and it squirms and giggles, says
   //   something new each time, and sneezes at the sixth tap; type "hello" or your buddy's name; fireflies
   //   come out in the evening; on the day you first played, a year on, it's your Keypals birthday.
   // - The maps: type "keypals", the secret word, and the first time it gives you the Secret Word sticker
@@ -50,20 +51,20 @@
   const above = (el: Element | null) => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + 6 } : { x: innerWidth / 2, y: innerHeight * 0.3 }; };
 
   // ---------- Home: tickle the buddy ----------
-  // the sixth tickle makes your buddy sneeze; after that it keeps giggling. The picture on Home turns into
-  // the real 3D buddy for it (liveBuddy.ts), so the whole body squirms and sneezes; until that's ready (or
-  // where it can't be drawn) the picture wiggles.
+  // the sixth tickle makes your buddy sneeze; after that it keeps giggling. Home's buddy is the real 3D
+  // buddy (liveBuddy.ts), so the whole body squirms and sneezes; until that's ready (or where it can't be
+  // drawn) the picture wiggles.
   const TICKLES = ['Hee hee! That tickles!', 'Boop!', "I'm ticklish there!", "Okay, okay, I'm awake!", 'Hee hee... my nose itches...', 'ACHOO! Oh, excuse me!'];
   const MORE = ["I'm going to tickle YOU back!", 'Hee hee hee!'];
   let pokes = 0, pokeT = 0;
   let live: LiveBuddy | null = null, liveFor: FriendId | null = null, making = false;
-  /** the 3D buddy over the picture (made on the first tickle) */
+  /** the 3D buddy over the picture (made as soon as Home is up, or on a first tickle) */
   async function liveBud(bud: HTMLElement, id: FriendId) {
     if (live && liveFor === id) return live;
     if (making) return null;
     making = true;
     endLive();
-    const lb = await LiveBuddy.create(id, bud);
+    const lb = await LiveBuddy.create(id, bud, { stay: true, quiet: !!game.profile?.settings.reducedMotion });
     making = false;
     if (!lb) return null;
     if (game.screen !== 'hub' || game.profile?.buddy !== id || game.modalOpen) { lb.dispose(); return null; }
@@ -73,6 +74,16 @@
   }
   function endLive() { live?.dispose(); live = null; liveFor = null; }
   $effect(() => { if (game.screen !== 'hub' || game.modalOpen) endLive(); });
+  // Home: the real buddy comes in by itself, a moment after the page (and its picture) is up, and again
+  // after something that was open over Home closes
+  $effect(() => {
+    const id = game.profile?.buddy;
+    if (game.screen !== 'hub' || game.modalOpen || !id) return;
+    let tries = 0, t = 0;
+    const go = () => { const bud = buddyEl(); if (bud && bud.getBoundingClientRect().width > 4) void liveBud(bud, id); else if (++tries < 20) t = window.setTimeout(go, 250); };
+    t = window.setTimeout(go, 300);
+    return () => clearTimeout(t);
+  });
   function onClick(e: MouseEvent) {
     const bud = (e.target as Element | null)?.closest?.('.hub .hello .bud') as HTMLElement | null;
     const p = game.profile;

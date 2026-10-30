@@ -24,9 +24,11 @@
   const goalMs = $derived(p.settings.dailyGoalMin * 60000);
   const today = $derived(todayMs(p));
   let sw = $state(1280);
-  // the buddy by the hello: the real 3D buddy's picture in everything it has on, saved on this computer
-  // so a refresh shows it dressed straight away; the plain picture only if it can't be drawn
-  const budPx = $derived(sw < 600 ? 56 : 80);
+  // the buddy by the hello: first the real 3D buddy's picture in everything it has on, saved on this
+  // computer so a refresh shows it dressed straight away (the plain picture only if it can't be drawn);
+  // then, by itself, the live 3D buddy in its place (fun/FunLayer.svelte, fun/liveBuddy.ts), standing on
+  // its own little shadow
+  const budPx = $derived(sw < 600 ? 64 : 96);
   let budPic = $state<string | null>(null), budWait = $state(true);
   $effect(() => {
     const id = p.buddy, dress = JSON.parse(JSON.stringify(dressOf(p))), size = budPx * 2;
@@ -87,7 +89,9 @@
   .body { flex: 1; min-height: 0; padding: 14px 24px 28px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
   .body > * { width: min(1240px, 100%); }
   .hello { display: flex; align-items: center; gap: 14px; }
-  .bud { flex: none; margin: -8px 0 -6px; }
+  .bud { flex: none; position: relative; isolation: isolate; margin: -10px 0 2px; }
+  /* its ground: a soft shadow under its feet (the picture and the live buddy both stand on it) */
+  .bud::after { content: ''; position: absolute; left: 14%; right: 14%; bottom: -5px; height: 12px; border-radius: 50%; background: radial-gradient(closest-side, rgba(60, 40, 110, .3), rgba(60, 40, 110, 0)); z-index: -1; pointer-events: none; }
   .budpic { display: block; width: 100%; height: 100%; object-fit: contain; object-position: bottom; user-select: none; }
   .waiting { visibility: hidden; }
   .htx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
