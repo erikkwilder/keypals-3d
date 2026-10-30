@@ -41,7 +41,7 @@ export type Out = { id: GlimmerId; level: number; evolved: boolean };
 export type Pick = { kind: 'glimmer'; id: GlimmerId } | { kind: 'visitor' } | { kind: 'item'; uid: string } | { kind: 'buddy' } | null;
 type Thing = { uid: string; pl: Placed; obj: THREE.Object3D; tick: Tick | null; pop: number };
 type Mood = 'idle' | 'walk' | 'nap' | 'play';
-type Pal = { id: GlimmerId; m: GlimmerModel; mood: Mood; until: number; to: THREE.Vector3 | null; home: THREE.Vector3 | null; hopAt: number; zzz: number };
+type Pal = { id: GlimmerId; m: GlimmerModel; mood: Mood; until: number; to: THREE.Vector3 | null; home: THREE.Vector3 | null; hopAt: number; zzz: number; heart?: THREE.Sprite; heartT?: number; heartAt?: number };
 
 /** The island's edge at an angle: round, with a gentle wobble so it never looks drawn with a compass. */
 const edge = (R: number, a: number) => R * (1 + 0.028 * Math.sin(3 * a + 0.7) + 0.018 * Math.sin(5 * a + 2.1) + 0.01 * Math.sin(11 * a + 0.3));
@@ -331,7 +331,7 @@ export class IslandScene implements Controller {
         land.add(c);
       }
     };
-    put(bush, Math.round(R * 1.6), 0.32, 0.55, 0.9, 0.97);
+    put(bush, Math.round(R * 1.1), 0.32, 0.55, 0.9, 0.97);
     put(boulder, Math.round(R * 1.2), 0.18, 0.4, 0.9, 0.98);
     // two waterfalls: a little spring at the rim, the water running down the cliff and on into the clouds
     const fallMat = keep(new THREE.ShaderMaterial({
@@ -490,7 +490,7 @@ export class IslandScene implements Controller {
         const geo = keep(new THREE.PlaneGeometry(0.17, 0.17)), uv = geo.attributes.uv as THREE.BufferAttribute, cx = c % 3, cy = Math.floor(c / 3);
         for (let k = 0; k < uv.count; k++) uv.setXY(k, (cx + uv.getX(k)) / 3, 1 - (cy + 1 - uv.getY(k)) / 2);
         geo.rotateX(-1.1); geo.translate(0, 0.13, 0);
-        const m = new THREE.InstancedMesh(geo, headMat, 200); m.count = 0; m.frustumCulled = false; this.root.add(m); this.blooms.push(m);
+        const m = new THREE.InstancedMesh(geo, headMat, 320); m.count = 0; m.frustumCulled = false; this.root.add(m); this.blooms.push(m);
       }
     }
     if (this.leafTex) {
@@ -520,9 +520,25 @@ export class IslandScene implements Controller {
         const lv = this.leaves;
         if (lv && k < 2 && lv.count < 400) { m4.compose(new THREE.Vector3((i + (r() - 0.5) * 0.4) * CELL, 0, (j + (r() - 0.5) * 0.4) * CELL), q.setFromAxisAngle(up, r() * 3), new THREE.Vector3().setScalar(0.8 + r() * 0.5)); lv.setMatrixAt(lv.count++, m4); }
         const b = this.blooms[r() < 0.7 ? cell : Math.floor(r() * 6)];
-        if (b.count >= 200) continue;
+        if (b.count >= 320) continue;
         m4.compose(new THREE.Vector3((i + (r() - 0.5) * 0.5) * CELL, 0, (j + (r() - 0.5) * 0.5) * CELL), q.setFromAxisAngle(up, r() * 3), new THREE.Vector3().setScalar(0.8 + r() * 0.6));
         b.setMatrixAt(b.count++, m4);
+      }
+    }
+    // and the rim, outside the squares: clusters of flowers in leaves all the way round, as in a garden border
+    if (this.blooms.length) {
+      const rr = rand(4242), N = Math.round(this.r * 9);
+      for (let k = 0; k < N; k++) {
+        const a = (k / N) * Math.PI * 2 + (rr() - 0.5) * 0.2, e = edge(this.rimR, a) * (this.r / this.rimR + (1 - this.r / this.rimR) * (0.15 + rr() * 0.6)), cell = Math.floor(rr() * 6);
+        const cx = Math.cos(a) * e, cz = Math.sin(a) * e;
+        const lv = this.leaves;
+        if (lv && lv.count < 400) { m4.compose(new THREE.Vector3(cx, 0, cz), q.setFromAxisAngle(up, rr() * 3), new THREE.Vector3().setScalar(1 + rr() * 0.6)); lv.setMatrixAt(lv.count++, m4); }
+        for (let n = 0, nb = 2 + Math.floor(rr() * 3); n < nb; n++) {
+          const b = this.blooms[rr() < 0.75 ? cell : Math.floor(rr() * 6)];
+          if (b.count >= 320) continue;
+          m4.compose(new THREE.Vector3(cx + (rr() - 0.5) * 0.4, 0.02, cz + (rr() - 0.5) * 0.4), q.setFromAxisAngle(up, a + Math.PI / 2 + (rr() - 0.5)), new THREE.Vector3().setScalar(0.9 + rr() * 0.7));
+          b.setMatrixAt(b.count++, m4);
+        }
       }
     }
     t.instanceMatrix.needsUpdate = true; for (const b of this.blooms) b.instanceMatrix.needsUpdate = true; if (this.leaves) this.leaves.instanceMatrix.needsUpdate = true;
@@ -598,7 +614,7 @@ export class IslandScene implements Controller {
   /** The Glimmers living on the island (only the changes are made). */
   async setOut(list: Out[]) {
     const want = new Set(list.map(o => o.id));
-    for (const p of [...this.pals]) if (!want.has(p.id)) { p.m.dispose(); this.pals = this.pals.filter(x => x !== p); }
+    for (const p of [...this.pals]) if (!want.has(p.id)) { p.m.dispose(); p.heart?.removeFromParent(); this.pals = this.pals.filter(x => x !== p); }
     for (const o of list) {
       if (this.pals.some(p => p.id === o.id)) continue;
       const m = await GlimmerModel.create(o.id, GLIM_H, { evolved: o.evolved }).catch(() => null);
@@ -622,8 +638,33 @@ export class IslandScene implements Controller {
     p.m.play('happy');
     this.fx.emit({ at: p.m.root.position.clone().add(new THREE.Vector3(0, 0.7, 0)), count: 16, shape: ['heart', 'star'], color: [0xff8fc0, 0xffd34d, 0xffffff], speed: [0.6, 1.6], up: 1.2, life: [0.6, 1.0], size: [0.08, 0.16], drag: 1.5 });
   }
+  /** a speech bubble with a heart in it, painted once */
+  private heartMat: THREE.SpriteMaterial | null = null;
+  private heartBubble(): THREE.Sprite {
+    if (!this.heartMat) {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+      const g = cv.getContext('2d')!;
+      g.fillStyle = 'rgba(80,40,60,.18)'; g.beginPath(); g.ellipse(66, 60, 50, 46, 0, 0, 7); g.fill();
+      g.fillStyle = '#fff'; g.beginPath(); g.ellipse(64, 56, 50, 46, 0, 0, 7); g.fill();
+      g.beginPath(); g.moveTo(44, 90); g.lineTo(36, 118); g.lineTo(66, 98); g.fill();
+      g.fillStyle = '#ff5f8f'; g.beginPath(); g.moveTo(64, 80); g.bezierCurveTo(28, 58, 40, 24, 64, 42); g.bezierCurveTo(88, 24, 100, 58, 64, 80); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.6)'; g.beginPath(); g.ellipse(52, 42, 6, 4, -0.6, 0, 7); g.fill();
+      const tex = this.keep(new THREE.CanvasTexture(cv)); tex.colorSpace = THREE.SRGBColorSpace;
+      this.heartMat = this.keep(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    }
+    const s = new THREE.Sprite(this.heartMat); s.renderOrder = 4; return s;
+  }
   private palMove(p: Pal, dt: number, t: number) {
     const m = p.m, pos = m.root.position;
+    // now and then a happy one shows a heart
+    p.heartAt ??= t + 3 + Math.random() * 12;
+    if (t > p.heartAt && p.mood !== 'nap') { p.heartAt = t + 10 + Math.random() * 16; p.heartT = 0; if (!p.heart) { p.heart = this.heartBubble(); this.root.add(p.heart); } }
+    if (p.heart) {
+      p.heartT = (p.heartT ?? 0) + dt;
+      const k = p.heartT, show = k < 2.4, s = show ? Math.min(1, easeOutBack(Math.min(1, k / 0.35))) * 0.42 : Math.max(0, 0.42 - (k - 2.4) * 2);
+      p.heart.visible = s > 0.01; p.heart.scale.setScalar(Math.max(0.001, s * 1.3));
+      p.heart.position.copy(pos).add(new THREE.Vector3(0.18, m.height * (m.floats ? 1.75 : 1.4) + Math.sin(t * 3) * 0.03, 0));
+    }
     if (t > p.until && p.mood !== 'walk') {
       // what next: wander (often to its home), stand about, nap, or play by its home
       const r = Math.random();
@@ -655,7 +696,7 @@ export class IslandScene implements Controller {
   // ---------- visitors ----------
   /** A visitor (null: none). `arriving`: it floats down from the sky on a cloud, with its present. */
   async setVisitor(v: { id: GlimmerId; near: string | null; present: boolean } | null, arriving = false) {
-    if (this.visitor && (!v || v.id !== this.visitor.pal.id)) { const old = this.visitor; this.visitor = null; old.pal.m.dispose(); old.present?.removeFromParent(); old.cloud?.removeFromParent(); }
+    if (this.visitor && (!v || v.id !== this.visitor.pal.id)) { const old = this.visitor; this.visitor = null; old.pal.m.dispose(); old.pal.heart?.removeFromParent(); old.present?.removeFromParent(); old.cloud?.removeFromParent(); }
     if (!v || this.visitor) return;
     const m = await GlimmerModel.create(v.id, GLIM_H).catch(() => null);
     if (!m) return;

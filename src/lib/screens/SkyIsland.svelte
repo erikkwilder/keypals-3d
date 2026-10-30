@@ -65,7 +65,7 @@
   async function build(o: Profile | null) {
     loading = true;
     const p = o ?? game.profile!;
-    if (!o) game.update(pp => { islandOf(pp); });
+    if (!o && !game.profile!.island?.started) game.update(pp => { islandOf(pp); });
     const s = islandView(p), g = growthOf(p);
     const grewFrom = !o && s.grown < g.stage ? GROWTH[s.grown].r : undefined;
     try {
@@ -498,6 +498,7 @@
     {@const v = card.v}
     {@const g = GLIMMER[v.id]}
     <div class="overlay" role="presentation" onclick={thanks}>
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
       <div class="vcard card" role="dialog" aria-label="A visitor" tabindex="-1" onclick={(e) => e.stopPropagation()}>
         <img class="paint" src="{base}game/glimmers/{v.id}.webp" alt="" />
         <h2>{v.met ? `${g.name} came to visit!` : `${an(g.name)} ${g.name} is visiting!`}</h2>
@@ -510,6 +511,7 @@
 
   {#if sheet}
     <div class="overlay" role="presentation" onclick={() => (sheet = null)}>
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
       <div class="sheet card" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()}>
         <button class="x close" onclick={() => (sheet = null)} aria-label="Close"><Icon name="close" size={22} /></button>
         {#if sheet === 'glimmers'}

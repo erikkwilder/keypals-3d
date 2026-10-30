@@ -72,12 +72,36 @@ export class PropKit {
     if (!p) {
       const built = this.build(id);
       if (!built) return null;
+      this.bake(built);
       built.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh && m.userData.noShadow !== true) { m.castShadow = true; m.receiveShadow = true; } });
       this.protos.set(id, (p = built));
     }
     const c = p.clone(true);
     c.userData.item = id;
     return c;
+  }
+  /** One mesh for each material: the parts modelled here (a cottage is dozens of little pieces) merged into
+   *  as few draws as there are paints. Moving parts (named groups) and the game's models stay as they are. */
+  private bake(root: THREE.Object3D) {
+    root.updateMatrixWorld(true);
+    const inv = root.matrixWorld.clone().invert(), groups = new Map<THREE.Material, THREE.BufferGeometry[]>(), done: THREE.Mesh[] = [];
+    root.traverse(o => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || !m.userData.own || m.userData.noShadow || Array.isArray(m.material)) return;
+      for (let q = m.parent; q && q !== root; q = q.parent) if (q.name) return;
+      const g = m.geometry.clone().applyMatrix4(inv.clone().multiply(m.matrixWorld));
+      const flat = g.index ? g.toNonIndexed() : g; if (flat !== g) g.dispose();
+      for (const k of Object.keys(flat.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') flat.deleteAttribute(k);
+      if (!flat.attributes.normal || !flat.attributes.uv) { flat.dispose(); return; }
+      let list = groups.get(m.material); if (!list) groups.set(m.material, (list = []));
+      list.push(flat); done.push(m);
+    });
+    for (const m of done) m.removeFromParent();
+    for (const [mat, list] of groups) {
+      const merged = mergeGeometries(list); list.forEach(g => g.dispose());
+      if (!merged) continue;
+      const mesh = new THREE.Mesh(this.keep(merged), mat); root.add(mesh);
+    }
   }
   /** The moving parts of a placed copy, or null. */
   tickFor(root: THREE.Object3D): Tick | null { const a = this.animators.get(root.userData.item); return a ? a(root) : null; }
@@ -139,7 +163,7 @@ export class PropKit {
         }`,
     }));
   }
-  private mesh(g: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(this.keep(g), m); o.position.set(x, y, z); return o; }
+  private mesh(g: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(this.keep(g), m); o.position.set(x, y, z); o.userData.own = true; return o; }
 
   // ---------- the game's models ----------
   /** A copy of one of the islands' models: `h` tall (or narrower than `maxW`), standing on the ground, centred. */
