@@ -145,10 +145,7 @@ class Game {
     return { screen, ctx };
   }
   /** Go to a screen, as a step up or down the levels (a tile on a page, the Menu, Back). */
-  go(screen: Screen) {
-    if (screen === 'hub' || screen === 'map') this.home = screen;
-    this.arrive(screen);
-  }
+  go(screen: Screen) { this.arrive(screen); }
   /** Go somewhere by a cross-link (the bar's My stuff, a Glimmers link on Adventure, the Wardrobe's Shop):
    *  Back from there comes back here. A place above this one, or below it, is just a step. */
   visit(screen: Screen) {
@@ -190,8 +187,6 @@ class Game {
     const now = this.here();
     this.returns = this.returns.filter(r => isAbove(r.at, now, this.from));
   }
-  /** the old "home" for a subject's map (the typing or math map last shown) */
-  home = $state<'hub' | 'map'>('hub');
 
   openSheet(mode: 'settings' | 'setup' = 'settings', onClose?: () => void) {
     this.sheet = mode;
