@@ -13,4 +13,8 @@ rm -rf "$HERE/public/keypals/music"
 if [ -d "$MUSIC" ]; then mkdir -p "$HERE/public/keypals/music" && cp "$MUSIC"/*.mp3 "$HERE/public/keypals/music/"; else echo "warning: no music at $MUSIC (the game falls back to its own tunes)"; fi
 cp -R "$V1/dist/." "$HERE/public/keypals1/"
 cd "$HERE"
-CLOUDFLARE_ACCOUNT_ID=2f5232a84d058ef9f332c077eef372d8 CLOUDFLARE_EMAIL=erikkwilder@gmail.com CLOUDFLARE_API_KEY="$(cat ~/.cloudflare/global-api-key)" npx wrangler deploy
+# the database's tables (every statement is "if not exists": safe to run each time), the classes' own after
+CF=(CLOUDFLARE_ACCOUNT_ID=2f5232a84d058ef9f332c077eef372d8 CLOUDFLARE_EMAIL=erikkwilder@gmail.com CLOUDFLARE_API_KEY="$(cat ~/.cloudflare/global-api-key)")
+env "${CF[@]}" npx wrangler d1 execute keypals --remote --file=schema.sql
+env "${CF[@]}" npx wrangler d1 execute keypals --remote --file=schema-classes.sql
+env "${CF[@]}" npx wrangler deploy
