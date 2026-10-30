@@ -2,6 +2,7 @@
 // came from; Esc is Back; every screen gets back to Home; every screen that isn't an activity has the one top
 // bar and every activity the one Pause button; and the design's people get where they want in its taps.
 import { readFileSync } from 'node:fs';
+import { finishLesson } from '../math/learn';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { game, type Screen } from './game.svelte';
 import { ACTIVITIES, START_SCREENS, levelOf, parentOf, type Place } from './where';
@@ -201,6 +202,9 @@ describe('the people in the design, tap by tap', () => {
     expect(game.from?.screen).toBe('hub');
   });
   it('"Keep going": the end of something started from the path offers the path\'s next thing, 1 tap', () => {
+    // (the path's first lesson opens with its Learn: watched, the practice trip is next)
+    const first = nextFor(game.profile!, 'math')!;
+    if (first.item.ref.startsWith('ep:')) game.update(pp => { finishLesson(pp, first.item.ref.slice(3)); });
     const n = nextFor(game.profile!, 'math')!;
     const [k, id] = n.item.ref.split(':');
     expect(k).toBe('trip');

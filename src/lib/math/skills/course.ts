@@ -6,6 +6,7 @@ import type { MathMove } from '../course';
 import type { MathProgress } from '../progress';
 import type { AreaId } from './types';
 import { DATA_EPISODES, DATA_PLACEMENT, DATA_REGIONS } from '../data/course';
+import { skillLessonTrips, swykTrips } from '../../path/lessonTrips';
 
 export type SkillKind = 'meet' | 'practice' | 'mix' | 'check' | 'placement';
 export type SkillLesson = {
@@ -15,6 +16,13 @@ export type SkillLesson = {
   /** the score for three stars (kids): skills take longer than facts */
   goal: number; blurb: string;
   move: MathMove; world: RegionId;
+  /** a trip made for a curriculum lesson (path/lessonTrips.ts): only these memory keys (`skill:sub`, or a
+   *  bare skill for all of it), only these rungs, the Learn to offer first (null: none, never a borrowed
+   *  one), how many questions; a placement on a ladder of its own (a grade's or a unit's skills) that tests
+   *  out lessons' quick checks */
+  subs?: string[]; rungs?: [number, number]; ep?: string | null; length?: number;
+  ladder?: { skill: string; base: number }[];
+  testOut?: { trip: string; skills: string[]; keys: string[]; min: number }[];
 };
 export type SkillRegion = { id: string; area: AreaId; name: string; blurb: string; world: RegionId; chip: string; skills: string[]; lessons: SkillLesson[];
   /** its own painted strip for the map (else the world's: regions/<world>.webp) */
@@ -364,7 +372,9 @@ export const SKILL_EPISODES: Record<string, string> = {
   'al-equal': 'alg-gather', 'al-pattern': 'alg-pattern', 'al-slope': 'alg-pattern', 'al-ineq': 'alg-ineq', 'al-system': 'alg-two-step',
 };
 export const SKILL_LESSONS: SkillLesson[] = SKILL_REGIONS.flatMap(r => r.lessons);
-export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS].map(l => [l!.id, l!]));
+/** the curriculum's lesson trips, unit checks and Show What You Know (not stops on the islands) */
+export const PATH_TRIPS: SkillLesson[] = [...skillLessonTrips(SKILL_REGIONS), ...swykTrips(SKILL_REGIONS)];
+export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS, ...PATH_TRIPS].map(l => [l!.id, l!]));
 export const SKILL_REGION: Record<string, SkillRegion> = Object.fromEntries(SKILL_REGIONS.map(r => [r.id, r]));
 export const skillRegionsOf = (area: AreaId) => SKILL_REGIONS.filter(r => r.area === area);
 export const isSkillLesson = (id: string) => !!SKILL_LESSON[id];

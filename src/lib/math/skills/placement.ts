@@ -142,6 +142,17 @@ export function foundInArea(h: AbilityHome, area: AreaId, now = Date.now()): Fou
   }
   return { comfortable, next, of: ladder.length };
 }
+/** The same for a ladder of skills from several areas (a grade's or a unit's Show What You Know). */
+export function foundOnLadder(h: AbilityHome, ladder: Rung[], now = Date.now()): Found {
+  const comfortable: string[] = [], next: string[] = [];
+  for (const x of ladder) {
+    const s = SKILL[x.skill];
+    if (!s) continue;
+    if (thetaOf(h, x.skill, now) >= 3) comfortable.push(inSentence(s.name));
+    else if (next.length < 2) next.push(inSentence(s.name));
+  }
+  return { comfortable, next, of: ladder.length };
+}
 /** A fact strand's families: comfortable (at or past their typical fact) and the next ones to grow. */
 export function foundInStrand(h: AbilityHome, op: Op, now = Date.now()): Found {
   const t = thetaOf(h, STRAND_SKILL[op], now), comfortable: string[] = [], next: string[] = [];

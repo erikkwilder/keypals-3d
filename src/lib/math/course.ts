@@ -11,6 +11,7 @@
 
 import type { RegionId } from '../engine/course';
 import { isRuleFact, type Fact, type Op } from './facts';
+import { factLessonTrips } from '../path/lessonTrips';
 
 export type MathRegionId =
   | 'twins' | 'tens' | 'fives' | 'fours' | 'threes' | 'nines' | 'sixes' | 'eights' | 'sevens'
@@ -39,6 +40,8 @@ export type MathLesson = {
   /** the score for three stars (kids; grown-ups need 1.6 times as much) */
   goal: number;
   blurb: string;
+  /** how many questions (a curriculum lesson's quick check is short) */
+  length?: number;
 };
 
 export type MathRegion = {
@@ -109,9 +112,20 @@ const MINUS: Fact[] = range(11).flatMap(b => range(11).map(d => ({ a: b + d, b, 
 const byEase = (f: Fact) => (isRuleFact(f) ? 100 : 0) + Math.max(f.a, f.b) + (f.op === '-' ? f.b : Math.min(f.a, f.b)) * 0.5;
 const sorted = (fs: Fact[]) => [...fs].sort((x, y) => byEase(x) - byEase(y));
 
-/** Every fact of a group, in teaching order. Group ids: x2 (times table), +s +d +t +b, -s -d -t -b, /6 (divide by). */
+/** The curriculum's fact groups on just one lesson's facts (path/lessonSpecs.ts), cut from the strands:
+ *  adding and taking away within 5 and within 10, the ten pairs (1 + 9 to 9 + 1), and making ten first
+ *  where it really crosses ten (8 + 5; Summit Bridge's 3 + 5 and 3 + 6 don't). */
+const LESSON_GROUPS: Record<string, (f: Fact) => boolean> = {
+  '+w5': f => f.a + f.b <= 5, '-w5': f => f.a <= 5, '+w10': f => f.a + f.b <= 10, '-w10': f => f.a <= 10,
+  '+p10': f => f.a + f.b === 10 && f.a > 0 && f.b > 0, '+bx': f => plusGroup(f) === '+b' && f.a + f.b > 10,
+};
+export const isLessonGroup = (g: string) => g in LESSON_GROUPS;
+/** Every fact of a group, in teaching order. Group ids: x2 (times table), +s +d +t +b, -s -d -t -b, /6 (divide by),
+ *  and the lesson groups above. */
 export function groupFacts(g: string): Fact[] {
   const op = g[0];
+  const only = LESSON_GROUPS[g];
+  if (only) return sorted((op === '+' ? PLUS : MINUS).filter(only));
   if (op === 'x') return tableFacts(+g.slice(1));
   if (op === '+') {
     const fs = PLUS.filter(f => plusGroup(f) === g);
@@ -291,7 +305,10 @@ export const PLACEMENTS: Record<Op, MathLesson> = {
 };
 
 export const MATH_LESSONS: MathLesson[] = MATH_REGIONS.flatMap(r => r.lessons);
-export const MATH_LESSON: Record<string, MathLesson> = Object.fromEntries([...Object.values(PLACEMENTS), ...MATH_LESSONS].map(l => [l.id, l]));
+/** the curriculum's fact lesson trips: on just a lesson's facts (within 5, ten pairs...), not island stops */
+export const PATH_FACT_TRIPS: MathLesson[] = factLessonTrips(op => MATH_REGIONS.find(r => r.op === op)?.lessons[0]?.goal ?? 14,
+  t => { const l = MATH_LESSONS.find(x => x.id === t); return l ? { op: l.op, groups: l.kind === 'rules' ? ['x1', 'x0'] : l.groups } : null; });
+export const MATH_LESSON: Record<string, MathLesson> = Object.fromEntries([...Object.values(PLACEMENTS), ...MATH_LESSONS, ...PATH_FACT_TRIPS].map(l => [l.id, l]));
 export const MATH_REGION: Record<MathRegionId, MathRegion> = Object.fromEntries(MATH_REGIONS.map(r => [r.id, r])) as Record<MathRegionId, MathRegion>;
 export const mathLessonIndex = (id: string) => MATH_LESSONS.findIndex(l => l.id === id);
 /** A strand's regions, in order. */

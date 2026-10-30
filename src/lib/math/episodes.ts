@@ -237,6 +237,10 @@ function pitchedTries(l: Lesson, rung?: number): Fact[] {
 /** The episode for a lesson id: a fact trick (learn.ts) or a fraction idea (fracEpisodes.ts); `rung`
  *  pitches a trick's own tries for the child (teachRung). */
 export function epLesson(id: string, rung?: number): EpLesson | null {
+  // a trimmed episode: its first steps only (the same words and pictures), when the rest teaches more than
+  // a lesson is about (path/lessonSpecs.ts: "A hundred is ten tens" stops before the thousands)
+  const trim = TRIMS[id];
+  if (trim) { const e = epLesson(trim.base, rung); return e ? { ...e, id, steps: e.steps.slice(0, trim.steps), title: trim.title ?? e.title } : null; }
   const f = FRAC_LESSON[id] ?? SHAPE_LESSON[id] ?? RATIO_LESSON[id] ?? DATA_LESSON[id];
   if (f) {
     const all = [f.teach.q.ans, f.teach.wrong, f.teach.decoy], k = f.id.length % 3;
@@ -277,7 +281,14 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
     teach: { q: q(e.teach.f), wrong: String(e.teach.wrong), says: e.teach.says, choices: fixChoices(e).map(String), fixed: `Oops! ${hintFor(l, e.teach.f)} Thank you!` },
     cover: coverOf(l), art: null };
 }
-export const isEpisode = (id: string) => !!FRAC_LESSON[id] || !!SHAPE_LESSON[id] || !!RATIO_LESSON[id] || !!LESSON[id] || !!NEG_LESSON[id] || !!DATA_LESSON[id] || !!ALG_LESSON[id] || !!MARKET_LESSON[id];
+/** Trimmed episodes: `base~part` plays the base episode's first `steps` steps (its voice lines are the
+ *  base's), then its own three questions as usual. */
+export const TRIMS: Record<string, { base: string; steps: number; title?: string }> = {
+  'pv-big-numbers~hundred': { base: 'pv-big-numbers', steps: 2, title: 'A Hundred Is Ten Tens' },
+};
+/** The episode whose words a (trimmed) episode speaks. */
+export const voiceBase = (id: string) => TRIMS[id]?.base ?? id;
+export const isEpisode = (id: string) => !!TRIMS[id] || !!FRAC_LESSON[id] || !!SHAPE_LESSON[id] || !!RATIO_LESSON[id] || !!LESSON[id] || !!NEG_LESSON[id] || !!DATA_LESSON[id] || !!ALG_LESSON[id] || !!MARKET_LESSON[id];
 
 /** The lessons in order, with their episode. */
 export const lessonWithEpisode = (l: Lesson) => ({ lesson: l, ep: episodeOf(l.id), set: setOf(l.id) });

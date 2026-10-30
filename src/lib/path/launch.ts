@@ -15,6 +15,7 @@ import { lastWorld, worldSubject } from '../adventure/worlds';
 import type { PathItem, Unit } from './units';
 import { unitFromAssignment } from './classPath';
 import { unitState } from './progress';
+import { warmLesson } from './lessonProgress';
 import type { AssignmentData } from '../teach/assignments';
 
 /** the subject My path shows when it opens again (after a Learn episode, from Home) */
@@ -38,8 +39,14 @@ export function startItem(p: Profile, u: Unit, it: PathItem) {
     game.openLearn(a);
     return;
   }
-  if (k === 'trip' || (k === 'check' && u.checkTrip)) {
-    const id = k === 'trip' ? a : u.checkTrip!;
+  if (k === 'warm') {
+    // a warm-up: a few questions from earlier lessons, made now (the most due)
+    const l = warmLesson(p, a);
+    if (l) { sfx.click(); game.setHome('math'); ran(u, it, `lesson:${l.id}`); game.startSkill(l.id); }
+    return;
+  }
+  if (k === 'trip' || k === 'quick' || (k === 'check' && u.checkTrip)) {
+    const id = k === 'trip' || k === 'quick' ? a : u.checkTrip!;
     sfx.click();
     ran(u, it, `lesson:${id}`);
     if (TYPING_LESSON[id] && (u.subject === 'typing' || (!MATH_LESSON[id] && !SKILL_LESSON[id]))) { game.setHome('typing'); game.startLesson(id); return; }

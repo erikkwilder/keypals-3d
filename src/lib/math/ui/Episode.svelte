@@ -19,7 +19,7 @@
   import { FRIEND } from '../../art/cast';
   import { GLIMMER } from '../../adventure/glimmers';
   import { boundsOf, finishLesson, markChecked, type Board } from '../learn';
-  import { SETS, epLesson, teachRung, taskFor, taskWords, type EpQ, type Task } from '../episodes';
+  import { SETS, epLesson, teachRung, voiceBase, taskFor, taskWords, type EpQ, type Task } from '../episodes';
   import { mathOf } from '../progress';
   import { fracRight } from '../fracEpisodes';
   import LearnBoard from './LearnBoard.svelte';
@@ -43,15 +43,17 @@
   // (the episode is keyed by its lesson: these don't change while it's open)
   // svelte-ignore state_referenced_locally
   const lesson = epLesson(id, teachRung(mathOf(game.profile!), id))!, place = SETS[lesson.set];
+  /** whose voice lines it speaks (a trimmed episode: its whole episode's) */
+  const voiceId = voiceBase(lesson.id);
   const buddy = game.profile!.buddy;
   // the Glimmer at the table: the player's own (the first on their team) when the story doesn't name the
   // place's one, else the place's
   const team = teamOf(advView(game.profile!));
   const placeStar = lesson.star ?? place.star;
-  const named = lineText(`ep.${lesson.id}.intro`).includes(GLIMMER[placeStar].name);
+  const named = lineText(`ep.${voiceId}.intro`).includes(GLIMMER[placeStar].name);
   const starId = !named && team[0] ? team[0].id : placeStar;
   const pal = GLIMMER[starId];
-  const cardWords = lineText(`ep.${lesson.id}.card`).replace(/^You won the .*? card! /, '');
+  const cardWords = lineText(`ep.${voiceId}.card`).replace(/^You won the .*? card! /, '');
   const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
   const CLEAR: Board = { cell: 48, dots: [], frames: [], plates: [], line: null, tags: [] };
   /** room kept for the speech band (SpeechDock) under the top bar */
@@ -140,7 +142,7 @@
     const r = ++run;
     phase = 'intro';
     sc?.shot('intro'); sc?.wave(); sc?.palDo('happy');
-    await speak(`ep.${id}.intro`);
+    await speak(`ep.${voiceId}.intro`);
     await sleep(600);
     if (r === run && phase === 'intro') playStep(0);
   }
@@ -156,14 +158,14 @@
       s.shot('wide');
       s.show(next); shown = next;
       s.point(undefined, 2.2);
-      await speak(`ep.${id}.s${n}`);
+      await speak(`ep.${voiceId}.s${n}`);
       if (r !== run) return;
     } else {
       s.shot('board');
       const late = setTimeout(() => { if (r === run) stuck = true; }, 12000);
       const done = s.arm(t, next);
       left = s.left;
-      void speak(`ep.${id}.s${n}`);
+      void speak(`ep.${voiceId}.s${n}`);
       s.present();
       await done;
       clearTimeout(late); stuck = false;
@@ -195,7 +197,7 @@
     s.shot('buddy');
     // the buddy works it out loud (and gets it wrong)
     s.present(2.4);
-    await buddySay(`${id}.try`, buddyWords(`${id}.try`, lesson.teach.says));
+    await buddySay(`${voiceId}.try`, buddyWords(`${voiceId}.try`, lesson.teach.says));
     if (r !== run) return;
     // proud of its answer (it's wrong)
     wrongOn = true; s.cheer(); sfx.pop();
@@ -297,7 +299,7 @@
     s.gather(true); s.shot('pals'); s.dance(danceOf(game.profile!)); s.party(); s.palDo('happy');
     sfx.complete(); burst++;
     void (async () => {
-      await speak(`ep.${id}.card`);
+      await speak(`ep.${voiceId}.card`);
       if (r !== run || !res.first) return;
       await sleep(300);
       if (r === run) await speak('ep.tomorrow');

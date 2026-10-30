@@ -31,6 +31,10 @@ const MAX_EXTRA = 3;
 export const UP_AFTER = 4, DOWN_AFTER = 2;
 
 const keysOf = (skill: string) => (SKILL[skill]?.subs ?? []).map(s => `${skill}:${s.id}`);
+/** A trip's keys of a skill: all of them, or only the lesson's own (a curriculum lesson's trip). */
+export const lessonKeys = (l: Pick<SkillLesson, 'subs'>, skill: string) => keysOf(skill).filter(k => !l.subs || l.subs.includes(k) || l.subs.includes(skill));
+/** A rung kept inside a lesson's band (a skill that runs across grades asks only its grade's rungs). */
+export const inBand = (l: Pick<SkillLesson, 'rungs'>, r: number) => (l.rungs ? Math.max(l.rungs[0], Math.min(l.rungs[1], r)) : r);
 const subOf = (key: string) => key.slice(key.indexOf(':') + 1);
 const skillOfKey = (key: string) => key.slice(0, key.indexOf(':'));
 
@@ -80,7 +84,7 @@ export class SkillTripPicker {
     const l = o.lesson;
     if (l.kind === 'placement') {
       this.newKeys = [];
-      const ladder = skillLadder(l.area).filter(x => l.skills.includes(x.skill));
+      const ladder = l.ladder ?? skillLadder(l.area).filter(x => l.skills.includes(x.skill));
       this.stairs = new Staircase(ladder, placeStart(this.home, ladder, o.now), PLACE_SKILL_N, this.rng);
       this.plan = [];
       this.length = PLACE_SKILL_N;
@@ -88,8 +92,8 @@ export class SkillTripPicker {
     }
     if (l.kind === 'check') {
       this.newKeys = [];
-      const all = l.skills.flatMap(keysOf);
-      const n = Math.min(SKILL_TRIP, Math.max(10, all.length * 2));
+      const all = l.skills.flatMap(sk => lessonKeys(l, sk));
+      const n = l.length ?? Math.min(SKILL_TRIP, Math.max(10, all.length * 2));
       let set: string[] = [];
       while (set.length < n) set.push(...shuffle(this.rng, all));
       set = set.slice(0, n);
@@ -98,7 +102,7 @@ export class SkillTripPicker {
       return;
     }
     this.length = o.length ?? SKILL_TRIP;
-    this.newKeys = l.learn.flatMap(keysOf).filter(k => !(this.mem[k]?.stage ?? 0)).slice(0, MAX_NEW[l.kind]);
+    this.newKeys = l.learn.flatMap(sk => lessonKeys(l, sk)).filter(k => !(this.mem[k]?.stage ?? 0)).slice(0, MAX_NEW[l.kind]);
     this.plan = Array.from({ length: this.length }, () => null);
     this.newKeys.forEach((key, j) => {
       const at = INTRO_AT[j];
@@ -118,9 +122,9 @@ export class SkillTripPicker {
    *  trip's streak; a checkpoint never below rung 3. */
   pitchFor(skill: string, how: 'ask' | 'intro' = 'ask'): number {
     const t = thetaOf(this.home, skill, this.now, this.grown);
-    if (how === 'intro') return rungFor(t, TARGET.teach);
+    if (how === 'intro') return inBand(this.lesson, rungFor(t, TARGET.teach));
     const r = pitchRung(t, TARGET.practice, this.rng, this.streak.bump);
-    return this.lesson.kind === 'check' ? Math.max(3, r) : r;
+    return inBand(this.lesson, this.lesson.kind === 'check' ? Math.max(3, r) : r);
   }
   /** A fresh question for a sub at the child's rung (never the same as one of the last three). */
   private make(key: string, how: 'ask' | 'intro' = 'ask', rung?: number): Item {
@@ -137,7 +141,7 @@ export class SkillTripPicker {
     const out: { key: string; w: number; due: boolean }[] = [];
     const seen = new Set<string>();
     this.lesson.skills.forEach((sk, i) => {
-      for (const key of keysOf(sk)) {
+      for (const key of lessonKeys(this.lesson, sk)) {
         if (seen.has(key) || this.newKeys.includes(key)) continue;
         const st = this.mem[key];
         // in a Meet or practice lesson only subs already met come up between the new ones (a new sub is
@@ -181,7 +185,7 @@ export class SkillTripPicker {
       const pr = this.stairs.next();
       if (pr) {
         // the sub asked least so far in this placement
-        const subs = SKILL[pr.skill].subs.map(s => s.id), asked = (sub: string) => this.served.filter(x => x.item.key === `${pr.skill}:${sub}`).length;
+        const subs = lessonKeys(this.lesson, pr.skill).map(subOf), asked = (sub: string) => this.served.filter(x => x.item.key === `${pr.skill}:${sub}`).length;
         const least = Math.min(...subs.map(asked)), sub = shuffle(this.rng, subs.filter(s => asked(s) === least))[0];
         pick = { item: makeAt(SKILL[pr.skill], this.rng, sub, pr.rung), reason: 'test' };
       }
@@ -210,7 +214,7 @@ export class SkillTripPicker {
     if (!pool.length) {
       // nothing met before this trip: the new subs introduced so far (never one still to come), gently
       const shown = [...new Set(this.served.filter(x => x.reason === 'new').map(x => x.item.key))];
-      const from = shown.length ? shown : this.newKeys.length ? [this.newKeys[0]] : [keysOf(this.lesson.learn[0] ?? this.lesson.skills[0])[0]];
+      const from = shown.length ? shown : this.newKeys.length ? [this.newKeys[0]] : [lessonKeys(this.lesson, this.lesson.learn[0] ?? this.lesson.skills[0])[0]];
       return { item: this.make(from[Math.floor(this.rng() * from.length)]), reason: 'repeat' };
     }
     let w = this.rng() * pool.reduce((a, x) => a + x.w, 0);

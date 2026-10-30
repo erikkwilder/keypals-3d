@@ -11,6 +11,7 @@ import { MATH_LESSONS, MATH_REGION, STRAND, regionsOf } from './math/course';
 import { mathOf, mathPassed, nextMathLesson } from './math/progress';
 import { isLearned } from './math/learn';
 import { AREA, areaOfOp } from './math/skills/registry';
+import { areaGrades } from './path/units';
 import { nextSkillLesson, SKILL_LESSONS, SKILL_PLACEMENTS, skillPassed, skillRegionsOf } from './math/skills/course';
 import type { AreaId } from './math/skills/types';
 import { PLACEMENTS } from './math/course';
@@ -213,8 +214,10 @@ export function trailOf(pl: Place): string {
   const c = pl.ctx;
   const s = c.subject ?? 'math';
   if (pl.screen === 'topic') {
-    const g = s === 'math' ? AREA[c.topic as AreaId]?.grades : null;
-    return `${SUBJECT[s]?.name ?? ''} › ${topicName(s, c.topic)}${g ? ` · Grades ${g.replace('-', '–')}` : ''}`;
+    // (a math topic's grades come from its lessons on the curriculum path)
+    const g = s === 'math' && c.topic ? areaGrades(c.topic) ?? AREA[c.topic as AreaId]?.grades.replace('-', '–') : null;
+    const label = !g ? '' : g.includes('–') ? `Grades ${g}` : g === 'K' ? 'Kindergarten' : `Grade ${g}`;
+    return `${SUBJECT[s]?.name ?? ''} › ${topicName(s, c.topic)}${label ? ` · ${label}` : ''}`;
   }
   if (pl.screen === 'map' || pl.screen === 'way') return c.topic ? `${SUBJECT[s]?.name ?? ''} › ${topicName(s, c.topic)}` : SUBJECT[s]?.name ?? '';
   if (pl.screen === 'grownups' && c.guSection) return 'Grown-ups';
@@ -305,7 +308,7 @@ export function topicGroups(s: string, p: Profile): TopicGroup[] {
   if (s !== 'math') return [{ name: '', tiles }];
   return BANDS.map((b, i) => ({
     name: b.name,
-    tiles: tiles.filter(t => { const g = firstGrade(AREA[t.id as AreaId]?.grades ?? '0'); return g <= b.max && (i === 0 || g > BANDS[i - 1].max); }),
+    tiles: tiles.filter(t => { const g = firstGrade(areaGrades(t.id) ?? AREA[t.id as AreaId]?.grades ?? '0'); return g <= b.max && (i === 0 || g > BANDS[i - 1].max); }),
   })).filter(g => g.tiles.length);
 }
 /** islands done of all a topic's islands (a math area's regions; a typing island's lessons) */

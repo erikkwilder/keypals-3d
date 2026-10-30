@@ -29,12 +29,20 @@ import { advView, cleared, nodesOf, type WorldId } from '../adventure/state';
 import { arcadeOf, ARCADE, type ArcadeId } from '../arcade/arcade';
 import { eventsOf, type ClassEvent } from '../teach/activity';
 import { PATH_SUBJECTS, describe, pathOf, type ItemKind, type PathItem, type Unit } from './units';
+import { lessonTicks, warmDone, warmKeys, type LessonTicks } from './lessonProgress';
+import { lessonById, sourceTrips } from './lessonTrips';
 
 /** What My path keeps in the player's save (it rides along like any other part: state/merge.ts joins two
  *  computers' copies key by key). */
 export type PathSave = {
-  /** items seen done: `<unit>/<ref>` and when (0: before the path began) */
+  /** items seen done: `<unit>/<ref>` and when (0: before the path began). Keys of the old island units
+   *  (`math:frac-a/...`) stay for one release after the curriculum came, so going back loses nothing. */
   done?: Record<string, number>;
+  /** curriculum lessons whose quick check was first seen done, and when (so the tick never goes away
+   *  when the ability estimate it was read from fades) */
+  quick?: Record<string, number>;
+  /** the curriculum's one-time step has stamped what was done before it (1) */
+  cur?: number;
   /** minutes in the free-time places today (rules.ts) */
   time?: { day: string; ms: Record<string, number> };
 };
@@ -116,6 +124,8 @@ export const LEVEL_WORD: Record<Level, string> = { 'not started': 'Not started',
 function checkDone(p: Profile, u: Unit, now: number): boolean {
   const m = mathOf(p), t = u.checkTrip;
   if (t && (MATH_LESSON[t] ? mathPassed(m, t) : SKILL_LESSON[t] ? skillPassed(m, t) : passed(p, t))) return true;
+  // a curriculum unit: every lesson's quick check done
+  if (u.lessons?.length) return u.lessons.every(id => lessonTicks(p, id, now).quick || pathSave(p).quick?.[id] !== undefined);
   const ls = unitLevels(p, u, now);
   return ls.length > 0 && ls.every(x => atLeastComfortable(x.level));
 }
@@ -133,9 +143,13 @@ export function itemDone(p: Profile, u: Unit, it: PathItem, o: { now?: number; s
   if (pathSave(p).done?.[itemKey(u, it)] !== undefined && o.since === undefined) return true;
   const [k, a, b] = it.ref.split(':');
   const evs = () => (o.events ?? eventsOf(p)).filter(e => e.at >= (o.since ?? 0) && e.at <= now);
+  const les = o.since === undefined ? it.lesson : undefined;
   switch (k) {
-    case 'ep': return isLearned(mathOf(p), a);
-    case 'trip': return it.kind === 'check' ? passed(p, a) : tripDone(p, u, a);
+    // (a trimmed Learn is watched when the whole episode was)
+    case 'ep': return isLearned(mathOf(p), a) || (a.includes('~') && isLearned(mathOf(p), a.split('~')[0]));
+    case 'trip': return it.kind === 'check' ? passed(p, a) : tripDone(p, u, a) || (!!les && lessonTicks(p, les, now).practice);
+    case 'quick': return les ? lessonTicks(p, les, now).quick || pathSave(p).quick?.[les] !== undefined : MATH_LESSON[a] ? mathPassed(mathOf(p), a) : skillPassed(mathOf(p), a);
+    case 'warm': return warmDone(p, a);
     // n on the item (game:pizza:3) is how many rounds, or battle wins, in all by then
     case 'game': return o.since !== undefined ? evs().some(e => gameEvent(e, a)) : gamePlays(p, a) >= (b ? +b : u.gameNeed ?? 1);
     case 'battle': return o.since !== undefined ? evs().some(e => e.k === 'battle' && e.w === a) : b ? battlesWon(p, a) >= +b : stopsWon(p, a) >= (u.battleNeed ?? 1);
@@ -146,20 +160,41 @@ export function itemDone(p: Profile, u: Unit, it: PathItem, o: { now?: number; s
 }
 
 // ---------- a unit, and the whole path ----------
-export type ItemState = PathItem & { done: boolean };
+/** `skip`: not to do now: its lesson is known already ("You know this") or done; `'nothing'`: not shown,
+ *  not counted (a warm-up with nothing to warm up on yet, or the warm-up and play of a lesson's day when
+ *  the lesson is known) */
+export type ItemState = PathItem & { done: boolean; skip?: 'known' | 'nothing' };
+export type LessonState = { id: string; title: string; ticks: LessonTicks };
 /** earlier: before the grade the path starts at (open, not needed) */
 export type UnitStatus = 'done' | 'known' | 'current' | 'later' | 'earlier';
-export type UnitState = { unit: Unit; items: ItemState[]; done: number; of: number; checked: boolean; status: UnitStatus; level: Level; next: ItemState | null };
+export type UnitState = { unit: Unit; items: ItemState[]; done: number; of: number; checked: boolean; status: UnitStatus; level: Level; next: ItemState | null; lessons: LessonState[] };
 
 /** One unit's items, ticked, and how far along. */
 export function unitState(p: Profile, u: Unit, o: { now?: number; since?: number; events?: ClassEvent[] } = {}): UnitState {
   const now = o.now ?? Date.now();
   const events = o.events ?? (o.since !== undefined ? eventsOf(p) : undefined);
-  const items = u.items.map(it => ({ ...it, done: itemDone(p, u, it, { ...o, now, events }) }));
-  const done = items.filter(i => i.done).length, of = items.length;
+  const teacher = o.since !== undefined;
+  const lessons: LessonState[] = teacher ? [] : (u.lessons ?? []).map(id => {
+    const t = lessonTicks(p, id, now), stamped = pathSave(p).quick?.[id] !== undefined;
+    const quick = t.quick || stamped;
+    return { id, title: lessonById[id]?.kidTitle ?? id, ticks: { ...t, quick, known: quick && !t.practice, done: t.practice && quick } };
+  });
+  const settled = new Set(lessons.filter(l => l.ticks.known || l.ticks.done).map(l => l.id));
+  const items: ItemState[] = u.items.map(it => {
+    const done = itemDone(p, u, it, { ...o, now, events });
+    if (done) return { ...it, done };
+    if (it.ref.startsWith('warm:') && !warmKeys(p, it.ref.slice(5), now).length) return { ...it, done, skip: 'nothing' as const };
+    // a lesson known (or done) already: its own steps say "You know this"; its day's warm-up and play
+    // aren't needed, so they aren't shown ("You know this" is about lessons, not a game or a warm-up)
+    if (it.lesson && settled.has(it.lesson) && it.kind !== 'check') return { ...it, done, skip: it.kind === 'warmup' || it.kind === 'game' || it.kind === 'battle' ? 'nothing' as const : 'known' as const };
+    return { ...it, done };
+  });
+  const counted = items.filter(i => i.skip !== 'nothing');
+  const done = counted.filter(i => i.done).length, of = counted.length;
   const checked = items.some(i => i.kind === 'check' && i.done);
-  const status: UnitStatus = done >= of ? 'done' : checked ? 'known' : 'later';
-  return { unit: u, items, done, of, checked, status, level: unitLevel(p, u, now), next: items.find(i => !i.done) ?? null };
+  const settledAll = counted.every(i => i.done || i.skip);
+  const status: UnitStatus = done >= of ? 'done' : checked || settledAll ? 'known' : 'later';
+  return { unit: u, items, done, of, checked, status, level: unitLevel(p, u, now), next: items.find(i => !i.done && !i.skip) ?? null, lessons };
 }
 /** Every unit of a subject's path, the first one not done (and not known already) marked current. A path
  *  can start at a grade (a class's grade, or the one a grown-up picked): the units before it are earlier
@@ -178,19 +213,33 @@ export function nextOnPath(p: Profile, subject: string, now = Date.now(), fromGr
 }
 
 // ---------- stamping, and today ----------
-/** Stamp every item already done (when the path first meets a player): they count, but not as today's. */
+/** Stamp every item already done (when the path first meets a player): they count, but not as today's.
+ *  The curriculum's one-time step does the same for a player who had the island path: each lesson item
+ *  already done gets the date it was first done (the old stamp of the same thing, or of the old trips the
+ *  lesson's practice came from), and the old stamps stay. */
 export function startPath(p: Profile, now = Date.now()) {
   const pp = p as PathProfile;
-  if (pp.path?.done) return;
-  const done: Record<string, number> = {};
-  for (const s of PATH_SUBJECTS()) for (const u of pathOf(s.id)) for (const it of u.items) if (itemDone(p, u, it, { now })) done[itemKey(u, it)] = 0;
-  pp.path = { ...(pp.path ?? {}), done };
+  if (pp.path?.done && pp.path.cur) return;
+  const old = pp.path?.done ?? {};
+  const first = new Map<string, number>();
+  for (const [k, at] of Object.entries(old)) { const ref = k.slice(k.indexOf('/') + 1); first.set(ref, Math.min(first.get(ref) ?? Infinity, at)); }
+  const when = (it: PathItem) => {
+    const refs = [it.ref, ...(it.lesson && (it.kind === 'practice' || it.kind === 'quick') ? sourceTrips(it.lesson).map(t => `trip:${t}`) : [])];
+    const ats = refs.map(r => first.get(r)).filter((x): x is number => x !== undefined);
+    return ats.length ? Math.min(...ats) : 0;
+  };
+  const done: Record<string, number> = { ...old }, quick: Record<string, number> = { ...(pp.path?.quick ?? {}) };
+  for (const s of PATH_SUBJECTS()) for (const u of pathOf(s.id)) {
+    for (const it of u.items) { const k = itemKey(u, it); if (done[k] === undefined && itemDone(p, u, it, { now })) done[k] = when(it); }
+    for (const id of u.lessons ?? []) if (quick[id] === undefined && lessonTicks(p, id, now).quick) quick[id] = 0;
+  }
+  pp.path = { ...(pp.path ?? {}), done, quick, cur: 1 };
 }
 /** After an activity: stamp the items it finished. `extra`: a teacher's units, counted from when given.
  *  Returns the keys stamped now. */
 export function notePath(p: Profile, now = Date.now(), extra: { unit: Unit; since: number }[] = []): string[] {
   const pp = p as PathProfile;
-  if (!pp.path?.done) startPath(p, now);
+  if (!pp.path?.done || !pp.path.cur) startPath(p, now);
   const done = { ...(pp.path!.done ?? {}) };
   const added: string[] = [];
   const stamp = (u: Unit, it: PathItem, since?: number) => {
@@ -200,7 +249,11 @@ export function notePath(p: Profile, now = Date.now(), extra: { unit: Unit; sinc
   };
   for (const s of PATH_SUBJECTS()) for (const u of pathOf(s.id)) for (const it of u.items) stamp(u, it);
   for (const x of extra) for (const it of x.unit.items) stamp(x.unit, it, x.since);
-  if (added.length) pp.path = { ...pp.path, done };
+  // a lesson's quick check, the first time it's seen done
+  const quick = { ...(pp.path!.quick ?? {}) };
+  let q = 0;
+  for (const u of pathOf('math')) for (const id of u.lessons ?? []) if (quick[id] === undefined && lessonTicks(p, id, now).quick) { quick[id] = now; q++; }
+  if (added.length || q) pp.path = { ...pp.path, done, quick };
   return added;
 }
 /** The kind of a stamped item, from its key. */
@@ -214,7 +267,10 @@ export function kindOfKey(key: string): ItemKind {
 export function doneToday(p: Profile, now = Date.now()): number {
   const today = dayKey(now);
   // (the same thing in a teacher's unit and on the path counts once)
-  const refs = Object.entries(pathSave(p).done ?? {}).filter(([k, at]) => at > 0 && dayKey(at) === today && kindOfKey(k) !== 'check').map(([k]) => k.slice(k.indexOf('/') + 1));
+  // (a quick check counts when it was played today, not when Show What You Know or the ability ticked it)
+  const m = mathOf(p);
+  const played = (k: string) => { const r = m.lessons[k.slice(k.indexOf('/') + 1).split(':')[1]]; return !!r && r.attempts > 0 && !r.testedOut && dayKey(r.lastAt) === today; };
+  const refs = Object.entries(pathSave(p).done ?? {}).filter(([k, at]) => at > 0 && dayKey(at) === today && kindOfKey(k) !== 'check' && (kindOfKey(k) !== 'quick' || played(k))).map(([k]) => k.slice(k.indexOf('/') + 1));
   return new Set(refs).size;
 }
 
