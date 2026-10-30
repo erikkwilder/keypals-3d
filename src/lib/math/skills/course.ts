@@ -184,6 +184,9 @@ export const SKILL_EPISODES: Record<string, string> = {
   // hundredths, lining up the point to compare and to add
   'dm-coins': 'dec-coins', 'dm-make': 'dec-coins', 'dm-change': 'dec-change', 'dm-tenths': 'dec-tenths', 'dm-hund': 'dec-hundredths',
   'dm-compare': 'dec-compare', 'dm-add': 'dec-add', 'dm-sub': 'dec-add',
+  // measurement and time (the clockmaker's workshop: math/measure/episodes.ts)
+  'ms-hour': 'ms-oclock', 'ms-five': 'ms-fives', 'ms-minute': 'ms-fives', 'ms-elapsed': 'ms-jump', 'ms-ruler': 'ms-zero', 'ms-compare': 'ms-zero',
+  'ms-mass': 'ms-marks', 'ms-area': 'ms-rows', 'ms-perim': 'ms-rows',
 };
 export const SKILL_LESSONS: SkillLesson[] = SKILL_REGIONS.flatMap(r => r.lessons);
 export const SKILL_LESSON: Record<string, SkillLesson> = Object.fromEntries([...Object.values(SKILL_PLACEMENTS), ...SKILL_LESSONS].map(l => [l!.id, l!]));

@@ -67,6 +67,7 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
   game.setHome('math');
   if (w === 'learn') {
     if (t.kind === 'market') { game.mathOp = null; game.mathArea = 'decimals'; game.go('map'); game.learnOverlay = t.id; return; }
+    if (t.kind === 'measure') { game.mathOp = null; game.mathArea = 'measure'; game.learnCheck = false; game.go('map'); game.learnOverlay = t.id; return; }
     game.learnCheck = false;
     game.openLearn(t.id, from);
     return;
