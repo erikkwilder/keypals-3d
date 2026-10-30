@@ -28,7 +28,7 @@
       <div class="stat"><b>{wk.right.toLocaleString('en-US')}</b><span>right answers</span></div>
       <div class="stat"><b>{wk.played} of {wk.total}</b><span>students played</span></div>
       {#if c.class.goal}
-        <div class="stat goal"><Trophy right={goalRight} goal={c.class.goal} size={56} /><div><b>{Math.min(100, Math.round((goalRight / c.class.goal) * 100))}%</b><span>of the class goal ({c.class.goal.toLocaleString('en-US')})</span></div></div>
+        <div class="tgoal"><Trophy right={goalRight} goal={c.class.goal} size={56} /><div><b>{Math.min(100, Math.round((goalRight / c.class.goal) * 100))}%</b><span>of the class goal ({c.class.goal.toLocaleString('en-US')})</span></div></div>
       {/if}
     </div>
     {#if wk.notPlayed.length}<p class="np"><b>Not played yet this week:</b> {wk.notPlayed.join(', ')}</p>{/if}
@@ -67,8 +67,10 @@
 <style>
   .wk { font: 700 14px var(--font-body); }
   .stats { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0 12px; }
-  .stat.goal { flex-direction: row; align-items: center; gap: 12px; }
-  .stat.goal div { display: flex; flex-direction: column; }
+  .tgoal { display: flex; align-items: center; gap: 12px; background: #fffaf0; border: 1px solid #f2e3b4; border-radius: 14px; padding: 10px 16px; }
+  .tgoal div { display: flex; flex-direction: column; }
+  .tgoal b { font: 600 30px var(--font-ui); color: #2b2140; }
+  .tgoal span { font: 700 13px var(--font-body); color: #7a7092; }
   .np { margin: 0 0 8px; }
   .groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
   .grp { border: 1px solid #ece6f6; border-radius: 14px; padding: 12px 14px; background: #fcfbff; }

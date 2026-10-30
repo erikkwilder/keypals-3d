@@ -43,7 +43,7 @@
   $effect(() => { if (!titleTouched) title = autoTitle; });
   $effect(() => { if (!GOALS_FOR[what].includes(goalType)) { goalType = GOALS_FOR[what][0]; goalN = GOAL_DEFAULT[goalType]; } });
 
-  function setWhat(w: What) { what = w; }
+  function setWhat(w: What) { if (w === what) return; what = w; goalType = GOALS_FOR[w][0]; goalN = GOAL_DEFAULT[goalType]; if (w === 'learn') scoring = 'completion'; }
   function pickArea(a: string) { area = a; skills = skillsInArea(a); by = AREA[a as AreaId]?.name ?? ''; }
   function pickStandard(code: string) { standard = code; skills = skillsForStandard(code); by = code; }
   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter(x => x !== id) : [...list, id]);

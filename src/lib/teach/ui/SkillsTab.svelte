@@ -57,8 +57,8 @@
   .legend { display: flex; gap: 8px; margin: 4px 0 12px; }
   .legend span { font: 800 12px var(--font-body); padding: 3px 10px; border-radius: 99px; }
   .scrollx { overflow-x: auto; }
-  .grid th { white-space: normal; vertical-align: bottom; min-width: 64px; max-width: 96px; text-align: center; }
-  .grid th .sk { display: block; text-transform: none; letter-spacing: 0; font: 800 12px/1.2 var(--font-body); color: #2b2140; }
+  .grid th { white-space: normal !important; vertical-align: bottom; min-width: 64px; max-width: 96px; width: 80px; text-align: center; }
+  .grid th .sk { display: block; white-space: normal; overflow-wrap: break-word; hyphens: auto; text-transform: none; letter-spacing: 0; font: 800 12px/1.2 var(--font-body); color: #2b2140; }
   .grid th small { font: 700 10px ui-monospace, monospace; letter-spacing: 0; text-transform: none; }
   .nm { position: sticky; left: 0; background: #fff; min-width: 110px; text-align: left !important; }
   .cell { text-align: center; padding: 4px !important; }

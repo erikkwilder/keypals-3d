@@ -5,8 +5,8 @@
   type Props = { right: number; goal: number; size?: number };
   let { right, goal, size = 90 }: Props = $props();
   const t = $derived(trophy(right, goal));
-  const metal = $derived(['#d9d2e6', '#d08a4e', '#b9c3cf', '#f2c230'][t.stage]);
-  const deep = $derived(['#b3a9c4', '#a0602c', '#8794a3', '#c9950c'][t.stage]);
+  const metal = $derived(['#ecd3b4', '#d08a4e', '#b9c3cf', '#f2c230'][t.stage]);
+  const deep = $derived(['#b8936a', '#a0602c', '#8794a3', '#c9950c'][t.stage]);
   // the cup's inside runs from y=58 (empty) up to y=14 (full)
   const level = $derived(58 - 44 * t.fill);
   const uid = `cup${Math.random().toString(36).slice(2, 8)}`;

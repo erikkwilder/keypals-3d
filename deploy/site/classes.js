@@ -153,7 +153,7 @@ export async function classApi(request, env, url, path, h) {
     if (!acct) { acct = { id: h.randomToken(12) }; await DB.prepare("INSERT INTO accounts (id, provider, sub, email, name, created, seen) VALUES (?, 'dev', ?, NULL, ?, ?, ?)").bind(acct.id, sub, name, now, now).run(); }
     const token = h.randomToken(32);
     await DB.prepare('INSERT INTO sessions (hash, account, expires) VALUES (?, ?, ?)').bind(await h.sha256(token), acct.id, now + DAY).run();
-    return new Response(null, { status: 302, headers: { location: `${url.origin}/keypals/#teach`, 'set-cookie': h.cookie('kp_session', token, 86400) } });
+    return new Response(null, { status: 302, headers: { location: "/keypals/#teach", 'set-cookie': h.cookie('kp_session', token, 86400) } });
   }
 
   // ---------------- teachers ----------------

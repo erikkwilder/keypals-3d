@@ -59,11 +59,11 @@ describe('codes and names', () => {
     expect(cleanStudentName('maria lopez')).toBe('Maria');
     expect(cleanStudentName('Maria L.')).toBe('Maria L.');
     expect(cleanStudentName('Sam')).toBe('Sam');
-    expect(cleanStudentName('jo.b@school.org')).toBeNull();
+    expect(cleanStudentName('jo.b@example.org')).toBeNull();
     expect(cleanStudentName('555-123-4567')).toBeNull();
     expect(cleanStudentName('Lopez, Maria')).toBe('Lopez');
     expect(cleanStudentName('Zoë\t3rd grade\t2017-04-02')).toBe('Zoë');
-    expect(splitNames('Maria Lopez\nsam\n\nmaria\nkid@x.org\nJo B.')).toEqual(['Maria', 'Sam', 'Jo B.']);
+    expect(splitNames('Maria Lopez\nsam\n\nmaria\nkid@example.org\nJo B.')).toEqual(['Maria', 'Sam', 'Jo B.']);
     expect(splitNames('Ana, Ben, Cy')).toEqual(['Ana', 'Ben', 'Cy']);
   });
 });
@@ -89,7 +89,7 @@ describe('teachers and classes', () => {
   });
   it('makes a class with a code and a roster of class players', async () => {
     const cookie = await teacher();
-    const c = await classWith(cookie, 'Maria Lopez\nSam\nmaria\nkid@school.org\nJo B.\nAva');
+    const c = await classWith(cookie, 'Maria Lopez\nSam\nmaria\nkid@example.org\nJo B.\nAva');
     expect(c.code).toMatch(/^[A-Z]+-[A-Z]+-\d{2}$/);
     expect(c.students.map(s => s.name)).toEqual(['Maria', 'Sam', 'Jo B.', 'Ava']);
     expect(env.DB.rows('players')).toHaveLength(4);
@@ -276,10 +276,22 @@ describe('families linking a player from home', () => {
   });
 });
 
+describe('the daily tidy-up and the weekly backup', () => {
+  it('runs with the class tables, and the backup keeps them', async () => {
+    const cookie = await teacher();
+    await classWith(cookie, 'Maria\nSam');
+    const store = new Map<string, unknown>();
+    const BACKUPS = { get: async () => null, put: async (k: string, v: unknown) => { store.set(k, v); } };
+    await worker.scheduled(null, { ...env, BACKUPS });
+    const manifest = JSON.parse([...store.entries()].find(([k]) => k.endsWith('manifest.json'))![1] as string);
+    expect(manifest.counts).toMatchObject({ players: 2, accounts: 1, teachers: 1, classes: 1, students: 2 });
+  });
+});
+
 describe('privacy: what is kept and sent about a child', () => {
   it('no field holds an email, a last name or a birthday', async () => {
     const cookie = await teacher();
-    const c = await classWith(cookie, 'Maria Lopez\tmaria.lopez@school.org\t2017-04-02\nSam Jones');
+    const c = await classWith(cookie, 'Maria Lopez\tmaria.lopez@example.org\t2017-04-02\nSam Jones');
     const payloads: unknown[] = [];
     payloads.push((await call('GET', `/class/${c.code}`)).json);
     const lg = await login(c.code, c.students[0].id, c.students[0].pics);

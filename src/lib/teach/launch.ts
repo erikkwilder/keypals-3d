@@ -27,7 +27,7 @@ export function classLesson(skills: string[], title: string, p: Profile): SkillL
   const lesson: SkillLesson = {
     id: `class-${area}`, region: 'start', area, n: 1, title: title.slice(0, 40) || 'Class work', kind: fresh ? 'meet' : 'mix',
     skills: same, learn: fresh ? same : [], goal, move: 'run', world: skillRegionsOf(area)[0]?.world ?? 'village',
-    blurb: `Class work: ${same.map(id => SKILL[id].name).join(', ')}.`,
+    blurb: same.length <= 3 ? `Class work: ${same.map(id => SKILL[id].name).join(', ')}.` : `Class work: ${same.length} ${AREA[area].name.toLowerCase()} skills, from ${SKILL[same[0]].name.toLowerCase()} to ${SKILL[same[same.length - 1]].name.toLowerCase()}.`,
   };
   (SKILL_LESSON as Record<string, SkillLesson>)[lesson.id] = lesson;
   return lesson;

@@ -69,7 +69,8 @@ export async function openClass(id: string, tab: Tab = 'overview') {
   teach.current = await api<ClassDetail>(`/teach/classes/${id}?week=${weekKey(Date.now())}`);
   teach.tab = tab; teach.studentId = null;
   if (teach.profilesFor !== id) { teach.profiles = {}; teach.profilesFor = ''; }
-  void loadProfiles();
+  // everyone's latest progress each time the class opens
+  void loadProfiles(true);
 }
 export async function refreshClass() {
   if (!teach.current) return;
