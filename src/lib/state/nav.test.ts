@@ -430,3 +430,13 @@ describe('saving online, for grown-ups', () => {
     expect(game.save.profiles.find(x => x.id === p.id)?.cloud?.code).toBe('BLUE-OWL-SKY-2');
   });
 });
+
+describe('the Looks in Settings', () => {
+  const s = src('../screens/Settings.svelte');
+  it('each card is a name, a plain line and a drawn star, not a picture of the buddy', () => {
+    expect(s).not.toContain('buddyPicture');
+    expect(s).toContain('<LookEmblem look={l.id} />');
+    const e = src('../ui/LookEmblem.svelte');
+    for (const look of ['soft', 'ink', 'paper']) expect(e, look).toContain(`look === '${look}'`);
+  });
+});

@@ -1153,9 +1153,8 @@ onPageAway({
     if (ctx && ctx.state !== 'running') void ctx.resume().catch(() => { /* a phone may wait for a tap: wake() */ });
     // (the game may have moved on while it was away: the music for where it is now)
     if (started) applyMusic();
-    if (musicWas && deck && musicOn && enabled) playDeck(deck);
+    if (musicWas && deck && musicOn && enabled) { playDeck(deck); lockScreen('playing'); }
     musicWas = false;
-    lockScreen('playing');
   },
 });
 if (typeof window !== 'undefined') {
