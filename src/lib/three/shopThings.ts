@@ -160,7 +160,7 @@ function treatModel(kind: 'star' | 'biscuit'): { root: THREE.Group; dispose(): v
   const root = new THREE.Group(), own: { dispose(): void }[] = [];
   if (kind === 'star') {
     const g = new THREE.ExtrudeGeometry(starShape(0.21, 0.1), { depth: 0.05, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 3 }); g.translate(0, 0, -0.04);
-    const m = new THREE.MeshStandardMaterial({ color: 0xffc62e, roughness: 0.3, metalness: 0.35, emissive: 0x7a4b00, emissiveIntensity: 0.35 });
+    const m = new THREE.MeshStandardMaterial({ color: 0xffd23c, roughness: 0.35, metalness: 0.05, emissive: 0xb87400, emissiveIntensity: 0.45 });
     const mesh = new THREE.Mesh(g, m); mesh.castShadow = true; root.add(mesh); own.push(g, m);
   } else {
     const b = new THREE.CylinderGeometry(0.2, 0.19, 0.075, 28), rim = new THREE.TorusGeometry(0.15, 0.04, 10, 28), jam = new THREE.SphereGeometry(0.09, 18, 12);
