@@ -103,9 +103,7 @@ export async function climbKit(c: Character, env: { wall: (x: number, y: number)
   const waist = ringRound(hipBody, hipY, H * 0.03);
   const tie = new THREE.Object3D();
   if (waist) {
-    const g = on('Hips'), h = new THREE.Group(), rx = waist.rx * 1.08 + H * 0.02, rz = waist.rz * 1.1 + H * 0.02;
-    h.add(new THREE.Mesh(keep(new THREE.TubeGeometry(ellipseCurve(rx, rz), 60, H * 0.016, 8, true)), orange));
-    h.children[0].scale.y = 1.7;
+    const g = on('Hips'), h = new THREE.Group(), rz = waist.rz * 1.1 + H * 0.02;
     const clip = new THREE.Mesh(keep(new THREE.TorusGeometry(H * 0.03, H * 0.008, 8, 18)), gold); clip.scale.set(0.7, 1.2, 1); clip.position.set(0, -H * 0.01, rz + H * 0.016); h.add(clip);
     tie.position.set(0, -H * 0.01, rz + H * 0.02); h.add(tie);
     h.position.set(waist.cx, hipY, waist.cz);

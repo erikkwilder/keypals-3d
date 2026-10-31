@@ -1090,6 +1090,15 @@ const BUILD: Record<string, (x: Ctx) => Promise<Built | null>> = {
 };
 const builderOf = (id: string) => BUILD[id] ?? (VIBE[id] ? vibeFx : LIB[id]?.slot === 'feet' ? shoes : LIB[id] ? libModel : null);
 
+/** After something poses the buddy on top of its moves (sitting on the sled, a swim stroke, a climb): pieces
+ *  that follow the skin go where the body really is now, not where the move left it. */
+export function followWorn(c: Character) {
+  const ws = Object.values(rigs.get(c)?.worn ?? {});
+  if (!ws.some(w => w?.follow.length)) return;
+  c.root.updateMatrixWorld(true);
+  for (const w of ws) w?.follow.forEach(f => f());
+}
+
 function rigOf(c: Character): Rig {
   let r = rigs.get(c);
   if (r) return r;

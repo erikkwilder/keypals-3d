@@ -13,6 +13,7 @@ import { reach } from './ik';
 import { sitOnSled } from './sledSeat';
 import { dressUp } from './dress';
 import { climbKit, type ClimbKit } from './climbKit';
+import { followWorn } from './gear3d';
 import { sledKit } from './sledKit';
 import { swimKit } from './swimKit';
 import type { RideKit } from './kitParts';
@@ -495,6 +496,8 @@ export class RunScene implements Controller {
     else if (kind === 'slide' && sled) sitOnSled(me, sled, dt);
     // hands and feet on their marks, and the gear (not walking over the top)
     if (kind === 'climb' && this.pos <= ((this.island.root.userData.overAt as (() => number) | undefined)?.() ?? this.finishS) + 0.02) this.kit?.follow(dt, t);
+    // the sit, the stroke and the climb above move the bones after the moves did: what's worn catches up
+    followWorn(me);
   }
 
   /** The ghost racer on a course, beside the buddy and moving the same way: up the cliff a little to the
@@ -553,7 +556,7 @@ export class RunScene implements Controller {
       }
     }
     if (g.root.visible) g.update(dt);
-    if (g.root.visible && kind === 'slide' && this.ghostSled) { g.root.updateMatrixWorld(true); sitOnSled(g, this.ghostSled, dt); }
+    if (g.root.visible && kind === 'slide' && this.ghostSled) { g.root.updateMatrixWorld(true); sitOnSled(g, this.ghostSled, dt); followWorn(g); }
   }
 
   private arrive() {
