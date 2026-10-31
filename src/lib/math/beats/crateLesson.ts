@@ -7,7 +7,8 @@
 // sweeps a row into a floor and pulls the floor up into a block, and each pull copies everything so far:
 // that's why it's times. Only then is it written down. The last crates can't be filled by hand or check
 // what they mean: a shut crate, a crate stood on end, and the buddy's own crate, which it packs from what
-// the child showed it. If a word is said here, it's because a picture couldn't say it.
+// the child showed it. The picture does the showing, and the words say plainly what's happening and why, in
+// whole sentences a child can follow: never a slogan that leaves out the reason.
 import type { BeatLesson, Notes, Teller, World } from './types';
 import type { EpisodeScene } from '../../three/episodeScene';
 import { meaning, seenOnly, volume, type Dims } from './crate';
@@ -21,6 +22,8 @@ export interface CrateWorld extends World {
   crateOut(): Promise<void>;
   /** the opening: one cube in, a shake, a crack */
   loneCube(): Promise<void>;
+  /** a whole cube in the corner with its name, to guess by */
+  unitCube(): Promise<void>;
   /** that many cubes are cut and poured in, and any over land on the table */
   pour(n: number): Promise<void>;
   /** cubes only where they can be seen from here */
@@ -71,17 +74,18 @@ const FIRST: Dims = { l: 5, w: 3, h: 2 }, SHUT: Dims = { l: 6, w: 3, h: 4 }, BUD
 const STOOD: Dims = { l: 2, w: 3, h: 5 };
 const WORDS = ['length', 'width', 'height', 'volume'];
 /** the words a run of the lesson can say, all of them; the test holds the lesson to its budget */
-export const CRATE_LINES = ['job', 'guess', 'lucky', 'measure', 'three', 'build', 'why', 'layer', 'name', 'tip', 'same', 'shut', 'help', 'off', 'check'].map(k => `ep.crate.${k}`);
+export const CRATE_LINES = ['intro', 'watch', 'job', 'guess', 'few', 'over', 'right', 'lucky', 'measure', 'three', 'bets', 'added', 'floored', 'build', 'why', 'row', 'rows', 'layer', 'up', 'name', 'tip', 'same', 'shut', 'help', 'off', 'check'].map(k => `ep.crate.${k}`);
 
-/** The crate acts out a number: that many cubes go in, and the crate answers. Right or wrong, it's the same
- *  film: nothing but the world says which. */
-async function actOut(t: Teller, w: CrateWorld, n: number, d: Dims): Promise<boolean> {
+/** The crate acts out a number: that many cubes go in, the crate answers, and `why` (if given) says what
+ *  that showed: 'tell' for the plain words about short, over or full. */
+async function actOut(t: Teller, w: CrateWorld, n: number, d: Dims, why?: string): Promise<boolean> {
   t.pal('act');
   await w.pour(n);
-  const m = meaning(n, d);
-  if (m.kind === 'full') { await w.thunk(); t.buddy('cheer'); t.pal('happy'); await t.wait(800); return true; }
-  if (m.kind === 'short') { await w.rattle(); await w.gaps(); t.buddy('shrug'); t.pal('sad'); await t.wait(900); }
-  else { t.buddy('oops'); t.pal('sad'); await t.wait(1500); }
+  const m = meaning(n, d), line = why === 'tell' ? `ep.crate.${m.kind === 'full' ? 'right' : m.kind === 'short' ? 'few' : 'over'}` : why;
+  if (m.kind === 'full') { await w.thunk(); t.buddy('cheer'); t.pal('happy'); if (line) await t.say(line); else await t.wait(800); return true; }
+  if (m.kind === 'short') { await w.rattle(); await w.gaps(); t.buddy('shrug'); t.pal('sad'); }
+  else { t.buddy('oops'); t.pal('sad'); }
+  if (line) await t.say(line); else await t.wait(m.kind === 'short' ? 900 : 1500);
   return false;
 }
 /** Build it by hand, row then layers: what a child who's stuck does, so the count is their own. */
@@ -113,37 +117,39 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
   // the job: why the number matters (a moment first, so the picture has settled before anything happens)
   t.beat(0);
   await t.wait(700);
+  await t.say('ep.crate.intro');
   await w.crateIn(d);
+  await t.say('ep.crate.watch');
   await w.loneCube();
   t.buddy('gasp'); t.pal('sad');
   await t.say('ep.crate.job');
+  await w.unitCube();
 
   // a guess, with nothing to go on: whatever it is, it's cut and poured
   t.beat(1);
-  const first = await t.num('How many cubes fill it?', 'ep.crate.guess');
+  const first = await t.num('How many cubes will fill it?', 'ep.crate.guess');
   t.myBet(String(first));
-  const lucky = await actOut(t, w, first, d);
+  const lucky = await actOut(t, w, first, d, 'tell');
   await w.clear();
   t.myBet(null);
 
   // measure it: the cube rolls along each edge, and the line and its number stay on the crate
   t.beat(2);
   await t.say(lucky ? 'ep.crate.lucky' : 'ep.crate.measure');
-  await t.hands('Roll the cube along the edge', () => w.trace('l'), () => w.finish());
-  await t.hands('Roll it along this edge', () => w.trace('w'), () => w.finish());
-  await t.hands('Roll it up the corner', () => w.trace('h'), () => w.finish());
+  await t.hands('Roll the cube along the long edge', () => w.trace('l'), () => w.finish());
+  await t.hands('Now roll it along the short edge', () => w.trace('w'), () => w.finish());
+  await t.hands('Now roll it up the corner', () => w.trace('h'), () => w.finish());
 
   // three bets: yours, then two real wrong ideas, and the crate tries them all, smallest first
   t.beat(3);
-  const second = await t.num('How many cubes?', 'ep.crate.three');
+  const second = await t.num('How many cubes will fill it?', 'ep.crate.three');
   t.myBet(String(second));
   const added = d.l + d.w + d.h, floor = d.l * d.w;
   t.thought('buddy', `${d.l} + ${d.w} + ${d.h} = ${added}`); t.buddy('point');
-  await t.wait(1600);
   t.thought('pal', `${d.l} × ${d.w} = ${floor}`); t.pal('hop');
-  await t.wait(1600);
+  await t.say('ep.crate.bets');
   for (const n of [...new Set([added, floor, second])].sort((a, b) => a - b)) {
-    const won = await actOut(t, w, n, d);
+    const won = await actOut(t, w, n, d, n === added ? 'ep.crate.added' : n === floor ? 'ep.crate.floored' : 'tell');
     if (n === added) t.thought('buddy', null);
     if (n === floor) t.thought('pal', null);
     if (!won) await w.clear();
@@ -156,12 +162,14 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
   t.beat(4);
   await t.say(knew ? 'ep.crate.why' : 'ep.crate.build');
   await w.row();
+  await t.say('ep.crate.row');
   await t.hands('Drag the row across the crate', () => w.sweep('w'), () => w.finish());
+  await t.say('ep.crate.rows');
   t.beat(5);
   if (!knew) {
-    const n = await t.num('How many in all?', 'ep.crate.layer');
+    const n = await t.num('How many cubes in all?', 'ep.crate.layer');
     if (n === v) { t.buddy('nod'); t.pal('hop'); } else await w.topUp(n);
-  }
+  } else await t.say('ep.crate.up');
   await t.hands('Pull the layer up', () => w.sweep('h'), () => w.finish());
 
   // only now is it written down, in the child's numbers, and only now does it get a name
@@ -249,5 +257,5 @@ export const CRATE_LESSON: BeatLesson<CrateWorld> = {
   art: 'learn/shapes/card-boxes.webp', beats: 10,
   world: async (sc: EpisodeScene) => { const { CrateKit } = await import('../../three/crateKit'); return new CrateKit(sc); },
   play, check,
-  card: n => [`Your first guess: ${n.first ?? '?'}`, 'The floor, times the layers.'],
+  card: n => [`Your first guess: ${n.first ?? '?'}`, 'Cubes on the floor, times the number of layers, gives the volume.'],
 };

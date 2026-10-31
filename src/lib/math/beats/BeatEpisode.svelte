@@ -64,6 +64,8 @@
   let answer: ((v: string) => void) | null = null;
   /** hands: "Show me" for the job in hand */
   let showMe: (() => void) | null = null;
+  /** waiting for the first tap (see below) */
+  let begin = $state<(() => void) | null>(null);
 
   /** Stopped: the page closed while a script was still going. */
   class Left extends Error {}
@@ -118,6 +120,7 @@
   function onKey(e: KeyboardEvent) {
     if (game.sheet || game.settingsOpen) return;
     const mine = (fn: () => void) => { e.preventDefault(); e.stopPropagation(); fn(); };
+    if (begin) { if (e.key === 'Enter' || e.key === ' ') mine(() => begin?.()); return; }
     if (ask?.kind === 'num') {
       if (/^[0-9]$/.test(e.key)) return mine(() => typeDigit(e.key));
       if (e.key === 'Backspace') return mine(back);
@@ -199,6 +202,10 @@
       sc = s; world = wd;
       s.shot('wide');
       await tick();
+      // opened straight from a link: browsers keep sound off until the first tap, so it starts on one
+      const act = (navigator as unknown as { userActivation?: { hasBeenActive: boolean } }).userActivation;
+      if (act && !act.hasBeenActive) await new Promise<void>(r => { begin = r; });
+      begin = null;
       phase = 'play';
       await run(s, wd);
     }).catch(e => console.error(e));
@@ -218,6 +225,7 @@
   <div class="hit" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="presentation"></div>
   <div class="vignette"></div>
 
+  {#if begin}<div class="begin"><button class="btn btn-primary" onclick={() => begin?.()}>Start the lesson</button></div>{/if}
   {#if phase === 'load'}
     <div class="loading"><div class="lcard"><small>{place.name}</small><b>{L.title}</b><span class="dots3"><i></i><i></i><i></i></span></div></div>
   {/if}
@@ -424,4 +432,6 @@
   .narrow .cin p { font-size: 11px; }
   .narrow .prize { width: 70px; height: 70px; } .narrow .prize img { width: 28px; height: 28px; } .narrow .prize b { font-size: 14px; }
   .narrow .cbtns .btn-big { font-size: 17px; padding: 12px 18px; }
+  .begin { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; }
+  .begin .btn { font-size: 26px; padding: 18px 40px; }
 </style>

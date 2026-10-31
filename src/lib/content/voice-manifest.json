@@ -1111,65 +1111,109 @@
     "voice": "coach",
     "ms": 4739
   },
+  "ep.crate.intro": {
+    "voice": "coach",
+    "ms": 6141
+  },
+  "ep.crate.watch": {
+    "voice": "coach",
+    "ms": 4141
+  },
   "ep.crate.job": {
     "voice": "coach",
-    "ms": 2684
+    "ms": 7922
   },
   "ep.crate.guess": {
     "voice": "coach",
-    "ms": 2559
+    "ms": 8880
+  },
+  "ep.crate.few": {
+    "voice": "coach",
+    "ms": 4889
+  },
+  "ep.crate.over": {
+    "voice": "coach",
+    "ms": 4749
+  },
+  "ep.crate.right": {
+    "voice": "coach",
+    "ms": 4749
   },
   "ep.crate.lucky": {
     "voice": "coach",
-    "ms": 2100
+    "ms": 6301
   },
   "ep.crate.measure": {
     "voice": "coach",
-    "ms": 2420
+    "ms": 5283
   },
   "ep.crate.three": {
     "voice": "coach",
-    "ms": 2180
+    "ms": 7423
+  },
+  "ep.crate.bets": {
+    "voice": "coach",
+    "ms": 6770
+  },
+  "ep.crate.added": {
+    "voice": "coach",
+    "ms": 4515
+  },
+  "ep.crate.floored": {
+    "voice": "coach",
+    "ms": 6336
   },
   "ep.crate.build": {
     "voice": "coach",
-    "ms": 2080
+    "ms": 3871
   },
   "ep.crate.why": {
     "voice": "coach",
-    "ms": 2021
+    "ms": 4360
+  },
+  "ep.crate.row": {
+    "voice": "coach",
+    "ms": 4769
+  },
+  "ep.crate.rows": {
+    "voice": "coach",
+    "ms": 5897
   },
   "ep.crate.layer": {
     "voice": "coach",
-    "ms": 2075
+    "ms": 6665
+  },
+  "ep.crate.up": {
+    "voice": "coach",
+    "ms": 4535
   },
   "ep.crate.name": {
     "voice": "coach",
-    "ms": 1876
+    "ms": 9214
   },
   "ep.crate.tip": {
     "voice": "coach",
-    "ms": 2071
+    "ms": 5488
   },
   "ep.crate.same": {
     "voice": "coach",
-    "ms": 1781
+    "ms": 6336
   },
   "ep.crate.shut": {
     "voice": "coach",
-    "ms": 1846
+    "ms": 7024
   },
   "ep.crate.help": {
     "voice": "coach",
-    "ms": 2524
+    "ms": 7792
   },
   "ep.crate.off": {
     "voice": "coach",
-    "ms": 1367
+    "ms": 5009
   },
   "ep.crate.check": {
     "voice": "coach",
-    "ms": 2175
+    "ms": 5647
   },
   "ep.dec-coins.intro": {
     "voice": "coach",

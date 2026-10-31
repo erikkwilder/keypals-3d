@@ -122,16 +122,13 @@ describe('the words', () => {
     expect(BEAT_LINES.map(l => l.id).sort()).toEqual([...CRATE_LINES].sort());
     for (const id of CRATE_LINES) expect(LEARN_LINES.some(l => l.id === id), id).toBe(true);
   });
-  it('no line is more than ten words', () => {
-    for (const id of CRATE_LINES) expect(text(id).split(/\s+/).length, id).toBeLessThanOrEqual(10);
+  it('a line explains in a sentence or three, and never runs on', () => {
+    for (const id of CRATE_LINES) expect(text(id).split(/\s+/).length, id).toBeLessThanOrEqual(36);
   });
-  it('a run stays inside its budget: under half the words of the old lesson', async () => {
+  it('a run says enough to explain, and stays short of a lecture', async () => {
     const { said } = await (async () => { const p = pretend({ nums: [12, 10, 16, 13, 18], picks: ['more', 'cubes', 'layers'], faces: ['side', 'top'] }); await CRATE_LESSON.play(p.teller, p.world); return p; })();
     const words = said.reduce((n, id) => n + text(id).split(/\s+/).length, 0);
-    expect(words).toBeLessThanOrEqual(75);
-  });
-  it('nobody says a sum or an answer aloud: no number at all in what is spoken', () => {
-    for (const id of CRATE_LINES) expect(text(id), id).not.toMatch(/\b(five|three|two|six|four|ten|fifteen|twenty|thirty|seventy|times|plus)\b/i);
+    expect(words).toBeLessThanOrEqual(380); // (this child misses everything: the longest run there is)
   });
   it('no ending about learning', () => {
     for (const id of CRATE_LINES) expect(text(id), id).not.toMatch(/learn|explain|great job|well done|thank you/i);

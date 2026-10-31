@@ -317,10 +317,12 @@ export class CrateKit implements CrateWorld {
     g.userData.to = new THREE.Vector3(0.58 * (this.s / 0.0032), TY, this.crate!.position.z + 0.3);
     g.userData.t0 = this.now;
     await this.wait(900);
-    // a whole cube stays in the corner while the child guesses: the only way to tell how many will fit
-    const from2 = this.horn();
+  }
+  /** a whole cube stays in the corner while the child guesses: the only way to tell how many will fit */
+  async unitCube() {
+    const from = this.horn();
     bSfx.tink();
-    const unit = this.addCube({ x: 0, y: 0, z: 0 }, from2, 0, 0.5, 0.28, () => bSfx.clack());
+    const unit = this.addCube({ x: 0, y: 0, z: 0 }, from, 0, 0.5, 0.28, () => bSfx.clack());
     this.unit = unit;
     await this.wait(620);
     this.pin({ id: 'one', text: '1 cube', kind: 'word', at: () => this.world(unit.to).add(new THREE.Vector3(0, this.c * 1.05, 0)) });
