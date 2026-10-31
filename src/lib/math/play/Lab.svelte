@@ -11,12 +11,12 @@
   import { sfx } from '../../audio/sound';
   import type { FriendId } from '../../art/cast';
   import type { PlayBuddy } from './buddy';
-  import { slipStars } from '../playground';
+  import { FirstTries, slipStars } from '../playground';
   import { GLASSES, JUG_MAX, labMatch, labNudge, labOrders } from '../ratios/lab';
   import { mixColor } from '../ratios/stand';
   import { FRUIT } from '../skills/ratioPic';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number; answers: boolean[] }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
   const base = import.meta.env.BASE_URL;
   let corner: HTMLDivElement | undefined = $state();
@@ -27,6 +27,7 @@
   let i = $state(0);
   let have = $state<[number, number]>([0, 0]);
   let slips = $state(0), tries = $state(0);
+  const firsts = new FirstTries();
   let note = $state('');
   let ok = $state(false);
   let pouring = $state(false);
@@ -59,15 +60,15 @@
     if (ok || pouring) return;
     if (!have[0] && !have[1]) { sfx.nope(); note = 'Tap some fruit into the jug first!'; return; }
     if (labMatch(o, have)) {
-      ok = true; pouring = true; sfx.blend(); pal?.cheer();
+      ok = true; pouring = true; firsts.hit(); sfx.blend(); pal?.cheer();
       timers.push(setTimeout(() => { sfx.pour(); sfx.cheer(); pouring = false; }, 900));
       note = o.card === 'percent' ? `${have[0]} of ${have[0] + have[1]} is ${o.pct}%. Same colour!` : `${have[0]} : ${have[1]} is the same mix as ${o.ratio[0]} : ${o.ratio[1]}. Same colour!`;
       timers.push(setTimeout(() => {
-        if (i + 1 >= GLASSES) { ondone({ stars: slipStars(slips), ms: performance.now() - t0 }); return; }
+        if (i + 1 >= GLASSES) { ondone({ stars: slipStars(slips), ms: performance.now() - t0, answers: firsts.answers }); return; }
         i++; have = [0, 0]; drops = []; ok = false; tries = 0; note = '';
       }, 2300));
     } else {
-      slips++; tries++; sfx.miss(); pal?.oops();
+      slips++; tries++; firsts.miss(); sfx.miss(); pal?.oops();
       note = labNudge(o, have, names);
     }
   }

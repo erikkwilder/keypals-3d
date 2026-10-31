@@ -431,6 +431,54 @@ describe('the Number Playground', () => {
     expect(pg.playUnlocked(out.profile, 'bonds', 3)).toBe(false);
     expect(Object.values(out.profile.days)[0].ms).toBe(90000);
   });
+
+  it('right and wrong answers move the level, the same way a practice trip does', async () => {
+    const pg = await import('./playground');
+    const { thetaOf } = await import('./skills/ability');
+    const round = (answers: boolean[], from = newProfile('Ava', 'dino'), game: 'bonds' | 'stall' = 'bonds', level = 2) => pg.applyPlay(from, { game, level, stars: 2, ms: 60000, at: T0, answers }).profile;
+    const skill = (p: ReturnType<typeof newProfile>, id = 'add-facts') => thetaOf(mathOf(p), id, T0);
+    const start = newProfile('Ava', 'dino');
+    // an old save has no levels here at all, and nothing happens without answers
+    expect(mathOf(start).ability?.['add-facts']).toBeUndefined();
+    expect(mathOf(pg.applyPlay(start, { game: 'bonds', level: 2, stars: 2, ms: 60000, at: T0 }).profile).ability?.['add-facts']).toBeUndefined();
+    const good = round(Array(8).fill(true)), bad = round(Array(8).fill(false));
+    expect(mathOf(good).ability?.['add-facts']?.n).toBe(8);
+    expect(skill(good)).toBeGreaterThan(skill(start));
+    expect(skill(bad)).toBeLessThan(skill(start));
+    // the same answers in a practice trip move it the same way
+    const { noteAbility } = await import('./skills/ability');
+    const m = structuredClone(mathOf(start));
+    noteAbility(m, Array(8).fill(0).map(() => ({ skill: 'add-facts', rung: pg.playRung('bonds', 2), ok: true, at: T0 })), 'trip', false);
+    expect(mathOf(good).ability?.['add-facts']?.t).toBeCloseTo(m.ability!['add-facts'].t, 6);
+    // and it's the level the game reads back: a good run can open a level, a bad one never closes one
+    expect(pg.readyLevel(good, 'bonds')).toBeGreaterThanOrEqual(pg.readyLevel(bad, 'bonds'));
+    const starred = pg.applyPlay(start, { game: 'bonds', level: 1, stars: 3, ms: 60000, at: T0, answers: Array(8).fill(false) }).profile;
+    expect(pg.playUnlocked(starred, 'bonds', 2)).toBe(true);
+    // each game's own skill moves, and none of them is a name the registry doesn't know
+    for (const g of pg.PLAY_GAMES) {
+      const p = pg.applyPlay(start, { game: g.id, level: 3, stars: 2, ms: 60000, at: T0, answers: [true, true, false] }).profile;
+      expect(Object.values(mathOf(p).ability ?? {}).some(a => a.n === 3), g.id).toBe(true);
+    }
+  });
+
+  it('counts one answer a question: only its first try', async () => {
+    const { FirstTries } = await import('./playground');
+    const t = new FirstTries();
+    t.hit();              // right first time
+    t.miss(); t.miss(); t.miss(); t.hit(); // stuck, then got it: one wrong
+    t.hit();              // right first time again
+    expect(t.answers).toEqual([true, false, true]);
+  });
+
+  it('asks each level at a rung that climbs with the level', async () => {
+    const pg = await import('./playground');
+    for (const g of pg.PLAY_GAMES) {
+      const rungs = [1, 2, 3, 4, 5].map(l => pg.playRung(g.id, l));
+      expect(rungs.every((r, i) => r >= 1 && r <= 6 && (i === 0 || r >= rungs[i - 1])), `${g.id} ${rungs}`).toBe(true);
+    }
+    expect(pg.playRung('bonds', 3)).toBe(4);
+    expect(pg.playRung('build', 5)).toBe(4);
+  });
 });
 
 describe('stepping up the speed ladder', () => {

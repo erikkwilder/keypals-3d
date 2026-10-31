@@ -6,11 +6,11 @@
   import { sfx } from '../../audio/sound';
   import type { FriendId } from '../../art/cast';
   import type { PlayBuddy } from './buddy';
-  import { bondPair, bondTarget, slipStars } from '../playground';
+  import { bondPair, bondTarget, FirstTries, slipStars } from '../playground';
   import { chance } from '../../fun/luck';
   import { funEvent } from '../../fun/bus';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number; answers: boolean[] }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
   let corner: HTMLDivElement | undefined = $state();
   // the buddy about 100 pixels tall, whatever the corner's size
@@ -22,6 +22,7 @@
   type B = { id: number; n: number; slot: number; color: string; state: 'idle' | 'sel' | 'pop' | 'wrong'; delay: number };
   let bubbles = $state<B[]>([]);
   let nextId = 0, found = $state(0), slips = $state(0), cheer = $state(0);
+  const firsts = new FirstTries();
   const t0 = performance.now();
   const timers: ReturnType<typeof setTimeout>[] = [];
   onDestroy(() => timers.forEach(clearTimeout));
@@ -48,16 +49,16 @@
     if (!sel) { b.state = 'sel'; sfx.click(); return; }
     if (sel === b) { b.state = 'idle'; return; }
     if (sel.n + b.n === target) {
-      sel.state = 'pop'; b.state = 'pop'; found++; cheer++; sfx.pop(); sfx.star(Math.min(2, found % 3)); pal?.cheer();
+      sel.state = 'pop'; b.state = 'pop'; found++; cheer++; firsts.hit(); sfx.pop(); sfx.star(Math.min(2, found % 3)); pal?.cheer();
       if (sel.color === 'rainbow' || b.color === 'rainbow') funEvent('bubblePop');
       const ids = [sel.id, b.id];
       timers.push(setTimeout(() => {
         bubbles = bubbles.filter(x => !ids.includes(x.id));
-        if (found >= ROUND) { sfx.complete(); ondone({ stars: slipStars(slips), ms: performance.now() - t0 }); return; }
+        if (found >= ROUND) { sfx.complete(); ondone({ stars: slipStars(slips), ms: performance.now() - t0, answers: firsts.answers }); return; }
         topUp();
       }, 420));
     } else {
-      slips++; sel.state = 'wrong'; b.state = 'wrong'; sfx.miss(); pal?.oops();
+      slips++; firsts.miss(); sel.state = 'wrong'; b.state = 'wrong'; sfx.miss(); pal?.oops();
       timers.push(setTimeout(() => { for (const x of bubbles) if (x.state === 'wrong') x.state = 'idle'; }, 450));
     }
   }

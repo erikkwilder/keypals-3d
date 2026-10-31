@@ -7,14 +7,14 @@
   import { sfx } from '../../audio/sound';
   import type { FriendId } from '../../art/cast';
   import type { PlayBuddy } from './buddy';
-  import { slipStars } from '../playground';
+  import { FirstTries, slipStars } from '../playground';
   import { GOODS } from '../market/dash';
   import { SHOPPERS, changeDue, countUpText, nudge, owed, stallGoods, stallLevel, stallShoppers, startPrices } from '../market/stall';
   import { COIN_ART, COIN_NAME, COIN_REL as REL, moneyText } from '../skills/decimals';
   import { GLIMMERS } from '../../adventure/glimmers';
   import { glimmerArt } from '../../adventure/evolve';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number; answers: boolean[] }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
   const base = import.meta.env.BASE_URL;
   let corner: HTMLDivElement | undefined = $state();
@@ -34,6 +34,7 @@
   let tray = $state<{ c: number; k: number }[]>([]);
   let kk = 0;
   let slips = $state(0), tries = $state(0);
+  const firsts = new FirstTries();
   let note = $state('');
   let ok = $state(false);
   const timers: ReturnType<typeof setTimeout>[] = [];
@@ -54,14 +55,14 @@
     if (!open || ok) return;
     if (!tray.length) { sfx.nope(); note = `Tap coins for the change: ${moneyText(L.pay)} take away ${moneyText(cost)}.`; return; }
     if (total === due) {
-      ok = true; sfx.till(); pal?.cheer();
+      ok = true; firsts.hit(); sfx.till(); pal?.cheer();
       note = `Thank you! ${moneyText(cost)} + ${moneyText(due)} = ${moneyText(L.pay)}.`;
       timers.push(setTimeout(() => {
-        if (i + 1 >= shoppers.length) { ondone({ stars: slipStars(slips), ms: performance.now() - t0 }); return; }
+        if (i + 1 >= shoppers.length) { ondone({ stars: slipStars(slips), ms: performance.now() - t0, answers: firsts.answers }); return; }
         i++; tray = []; ok = false; tries = 0; note = '';
       }, 1700));
     } else {
-      slips++; tries++; sfx.miss(); pal?.oops();
+      slips++; tries++; firsts.miss(); sfx.miss(); pal?.oops();
       note = tries > 1 ? `Count up: ${countUpText(cost, L.pay)} That's ${moneyText(due)}.` : `That's ${moneyText(total)}, ${total < due ? 'not enough' : 'too much'}. ${moneyText(cost)} and the change should make ${moneyText(L.pay)}.`;
     }
   }
