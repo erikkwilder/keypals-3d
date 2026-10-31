@@ -172,8 +172,8 @@
     const H = h || 1;
     const top = (narrow ? 58 + DOCK_H.narrow : 72 + DOCK_H.wide) / H;
     let bottom = 1 - (narrow ? 116 : 104) / H, right = 0.99;
-    if (ask?.kind === 'num') bottom = 1 - (narrow ? 352 : 228) / H;
-    else if (ask?.kind === 'pick') bottom = 1 - (narrow ? 196 : 170) / H;
+    // (room for the number keys from the start, so the picture doesn't jump back when a question comes)
+    if (phase === 'play') bottom = 1 - (narrow ? 352 : 228) / H;
     else if (phase === 'card' || phase === 'checked') { if (narrow) bottom = 0.5; else right = 0.5; }
     if (narrow && bottomH && phase === 'play') bottom = Math.min(bottom, 1 - (bottomH + 14) / H);
     return { top, bottom, left: 0.01, right };

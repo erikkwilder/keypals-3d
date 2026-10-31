@@ -110,8 +110,9 @@ async function shutCrate(t: Teller, w: CrateWorld, d: Dims, line: string, before
 
 async function play(t: Teller, w: CrateWorld): Promise<Notes> {
   const d = FIRST, v = volume(d);
-  // the job: why the number matters
+  // the job: why the number matters (a moment first, so the picture has settled before anything happens)
   t.beat(0);
+  await t.wait(700);
   await w.crateIn(d);
   await w.loneCube();
   t.buddy('gasp'); t.pal('sad');
@@ -119,7 +120,7 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
 
   // a guess, with nothing to go on: whatever it is, it's cut and poured
   t.beat(1);
-  const first = await t.num('How many cubes?', 'ep.crate.guess');
+  const first = await t.num('How many cubes fill it?', 'ep.crate.guess');
   t.myBet(String(first));
   const lucky = await actOut(t, w, first, d);
   await w.clear();

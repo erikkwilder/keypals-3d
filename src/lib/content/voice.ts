@@ -928,7 +928,7 @@ export const buddyText = (key: string) => BUDDY_WORDS.find(w => w[0] === key)?.[
 // exclamation, the way Erik liked best. Nothing here says a sum or an answer before the child has found it.
 export const BEAT_LINES: Line[] = [
   ep('ep.crate.job', 'Loose cubes crack! Pack this crate full!'),
-  ep('ep.crate.guess', 'How many cubes? Take a guess!'),
+  ep('ep.crate.guess', 'How many cubes fill this crate? Guess!'),
   ep('ep.crate.lucky', 'Full! Was that luck? Measure it!'),
   ep('ep.crate.measure', 'Guessing wastes crystal! Measure it!'),
   ep('ep.crate.three', 'You measured it! How many cubes?'),

@@ -73,6 +73,8 @@ export class CrateKit implements CrateWorld {
   private hookY = 3; private hookTo = 3; private hookCarry = false;
   private tipK = 0; private tipTo = 0;
   private cracked: THREE.Group | null = null;
+  /** the whole cube left in the corner to guess by */
+  private unit: { m: THREE.Object3D; to: THREE.Vector3 } | null = null;
   private crackedGo = -1;
   private job: Job | null = null;
   private count = 0;
@@ -315,8 +317,16 @@ export class CrateKit implements CrateWorld {
     g.userData.to = new THREE.Vector3(0.58 * (this.s / 0.0032), TY, this.crate!.position.z + 0.3);
     g.userData.t0 = this.now;
     await this.wait(900);
+    // a whole cube stays in the corner while the child guesses: the only way to tell how many will fit
+    const from2 = this.horn();
+    bSfx.tink();
+    const unit = this.addCube({ x: 0, y: 0, z: 0 }, from2, 0, 0.5, 0.28, () => bSfx.clack());
+    this.unit = unit;
+    await this.wait(620);
+    this.pin({ id: 'one', text: '1 cube', kind: 'word', at: () => this.world(unit.to).add(new THREE.Vector3(0, this.c * 1.05, 0)) });
   }
   async pour(n: number) {
+    if (this.unit) { const u = this.unit; this.unit = null; u.m.removeFromParent(); this.cubes = this.cubes.filter(c => c !== u); this.unpin(p => p.id === 'one'); }
     // (cubes that don't fit stand up out of the top, so "too many" can be seen at a glance)
     const order = pourOrder({ ...this.d, h: this.d.h + 2 }), v = volume(this.d), shown = Math.min(n, order.length);
     const gap = Math.min(0.09, 2.4 / Math.max(1, shown));
