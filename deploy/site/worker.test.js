@@ -2,6 +2,9 @@
 import { describe, expect, it } from 'vitest';
 import worker from './worker.js';
 import { makeD1 } from './test/d1.js';
+import { RESTORE_ORDER, restoreLines } from './restore-sql.mjs';
+import { CLASS_TABLES } from './classes.js';
+import { gunzipSync } from 'node:zlib';
 
 const b64url = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const sha256 = async (text) => b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
@@ -182,6 +185,75 @@ describe('ideas and help', () => {
     // seen again after it was marked done: it opens again
     await api('/problems', { method: 'POST', body: err, ip: '10.0.0.8' });
     expect((await api('/admin/problems', { cookie: boss })).json.problems.find(p => p.id === auto.id).status).toBe('new');
+  });
+});
+
+describe('the weekly backup', () => {
+  /** a stand-in for the R2 bucket */
+  const bucket = () => {
+    const files = new Map();
+    return {
+      files,
+      get: async (k) => { const v = files.get(k); return v === undefined ? null : { json: async () => JSON.parse(new TextDecoder().decode(v)) }; },
+      put: async (k, v) => { files.set(k, typeof v === 'string' ? new TextEncoder().encode(v) : new Uint8Array(v)); },
+    };
+  };
+  const readBack = (b, manifest) => {
+    const rows = {};
+    for (const f of manifest.files) (rows[f.split('/').pop().split('-')[0]] ??= []).push(...JSON.parse(gunzipSync(b.files.get(f)).toString()));
+    return rows;
+  };
+  const lastManifest = (b) => JSON.parse(new TextDecoder().decode([...b.files].find(([k]) => k.endsWith('manifest.json'))[1]));
+  const ALL = ['players', 'accounts', 'ideas', 'problems', ...Object.keys(CLASS_TABLES)];
+
+  it('holds ideas and problem reports with everything else, however many there are', async () => {
+    const BACKUPS = bucket();
+    const { env, api, grownup } = site({ BACKUPS });
+    const me = await grownup();
+    await api('/players', { method: 'POST', body: { profile: profile('Mia') }, cookie: me });
+    // more than one file's worth of ideas (a file holds 50 rows), so the second page is read too
+    for (let i = 0; i < 120; i++) await env.DB.prepare("INSERT INTO ideas (kind, text, email, status, votes, created, updated) VALUES ('idea', ?, ?, 'shown', ?, ?, ?)").bind(`Idea number ${i}, it's a good one`, i === 0 ? 'mum@example.com' : null, i, Date.now(), Date.now()).run();
+    await env.DB.prepare("UPDATE ideas SET status = 'merged', merged_into = 2 WHERE id = 3").run();
+    await env.DB.prepare("INSERT INTO problems (kind, text, screen, times, status, created, lastseen) VALUES ('told', 'The fox is stuck', 'battle', 2, 'new', ?, ?)").bind(Date.now(), Date.now()).run();
+    await worker.scheduled({}, env);
+    const m = lastManifest(BACKUPS);
+    expect(m.counts).toMatchObject({ players: 1, ideas: 120, problems: 1 });
+    expect(m.files.filter(f => f.includes('/ideas-')).length).toBe(3);
+    const rows = readBack(BACKUPS, m);
+    expect(rows.ideas.map(i => i.id)).toEqual(Array.from({ length: 120 }, (_, i) => i + 1));
+    expect(rows.problems[0].text).toBe('The fox is stuck');
+    // every table in the backup is one the restore knows
+    for (const t of ALL) expect(RESTORE_ORDER).toContain(t);
+    expect(Object.keys(m.counts).sort()).toEqual([...ALL].sort());
+  });
+
+  it('comes back whole: the same SQL the restore script runs puts every table back in an empty database', async () => {
+    const BACKUPS = bucket();
+    const { env, api, grownup } = site({ BACKUPS });
+    const me = await grownup();
+    await api('/players', { method: 'POST', body: { profile: profile("Mia's brother", { note: 'x'.repeat(130000) }) }, cookie: me });
+    await env.DB.prepare("INSERT INTO ideas (kind, text, status, votes, merged_into, created, updated) VALUES ('idea', 'More foxes', 'merged', 4, 7, 1, 2)").run();
+    await env.DB.prepare("INSERT INTO problems (kind, text, sig, stack, times, status, created, lastseen) VALUES ('auto', 'Oops', 'abc', 'line 1', 3, 'read', 1, 2)").run();
+    await env.DB.prepare("INSERT INTO class_settings (class, data, updated) VALUES ('c1', '{\"keep\":\"only\"}', 5)").run();
+    await env.DB.prepare("INSERT INTO teacher_status (account, status, created) VALUES ('a1', 'ok', 5)").run();
+    await env.DB.prepare("INSERT INTO student_google (gid, student, class, created) VALUES ('g1', 's1', 'c1', 5)").run();
+    await env.DB.prepare("INSERT INTO account_domains (account, hd, updated) VALUES ('a1', 'school.org', 5)").run();
+    await worker.scheduled({}, env);
+    const m = lastManifest(BACKUPS), rows = readBack(BACKUPS, m);
+    const fresh = makeD1();
+    for (const line of restoreLines(rows)) fresh.sqlite.exec(line);
+    for (const t of ALL) {
+      const dump = (db) => db.sqlite.prepare(`SELECT * FROM ${t}`).all().map(r => JSON.stringify(r)).sort();
+      expect(dump(fresh), t).toEqual(dump(env.DB));
+    }
+    expect(fresh.sqlite.prepare('SELECT count(*) AS n FROM class_settings').get().n).toBe(1);
+    // the ideas' numbers carry on after the restored ones
+    await fresh.prepare("INSERT INTO ideas (kind, text, status, created, updated) VALUES ('idea', 'New one', 'new', 1, 1)").run();
+    expect(fresh.sqlite.prepare('SELECT max(id) AS n FROM ideas').get().n).toBe(2);
+  });
+
+  it('stops rather than quietly leaving a table out', () => {
+    expect(() => restoreLines({ surprises: [{ id: 1 }] })).toThrow(/surprises/);
   });
 });
 
