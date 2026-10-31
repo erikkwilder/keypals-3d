@@ -1,7 +1,7 @@
 <script lang="ts">
-  // Turning the buddy on show all the way round: drag anywhere on the stage, or tap the turn buttons
-  // (an eighth of a turn each, smoothly). Used by the Wardrobe and the Shop, so things on the back can
-  // be seen from behind.
+  // Turning the buddy (or the thing) on show all the way round: drag anywhere on the stage, or tap the
+  // turn buttons (an eighth of a turn each, smoothly). Used by the Wardrobe and the Shop, so things on the
+  // back can be seen from behind.
   import { onDestroy } from 'svelte';
   import type { ShowScene } from '../three/showScene';
   import Icon from './Icon.svelte';

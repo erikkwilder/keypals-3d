@@ -9,7 +9,7 @@ import { SNACKS } from '../island/play';
 import { buyAndPlace, freeSpot, growthOf, islandOf, islandView, ownedOf, storedOf } from '../island/save';
 import { ledgerNote, ledgerSnap } from '../engine/ledger';
 import { placeOf } from '../path/rules';
-import { SECTIONS, SHOP_ENTRY, SHOP_LIST, buyShop, groupsOf, haveOf, islandEntry, islandShelf, paintEntry, sectionOf } from './shop';
+import { SECTIONS, SHOP_ENTRY, SHOP_LIST, buyShop, careHave, careText, eggsHeld, groupsOf, haveOf, islandEntry, islandShelf, paintEntry, sectionOf } from './shop';
 
 const rich = () => { const p = newProfile('Ava', 'dino'); advOf(p).shells = 20000; return p; };
 const src = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
@@ -140,6 +140,43 @@ describe('one Shop', () => {
     // the island's tray counts as island time, the Shop as Wardrobe and Shop time
     expect(placeOf('island', 'outfits')).toBe('island');
     expect(placeOf('shop', 'outfits')).toBe('closet');
+  });
+  it('the Glimmers section (eggs and treats) says what each thing gives, how many you have, and where they go', () => {
+    // a child can tell what it is; its id stays `care`, so old "What I earned" lines still find their things
+    expect(SECTIONS.find(s => s.id === 'care')?.name).toBe('Glimmers');
+    expect(SHOP_ENTRY['care:egg-common'].section).toBe('care');
+    const p = rich();
+    const uncommon = SHOP_ENTRY['care:egg-uncommon'], common = SHOP_ENTRY['care:egg-common'];
+    expect(careText(common, null).gets).toBe('Hatches a Common Glimmer');
+    expect(careText(uncommon, null).gets).toBe('Hatches an Uncommon Glimmer');
+    expect(careText(common, null).line).toMatch(/after \d+ right answers in practice\.$/);
+    expect(careHave(p, common)).toMatch(/warm nest/);
+    // three warm nests fill first, the fourth waits; a different rarity doesn't count
+    for (let i = 0; i < 4; i++) expect(buyShop(p, 'care:egg-common').ok).toBe(true);
+    expect(buyShop(p, 'care:egg-rare').ok).toBe(true);
+    expect(eggsHeld(p, 'common')).toEqual({ warm: 3, waiting: 1 });
+    expect(haveOf(p, 'care:egg-common')).toBe(4);
+    expect(haveOf(p, 'care:egg-rare')).toBe(1);
+    expect(careHave(p, common)).toBe('You have 4: 3 in a warm nest, 1 waiting.');
+    // a Milestone or other special egg is its own thing, not a plain one from the Shop
+    advOf(p).nest.push({ id: 'x', rarity: 'common', need: 1, have: 0, got: 1, kind: 'milestone', glimmer: 'puddlepup' } as never);
+    expect(eggsHeld(p, 'common').waiting).toBe(1);
+    // the treats
+    const treat = SHOP_ENTRY['care:treat'], bag = SHOP_ENTRY['care:island-treats'];
+    expect(careText(treat, null).then).toMatch(/Meet a Glimmer/);
+    expect(careText(treat, 'puddlepup').line).toMatch(/Puddle Pup/);
+    expect(careHave(p, bag)).toMatch(/treat bag on My Sky Island/);
+    expect(buyShop(p, bag.key).ok).toBe(true);
+    expect(careHave(p, bag)).toBe(`You have ${SNACKS.n} in your treat bag on My Sky Island.`);
+  });
+  it('all three sections are one page: the tiles, cards and buy card are the same size in each', () => {
+    const rule = (f: string, sel: string) => f.split('\n').find(l => l.trim().startsWith(`${sel} {`))?.trim();
+    const wear = src('../screens/Closet.svelte'), shelf = src('./ShopShelf.svelte');
+    for (const sel of ['.body', '.rail', '.rb', '.rpic', '.it', '.sgrid', '.tryon', '.it b', '.sidehead', '.foot', '.whochip', '.stagebox'])
+      expect(rule(shelf, sel), sel).toBe(rule(wear, sel));
+    // no second layout: the stage is the Wardrobe's own turntable on the game's world
+    expect(shelf).toMatch(/<Turntable /);
+    expect(shelf).toMatch(/ShowScene\.create\(/);
   });
   it('every island thing and paint the island can place is in the Shop (nothing sold only on the island)', () => {
     for (const i of ITEMS) if (!i.gift) expect(islandEntry(i.id), i.id).toBeTruthy();

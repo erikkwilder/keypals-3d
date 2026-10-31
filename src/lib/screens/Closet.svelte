@@ -350,7 +350,7 @@
   function changeBuddy() { sfx.click(); leaveMove(() => game.visit('keypals')); }
 
   onMount(() => { shortQ?.addEventListener('change', onShort); show(who); addEventListener('resize', onResize); addEventListener('pointerup', release); stageEl?.addEventListener('pointerdown', stageDown); stageEl?.addEventListener('pointerup', stageUp); });
-  onDestroy(() => { shortQ?.removeEventListener('change', onShort); disposed = true; clearInterval(holdTimer); removeEventListener('resize', onResize); removeEventListener('pointerup', release); stageEl?.removeEventListener('pointerdown', stageDown); stageEl?.removeEventListener('pointerup', stageUp); if (scene && stage.current() === scene) stage.use(null); });
+  onDestroy(() => { shortQ?.removeEventListener('change', onShort); disposed = true; clearInterval(holdTimer); removeEventListener('resize', onResize); removeEventListener('pointerup', release); stageEl?.removeEventListener('pointerdown', stageDown); stageEl?.removeEventListener('pointerup', stageUp); /* (going to another of the Shop's sections this scene runs on until the next one takes over: no flash of white) */ if (scene && stage.current() === scene && !(embedded && game.screen === 'shop')) stage.use(null); });
 </script>
 
 <div class="closet" class:screen={!embedded} class:embedded class:shopside={side === 'shop'}>

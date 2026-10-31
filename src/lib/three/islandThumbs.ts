@@ -1,6 +1,6 @@
 // Pictures of My Sky Island's things for the catalogue's cards (the island's build tray and the Shop's
 // Island section): each thing drawn on its own, lit like the island on clear ground, kept for the session
-// so the island and the Shop share them.
+// so the island and the Shop share them. (The Shop keeps its own kits for its stage and draws with those.)
 import * as THREE from 'three';
 import { stage } from './stage';
 import { PropKit } from '../island/props3d';
@@ -14,7 +14,7 @@ export const thumbOf = (id: string) => THUMBS.get(id);
 
 /** Draw things one by one with these kits ('block:<shape>:<paint>' is a block, anything else an island
  *  thing). `onOne` gets each picture as it's ready. */
-export async function drawThumbs(kit: PropKit, blk: BlockKit, ids: string[], onOne: (id: string, url: string) => void, size = 168) {
+export async function drawThumbs(kit: PropKit, blk: BlockKit, ids: string[], onOne: (id: string, url: string) => void, size = 168, alive: () => boolean = () => true) {
   const r = stage.renderer; if (!r) return;
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight(0xfff4e6, 0x9ab06a, 1.6));
@@ -25,6 +25,7 @@ export async function drawThumbs(kit: PropKit, blk: BlockKit, ids: string[], onO
   const g = cv.getContext('2d')!, clear = r.getClearColor(new THREE.Color()), alpha = r.getClearAlpha();
   try {
     for (const id of ids) {
+      if (!alive()) break;
       const had = THUMBS.get(id);
       if (had) { onOne(id, had); continue; }
       const bp = id.startsWith('block:') ? id.split(':') : null;
@@ -46,16 +47,4 @@ export async function drawThumbs(kit: PropKit, blk: BlockKit, ids: string[], onO
       await new Promise(res => setTimeout(res, 0));
     }
   } finally { r.setRenderTarget(null); r.setClearColor(clear, alpha); rt.dispose(); }
-}
-
-/** The same pictures away from the island (the Shop): the kits are loaded for the drawing and let go after. */
-export async function shopThumbs(ids: string[], onOne: (id: string, url: string) => void, alive: () => boolean = () => true) {
-  const todo = ids.filter(id => { const had = THUMBS.get(id); if (had) onOne(id, had); return !had; });
-  if (!todo.length) return;
-  // (the stage's renderer comes with the app's first screen)
-  for (let i = 0; i < 40 && !stage.renderer; i++) await new Promise(res => setTimeout(res, 100));
-  if (!stage.renderer || !alive()) return;
-  const [kit, blk] = await Promise.all([PropKit.load(), BlockKit.load()]);
-  try { if (alive()) await drawThumbs(kit, blk, todo, (id, url) => { if (alive()) onOne(id, url); }); }
-  finally { kit.dispose(); blk.dispose(); }
 }

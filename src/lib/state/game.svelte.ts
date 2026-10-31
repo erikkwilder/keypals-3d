@@ -248,7 +248,7 @@ class Game {
     this.visit(tab === 'dances' ? 'dances' : 'closet');
   }
   /** The Shop (one for the whole game: My stuff, the shells card, the Wardrobe and My Sky Island open it),
-   *  on the section you came from: Wear (a spot on the buddy: `slot`), Island or Care. */
+   *  on the section you came from: Wear (a spot on the buddy: `slot`), Island or Glimmers (`care`). */
   openShop(slot: string | null = null, section: 'wear' | 'island' | 'care' | null = null) {
     this.shopSlot = slot;
     this.shopSection = section ?? (slot ? 'wear' : null);
