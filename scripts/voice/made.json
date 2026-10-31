@@ -2982,52 +2982,107 @@
  "ep.crate.added": {
   "engine": "local",
   "voice": "coach",
-  "h": "6df85cb306"
+  "h": "473a998bd2"
+ },
+ "ep.crate.again": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "956701224f"
+ },
+ "ep.crate.again.floor": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "898ee8a1de"
  },
  "ep.crate.bets": {
   "engine": "local",
   "voice": "coach",
-  "h": "faa36210c9"
+  "h": "d8b796f06e"
+ },
+ "ep.crate.buddy.done": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "c3fc9c865b"
  },
  "ep.crate.build": {
   "engine": "local",
   "voice": "coach",
-  "h": "73f35df702"
+  "h": "bf0d5b55c2"
  },
  "ep.crate.check": {
   "engine": "local",
   "voice": "coach",
-  "h": "f9eab83205"
+  "h": "d211858dbd"
+ },
+ "ep.crate.check.answer": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "b08816327b"
+ },
+ "ep.crate.check.floor": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "5ad6eff63f"
+ },
+ "ep.crate.check.row": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "32945e9aca"
+ },
+ "ep.crate.check.up": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "659b82bb28"
+ },
+ "ep.crate.check.why": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "ffbf2facb6"
  },
  "ep.crate.face": {
   "engine": "local",
   "voice": "coach",
-  "h": "13f4ecaba2"
+  "h": "c634bfb89e"
+ },
+ "ep.crate.face.yes": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "de90cae82d"
  },
  "ep.crate.few": {
   "engine": "local",
   "voice": "coach",
-  "h": "f7a0abb391"
+  "h": "3be830f9e1"
+ },
+ "ep.crate.few.floor": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "66722e143d"
  },
  "ep.crate.floored": {
   "engine": "local",
   "voice": "coach",
-  "h": "9369dcc090"
+  "h": "7d4e183748"
  },
  "ep.crate.guess": {
   "engine": "local",
   "voice": "coach",
-  "h": "57090113f3"
+  "h": "88202e1f61"
  },
  "ep.crate.help": {
   "engine": "local",
   "voice": "coach",
-  "h": "b2f17fb2a8"
+  "h": "33d6f17cc7"
+ },
+ "ep.crate.help.tap": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "844bb278b0"
  },
  "ep.crate.intro": {
   "engine": "local",
   "voice": "coach",
-  "h": "6ac51f961c"
+  "h": "10f5ecd234"
  },
  "ep.crate.job": {
   "engine": "local",
@@ -3039,35 +3094,60 @@
   "voice": "coach",
   "h": "1fa8a85be0"
  },
+ "ep.crate.layer.no": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "eec59514f3"
+ },
+ "ep.crate.layer.yes": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "40b9166023"
+ },
  "ep.crate.lucky": {
   "engine": "local",
   "voice": "coach",
-  "h": "f1fdd1d7f6"
+  "h": "32cfe311e0"
+ },
+ "ep.crate.make": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "8cd3c9d2f9"
  },
  "ep.crate.measure": {
   "engine": "local",
   "voice": "coach",
-  "h": "6323ff733e"
+  "h": "6420e58376"
  },
  "ep.crate.name": {
   "engine": "local",
   "voice": "coach",
-  "h": "efe9e2c130"
+  "h": "43d0a2e72d"
  },
  "ep.crate.off": {
   "engine": "local",
   "voice": "coach",
-  "h": "d047c31e30"
+  "h": "24bbcd5799"
+ },
+ "ep.crate.other": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "d2afd17994"
  },
  "ep.crate.over": {
   "engine": "local",
   "voice": "coach",
-  "h": "5ff9c6fd6d"
+  "h": "4ecf225372"
  },
  "ep.crate.right": {
   "engine": "local",
   "voice": "coach",
-  "h": "358c0514a7"
+  "h": "a72752705f"
+ },
+ "ep.crate.roll": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "b58c91b64a"
  },
  "ep.crate.row": {
   "engine": "local",
@@ -3077,37 +3157,142 @@
  "ep.crate.rows": {
   "engine": "local",
   "voice": "coach",
-  "h": "8cfb08cd5c"
+  "h": "35ea873f95"
  },
  "ep.crate.same": {
   "engine": "local",
   "voice": "coach",
-  "h": "3b7d7fd9da"
+  "h": "baa8220286"
+ },
+ "ep.crate.same.why": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "25080f7bb9"
+ },
+ "ep.crate.same.you": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "bc9d6fc7e6"
  },
  "ep.crate.seen": {
   "engine": "local",
   "voice": "coach",
-  "h": "168568a2f8"
+  "h": "355037ac94"
  },
  "ep.crate.shut": {
   "engine": "local",
   "voice": "coach",
-  "h": "0d3a845fe3"
+  "h": "cfc3a3a2d8"
+ },
+ "ep.crate.shut.answer": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "c611dabe29"
+ },
+ "ep.crate.shut.floor": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "1f2e8f217c"
+ },
+ "ep.crate.shut.row": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "0ee2341f5d"
+ },
+ "ep.crate.shut.up": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "44347dc46b"
+ },
+ "ep.crate.shut.why": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "017e663fd8"
+ },
+ "ep.crate.snack": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "b09084a53a"
+ },
+ "ep.crate.sum": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "b3f73ed0f2"
  },
  "ep.crate.three": {
   "engine": "local",
   "voice": "coach",
-  "h": "8c75181b60"
+  "h": "305f367720"
  },
  "ep.crate.tip": {
   "engine": "local",
   "voice": "coach",
-  "h": "64bb5b03cd"
+  "h": "f880a33a2b"
+ },
+ "ep.crate.tip.do": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "f370cb1596"
+ },
+ "ep.crate.together": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "dc8cb4d97f"
+ },
+ "ep.crate.total": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "c0c08e9ecd"
+ },
+ "ep.crate.total.no": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "35e89a47ce"
+ },
+ "ep.crate.try.both.buddy": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "d659cb6127"
+ },
+ "ep.crate.try.both.pal": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "f4ac54b260"
+ },
+ "ep.crate.try.buddy": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "a825a8477e"
+ },
+ "ep.crate.try.last": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "c1a54b876d"
+ },
+ "ep.crate.try.pal": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "271c93f196"
+ },
+ "ep.crate.try.seen": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "bb221ceee6"
+ },
+ "ep.crate.try.you": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "bc04fdfad7"
  },
  "ep.crate.two": {
   "engine": "local",
   "voice": "coach",
-  "h": "e80ac46cc6"
+  "h": "04c8d3ecd1"
+ },
+ "ep.crate.two.yes": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "413031530d"
  },
  "ep.crate.up": {
   "engine": "local",
@@ -3122,7 +3307,7 @@
  "ep.crate.why": {
   "engine": "local",
   "voice": "coach",
-  "h": "1ebe9d5079"
+  "h": "bd3cefba51"
  },
  "ep.data-bars.card": {
   "engine": "local",

@@ -7,8 +7,8 @@
 // sweeps a row into a floor and pulls the floor up into a block, and each pull copies everything so far:
 // that's why it's times. Only then is it written down. The last crates can't be filled by hand or check
 // what they mean: a shut crate, a crate stood on end, and the buddy's own crate, which it packs from what
-// the child showed it. The picture does the showing, and the words say plainly what's happening and why, in
-// whole sentences a child can follow: never a slogan that leaves out the reason.
+// the child showed it. The picture does the showing, and the words say plainly what's happening and why.
+// docs/lesson-rules.md holds the rules for every lesson's words and pacing; rules.ts checks the ones a test can.
 import type { BeatLesson, Notes, Teller, World } from './types';
 import type { EpisodeScene } from '../../three/episodeScene';
 import { meaning, seenOnly, volume, type Dims } from './crate';
@@ -73,41 +73,60 @@ export interface CrateWorld extends World {
 const FIRST: Dims = { l: 5, w: 3, h: 2 }, SHUT: Dims = { l: 6, w: 3, h: 4 }, BUDDYS: Dims = { l: 5, w: 2, h: 2 }, NEXT_DAY: Dims = { l: 4, w: 5, h: 3 };
 const STOOD: Dims = { l: 2, w: 3, h: 5 };
 const WORDS = ['length', 'width', 'height', 'volume'];
-/** the words a run of the lesson can say, all of them; the test holds the lesson to its budget */
-export const CRATE_LINES = ['intro', 'watch', 'job', 'guess', 'few', 'over', 'right', 'lucky', 'measure', 'three', 'bets', 'added', 'floored', 'build', 'why', 'row', 'rows', 'layer', 'up', 'name', 'tip', 'same', 'shut', 'seen', 'help', 'face', 'two', 'off', 'check'].map(k => `ep.crate.${k}`);
+/** the words a run of the lesson can say, all of them */
+export const CRATE_LINES = ['intro', 'watch', 'job', 'guess', 'try.you', 'few', 'over', 'right', 'lucky', 'measure', 'three', 'bets', 'try.buddy', 'try.pal', 'try.both.buddy', 'try.both.pal', 'try.last', 'added', 'floored', 'build', 'why', 'row', 'rows', 'layer', 'up', 'name', 'tip', 'tip.do', 'same', 'same.you', 'shut', 'try.seen', 'seen', 'again', 'together', 'shut.row', 'shut.floor', 'shut.up', 'shut.answer', 'shut.why', 'check.row', 'check.floor', 'check.up', 'check.answer', 'check.why', 'help', 'face', 'face.yes', 'other', 'two', 'two.yes', 'buddy.done', 'off', 'check', 'sum', 'few.floor', 'again.floor', 'layer.yes', 'layer.no', 'total', 'total.no', 'snack', 'make', 'help.tap', 'roll', 'same.why'].map(k => `ep.crate.${k}`);
 
-/** The crate acts out a number: that many cubes go in, the crate answers, and `why` (if given) says what
- *  that showed: 'tell' for the plain words about short, over or full. */
-async function actOut(t: Teller, w: CrateWorld, n: number, d: Dims, why?: string): Promise<boolean> {
+/** Which crate's worked answer: its lines, in the voice, carry that crate's own numbers. */
+type Key = 'shut' | 'check';
+
+/** One try at a crate: first say whose try it is, then act it out, then say what it showed. Right or wrong
+ *  it's the same film: only the crate says which. `told`: what this try's result means, if not the child's. */
+async function test(t: Teller, w: CrateWorld, n: number, d: Dims, line: string, told?: string): Promise<boolean> {
+  await t.say(line, n);
   t.pal('act');
   await w.pour(n);
-  const m = meaning(n, d), line = why === 'tell' ? `ep.crate.${m.kind === 'full' ? 'right' : m.kind === 'short' ? 'few' : 'over'}` : why;
-  if (m.kind === 'full') { await w.thunk(); t.buddy('cheer'); t.pal('happy'); if (line) await t.say(line); else await t.wait(800); return true; }
+  const m = meaning(n, d), said = told ?? `ep.crate.${m.kind === 'full' ? 'right' : m.kind === 'short' ? 'few' : 'over'}`;
+  if (m.kind === 'full') { await w.thunk(); t.buddy('cheer'); t.pal('happy'); await t.say(said, n); return true; }
   if (m.kind === 'short') { await w.rattle(); await w.gaps(); t.buddy('shrug'); t.pal('sad'); }
   else { t.buddy('oops'); t.pal('sad'); }
-  if (line) await t.say(line); else await t.wait(m.kind === 'short' ? 900 : 1500);
+  await t.say(said, n);
   return false;
 }
-/** Build it by hand, row then layers: what a child who's stuck does, so the count is their own. */
-async function byHand(t: Teller, w: CrateWorld) {
-  await w.row();
-  await t.hands('Drag the row across the crate', () => w.sweep('w'), () => w.finish());
-  await t.hands('Pull the layer up', () => w.sweep('h'), () => w.finish());
+/** The right answer of a shut crate, on the crate, with the reason said, until the child moves on. */
+async function answer(t: Teller, w: CrateWorld, d: Dims, line: string) {
+  w.writeSum(d, WORDS);
+  await t.say(line);
+  await t.go('Next');
+  w.clearSum();
 }
-/** A crate nobody can fill by hand: keep trying, and a second miss builds it by hand instead of telling. */
-async function shutCrate(t: Teller, w: CrateWorld, d: Dims, line: string, before?: () => Promise<void>) {
-  let n = await t.num('How many cubes?', line);
+/** Two guesses and it's time to stop guessing: say so, then build the answer together, step by step. */
+async function together(t: Teller, w: CrateWorld, d: Dims, k: Key) {
+  t.myBet(null);
+  await t.say('ep.crate.together');
+  await w.row();
+  await t.say(`ep.crate.${k}.row`);
+  await t.hands('Drag the row across the crate', () => w.sweep('w'), () => w.finish());
+  await t.say(`ep.crate.${k}.floor`);
+  await t.say(`ep.crate.${k}.up`);
+  await t.hands('Pull the layer up', () => w.sweep('h'), () => w.finish());
+  t.pal('happy'); t.buddy('nod');
+  await w.thunk();
+  await answer(t, w, d, `ep.crate.${k}.answer`);
+}
+/** A crate nobody can fill by hand. The child gets two guesses, then it's worked out together. */
+async function shutCrate(t: Teller, w: CrateWorld, d: Dims, k: Key, line: string, before?: () => Promise<void>) {
+  let n = await t.num('How many cubes will fill it?', line);
   t.myBet(String(n));
   await before?.();
   await w.peek(true);
   for (let miss = 0; ; miss++) {
-    if (await actOut(t, w, n, d, 'tell')) break;
+    // (a guess of exactly the floor is the right first step, and it's told so)
+    const floor = n === d.l * d.w;
+    if (await test(t, w, n, d, before || miss ? 'ep.crate.try.last' : 'ep.crate.try.you', floor ? 'ep.crate.few.floor' : undefined)) { await answer(t, w, d, `ep.crate.${k}.why`); break; }
     await w.clear();
-    if (miss >= 1) { await byHand(t, w); t.pal('happy'); t.buddy('nod'); await t.wait(600); await w.thunk(); break; }
-    await w.peek(false);
-    n = await t.num('How many cubes?');
+    if (miss >= 1) { await together(t, w, d, k); break; }
+    n = await t.num('How many cubes will fill it?', floor ? 'ep.crate.again.floor' : 'ep.crate.again', floor ? n : undefined);
     t.myBet(String(n));
-    await w.peek(true);
   }
   t.myBet(null);
 }
@@ -124,18 +143,20 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
   t.buddy('gasp'); t.pal('sad');
   await t.say('ep.crate.job');
   await w.unitCube();
+  await t.say('ep.crate.make');
 
   // a guess, with nothing to go on: whatever it is, it's cut and poured
   t.beat(1);
   const first = await t.num('How many cubes will fill it?', 'ep.crate.guess');
   t.myBet(String(first));
-  const lucky = await actOut(t, w, first, d, 'tell');
+  const lucky = await test(t, w, first, d, 'ep.crate.try.you');
   await w.clear();
   t.myBet(null);
 
   // measure it: the cube rolls along each edge, and the line and its number stay on the crate
   t.beat(2);
   await t.say(lucky ? 'ep.crate.lucky' : 'ep.crate.measure');
+  await t.say('ep.crate.roll');
   await t.hands('Roll the cube along the long edge', () => w.trace('l'), () => w.finish());
   await t.hands('Now roll it along the short edge', () => w.trace('w'), () => w.finish());
   await t.hands('Now roll it up the corner', () => w.trace('h'), () => w.finish());
@@ -145,15 +166,17 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
   const second = await t.num('How many cubes will fill it?', 'ep.crate.three');
   t.myBet(String(second));
   const added = d.l + d.w + d.h, floor = d.l * d.w;
-  t.thought('buddy', `${d.l} + ${d.w} + ${d.h} = ${added}`); t.buddy('point');
-  t.thought('pal', `${d.l} × ${d.w} = ${floor}`); t.pal('hop');
   await t.say('ep.crate.bets');
-  for (const n of [...new Set([added, floor, second])].sort((a, b) => a - b)) {
-    const won = await actOut(t, w, n, d, n === added ? 'ep.crate.added' : n === floor ? 'ep.crate.floored' : 'tell');
-    if (n === added) t.thought('buddy', null);
-    if (n === floor) t.thought('pal', null);
-    if (!won) await w.clear();
-  }
+  // your buddy's idea, then Prism's, then yours: each one named before it's tested
+  t.thought('buddy', `${d.l} + ${d.w} + ${d.h} = ${added}`); t.buddy('point');
+  await test(t, w, added, d, second === added ? 'ep.crate.try.both.buddy' : 'ep.crate.try.buddy', 'ep.crate.added');
+  t.thought('buddy', null);
+  await w.clear();
+  t.thought('pal', `${d.l} × ${d.w} = ${floor}`); t.pal('hop');
+  await test(t, w, floor, d, second === floor ? 'ep.crate.try.both.pal' : 'ep.crate.try.pal', 'ep.crate.floored');
+  t.thought('pal', null);
+  await w.clear();
+  if (second !== added && second !== floor) { if (!(await test(t, w, second, d, 'ep.crate.try.last'))) await w.clear(); }
   t.myBet(null);
   const knew = second === v;
   if (knew) await w.clear();
@@ -168,13 +191,15 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
   t.beat(5);
   if (!knew) {
     const n = await t.num('How many cubes in all?', 'ep.crate.layer');
-    if (n === v) { t.buddy('nod'); t.pal('hop'); } else await w.topUp(n);
+    if (n === v) { t.buddy('nod'); t.pal('hop'); await t.say('ep.crate.layer.yes'); }
+    else { await t.say('ep.crate.try.you', n); await w.topUp(n); await t.say('ep.crate.layer.no', n); }
   } else await t.say('ep.crate.up');
   await t.hands('Pull the layer up', () => w.sweep('h'), () => w.finish());
 
   // only now is it written down, in the child's numbers, and only now does it get a name
   w.writeSum(d, WORDS);
   t.buddy('clap');
+  await t.say('ep.crate.sum');
   await t.say('ep.crate.name');
   await t.go('Next');
 
@@ -182,11 +207,13 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
   t.beat(6);
   w.clearSum();
   const hunch = await t.pick('More cubes, or the same?', [{ id: 'more', text: 'More' }, { id: 'same', text: 'The same' }, { id: 'fewer', text: 'Fewer' }], 'ep.crate.tip');
+  await t.say('ep.crate.tip.do');
   await w.tip();
   await w.recount();
   w.writeSum(STOOD, undefined, ['c', 'b', 'a']);
   if (hunch === 'same') { t.buddy('clap'); t.pal('happy'); } else t.buddy('gasp');
-  await t.say('ep.crate.same');
+  await t.say(hunch === 'same' ? 'ep.crate.same.you' : 'ep.crate.same');
+  await t.say('ep.crate.same.why');
   await t.go('Send it off');
   w.clearSum();
   await w.crateOut();
@@ -194,9 +221,10 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
   // shut: you can't peek and can't count, and Prism tries counting what it can see
   t.beat(7);
   await w.crateIn(SHUT, { shut: true, lines: true });
-  await shutCrate(t, w, SHUT, 'ep.crate.shut', async () => {
-    t.thought('pal', `I can see ${seenOnly(SHUT).length}!`); t.pal('hop');
-    await t.wait(1300);
+  await shutCrate(t, w, SHUT, 'shut', 'ep.crate.shut', async () => {
+    const seen = seenOnly(SHUT).length;
+    t.thought('pal', `I can see ${seen}!`); t.pal('hop');
+    await t.say('ep.crate.try.seen', seen);
     await w.peek(true);
     await w.pourSeen();
     await w.liftTop();
@@ -204,7 +232,6 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
     t.thought('pal', null); t.pal('sad');
     await t.say('ep.crate.seen');
     await w.clear();
-    await w.peek(false);
   });
   await w.crateOut();
 
@@ -214,9 +241,10 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
   await w.crateIn(BUDDYS, { lines: true });
   t.thought('buddy', '5 × 2 × 2 = ?'); t.buddy('think');
   await t.say('ep.crate.help');
+  await t.say('ep.crate.help.tap');
   let face: Face = 'side';
   for (;;) {
-    await t.hands('Tap the 5 × 2 on the crate', async () => { face = await w.pickFace(); }, () => w.finish());
+    await t.hands('Tap a part that is 5 cubes by 2 cubes', async () => { face = await w.pickFace(); }, () => w.finish());
     await w.showFace(face);
     if (face !== 'side') break;
     t.buddy('shrug');
@@ -225,23 +253,31 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
   t.buddy('nod');
   await w.layerOn(face);
   t.thought('buddy', '5 × 2 = 10');
-  for (;;) {
-    const last = await t.pick('What does the other 2 count?', [{ id: 'cubes', text: '2 cubes' }, { id: 'layers', text: '2 layers' }]);
+  await t.say('ep.crate.face.yes');
+  for (let line: string | undefined = 'ep.crate.other'; ; line = undefined) {
+    const last = await t.pick('What does the other 2 count?', [{ id: 'cubes', text: '2 more cubes' }, { id: 'layers', text: '2 layers' }], line);
     if (last === 'layers') break;
     await w.twoCubes();
     t.buddy('shrug');
     await t.say('ep.crate.two');
   }
+  await t.say('ep.crate.two.yes');
   await w.secondLayer();
-  t.thought('buddy', '10 × 2 = 20'); t.buddy('cheer'); t.pal('happy');
+  t.thought('buddy', '10 × 2 = ?'); t.buddy('think'); t.pal('happy');
   await w.thunk();
-  await t.wait(1000);
-  t.thought('buddy', null);
+  // whatever else went wrong, the child works out a total here by themselves
+  if ((await t.num('How many cubes in all?', 'ep.crate.total')) !== volume(BUDDYS)) await t.say('ep.crate.total.no');
+  t.thought('buddy', null); t.buddy('cheer');
+  w.writeSum(BUDDYS, WORDS);
+  await t.say('ep.crate.buddy.done');
+  await t.go('Send it off');
+  w.clearSum();
 
   // off it goes; and the cube that cracked at the very start gets eaten
   t.beat(9);
   await w.crateOut();
   await t.say('ep.crate.off');
+  await t.say('ep.crate.snack');
   await w.eatCracked();
   t.buddy('jump');
   await t.wait(600);
@@ -251,7 +287,7 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
 async function check(t: Teller, w: CrateWorld, notes: Notes | null) {
   await w.crateIn(NEXT_DAY, { shut: true, lines: true });
   if (notes?.first != null) t.myBet(`Your first guess yesterday: ${notes.first}`);
-  await shutCrate(t, w, NEXT_DAY, 'ep.crate.check');
+  await shutCrate(t, w, NEXT_DAY, 'check', 'ep.crate.check');
   await w.crateOut();
 }
 

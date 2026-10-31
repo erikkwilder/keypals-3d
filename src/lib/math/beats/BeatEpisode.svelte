@@ -72,15 +72,15 @@
   const live = async <T,>(p: Promise<T>): Promise<T> => { const v = await p; if (gone) throw new Left(); return v; };
 
   const teller: Teller = {
-    async say(id) {
-      line = lineText(id);
+    async say(id, n) {
+      line = lineText(id).replace('{n}', String(n ?? ''));
       const t0 = performance.now();
       await live(Promise.race([say(id, { important: true, caption: false }), sleep(2500 + line.length * 95)]));
       if (game.settings.voice === false) await live(sleep(Math.max(0, Math.max(1500, line.length * 55) - (performance.now() - t0))));
     },
-    num(prompt, id) {
+    num(prompt, id, n) {
       typed = ''; ask = { kind: 'num', prompt };
-      if (id) void this.say(id).catch(() => {}); else line = '';
+      if (id) void this.say(id, n).catch(() => {}); else line = '';
       return live(new Promise<string>(r => { answer = r; })).then(v => { ask = null; line = ''; typed = ''; return Number(v); });
     },
     pick(prompt, choices, id) {

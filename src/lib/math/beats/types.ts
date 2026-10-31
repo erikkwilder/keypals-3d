@@ -15,10 +15,10 @@ export type Choice<T extends string = string> = { id: T; text: string };
 
 /** What a script can ask of the player. */
 export interface Teller {
-  /** the coach says one line (its words stay up); done when it's said */
-  say(id: string): Promise<void>;
+  /** the coach says one line (its words stay up); done when it's said. `n` fills {n} in the words on screen */
+  say(id: string, n?: number): Promise<void>;
   /** wait for a number from the child (it's what the world then acts out); `line` is said as it opens */
-  num(prompt: string, line?: string): Promise<number>;
+  num(prompt: string, line?: string, n?: number): Promise<number>;
   /** wait for a tap on one of these */
   pick<T extends string>(prompt: string, choices: Choice<T>[], line?: string): Promise<T>;
   /** the child's hands do a job in the world; "Show me" appears if they get stuck */

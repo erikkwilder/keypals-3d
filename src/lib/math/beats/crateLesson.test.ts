@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { CRATE_LESSON, CRATE_LINES, type CrateWorld, type Face } from './crateLesson';
 import type { Teller } from './types';
 import { addedUp, floorOf, layer, meaning, pourOrder, rowBack, seenOnly, sumParts, volume, wrongIdea, type Dims } from './crate';
+import { writeFileSync } from 'node:fs';
 import { BEAT_LINES, LEARN_LINES } from '../../content/voice';
+import { lineProblems, scriptProblems, type Step } from './rules';
 
 type Child = { nums: number[]; picks: string[]; faces: Face[] };
 function pretend(child: Child) {
@@ -17,17 +19,28 @@ function pretend(child: Child) {
       return (...a: unknown[]) => { log.push(`${k}(${a.map(x => JSON.stringify(x)).join(',')})`); return Promise.resolve(); };
     },
   });
+  const speak = (id: string) => { said.push(id); log.push(`say ${id}`); };
   const teller: Teller = {
-    say: async id => { said.push(id); },
-    num: async (_, id) => { if (id) said.push(id); const n = child.nums.shift(); if (n == null) throw new Error('the lesson asked for more numbers than this child has'); log.push(`num ${n}`); return n; },
-    pick: async (_, choices, id) => { if (id) said.push(id); const p = child.picks.shift() ?? choices[0].id; log.push(`pick ${p}`); return p as never; },
+    say: async id => { speak(id); },
+    num: async (_, id) => { if (id) speak(id); const n = child.nums.shift() ?? (id === 'ep.crate.total' ? 20 : null); if (n == null) throw new Error('the lesson asked for more numbers than this child has'); log.push(`num ${n}`); return n; },
+    pick: async (_, choices, id) => { if (id) speak(id); const p = child.picks.shift() ?? choices[0].id; log.push(`pick ${p}`); return p as never; },
     hands: async (_, job) => { await job(); },
-    go: async () => {}, wait: async () => {},
+    go: async l => { log.push(`go ${l}`); }, wait: async () => {},
     buddy: () => {}, pal: () => {}, thought: (w, t) => { if (t) log.push(`${w} thinks ${t}`); }, myBet: () => {}, beat: () => {},
   };
   return { log, said, world, teller };
 }
 const countOf = (log: string[], name: string) => log.filter(l => l.startsWith(name)).length;
+
+/** The run as the rules see it. */
+const stepsOf = (log: string[]): Step[] => log.flatMap((l): Step[] => {
+  if (l.startsWith('say ')) return [{ k: 'say', v: l.slice(4) }];
+  if (l.startsWith('go ')) return [{ k: 'go', v: l.slice(3) }];
+  if (l.startsWith('num ') || l.startsWith('pick ')) return [{ k: 'ask', v: l }];
+  if (l.startsWith('pour') || l.startsWith('topUp')) return [{ k: 'act', v: l }];
+  if (l.startsWith('writeSum')) return [{ k: 'answer', v: l }];
+  return [];
+});
 
 describe('a crate, in numbers', () => {
   const d: Dims = { l: 5, w: 3, h: 2 };
@@ -113,6 +126,67 @@ describe('the lesson, played by every kind of child', () => {
     await CRATE_LESSON.check(p.teller, p.world, { first: 12 });
     expect(countOf(p.log, 'sweep("w")')).toBe(1);
     expect(CRATE_LESSON.card({ first: 12 })[0]).toContain('12');
+  });
+});
+
+describe('the lesson rules (docs/lesson-rules.md)', () => {
+  const kids: Record<string, Child> = {
+    'wrong every time': { nums: [12, 20, 13, 18, 72 + 5], picks: ['more', 'cubes', 'layers'], faces: ['side', 'top'] },
+    'too many every time': { nums: [99, 99, 99, 200, 200], picks: ['fewer', 'layers'], faces: ['top'] },
+    'right every time': { nums: [30, 30, 72], picks: ['same', 'layers'], faces: ['top'] },
+    'guesses what the buddy guesses': { nums: [10, 10, 30, 72], picks: ['same', 'layers'], faces: ['top'] },
+    'guesses what Prism guesses': { nums: [15, 15, 30, 72], picks: ['same', 'layers'], faces: ['top'] },
+  };
+  const announces = /\.try\./;
+  for (const [name, kid] of Object.entries(kids)) it(`a child who is ${name}: every try named, explained, and every answer waits`, async () => {
+    const p = pretend({ ...kid, nums: [...kid.nums, 30, 30, 30, 30], picks: [...kid.picks], faces: [...kid.faces] });
+    await CRATE_LESSON.play(p.teller, p.world);
+    expect(scriptProblems({ steps: stepsOf(p.log), announces })).toEqual([]);
+  });
+  it('the next day too', async () => {
+    for (const nums of [[60], [12, 60], [12, 13]]) {
+      const p = pretend({ nums, picks: [], faces: [] });
+      await CRATE_LESSON.check(p.teller, p.world, { first: 12 });
+      expect(scriptProblems({ steps: stepsOf(p.log), announces })).toEqual([]);
+      expect(p.log.some(l => l.startsWith('writeSum'))).toBe(true);
+    }
+  });
+  it('a crate that was guessed wrong twice says so before it works it out, and shows the working', async () => {
+    const p = pretend({ nums: [12, 20, 13, 18, 77, 30], picks: ["more", "layers"], faces: ["top"] });
+    await CRATE_LESSON.play(p.teller, p.world);
+    const at = p.said.indexOf('ep.crate.together');
+    expect(at).toBeGreaterThan(-1);
+    expect(p.said.slice(at + 1, at + 5)).toEqual(['ep.crate.shut.row', 'ep.crate.shut.floor', 'ep.crate.shut.up', 'ep.crate.shut.answer']);
+    expect(p.said).toContain('ep.crate.total.no');
+  });
+  it('a guess of exactly the floor gets credit for the right first step, and a nudge from there', async () => {
+    const p = pretend({ nums: [12, 20, 13, 18, 72, 20], picks: ['more', 'layers'], faces: ['top'] });
+    await CRATE_LESSON.play(p.teller, p.world);
+    expect(p.said).toContain('ep.crate.few.floor');
+    expect(p.said).toContain('ep.crate.again.floor');
+  });
+  it('every child types a total of their own, even after being helped', async () => {
+    const p = pretend({ nums: [12, 20, 13, 18, 77, 20], picks: ['more', 'layers'], faces: ['top'] });
+    await CRATE_LESSON.play(p.teller, p.world);
+    expect(p.said).toContain('ep.crate.total');
+    expect(p.said).not.toContain('ep.crate.total.no');
+  });
+  it('every line can stand up to the words rules', () => {
+    expect(lineProblems(BEAT_LINES)).toEqual([]);
+  });
+  it('the checks catch the mistakes they exist for', () => {
+    expect(scriptProblems({ announces, steps: [{ k: 'act', v: 'pour(12)' }, { k: 'say', v: 'x' }] })[0]).toMatch(/rule 6/);
+    expect(scriptProblems({ announces, steps: [{ k: 'say', v: 'a.try.you' }, { k: 'act', v: 'pour(12)' }, { k: 'act', v: 'pour(3)' }] }).join()).toMatch(/rule 8/);
+    expect(scriptProblems({ announces, steps: [{ k: 'answer', v: 'sum' }, { k: 'say', v: 'x' }, { k: 'ask', v: 'num 3' }] })[0]).toMatch(/rule 11/);
+    expect(lineProblems([{ id: 'x', voice: 'coach', text: 'Loose cubes crack!', said: 'Loose cubes crack!' }])[0]).toMatch(/rule 4/);
+  });
+  it('writes the script out for a cold read, when asked (rule 21)', async () => {
+    const out = process.env.COLD_READ;
+    if (!out) return;
+    const p = pretend({ nums: [12, 20, 13, 18, 77, 30], picks: ['more', 'cubes', 'layers'], faces: ['side', 'top'] });
+    await CRATE_LESSON.play(p.teller, p.world);
+    const text = (id: string) => BEAT_LINES.find(l => l.id === id)?.text ?? id;
+    writeFileSync(out, p.log.map(l => l.startsWith('say ') ? `SAID: ${text(l.slice(4))}` : `(picture or child: ${l})`).join('\n'));
   });
 });
 

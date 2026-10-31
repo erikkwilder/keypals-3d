@@ -1113,7 +1113,7 @@
   },
   "ep.crate.intro": {
     "voice": "coach",
-    "ms": 6141
+    "ms": 8830
   },
   "ep.crate.watch": {
     "voice": "coach",
@@ -1121,55 +1121,79 @@
   },
   "ep.crate.job": {
     "voice": "coach",
-    "ms": 2684
+    "ms": 7922
   },
   "ep.crate.guess": {
     "voice": "coach",
-    "ms": 1922
+    "ms": 4016
+  },
+  "ep.crate.try.you": {
+    "voice": "coach",
+    "ms": 1671
   },
   "ep.crate.few": {
     "voice": "coach",
-    "ms": 4889
+    "ms": 7413
   },
   "ep.crate.over": {
     "voice": "coach",
-    "ms": 4749
+    "ms": 4939
   },
   "ep.crate.right": {
     "voice": "coach",
-    "ms": 4749
+    "ms": 5478
   },
   "ep.crate.lucky": {
     "voice": "coach",
-    "ms": 2100
+    "ms": 6176
   },
   "ep.crate.measure": {
     "voice": "coach",
-    "ms": 2420
+    "ms": 5094
   },
   "ep.crate.three": {
     "voice": "coach",
-    "ms": 2180
+    "ms": 8232
   },
   "ep.crate.bets": {
     "voice": "coach",
-    "ms": 6770
+    "ms": 4305
+  },
+  "ep.crate.try.buddy": {
+    "voice": "coach",
+    "ms": 6820
+  },
+  "ep.crate.try.pal": {
+    "voice": "coach",
+    "ms": 8431
+  },
+  "ep.crate.try.both.buddy": {
+    "voice": "coach",
+    "ms": 3338
+  },
+  "ep.crate.try.both.pal": {
+    "voice": "coach",
+    "ms": 3632
+  },
+  "ep.crate.try.last": {
+    "voice": "coach",
+    "ms": 1502
   },
   "ep.crate.added": {
     "voice": "coach",
-    "ms": 4211
+    "ms": 9788
   },
   "ep.crate.floored": {
     "voice": "coach",
-    "ms": 6406
+    "ms": 6231
   },
   "ep.crate.build": {
     "voice": "coach",
-    "ms": 2080
+    "ms": 7378
   },
   "ep.crate.why": {
     "voice": "coach",
-    "ms": 2021
+    "ms": 5149
   },
   "ep.crate.row": {
     "voice": "coach",
@@ -1177,11 +1201,11 @@
   },
   "ep.crate.rows": {
     "voice": "coach",
-    "ms": 6286
+    "ms": 6974
   },
   "ep.crate.layer": {
     "voice": "coach",
-    "ms": 2075
+    "ms": 6406
   },
   "ep.crate.up": {
     "voice": "coach",
@@ -1189,43 +1213,167 @@
   },
   "ep.crate.name": {
     "voice": "coach",
-    "ms": 1876
+    "ms": 9404
   },
   "ep.crate.tip": {
     "voice": "coach",
-    "ms": 2071
+    "ms": 8012
+  },
+  "ep.crate.tip.do": {
+    "voice": "coach",
+    "ms": 2095
   },
   "ep.crate.same": {
     "voice": "coach",
-    "ms": 1781
+    "ms": 3971
+  },
+  "ep.crate.same.you": {
+    "voice": "coach",
+    "ms": 5223
   },
   "ep.crate.shut": {
     "voice": "coach",
-    "ms": 1846
+    "ms": 12537
   },
-  "ep.crate.help": {
+  "ep.crate.try.seen": {
     "voice": "coach",
-    "ms": 2524
-  },
-  "ep.crate.off": {
-    "voice": "coach",
-    "ms": 1367
+    "ms": 11524
   },
   "ep.crate.seen": {
     "voice": "coach",
-    "ms": 5902
+    "ms": 6895
   },
-  "ep.crate.two": {
+  "ep.crate.again": {
     "voice": "coach",
-    "ms": 5827
+    "ms": 6451
+  },
+  "ep.crate.together": {
+    "voice": "coach",
+    "ms": 4720
+  },
+  "ep.crate.shut.row": {
+    "voice": "coach",
+    "ms": 4575
+  },
+  "ep.crate.shut.floor": {
+    "voice": "coach",
+    "ms": 7299
+  },
+  "ep.crate.shut.up": {
+    "voice": "coach",
+    "ms": 4809
+  },
+  "ep.crate.shut.answer": {
+    "voice": "coach",
+    "ms": 11504
+  },
+  "ep.crate.shut.why": {
+    "voice": "coach",
+    "ms": 8197
+  },
+  "ep.crate.check.row": {
+    "voice": "coach",
+    "ms": 4809
+  },
+  "ep.crate.check.floor": {
+    "voice": "coach",
+    "ms": 6855
+  },
+  "ep.crate.check.up": {
+    "voice": "coach",
+    "ms": 4829
+  },
+  "ep.crate.check.answer": {
+    "voice": "coach",
+    "ms": 10611
+  },
+  "ep.crate.check.why": {
+    "voice": "coach",
+    "ms": 7528
+  },
+  "ep.crate.help": {
+    "voice": "coach",
+    "ms": 8935
   },
   "ep.crate.face": {
     "voice": "coach",
-    "ms": 4442
+    "ms": 6605
+  },
+  "ep.crate.face.yes": {
+    "voice": "coach",
+    "ms": 5772
+  },
+  "ep.crate.other": {
+    "voice": "coach",
+    "ms": 4226
+  },
+  "ep.crate.two": {
+    "voice": "coach",
+    "ms": 8092
+  },
+  "ep.crate.two.yes": {
+    "voice": "coach",
+    "ms": 4236
+  },
+  "ep.crate.buddy.done": {
+    "voice": "coach",
+    "ms": 9773
+  },
+  "ep.crate.off": {
+    "voice": "coach",
+    "ms": 6610
+  },
+  "ep.crate.sum": {
+    "voice": "coach",
+    "ms": 13295
+  },
+  "ep.crate.few.floor": {
+    "voice": "coach",
+    "ms": 7962
+  },
+  "ep.crate.again.floor": {
+    "voice": "coach",
+    "ms": 9454
+  },
+  "ep.crate.layer.yes": {
+    "voice": "coach",
+    "ms": 5488
+  },
+  "ep.crate.layer.no": {
+    "voice": "coach",
+    "ms": 9010
+  },
+  "ep.crate.total": {
+    "voice": "coach",
+    "ms": 4420
+  },
+  "ep.crate.total.no": {
+    "voice": "coach",
+    "ms": 6017
+  },
+  "ep.crate.snack": {
+    "voice": "coach",
+    "ms": 3856
+  },
+  "ep.crate.make": {
+    "voice": "coach",
+    "ms": 7827
+  },
+  "ep.crate.help.tap": {
+    "voice": "coach",
+    "ms": 5907
+  },
+  "ep.crate.roll": {
+    "voice": "coach",
+    "ms": 6261
+  },
+  "ep.crate.same.why": {
+    "voice": "coach",
+    "ms": 11170
   },
   "ep.crate.check": {
     "voice": "coach",
-    "ms": 2175
+    "ms": 10382
   },
   "ep.dec-coins.intro": {
     "voice": "coach",
