@@ -23,7 +23,7 @@ function ac(): AudioContext | null {
   } catch { return null; }
 }
 type T = { type?: OscillatorType; dur?: number; gain?: number; delay?: number; slideTo?: number; attack?: number };
-function tone(freq: number, o: T = {}) {
+export function tone(freq: number, o: T = {}) {
   const c = ac(); if (!c) return;
   const t0 = c.currentTime + (o.delay ?? 0), dur = o.dur ?? 0.12;
   const osc = c.createOscillator(), g = c.createGain();
@@ -32,7 +32,7 @@ function tone(freq: number, o: T = {}) {
   g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(o.gain ?? 0.1, t0 + (o.attack ?? 0.005)); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   osc.connect(g); g.connect(out!); osc.start(t0); osc.stop(t0 + dur + 0.05);
 }
-function noise(dur: number, o: { gain?: number; freq?: number; q?: number; delay?: number; sweepTo?: number; attack?: number } = {}) {
+export function noise(dur: number, o: { gain?: number; freq?: number; q?: number; delay?: number; sweepTo?: number; attack?: number } = {}) {
   const c = ac(); if (!c) return;
   const t0 = c.currentTime + (o.delay ?? 0);
   const buf = c.createBuffer(1, Math.max(1, Math.floor(c.sampleRate * dur)), c.sampleRate), d = buf.getChannelData(0);

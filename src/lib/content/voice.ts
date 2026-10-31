@@ -924,6 +924,26 @@ export const BUDDY_LINES: Line[] = BUDDY_WORDS.flatMap(([k, text, said]) => BUDD
 export const buddyText = (key: string) => BUDDY_WORDS.find(w => w[0] === key)?.[1] ?? '';
 
 /** Every Learn line, the coach's and the buddies'. */
-export const LEARN_LINES: Line[] = [...EPISODE_LINES, ...MARKET_EPISODE_LINES, ...FRACTION_LINES, ...MEASURE_EPISODE_LINES, ...SHAPE_EPISODE_LINES, ...RATIO_LINES, ...NEGATIVE_LINES, ...DATA_EPISODE_LINES, ...ALGEBRA_EPISODE_LINES, ...BUDDY_LINES];
+// The beat lessons (math/beats): as few words as the film allows, written for the ear. Each is said as an
+// exclamation, the way Erik liked best. Nothing here says a sum or an answer before the child has found it.
+export const BEAT_LINES: Line[] = [
+  ep('ep.crate.job', 'Loose cubes crack! Pack this crate full!'),
+  ep('ep.crate.guess', 'How many cubes? Take a guess!'),
+  ep('ep.crate.lucky', 'Full! Was that luck? Measure it!'),
+  ep('ep.crate.measure', 'Guessing wastes crystal! Measure it!'),
+  ep('ep.crate.three', 'You measured it! How many cubes?'),
+  ep('ep.crate.build', 'Not full yet! Build it and see!'),
+  ep('ep.crate.why', 'Full! Now build it and see why!'),
+  ep('ep.crate.layer', 'One more layer! How many in all?'),
+  ep('ep.crate.name', 'That count has a name! Volume!'),
+  ep('ep.crate.tip', 'Stand it on end! More, or the same?'),
+  ep('ep.crate.same', 'Same cubes! New layers!'),
+  ep('ep.crate.shut', 'This one is shut! How many?'),
+  ep('ep.crate.help', 'Your buddy is stuck! Show it the start!'),
+  ep('ep.crate.off', 'Not one rattle!'),
+  ep('ep.crate.check', 'A new crate, shut tight! How many?'),
+];
+
+export const LEARN_LINES: Line[] = [...EPISODE_LINES, ...BEAT_LINES, ...MARKET_EPISODE_LINES, ...FRACTION_LINES, ...MEASURE_EPISODE_LINES, ...SHAPE_EPISODE_LINES, ...RATIO_LINES, ...NEGATIVE_LINES, ...DATA_EPISODE_LINES, ...ALGEBRA_EPISODE_LINES, ...BUDDY_LINES];
 
 export const ALL_LINES: Line[] = [...HOME_TUTORIAL, ...LESSON_LINES, ...FINGER_LINES, ...REGION_LINES, ...COACH_BARKS, ...FRIEND_LINES, ...LEARN_LINES];

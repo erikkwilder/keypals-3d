@@ -20,6 +20,8 @@ import { episodeIds } from '../lib/math/episodeIds';
 import type { FriendId } from '../lib/art/cast';
 import { MEASURE_LESSONS } from '../lib/math/measure/episodes';
 import { MeasureKit } from '../lib/three/measureKit';
+import { BEAT_LESSONS } from '../lib/math/beats/lessons';
+import type { CrateKit } from '../lib/three/crateKit';
 
 const TY = 0.48;
 /** how far one thing may go into another before it counts (metres): a touch, a hand resting on the work */
@@ -168,7 +170,28 @@ export async function epOverlap(only?: string[], buddy?: FriendId): Promise<{ co
     }
     kit.dispose(); s.dispose();
   }
-  return { count: issues.length, episodes: ids.length + mids.length, pictures, issues };
+  // the beat lessons: every still picture of their worlds, against the friends and the table
+  const bids = BEAT_LESSONS.map(l => l.id).filter(id => !only || only.includes(id));
+  for (const id of bids) {
+    const l = BEAT_LESSONS.find(x => x.id === id)!;
+    const s = await EpisodeScene.create({ setId: l.set, buddy: me, star: l.star });
+    const w = await l.world(s) as unknown as CrateKit;
+    await w.load();
+    s.show({ cell: 48, dots: [], frames: [], plates: [], line: null, tags: [] }, true);
+    s.fit(w.bounds()); w.refit();
+    for (const name of w.poses) {
+      w.pose(name);
+      for (let i = 0; i < 90; i++) { t += 1 / 30; s.update(1 / 30, t); w.update(1 / 30, t); }
+      pictures++;
+      const parts = w.things(), extra: Thing[] = [];
+      const pile = new THREE.Box3();
+      for (const p of parts) { const box = solidBox(p.obj); if (!box) continue; if (p.name === 'crate') extra.push({ name: 'crate', kind: 'piece', box, obj: p.obj }); else pile.union(box); }
+      if (!pile.isEmpty()) extra.push({ name: 'pile of spilled cubes', kind: 'piece', box: pile, obj: parts[0].obj });
+      issues.push(...checkNow(s, id, name, extra));
+    }
+    w.dispose(); s.dispose();
+  }
+  return { count: issues.length, episodes: ids.length + mids.length + bids.length, pictures, issues };
 }
 
 /** Put one picture of an episode on the stage to look at (pic: 'step 1'.., "buddy's go", 'try 1'..). Returns

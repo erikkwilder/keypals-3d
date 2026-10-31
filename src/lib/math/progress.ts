@@ -44,6 +44,8 @@ export type MathProgress = {
   learned?: string[];
   /** the day each trick was learned (dayKey), for the quick check the next day */
   learnedOn?: Record<string, string>;
+  /** what a lesson keeps about this child, by lesson id (a first guess: math/beats) */
+  lessonNotes?: Record<string, Record<string, number>>;
   /** the tricks whose next-day quick check is done */
   checked?: string[];
   /** each fact's stage the last time the Fact Garden was opened, so new growth can pop in */

@@ -285,6 +285,8 @@ export function epLesson(id: string, rung?: number): EpLesson | null {
  *  base's), then its own three questions as usual. */
 export const TRIMS: Record<string, { base: string; steps: number; title?: string }> = {
   'pv-big-numbers~hundred': { base: 'pv-big-numbers', steps: 2, title: 'A Hundred Is Ten Tens' },
+  // the classic version of a lesson rebuilt as a beat lesson, kept to compare (ui/Episode.svelte)
+  'sh-boxes~old': { base: 'sh-boxes', steps: 99 },
 };
 /** The episode whose words a (trimmed) episode speaks. */
 export const voiceBase = (id: string) => TRIMS[id]?.base ?? id;
