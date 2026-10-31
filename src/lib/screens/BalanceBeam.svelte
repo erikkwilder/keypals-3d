@@ -176,6 +176,8 @@
     if (phase === 'play') { phase = 'menu'; z = null; msg = null; scene?.clear(); return; }
     exits.back();
   }
+  // (for checking the end card quickly: __gameEnd() ends the round now)
+  if (import.meta.env.DEV) (window as unknown as { __gameEnd: () => void }).__gameEnd = finish;
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
     if (phase === 'done' && e.key === 'Enter' && endEnter(game.profile, 'game:balance')) { e.preventDefault(); return; }

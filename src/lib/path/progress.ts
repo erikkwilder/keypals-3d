@@ -30,7 +30,7 @@ import { arcadeOf, ARCADE, type ArcadeId } from '../arcade/arcade';
 import { eventsOf, type ClassEvent } from '../teach/activity';
 import { PATH_SUBJECTS, describe, pathOf, type ItemKind, type PathItem, type Unit } from './units';
 import { lessonTicks, warmDone, warmKeys, type LessonTicks } from './lessonProgress';
-import { lessonById, sourceTrips } from './lessonTrips';
+import { lessonById, practiceTrips, sourceTrips } from './lessonTrips';
 
 /** What My path keeps in the player's save (it rides along like any other part: state/merge.ts joins two
  *  computers' copies key by key). */
@@ -169,6 +169,8 @@ export type LessonState = { id: string; title: string; ticks: LessonTicks };
 export type UnitStatus = 'done' | 'known' | 'current' | 'later' | 'earlier';
 export type UnitState = { unit: Unit; items: ItemState[]; done: number; of: number; checked: boolean; status: UnitStatus; level: Level; next: ItemState | null; lessons: LessonState[] };
 
+/** A lesson's practice was played today. */
+const practisedOn = (p: Profile, id: string, now: number) => practiceTrips(id).some(t => { const at = mathOf(p).lessons[t]?.lastAt; return !!at && dayKey(at) === dayKey(now); });
 /** One unit's items, ticked, and how far along. */
 export function unitState(p: Profile, u: Unit, o: { now?: number; since?: number; events?: ClassEvent[] } = {}): UnitState {
   const now = o.now ?? Date.now();
@@ -185,7 +187,9 @@ export function unitState(p: Profile, u: Unit, o: { now?: number; since?: number
     if (done) return { ...it, done };
     if (it.ref.startsWith('warm:') && !warmKeys(p, it.ref.slice(5), now).length) return { ...it, done, skip: 'nothing' as const };
     // a lesson known (or done) already: its own steps say "You know this"; its day's warm-up and play
-    // aren't needed, so they aren't shown ("You know this" is about lessons, not a game or a warm-up)
+    // aren't needed, so they aren't shown ("You know this" is about lessons, not a game or a warm-up).
+    // A lesson finished today keeps today's game or battle: doing well never takes the day's play away
+    if ((it.kind === 'game' || it.kind === 'battle') && it.lesson && practisedOn(p, it.lesson, now)) return { ...it, done };
     if (it.lesson && settled.has(it.lesson) && it.kind !== 'check') return { ...it, done, skip: it.kind === 'warmup' || it.kind === 'game' || it.kind === 'battle' ? 'nothing' as const : 'known' as const };
     return { ...it, done };
   });
@@ -193,7 +197,9 @@ export function unitState(p: Profile, u: Unit, o: { now?: number; since?: number
   const done = counted.filter(i => i.done).length, of = counted.length;
   const checked = items.some(i => i.kind === 'check' && i.done);
   const settledAll = counted.every(i => i.done || i.skip);
-  const status: UnitStatus = done >= of ? 'done' : checked || settledAll ? 'known' : 'later';
+  // (today's game or battle still to play: the unit is still the one to do, however well the lesson went)
+  const playing = counted.some(i => !i.done && !i.skip && (i.kind === 'game' || i.kind === 'battle') && !!i.lesson && practisedOn(p, i.lesson, now));
+  const status: UnitStatus = done >= of ? 'done' : (checked || settledAll) && !playing ? 'known' : 'later';
   return { unit: u, items, done, of, checked, status, level: unitLevel(p, u, now), next: items.find(i => !i.done && !i.skip) ?? null, lessons };
 }
 /** Every unit of a subject's path, the first one not done (and not known already) marked current. A path

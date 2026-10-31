@@ -76,14 +76,11 @@
   let visitFree = $state(adventureVisit.free);
   adventureVisit.free = false;
   const onTrail = $derived(!!journey && !visitFree && modeFor(p, holds) === 'journey');
-  /** the world on show in Free play (the trail shows its own) */
-  let freeWorld: WorldId = startWorld;
-  let world = $state<WorldId>(untrack(() => (onTrail ? journey!.world : startWorld)));
-  lastWorld.id = world;
-  $effect(() => {
-    const w = onTrail ? journey!.world : freeWorld;
-    if (w !== untrack(() => world)) { world = w; lastWorld.id = w; setPlaceStation(stationOf(w)); }
-  });
+  /** the world on show: the one picked in Free play, or the trail's own */
+  let freeWorld = $state<WorldId>(startWorld);
+  const world = $derived(onTrail ? journey!.world : freeWorld);
+  lastWorld.id = untrack(() => world);
+  $effect(() => { if (lastWorld.id !== world) { lastWorld.id = world; setPlaceStation(stationOf(world)); } });
   /** the map walker, for the big Go button */
   let walker: MapWalker | undefined = $state();
   /** Free play's door, while a grown-up or teacher holds a child to the path */
@@ -214,7 +211,7 @@
     if (subj !== tab) { subj = tab; worldSubject.id = tab; }
     if (id === 'sky' && a.subject !== tab) game.update(pp => { advOf(pp).subject = tab; });
     if (id === world) return;
-    world = id; freeWorld = id; lastWorld.id = id;
+    freeWorld = id; lastWorld.id = id;
     setPlaceStation(stationOf(id));
     reach(id);
     if (id !== 'sky' && !a.seen?.includes(`world-${id}`)) { game.say(`Welcome to ${w.name}! ${w.blurb}`); game.update(pp => markSeen(pp, `world-${id}`)); }
@@ -275,7 +272,7 @@
   <div class="mapwrap" bind:this={wrap} style:--bg="url({new URL(`${base}${wmap[kind]}`, document.baseURI).href})">
     <div class="backdrop"></div>
     <!-- WALK: the map you walk round with your buddy (trails, stops, finds, the 3D buddy): ui/MapWalker.svelte -->
-    <MapWalker bind:this={walker} {world} {kind} {tall} paused={!!open || picker || intro >= 0 || !!arrival || !!shut} onopen={tap} journey={onTrail ? journey : null} onstop={startStop} />
+    <MapWalker bind:this={walker} {world} {kind} {tall} paused={!!open || picker || intro >= 0 || !!arrival || !!shut} onopen={tap} journey={onTrail ? journey : null} onstop={startStop} noFinds={holds} />
     {#if journey}
       <!-- the two ways to play, side by side -->
       <div class="modes" role="tablist" aria-label="How to play">
@@ -690,6 +687,7 @@
   .tall .dock :global(.tile) { width: calc((100vw - 36px) / 5); max-width: 96px; min-width: 0; height: 84px; padding: 6px 2px; gap: 2px; }
   /* on a phone the picture box shrinks so the picture and its word both fit the shorter tile */
   .tall .dock :global(.tile .pic) { width: 46px !important; height: 46px !important; }
+  .tall .dock :global(.tile .lbl) { font-size: 14.5px; }
   .tall .faces img { width: 34px; height: 34px; }
   .tall .faces img + img { margin-left: -12px; }
   .tall .modes { top: 8px; left: 10px; transform: none; padding: 4px; } .tall .modes button { font-size: 16px; padding: 3px 12px 3px 4px; gap: 5px; } .tall .modes img { width: 28px; height: 28px; }
@@ -697,10 +695,10 @@
   .tall .jinfo { left: 10px; right: 10px; top: 58px; max-width: none; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 8px; padding: 5px 12px 7px; border-radius: 14px; }
   .tall .jinfo b { font-size: 16px; } .tall .jinfo small { font-size: 10.5px; } .tall .jbar { flex: 1 1 100%; height: 7px; margin-top: 3px; }
   .tall .nextstop { flex: 1; width: auto; gap: 8px; padding: 6px 8px; border-radius: 20px; }
-  .tall .nextstop > img { width: 48px; height: 48px; padding: 5px; }
-  .tall .nst small { font-size: 10px; } .tall .nst b { font-size: 17px; }
-  .tall .gogo { font-size: 17px; padding: 9px 10px; border-radius: 14px; }
-  .tall .dock:not(.solo) .nextstop .gogo { display: none; }
+  .tall .nextstop > img { width: 40px; height: 40px; padding: 4px; }
+  .tall .nst small { font-size: 9.5px; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .tall .nst b { font-size: 16px; }
+  .tall .dock:not(.solo) .nextstop { min-width: 0; flex: 1 1 0; gap: 5px; padding: 6px 6px; }
+  .tall .gogo { font-size: 15px; padding: 7px 8px; border-radius: 12px; }
   .tall .arrive { top: 16%; padding: 8px 16px 8px 8px; } .tall .arrive b { font-size: 20px; } .tall .arrive small { font-size: 13.5px; }
   .tall .oddrow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tall .odd img { width: 26px; height: 32px; } .tall .odd span { font-size: 12px; }

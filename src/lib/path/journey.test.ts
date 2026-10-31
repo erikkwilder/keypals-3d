@@ -93,6 +93,32 @@ describe('one progress', () => {
     notePath(p, NOW);
     expect(stopsOf(unitState(p, u, { now: NOW })).find(s => s.item.ref === ep.ref)!.done).toBe(true);
   });
+  it('doing well never takes the day\'s battle or game away: a lesson finished today keeps its play today, on both', () => {
+    const p = kid(), u = fractions();
+    const day2 = u.items.filter(i => i.day === 2), id = day2.find(i => i.ref.startsWith('trip:'))!.ref.split(':')[1];
+    const lesson = day2.find(i => i.ref.startsWith('trip:'))!.lesson!;
+    played(p, id, 3, 1);
+    const m = (p.math = mathOf(p));
+    m.lessons[`${id}-qc`] = { stars: 3, bestScore: 10, bestFpm: 10, bestAcc: 1, bestRide: 1, attempts: 1, finishes: 1, passes: 1, lastAt: NOW };
+    const battle = u.items.find(i => i.kind === 'battle' && i.lesson === lesson)!;
+    const today = unitState(p, u, { now: NOW });
+    expect(today.lessons.find(l => l.id === lesson)!.ticks.done || today.lessons.find(l => l.id === lesson)!.ticks.known).toBeTruthy();
+    expect(today.items.find(i => i.ref === battle.ref)!.skip).toBeUndefined();
+    expect(stopsOf(today).some(s => s.item.ref === battle.ref)).toBe(true);
+    // (the next day it's behind them: a lesson done before doesn't hold the unit open)
+    expect(unitState(p, u, { now: NOW + 86400000 }).items.find(i => i.ref === battle.ref)!.skip).toBe('nothing');
+  });
+  it('a one-lesson unit done well in one go still has today\'s game before the path moves on', () => {
+    const p = kid(), u = pathOf('math').find(x => x.id === 'math:GK-U3')!;
+    const trip = u.items.find(i => i.ref.startsWith('trip:'))!, id = trip.ref.split(':')[1];
+    played(p, id, 3, 1);
+    const m = (p.math = mathOf(p));
+    m.lessons[`${id}-qc`] = { stars: 3, bestScore: 10, bestFpm: 10, bestAcc: 1, bestRide: 1, attempts: 1, finishes: 1, passes: 1, lastAt: NOW };
+    const st = pathStates(p, 'math', NOW).find(s => s.unit.id === u.id)!;
+    expect(st.status).toBe('current');
+    expect(st.next!.kind).toBe('game');
+    expect(pathStates(p, 'math', NOW + 86400000).find(s => s.unit.id === u.id)!.status).not.toBe('current');
+  });
   it('a lesson shown known already is passed on the trail too', () => {
     const p = kid(), u = fractions();
     const id = u.lessons![0];

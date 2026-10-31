@@ -448,6 +448,8 @@
     game.update(pp => { out = applyBattle(pp, { node: node.id, subject, won: false, perfect: false, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, skillAnswers: b.skillAnswers, team: team.map(t => t.id), crystal: false, treasureNose: false, at: Date.now(), seed }); });
   }
   function toMap() { game.leaveActivity(); }
+  // (for checking the end cards quickly: __fight.win(), __fight.lose())
+  if (import.meta.env.DEV) (window as unknown as { __fight: unknown }).__fight = { win: () => won(false), lose: lost };
   // started from the path: its next thing on the end card, or back to the trail from a Journey stop. Play again
   // stays away from a stop on the trail and from a child kept to the path: a battle there is one step, not
   // the way into free battles

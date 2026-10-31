@@ -14,9 +14,11 @@
   let { activity, exits, daily, onagain, before }: Props = $props();
   const next = $derived(pathNext(game.profile, activity));
   const again = $derived(mayRepeat(game.profile, activity));
+  /** (a phone has no Enter key to show) */
+  const keys = innerWidth >= 700;
 </script>
 
-{#if next}<PathNextButton {next} compact wide hotkey="enter" />{/if}
+{#if next}<PathNextButton {next} compact wide hotkey={keys ? 'enter' : undefined} />{/if}
 {#if !next?.trail}<ExitButtons {exits} {before} />{/if}
 {#if again}
   {#if !daily}<button class="btn" onclick={() => onagain(true)}>Today's challenge</button>{/if}

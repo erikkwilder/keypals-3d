@@ -259,6 +259,8 @@
     builderOpen.toy = false;
     exits.back();
   }
+  // (for checking the end card quickly: __gameEnd() ends the round now)
+  if (import.meta.env.DEV) (window as unknown as { __gameEnd: () => void }).__gameEnd = finish;
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
     if (phase === 'done' && e.key === 'Enter' && endEnter(game.profile, 'game:builder')) { e.preventDefault(); return; }

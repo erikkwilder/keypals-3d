@@ -24,8 +24,8 @@
   import BonusRound from './BonusRound.svelte';
   import { STOP_ICON, STOP_WORD, type Journey, type TrailStop } from '../path/journey';
 
-  type Props = { world: WorldId; kind: MapKind; tall: boolean; paused?: boolean; onopen: (n: MapNode) => void; journey?: Journey | null; onstop?: (s: TrailStop) => void };
-  let { world, kind, tall, paused = false, onopen, journey = null, onstop }: Props = $props();
+  type Props = { world: WorldId; kind: MapKind; tall: boolean; paused?: boolean; onopen: (n: MapNode) => void; journey?: Journey | null; onstop?: (s: TrailStop) => void; noFinds?: boolean };
+  let { world, kind, tall, paused = false, onopen, journey = null, onstop, noFinds = false }: Props = $props();
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
@@ -306,8 +306,9 @@
     if (!Number.isFinite(d)) { d = 0; moving = false; }
     const [bx, by] = pos();
     // the camera: the buddy in the middle, the map's edges never inside the view
-    const fit = (vSize: number, mSize: number, b: number) => (mSize <= vSize ? (vSize - mSize) / 2 : Math.min(0, Math.max(vSize - mSize, vSize / 2 - b)));
-    const tx = fit(vw, mw, bx * scale), ty = fit(vh, mh, by * scale + (tall ? 0 : 20));
+    // (on the trail the map can sit lower, so a stop at the very top of a map comes out from under the unit's card)
+    const fit = (vSize: number, mSize: number, b: number, pad = 0) => (mSize <= vSize ? (vSize - mSize) / 2 : Math.min(pad, Math.max(vSize - mSize, vSize / 2 - b)));
+    const tx = fit(vw, mw, bx * scale), ty = fit(vh, mh, by * scale + (tall ? 0 : 20), journey ? (tall ? 110 : 50) : 0);
     if (!Number.isFinite(cam.x) || !Number.isFinite(cam.y)) cam.ready = false;
     const k = cam.ready ? 1 - Math.exp(-dt * 5) : 1;
     cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; cam.ready = true;
@@ -361,7 +362,9 @@
   // ---------- what's drawn ----------
   const pct = (q: Pt) => `left:${q[0]}%;top:${q[1]}%`;
   const lineOf = (pts: Pt[]) => pts.map((q, i) => `${i ? 'L' : 'M'}${((q[0] / 100) * size[0]).toFixed(1)} ${((q[1] / 100) * size[1]).toFixed(1)}`).join(' ');
-  const trails = $derived(tr.edges.filter(e => usable(ctx, e)).map(e => ({ id: e.id, d: lineOf(legPoints(tr, e, e.a, kind)), on: journey ? journey.way.has(e.a) || journey.way.has(e.b) : home.has(e.a) && home.has(e.b) })));
+  // (on the trail, a side trail only shows with its find)
+  const isFind = (id: string) => { const k = tr.point[id].kind; return k === 'chest' || k === 'bonus' || k === 'hidden'; };
+  const trails = $derived(tr.edges.filter(e => usable(ctx, e) && (!journey || ![e.a, e.b].some(id => isFind(id) && !finds.includes(tr.point[id])))).map(e => ({ id: e.id, d: lineOf(legPoints(tr, e, e.a, kind)), on: journey ? journey.way.has(e.a) || journey.way.has(e.b) : home.has(e.a) && home.has(e.b) })));
   /** a gate on each trail from where you can walk into a stop that isn't open yet */
   const gates = $derived(journey ? [] : tr.edges.flatMap(e => {
     const from = home.has(e.a) && locked(ctx, e.b) ? e.a : home.has(e.b) && locked(ctx, e.a) ? e.b : null;
@@ -370,8 +373,8 @@
     return [{ id: e.id, at: [(g[0] / size[0]) * 100, (g[1] / size[1]) * 100] as Pt }];
   }));
   const stops = $derived(tr.points.filter(q => q.kind === 'stop'));
-  // (on the trail: the side trails it passes, none past the lit stop)
-  const finds = $derived(tr.points.filter(q => (q.kind === 'chest' || q.kind === 'bonus' || (q.kind === 'hidden' && hiddenFound(a, q.id))) && (!journey || (tr.out[q.id] ?? []).some(e => usable(ctx, e) && home.has(other(e, q.id))))));
+  // (on the trail: the side trails it passes, none past the lit stop; none on a day kept to the path)
+  const finds = $derived(noFinds ? [] : tr.points.filter(q => (q.kind === 'chest' || q.kind === 'bonus' || (q.kind === 'hidden' && hiddenFound(a, q.id))) && (!journey || (tr.out[q.id] ?? []).some(e => usable(ctx, e) && home.has(other(e, q.id))))));
   const kindName = { battle: 'Battle', practice: 'Practice', champion: 'Champion' };
   const bubble = $derived.by(() => {
     if (!here || paused || journey) return null;
@@ -491,7 +494,7 @@
   .jstop.ahead img { filter: grayscale(.75) opacity(.72); }
   .jstop.done .disc { box-shadow: 0 0 0 3px #fff, 0 0 0 5px #2fbf73, 0 4px 8px -2px rgba(40, 20, 10, .45); }
   .jstop.done img { filter: saturate(.7) opacity(.8); }
-  .jstop.lit { scale: 1.22; z-index: 3; animation: litin .5s cubic-bezier(.3, .8, .4, 1.6); }
+  .jstop.lit { scale: 1.22; z-index: 4; animation: litin .5s cubic-bezier(.3, .8, .4, 1.6); }
   .jstop.lit .disc { animation: lit 1.4s ease-in-out infinite; }
   @keyframes lit { 50% { box-shadow: 0 0 0 3px #fff, 0 0 0 6px #ffc93d, 0 0 26px 10px rgba(255, 220, 110, .95); } }
   @keyframes litin { from { scale: .6; } }
