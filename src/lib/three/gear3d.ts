@@ -16,7 +16,7 @@ import { loadGltf } from './assets';
 import { NO_NUDGE, nudgeNow, type Nudge, type WearSlot } from '../adventure/gear';
 import { LIB } from '../adventure/wardrobe';
 import { VIBE } from '../adventure/vibes';
-import { COLOUR, colourSoon } from '../adventure/colours';
+import { COLOUR } from '../adventure/colours';
 type Slot = WearSlot;
 
 type Worn = { id: string; objs: THREE.Object3D[]; tick?: (dt: number, t: number) => void; nz: { v: Nudge }; onNudge: (() => void)[]; follow: (() => void)[]; conv?: number };
@@ -1120,7 +1120,7 @@ function takeOff(w: { objs: THREE.Object3D[] }) {
  *  it. Safe to call again while one is still loading. */
 export async function wearGear(c: Character, slot: Slot, id: string | null, nudge: Nudge | null = null) {
   // a colour isn't a thing to wear: it paints the buddy itself
-  if (slot === 'colour') { c.setColour(id && !colourSoon(c.id) ? COLOUR[id] ?? null : null); return; }
+  if (slot === 'colour') { c.setColour(id ? COLOUR[id] ?? null : null); return; }
   const rig = rigOf(c);
   const cur = rig.worn[slot];
   if ((cur?.id ?? null) === id && rig.want[slot] === undefined) {
