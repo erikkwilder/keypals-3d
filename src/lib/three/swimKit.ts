@@ -115,7 +115,7 @@ export async function swimKit(c: Character, env: { ghost?: THREE.Material | null
     const frame = gloss(0x0f5fd6, 0.3), glass = gloss(0x8fe3ff, 0.08, { metalness: 0.2, emissive: 0x1a6a9a, emissiveIntensity: 0.55 }), shineMat = gloss(0xffffff, 0.2, { emissive: 0xffffff, emissiveIntensity: 0.7 });
     const g = new THREE.Group(), lens0 = keep(new THREE.CircleGeometry(lensR, 22)), rim0 = keep(new THREE.TorusGeometry(lensR, lensR * 0.24, 8, 26)), shine0 = keep(new THREE.CircleGeometry(lensR * 0.3, 10));
     // a big round lens each side of the face, turned out so it shows from the side as well as the front
-    const rx = hr.rx * 1.06, rz = hr.rz * 1.06, along = 0.6;
+    const rx = hr.rx * 1.06, rz = hr.rz * 1.06, along = 0.42;
     for (const sd of [-1, 1]) {
       const zz = along * rz, xx = sd * rx * Math.sqrt(1 - along * along), n = new THREE.Vector3(xx / (rx * rx), 0, zz / (rz * rz)).normalize();
       const pot = new THREE.Group(); pot.position.set(hr.cx + xx, hd.eyes, hr.cz + zz); pot.quaternion.setFromUnitVectors(Z, n);
@@ -192,7 +192,7 @@ export async function swimKit(c: Character, env: { ghost?: THREE.Material | null
   }));
   const wakeMat = keep(new THREE.MeshBasicMaterial({ map: wakeMap, transparent: true, depthWrite: false, opacity: 0 }));
   const wake = new THREE.Mesh(keep(new THREE.PlaneGeometry(1, 1)), wakeMat); wake.rotation.x = -Math.PI / 2; wake.visible = !env.ghost; wake.renderOrder = 1; fx.add(wake);
-  const spray = env.ghost ? null : new Spray(fx, 110, 0.72), streaks = env.ghost ? null : new Streaks(fx, 12, 0xffffff, [5, 0.02, 2.6], 0.12);
+  const spray = env.ghost ? null : new Spray(fx, 110, 0.72), streaks = env.ghost ? null : new Streaks(fx, 12, 0xffffff, [5, 0.02, 1.6], 0.12);
 
   // ---------- the six poses ----------
   const S = { x: 0, t: 0, v: 0, m: 0, z: 0, kick: 0, stroke: 0, leap: 0, paddle: 0, sw: 0 };
@@ -333,7 +333,7 @@ export async function swimKit(c: Character, env: { ghost?: THREE.Material | null
       spray.emit(v1.set(rig.position.x + x + Math.cos(a) * 0.08, 0.1, rig.position.z + z + Math.sin(a) * 0.08), Math.cos(a) * r * 0.8, up * (0.6 + Math.random() * 0.8), Math.sin(a) * r * 0.8, size * (0.35 + Math.random() * 0.45), 0.5, 0.5, 7, FOAM, 0.95);
     }
   };
-  const emitWater = (dt: number, t: number) => {
+  const emitWater = (dt: number) => {
     if (!spray) return;
     sprayT -= dt;
     const m = S.m;
@@ -364,7 +364,6 @@ export async function swimKit(c: Character, env: { ghost?: THREE.Material | null
       for (const sd of [-1, 1]) spray.emit(v1.set(rig.position.x + nose - 0.3, 0.05, rig.position.z + sd * (torpedoR + 0.06)), -S.v * 0.3 - 0.4, 1 + Math.random() * 0.8, sd * (1.2 + Math.random() * 0.8), 0.1, 0.4, 0.8, 6, FOAM);
       splash(P.lf.x - 0.2, (Math.random() - 0.5) * 0.25, 1, 1.4, 0.2);
     }
-    void t;
   };
 
   const kit: RideKit = {
@@ -408,7 +407,7 @@ export async function swimKit(c: Character, env: { ghost?: THREE.Material | null
       if (way === 0) { ring.position.set(0, P.hip.y + ringHeight - b.hy, 0); ring.rotation.set(Math.PI / 2 + Math.sin(S.t * 1.3) * 0.05, Math.sin(S.t * 1.7) * 0.05, 0); }
       if (way === 2) { float.position.set(P.lh.x - 0.05, 0.08 + S.sw, 0); float.rotation.set(0, Math.PI / 2, 0); }
       if (way === 5) { torpedo.position.set(P.lh.x + torpedoL * 0.5 + 0.1, 0.12 + S.sw, 0); prop.rotation.y = t * 30; }
-      emitWater(dt, t);
+      emitWater(dt);
       // the wake: how long and how bright each stroke leaves it
       const want = [0.2, 0.3, 0.55, 0.6, 0.15, 1][way] * S.m;
       wakeK += (want - wakeK) * Math.min(1, dt * 3);

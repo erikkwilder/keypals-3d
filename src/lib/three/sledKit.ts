@@ -182,7 +182,7 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
   for (const o of [poleLo, poleHi, ...baskets]) o.castShadow = true;
   if (env.ghost) for (const r of [...rides, rig]) r.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.material = env.ghost!; m.castShadow = false; } });
   const fx = new THREE.Group(); stage.scene.add(fx);
-  const spray = env.ghost ? null : new Spray(fx, 100), streaks = env.ghost ? null : new Streaks(fx, 14, 0x9dbdea, [5, 1.5, 3.2], 0);
+  const spray = env.ghost ? null : new Spray(fx, 100), streaks = env.ghost ? null : new Streaks(fx, 14, 0x9dbdea, [5, 1.5, 2.2], 0);
 
   // ---------- the six poses ----------
   const S = { s: 0, t: 0, v: 0, m: 0, spin: 0, pole: 0, near: 1 };
@@ -298,7 +298,7 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
       bone.updateMatrixWorld(true);
     }
   };
-  const emitSnow = (dt: number, t: number) => {
+  const emitSnow = (dt: number) => {
     if (!spray) return;
     sprayT -= dt;
     deck.getWorldPosition(v0);
@@ -329,7 +329,6 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
       // the wave: billows thrown up behind the ball, some in shade so it has a shape
       for (let i = 0; i < 2; i++) spray.emit(v1.set(v0.x - ballR * (0.7 + Math.random() * 0.5), v0.y + ballR * (0.15 + Math.random() * 1.5), v0.z + rnd(ballR * 1.25)), -0.8 - v * 0.25, 1.4 + Math.random() * 2.6, rnd(1.4), 0.55 + Math.random() * 0.5, 0.8 + Math.random() * 0.5, 1.3, 2.8, Math.random() < 0.45 ? SHADE : WHITE, 0.92);
     }
-    void t;
   };
 
   const kit: RideKit = {
@@ -415,7 +414,7 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
         const sg = Math.sign(Math.cos((S.s / 14) * Math.PI * 2));
         if (sg !== wasSign) { wasSign = sg; if (S.m > 0.5) { deck.getWorldPosition(v0); kit.onTouch?.(0.6, v0); } }
       }
-      emitSnow(dt, t);
+      emitSnow(dt);
       rig.getWorldPosition(v0);
       if (spray) spray.update(dt, stage.camera);
       streaks?.update(dt, v0, Math.abs(rig.rotation.z), Math.max(0, Math.min(1, (way - 1) / 4)) * S.m);

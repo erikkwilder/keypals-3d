@@ -452,7 +452,7 @@ export class RunScene implements Controller {
     } else if (kind === 'slide' && this.ride) {
       const pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
       me.root.position.copy(f.p);
-      this.ride.lead(dt, t, { step: this.tier, at: f.p, pitch, lane: 0, v, stride: this.stepLen, s: this.pos, left: this.finishS - this.pos });
+      this.ride.lead(dt, t, { step: this.tier, at: f.p, pitch, lane: 0, v, s: this.pos, left: this.finishS - this.pos });
       // the wind in your ears, from the skis on
       if (this.ride.way >= 2 && v > 0.5 && !this.paused) sfx.wind(0.1 + this.ride.way * 0.12);
     } else if (kind === 'slide') {
@@ -474,7 +474,7 @@ export class RunScene implements Controller {
     } else if (this.ride) {
       this.outOfWater = false;
       me.root.position.copy(f.p);
-      this.ride.lead(dt, t, { step: this.tier, at: f.p, pitch: 0, lane: 0, v, stride: this.stepLen, s: this.pos, left: this.finishS - this.pos });
+      this.ride.lead(dt, t, { step: this.tier, at: f.p, pitch: 0, lane: 0, v, s: this.pos, left: this.finishS - this.pos });
     } else {
       this.outOfWater = false;
       me.root.position.copy(f.p);
@@ -517,7 +517,7 @@ export class RunScene implements Controller {
       if (g.root.visible) {
         const pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
         g.root.position.copy(f.p);
-        this.ghostRide.lead(dt, t, { step: going ? this.opts.ghostStep ?? 0 : 0, at: f.p, pitch, lane: -1.7, v: going ? gv : 0, stride: Math.max(this.keyLen, 0.9), s, left: this.finishS - s });
+        this.ghostRide.lead(dt, t, { step: going ? this.opts.ghostStep ?? 0 : 0, at: f.p, pitch, lane: -1.7, v: going ? gv : 0, s, left: this.finishS - s });
         g.update(dt); g.root.updateMatrixWorld(true);
         this.ghostRide.follow(dt, t);
       } else this.ghostRide.rest(dt, t);
@@ -535,7 +535,7 @@ export class RunScene implements Controller {
       if (this.ghostRide && !out && !onDock) {
         if (g.root.visible) {
           g.root.position.copy(f.p);
-          this.ghostRide.lead(dt, t, { step: going ? this.opts.ghostStep ?? 0 : 0, at: f.p, pitch: 0, lane: -1.2, v: going ? gv : 0, stride: Math.max(this.keyLen, 0.9), s, left: this.finishS - s });
+          this.ghostRide.lead(dt, t, { step: going ? this.opts.ghostStep ?? 0 : 0, at: f.p, pitch: 0, lane: -1.2, v: going ? gv : 0, s, left: this.finishS - s });
           g.update(dt); g.root.updateMatrixWorld(true);
           this.ghostRide.follow(dt, t);
         } else this.ghostRide.rest(dt, t);

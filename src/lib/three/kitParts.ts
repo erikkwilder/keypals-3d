@@ -70,8 +70,6 @@ export type RideState = {
   lane: number;
   /** metres a second */
   v: number;
-  /** metres one right answer moves it */
-  stride: number;
   /** how far along the course */
   s: number;
   /** metres to the finish line */
@@ -175,7 +173,8 @@ export class Streaks {
     parent.add(this.mesh);
   }
   private fresh(l: { x: number; y: number; z: number; sp: number; len: number }, x = (Math.random() - 0.5) * 2 * this.box[0]) {
-    l.x = x; l.y = this.floor + Math.random() * this.box[1]; l.z = (Math.random() - 0.35) * this.box[2]; l.sp = 0.7 + Math.random() * 0.6; l.len = 0.6 + Math.random() * 0.8;
+    // (either side of the buddy's lane, never across the buddy itself)
+    l.x = x; l.y = this.floor + Math.random() * this.box[1]; l.z = (Math.random() < 0.5 ? -1 : 1) * (0.9 + Math.random() * this.box[2]); l.sp = 0.7 + Math.random() * 0.6; l.len = 0.6 + Math.random() * 0.8;
     return l;
   }
   /** `level` 0 to 1; at the buddy's place, on the course's slope. */
