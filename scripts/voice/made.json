@@ -2982,7 +2982,7 @@
  "ep.crate.added": {
   "engine": "local",
   "voice": "coach",
-  "h": "1a949a8f08"
+  "h": "6df85cb306"
  },
  "ep.crate.bets": {
   "engine": "local",
@@ -3007,7 +3007,7 @@
  "ep.crate.floored": {
   "engine": "local",
   "voice": "coach",
-  "h": "a209ef175e"
+  "h": "9369dcc090"
  },
  "ep.crate.guess": {
   "engine": "local",
@@ -3017,7 +3017,7 @@
  "ep.crate.help": {
   "engine": "local",
   "voice": "coach",
-  "h": "87448ac0bb"
+  "h": "b2f17fb2a8"
  },
  "ep.crate.intro": {
   "engine": "local",
@@ -3032,7 +3032,7 @@
  "ep.crate.layer": {
   "engine": "local",
   "voice": "coach",
-  "h": "cf27520e27"
+  "h": "1fa8a85be0"
  },
  "ep.crate.lucky": {
   "engine": "local",
@@ -3047,7 +3047,7 @@
  "ep.crate.name": {
   "engine": "local",
   "voice": "coach",
-  "h": "65152446b9"
+  "h": "efe9e2c130"
  },
  "ep.crate.off": {
   "engine": "local",
@@ -3067,17 +3067,17 @@
  "ep.crate.row": {
   "engine": "local",
   "voice": "coach",
-  "h": "1fd5e41f90"
+  "h": "4bbad67275"
  },
  "ep.crate.rows": {
   "engine": "local",
   "voice": "coach",
-  "h": "ea4249141e"
+  "h": "8cfb08cd5c"
  },
  "ep.crate.same": {
   "engine": "local",
   "voice": "coach",
-  "h": "42026bea36"
+  "h": "3b7d7fd9da"
  },
  "ep.crate.shut": {
   "engine": "local",
@@ -3087,7 +3087,7 @@
  "ep.crate.three": {
   "engine": "local",
   "voice": "coach",
-  "h": "ad6613a11f"
+  "h": "8c75181b60"
  },
  "ep.crate.tip": {
   "engine": "local",
@@ -3097,7 +3097,7 @@
  "ep.crate.up": {
   "engine": "local",
   "voice": "coach",
-  "h": "38c35c2543"
+  "h": "7aabae6e12"
  },
  "ep.crate.watch": {
   "engine": "local",

@@ -1121,11 +1121,11 @@
   },
   "ep.crate.job": {
     "voice": "coach",
-    "ms": 7922
+    "ms": 2684
   },
   "ep.crate.guess": {
     "voice": "coach",
-    "ms": 8880
+    "ms": 1922
   },
   "ep.crate.few": {
     "voice": "coach",
@@ -1141,15 +1141,15 @@
   },
   "ep.crate.lucky": {
     "voice": "coach",
-    "ms": 6301
+    "ms": 2100
   },
   "ep.crate.measure": {
     "voice": "coach",
-    "ms": 5283
+    "ms": 2420
   },
   "ep.crate.three": {
     "voice": "coach",
-    "ms": 7423
+    "ms": 7463
   },
   "ep.crate.bets": {
     "voice": "coach",
@@ -1157,63 +1157,63 @@
   },
   "ep.crate.added": {
     "voice": "coach",
-    "ms": 4515
+    "ms": 4211
   },
   "ep.crate.floored": {
     "voice": "coach",
-    "ms": 6336
+    "ms": 6406
   },
   "ep.crate.build": {
     "voice": "coach",
-    "ms": 3871
+    "ms": 2080
   },
   "ep.crate.why": {
     "voice": "coach",
-    "ms": 4360
+    "ms": 2021
   },
   "ep.crate.row": {
     "voice": "coach",
-    "ms": 4769
+    "ms": 4665
   },
   "ep.crate.rows": {
     "voice": "coach",
-    "ms": 5897
+    "ms": 6286
   },
   "ep.crate.layer": {
     "voice": "coach",
-    "ms": 6665
+    "ms": 6406
   },
   "ep.crate.up": {
     "voice": "coach",
-    "ms": 4535
+    "ms": 4660
   },
   "ep.crate.name": {
     "voice": "coach",
-    "ms": 9214
+    "ms": 9688
   },
   "ep.crate.tip": {
     "voice": "coach",
-    "ms": 5488
+    "ms": 2071
   },
   "ep.crate.same": {
     "voice": "coach",
-    "ms": 6336
+    "ms": 6242
   },
   "ep.crate.shut": {
     "voice": "coach",
-    "ms": 7024
+    "ms": 1846
   },
   "ep.crate.help": {
     "voice": "coach",
-    "ms": 7792
+    "ms": 6775
   },
   "ep.crate.off": {
     "voice": "coach",
-    "ms": 5009
+    "ms": 1367
   },
   "ep.crate.check": {
     "voice": "coach",
-    "ms": 5647
+    "ms": 2175
   },
   "ep.dec-coins.intro": {
     "voice": "coach",
