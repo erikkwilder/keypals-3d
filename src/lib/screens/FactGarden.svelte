@@ -408,7 +408,7 @@
             </button>
           {/each}
         </div>
-        <button class="arrow next" onclick={() => step(1)} aria-label="Next bed"><img src={iconUrl('back')} alt="" /></button>
+        <button class="arrow fwd" onclick={() => step(1)} aria-label="Next bed"><img src={iconUrl('back')} alt="" /></button>
       </nav>
     </div>
 
@@ -540,7 +540,7 @@
   .bednav { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; align-items: center; gap: 6px; }
   .arrow { flex: none; width: 46px; height: 46px; border: 0; border-radius: 50%; background: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow-sm); padding: 0; }
   .arrow img { width: 34px; height: 34px; object-fit: contain; }
-  .arrow.next img { transform: scaleX(-1); }
+  .arrow.fwd img { transform: scaleX(-1); }
   .chips { flex: 1; min-width: 0; display: flex; gap: 5px; overflow-x: auto; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, .88); scrollbar-width: none; }
   .chips::-webkit-scrollbar { display: none; }
   .chip { flex: none; display: flex; flex-direction: column; align-items: center; gap: 3px; border: 0; cursor: pointer; padding: 5px 10px 6px; border-radius: 16px; background: #f4f0e8; font: 600 15px/1 var(--font-ui); color: var(--ink); }
