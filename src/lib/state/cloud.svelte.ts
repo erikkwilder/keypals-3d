@@ -50,8 +50,11 @@ export function saveStatus(p: Profile | null): { kind: 'account' | 'code' | 'cla
   if (!cloud.online) return { kind: 'here', text: 'Saved on this computer', short: 'Saved here' };
   // logged in with a class code and pictures: saved with the class, whoever is signed in here
   if (p?.cloud && isClassLogin(p)) return { kind: 'class', text: 'Saved with your class', short: 'Saved with your class' };
-  if (p?.cloud && cloud.account) { const who = cloud.account.name?.split(' ')[0] ?? cloud.account.email ?? 'your grown-up'; return { kind: 'account', text: `Saved online as ${who}`, short: 'Saved online' }; }
+  // signed in: it says who, so nobody has to wonder whether their progress is safe
+  const who = cloud.account ? cloud.account.name?.split(' ')[0] ?? cloud.account.email ?? 'your grown-up' : null;
+  if (p?.cloud && who) return { kind: 'account', text: `Signed in as ${who}: saved online`, short: `Signed in as ${who}` };
   if (p?.cloud) return { kind: 'code', text: 'Saved online with a save code', short: 'Saved online' };
+  if (who) return { kind: 'local', text: `Signed in as ${who}: not saved online yet`, short: `Signed in as ${who}` };
   return { kind: 'local', text: 'Only on this computer: keep your progress safe', short: 'Not saved online' };
 }
 /** Open the grown-ups' "Saving online" (behind the grown-up check). */
@@ -354,7 +357,8 @@ export async function addFromAccount(code: string) { clearNotHere(code); return 
  *  deleted by that grown-up, signed in. */
 export async function forgetCode(id: string) {
   const p = game.save.profiles.find(x => x.id === id);
-  if (!p?.cloud) return;
+  // (a class player's copy is the class's: it's not deleted from here)
+  if (!p?.cloud || isClassLogin(p)) return;
   await call(`/players/${p.cloud.code}`, { method: 'DELETE' });
   dropBase(p.cloud.code);
   delete p.cloud;

@@ -3,7 +3,7 @@
 // bar and every activity the one Pause button; and the design's people get where they want in its taps.
 import { readFileSync } from 'node:fs';
 import { finishLesson } from '../math/learn';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { afterEach, describe, expect, it, beforeEach, vi } from 'vitest';
 import { game, type Screen } from './game.svelte';
 import { ACTIVITIES, START_SCREENS, levelOf, parentOf, type Place } from './where';
 import { homeTiles, menuMore, menuPlaces, openTopic, openSubjectPage, placeName, STUFF_GO, topicGroups, topicWays, trailOf } from '../nav';
@@ -12,7 +12,7 @@ import { startItem } from '../path/launch';
 import { pathNext } from '../path/next';
 import { mathOf } from '../math/progress';
 import { classState } from '../teach/student.svelte';
-import { landSignedIn } from './cloud.svelte';
+import { cloud, forgetCode, landSignedIn, saveStatus } from './cloud.svelte';
 import type { Assignment } from '../teach/assignments';
 
 const src = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
@@ -107,6 +107,22 @@ describe('nobody picked: a new phone just back from signing in with Google', () 
   it('the sign-in button is on the first screens, and the teachers\' page is not the only way in', () => {
     for (const f of ['../screens/Title.svelte', '../screens/NewPlayer.svelte', '../screens/Players.svelte']) expect(src(f), f).toContain('<GoogleSignIn');
     expect(src('../ui/GlobalMenu.svelte')).toContain('Sign in with Google');
+  });
+  it('the Grown-ups saving page works with no player on this device, and every other page says what to do', () => {
+    const g = src('../screens/Grownups.svelte');
+    const pane = g.indexOf('class="card pane acct"'), onlyWithPlayer = g.indexOf("{#if p && sec && sec !== 'admin'}");
+    expect(pane).toBeGreaterThan(0);
+    expect(pane, 'the saving page is not inside the block that needs a player').toBeLessThan(onlyWithPlayer);
+    expect(g).toContain("{#if !p && sec && sec !== 'admin' && sec !== 'players'}");
+  });
+  it('the teachers\' page offers a parent the way to their players, signed in or not', () => {
+    const t = src('../screens/Teach.svelte');
+    expect(t).toContain("I'm a parent, take me to my players");
+    expect(t.match(/@render parentWay\(\)/g)?.length).toBe(3);
+  });
+  it('who is signed in shows on Home and in the Menu', () => {
+    expect(src('../screens/Hub.svelte')).toContain('<SaveChip');
+    expect(src('../ui/GlobalMenu.svelte')).toContain('<SaveChip');
   });
   it('the grown-up check over the title keeps the keyboard (the title takes any key)', () => {
     freshStart(0);
@@ -376,5 +392,41 @@ describe('the people in the design, tap by tap', () => {
     expect(new Set(arts).size).toBe(arts.length);
     for (const a of arts) expect(a.startsWith('game/cards/'), a).toBe(true);
     expect(menuPlaces().map(m => m.name)).toEqual(['Home', 'Typing', 'Math', 'Arcade', 'Adventure', 'My Sky Island', 'My stuff', 'My path']);
+  });
+});
+
+describe('saving online, for grown-ups', () => {
+  const player = (name: string, code?: string) => { const p = game.addPlayer(name, 'dino', false); if (code) p.cloud = { code, at: 1 }; return game.save.profiles.find(x => x.id === p.id)!; };
+  afterEach(() => { cloud.account = null; cloud.online = false; vi.unstubAllGlobals(); });
+
+  it('says who is signed in, and whether this player is saved', () => {
+    cloud.online = true;
+    cloud.account = { name: 'Erik Wilder', email: 'e@example.invalid', provider: 'google' };
+    const saved = player('Saved', 'RED-FOX-SUN-1'), notYet = player('Not yet');
+    expect(saveStatus(saved)).toMatchObject({ kind: 'account', text: 'Signed in as Erik: saved online', short: 'Signed in as Erik' });
+    expect(saveStatus(notYet)).toMatchObject({ kind: 'local', text: 'Signed in as Erik: not saved online yet', short: 'Signed in as Erik' });
+    cloud.account = null;
+    expect(saveStatus(saved).kind).toBe('code');
+    expect(saveStatus(notYet).text).toContain('Only on this computer');
+  });
+  it('stopping asks first: the button only opens the question, and the question is what deletes the online copy', () => {
+    const g = src('../screens/Grownups.svelte');
+    const ask = g.slice(g.indexOf('role="alertdialog"'));
+    expect(g).toContain('onclick={() => (confirmStop = p.id)}>Stop saving {p.name} online');
+    expect(g.indexOf('forgetCode(p.id)')).toBeGreaterThan(g.indexOf('role="alertdialog"'));
+    expect(ask).toContain('Keep saving online');
+    expect(ask).toContain('Yes, delete the online copy');
+  });
+  it('a class player has no Stop saving, and their copy is never deleted from here', async () => {
+    const g = src('../screens/Grownups.svelte');
+    expect(g.match(/!isClassLogin\(p\) && confirmStop/g)?.length).toBe(2);
+    const p = player('Class kid', 'BLUE-OWL-SKY-2');
+    const store: Record<string, string> = { 'kp-class-here': JSON.stringify(['BLUE-OWL-SKY-2']) };
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = v; }, removeItem: (k: string) => { delete store[k]; } });
+    const fetched = vi.fn();
+    vi.stubGlobal('fetch', fetched);
+    await forgetCode(p.id);
+    expect(fetched).not.toHaveBeenCalled();
+    expect(game.save.profiles.find(x => x.id === p.id)?.cloud?.code).toBe('BLUE-OWL-SKY-2');
   });
 });

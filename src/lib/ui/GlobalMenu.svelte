@@ -9,6 +9,7 @@
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
   import { cloud, goSaveOnline } from '../state/cloud.svelte';
+  import SaveChip from './SaveChip.svelte';
   import { menuMore, menuPlaces, type MenuItem } from '../nav';
   import CloseButton from './CloseButton.svelte';
   import QuickToggles from './QuickToggles.svelte';
@@ -35,6 +36,7 @@
       <h2>Menu</h2>
       <CloseButton onclick={close} label="Close the menu" size={42} />
     </header>
+    <div class="save"><SaveChip compact /></div><!-- who's signed in and where progress is kept -->
     <MusicNow compact onpick={() => game.closeMenu()} />
     <QuickToggles />
     <h3>Go to</h3>
@@ -61,6 +63,8 @@
   .top { display: flex; align-items: center; gap: 10px; }
   .cmp { width: 40px; height: 40px; object-fit: contain; }
   .top h2 { flex: 1; margin: 0; font-size: 28px; }
+  .save { display: flex; margin-top: -8px; min-width: 0; }
+  .save:empty { display: none; }
   h3 { margin: 4px 0 -4px; font: 700 14px var(--font-body); color: var(--muted); }
   .places { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .place { display: flex; align-items: center; gap: 10px; border: 0; cursor: pointer; text-align: left; padding: 8px 10px; border-radius: 18px; background: #f7f4fd; box-shadow: inset 0 0 0 2px #ece6f6; font: 600 18px var(--font-ui); color: var(--ink); }
