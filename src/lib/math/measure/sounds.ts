@@ -3,12 +3,18 @@
 // train's whistle. Made the same way as the game's own (little synth notes and filtered noise), on their
 // own small audio graph, following the player's sound switch and volume.
 import { game } from '../../state/game.svelte';
+import { onPageAway, pageAway } from '../../audio/away';
 
 let ctx: AudioContext | null = null;
 let out: GainNode | null = null;
+// (quiet when the game is put away, like every other sound: audio/away.ts)
+onPageAway({
+  away() { if (ctx?.state === 'running') void ctx.suspend(); },
+  back() { if (ctx?.state === 'suspended') void ctx.resume(); },
+});
 function ac(): AudioContext | null {
   const s = game.settings;
-  if (s.sound === false) return null;
+  if (s.sound === false || pageAway()) return null;
   try {
     if (!ctx) { ctx = new AudioContext(); out = ctx.createGain(); out.connect(ctx.destination); }
     if (ctx.state === 'suspended') void ctx.resume();

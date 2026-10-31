@@ -65,6 +65,12 @@ export class GlimmerShow implements Controller {
       this.fx.emit({ at: g.root.position.clone().add(new THREE.Vector3(0, 0.6, 0)), count: 90, shape: ['star', 'dot', 'spark'], color: [c, 0xffffff, 0xffe066], speed: [1.5, 5], life: [0.8, 1.6], size: [0.12, 0.3], drag: 1.4, gravity: 0.5, spin: 3 });
     }
   }
+  /** An empty stone with nothing left in the air: a fresh spot for the next egg (one still arriving is dropped). */
+  clear() {
+    this.loading++;
+    this.g?.dispose(); this.g = null; this.evo = -1;
+    this.fx.clear();
+  }
   /** Tapped: happy hops (every third tap, a cheer). */
   private pokes = 0;
   poke() { this.g?.play(++this.pokes % 3 === 0 ? 'cheer' : 'happy'); }
