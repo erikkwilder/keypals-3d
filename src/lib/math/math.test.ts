@@ -432,3 +432,14 @@ describe('the Number Playground', () => {
     expect(Object.values(out.profile.days)[0].ms).toBe(90000);
   });
 });
+
+describe('stepping up the speed ladder', () => {
+  it('takes one step at a time, each with its moment, even when an answer earns several at once', () => {
+    const m = new FactMeter(false), ups: number[] = [];
+    let t = 0;
+    // very quick answers: the energy passes several steps in a few frames
+    for (let i = 0; i < 6; i++) { m.shown(t); t += 1500; m.push(true, 1500); for (let k = 0; k < 10; k++) { const e = m.update(t + k * 16); if (e?.type === 'up') ups.push(t + k * 16); } t += 200; }
+    for (let i = 1; i < ups.length; i++) expect(ups[i] - ups[i - 1]).toBeGreaterThanOrEqual(1500);
+    expect(ups.length).toBeGreaterThan(1);
+  });
+});

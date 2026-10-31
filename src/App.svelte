@@ -250,12 +250,14 @@
   {#if game.menuOpen && game.profile}{@render layer(O.menu)}{/if}
   {#if game.pause}{@render layer(O.pause)}{/if}
   {#if game.profile}{@render layer(O.fun)}{/if}
-  {#if game.toast}<div class="toast">{game.toast}</div>{/if}
+  {#if game.toast}<div class="toast" class:high={game.screen === 'shop'}>{game.toast}</div>{/if}
 </main>
 
 <style>
   .app { position: fixed; inset: 0; overflow: hidden; z-index: 1; }
   .stage3d { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; display: block; visibility: hidden; }
   .toast { position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; max-width: 90vw; bottom: 28px; z-index: 100; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 14px; font: 600 16px var(--font-ui); box-shadow: var(--shadow); animation: fade-up .25s ease; }
+  /* (the Shop: under the top bar, clear of the buy card and the note at the bottom) */
+  .toast.high { bottom: auto; top: 76px; }
   .settings-layer { position: fixed; inset: 0; z-index: 70; animation: fade-up .2s ease; }
 </style>

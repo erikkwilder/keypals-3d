@@ -475,7 +475,7 @@
     g.line = 'Yum! Thank you! That was so good.'; g.happy = true;
     if (res.note) setTimeout(() => noteNow(g.id), 2200);
   }
-  /** No treats: they're in the Shop's Care section (one place sells each thing; Back comes back here) */
+  /** No treats: they're in the Shop's Glimmers section (one place sells each thing; Back comes back here) */
   function getTreats() { sfx.click(); game.openShop(null, 'care'); }
   /** the whole Island section in the Shop (Back comes back here) */
   function toShop() { sfx.click(); if (placing) cancelPlace(); game.openShop(null, 'island'); }

@@ -1,7 +1,7 @@
 <script lang="ts">
   // The Shop: one for the whole game, with three sections (shop/shop.ts): Wear (try things on your buddy
   // and buy them: the try-on page, Closet.svelte), Island (things for My Sky Island and special paints) and
-  // Care (eggs and treats). It opens where you came from: the Wardrobe's "Get more" on Wear, the island on
+  // Glimmers (eggs and treats), all three the same page in the same 3D world. It opens where you came from: the Wardrobe's "Get more" on Wear, the island on
   // Island; My stuff, the shells card and the Menu open it on Wear, all three sections a tap apart.
   import Closet from './Closet.svelte';
   import ShopShelf from '../shop/ShopShelf.svelte';

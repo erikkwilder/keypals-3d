@@ -1,6 +1,7 @@
 // Buddies on show: standing on the island facing the camera, for the title screen (everyone), the
 // buddy picker (everyone, the chosen one stepping forward) and the Keypals screen (one, close up,
-// trying on outfits and dances).
+// trying on outfits and dances). The Shop's other sections stand a thing there instead of a buddy (`put`):
+// the same place, the same camera and the same turntable, so all three are one page in one world.
 import * as THREE from 'three';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
@@ -13,6 +14,8 @@ import type { Island } from './island';
 import type { View } from './runScene';
 
 /** `shadowed`: buddies shown in shadowy black and white (not on the team yet). */
+/** What stands on show instead of a buddy: its ground stays put, `root` turns with the turntable. */
+export type OnShow = { root: THREE.Object3D; ground?: THREE.Object3D; /** how far turned it starts, so a thing reads as solid */ angle?: number; tick?: (dt: number, t: number) => void; dispose?: () => void };
 type Opts = { buddies: FriendId[]; view: View; spot?: number; outfits?: Partial<Record<FriendId, string>>; orbit?: boolean; shadowed?: FriendId[]; /** what else each wears */ gear?: Partial<Record<FriendId, Partial<Record<Slot, string>>>>; /** dress each from the player's save (dress.ts) */ fromSave?: boolean };
 
 export class ShowScene implements Controller {
@@ -43,6 +46,8 @@ export class ShowScene implements Controller {
   /** the extra moves (the one-hand wave, dances), loaded after the buddy appears */
   private movesReady: Promise<unknown> = Promise.resolve();
   private shown = new Set<Character>();
+  /** a thing on show (a buddy-less scene: the Shop's Island and Glimmers sections) */
+  private thing: OnShow | null = null;
 
   private constructor(island: Island, chars: Character[], opts: Opts) {
     this.island = island; this.chars = chars; this.opts = opts; this.view = opts.view;
@@ -112,6 +117,20 @@ export class ShowScene implements Controller {
     });
   }
 
+  /** Stand a thing where the buddy would stand (null clears it); it faces the camera and starts unturned. */
+  put(thing: OnShow | null) {
+    if (this.thing) { this.thing.root.removeFromParent(); this.thing.ground?.removeFromParent(); this.thing.dispose?.(); }
+    this.thing = thing;
+    this.spin = 0; this.spinGoal = null;
+    if (!thing) return;
+    // (a little further back than a buddy stands: its ground stays clear of the card under the stage)
+    const at = this.base.clone().addScaledVector(this.n, -0.55);
+    at.y = this.island.height(at.x, at.z);
+    for (const o of [thing.ground, thing.root]) { if (!o) continue; o.position.copy(at); stage.scene.add(o); }
+    this.turnThing();
+  }
+  private turnThing() { if (this.thing) this.thing.root.rotation.y = Math.atan2(this.n.x, this.n.z) + this.spin + (this.thing.angle ?? 0); }
+
   select(id: FriendId | null) {
     this.selected = id;
     const c = this.chars.find(x => x.id === id);
@@ -150,6 +169,8 @@ export class ShowScene implements Controller {
       if (Math.abs(this.spinGoal - this.spin) < 0.002) { this.spin = this.spinGoal; this.spinGoal = null; }
     }
     this.place(dt);
+    this.turnThing();
+    this.thing?.tick?.(dt, t);
     this.chars.forEach((c, i) => {
       const d = this.dancing[i];
       if (d) {
@@ -194,5 +215,7 @@ export class ShowScene implements Controller {
   }
 
   focus() { return this.base; }
-  dispose() { for (const c of this.chars) c.dispose(); }
+  /** called when the scene ends (what a screen keeps for it can go then) */
+  onGone: (() => void) | null = null;
+  dispose() { this.put(null); for (const c of this.chars) c.dispose(); this.onGone?.(); this.onGone = null; }
 }

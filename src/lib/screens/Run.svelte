@@ -46,7 +46,7 @@
   const region = REGION[lesson.region];
   // the trail with its speed rides, or a climb, a swim or a sled run (engine/course.ts lessonMove)
   const move = lessonMove(lesson);
-  const MOVE_LINE = { run: 'Run the trail: type fast and clean to ride a skateboard, a bike, a car, even a rocket!', climb: 'Climb the cliff: every right key pulls you higher. Type fast and clean to climb quicker!', swim: 'Swim across the bay: every right key is a stroke. Type fast and clean to swim like a dolphin!', slide: 'Sled down the mountain: every right key is a push. Type fast and clean to go full avalanche!' }[move];
+  const MOVE_LINE = { run: 'Run the trail: type fast and clean to ride a skateboard, a bike, a car, even a rocket!', climb: 'Climb the cliff: every right key pulls you higher. Type fast and clean to earn a rope, spring boots, a grappling hook, even a jet pack!', swim: 'Swim across the bay: every right key is a stroke. Type fast and clean to swim like a dolphin!', slide: 'Sled down the mountain: every right key is a push. Type fast and clean to go full avalanche!' }[move];
   const layout = game.layout;
   const known = knownFor(profile, lesson, layout);
   const fresh = newCharsFor(lesson, layout);
@@ -342,7 +342,7 @@
   $effect(() => { void keyboardOn; void handsOn; void stageH; void stageW; requestAnimationFrame(updateView); });
 
   onMount(() => {
-    RunScene.create({ buddy: profile.buddy, outfit, dance: danceOf(profile), length: text.length, ghostCps: S.ghost !== false ? ghostCps : undefined, region: lesson.region, move, keyLen: move === 'run' ? undefined : courseKeyLen(move, text.length) })
+    RunScene.create({ buddy: profile.buddy, outfit, dance: danceOf(profile), length: text.length, ghostCps: S.ghost !== false ? ghostCps : undefined, ghostStep: ride.th.filter(v => ghostScore >= v).length - 1, region: lesson.region, move, keyLen: move === 'run' ? undefined : courseKeyLen(move, text.length) })
       .then(sc => { scene = sc; stage.use(sc); updateView(); loading = false; })
       .catch(err => { console.error(err); loading = false; });
     // the very first lesson asks how things should sound before anyone starts talking

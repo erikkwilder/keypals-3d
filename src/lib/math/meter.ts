@@ -69,9 +69,12 @@ export const mathGoal = (goal: number, grown: boolean, easy = false) => Math.rou
 /**
  * The live ride. It moves on answers, not keys: each answer updates the speed of the last six facts
  * and the accuracy of the last ten; while a fact is being thought about for a long time it eases off,
- * so a slow answer means strolling for a bit. A ride climbs straight away when earned and slips back
- * only after a few seconds below.
+ * so a slow answer means strolling for a bit. A ride climbs as soon as it's earned, one step at a time
+ * (each new ride or way up the cliff gets its moment, never two in a blink), and slips back only after a
+ * few seconds below.
  */
+/** the shortest time between two steps up (ms) */
+const STEP_GAP = 1600;
 export class FactMeter {
   readonly th: number[];
   tier = 0;
@@ -81,6 +84,7 @@ export class FactMeter {
   private shownAt = 0;
   private lastT = 0;
   private belowSince: number | null = null;
+  private upAt = -1e9;
   private readonly calm: boolean;
 
   constructor(grown: boolean, calm = false) {
@@ -118,8 +122,10 @@ export class FactMeter {
     if (this.recent.length < 3) return null;
     const next = this.th[this.tier + 1];
     if (next !== undefined && this.energy >= next) {
-      this.tier++;
       this.belowSince = null;
+      if (t - this.upAt < STEP_GAP) return null;
+      this.upAt = t;
+      this.tier++;
       this.best = Math.max(this.best, this.tier);
       return { type: 'up', tier: this.tier };
     }
