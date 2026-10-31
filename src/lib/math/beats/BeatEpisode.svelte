@@ -411,7 +411,7 @@
   .narrow .kbd { display: none; }
   .narrow .choice { min-width: 92px; height: 70px; font-size: 22px; }
   .narrow .choices { gap: 10px; }
-  .narrow .ask { font-size: 24px; padding: 6px 8px 6px 14px; }
+  .narrow .ask { font-size: 21px; padding: 6px 8px 6px 12px; gap: 8px; white-space: nowrap; }
   .narrow .tick { font-size: 15px; }
   .narrow .word { font-size: 15px; }
   .narrow .row1 { font-size: 30px; }

@@ -632,7 +632,7 @@ export class CrateKit implements CrateWorld {
   private seeThrough(color: number) {
     const key = color + 1;
     let m = this.mats.get(key);
-    if (!m) { m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.14, depthWrite: false }); this.mats.set(key, m); }
+    if (!m) { m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.26, depthWrite: false }); this.mats.set(key, m); }
     return m;
   }
   async eatCracked() {

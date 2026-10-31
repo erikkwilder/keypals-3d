@@ -41,7 +41,7 @@ function pageSrc(comp: string): string {
   const name = FILE[comp] ?? comp;
   let s = src(`../screens/${name}.svelte`);
   if (name === 'Shop') s += src('../screens/Closet.svelte');
-  if (name === 'Learn') s += src('../math/ui/Episode.svelte');
+  if (name === 'Learn') s += src('../math/ui/EpisodeClassic.svelte') + src('../math/beats/BeatEpisode.svelte');
   if (name === 'Duel') s += src('../screens/DuelPlay.svelte');
   if (s.includes('<RunResults')) s += src('../ui/RunResults.svelte');
   return s;
