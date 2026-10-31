@@ -1111,6 +1111,270 @@
     "voice": "coach",
     "ms": 4739
   },
+  "ep.crate.intro": {
+    "voice": "coach",
+    "ms": 7179
+  },
+  "ep.crate.watch": {
+    "voice": "coach",
+    "ms": 4141
+  },
+  "ep.crate.job": {
+    "voice": "coach",
+    "ms": 2684
+  },
+  "ep.crate.guess": {
+    "voice": "coach",
+    "ms": 1922
+  },
+  "ep.crate.try.you": {
+    "voice": "coach",
+    "ms": 1671
+  },
+  "ep.crate.few": {
+    "voice": "coach",
+    "ms": 7413
+  },
+  "ep.crate.over": {
+    "voice": "coach",
+    "ms": 4939
+  },
+  "ep.crate.right": {
+    "voice": "coach",
+    "ms": 5478
+  },
+  "ep.crate.lucky": {
+    "voice": "coach",
+    "ms": 2100
+  },
+  "ep.crate.measure": {
+    "voice": "coach",
+    "ms": 2420
+  },
+  "ep.crate.three": {
+    "voice": "coach",
+    "ms": 2180
+  },
+  "ep.crate.bets": {
+    "voice": "coach",
+    "ms": 4305
+  },
+  "ep.crate.try.buddy": {
+    "voice": "coach",
+    "ms": 6820
+  },
+  "ep.crate.try.pal": {
+    "voice": "coach",
+    "ms": 8431
+  },
+  "ep.crate.try.both.buddy": {
+    "voice": "coach",
+    "ms": 3338
+  },
+  "ep.crate.try.both.pal": {
+    "voice": "coach",
+    "ms": 3632
+  },
+  "ep.crate.try.last": {
+    "voice": "coach",
+    "ms": 1502
+  },
+  "ep.crate.added": {
+    "voice": "coach",
+    "ms": 9788
+  },
+  "ep.crate.floored": {
+    "voice": "coach",
+    "ms": 6231
+  },
+  "ep.crate.build": {
+    "voice": "coach",
+    "ms": 2080
+  },
+  "ep.crate.why": {
+    "voice": "coach",
+    "ms": 2021
+  },
+  "ep.crate.row": {
+    "voice": "coach",
+    "ms": 4665
+  },
+  "ep.crate.rows": {
+    "voice": "coach",
+    "ms": 6974
+  },
+  "ep.crate.layer": {
+    "voice": "coach",
+    "ms": 2075
+  },
+  "ep.crate.up": {
+    "voice": "coach",
+    "ms": 4660
+  },
+  "ep.crate.name": {
+    "voice": "coach",
+    "ms": 1876
+  },
+  "ep.crate.tip": {
+    "voice": "coach",
+    "ms": 2071
+  },
+  "ep.crate.tip.do": {
+    "voice": "coach",
+    "ms": 2095
+  },
+  "ep.crate.same": {
+    "voice": "coach",
+    "ms": 1781
+  },
+  "ep.crate.same.you": {
+    "voice": "coach",
+    "ms": 5223
+  },
+  "ep.crate.shut": {
+    "voice": "coach",
+    "ms": 1846
+  },
+  "ep.crate.try.seen": {
+    "voice": "coach",
+    "ms": 11524
+  },
+  "ep.crate.seen": {
+    "voice": "coach",
+    "ms": 6895
+  },
+  "ep.crate.again": {
+    "voice": "coach",
+    "ms": 6451
+  },
+  "ep.crate.together": {
+    "voice": "coach",
+    "ms": 4720
+  },
+  "ep.crate.shut.row": {
+    "voice": "coach",
+    "ms": 4575
+  },
+  "ep.crate.shut.floor": {
+    "voice": "coach",
+    "ms": 7299
+  },
+  "ep.crate.shut.up": {
+    "voice": "coach",
+    "ms": 4809
+  },
+  "ep.crate.shut.answer": {
+    "voice": "coach",
+    "ms": 11504
+  },
+  "ep.crate.shut.why": {
+    "voice": "coach",
+    "ms": 8197
+  },
+  "ep.crate.check.row": {
+    "voice": "coach",
+    "ms": 4809
+  },
+  "ep.crate.check.floor": {
+    "voice": "coach",
+    "ms": 6855
+  },
+  "ep.crate.check.up": {
+    "voice": "coach",
+    "ms": 4829
+  },
+  "ep.crate.check.answer": {
+    "voice": "coach",
+    "ms": 10611
+  },
+  "ep.crate.check.why": {
+    "voice": "coach",
+    "ms": 7528
+  },
+  "ep.crate.help": {
+    "voice": "coach",
+    "ms": 2524
+  },
+  "ep.crate.face": {
+    "voice": "coach",
+    "ms": 6605
+  },
+  "ep.crate.face.yes": {
+    "voice": "coach",
+    "ms": 5772
+  },
+  "ep.crate.other": {
+    "voice": "coach",
+    "ms": 4226
+  },
+  "ep.crate.two": {
+    "voice": "coach",
+    "ms": 8092
+  },
+  "ep.crate.two.yes": {
+    "voice": "coach",
+    "ms": 4655
+  },
+  "ep.crate.buddy.done": {
+    "voice": "coach",
+    "ms": 9773
+  },
+  "ep.crate.off": {
+    "voice": "coach",
+    "ms": 1367
+  },
+  "ep.crate.sum": {
+    "voice": "coach",
+    "ms": 13295
+  },
+  "ep.crate.few.floor": {
+    "voice": "coach",
+    "ms": 7962
+  },
+  "ep.crate.again.floor": {
+    "voice": "coach",
+    "ms": 9454
+  },
+  "ep.crate.layer.yes": {
+    "voice": "coach",
+    "ms": 5488
+  },
+  "ep.crate.layer.no": {
+    "voice": "coach",
+    "ms": 9010
+  },
+  "ep.crate.total": {
+    "voice": "coach",
+    "ms": 4420
+  },
+  "ep.crate.total.no": {
+    "voice": "coach",
+    "ms": 6017
+  },
+  "ep.crate.snack": {
+    "voice": "coach",
+    "ms": 3856
+  },
+  "ep.crate.make": {
+    "voice": "coach",
+    "ms": 7827
+  },
+  "ep.crate.help.tap": {
+    "voice": "coach",
+    "ms": 5907
+  },
+  "ep.crate.roll": {
+    "voice": "coach",
+    "ms": 6261
+  },
+  "ep.crate.same.why": {
+    "voice": "coach",
+    "ms": 11170
+  },
+  "ep.crate.check": {
+    "voice": "coach",
+    "ms": 2175
+  },
   "ep.dec-coins.intro": {
     "voice": "coach",
     "ms": 7703
@@ -2025,183 +2289,183 @@
   },
   "ep.neg-zero.intro": {
     "voice": "coach",
-    "ms": 6475
+    "ms": 5418
   },
   "ep.neg-zero.s0": {
     "voice": "coach",
-    "ms": 2834
+    "ms": 2036
   },
   "ep.neg-zero.s1": {
     "voice": "coach",
-    "ms": 5967
+    "ms": 6515
   },
   "ep.neg-zero.s2": {
     "voice": "coach",
-    "ms": 2564
+    "ms": 2619
   },
   "ep.neg-zero.s3": {
     "voice": "coach",
-    "ms": 6036
+    "ms": 7154
   },
   "ep.neg-zero.s4": {
     "voice": "coach",
-    "ms": 5578
+    "ms": 5328
   },
   "ep.neg-zero.card": {
     "voice": "coach",
-    "ms": 6620
+    "ms": 7608
   },
   "ep.neg-opposites.intro": {
     "voice": "coach",
-    "ms": 5952
+    "ms": 4749
   },
   "ep.neg-opposites.s0": {
     "voice": "coach",
-    "ms": 1961
+    "ms": 2100
   },
   "ep.neg-opposites.s1": {
     "voice": "coach",
-    "ms": 3118
+    "ms": 2679
   },
   "ep.neg-opposites.s2": {
     "voice": "coach",
-    "ms": 1592
+    "ms": 1128
   },
   "ep.neg-opposites.s3": {
     "voice": "coach",
-    "ms": 3787
+    "ms": 3528
   },
   "ep.neg-opposites.s4": {
     "voice": "coach",
-    "ms": 7553
+    "ms": 7977
   },
   "ep.neg-opposites.card": {
     "voice": "coach",
-    "ms": 7778
+    "ms": 7428
   },
   "ep.neg-compare.intro": {
     "voice": "coach",
-    "ms": 5802
+    "ms": 6051
   },
   "ep.neg-compare.s0": {
     "voice": "coach",
-    "ms": 2650
+    "ms": 2869
   },
   "ep.neg-compare.s1": {
     "voice": "coach",
-    "ms": 3941
+    "ms": 4211
   },
   "ep.neg-compare.s2": {
     "voice": "coach",
-    "ms": 5493
+    "ms": 4769
   },
   "ep.neg-compare.s3": {
     "voice": "coach",
-    "ms": 5059
+    "ms": 4510
   },
   "ep.neg-compare.card": {
     "voice": "coach",
-    "ms": 7413
+    "ms": 7713
   },
   "ep.neg-add.intro": {
     "voice": "coach",
-    "ms": 4305
+    "ms": 4161
   },
   "ep.neg-add.s0": {
     "voice": "coach",
-    "ms": 4290
+    "ms": 3896
   },
   "ep.neg-add.s1": {
     "voice": "coach",
-    "ms": 5438
+    "ms": 6251
   },
   "ep.neg-add.s2": {
     "voice": "coach",
-    "ms": 2589
+    "ms": 2584
   },
   "ep.neg-add.s3": {
     "voice": "coach",
-    "ms": 5178
+    "ms": 5483
   },
   "ep.neg-add.card": {
     "voice": "coach",
-    "ms": 5597
+    "ms": 4734
   },
   "ep.neg-sub.intro": {
     "voice": "coach",
-    "ms": 3981
+    "ms": 3846
   },
   "ep.neg-sub.s0": {
     "voice": "coach",
-    "ms": 2666
+    "ms": 2734
   },
   "ep.neg-sub.s1": {
     "voice": "coach",
-    "ms": 4415
+    "ms": 3921
   },
   "ep.neg-sub.s2": {
     "voice": "coach",
-    "ms": 2960
+    "ms": 2739
   },
   "ep.neg-sub.s3": {
     "voice": "coach",
-    "ms": 7250
+    "ms": 7094
   },
   "ep.neg-sub.card": {
     "voice": "coach",
-    "ms": 5647
+    "ms": 4949
   },
   "ep.neg-times.intro": {
     "voice": "coach",
-    "ms": 4096
+    "ms": 3647
   },
   "ep.neg-times.s0": {
     "voice": "coach",
-    "ms": 4924
+    "ms": 4186
   },
   "ep.neg-times.s1": {
     "voice": "coach",
-    "ms": 4325
+    "ms": 4475
   },
   "ep.neg-times.s2": {
     "voice": "coach",
-    "ms": 5039
+    "ms": 4340
   },
   "ep.neg-times.s3": {
     "voice": "coach",
-    "ms": 4530
+    "ms": 6421
   },
   "ep.neg-times.card": {
     "voice": "coach",
-    "ms": 7139
+    "ms": 6690
   },
   "ep.neg-map.intro": {
     "voice": "coach",
-    "ms": 5858
+    "ms": 5807
   },
   "ep.neg-map.s0": {
     "voice": "coach",
-    "ms": 5573
+    "ms": 4764
   },
   "ep.neg-map.s1": {
     "voice": "coach",
-    "ms": 4869
+    "ms": 4560
   },
   "ep.neg-map.s2": {
     "voice": "coach",
-    "ms": 5657
+    "ms": 6850
   },
   "ep.neg-map.s3": {
     "voice": "coach",
-    "ms": 6346
+    "ms": 7149
   },
   "ep.neg-map.s4": {
     "voice": "coach",
-    "ms": 4520
+    "ms": 4530
   },
   "ep.neg-map.card": {
     "voice": "coach",
-    "ms": 6061
+    "ms": 6870
   },
   "ep.data-sort.intro": {
     "voice": "coach",

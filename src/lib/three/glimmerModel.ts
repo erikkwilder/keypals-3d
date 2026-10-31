@@ -134,6 +134,11 @@ export class GlimmerModel {
   get pose(): Base { return this.anim?.state ?? this.basePose; }
   set pose(b: Base) { this.basePose = b; this.anim?.setBase(b); }
   private basePose: Base = 'idle';
+  /** Where food goes in: the front of its face, a little under its eyes. */
+  mouthAt(out = new THREE.Vector3()): THREE.Vector3 {
+    const s = this.root.scale.y * this.height, fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(this.root.getWorldQuaternion(new THREE.Quaternion()));
+    return this.headAt(out).addScaledVector(fwd, s * 0.13).add(new THREE.Vector3(0, -s * 0.1, 0));
+  }
   /** Where the middle of its head is now (world). */
   headAt(out = new THREE.Vector3()): THREE.Vector3 {
     if (this.skinned && this.headBone >= 0) return this.skinned.skeleton.bones[this.headBone].getWorldPosition(out);
