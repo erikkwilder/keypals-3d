@@ -1113,7 +1113,7 @@
   },
   "ep.crate.intro": {
     "voice": "coach",
-    "ms": 8830
+    "ms": 7179
   },
   "ep.crate.watch": {
     "voice": "coach",
@@ -1121,11 +1121,11 @@
   },
   "ep.crate.job": {
     "voice": "coach",
-    "ms": 7922
+    "ms": 2684
   },
   "ep.crate.guess": {
     "voice": "coach",
-    "ms": 4016
+    "ms": 1922
   },
   "ep.crate.try.you": {
     "voice": "coach",
@@ -1145,15 +1145,15 @@
   },
   "ep.crate.lucky": {
     "voice": "coach",
-    "ms": 6176
+    "ms": 2100
   },
   "ep.crate.measure": {
     "voice": "coach",
-    "ms": 5094
+    "ms": 2420
   },
   "ep.crate.three": {
     "voice": "coach",
-    "ms": 8232
+    "ms": 2180
   },
   "ep.crate.bets": {
     "voice": "coach",
@@ -1189,11 +1189,11 @@
   },
   "ep.crate.build": {
     "voice": "coach",
-    "ms": 7378
+    "ms": 2080
   },
   "ep.crate.why": {
     "voice": "coach",
-    "ms": 5149
+    "ms": 2021
   },
   "ep.crate.row": {
     "voice": "coach",
@@ -1205,7 +1205,7 @@
   },
   "ep.crate.layer": {
     "voice": "coach",
-    "ms": 6406
+    "ms": 2075
   },
   "ep.crate.up": {
     "voice": "coach",
@@ -1213,11 +1213,11 @@
   },
   "ep.crate.name": {
     "voice": "coach",
-    "ms": 9404
+    "ms": 1876
   },
   "ep.crate.tip": {
     "voice": "coach",
-    "ms": 8012
+    "ms": 2071
   },
   "ep.crate.tip.do": {
     "voice": "coach",
@@ -1225,7 +1225,7 @@
   },
   "ep.crate.same": {
     "voice": "coach",
-    "ms": 3971
+    "ms": 1781
   },
   "ep.crate.same.you": {
     "voice": "coach",
@@ -1233,7 +1233,7 @@
   },
   "ep.crate.shut": {
     "voice": "coach",
-    "ms": 12537
+    "ms": 1846
   },
   "ep.crate.try.seen": {
     "voice": "coach",
@@ -1293,7 +1293,7 @@
   },
   "ep.crate.help": {
     "voice": "coach",
-    "ms": 8935
+    "ms": 2524
   },
   "ep.crate.face": {
     "voice": "coach",
@@ -1313,7 +1313,7 @@
   },
   "ep.crate.two.yes": {
     "voice": "coach",
-    "ms": 4236
+    "ms": 4655
   },
   "ep.crate.buddy.done": {
     "voice": "coach",
@@ -1321,7 +1321,7 @@
   },
   "ep.crate.off": {
     "voice": "coach",
-    "ms": 6610
+    "ms": 1367
   },
   "ep.crate.sum": {
     "voice": "coach",
@@ -1373,7 +1373,7 @@
   },
   "ep.crate.check": {
     "voice": "coach",
-    "ms": 10382
+    "ms": 2175
   },
   "ep.dec-coins.intro": {
     "voice": "coach",

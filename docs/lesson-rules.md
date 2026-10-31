@@ -27,7 +27,7 @@ The root problem they guard against: a writer who already knows the idea writes 
 12. A right guess still gets the why.
    Every child gets one right on their own before the lesson ends, even after being helped, and gets the credit for it.
 
-   Questions must be fair: never show an answer just before asking for it, and a hint must ask for the same thing the answer box wants.
+   Questions must be fair: never show an answer before asking for it, including a running count on screen, and a hint must ask for the same thing the answer box wants.
    Words mean one thing, in a child's sense: "sum" means adding to a child. Pick the plain word and keep it.
 
 ## D. The picture and the child's hands
@@ -35,7 +35,7 @@ The root problem they guard against: a writer who already knows the idea writes 
 13. Never ask about an empty scene. Give what the child needs to answer.
 14. Show it in the space: numbers stand on the object, and colours tie the sum to the edges.
 15. The child commits first. Their answer is acted out, right or wrong.
-16. Hand steps must be able to go wrong.
+16. Hand steps must be able to go wrong, and must show the movement expected: a finger and an arrow from where to press to where to let go.
 17. The formula comes last, from what the child's hands just did.
 18. Each lesson ends in its own way. No shared closing lines, no praise for nothing.
 19. Words and picture work together. Don't remove words to look clever, and don't let words replace showing.

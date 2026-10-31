@@ -186,15 +186,31 @@
 
   // ---------- no word card covers another (cardLayout.ts), whatever the screen and whatever's moving ----------
   let root: HTMLElement | undefined = $state();
+  let route: SVGSVGElement | undefined = $state();
   let settling = 0;
   // (on a phone the words above can run long, so the child's guess moves down out of their way)
   const fixedCards = () => narrow ? '.dock, .bottom > *' : '.dock, .mybet, .bottom > *';
   const freeCards = () => narrow ? '.pin > *:not(.hand), .mybet' : '.pin > *:not(.hand)';
   /** how much each kind of card gives way: a number on an edge or the sum stays nearest its place */
   const giveOf = (el: Element) => el.classList.contains('edge') || el.classList.contains('sum') ? 0.15 : el.classList.contains('count') ? 0.3 : 1;
+  /** The arrow along a drag: from where to press to where to let go, stopping short of the head. */
+  function drawRoute() {
+    const r = route, d = world?.dragPath();
+    if (!r) return;
+    r.style.visibility = d ? '' : 'hidden';
+    if (!d) return;
+    const dx = d.b.x - d.a.x, dy = d.b.y - d.a.y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+    // (a short drag still gets an arrow long enough to see past the finger)
+    const reach = Math.max(len, 120), bx = d.a.x + ux * reach, by = d.a.y + uy * reach;
+    const head = 26, wide = 17, ex = bx - ux * head, ey = by - uy * head;
+    for (const l of r.querySelectorAll('line')) { l.setAttribute('x1', String(d.a.x)); l.setAttribute('y1', String(d.a.y)); l.setAttribute('x2', String(ex)); l.setAttribute('y2', String(ey)); }
+    const tip = `${bx},${by} ${ex - uy * wide},${ey + ux * wide} ${ex + uy * wide},${ey - ux * wide}`;
+    for (const g of r.querySelectorAll('polygon')) g.setAttribute('points', tip);
+  }
   function settle() {
     settling = requestAnimationFrame(settle);
     if (!root || phase === 'load') return;
+    drawRoute();
     const fixed = [...root.querySelectorAll(fixedCards())], free = [...root.querySelectorAll<HTMLElement>(freeCards())];
     const nudged = free.map(el => ({ x: parseFloat(el.dataset.nx ?? '0'), y: parseFloat(el.dataset.ny ?? '0') }));
     const box = (el: Element, give: number, n = { x: 0, y: 0 }): Card => { const r = el.getBoundingClientRect(); return { x: r.x - n.x, y: r.y - n.y, w: r.width, h: r.height, give }; };
@@ -246,7 +262,8 @@
     if (sc) { const s = sc; sc = null; world?.dispose(); world = null; if (stage.current() === ctl) stage.swap(before); s.dispose(); }
   });
   const pinOf = (id: string) => () => world?.pins.find(p => p.id === id)?.at() ?? null;
-  const showing = $derived(pins.filter(p => phase === 'play' || p.kind === 'sum'));
+  // (a running count stays out of a number question: it can be the answer)
+  const showing = $derived(pins.filter(p => (phase === 'play' || p.kind === 'sum') && !(p.kind === 'count' && ask?.kind === 'num')));
 </script>
 
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
@@ -271,7 +288,10 @@
       </div>
     {/each}
     {#if ask?.kind === 'hands' && world.tryPoint()}
-      <div class="pin" use:pin={() => world?.handPoint() ?? null}><span class="hand"><i></i></span></div>
+      <svg class="route" bind:this={route} aria-hidden="true">
+        <line class="under" /><line class="over" /><polygon class="under" /><polygon class="over" />
+      </svg>
+      <div class="pin" use:pin={() => world?.handPoint() ?? null}><span class="hand" class:tap={!world.dragPath()}><svg viewBox="0 0 48 60" aria-hidden="true"><path d="M20 4c-3 0-5.500 2.300-5.500 5.200V33l-4.600-4.500c-2.200-2.100-5.700-2-7.800.2-1.900 2-2 5.100-.2 7.200l13 15.300C18.300 55 22.700 57 27.300 57H31c8.300 0 15-6.700 15-15V28.500c0-2.900-2.300-5.200-5.200-5.200-1 0-2 .3-2.800.8-.7-2.300-2.800-3.900-5.300-3.900-1.100 0-2.100.3-3 .9-.8-1.800-2.600-3-4.700-3-1.100 0-2.100.3-3 .9V9.200C25.500 6.300 23 4 20 4z" /></svg></span></div>
     {/if}
     {#if thoughts.buddy}<div class="pin" use:pin={() => sc?.head('buddy') ?? null}><span class="thought">{thoughts.buddy}</span></div>{/if}
     {#if thoughts.pal}<div class="pin" use:pin={() => sc?.head('pal') ?? null}><span class="thought pal">{thoughts.pal}</span></div>{/if}
@@ -377,8 +397,19 @@
   .row2 { display: flex; align-items: baseline; gap: 6px; font: 700 15px/1 var(--font-body); }
   .row2 i { font-style: normal; color: #7a6440; } .u0 { color: #1f6fd1; } .u1 { color: #d63c7c; } .u2 { color: #c47c00; } .u3 { color: #2a1f45; }
   @keyframes pop { from { opacity: 0; scale: .5; } }
-  .hand { width: 46px; height: 46px; border-radius: 50%; border: 4px solid rgba(255, 255, 255, .95); box-shadow: 0 0 0 3px rgba(255, 196, 60, .8), 0 4px 14px rgba(0, 0, 0, .3); display: grid; place-items: center; }
-  .hand i { width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+  /* a finger that shows the movement, and an arrow from where to press to where to let go */
+  .hand { width: clamp(44px, 7.6vh, 60px); translate: 8% 42%; filter: drop-shadow(0 3px 5px rgba(50, 20, 0, .5)); }
+  .hand svg { display: block; width: 100%; }
+  .hand path { fill: #fff; stroke: #4a2a10; stroke-width: 2.5; stroke-linejoin: round; }
+  .hand.tap { animation: fingerTap 1.1s ease-in-out infinite; }
+  @keyframes fingerTap { 0%, 100% { transform: translate(-50%, -50%) translateY(10px); } 50% { transform: translate(-50%, -50%) translateY(-4px); } }
+  .route { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
+  .route line { fill: none; stroke-linecap: round; }
+  .route line.under { stroke: #b35c00; stroke-width: 13; }
+  .route line.over { stroke: #fff; stroke-width: 7; stroke-dasharray: 2 15; animation: routeRun .7s linear infinite; }
+  .route polygon.under { fill: #b35c00; stroke: #b35c00; stroke-width: 7; stroke-linejoin: round; }
+  .route polygon.over { fill: #fff; }
+  @keyframes routeRun { to { stroke-dashoffset: -17; } }
 
   .top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 12px; padding: 12px 18px 12px 80px; z-index: 3; pointer-events: none; }
   .top > :global(*) { pointer-events: auto; }

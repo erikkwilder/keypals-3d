@@ -534,7 +534,14 @@ export class CrateKit implements CrateWorld {
     return j.axis === 'w' ? { a: top(0, d.w - 1 - j.step), b: top(0, d.w - 1 - n) } : { a: top(j.step, d.w - 1), b: top(n + 0.6, d.w - 1) };
   }
   tryPoint() { const h = this.dragHint(); return h ? h.a : this.job?.kind === 'face' ? this.overCrate() : null; }
+  /** where the drag goes, on the screen (null: nothing to drag, or the child's hand is already on it) */
+  dragPath() {
+    const h = this.held ? null : this.dragHint();
+    return h ? { a: this.screenOf(h.a), b: this.screenOf(h.b) } : null;
+  }
   handPoint() {
+    if (this.held) return null;
+    if (this.job?.kind === 'face') return this.overCrate().add(new THREE.Vector3(0, -0.14, 0));
     const h = this.dragHint(); if (!h) return null;
     const k = (this.now * 0.45) % 1;
     return h.a.clone().lerp(h.b, smooth(clamp01(k * 1.3)));

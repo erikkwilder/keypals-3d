@@ -56,6 +56,8 @@ export interface World {
   pointer(kind: 'down' | 'move' | 'up', x: number, y: number): boolean;
   /** where a hand's hint is now, and where the child should start (null: nothing to touch) */
   handPoint(): Vector3 | null;
+  /** where a drag runs on the screen, drawn as an arrow (null: nothing to drag) */
+  dragPath(): { a: { x: number; y: number }; b: { x: number; y: number } } | null;
   tryPoint(): Vector3 | null;
   dispose(): void;
 }

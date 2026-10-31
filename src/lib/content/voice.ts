@@ -927,7 +927,7 @@ export const buddyText = (key: string) => BUDDY_WORDS.find(w => w[0] === key)?.[
 // The beat lessons (math/beats): as few words as the film allows, written for the ear. Each is said as an
 // exclamation, the way Erik liked best. Nothing here says a sum or an answer before the child has found it.
 export const BEAT_LINES: Line[] = [
-  ep('ep.crate.intro', 'This is Prism Hornback. Prism is sending crystal cubes to a friend, and the Sky Ferry, a flying boat, will carry them in this crate.'),
+  ep('ep.crate.intro', 'This is Prism Hornback. Prism is sending crystal cubes to a friend, and the Sky Ferry will carry them in this crate.'),
   ep('ep.crate.watch', "Let's see what happens to one cube when the ferry bumps along."),
   ep('ep.crate.job', 'Oh no! The cube had room to slide, so it hit the wall and cracked. The crate has to be packed full, so nothing can slide.'),
   ep('ep.crate.guess', "Take a guess at how many cubes will fill the crate, and we'll test it."),
@@ -977,7 +977,7 @@ export const BEAT_LINES: Line[] = [
   ep('ep.crate.face.yes', 'Yes! That part is 5 cubes one way and 2 cubes the other, so one layer is 10 cubes.', 'Yes! That part is five cubes one way and two cubes the other, so one layer is ten cubes.'),
   ep('ep.crate.other', 'That 2 counted the rows in one layer. What does the other 2 count?', 'That two counted the rows in one layer. What does the other two count?'),
   ep('ep.crate.two', "2 more cubes wouldn't fill the space on top of this layer. Look at how tall the crate is. What does the other 2 count?", "Two more cubes wouldn't fill the space on top of this layer. Look at how tall the crate is. What does the other two count?"),
-  ep('ep.crate.two.yes', 'Yes! The crate is 2 cubes tall, so the other 2 counts layers.', 'Yes! The crate is two cubes tall, so the other two counts layers.'),
+  ep('ep.crate.two.yes', 'Yes! The crate is 2 cubes tall, so the other 2 counts the layers.', 'Yes! The crate is two cubes tall, so the other two counts the layers.'),
   ep('ep.crate.buddy.done', "You sorted it out together! 5 times 2 is 10 cubes in one layer, and 2 layers of 10 make 20. So this crate's volume is 20 cubes.", "You sorted it out together! Five times two is ten cubes in one layer, and two layers of ten make twenty. So this crate's volume is twenty cubes."),
   ep('ep.crate.off', 'Every crate is packed full, so nothing can slide and the cubes are safe. Off they go on the Sky Ferry!'),
   ep('ep.crate.sum', '2 layers of 15 make 30 cubes, so 30 cubes fill this crate. Look at the numbers written here: 5 long times 3 wide gave one layer, then times 2 tall gave all the layers.', 'Two layers of fifteen make thirty cubes, so thirty cubes fill this crate. Look at the numbers written here. Five long times three wide gave one layer, then times two tall gave all the layers.'),
