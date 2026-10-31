@@ -5,7 +5,7 @@ import { game, type Screen } from './state/game.svelte';
 import type { Place } from './state/where';
 import { sfx } from './audio/sound';
 import { ANYWHERE, MATH_CHIPS, SUBJECT, SUBJECTS, WAYS, thingsIn, type Anywhere, type Subject, type Thing, type WayId } from './subjects';
-import { LESSON as TYPING_LESSON, REGION, REGIONS, lessonTitle, type RegionId } from './engine/course';
+import { LESSON as TYPING_LESSON, REGION, REGIONS, lessonTitle, type Lesson as TypingLesson, type RegionId } from './engine/course';
 import { isUnlocked, nextLesson, passed, regionUnlocked, type Profile } from './engine/profile';
 import { MATH_LESSONS, STRAND, regionsOf } from './math/course';
 import { mathOf, mathPassed, nextMathLesson } from './math/progress';
@@ -18,7 +18,8 @@ import { PLACEMENTS } from './math/course';
 import { arcadeOf, type ArcadeId } from './arcade/arcade';
 import { playNextLevel, playOf, type PlayGame } from './math/playground';
 import { builderOf, builderOpen } from './math/place/builder';
-import { advOf, worldOpen, type WorldId } from './adventure/state';
+import { advOf, playRules, worldOpen, type WorldId } from './adventure/state';
+import { wordsFor } from './path/player.svelte';
 import { lastWorld, WORLD_PIN, worldSubject } from './adventure/worlds';
 
 export const wayOf = (s: string): WayId => game.way[s] ?? 'practice';
@@ -61,9 +62,18 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
     if (w === 'practice') { openSubject('typing', 'practice', t.id); return; }
     // a typing adventure: the typing worlds (the Sky Islands, for now), answering with typing
     if (w === 'adventure') { game.update(pp => { advOf(pp).subject = 'typing'; }); worldSubject.id = 'typing'; lastWorld.id = 'sky'; game.visit('adventure'); return; }
+    // Family Duel and Rival Ghosts, set to typing (Back comes back here)
+    if (t.kind === 'versus') {
+      game.update(pp => { advOf(pp).subject = 'typing'; });
+      if (t.id === 'duel') { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.visit('duel'); } else game.visit('rivals');
+      return;
+    }
+    // an Arcade game that takes typed answers
+    if (t.id === 'tower') { game.setHome('typing'); game.playArcade('tower'); return; }
     const l = TYPING_LESSON[t.id];
     if (!l) return;
-    if (!isUnlocked(p, l)) { sfx.nope(); game.say('Keep going on the typing map to open this one!'); return; }
+    if (!isUnlocked(p, l)) { sfx.nope(); game.say(`${opensAfter(l)} to open this one!`); return; }
+    if (l.kind === 'custom' && !wordsFor(p).trim()) { sfx.nope(); game.say('Ask a grown-up to add your words in Grown-ups first!'); return; }
     game.setHome('typing');
     game.startLesson(l.id, passed(p, l.id));
     return;
@@ -117,6 +127,14 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
 }
 
 /** The next thing to do in a subject: its name, and how to start it. */
+/** What opens a typing lesson: "Finish Island Parade" (the lesson it asks for by name). */
+function opensAfter(l: TypingLesson): string {
+  const need = l.requires ? TYPING_LESSON[l.requires] : null;
+  return need ? `Finish ${lessonTitle(need, game.layout)}` : 'Keep going on the typing map';
+}
+/** Things a player can't open at all right now leave the list: Family Duel and Rival Ghosts when the grown-ups have them off. */
+export const thingAllowed = (t: Thing, p: Profile) => t.kind !== 'versus' || playRules.of(p).versus !== false;
+
 export function keepGoing(s: string, p: Profile): { label: string; fresh: boolean; go: () => void } {
   if (s === 'typing') {
     const l = nextLesson(p);
@@ -139,7 +157,17 @@ export function statusOf(s: Subject, w: WayId, t: Thing, p: Profile): { tag: str
   if (t.soon) return { tag: 'Coming soon', locked: true };
   const m = mathOf(p);
   if (s.id === 'typing') {
-    if (w === 'learn') { const l = TYPING_LESSON[t.id]; return !l ? { tag: '' } : passed(p, l.id) ? { tag: 'Done', done: true } : isUnlocked(p, l) ? { tag: 'New keys' } : { tag: 'Locked', locked: true }; }
+    if (w === 'learn') { const l = TYPING_LESSON[t.id]; return !l ? { tag: '' } : passed(p, l.id) ? { tag: 'Done', done: true } : isUnlocked(p, l) ? { tag: l.practice ? 'Your own keys' : 'New keys' } : { tag: 'Locked', locked: true }; }
+    if (w === 'games') {
+      if (t.kind === 'versus') return { tag: t.id === 'duel' ? 'Two players' : 'Against a ghost' };
+      if (t.id === 'tower') { const best = arcadeOf(p).tower?.best ?? 0; return best ? { tag: `Best ${Math.round(best).toLocaleString('en-US')}`, done: true } : { tag: 'New! Give it a go' }; }
+      const l = TYPING_LESSON[t.id];
+      if (!l) return { tag: '' };
+      if (!isUnlocked(p, l)) return { tag: opensAfter(l).replace('Finish', 'Opens after'), locked: true };
+      if (l.kind === 'custom' && !wordsFor(p).trim()) return { tag: 'Needs your words' };
+      const wpm = Math.round(p.lessons[l.id]?.bestWpm ?? 0);
+      return wpm ? { tag: `Best ${wpm} words a minute`, done: true } : { tag: 'New! Give it a go' };
+    }
     return { tag: '' };
   }
   if (w === 'learn') return isLearned(m, t.id) ? { tag: 'Learned', done: true } : { tag: 'New' };
@@ -334,25 +362,27 @@ export function topicTile(s: string, topic: string, p: Profile): TopicTile {
   return { id: topic, name: topicName(s, topic), art: c.art, color: c.color, line, done: pr.done, of: pr.of, locked, go: () => { sfx.click(); openTopic(s, topic); } };
 }
 
-/** A topic's four ways: Learn, Practice, Play, Adventure, each with one line; a way with nothing is "Coming soon". */
+/** A topic's four ways: Learn, Practice, Play, Adventure, each with one line; a way with nothing at all is "Coming soon". */
 export type WayTile = { id: WayId; name: string; icon: string; color: string; tint: string; line: string; soon: boolean; go: () => void };
 export function topicWays(s: string, topic: string, p: Profile): WayTile[] {
   const S = SUBJECT[s];
   const m = mathOf(p);
   return WAYS.map(w => {
-    const things = thingsIn(S, w.id, topic).filter(t => !t.soon);
+    const things = thingsIn(S, w.id, topic).filter(t => !t.soon && thingAllowed(t, p));
     let line = '', go: () => void = () => {};
     const soon = w.id !== 'practice' && !things.length;
     if (w.id === 'learn') {
       const done = s === 'typing' ? things.filter(t => passed(p, t.id)).length : things.filter(t => isLearned(m, t.id)).length;
       line = `${done} of ${things.length} ${s === 'typing' ? 'done' : 'watched'}`;
       go = () => { sfx.click(); openWay(s, topic, 'learn'); };
+      // (one thing to learn here: its name, and straight in)
+      if (s === 'typing' && things.length === 1) { line = things[0].name; go = () => openThing(S, 'learn', things[0]); }
     } else if (w.id === 'practice') {
       const pr = topicProgress(s, topic, p);
       line = `${pr.done} of ${pr.of} ${s === 'typing' ? 'lessons' : 'islands'}`;
       go = () => { sfx.click(); openTopicMap(s, topic); };
     } else if (w.id === 'games') {
-      const best = Math.max(0, ...things.map(t => bestOf(t, p)));
+      const best = s === 'typing' ? 0 : Math.max(0, ...things.map(t => bestOf(t, p)));
       line = things.length === 1 ? (best ? `${things[0].name} · best ${best.toLocaleString('en-US')}` : things[0].name) : `${things.length} games${best ? ` · best ${best.toLocaleString('en-US')}` : ''}`;
       // one game: straight in; more: the list of them
       go = things.length === 1 ? () => openThing(S, 'games', things[0]) : () => { sfx.click(); openWay(s, topic, 'games'); };

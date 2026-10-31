@@ -2,7 +2,7 @@
 // map of trips that earn stars, eggs and treasure), Games (arcade games and playground toys) and
 // Adventure (worlds and battles). Home, the subject pages and the Menu all draw from this list,
 // so the four ways have the same names, pictures, colours and order everywhere, and a new subject
-// (Reading, Spelling...) is one more entry here. A way with nothing in it yet shows as "Coming soon".
+// (Reading, Spelling...) is one more entry here. A way with nothing in it at all shows as "Coming soon".
 import { ALL_LESSONS, REGIONS, type RegionId } from './engine/course';
 import { MATH_LESSONS, STRAND } from './math/course';
 import { LESSONS } from './math/learn';
@@ -39,8 +39,8 @@ export type Chip = { id: string; name: string; art: string; color: string };
 /** One thing to do in a way: an episode, a trip map, a game, a world. `areas` are the chips it shows
  *  under ("All" shows everything); `soon` things are listed but not built yet. */
 export type Thing = { id: string; name: string; line: string; art: string; areas: string[]; kind: string; face?: string; soon?: boolean };
-/** `soon`: what to say while a way has nothing yet, and `tryIt`, a lesson that comes closest for now */
-export type WayContent = { things: Thing[]; unit: string; soon?: string; tryIt?: { label: string; lesson: string } };
+/** `soon`: what to say while a way has nothing yet; `note`: a line over its list, on one part of the subject */
+export type WayContent = { things: Thing[]; unit: string; soon?: string; note?: string };
 export type Subject = {
   id: string; name: string; tag: string; icon: string; color: string;
   /** the shade over its picture on Home */
@@ -106,9 +106,36 @@ const mathWorlds: Thing[] = worldsFor('math').map(w => ({
 const REGION_CHIP: Record<RegionId, string> = { village: 'Home row', treetops: 'Top row', burrows: 'Bottom row', cliffs: 'Capitals', ridge: 'Numbers', shores: 'Symbols', road: 'Open Road' };
 const REGION_COLOR: Record<RegionId, string> = { village: '#7c5cf5', treetops: '#2e9e6e', burrows: '#b4561a', cliffs: '#e0567a', ridge: '#2f63bd', shores: '#13786c', road: '#d9a21b' };
 export const TYPING_CHIPS: Chip[] = REGIONS.map(r => ({ id: r.id, name: REGION_CHIP[r.id], art: `regions/${r.id}.webp`, color: REGION_COLOR[r.id] }));
-const typingLearn: Thing[] = ALL_LESSONS.filter(l => l.kind === 'drill').map(l => ({
-  id: l.id, name: l.title, line: l.blurb ?? 'Your buddy shows which finger reaches each new key. Then you try.', art: `regions/${l.region}.webp`, areas: [l.region], kind: 'keys',
-}));
+const TYPING_TOPICS = REGIONS.map(r => r.id);
+/** this island and the ones after it (a game that needs the keys taught there) */
+const topicsFrom = (id: RegionId) => TYPING_TOPICS.slice(TYPING_TOPICS.indexOf(id));
+const roadLesson = (id: string) => ALL_LESSONS.find(l => l.id === id)!;
+const typingLearn: Thing[] = [
+  // every lesson that brings new keys with the finger coach (Capitals and most symbols are 'intro' lessons)
+  ...ALL_LESSONS.filter(l => l.kind === 'drill' || l.kind === 'intro').map(l => ({
+    id: l.id, name: l.title, line: l.blurb ?? 'Your buddy shows which finger reaches each new key. Then you try.', art: `regions/${l.region}.webp`, areas: [l.region], kind: l.kind === 'drill' ? 'keys' : 'lesson',
+  })),
+  // the Open Road brings no new keys: what's left to learn is the keys that still trip you up
+  { id: 'road-3', name: 'Tricky Keys', line: roadLesson('road-3').blurb!, art: 'regions/road.webp', areas: ['road'], kind: 'lesson' },
+];
+/** Typing's games: the Open Road's free play (the Arcade's Typing shelf), and the games that take typed
+ *  answers. Most use every key you know, so they stand under every island; a game that needs more stands
+ *  from the island that teaches it. */
+const road = (id: string, art: string, color: string, areas: string[], say: string): TypingGame => ({ id, name: roadLesson(id).title, line: roadLesson(id).blurb!, art, areas, kind: 'arcade', color, say });
+export type TypingGame = Thing & { color: string; say: string };
+export const TYPING_CABS: TypingGame[] = [
+  road('road-4', 'arcade/cab-sprint.webp', '#7c5cf5', TYPING_TOPICS, 'One minute. Go, go, go!'),
+  road('road-3', 'arcade/cab-tricky.webp', '#13786c', TYPING_TOPICS, 'Your tricky keys!'),
+  road('road-1', 'arcade/cab-story.webp', '#2f63bd', topicsFrom('cliffs'), 'Type a little adventure!'),
+  road('road-2', 'arcade/cab-facts.webp', '#c98a10', topicsFrom('cliffs'), 'Type something amazing!'),
+  road('road-5', 'arcade/cab-words.webp', '#e0567a', topicsFrom('burrows'), 'Type your own words!'),
+];
+const typingGames: Thing[] = [
+  ...TYPING_CABS,
+  { id: 'tower', name: 'Tower Stack', line: 'Type each answer on the number keys, then drop the block on top.', art: 'arcade/cab-tower.webp', areas: ['ridge'], kind: 'arcade' },
+  { id: 'duel', name: 'Family Duel', line: 'Two players, one screen. Type the words to cheer up the Glimmer first.', art: 'game/intro-duel.webp', areas: TYPING_TOPICS, kind: 'versus' },
+  { id: 'rivals', name: 'Rival Ghosts', line: 'Race a ghost that plays the way a real player does, word for word.', art: 'game/intro-rivals.webp', areas: TYPING_TOPICS, kind: 'versus' },
+];
 const typingPractice: Thing[] = REGIONS.map(r => ({ id: r.id, name: r.name, line: r.blurb, art: `regions/${r.id}.webp`, areas: [r.id], kind: 'trail' }));
 const typingWorlds: Thing[] = [
   ...worldsFor('typing').map(w => ({ id: w.id, name: w.name, line: w.id === 'sky' ? 'Battles where you type the words to cheer up the Glimmers.' : w.blurb, art: w.map ? w.map.wide : 'game/worlds-wide.webp', areas: REGIONS.map(r => r.id), kind: 'world', soon: !w.map })),
@@ -122,7 +149,7 @@ export const SUBJECTS: Subject[] = [
     ways: {
       learn: { things: typingLearn, unit: 'new-key lessons' },
       practice: { things: typingPractice, unit: 'lessons' },
-      games: { things: [], unit: 'games', soon: 'Typing games are on the way. For now, Speed Sprint on the Open Road is a race against the clock.', tryIt: { label: 'Speed Sprint', lesson: 'road-4' } },
+      games: { things: typingGames, unit: 'games', note: 'These games use every key you know so far.' },
       adventure: { things: typingWorlds, unit: 'world' },
     },
   },

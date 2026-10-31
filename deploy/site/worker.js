@@ -477,9 +477,10 @@ async function tidy(env) {
 
 // ---------- the weekly backup ----------
 const BACKUP_PAGE = 50; // rows a file (a saved player is at most 400 KB)
-/** Copy every player and account to R2 as gzipped JSON files, if the last copy is a week old (the tidy-up
- *  runs daily; this makes it weekly). backups/<date>/players-0000.json.gz ..., then manifest.json and
- *  backups/latest.json. The bucket deletes copies after 90 days by itself. */
+/** Copy every player and account, the classes, and the ideas and problem reports grown-ups sent, to R2 as
+ *  gzipped JSON files, if the last copy is a week old (the tidy-up runs daily; this makes it weekly).
+ *  backups/<date>/players-0000.json.gz ..., then manifest.json and backups/latest.json. The bucket deletes
+ *  copies after 90 days by itself. */
 async function backup(env, force = false) {
   if (!env.BACKUPS) return null;
   const now = Date.now();
@@ -487,13 +488,16 @@ async function backup(env, force = false) {
   if (!force && last) { const j = await last.json().catch(() => null); if (j && now - j.at < 6.5 * DAY) return null; }
   const prefix = `backups/${new Date(now).toISOString().slice(0, 10)}/`;
   const gz = async (text) => new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
-  const tables = { players: 'code', accounts: 'id', ...CLASS_TABLES };
+  // (ideas and problems have number ids: a text "after" never matches a number, so a table's first page asks for no "after" at all)
+  const tables = { players: 'code', accounts: 'id', ideas: 'id', problems: 'id', ...CLASS_TABLES };
   const counts = {}, files = [];
   for (const [table, key] of Object.entries(tables)) {
-    let after = '', page = 0;
+    let after = null, page = 0;
     counts[table] = 0;
     for (;;) {
-      const res = await env.DB.prepare(`SELECT * FROM ${table} WHERE ${key} > ? ORDER BY ${key} LIMIT ?`).bind(after, BACKUP_PAGE).all();
+      const res = await (after === null
+        ? env.DB.prepare(`SELECT * FROM ${table} ORDER BY ${key} LIMIT ?`).bind(BACKUP_PAGE)
+        : env.DB.prepare(`SELECT * FROM ${table} WHERE ${key} > ? ORDER BY ${key} LIMIT ?`).bind(after, BACKUP_PAGE)).all();
       const rows = res.results ?? [];
       if (!rows.length) break;
       const name = `${prefix}${table}-${String(page++).padStart(4, '0')}.json.gz`;

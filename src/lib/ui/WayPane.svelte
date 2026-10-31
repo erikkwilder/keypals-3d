@@ -5,9 +5,8 @@
   // cards open the Adventure map on that world. A way with nothing yet is one soft "Coming soon" card.
   import { game } from '../state/game.svelte';
   import { WAY, chipNames, thingsIn, type Subject, type Thing, type WayId } from '../subjects';
-  import { openThing, statusOf } from '../nav';
+  import { openThing, statusOf, thingAllowed } from '../nav';
   import { LESSON as TYPING_LESSON, lessonTitle } from '../engine/course';
-  import { isUnlocked } from '../engine/profile';
   import { mathOf, nextMathLesson } from '../math/progress';
   import { checkDueId, nextToLearn } from '../math/learn';
   import { epLesson, isEpisode } from '../math/episodes';
@@ -21,7 +20,7 @@
   const p = $derived(game.profile!);
   const W = $derived(WAY[way]);
   const content = $derived(subject.ways[way]);
-  const shown = $derived(thingsIn(subject, way, chip));
+  const shown = $derived(thingsIn(subject, way, chip).filter(t => thingAllowed(t, p)));
   const live = $derived(shown.filter(t => !t.soon));
   const soon = $derived(shown.filter(t => t.soon));
   // with "All": one group per part (things that go with several parts make their own group)
@@ -43,13 +42,6 @@
   const due = $derived(dueId ? epLesson(dueId) : null);
   const hero = $derived(subject.id === 'math' && way === 'learn' ? nextToLearn(m, nextMathLesson(m)) : null);
   const heroThing = $derived(hero ? live.find(t => t.id === hero.id) ?? null : null);
-  /** the lesson that comes closest while a way has nothing yet (typing's Speed Sprint) */
-  function tryIt(id: string) {
-    const l = TYPING_LESSON[id];
-    if (!l) return;
-    if (!isUnlocked(p, l)) { sfx.nope(); game.say('Keep going on the typing map to open this one!'); return; }
-    sfx.click(); game.setHome('typing'); game.startLesson(id);
-  }
   function quickCheck(id: string) { sfx.click(); game.learnCheck = true; game.openLearn(id); }
 
   const verb = (t: Thing, done?: boolean, locked?: boolean) => locked ? (way === 'adventure' ? 'Open it' : 'Locked') : way === 'learn' ? (subject.id === 'typing' ? (done ? 'Again' : 'Try it') : done ? 'Watch again' : 'Watch') : way === 'games' ? 'Play' : 'Go';
@@ -60,9 +52,7 @@
   {#if !content.things.length}
     <section class="soonbig">
       <img src="{base}{W.icon}" alt="" />
-      <div><b>{W.name}: coming soon</b><p>{content.soon ?? `${subject.name} ${W.name.toLowerCase()} is on the way.`}</p>
-        {#if content.tryIt}<button class="btn btn-primary tryit" onclick={() => tryIt(content.tryIt!.lesson)}><Icon name="play" size={22} /> {content.tryIt.label}</button>{/if}
-      </div>
+      <div><b>{W.name}: coming soon</b><p>{content.soon ?? `${subject.name} ${W.name.toLowerCase()} is on the way.`}</p></div>
     </section>
   {:else}
     {#if due}
@@ -86,6 +76,7 @@
         </div>
       </section>
     {/if}
+    {#if content.note && chip !== 'all'}<p class="note">{content.note}</p>{/if}
     {#if !live.length}
       <section class="soonbig small"><img src="{base}{W.icon}" alt="" /><div><b>Nothing here yet</b><p>Try another part, or All.</p></div></section>
     {/if}
@@ -162,7 +153,7 @@
   .tc.locked .tpic { filter: grayscale(.6) brightness(1.04); }
   .face { position: absolute; right: 5%; bottom: 7%; width: 26%; aspect-ratio: 1; object-fit: cover; border-radius: 50%; z-index: 1; background: #fff; box-shadow: 0 0 0 4px #fff, 0 6px 12px rgba(0, 0, 0, .3); }
   .hpic .face { width: 22%; }
-  .tryit { margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(color-mix(in srgb, var(--wc) 70%, #fff), var(--wc)); box-shadow: 0 5px 0 var(--wd); }
+  .note { margin: 0; font: 600 16px/1.35 var(--font-body); color: var(--ink2); }
   .playdot { position: absolute; left: 50%; top: 46%; translate: -50% -50%; z-index: 1; display: grid; place-items: center; width: 70px; height: 70px; border-radius: 50%; background: rgba(255, 255, 255, .92); box-shadow: 0 0 0 5px rgba(255, 255, 255, .45), 0 8px 18px rgba(0, 0, 0, .3); }
   .playdot img { width: 44px; height: 44px; object-fit: contain; margin-left: 4px; }
   .playdot.sm { left: 14%; top: 18%; width: 44px; height: 44px; }
@@ -174,7 +165,7 @@
   .tx b { font: 600 19px/1.15 var(--font-ui); }
   .ln { font: 600 13.5px/1.3 var(--font-body); color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .parts { align-self: flex-start; font: 800 11.5px var(--font-body); color: var(--wd); background: var(--wt); padding: 2px 8px; border-radius: 999px; }
-  .row { margin-top: auto; padding-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .row { margin-top: auto; padding-top: 6px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; }
   /* the grade of the lessons this Learn teaches (the curriculum's), small */
   .gr { align-self: flex-start; font: 800 11px var(--font-body); letter-spacing: .03em; text-transform: uppercase; color: var(--muted); }
   .tag { display: inline-flex; align-items: center; gap: 3px; font: 800 12px var(--font-body); padding: 3px 10px; border-radius: 999px; background: var(--wt); color: var(--wd); white-space: nowrap; }
@@ -193,8 +184,8 @@
     .tx { padding: 7px 9px 9px; }
     .tx b { font-size: 15.5px; }
     .ln { display: none; }
-    .row { flex-direction: column; align-items: stretch; gap: 5px; }
-    .tag { justify-content: center; }
+    .row { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 5px; }
+    .tag { justify-content: center; white-space: normal; text-align: center; }
     kbd { min-width: 40px; height: 40px; font-size: 22px; border-radius: 10px; padding: 0 8px; }
     .playdot.sm { width: 34px; height: 34px; } .playdot.sm img { width: 22px; height: 22px; }
     .soonbig { flex-direction: column; text-align: center; padding: 16px; }

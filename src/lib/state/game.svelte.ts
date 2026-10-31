@@ -157,12 +157,13 @@ class Game {
   /** Go somewhere by a cross-link (the bar's My stuff, a Glimmers link on Adventure, the Wardrobe's Shop):
    *  Back from there comes back here. A place above this one, or below it, is just a step. Cross-links
    *  chain: the island's Shop, then the Shop's "Move and size it" to the Wardrobe, and Back unwinds them in
-   *  order (the Wardrobe, the Shop, the island). */
-  visit(screen: Screen) {
+   *  order (the Wardrobe, the Shop, the island). `andBack`: a link that jumps past a level (Home's minutes to
+   *  My progress, past My stuff): Back from there comes straight back too. */
+  visit(screen: Screen, andBack = false) {
     const from = this.here();
     const to = this.here(screen);
     if (samePlace(from, to)) return;
-    const step = isAbove(to, from, this.from) || isAbove(from, to, this.from) || parentOf(to, this.from) === null;
+    const step = !andBack && (isAbove(to, from, this.from) || isAbove(from, to, this.from) || parentOf(to, this.from) === null);
     this.arrive(screen, step ? null : from);
     if (!step) this.returns.push({ at: this.here(), to: from });
     if (this.returns.length > RETURNS_MAX) this.returns.splice(0, this.returns.length - RETURNS_MAX);

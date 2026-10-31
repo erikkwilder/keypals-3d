@@ -72,9 +72,9 @@
     sfx.click(); done = null; const same = playing?.g === g; playing = { g, level, key: ++k };
     if (!same || !scene) openWorld(g);
   }
-  function finished(r: { stars: 0 | 1 | 2 | 3; ms: number }) {
+  function finished(r: { stars: 0 | 1 | 2 | 3; ms: number; answers: boolean[] }) {
     if (!playing) return;
-    const out = applyPlay($state.snapshot(game.profile!) as Profile, { game: playing.g, level: playing.level, stars: r.stars, ms: r.ms, at: Date.now() });
+    const out = applyPlay($state.snapshot(game.profile!) as Profile, { game: playing.g, level: playing.level, stars: r.stars, ms: r.ms, at: Date.now(), answers: r.answers });
     game.replaceProfile(out.profile);
     done = { stars: r.stars, out, g: playing.g, level: playing.level };
     playing = null; burst++;

@@ -6,7 +6,9 @@ import { finishLesson } from '../math/learn';
 import { afterEach, describe, expect, it, beforeEach, vi } from 'vitest';
 import { game, type Screen } from './game.svelte';
 import { ACTIVITIES, START_SCREENS, levelOf, parentOf, type Place } from './where';
-import { homeTiles, menuMore, menuPlaces, openTopic, openSubjectPage, placeName, STUFF_GO, topicGroups, topicWays, trailOf } from '../nav';
+import { homeTiles, menuMore, menuPlaces, openThing, openTopic, openSubjectPage, openWay, placeName, statusOf, STUFF_GO, thingAllowed, topicGroups, topicWays, trailOf } from '../nav';
+import { SUBJECT } from '../subjects';
+import { advOf, advView } from '../adventure/state';
 import { nextFor } from '../path/player.svelte';
 import { startItem } from '../path/launch';
 import { pathNext } from '../path/next';
@@ -183,6 +185,58 @@ describe('Back, in play', () => {
     expect(game.screen).toBe('dances');
     game.back(); expect(game.screen).toBe('mystuff');
     game.back(); expect([game.screen, game.subject]).toEqual(['subject', 'math']);
+  });
+  it('a typing topic\'s Learn and Play open something real, and a locked game says what opens it', () => {
+    game.addPlayer('Tess', 'dino', false);
+    const p = game.profile!;
+    for (const c of SUBJECT.typing.chips) {
+      const ways = topicWays('typing', c.id, p);
+      expect(ways.filter(w => w.soon).map(w => w.id), c.id).toEqual([]);
+      expect(ways.every(w => w.line && !/coming soon/i.test(w.line)), c.id).toBe(true);
+    }
+    const sprint = SUBJECT.typing.ways.games.things.find(t => t.id === 'road-4')!;
+    expect(statusOf(SUBJECT.typing, 'games', sprint, p)).toMatchObject({ locked: true, tag: 'Opens after Island Parade' });
+    openThing(SUBJECT.typing, 'games', sprint);
+    expect(game.screen).not.toBe('run');
+    // played: it opens, and its best shows
+    game.update(pp => { for (const id of ['village-9', 'road-4']) pp.lessons[id] = { stars: 2, bestWpm: 23, bestAcc: 0.97, bestRide: 3, attempts: 1, passes: 1, lastAt: 1, bestScore: 30, scoreSum: 30, finishes: 1 }; });
+    expect(statusOf(SUBJECT.typing, 'games', sprint, game.profile!)).toMatchObject({ tag: 'Best 23 words a minute', done: true });
+    openThing(SUBJECT.typing, 'games', sprint);
+    expect([game.screen, game.lessonId]).toEqual(['run', 'road-4']);
+  });
+  it('My Words with no words asks for a grown-up instead of opening an empty lesson', () => {
+    game.addPlayer('Wes', 'dino', false);
+    game.update(pp => { pp.lessons['burrows-10'] = { stars: 2, bestWpm: 23, bestAcc: 0.97, bestRide: 3, attempts: 1, passes: 1, lastAt: 1, bestScore: 30, scoreSum: 30, finishes: 1 }; });
+    const t = SUBJECT.typing.ways.games.things.find(x => x.id === 'road-5')!;
+    game.go('arcade');
+    expect(statusOf(SUBJECT.typing, 'games', t, game.profile!).tag).toBe('Needs your words');
+    openThing(SUBJECT.typing, 'games', t);
+    expect(game.screen).toBe('arcade');
+    game.update(pp => { pp.customText = 'spell these words'; });
+    openThing(SUBJECT.typing, 'games', t);
+    expect(game.screen).toBe('run');
+  });
+  it('Family Duel and Rival Ghosts open set to typing from a typing topic, come back there, and leave when the grown-ups turn them off', () => {
+    game.addPlayer('Vee', 'dino', false);
+    openTopic('typing', 'village');
+    openWay('typing', 'village', 'games');
+    const duel = SUBJECT.typing.ways.games.things.find(x => x.id === 'duel')!;
+    openThing(SUBJECT.typing, 'games', duel);
+    expect(game.screen).toBe('duel');
+    expect(advView(game.profile!).subject).toBe('typing');
+    game.back(); expect([game.screen, game.topic]).toEqual(['way', 'village']);
+    expect(thingAllowed(duel, game.profile!)).toBe(true);
+    game.update(pp => { advOf(pp).settings.versus = false; });
+    expect(thingAllowed(duel, game.profile!)).toBe(false);
+    expect(topicWays('typing', 'village', game.profile!).find(w => w.id === 'games')!.soon).toBe(false);
+  });
+  it('Home\'s minutes open My progress, and Back comes straight home; from My stuff it goes back to My stuff', () => {
+    game.go('hub');
+    game.visit('progress', true);
+    expect(game.screen).toBe('progress');
+    game.back(); expect(game.screen).toBe('hub');
+    game.go('mystuff'); STUFF_GO.progress();
+    game.back(); expect(game.screen).toBe('mystuff');
   });
   it('Adventure\'s Glimmers and Eggs come back to Adventure; from My stuff they go back to My stuff', () => {
     game.go('adventure');

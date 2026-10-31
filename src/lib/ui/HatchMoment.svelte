@@ -17,6 +17,7 @@
   import GlimmerCard from './GlimmerCard.svelte';
   import { EggHatch } from '../three/eggHatch';
   import Confetti from './Confetti.svelte';
+  import TeamPick from './TeamPick.svelte';
 
   type View = { top: number; bottom: number; left: number; right: number };
   type Props = {
@@ -270,8 +271,9 @@
         <div class="rt"><small>{got.special ? 'Something special hatched!' : 'It hatched!'}</small><b>{RARITY[got.rarity].name}</b></div>
         <div class="flip"><GlimmerCard id={got.id} width={innerWidth < 760 ? 120 : 190} level={got.level} shine /></div>
         <div class="msg card">
-          <h2>{GLIMMER[got.id].name}{got.isNew ? ' joined your team!' : ''}</h2>
+          <h2>{GLIMMER[got.id].name}{got.isNew ? ' joined you!' : ''}</h2>
           <p>{got.isNew ? `${GLIMMER[got.id].power.name}: ${GLIMMER[got.id].power.text(1)}` : `You have one already: stardust! ${GLIMMER[got.id].name} is level ${got.level}.`}</p>
+          {#if got.isNew}<span class="tm" role="presentation" onclick={(e) => e.stopPropagation()}><TeamPick id={got.id} /></span>{/if}
           {#if see}
             <div class="go">
               <button class="btn" onclick={close}>OK</button>

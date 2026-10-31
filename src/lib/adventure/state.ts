@@ -206,6 +206,15 @@ export function advView(p: Profile): Adventure {
   return a ? { ...d, ...a, settings: { ...DEFAULT_SETTINGS, ...a.settings } } : d;
 }
 export const owns = (a: Adventure, id: GlimmerId) => !!a.glimmers[id];
+/** The team's first free place (a place whose Glimmer you no longer have is free), or -1 when it's full. */
+export const teamGap = (a: Adventure) => a.team.findIndex(t => !t || !owns(a, t));
+/** Put a Glimmer you have on the team in this place; it leaves any other place it had. */
+export function putOnTeam(a: Adventure, id: GlimmerId, slot: number) {
+  if (!owns(a, id)) return;
+  const other = a.team.indexOf(id);
+  if (other >= 0) a.team[other] = null;
+  a.team[slot] = id;
+}
 export const xpNeed = (level: number) => 20 + level * 10;
 export const MAX_LEVEL = 20;
 export function giveXp(o: Owned, xp: number): number {

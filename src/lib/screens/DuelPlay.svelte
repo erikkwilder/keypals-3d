@@ -7,6 +7,7 @@
   // turn. The first to fill their bar wins the Glimmer (the other gets a last turn to tie). Everything at
   // the top can be tapped to see what it is.
   import PauseButton from '../ui/PauseButton.svelte';
+  import TeamPick from '../ui/TeamPick.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { Tween } from 'svelte/motion';
   import { fade } from 'svelte/transition';
@@ -530,9 +531,9 @@
           <h2>{gName} likes you both!</h2>
           <p class="pw">{got.length ? `It joins ${got.join(' and ')}'s team${got.length > 1 ? 's' : ''}.` : `${gName} goes home happy.`} One slip is all it takes to win next time!</p>
         {:else if winOut?.met?.isNew}
-          <h2>{gName} joined {winSide.name}'s team!</h2>
+          <h2>{gName} joined {winSide.name}!</h2>
           <p class="pw"><b>In battles it helps:</b> {g.power.text(1)}</p>
-          {#if winSide.profileId === game.profile?.id && !advView(game.profile!).team.includes(glimmer)}<button class="btn teambtn" onclick={() => { game.glimmerSel = glimmer; game.glimmerTab = 'team'; game.visit('glimmers'); }}>Put {gName} on your team</button>{/if}
+          {#if winSide.profileId === game.profile?.id}<TeamPick id={glimmer} />{/if}
         {:else if winOut?.met}
           <h2>{winSide.name}'s {gName} got stronger!</h2>
           <p class="pw">{winSide.name} already had one{winOut.met.ups ? `, so it's now level ${winOut.met.level}` : ''}.</p>
@@ -764,11 +765,11 @@
   .bq p { margin: 0; font: 600 20px var(--font-ui); color: #1f4f80; text-align: center; }
   .blockbox :global(.pad) { flex-basis: 100%; }
 
-  .reveal { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .25), rgba(30, 20, 60, .55) 70%); overflow: hidden auto; }
+  .reveal { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 10px; padding: 16px; background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .25), rgba(30, 20, 60, .55) 70%); overflow: hidden auto; }
   .tiet { color: #ffb02e; }
   /* the spinning rays sit in a box of their own that clips them, so they never make the page scroll */
   .rayclip { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-  .rays { position: absolute; left: 50%; top: 40%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px; background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, .22) 0 8deg, transparent 8deg 22deg); animation: spin 18s linear infinite; mask: radial-gradient(circle, #000 20%, transparent 60%); -webkit-mask: radial-gradient(circle, #000 20%, transparent 60%); pointer-events: none; }
+  .rays { position: fixed; left: 50%; top: 40%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px; background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, .22) 0 8deg, transparent 8deg 22deg); animation: spin 18s linear infinite; mask: radial-gradient(circle, #000 20%, transparent 60%); -webkit-mask: radial-gradient(circle, #000 20%, transparent 60%); pointer-events: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .rtitle { position: relative; text-align: center; animation: titlein .7s cubic-bezier(.2, 1.4, .4, 1) both; }
   @keyframes titlein { 0% { opacity: 0; transform: scale(.4) rotate(-6deg); } 100% { opacity: 1; transform: none; } }
@@ -782,7 +783,6 @@
   .rinfo { background: rgba(255, 255, 255, .94); border-radius: 22px; padding: 10px 20px; max-width: 560px; }
   .rinfo h2 { margin: 0; font-size: 24px; }
   .pw { margin: 4px 0 0; font: 600 16px/1.35 var(--font-body); color: var(--ink2); }
-  .teambtn { margin-top: 8px; }
   .rewards { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 900px; }
   .rewards .who { display: flex; flex-direction: column; align-items: center; gap: 6px; background: rgba(255, 255, 255, .5); border-radius: 24px; padding: 8px 10px 10px; box-shadow: 0 0 0 3px var(--sc); }
   .wn { display: flex; align-items: center; gap: 6px; font: 600 17px var(--font-ui); color: var(--ink); background: #fff; padding: 2px 12px 2px 2px; border-radius: 999px; }

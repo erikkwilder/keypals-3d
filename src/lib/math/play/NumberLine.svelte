@@ -7,15 +7,16 @@
   import { sfx } from '../../audio/sound';
   import type { FriendId } from '../../art/cast';
   import type { PlayBuddy } from './buddy';
-  import { lineNumbers, linePoints, lineSpec, lineStars } from '../playground';
+  import { FirstTries, lineNumbers, linePoints, lineSpec, lineStars } from '../playground';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number; answers: boolean[] }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
   const spec = lineSpec(level);
   const nums = lineNumbers(level, mulberry32(Date.now() % 1e9));
   const t0 = performance.now();
   let i = $state(0);
   let points = $state(0);
+  const firsts = new FirstTries();
   let placed = $state<number | null>(null);
   let got = $state<0 | 1 | 2 | 3>(0);
   let svg: SVGSVGElement | undefined = $state();
@@ -49,13 +50,15 @@
     placed = v;
     got = linePoints(target, v, spec.max);
     points += got;
+    // (a close one says nothing either way: only near-exact ones and clear misses move the level)
+    if (got >= 2) firsts.hit(); else if (got === 0) { firsts.miss(); firsts.hit(); }
     pal?.hop(screenX(v));
     timers.push(setTimeout(() => { if (got >= 2) pal?.cheer(); else if (got === 0) pal?.oops(); }, 750));
     if (got >= 2) sfx.star(got - 1); else if (got === 1) sfx.pop(); else sfx.miss();
     timers.push(setTimeout(next, 1700));
   }
   function next() {
-    if (i + 1 >= nums.length) { ondone({ stars: lineStars(points, nums.length * 3), ms: performance.now() - t0 }); return; }
+    if (i + 1 >= nums.length) { ondone({ stars: lineStars(points, nums.length * 3), ms: performance.now() - t0, answers: firsts.answers }); return; }
     i++; placed = null;
   }
   const word = $derived(placed === null ? '' : placed === target ? 'Spot on!' : got === 3 ? `So close! Just ${Math.abs(placed - target)} away.` : got >= 1 ? `Close: ${Math.abs(placed - target)} away.` : `It goes here. You were ${Math.abs(placed - target)} away.`);
