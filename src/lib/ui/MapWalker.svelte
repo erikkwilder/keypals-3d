@@ -55,7 +55,8 @@
     clockwork: { wide: 1.12, tall: 1.2 }, peaks: { wide: 1.12, tall: 1.2 }, jungle: { wide: 1.12, tall: 1.2 }, frost: { wide: 1.12, tall: 1.2 }, fair: { wide: 1.12, tall: 1.2 }, stars: { wide: 1.12, tall: 1.2 },
   };
   // (a view not laid out yet has no size: never a scale of 0, or a step would be infinitely long)
-  const scale = $derived(Math.max(0.05, Math.max(vw / size[0], vh / size[1]) * (ZOOM[world]?.[kind] ?? 1.15)));
+  // (the Sky Islands' stops sit close on the tall map: a little closer in on the Journey trail, so they read)
+  const scale = $derived(Math.max(0.05, Math.max(vw / size[0], vh / size[1]) * (ZOOM[world]?.[kind] ?? 1.15) * (journey && tall && world === 'sky' ? 1.3 : 1)));
   const mw = $derived(size[0] * scale), mh = $derived(size[1] * scale);
   const cam = { x: 0, y: 0, ready: false };
   const bud = { w: 136, h: 156 };

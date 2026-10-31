@@ -301,7 +301,7 @@
         {@const s = journey.lit}
         <button class="nextstop" onclick={goLit} title="Go to the next stop: {s.name}">
           <img src="{base}{STOP_ICON[s.kind]}" alt="" />
-          <span class="nst"><small>Next stop · {STOP_WORD[s.kind]}</small><b>{s.name}</b></span>
+          <span class="nst"><small><span class="nsw">Next stop · </span>{STOP_WORD[s.kind]}</small><b>{s.name}</b></span>
           <span class="gogo">Go!</span>
         </button>
       {/if}
@@ -697,6 +697,7 @@
   .tall .jinfo { left: 10px; right: 10px; top: 58px; max-width: none; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 8px; padding: 5px 12px 7px; border-radius: 14px; }
   .tall .jinfo b { font-size: 16px; } .tall .jinfo small { font-size: 10.5px; } .tall .jbar { flex: 1 1 100%; height: 7px; margin-top: 3px; }
   .tall .nextstop { flex: 1; width: auto; gap: 8px; padding: 6px 8px; border-radius: 20px; }
+  .tall .nsw { display: none; }
   .tall .nextstop > img { width: 40px; height: 40px; padding: 4px; }
   .tall .nst small { font-size: 9.5px; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .tall .nst b { font-size: 16px; }
   .tall .dock:not(.solo) .nextstop { min-width: 0; flex: 1 1 0; gap: 5px; padding: 6px 6px; }
