@@ -8,7 +8,7 @@
   import { stage } from '../three/stage';
   import { GlimmerShow } from '../three/glimmerShow';
   import { ALL_GLIMMERS, ELEMENT, EVOLVE_AT, EVOLVE_BOOST, EVOLVED, GLIMMER, GLIMMER_TOTAL, RARITY, RARITIES, glimmerName, isLadder, rarityRank, type GlimmerId } from '../adventure/glimmers';
-  import { advOf, owns, xpNeed, MAX_LEVEL, advView, markSeen } from '../adventure/state';
+  import { advOf, owns, putOnTeam, teamGap, xpNeed, MAX_LEVEL, advView, markSeen } from '../adventure/state';
   import { canEvolve, evolve, levelsToEvolve } from '../adventure/evolve';
   import Header from '../ui/Header.svelte';
   import GlimmerTabs from '../ui/GlimmerTabs.svelte';
@@ -97,12 +97,12 @@
     if (owns(a, id)) scene?.show(id, false, evo(id)); else game.say(`${RARITY[GLIMMER[id].rarity].name}. Find it in battles or eggs!`);
   }
   function setTeam(slot: number) {
-    game.update(pp => { const ad = advOf(pp); const other = ad.team.indexOf(sel); if (other >= 0) ad.team[other] = null; ad.team[slot] = sel; });
+    game.update(pp => putOnTeam(advOf(pp), sel, slot));
     sfx.equip(); scene?.poke(); swapping = false;
     game.say(`${nameOf(sel)} is on your team!`);
   }
   function add() {
-    const empty = a.team.findIndex(t => !t || !owns(a, t));
+    const empty = teamGap(a);
     if (empty >= 0) setTeam(empty); else { swapping = true; sfx.pop(); }
   }
   function leaveTeam() { game.update(pp => { const ad = advOf(pp); const i = ad.team.indexOf(sel); if (i >= 0) ad.team[i] = null; }); sfx.pop(); }

@@ -5,7 +5,8 @@ import { newBattle, play, block, finale, deal, openFact, sparkFor, hitFor, FINAL
 import { advOf, applyBattle, buy, currentNode, foeFor, hatch, mathPool, NODE, nodesOf, nodeOpen, notePractice, playLeft, reachStop, typingPool, collectStop, practiceDone, worldOpen, BATTLE_FRIENDSHIP } from './state';
 import { mathOf } from '../math/progress';
 import { noteSkillAnswers } from '../math/skills/progress';
-import { GLIMMERS, GLIMMER } from './glimmers';
+import { GLIMMERS, GLIMMER, type GlimmerId } from './glimmers';
+import { putOnTeam, teamGap } from './state';
 
 const pool: Pool = { subject: 'math', facts: [{ f: { a: 3, b: 4, op: '+' }, stage: 3 }, { f: { a: 5, b: 5, op: '+' }, stage: 2 }, { f: { a: 6, b: 2, op: '+' }, stage: 1 }, { f: { a: 2, b: 2, op: '+' }, stage: 2 }], open: false };
 const foe = (grump = 30): Foe => ({ glimmer: 'puddlepup', rarity: 'common', champion: false, element: 'tide', grump, max: grump, hit: 3 });
@@ -184,6 +185,34 @@ describe('Adventure', () => {
     expect(playLeft(p, now).open).toBe(true);
     a.settings.rule = 'open'; a.settings.capMin = 5;
     expect(playLeft(p, now).open).toBe(false);
+  });
+});
+
+describe('putting a Glimmer on the team', () => {
+  const mine = (...ids: GlimmerId[]) => { const a = advOf(newProfile('Mia', 'dino')); for (const id of ids) a.glimmers[id] = { level: 1, xp: 0, got: 1 }; return a; };
+  it('fills a free place, and a full team has none', () => {
+    const a = mine('puddlepup', 'sparkmoth', 'geodemole');
+    expect(teamGap(a)).toBe(0);
+    putOnTeam(a, 'puddlepup', 0);
+    expect(teamGap(a)).toBe(1);
+    putOnTeam(a, 'sparkmoth', 1);
+    expect(teamGap(a)).toBe(-1);
+  });
+  it('swaps one out and keeps it, and never holds the same Glimmer twice', () => {
+    const a = mine('puddlepup', 'sparkmoth', 'geodemole');
+    a.team = ['puddlepup', 'sparkmoth'];
+    putOnTeam(a, 'geodemole', 1);
+    expect(a.team).toEqual(['puddlepup', 'geodemole']);
+    expect(a.glimmers.sparkmoth).toBeTruthy();
+    putOnTeam(a, 'geodemole', 0);
+    expect(a.team).toEqual(['geodemole', null]);
+  });
+  it('a place holding a Glimmer you no longer have counts as free, and you can only add your own', () => {
+    const a = mine('puddlepup');
+    a.team = ['sparkmoth', 'puddlepup'];
+    expect(teamGap(a)).toBe(0);
+    putOnTeam(a, 'geodemole', 0);
+    expect(a.team).toEqual(['sparkmoth', 'puddlepup']);
   });
 });
 
