@@ -71,7 +71,9 @@ body {
 #app { height: 100%; }
 h1, h2, h3, h4 { font-family: var(--font-ui); font-weight: 600; margin: 0; line-height: 1.12; }
 :root[data-look='ink'] h1, :root[data-look='ink'] h2, :root[data-look='ink'] h3 { font-weight: 400; }
-button { font: inherit; color: inherit; }
+/* older Chrome (128 is the last on macOS Catalina) and Safari give buttons align-items: flex-start, which
+   collapses a column of things inside one to nothing wide: the picture on a Home tile came out 0 wide */
+button { font: inherit; color: inherit; align-items: stretch; }
 input, textarea, select { font: inherit; user-select: text; -webkit-user-select: text; }
 
 .btn {

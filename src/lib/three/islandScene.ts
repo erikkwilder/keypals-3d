@@ -1338,7 +1338,8 @@ export class IslandScene implements Controller {
     if (this.growK < 1) { this.growK = Math.min(1, this.growK + dt / 1.8); const s = this.growFrom + (1 - this.growFrom) * easeOutBack(this.growK); this.land.scale.set(s, 1, s); if (Math.random() < dt * 30) this.fx.emit({ at: new THREE.Vector3((Math.random() - 0.5) * this.rimR * 2, 0.2, (Math.random() - 0.5) * this.rimR * 2), count: 2, shape: ['star', 'leaf'], color: [0xffffff, 0xb8ffcf, 0xfff2a8], speed: [0.4, 1.2], up: 1, life: [0.5, 1], size: [0.08, 0.16], drag: 1 }); }
     for (const th of this.things.values()) {
       if (th.pop < 1) { th.pop = Math.min(1, th.pop + dt / 0.5); th.obj.scale.setScalar(Math.max(0.001, easeOutBack(th.pop))); }
-      th.tick?.(t, dt);
+      // (one thing that can't move must never stop the whole island drawing)
+      try { th.tick?.(t, dt); } catch (e) { th.tick = null; console.error(e); }
     }
     if (this.ghost) { this.ghost.obj.position.y = 0.12 + Math.sin(t * 4) * 0.05; (this.marker.material as THREE.MeshBasicMaterial).opacity = 0.35 + Math.sin(t * 5) * 0.12; }
     else if (this.marker.visible) (this.marker.material as THREE.MeshBasicMaterial).opacity = 0.3 + Math.sin(t * 4) * 0.12;
