@@ -41,6 +41,10 @@ The root problem they guard against: a writer who already knows the idea writes 
 19. Words and picture work together. Don't remove words to look clever, and don't let words replace showing.
 20. Nothing passes through anything, and the camera holds still when a question opens.
 
+   One voice: the narrator. The buddy and the Glimmer don't speak; they act and use thought bubbles.
+   No two word cards overlap, at any size. `src/dev/labelOverlap.ts` measures this while a lesson plays.
+   What's shown must really happen: if a character eats something, it goes into its mouth.
+
 ## E. Before anyone sees a lesson
 
 21. Cold read: someone with no context reads the script in playing order and flags every line that needs knowledge not yet given. `COLD_READ=/path/out.txt npx vitest run src/lib/math/beats` prints it.

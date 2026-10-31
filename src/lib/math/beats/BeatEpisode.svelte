@@ -11,6 +11,7 @@
   import { game } from '../../state/game.svelte';
   import { quietForLesson, sfx } from '../../audio/sound';
   import { hush, lineText, say } from '../../audio/voice.svelte';
+  import { separate, type Card } from './cardLayout';
   import { danceOf } from '../../engine/profile';
   import { advView } from '../../adventure/state';
   import { finishLesson, markChecked, type Board } from '../learn';
@@ -183,8 +184,34 @@
   }
   $effect(() => { void phase; void ask; void w; void h; void bottomH; sc?.setView(viewFor()); });
 
+  // ---------- no word card covers another (cardLayout.ts), whatever the screen and whatever's moving ----------
+  let root: HTMLElement | undefined = $state();
+  let settling = 0;
+  // (on a phone the words above can run long, so the child's guess moves down out of their way)
+  const fixedCards = () => narrow ? '.dock, .bottom > *' : '.dock, .mybet, .bottom > *';
+  const freeCards = () => narrow ? '.pin > *:not(.hand), .mybet' : '.pin > *:not(.hand)';
+  /** how much each kind of card gives way: a number on an edge or the sum stays nearest its place */
+  const giveOf = (el: Element) => el.classList.contains('edge') || el.classList.contains('sum') ? 0.15 : el.classList.contains('count') ? 0.3 : 1;
+  function settle() {
+    settling = requestAnimationFrame(settle);
+    if (!root || phase === 'load') return;
+    const fixed = [...root.querySelectorAll(fixedCards())], free = [...root.querySelectorAll<HTMLElement>(freeCards())];
+    const nudged = free.map(el => ({ x: parseFloat(el.dataset.nx ?? '0'), y: parseFloat(el.dataset.ny ?? '0') }));
+    const box = (el: Element, give: number, n = { x: 0, y: 0 }): Card => { const r = el.getBoundingClientRect(); return { x: r.x - n.x, y: r.y - n.y, w: r.width, h: r.height, give }; };
+    const cards = [...fixed.map(el => box(el, 0)), ...free.map((el, i) => box(el, giveOf(el), nudged[i]))];
+    const moves = separate(cards, { w: innerWidth, h: innerHeight }).slice(fixed.length);
+    free.forEach((el, i) => {
+      // (a new card starts in the clear; after that it eases, so nothing jumps)
+      const ease = el.dataset.nx === undefined ? 1 : 0.35;
+      const x = nudged[i].x + (moves[i].dx - nudged[i].x) * ease, y = nudged[i].y + (moves[i].dy - nudged[i].y) * ease;
+      el.dataset.nx = String(x); el.dataset.ny = String(y);
+      el.style.translate = `${Math.round(x)}px ${Math.round(y)}px`;
+    });
+  }
+
   let unquiet = () => {};
   onMount(() => {
+    settling = requestAnimationFrame(settle);
     unquiet = quietForLesson();
     addEventListener('keydown', onKey, true);
     const own = advView(game.profile!).glimmers[L.star];
@@ -196,6 +223,7 @@
       ctl = { fps: 60, update: (dt, t) => { s.update(dt, t); wd.update(dt, t); }, focus: () => s.focus(), dispose: () => {} };
       before = stage.swap(ctl); s.enter();
       if (import.meta.env.DEV) (window as unknown as { __beat: object }).__beat = { sc: s, world: wd, ask: () => ask, phase: () => phase, typed: (v: string) => { typed = v; send(); }, tap, primary, line: () => line, thoughts: () => thoughts, showMe: () => showMe?.() };
+      if (import.meta.env.DEV) void import('../../../dev/labelOverlap').then(m => { (window as unknown as { __labels: unknown }).__labels = m.labelOverlaps; });
       s.show(CLEAR, true); s.fit(wd.bounds()); wd.refit();
       wd.onChange = () => { pins = wd.pins; };
       s.setView(viewFor());
@@ -211,6 +239,7 @@
     }).catch(e => console.error(e));
   });
   onDestroy(() => {
+    cancelAnimationFrame(settling);
     gone = true;
     hush(); unquiet();
     removeEventListener('keydown', onKey, true);
@@ -221,7 +250,7 @@
 </script>
 
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
-<div class="ep" class:narrow style:--sc={L.color} style:--bg="url({base}{place.backdrop})">
+<div class="ep" bind:this={root} class:narrow style:--sc={L.color} style:--bg="url({base}{place.backdrop})">
   <div class="hit" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="presentation"></div>
   <div class="vignette"></div>
 

@@ -15,6 +15,8 @@ import { firstRow, layer, pourOrder, rowBack, seenOnly, sumParts, volume, type D
 import { bSfx } from '../math/beats/sounds';
 
 const TY = 0.48;
+/** how long the cracked cube takes to reach Prism's mouth, in seconds */
+const EAT_FLY = 0.8;
 const smooth = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
 const out3 = (k: number) => 1 - Math.pow(1 - k, 3);
@@ -650,14 +652,17 @@ export class CrateKit implements CrateWorld {
   async eatCracked() {
     const g = this.cracked; if (!g) return;
     this.crackedGo = this.now;
+    // Prism leans out for it, the cube hops up to its mouth and goes in, and then it chews
     this.sc.palDo('act');
-    await this.wait(780);
-    bSfx.gulp();
-    this.sc.palDo('happy');
-    this.sc.fx.emit({ at: this.sc.pal.root.position.clone().add(new THREE.Vector3(0, this.sc.pal.height * 0.7, 0.1)), count: 22, shape: ['star', 'spark'], color: [0xffe066, 0xffffff, 0xbcd0ff], speed: [0.4, 1.2], life: [0.4, 0.8], size: [0.03, 0.06], up: 0.9, drag: 2, spin: 4 });
+    await this.wait(EAT_FLY * 1000);
     g.removeFromParent();
     this.cracked = null;
-    await this.wait(600);
+    bSfx.gulp();
+    this.sc.palDo('eat');
+    this.sc.fx.emit({ at: this.sc.pal.mouthAt(), count: 12, shape: ['spark'], color: [0xbcd0ff, 0xffffff], speed: [0.3, 0.8], life: [0.25, 0.5], size: [0.015, 0.035], gravity: 1.2 });
+    await this.wait(800);
+    this.sc.palDo('happy');
+    await this.wait(700);
   }
   clearPins() { this.pins = []; this.changed(); }
 
@@ -760,11 +765,11 @@ export class CrateKit implements CrateWorld {
         g.position.lerpVectors(g.userData.from as THREE.Vector3, g.userData.to as THREE.Vector3, smooth(k));
         g.position.y += Math.sin(k * Math.PI) * 0.22;
       } else {
-        const k = clamp01((t - this.crackedGo) / 0.75);
-        const to = this.sc.pal.root.position.clone().add(new THREE.Vector3(0, this.sc.pal.height * 0.6, 0.12));
-        g.position.lerpVectors(g.userData.to as THREE.Vector3, to, k * k);
-        g.position.y += Math.sin(k * Math.PI) * 0.3;
-        g.scale.setScalar(1 - k * 0.8);
+        // up in an arc, bite-sized by the time it reaches the mouth, and gone inside it
+        const k = clamp01((t - this.crackedGo) / EAT_FLY), to = this.sc.pal.mouthAt();
+        g.position.lerpVectors(g.userData.to as THREE.Vector3, to, smooth(k));
+        g.position.y += Math.sin(k * Math.PI) * 0.16;
+        g.scale.setScalar(k < 0.8 ? 1 - k * 0.5 : 0.6 * (1 - (k - 0.8) / 0.2));
       }
     }
     if (this.faceFlash && t > this.faceFlash.until) { const f = this.faceFlash.m; f.removeFromParent(); f.geometry.dispose(); (f.material as THREE.Material).dispose(); this.faceFlash = null; }
