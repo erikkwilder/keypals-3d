@@ -55,7 +55,7 @@
   const STRETCH = STRIDE[moveOf(lesson)];
   // how the buddy travels on this trip, in the same words as a typing lesson's card
   const mv = moveOf(lesson);
-  const MOVE_LINE = { run: 'Run the trail: every right answer is a stride. Quick, right answers ride a skateboard, a bike, even a rocket!', climb: 'Climb the cliff: every right answer pulls you higher. Quick, right answers earn a rope, spring boots, a grappling hook, even a jet pack!', swim: 'Swim across the bay: every right answer is a stroke. Quick answers swim like a dolphin!', slide: 'Sled down the mountain: every right answer is a push. Quick answers go full avalanche!' };
+  const MOVE_LINE = { run: 'Run the trail: every right answer is a stride. Quick, right answers ride a skateboard, a bike, even a rocket!', climb: 'Climb the cliff: every right answer pulls you higher. Quick, right answers earn a rope, spring boots, a grappling hook, even a jet pack!', swim: 'Swim across the bay: every right answer is a stroke. Quick, right answers earn arm bands, flippers, even a torpedo!', slide: 'Sled down the mountain: every right answer is a push. Quick, right answers earn a saucer, skis, a snowboard, even an avalanche!' };
   const stretches = picker.length;
 
   let phase = $state<'intro' | 'play' | 'paused' | 'done'>('intro');
