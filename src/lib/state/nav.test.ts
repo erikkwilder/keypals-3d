@@ -184,6 +184,14 @@ describe('Back, in play', () => {
     game.back(); expect(game.screen).toBe('mystuff');
     game.back(); expect([game.screen, game.subject]).toEqual(['subject', 'math']);
   });
+  it('Home\'s minutes open My progress, and Back comes straight home; from My stuff it goes back to My stuff', () => {
+    game.go('hub');
+    game.visit('progress', true);
+    expect(game.screen).toBe('progress');
+    game.back(); expect(game.screen).toBe('hub');
+    game.go('mystuff'); STUFF_GO.progress();
+    game.back(); expect(game.screen).toBe('mystuff');
+  });
   it('Adventure\'s Glimmers and Eggs come back to Adventure; from My stuff they go back to My stuff', () => {
     game.go('adventure');
     game.glimmerTab = 'team'; game.visit('glimmers');
