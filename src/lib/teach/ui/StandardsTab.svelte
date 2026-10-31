@@ -19,7 +19,7 @@
     <label class="ck"><input type="checkbox" bind:checked={onlyNear} /> Only standards near grade {c.class.grade === 0 ? 'K' : c.class.grade}</label>
   </div>
   <div class="legend">{#each LEVELS as l (l)}<span style:background={LEVEL_COLOR[l].bg} style:color={LEVEL_COLOR[l].ink}>{LEVEL_COLOR[l].label}</span>{/each}</div>
-  <table class="tt">
+  <table class="tt stack">
     <thead><tr><th>Standard</th><th>Skills in Keypals</th><th class="w">Class</th><th></th></tr></thead>
     <tbody>
       {#each rows as r (r.code)}
@@ -56,4 +56,13 @@
   .stack { display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: #efedf3; margin-bottom: 3px; }
   .stack i { display: block; height: 100%; }
   .names p { margin: 4px 0; }
+  /* a phone: each standard is a block, nothing runs off the side */
+  @media (max-width: 760px) {
+    .stack thead { display: none; }
+    .stack tr { display: block; padding: 8px 0; border-bottom: 1px solid #f0ecf7; }
+    .stack td { display: block; padding: 3px 0; border: 0; overflow-wrap: anywhere; }
+    .w { width: auto; }
+    .legend { flex-wrap: wrap; }
+    .names td:first-child { display: none; }
+  }
 </style>
