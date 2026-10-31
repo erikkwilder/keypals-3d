@@ -626,9 +626,10 @@ export class Character {
     return a;
   }
 
-  /** Sit up straight: hips, back, neck and head back to their bind-pose turn (the sitting move slouches). */
-  uprightSpine(amount = 1) {
-    for (const n of ['Hips', 'Spine', 'Spine01', 'Spine02', 'neck', 'Head']) {
+  /** Sit up straight: hips, back, neck and head back to their bind-pose turn (the sitting move slouches).
+   *  `head: false` leaves the neck and head as the move has them. */
+  uprightSpine(amount = 1, head = true) {
+    for (const n of head ? ['Hips', 'Spine', 'Spine01', 'Spine02', 'neck', 'Head'] : ['Hips', 'Spine', 'Spine01', 'Spine02']) {
       const b = this.bones[n], q = b && this.bindQ.get(b);
       if (b && q) b.quaternion.slerp(q, amount);
     }

@@ -342,7 +342,7 @@
   $effect(() => { void keyboardOn; void handsOn; void stageH; void stageW; requestAnimationFrame(updateView); });
 
   onMount(() => {
-    RunScene.create({ buddy: profile.buddy, outfit, dance: danceOf(profile), length: text.length, ghostCps: S.ghost !== false ? ghostCps : undefined, region: lesson.region, move, keyLen: move === 'run' ? undefined : courseKeyLen(move, text.length) })
+    RunScene.create({ buddy: profile.buddy, outfit, dance: danceOf(profile), length: text.length, ghostCps: S.ghost !== false ? ghostCps : undefined, ghostStep: ride.th.filter(v => ghostScore >= v).length - 1, region: lesson.region, move, keyLen: move === 'run' ? undefined : courseKeyLen(move, text.length) })
       .then(sc => { scene = sc; stage.use(sc); updateView(); loading = false; })
       .catch(err => { console.error(err); loading = false; });
     // the very first lesson asks how things should sound before anyone starts talking

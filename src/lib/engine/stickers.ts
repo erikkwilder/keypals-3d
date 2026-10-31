@@ -44,7 +44,7 @@ export type StickerDef = {
 };
 
 const S = (d: StickerDef) => d;
-/** A speed step in each way of moving: "a skateboard, Quick Climber, Sled or Swim" */
+/** A speed step in each way of moving: "a skateboard, Spring Boots, Sled or Swim" */
 const speedWords = (tier: number) => { const n = (['run', 'climb', 'slide', 'swim'] as Move[]).map(m => LADDERS[m][tier].name); return `${n[0] === 'Skateboard' || n[0] === 'Bike' || n[0] === 'Car' || n[0] === 'Rocket' ? 'a ' + n[0].toLowerCase() : n[0]} on the trail, ${n[1]}, ${n[2]} or ${n[3]}`; };
 const REGION_STICKERS: [RegionId, string, string, number][] = [
   ['village', 'Island Parade', 'Pass the Island Parade.', 140],
@@ -61,7 +61,7 @@ const SPEEDS = [10, 15, 20, 28, 36];
 const ALL_STICKERS: StickerDef[] = [
   // journey
   ...REGION_STICKERS.map(([r, name, desc, hue], i) => S({ id: `trip-${r}`, name, desc, rarity: i < 2 ? 'common' : i < 5 ? 'rare' : 'epic', shape: 'shield', bg: 'rays', hue, hue2: (hue + 40) % 360, pose: 'proud', prop: 'mountain', region: r, check: p => p.regions.includes(r) })),
-  // speed steps: the same six on every course (a bike on the trail is a Speed Climber up the cliff), so
+  // speed steps: the same six on every course (a bike on the trail is the Grappling Hook up the cliff), so
   // the words name the step and the art shows the trail's ride
   ...RIDES.slice(1).map((r, i) => S({ id: `ridestar-${r.id}`, name: ['Off and Running', 'Picking Up Speed', 'Zooming Along', 'Full Speed', 'Top Speed!'][i], desc: `Reach speed ${i + 2} of 6 in a lesson or trip: ${speedWords(i + 1)}.`, rarity: i < 2 ? 'common' : i < 3 ? 'rare' : i < 4 ? 'epic' : 'legendary', shape: i === 4 ? 'burst' : 'circle', bg: i >= 3 ? 'stars' : 'stripes', hue: [338, 160, 200, 300, 52][i], hue2: [200, 200, 160, 338, 330][i], pose: 'ride', prop: 'ride', ride: i + 1, check: p => p.rideBest >= i + 1 })),
   // three-star runs
