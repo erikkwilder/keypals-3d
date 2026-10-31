@@ -13,6 +13,9 @@ import { reach } from './ik';
 import { sitOnSled } from './sledSeat';
 import { dressUp } from './dress';
 import { climbKit, type ClimbKit } from './climbKit';
+import { sledKit } from './sledKit';
+import { swimKit } from './swimKit';
+import type { RideKit } from './kitParts';
 import { RIDES } from '../engine/rides';
 import { sfx } from '../audio/sound';
 import type { FriendId } from '../art/cast';
@@ -106,6 +109,9 @@ export class RunScene implements Controller {
   /** the six ways up the cliff (the cliff course only): each speed step's own gear and motion */
   private kit: ClimbKit | null = null;
   private ghostKit: ClimbKit | null = null;
+  /** the six ways down the slope or across the bay: each speed step's own ride and motion */
+  private ride: RideKit | null = null;
+  private ghostRide: RideKit | null = null;
   private get pace() { return this.opts.pace ?? TYPING_PACE; }
 
   private constructor(island: Island, me: Character, opts: Opts) {
@@ -147,6 +153,7 @@ export class RunScene implements Controller {
     }
     if (!course) sc.preloadRides();
     if (course === 'climb') void sc.gearUp();
+    if (course === 'slide' || course === 'swim') void sc.rideUp();
     return sc;
   }
 
@@ -165,6 +172,24 @@ export class RunScene implements Controller {
     if (this.ghost && this.ghostMat) {
       const gk = await climbKit(this.ghost, { wall: u.wallZ, top: u.top, ghost: this.ghostMat });
       if (this.gone) gk?.dispose(); else this.ghostKit = gk;
+    }
+  }
+
+  /** Everything for the six rides of the sled run (or the six strokes of the swim), made and readied now. */
+  private async rideUp() {
+    const sled = this.island.root.userData.sled as THREE.Group | undefined, swim = this.course === 'swim';
+    if (!swim && !sled) return;
+    const k = await (swim ? swimKit(this.me) : sledKit(this.me, { sled: sled! }));
+    if (this.gone) { k?.dispose(); return; }
+    this.ride = k;
+    if (k) {
+      k.onChange = (step, up, at) => { if (swim) sfx.splashSmall(up ? 1 : 0.5); this.puff.burst(at, up ? 30 : 12, swim ? 0xe8f8ff : 0xffffff); if (!up) sfx.levelDown(); else if (step >= 4) sfx.turbo(); else sfx.levelUp(step); };
+      k.onTouch = swim ? n => sfx.splashSmall(n) : (n, at) => this.puff.burst(at, Math.round(n * 10), 0xffffff);
+      void k.ready();
+    }
+    if (this.ghost && this.ghostMat && (swim || this.ghostSled)) {
+      const gk = await (swim ? swimKit(this.ghost, { ghost: this.ghostMat }) : sledKit(this.ghost, { sled: this.ghostSled!, ghost: this.ghostMat }));
+      if (this.gone) gk?.dispose(); else this.ghostRide = gk;
     }
   }
 
@@ -343,6 +368,7 @@ export class RunScene implements Controller {
     }
     // (the climbing gear off when the climb isn't on)
     if (this.kit && !(this.course && (this.phase === 'run' || this.phase === 'arrive'))) { this.kit.rest(dt, t); this.ghostKit?.rest(dt, t); }
+    if (this.ride && !(this.course && (this.phase === 'run' || this.phase === 'arrive'))) { this.ride.rest(dt, t); this.ghostRide?.rest(dt, t); }
     if (this.course && (this.phase === 'run' || this.phase === 'arrive')) this.onCourse(dt, f, t, now);
     else if (this.veh && rideTier >= 2) this.mounted(dt, f, t);
     else {
@@ -385,7 +411,7 @@ export class RunScene implements Controller {
       this.ghostMat.opacity = 0.32 * this.ghostFade;
       g.root.visible = !!this.startT && this.ghostFade > 0;
       const gf = this.island.trail.at(gs);
-      if (this.ghostSled) this.ghostSled.visible = g.root.visible;
+      if (this.ghostSled && !this.ghostRide) this.ghostSled.visible = g.root.visible;
       if (this.course) this.ghostOnCourse(g, gf, gs, done, t, dt);
       else {
         // a lane of its own, beyond the buddy (and clear of the rides)
@@ -410,7 +436,7 @@ export class RunScene implements Controller {
     const me = this.me, v = this.vel, kind = this.course!;
     me.groundFeet = false;
     // (on the cliff the climbing gear has its own moment: gearUp)
-    if (this.tier !== this.lastTier) { if (this.tier > this.lastTier && kind !== 'climb') this.puff.burst(me.root.position, 10, kind === 'slide' ? 0xffffff : 0xfff2a8); this.lastTier = this.tier; }
+    if (this.tier !== this.lastTier) { if (this.tier > this.lastTier && kind !== 'climb' && !this.ride) this.puff.burst(me.root.position, 10, kind === 'slide' ? 0xffffff : 0xfff2a8); this.lastTier = this.tier; }
     const sled = this.island.root.userData.sled as THREE.Group | undefined;
     if (kind === 'climb') {
       me.root.position.copy(f.p);
@@ -423,6 +449,10 @@ export class RunScene implements Controller {
       const a = me.play(walking ? (there ? 'idle' : 'walk') : way ? 'idle' : me.has('climb') ? 'climb' : 'idle', 0.25);
       if (a && !walking && !way) a.timeScale = v < 0.04 ? 0 : Math.max(0.35, Math.min(2.4, v / 0.55));
       if (walking) this.kit?.rest(dt, t); else this.kit?.lead(dt, t, { step: this.tier, y: f.p.y, v, stride: this.stepLen });
+    } else if (kind === 'slide' && this.ride) {
+      const pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
+      me.root.position.copy(f.p);
+      this.ride.lead(dt, t, { step: this.tier, at: f.p, pitch, lane: 0, v, stride: this.stepLen, s: this.pos });
     } else if (kind === 'slide') {
       const yaw = Math.atan2(f.t.x, f.t.z), pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
       if (sled) { sled.visible = true; sled.position.copy(f.p); sled.rotation.set(0, yaw - Math.PI / 2, -pitch); }
@@ -433,12 +463,16 @@ export class RunScene implements Controller {
       if (v > 2.5 && now - this.splashT > 0.18) { this.splashT = now; this.puff.burst(f.p.clone().addScaledVector(f.t, -0.6), 3, 0xffffff); }
     } else if (this.pos >= this.swimExit()[0]) {
       // at the swim steps: stand up in the water and walk up them onto the dock, dripping
-      if (!this.outOfWater) { this.outOfWater = true; this.puff.burst(f.p.clone().add(new THREE.Vector3(0, 0.5, 0)), 10, 0xe8f8ff); }
+      if (!this.outOfWater) { this.outOfWater = true; this.ride?.rest(dt, t); this.puff.burst(f.p.clone().add(new THREE.Vector3(0, 0.5, 0)), 10, 0xe8f8ff); }
       this.swimLift *= Math.max(0, 1 - dt * 6);
       me.root.position.copy(f.p);
       me.root.rotation.set(0, Math.atan2(f.t.x, f.t.z), 0);
       const a = me.play(v < 0.08 ? 'idle' : 'walk', 0.25);
       if (a && v >= 0.08) a.timeScale = Math.max(0.6, Math.min(1.8, v / 0.9));
+    } else if (this.ride) {
+      this.outOfWater = false;
+      me.root.position.copy(f.p);
+      this.ride.lead(dt, t, { step: this.tier, at: f.p, pitch: 0, lane: 0, v, stride: this.stepLen, s: this.pos });
     } else {
       this.outOfWater = false;
       me.root.position.copy(f.p);
@@ -454,7 +488,9 @@ export class RunScene implements Controller {
     }
     me.update(dt);
     me.root.updateMatrixWorld(true);
-    if (kind === 'slide' && sled) sitOnSled(me, sled, dt);
+    if (kind === 'swim' && this.ride && !this.outOfWater) this.ride.follow(dt, t);
+    else if (kind === 'slide' && this.ride) this.ride.follow(dt, t);
+    else if (kind === 'slide' && sled) sitOnSled(me, sled, dt);
     // hands and feet on their marks, and the gear (not walking over the top)
     if (kind === 'climb' && this.pos <= ((this.island.root.userData.overAt as (() => number) | undefined)?.() ?? this.finishS) + 0.02) this.kit?.follow(dt, t);
   }
@@ -475,6 +511,15 @@ export class RunScene implements Controller {
       if (a && !over && !way) a.timeScale = going ? Math.max(0.35, Math.min(2.4, gv / 0.55)) : 0;
       if (g.root.visible && !over) { this.ghostKit?.lead(dt, t, { step: going ? this.opts.ghostStep ?? 0 : 0, y: f.p.y, v: going ? gv : 0, stride: Math.max(this.keyLen, 0.9) }); g.update(dt); g.root.updateMatrixWorld(true); this.ghostKit?.follow(dt, t); return; }
       if (over) this.ghostKit?.rest(dt, t);
+    } else if (kind === 'slide' && this.ghostRide) {
+      if (g.root.visible) {
+        const pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
+        g.root.position.copy(f.p);
+        this.ghostRide.lead(dt, t, { step: going ? this.opts.ghostStep ?? 0 : 0, at: f.p, pitch, lane: -1.7, v: going ? gv : 0, stride: Math.max(this.keyLen, 0.9), s });
+        g.update(dt); g.root.updateMatrixWorld(true);
+        this.ghostRide.follow(dt, t);
+      } else this.ghostRide.rest(dt, t);
+      return;
     } else if (kind === 'slide') {
       const yaw = Math.atan2(f.t.x, f.t.z), pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
       const p = f.p.clone().addScaledVector(f.n, -1.3);
@@ -485,6 +530,16 @@ export class RunScene implements Controller {
     } else {
       // the ghost walks up the same swim steps, in its own lane
       const out = s >= this.swimExit()[0], onDock = s >= this.finishS - 0.2;
+      if (this.ghostRide && !out && !onDock) {
+        if (g.root.visible) {
+          g.root.position.copy(f.p);
+          this.ghostRide.lead(dt, t, { step: going ? this.opts.ghostStep ?? 0 : 0, at: f.p, pitch: 0, lane: -1.2, v: going ? gv : 0, stride: Math.max(this.keyLen, 0.9), s });
+          g.update(dt); g.root.updateMatrixWorld(true);
+          this.ghostRide.follow(dt, t);
+        } else this.ghostRide.rest(dt, t);
+        return;
+      }
+      this.ghostRide?.rest(dt, t);
       g.root.position.copy(f.p).addScaledVector(f.n, -1.2);
       g.root.rotation.set(0, onDock && !going ? this.towardCamera() : Math.atan2(f.t.x, f.t.z), 0);
       if (onDock && !going) g.play('idle', 0.3);
@@ -550,7 +605,7 @@ export class RunScene implements Controller {
   private subject(): { centre: THREE.Vector3; h: number } {
     const ground = this.here.p, id = this.veh && this.tier >= 2 ? RIDES[this.tier].id : null;
     const [cy, h] = id === 'rocket' ? [1.45, 2.8] : id === 'bike' ? [0.85, 1.75] : id === 'car' ? [0.7, 1.6] : id === 'skate' ? [0.75, 1.55] : [0.62, 1.3];
-    return { centre: ground.clone().add(new THREE.Vector3(0, cy + (this.kit?.camUp ?? 0), 0)), h };
+    return { centre: ground.clone().add(new THREE.Vector3(0, cy + (this.kit?.camUp ?? this.ride?.camUp ?? 0), 0)), h: h + (this.ride?.camTall ?? 0) };
   }
 
   private camera(dt: number, f: TrailPoint) {
@@ -648,6 +703,8 @@ export class RunScene implements Controller {
     this.gone = true;
     this.kit?.dispose(); this.kit = null;
     this.ghostKit?.dispose(); this.ghostKit = null;
+    this.ride?.dispose(); this.ride = null;
+    this.ghostRide?.dispose(); this.ghostRide = null;
     this.island.gateSolid(1);
     world.run = false;
     if (this.course) this.island.dispose();

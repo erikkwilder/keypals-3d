@@ -17,7 +17,7 @@
     // the Move it pad
     up: iconUrl('up'), down: iconUrl('down'), left: iconUrl('left'), right: iconUrl('right'), closer: iconUrl('closer'), further: iconUrl('further'),
     bigger: iconUrl('bigger'), smaller: iconUrl('smaller'), turnleft: iconUrl('turnleft'), turnright: iconUrl('turnright'), reset: iconUrl('reset'),
-    run: iconUrl('ride-run-1'), climb: iconUrl('ride-climb-1'), slide: iconUrl('ride-slide-2'), swim: iconUrl('ride-swim-2'),
+    run: iconUrl('ride-run-1'), climb: iconUrl('ride-climb-1'), slide: iconUrl('ride-slide-0'), swim: iconUrl('ride-swim-3'),
   } as const;
   export type IconName = keyof typeof SRC;
 </script>

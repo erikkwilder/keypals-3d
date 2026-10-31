@@ -10,7 +10,7 @@ export const gameIconUrl = (name: string) => `${BASE}game/icon-${name}.webp`;
 
 /** How the buddy moves, as a picture: the trail's run, the cliff climb, the snowy sled run and the swim. */
 export const MOVE_PIC: Record<'run' | 'climb' | 'slide' | 'swim', string> = {
-  run: iconUrl('ride-run-1'), climb: iconUrl('ride-climb-1'), slide: iconUrl('ride-slide-2'), swim: iconUrl('ride-swim-2'),
+  run: iconUrl('ride-run-1'), climb: iconUrl('ride-climb-1'), slide: iconUrl('ride-slide-0'), swim: iconUrl('ride-swim-3'),
 };
 
 /** A dance's own painted picture (fist pump, robot, chicken, moonwalk ...). */

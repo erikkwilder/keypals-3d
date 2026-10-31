@@ -14,6 +14,9 @@ const fits = new WeakMap<Character, Fit>();
 
 const v = new THREE.Vector3(), w = new THREE.Vector3();
 
+/** How far the hips sit above the buddy's bottom (measured on the sled; a fair guess until then). */
+export const seatDrop = (me: Character) => fits.get(me)?.drop ?? 0.13;
+
 /** Call after the buddy's last update this frame, with the sit move playing and the root facing +x of the sled. */
 export function sitOnSled(me: Character, sled: THREE.Object3D, dt: number) {
   const B = me.bones;

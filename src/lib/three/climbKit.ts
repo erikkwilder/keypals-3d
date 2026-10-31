@@ -16,7 +16,8 @@ import type { Character } from './character';
 import { loadTexture } from './assets';
 import { stage } from './stage';
 import { reach } from './ik';
-import { ROCKET, ROCKET_ASPECT, fitOf, hw, latheFromPicture, onBone, painted, points, shadows, showWorn, skinned } from './gear3d';
+import { ROCKET, ROCKET_ASPECT, fitOf, latheFromPicture, onBone, painted, points, shadows, showWorn } from './gear3d';
+import { backOut, bindTurn, ellipseCurve, frac, measure, ringRound, smooth, stretch } from './kitParts';
 
 export type ClimbState = {
   /** the speed step (0 to 5) */
@@ -55,39 +56,8 @@ const lerpPose = (o: Pose, a: Pose, b: Pose, k: number) => {
   for (const f of ['x', 'z', 'lift', 'lean', 'roll', 'tilt'] as const) o[f] = a[f] + (b[f] - a[f]) * k;
   for (const f of ['lh', 'rh', 'lf', 'rf'] as const) o[f].lerpVectors(a[f], b[f], k);
 };
-const frac = (x: number) => x - Math.floor(x);
-const smooth = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (3 - 2 * k); };
-const backOut = (x: number) => { const k = Math.min(1, x) - 1; return 1 + 2.7 * k * k * k + 1.7 * k * k; };
 const UP = new THREE.Vector3(0, 1, 0), ROPE_BLUE = 0x2f7de8, ROPE_X = 0.17;
 
-/** A buddy's measurements in metres, feet on the ground: shoulders and hips (height, half width), arm and leg length, ankle height. */
-function measure(c: Character) {
-  const f = fitOf(c), k = hw(c) / f.H, B = c.bones, sk = skinned(c).find(m => m.skeleton.bones.includes(B.Hips));
-  if (!sk) return null;
-  const at = (n: string) => new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(sk.skeleton.boneInverses[sk.skeleton.bones.indexOf(B[n])]).invert());
-  const near = (a: string, b: string) => at(a).distanceTo(at(b)) * k, above = (n: string) => (at(n).y - f.minY) * k, side = (a: string, b: string) => Math.abs(at(a).x - at(b).x) / 2 * k;
-  return {
-    H: hw(c), sy: above('LeftArm'), sx: side('LeftArm', 'RightArm'), hy: above('LeftUpLeg'), hx: side('LeftUpLeg', 'RightUpLeg'),
-    arm: near('LeftArm', 'LeftForeArm') + near('LeftForeArm', 'LeftHand'), leg: near('LeftUpLeg', 'LeftLeg') + near('LeftLeg', 'LeftFoot'), ankle: above('LeftFoot'),
-  };
-}
-/** How a bone is turned in the buddy's own standing pose. */
-const bindTurn = (c: Character, bone: string) => {
-  const sk = skinned(c).find(m => m.skeleton.bones.includes(c.bones[bone]))!, q = new THREE.Quaternion();
-  new THREE.Matrix4().copy(sk.skeleton.boneInverses[sk.skeleton.bones.indexOf(c.bones[bone])]).invert().decompose(new THREE.Vector3(), q, new THREE.Vector3());
-  return q;
-};
-/** A ring round a body at a height, from the body's own shape there, a little out. */
-function ringRound(pts: V[], y: number, band: number) {
-  const near = pts.filter(p => Math.abs(p.y - y) < band);
-  if (near.length < 12) return null;
-  const xs = near.map(p => p.x).sort((a, b) => a - b), zs = near.map(p => p.z).sort((a, b) => a - b), q = (a: number[], p: number) => a[Math.floor(p * (a.length - 1))];
-  const x0 = q(xs, 0.03), x1 = q(xs, 0.97), z0 = q(zs, 0.03), z1 = q(zs, 0.97);
-  return { cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, rx: (x1 - x0) / 2, rz: (z1 - z0) / 2 };
-}
-function ellipseCurve(rx: number, rz: number) {
-  return new THREE.CatmullRomCurve3(Array.from({ length: 36 }, (_, i) => { const a = (i / 36) * Math.PI * 2; return new THREE.Vector3(Math.sin(a) * rx, 0, Math.cos(a) * rz); }), true);
-}
 /** A flame or a jet: two crossed cards hanging from its top, `len` long (scaled to size each frame). */
 function jet(len: number, w: number, mat: THREE.Material) {
   const g = new THREE.Group();
@@ -97,14 +67,6 @@ function jet(len: number, w: number, mat: THREE.Material) {
   }
   return g;
 }
-/** Stretch a one-metre upright stick from a to b. */
-function stretch(m: THREE.Object3D, a: V, b: V) {
-  const d = b.clone().sub(a), len = d.length();
-  m.position.copy(a).addScaledVector(d, 0.5);
-  m.quaternion.setFromUnitVectors(UP, d.normalize());
-  m.scale.set(1, Math.max(0.001, len), 1);
-}
-
 export async function climbKit(c: Character, env: { wall: (x: number, y: number) => number; top: () => number; ghost?: THREE.Material | null }): Promise<ClimbKit | null> {
   const B = c.bones, f = fitOf(c), b = measure(c);
   if (!b || !f.feet.length || !f.back) return null;
