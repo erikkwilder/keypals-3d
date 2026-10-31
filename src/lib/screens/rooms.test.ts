@@ -70,5 +70,7 @@ describe('class pages on a phone', () => {
   it('the tables that were too wide stack', () => {
     for (const f of ['WorkTab', 'StandardsTab', 'StudentPage', 'RosterTab']) expect(src(`../teach/ui/${f}.svelte`), f).toContain('tt stack');
     expect(src('../teach/ui/ClassPage.svelte')).toContain('.tt.stack thead');
+    // (a page's own .stack class would squash the table)
+    for (const f of ['WorkTab', 'StandardsTab', 'StudentPage', 'RosterTab']) expect(src(`../teach/ui/${f}.svelte`), f).not.toMatch(/^\s*\.stack\b/m);
   });
 });
