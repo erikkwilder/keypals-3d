@@ -504,6 +504,15 @@ describe('sound off for a class', () => {
   });
 });
 
+describe('a class\'s spelling list', () => {
+  it('joins the player\'s own My Words', async () => {
+    const { wordsFor } = await import('./player.svelte');
+    const p = kid();
+    p.customText = 'because friend';
+    expect(wordsFor(p)).toBe('because friend');
+  });
+});
+
 describe('two computers', () => {
   it("each copy's ticks and minutes are kept when the copies combine", () => {
     const base = kid() as PathProfile;

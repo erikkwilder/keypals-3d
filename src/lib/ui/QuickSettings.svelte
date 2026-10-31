@@ -76,6 +76,7 @@
       {/each}
     </div>
 
+    {#if !game.quiet}
     <button class="opt wide pickmusic" onclick={() => { sfx.click(); game.openMusic(); }}>
       <span class="pic"><img src="{import.meta.env.BASE_URL}icons/music/{s.musicStation && s.musicStation !== 'auto' ? s.musicStation : 'happy'}.webp" alt="" width="62" height="62" /></span>
       <span class="txt"><b>Pick your music</b><small>{s.musicStation && s.musicStation !== 'auto' ? STATION[s.musicStation].name : 'Auto'}: calm, happy, adventure, rock, electronic, retro and more</small></span>
@@ -87,6 +88,7 @@
       <input type="range" min="0" max="1" step="0.05" value={s.volume} oninput={(e) => game.update(pp => { pp.settings.volume = +e.currentTarget.value; })} aria-label="Volume" />
       <span class="muted">Volume</span>
     </label>
+    {/if}
 
     {#if mode !== 'setup'}
       <button class="opt wide" class:on={s.demos !== 'off'} onclick={() => setDemos(s.demos === 'off')} aria-pressed={s.demos !== 'off'}>

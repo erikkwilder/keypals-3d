@@ -55,7 +55,7 @@
   {#if !active.length}
     <p class="muted">No students yet.</p>
   {:else}
-    <table class="tt">
+    <table class="tt stack">
       <thead><tr><th>Name</th><th>Picture password</th><th>Player</th><th></th></tr></thead>
       <tbody>
         {#each active as s (s.id)}

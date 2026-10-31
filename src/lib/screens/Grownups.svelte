@@ -385,7 +385,7 @@
       {#if p && sec === 'players'}
         <div class="whoadd">
           {@render whoRow()}
-          {#if game.save.profiles.length < MAX_PROFILES}<button class="btn addp" onclick={() => { sfx.click(); game.go('newPlayer'); }}>+ New player</button>{/if}
+          {#if game.save.profiles.length < MAX_PROFILES}<button class="btn addp" onclick={() => { sfx.click(); game.visit('newPlayer'); }}>+ New player</button>{/if}
         </div>
         <div class="card pane">
           <h3>Name</h3>

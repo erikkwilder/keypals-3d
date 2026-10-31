@@ -1,11 +1,11 @@
 <script lang="ts">
   // Class rules: the same rules in the same words as a parent's Time and rules (path/RulesCard.svelte: keep to
   // the path, things a day, play time), who keeps their family's rules and whose family is stricter, sound
-  // off for the class, how students sign in (with their school Google account too, maybe only from the
-  // school's domain) and sharing the class to Google Classroom. Then "This class": its name and grade,
+  // off for the class, and how students sign in (with their school Google account too, maybe only from the
+  // school's domain). Then "This class": its name and grade,
   // archiving it (students can't log in; it's kept), or deleting it for good (its class players and their
   // progress go too) after typing its name.
-  import { teach, act, patchClass, deleteClass, saveSettings, shareClass } from '../teacher.svelte';
+  import { teach, act, patchClass, deleteClass, saveSettings } from '../teacher.svelte';
   import { DEFAULT_SETTINGS } from '../../adventure/state';
   import { ruleDiffs, type Keep } from '../../path/rules';
   import RulesCard from '../../path/RulesCard.svelte';
@@ -62,10 +62,6 @@
       {#if set.domain && domain.trim() && domain.trim().toLowerCase() !== set.domain}<button class="sbtn" onclick={() => act(() => saveSettings({ domain }), 'Saved.')}>Save</button>{/if}
     </div>
   {/if}
-  <div class="row share">
-    <button class="btn" onclick={() => shareClass(c.class)}><img src="{import.meta.env.BASE_URL}icons/mail.webp" alt="" />Share to Google Classroom</button>
-    <span class="muted">Posts the class's login link in Google Classroom. (Bringing a Classroom roster in by itself needs Google to review Keypals first: coming later.)</span>
-  </div>
 </div>
 
 <h3 class="group">This class</h3>
@@ -98,10 +94,6 @@
   .chk { display: inline-flex; gap: 8px; align-items: center; font: 700 14.5px var(--font-body); color: #2b2140; cursor: pointer; margin: 6px 0; }
   .chk input { width: 18px; height: 18px; }
   .dom { margin: 2px 0 6px 26px; }
-  .share { margin-top: 10px; }
-  .share .btn { display: inline-flex; align-items: center; gap: 8px; }
-  .share img { width: 28px; height: 28px; object-fit: contain; }
-  .share .muted { font: 600 13px var(--font-body); max-width: 60ch; }
   .f { display: flex; flex-direction: column; gap: 5px; font: 700 13px var(--font-body); color: #4a4061; }
   .row { align-items: flex-end !important; }
   .danger { border-color: #f1c6c9; background: #fffafa; }

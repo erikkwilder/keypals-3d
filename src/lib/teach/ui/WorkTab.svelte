@@ -114,12 +114,7 @@
   .un b { font: 700 15px var(--font-body); color: #2b2140; overflow-wrap: anywhere; }
   .un small { font: 600 13px var(--font-body); color: #7a7092; }
   textarea { width: 100%; box-sizing: border-box; resize: vertical; margin: 6px 0 10px; display: block; }
-  /* a phone: each piece of work is a block, nothing runs off the side */
   @media (max-width: 760px) {
-    .stack thead { display: none; }
-    .stack tr { display: block; padding: 8px 0; border-bottom: 1px solid #f0ecf7; }
-    .stack td { display: block; padding: 3px 0; border: 0; overflow-wrap: anywhere; }
-    .stack td[data-l]::before { content: attr(data-l) ': '; font-weight: 800; color: #7a7092; }
     .r { text-align: left; white-space: normal; padding-top: 6px; }
     .r :global(.sbtn) { margin: 0 4px 4px 0; }
     .bar { width: 100%; }

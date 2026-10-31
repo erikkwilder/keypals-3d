@@ -31,6 +31,7 @@
   {#if n}<small class="said">{n}</small>{/if}
 {/snippet}
 
+<div class="rcs">
 <div class="card rc">
   <h3>The path</h3>
   <p class="muted small">{pathLine ?? `My path suggests what to do next. Home shows how many of today's things are done ("2 of 3 things done today").`}</p>
@@ -87,8 +88,10 @@
   </div>
   {@render today?.()}
 </div>
+</div>
 
 <style>
+  .rcs { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
   .rc { padding: 18px 20px; }
   h3 { font-size: 21px; margin: 0 0 6px; }
   h4 { margin: 16px 0 2px; font: 600 17px var(--font-ui); color: var(--ink); }

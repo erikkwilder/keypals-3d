@@ -65,7 +65,7 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="screen np">
-  <Bar title="New player" plain back={() => game.go(game.save.profiles.length ? 'players' : 'title')} />
+  <Bar title="New player" plain back={() => { if (game.backTo()?.screen === 'grownups') game.back(); else game.go(game.save.profiles.length ? 'players' : 'title'); }} />
   <div class="dots">{#each [1, 2, 3] as s}<i class:on={s <= step}></i>{/each}</div>
 
   {#if step === 1}

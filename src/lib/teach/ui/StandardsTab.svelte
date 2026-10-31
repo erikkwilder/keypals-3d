@@ -56,11 +56,7 @@
   .stack { display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: #efedf3; margin-bottom: 3px; }
   .stack i { display: block; height: 100%; }
   .names p { margin: 4px 0; }
-  /* a phone: each standard is a block, nothing runs off the side */
   @media (max-width: 760px) {
-    .stack thead { display: none; }
-    .stack tr { display: block; padding: 8px 0; border-bottom: 1px solid #f0ecf7; }
-    .stack td { display: block; padding: 3px 0; border: 0; overflow-wrap: anywhere; }
     .w { width: auto; }
     .legend { flex-wrap: wrap; }
     .names td:first-child { display: none; }

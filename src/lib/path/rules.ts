@@ -50,7 +50,7 @@ export const LIMIT_NAME = (l: Limit) => (l === 'off' ? 'No limit' : l === 'earne
 
 // ---------- what counts for a player ----------
 const settingsOf = (p: Profile) => p.settings as PathSettings;
-/** The grown-ups' rules for a player (Grown-ups → Time and goals). */
+/** The grown-ups' rules for a player (Grown-ups → Time and rules). */
 export function homeRules(p: Profile): PathRules {
   const s = settingsOf(p);
   return { keep: s.keepPath, goal: s.pathGoal, limits: s.limits, grade: s.pathGrade ?? null };
