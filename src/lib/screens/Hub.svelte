@@ -1,17 +1,18 @@
 <script lang="ts">
   // Home: the first thing you see. Under the one top bar (ui/Bar.svelte): your buddy and one line of hello
-  // (and where your progress is kept, only when it matters); Today (path/TodayCard.svelte), the one best
+  // (and, small, who's signed in and where your progress is kept); Today (path/TodayCard.svelte), the one best
   // next thing with one big Continue; and "Where to?", one grid of big picture tiles: the subjects
   // (Typing, Math: a new subject in subjects.ts adds a tile) and the places (Arcade, Adventure, My Sky
   // Island). Nothing else: "How Keypals works" is in the Menu's About.
   import { game } from '../state/game.svelte';
   import { outfitOf, todayMs } from '../engine/profile';
   import { sfx } from '../audio/sound';
-  import { cloud, goSaveOnline, saveStatus, staySignedOut } from '../state/cloud.svelte';
+  import { cloud, goSaveOnline, staySignedOut } from '../state/cloud.svelte';
   import { homeTiles } from '../nav';
   import Bar from '../ui/Bar.svelte';
   import Critter from '../ui/Critter.svelte';
   import ClassWorkCard from '../ui/ClassWorkCard.svelte';
+  import SaveChip from '../ui/SaveChip.svelte';
   import TodayCard from '../path/TodayCard.svelte';
   import { buddyPicture, storedPicture } from '../three/buddyPic';
   import { dressOf } from '../adventure/wardrobe';
@@ -41,8 +42,6 @@
     return () => { gone = true; };
   });
   const hello = $derived(today === 0 ? `Hi ${p.name}! Ready?` : today >= goalMs ? `Goal done for today, ${p.name}!` : `Welcome back, ${p.name}!`);
-  // where progress is kept: a small line, only when it matters (not saved online yet)
-  const save = $derived(saveStatus(p));
   const tiles = $derived(homeTiles(p));
 
   function onKey(e: KeyboardEvent) {
@@ -63,8 +62,9 @@
         <p>{hello}</p>
         {#if cloud.signedOut}
           <span class="note">You were signed out. <button class="linky" onclick={() => { sfx.click(); goSaveOnline(); }}>Sign in again</button> · <button class="linky" onclick={() => { sfx.click(); staySignedOut(); }}>Stay signed out</button></span>
-        {:else if cloud.online && save.kind === 'local'}
-          <span class="note">Not saved online yet: <button class="linky" onclick={() => { sfx.click(); goSaveOnline(); }}>Save it</button></span>
+        {:else}
+          <!-- who's signed in and where progress is kept, small (a tap opens Saving online) -->
+          <span class="save"><SaveChip compact={sw < 600} /></span>
         {/if}
       </div>
     </div>
@@ -97,6 +97,7 @@
   .htx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .htx p { margin: 0; font: 600 28px/1.15 var(--font-ui); color: var(--ink); }
   .note { font: 700 14px var(--font-body); color: #8a4a00; }
+  .save { display: flex; min-width: 0; }
   .linky { border: 0; background: none; padding: 0; cursor: pointer; font: 800 14px var(--font-body); color: #b25a1e; text-decoration: underline; text-underline-offset: 3px; }
   .rowh { margin: 4px 0 -6px; font: 600 22px var(--font-ui); color: var(--ink2); }
 

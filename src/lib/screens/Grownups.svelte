@@ -23,6 +23,7 @@
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
   import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, addFromAccount, addAllFromAccount, grownupOpen, showCode } from '../state/cloud.svelte';
+  import { isClassLogin } from '../state/classHere';
   import { notHereCodes } from '../state/sync';
   import { onOldAddress } from '../state/move';
   import { moveToOrg } from '../state/cloud.svelte';
@@ -56,6 +57,8 @@
   }
   const here = $derived(new Set(game.save.profiles.map(x => x.cloud?.code).filter(Boolean)));
   let confirmDelete = $state(false);
+  /** the player "Stop saving online" is asking about (it deletes the online copy, so it asks first) */
+  let confirmStop = $state<string | null>(null);
 
   // the grown-up check (press and hold, then a number in words); open for ten minutes once passed
   // back from the skills report: still open, on the same player
@@ -79,6 +82,8 @@
 
   let selected = $state(backFrom ?? game.profile?.id ?? game.save.profiles[0]?.id ?? '');
   const p = $derived<Profile | undefined>(game.save.profiles.find(x => x.id === selected));
+  // (the first player to come to this device, from the account or a new one)
+  $effect(() => { if (!p && game.save.profiles[0]) selected = game.save.profiles[0].id; });
   let words = $state(game.save.profiles.find(x => x.id === selected)?.customText ?? '');
   $effect(() => { words = p?.customText ?? ''; });
 
@@ -177,21 +182,34 @@
         {/each}
       </div>
       {/if}
-      {#if p && sec && sec !== 'admin'}
-        {#if sec === 'players'}
-        <!-- first on the page: where progress is kept, signing in, save codes (the save chips open straight here) -->
+      {#if sec === 'players'}
+        <!-- first on the page: where progress is kept, signing in, save codes (the save chips open straight
+             here); it works with no player on this device too (a new phone, just signed in) -->
         <div class="card pane acct" bind:this={acctEl} class:flash={flashAcct}>
           <h3>Saving online</h3>
           {#if !cloud.online}
             <p class="muted small">Progress is kept on this computer. Saving online works on keypals.org.</p>
-          {:else if p}
+          {:else if !p}
+            <p class="muted small">There are no players on this device yet. Make one, or sign in below to bring the players in your account.</p>
+            <div class="row"><button class="btn btn-primary" onclick={() => game.go('newPlayer')}>New player</button></div>
+          {:else}
             {#if p.cloud}
               <p class="small"><b>{p.name}'s save code:</b> <span class="code">{showCode(p.cloud.code)}</span></p>
               <p class="muted small">Type it on any computer ("Already play on another computer?" on the player screen) to bring {p.name}'s progress over. It keeps saving as {p.name} plays. If two computers both play, their progress is combined, so nothing is lost.</p>
               <div class="row">
                 <button class="btn btn-primary" onclick={() => (printing = p ?? null)}>Print a code card</button>
-                <button class="btn" disabled={cloud.busy} onclick={() => act(() => forgetCode(p.id), 'Stopped saving online. Progress stays on this computer.')}>Stop saving {p.name} online</button>
+                <!-- (a class player belongs to their class: it's not for a grown-up here to stop) -->
+                {#if !isClassLogin(p) && confirmStop !== p.id}<button class="btn" disabled={cloud.busy} onclick={() => (confirmStop = p.id)}>Stop saving {p.name} online</button>{/if}
               </div>
+              {#if !isClassLogin(p) && confirmStop === p.id}
+                <div class="stopask" role="alertdialog" aria-label="Stop saving {p.name} online?">
+                  <p class="small"><b>Stop saving {p.name} online?</b> This deletes the online copy of {p.name}'s progress and the save code stops working. Progress stays on this computer only: other computers won't get it, and if this browser is cleared it's gone.</p>
+                  <div class="row">
+                    <button class="btn" onclick={() => (confirmStop = null)}>Keep saving online</button>
+                    <button class="btn" disabled={cloud.busy} onclick={() => { confirmStop = null; void act(() => forgetCode(p.id), 'Stopped saving online. Progress stays on this computer.'); }}>Yes, delete the online copy</button>
+                  </div>
+                </div>
+              {/if}
             {:else}
               <p class="muted small">Turn on saving online so {p.name}'s progress is safe if this browser is cleared or the device is lost, and to play on another computer too. It saves only the nickname and game progress.</p>
               <div class="row"><button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(() => makeCode(p.id), `${p.name} is saved online. Print the code card to keep it safe.`)}>Save {p.name} online</button></div>
@@ -246,7 +264,15 @@
             <input type="file" accept="application/json,.json" bind:this={fileInput} onchange={importSave} hidden />
           </div>
         </div>
-        {/if}
+      {/if}
+      {#if !p && sec && sec !== 'admin' && sec !== 'players'}
+        <div class="card pane">
+          <h3>No players on this device yet</h3>
+          <p class="muted small">This page is about a player. Make one, or sign in under Players and saving to bring yours here.</p>
+          <div class="row"><button class="btn btn-primary" onclick={() => game.go('newPlayer')}>New player</button></div>
+        </div>
+      {/if}
+      {#if p && sec && sec !== 'admin'}
         {#if sec === 'progress'}
         <div class="cards">
           <div class="stat card"><b>{fmtMin(p.totals.ms)}</b><span>practiced</span></div>
@@ -501,4 +527,6 @@
     .two { grid-template-columns: 1fr; }
     .hrow { gap: 3px; } .hrow span { width: 25px; height: 30px; font-size: 13px; border-radius: 7px; }
   }
+  .stopask { margin-top: 10px; padding: 10px 14px; border-radius: 14px; background: #fff4e0; box-shadow: inset 0 0 0 2px #ffd59a; }
+  .stopask p { margin: 0 0 8px; }
 </style>

@@ -7,6 +7,7 @@
   import type { ShowScene } from '../three/showScene';
   import FancyAntButton from '../ui/FancyAntButton.svelte';
   import Logo from '../ui/Logo.svelte';
+  import GoogleSignIn from '../ui/GoogleSignIn.svelte';
   import { STARTERS } from '../engine/team';
 
   let h = $state(800);
@@ -24,6 +25,8 @@
     if (game.modalOpen) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'Tab') return;
+    // (Enter or space on a button is that button's own)
+    if ((e.key === 'Enter' || e.key === ' ') && e.target instanceof HTMLButtonElement) return;
     e.preventDefault();
     go();
   }
@@ -49,6 +52,7 @@
     <p class="tag">{GAME_TAGLINE}</p>
     <button class="btn btn-primary btn-big play" onclick={go}>Let's play!</button>
     <div class="press">or press any key</div>
+    <GoogleSignIn />
   </div>
   <footer><FancyAntButton /></footer>
 </div>

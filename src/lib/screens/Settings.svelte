@@ -1,13 +1,12 @@
 <script lang="ts">
   // Settings: the player's own things, the ones a child picks. The Look (how the 3D buddy is drawn
-  // everywhere, with a picture of each on its card), typing help (keyboard layout, hints, finger demos, the
+  // everywhere, with a small drawn star on each card to show the difference), typing help (keyboard layout, hints, finger demos, the
   // keyboard and hands, the ghost racer), sound and music, comfort (font, less motion, graphics) and the
   // player's name. Grown-up choices (the daily goal, grown-up and easy mode, play time, saving online,
   // privacy) are in Grown-ups, behind the grown-up check; deleting a player stays here behind that check.
   import { game } from '../state/game.svelte';
-  import { buddyPicture } from '../three/buddyPic';
-  import { dressOf } from '../adventure/wardrobe';
-  import { FRIEND, type Look } from '../art/cast';
+  import LookEmblem from '../ui/LookEmblem.svelte';
+  import type { Look } from '../art/cast';
   import { LAYOUT_LIST } from '../engine/layouts';
   import { TUNES, sfx, melodyNote, resetMelody } from '../audio/sound';
   import { STATION } from '../audio/stations';
@@ -36,27 +35,14 @@
     game.update(pp => { pp.settings[k] = v; });
     sfx.click();
   }
-  // the Looks: how the 3D buddy is drawn everywhere (three/looks.ts), each card with a picture of your buddy in it
+  // the Looks: how the 3D buddy is drawn everywhere (three/looks.ts): each card says what it does and shows
+  // it on a small star (ui/LookEmblem.svelte), because the buddy itself changes too little to tell them apart
   const LOOKS: { id: Look; name: string; desc: string }[] = [
-    { id: 'soft', name: 'Soft Squish', desc: 'Soft and glowy, just as made' },
-    { id: 'ink', name: 'Ink Sticker', desc: 'A bold outline, like a sticker' },
-    { id: 'paper', name: 'Paper Craft', desc: 'Matte paper with a cut edge' },
-    { id: 'geo', name: 'Geo Pop', desc: 'Folded shapes, crisp edges' },
+    { id: 'soft', name: 'Soft Squish', desc: 'Smooth and glowing, no outline' },
+    { id: 'ink', name: 'Ink Sticker', desc: 'A thick dark outline, like a sticker' },
+    { id: 'paper', name: 'Paper Craft', desc: 'Flat colour with a cream paper edge' },
+    { id: 'geo', name: 'Geo Pop', desc: 'Flat facets and sharp folds' },
   ];
-  // each card's picture is the real buddy drawn in that Look, close up and at the screen's own sharpness, so
-  // the edges and shading show as they do in the game; until it's drawn, a soft blank (never the same
-  // picture four times); if this computer can't draw them, the cards are words only
-  let lookPics = $state<Partial<Record<Look, string>>>({});
-  let lookFails = $state(0);
-  const LOOK_PX = 140;
-  $effect(() => {
-    const id = p.buddy, dress = JSON.parse(JSON.stringify(dressOf(p)));
-    const dpr = Math.min(2, typeof devicePixelRatio === 'number' ? devicePixelRatio : 1);
-    let gone = false;
-    lookPics = {}; lookFails = 0;
-    for (const l of LOOKS) void buddyPicture(id, { dress, look: l.id, size: LOOK_PX, dpr, frame: 'face' }).then(u => { if (gone) return; if (u) lookPics = { ...lookPics, [l.id]: u }; else lookFails++; });
-    return () => { gone = true; };
-  });
   const FONTS: { id: Settings['font']; name: string; family: string }[] = [
     { id: 'fredoka', name: 'Bubbly', family: 'Fredoka' },
     { id: 'atkinson', name: 'Extra clear', family: 'Atkinson Hyperlegible' },
@@ -102,7 +88,7 @@
       <div class="looks">
         {#each LOOKS as l}
           <button class="look card" class:on={s.look === l.id} data-look={l.id} aria-pressed={s.look === l.id} onclick={() => set('look', l.id)}>
-            {#if lookFails < LOOKS.length}<span class="lpic" class:wait={!lookPics[l.id]}>{#if lookPics[l.id]}<img src={lookPics[l.id]} alt="{FRIEND[p.buddy].name} in {l.name}" />{/if}</span>{/if}
+            <span class="lpic"><LookEmblem look={l.id} /></span>
             <b>{l.name}</b><span>{l.desc}</span>
             {#if s.look === l.id}<em class="lon">Your look</em>{/if}
           </button>
@@ -232,10 +218,7 @@
   h2 { font-size: 24px; margin: 0 0 12px; }
   .looks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
   .look { position: relative; display: flex; flex-direction: column; align-items: center; padding: 10px 10px 12px; cursor: pointer; border: 3px solid transparent; font: inherit; color: inherit; transition: transform .12s; }
-  .lpic { display: grid; place-items: end center; width: 140px; height: 140px; border-radius: 20px; background: radial-gradient(circle at 50% 40%, #fff, #e4ecf8); margin-bottom: 6px; overflow: hidden; }
-  .lpic img { width: 140px; height: 140px; object-fit: contain; object-position: bottom; }
-  .lpic.wait { background: linear-gradient(100deg, #eef2fa 30%, #f9fbff 50%, #eef2fa 70%) 0 0 / 300% 100%; animation: lshim 1.4s linear infinite; }
-  @keyframes lshim { to { background-position: -150% 0; } }
+  .lpic { display: block; width: 104px; height: 104px; padding: 6px; box-sizing: border-box; border-radius: 20px; background: #bfe0fb; margin-bottom: 6px; }
   .lon { position: absolute; top: 8px; right: 8px; font: 800 11px var(--font-body); font-style: normal; color: #fff; background: var(--primary); padding: 2px 8px; border-radius: 999px; }
   .lookhint { margin: -8px 0 10px; }
   .grownrow span { display: flex; flex-direction: column; }
@@ -277,7 +260,7 @@
     .body { padding: 14px 12px 40px; }
     .cols { grid-template-columns: 1fr; gap: 10px; }
     .looks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .lpic, .lpic img { width: 112px; height: 112px; }
+    .lpic { width: 88px; height: 88px; }
     .look b { font-size: 17px; } .look span { font-size: 12px; text-align: center; }
     .fonts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .row { flex-wrap: wrap; }

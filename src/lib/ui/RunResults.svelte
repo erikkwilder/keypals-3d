@@ -750,7 +750,8 @@
   .narrow .chip small { font-size: 10px; }
   .narrow .ci { width: 28px; height: 28px; }
   .narrow .tiles { gap: 8px; }
-  .narrow .tiles :global(.tile) { flex: 1 1 0; min-width: 0; }
+  /* (each as wide as its word needs; a long way back wraps in what's left) */
+  .narrow .tiles :global(.tile) { flex: 1 1 auto; min-width: min-content; padding-left: 8px; padding-right: 8px; }
   .narrow .tiles.small { gap: 4px; }
   .narrow .tiles.small :global(.tile .lbl) { font-size: 12px; }
   .narrow .corner { top: 10px; left: 10px; }

@@ -121,3 +121,117 @@ export function step<T extends P>(p: T, dir: P, dist: number, solids: Solid[], b
   p.x = best.q.x; p.z = best.q.z;
   return Math.hypot(p.x - from.x, p.z - from.z);
 }
+
+// ---------- finding the way ----------
+/** Can something of size `r` go straight from a to b? `leaving`: a is where it stands now, maybe touching something. */
+export function clearLine(a: P, b: P, solids: Solid[], boxes: Box[], r = BUDDY_R, walkR = Infinity, leaving = false): boolean {
+  const d = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(1, Math.ceil(d / 0.1));
+  for (let i = 1; i <= n; i++) {
+    const t = i / n, p = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
+    if (Math.hypot(p.x, p.z) > walkR || blocked(p, solids, boxes, leaving && t * d < 0.6 ? Math.min(r, 0.2) : r)) return false;
+  }
+  return true;
+}
+
+/** the search's squares (a little under the buddy's width, so it can't miss a way round) */
+const GRID = 0.3;
+/** a smallest-first list of cells, for the search */
+class Queue {
+  private h: { c: number; f: number }[] = [];
+  get size() { return this.h.length; }
+  push(c: number, f: number) {
+    const h = this.h; h.push({ c, f });
+    for (let i = h.length - 1; i > 0;) { const u = (i - 1) >> 1; if (h[u].f <= h[i].f) break; [h[u], h[i]] = [h[i], h[u]]; i = u; }
+  }
+  pop(): number {
+    const h = this.h, top = h[0], end = h.pop()!;
+    if (h.length) {
+      h[0] = end;
+      for (let i = 0; ;) {
+        let m = i; const a = 2 * i + 1, b = a + 1;
+        if (a < h.length && h[a].f < h[m].f) m = a;
+        if (b < h.length && h[b].f < h[m].f) m = b;
+        if (m === i) break;
+        [h[m], h[i]] = [h[i], h[m]]; i = m;
+      }
+    }
+    return top.c;
+  }
+}
+/** The shortest way across a grid laid over the two spots with `pad` metres round them; null if there's none in there. */
+function gridWay(from: P, to: P, pad: number, away: number, solids: Solid[], boxes: Box[], r: number, walkR: number): P[] | null {
+  const x0 = Math.min(from.x, to.x) - pad, x1 = Math.max(from.x, to.x) + pad, z0 = Math.min(from.z, to.z) - pad, z1 = Math.max(from.z, to.z) + pad;
+  // (only what's in the search's box counts)
+  const S = solids.filter(s => s.x + s.r + r > x0 && s.x - s.r - r < x1 && s.z + s.r + r > z0 && s.z - s.r - r < z1);
+  const B = boxes.filter(b => b.x1 + r > x0 && b.x0 - r < x1 && b.z1 + r > z0 && b.z0 - r < z1);
+  const si = Math.round((from.x - x0) / GRID), sj = Math.round((from.z - z0) / GRID);
+  const ox = from.x - si * GRID, oz = from.z - sj * GRID;
+  const W = Math.ceil((x1 - ox) / GRID) + 1, H = Math.ceil((z1 - oz) / GRID) + 1, N = W * H;
+  const at = (c: number): P => ({ x: ox + (c % W) * GRID, z: oz + Math.floor(c / W) * GRID });
+  // the cells something stands on (a hair wider than the buddy, so a step between two free cells is clear);
+  // if the buddy is touching something where it starts, the `away` cells round it stay free so it can step off
+  const R = r + 0.05, shut = new Uint8Array(N);
+  const span = (a: number, b: number, o: number, n: number) => [Math.max(0, Math.ceil((a - o) / GRID)), Math.min(n - 1, Math.floor((b - o) / GRID))];
+  for (const s of S) {
+    const R2 = (s.r + R) ** 2, [i0, i1] = span(s.x - s.r - R, s.x + s.r + R, ox, W), [j0, j1] = span(s.z - s.r - R, s.z + s.r + R, oz, H);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if ((ox + i * GRID - s.x) ** 2 + (oz + j * GRID - s.z) ** 2 < R2) shut[j * W + i] = 1;
+  }
+  for (const b of B) {
+    const [i0, i1] = span(b.x0 - R, b.x1 + R, ox, W), [j0, j1] = span(b.z0 - R, b.z1 + R, oz, H);
+    for (let j = j0; j <= j1; j++) shut.fill(1, j * W + i0, j * W + i1 + 1);
+  }
+  if (shut[sj * W + si]) for (let j = Math.max(0, sj - away); j <= Math.min(H - 1, sj + away); j++) for (let i = Math.max(0, si - away); i <= Math.min(W - 1, si + away); i++) shut[j * W + i] = 0;
+  const free = (c: number) => { if (shut[c]) return false; const p = at(c); return Math.hypot(p.x, p.z) <= walkR; };
+  const left = (c: number) => { const p = at(c), dx = Math.abs(p.x - to.x), dz = Math.abs(p.z - to.z); return Math.max(dx, dz) + 0.414 * Math.min(dx, dz); };
+  const g = new Float32Array(N).fill(Infinity), came = new Int32Array(N).fill(-1), q = new Queue();
+  const start = sj * W + si;
+  g[start] = 0; q.push(start, left(start));
+  while (q.size) {
+    const c = q.pop(), i = c % W, j = Math.floor(c / W);
+    if (left(c) < GRID * 2 && clearLine(at(c), to, S, B, r, walkR, c === start)) {
+      // (only the corners: a straight run of cells is one step)
+      const way: P[] = [];
+      for (let k = c, next = -1; k !== start && k >= 0; next = k, k = came[k]) if (next < 0 || next - k !== k - came[k]) way.push(at(k));
+      return way.reverse();
+    }
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      const a = i + di, b = j + dj, n = b * W + a;
+      if ((!di && !dj) || a < 0 || b < 0 || a >= W || b >= H || !free(n)) continue;
+      // (never cutting across the corner of something)
+      if (di && dj && (!free(j * W + a) || !free(b * W + i))) continue;
+      const d = g[c] + GRID * (di && dj ? Math.SQRT2 : 1);
+      // (the distance left counts a little extra: far fewer cells to look at, and tighten() takes up the slack)
+      if (d < g[n] - 1e-4) { g[n] = d; came[n] = c; q.push(n, d + left(n) * 1.15); }
+    }
+  }
+  return null;
+}
+/** Pull a way tight: from each corner on to the furthest one it can reach in a straight line. */
+function tighten(way: P[], solids: Solid[], boxes: Box[], r: number, walkR: number): P[] {
+  const out: P[] = [];
+  for (let i = 0; i < way.length - 1;) {
+    let j = way.length - 1;
+    while (j > i + 1 && !clearLine(way[i], way[j], solids, boxes, r, walkR, i === 0)) j--;
+    out.push(way[j]); i = j;
+  }
+  return out;
+}
+/**
+ * The way from one spot to another, as the corners to walk through (the last one is `to`): straight if it
+ * can be, otherwise the shortest way round what's in between, along the aisle it's in and round the signs
+ * and the ends of the beds. `to` should be a spot the buddy can stand on (resolve). If there's really no
+ * way, it's just `to`, and the walk slides along whatever it meets.
+ */
+export function findRoute(from: P, to: P, solids: Solid[], boxes: Box[], r = BUDDY_R, walkR = Infinity): P[] {
+  const end = { x: to.x, z: to.z };
+  if (clearLine(from, end, solids, boxes, r, walkR, true)) return [end];
+  for (const [pad, away] of [[5, 1], [5, 3], [12, 1], [30, 3]]) {
+    const way = gridWay(from, end, pad, away, solids, boxes, r, walkR);
+    if (way) return tighten([{ x: from.x, z: from.z }, ...way, end], solids, boxes, r, walkR);
+  }
+  return [end];
+}
+/** How long a way is, from `from` through its corners. */
+export function routeLength(from: P, way: P[]): number {
+  return way.reduce((a, q, i) => { const p = i ? way[i - 1] : from; return a + Math.hypot(q.x - p.x, q.z - p.z); }, 0);
+}

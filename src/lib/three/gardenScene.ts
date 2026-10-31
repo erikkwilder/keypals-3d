@@ -25,7 +25,7 @@ import { GlimmerModel } from './glimmerModel';
 import { makeOutfit } from './outfits3d';
 import { savedDress } from './dress';
 import { sfx } from '../audio/sound';
-import { BED_D, BED_H, BED_L, CELL, PATH_Z, PLOT_GAP, RIM, ROW, SOIL_Y, BUDDY_R, bedZ, crossings, landRadius, pathZ, plantX, plotDepth, plotPlaces, plotRect, resolve as resolveAt, step as stepAt, walkRadius, type Box, type PlotPlace, type Solid } from './gardenLayout';
+import { BED_D, BED_H, BED_L, CELL, PATH_Z, PLOT_GAP, RIM, ROW, SOIL_Y, BUDDY_R, bedZ, crossings, findRoute, landRadius, pathZ, plantX, plotDepth, plotPlaces, plotRect, resolve as resolveAt, routeLength, step as stepAt, walkRadius, type Box, type PlotPlace, type Solid } from './gardenLayout';
 
 export type GPlant = {
   id: string; stage: Stage;
@@ -164,12 +164,15 @@ export class GardenScene implements Controller {
   private now = 0; private started = -1;
   private walk = {
     to: new THREE.Vector3(), wait: 2, mode: 'idle' as 'idle' | 'walk' | 'water' | 'travel' | 'drive', until: 0, route: [] as THREE.Vector3[], face: Math.PI, waterAt: null as THREE.Vector3 | null, speed: 3.2,
-    /** a trip: when it set off, how long it should take, and whether it has given up on walking round things */
-    began: 0, takes: 3, ghost: false, check: 0, checkAt: new THREE.Vector3(),
+    /** a trip: when it set off, how long it should take, and whether it has had to look for another way */
+    began: 0, takes: 3, rerouted: false, check: 0, checkAt: new THREE.Vector3(),
   };
   /** walking the buddy yourself: the keys or pad held (right, forward), or a spot tapped on the ground */
   private input = { x: 0, z: 0 };
   private goto: THREE.Vector3 | null = null;
+  /** the corners after that on the way there, and whether it may still look for another way */
+  private gotoWay: THREE.Vector3[] = [];
+  private gotoAgain = true;
   private stuckT = 0;
   /** the camera stays behind the buddy while you walk it */
   private follow = false;
@@ -795,48 +798,31 @@ export class GardenScene implements Controller {
     this.plot = plot; this.bed = bed; this.free = null; this.follow = false;
     this.input.x = this.input.z = 0; this.goto = null;
     this.near.plot = plot; this.near.bed = bed;
-    // the buddy walks there along the paths (runs if it's far), the camera following, and waters once it
-    // arrives: along the path in front of the plots, then up the grass aisle beside the beds to the bed
+    // the buddy walks there the short way (runs if it's far), the camera following, and waters once it
+    // arrives: along the aisle it's in, round the signs and the ends of the beds, never out to the front
+    // and back. It waters a bed from whichever end is nearer.
     const me = this.me;
     if (!me) return;
-    const X = this.px(plot), Z0 = this.pz(plot), at = me.root.position.clone().setY(0), route: THREE.Vector3[] = [];
-    const aisle = X + BED_L / 2 + 0.75, toRow = this.places[plot]?.row ?? 0;
-    // which row's ground it's on (the front row's starts a little behind its own beds)
-    const rowOf = (z: number) => (this.places.some(q => q.row === 1) && z > PATH_Z + 2 ? 1 : 0);
-    const fromRow = rowOf(at.z);
-    // wherever it is (between some beds, out by the house), first out to a gap beside the beds, then its path
-    let x0 = at.x;
-    if (at.z < pathZ(fromRow) - 0.6) {
-      const mine = this.places.map((q, pi) => ({ q, pi })).filter(({ q }) => q.row === fromRow);
-      const inside = mine.some(({ q }) => Math.abs(at.x - q.x) < BED_L / 2 + 0.45);
-      if (inside) {
-        const gaps = mine.flatMap(({ q }) => [q.x - BED_L / 2 - 0.75, q.x + BED_L / 2 + 0.75]);
-        x0 = gaps.reduce((a, g) => (Math.abs(g - at.x) < Math.abs(a - at.x) ? g : a), gaps[0]);
-        route.push(new THREE.Vector3(x0, 0, at.z));
-      }
-    }
-    if (Math.abs(at.z - pathZ(fromRow)) > 0.35) route.push(new THREE.Vector3(x0, 0, pathZ(fromRow)));
-    // to the other row: along this path to the nearest crossing, and over
-    if (fromRow !== toRow) {
-      const xs = crossings(this.places), want = (x0 + X) / 2;
-      const cx = xs.reduce((a, c) => (Math.abs(c - want) < Math.abs(a - want) ? c : a), xs[0] ?? 0);
-      route.push(new THREE.Vector3(cx, 0, pathZ(fromRow)), new THREE.Vector3(cx, 0, pathZ(toRow)));
-    }
+    const X = this.px(plot), Z0 = this.pz(plot), at = me.root.position.clone().setY(0);
     if (bed === null) {
-      route.push(new THREE.Vector3(X - 1.5 + Math.random() * 2, 0, Z0 + PATH_Z));
+      this.walk.route = this.routeFrom(at, new THREE.Vector3(X - 1.5 + Math.random() * 2, 0, Z0 + PATH_Z));
       this.walk.face = Math.PI; this.walk.waterAt = null;
     } else {
-      route.push(new THREE.Vector3(aisle, 0, Z0 + PATH_Z), new THREE.Vector3(aisle, 0, Z0 + bedZ(bed)));
-      this.walk.face = -Math.PI / 2; this.walk.waterAt = new THREE.Vector3(aisle - 1.1, 0, Z0 + bedZ(bed));
+      const z = Z0 + bedZ(bed), right = this.routeFrom(at, new THREE.Vector3(X + BED_L / 2 + 0.75, 0, z));
+      // (the end with the signs: outside their posts)
+      const left = this.routeFrom(at, new THREE.Vector3(X - BED_L / 2 - 1.05, 0, z));
+      const signSide = routeLength(at, left) < routeLength(at, right) - 0.5;
+      this.walk.route = signSide ? left : right;
+      this.walk.face = signSide ? Math.PI / 2 : -Math.PI / 2;
+      this.walk.waterAt = new THREE.Vector3(X + (signSide ? -1 : 1) * (BED_L / 2 - 0.35), 0, z);
     }
-    // a step that's already where the buddy is (or where the last step ends) is left out
-    this.walk.route = route.filter((q, i) => q.distanceTo(i ? route[i - 1] : at) > 0.05);
+    this.walk.route = this.walk.route.filter(q => q.distanceTo(at) > 0.05);
     // a running speed for the whole trip: about three seconds there, however far (a walk if it's close)
-    const total = this.walk.route.reduce((a, q, i) => a + q.distanceTo(i ? this.walk.route[i - 1] : at), 0);
+    const total = routeLength(at, this.walk.route);
     this.walk.speed = Math.min(8, Math.max(3.2, total / 3));
     this.walk.mode = this.walk.route.length ? 'travel' : 'water';
     this.walk.until = this.now + 2.6;
-    this.walk.began = this.now; this.walk.takes = total / this.walk.speed + 2.5; this.walk.ghost = false;
+    this.walk.began = this.now; this.walk.takes = total / this.walk.speed + 2.5; this.walk.rerouted = false;
     this.walk.check = this.now; this.walk.checkAt.copy(at);
   }
   /** The garden frames itself again (the "back to the bed" button). */
@@ -857,7 +843,8 @@ export class GardenScene implements Controller {
     ray.setFromCamera(new THREE.Vector2((clientX / innerWidth) * 2 - 1, -(clientY / innerHeight) * 2 + 1), stage.camera);
     const p = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
     if (!p || Math.hypot(p.x, p.z) > this.walkR) return false;
-    this.goto = p.setY(0); this.stuckT = 0;
+    this.gotoWay = this.me ? this.routeFrom(this.me.root.position, this.resolve(p.setY(0))) : [p.setY(0)];
+    this.goto = this.gotoWay.shift() ?? null; this.stuckT = 0; this.gotoAgain = true;
     this.startDriving();
     this.fx.emit({ at: p.clone().setY(0.08), count: 10, shape: 'ring', color: 0xffd34d, speed: [0.05, 0.2], life: [0.4, 0.6], size: [0.25, 0.4], drag: 2 });
     return true;
@@ -879,6 +866,10 @@ export class GardenScene implements Controller {
   }
   /** Keep a spot out of the beds, the rocks, the trees, the pond and the house, and on the island. */
   private resolve(p: THREE.Vector3, r = BUDDY_R) { return resolveAt(p, this.solids, this.boxes, r, this.walkR); }
+  /** The short way from here to a spot, as corners to walk through. */
+  private routeFrom(at: THREE.Vector3, to: THREE.Vector3) {
+    return findRoute(at, this.resolve(to.clone().setY(0)), this.solids, this.boxes, BUDDY_R, this.walkR).map(q => new THREE.Vector3(q.x, 0, q.z));
+  }
   /** A step toward `dir` (unit, on the ground), sliding round whatever is in the way: how far it got. */
   private stepTo(p: THREE.Vector3, dir: THREE.Vector3, dist: number, r = BUDDY_R) { return stepAt(p, dir, dist, this.solids, this.boxes, r, this.walkR); }
   /** Is the player steering the camera? */
@@ -1030,15 +1021,21 @@ export class GardenScene implements Controller {
     const turnTo = (a: number, k: number) => { const d = Math.atan2(Math.sin(a - me.root.rotation.y), Math.cos(a - me.root.rotation.y)); me.root.rotation.y += d * Math.min(1, dt * k); };
     if (w.mode === 'travel') {
       // along the route: running while there's a long way to go, walking the last few metres, sliding round
-      // anything in the way (never through it). A trip that gets stuck or runs long: a little hop and a
-      // puff, and it's there (a rock in the way is never walked through)
-      if (w.route.length && (t - w.began > w.takes || (t - w.check > 1.2 && me.root.position.distanceTo(w.checkAt) < 0.3))) {
+      // anything in the way (never through it). Not getting any closer for a moment: it finds another way
+      // from where it is. Stuck again, or a trip that runs long: a little hop and a puff, and it's there (a
+      // rock in the way is never walked through)
+      const still = t - w.check > 0.8 && me.root.position.distanceTo(w.checkAt) < 0.3;
+      if (w.route.length && still && !w.rerouted) {
+        w.rerouted = true;
+        w.route = this.routeFrom(me.root.position, w.route[w.route.length - 1]);
+        w.check = t; w.checkAt.copy(me.root.position);
+      } else if (w.route.length && (still || t - w.began > w.takes)) {
         const end = w.route[w.route.length - 1];
         this.fx.emit({ at: me.root.position.clone().setY(0.3), count: 14, shape: ['dot', 'star'], color: [0xffffff, 0xfff2a8], speed: [0.5, 1.5], up: 1, life: [0.3, 0.6], size: [0.08, 0.16], drag: 2 });
         me.root.position.copy(end); w.route = [];
         this.fx.emit({ at: end.clone().setY(0.3), count: 14, shape: ['dot', 'star'], color: [0xffffff, 0xfff2a8], speed: [0.5, 1.5], up: 1, life: [0.3, 0.6], size: [0.08, 0.16], drag: 2 });
       }
-      if (t - w.check > 1.2) { w.check = t; w.checkAt.copy(me.root.position); }
+      if (t - w.check > 0.8) { w.check = t; w.checkAt.copy(me.root.position); }
       const next = w.route[0];
       if (!next) { w.mode = 'water'; w.until = t + 2.6; }
       else {
@@ -1069,15 +1066,23 @@ export class GardenScene implements Controller {
         const m = Math.min(1, dir.length()); dir.normalize(); speed = 3.3 * m;
       } else if (this.goto) {
         const d = this.goto.clone().sub(me.root.position); d.y = 0;
-        const len = d.length();
-        if (len < 0.15) this.goto = null;
-        else { dir = d.multiplyScalar(1 / len); speed = len > 2.2 ? 3.3 : 1.2 + len; }
+        const len = d.length(), left = len + routeLength(this.goto, this.gotoWay);
+        if (len < 0.15) this.goto = this.gotoWay.shift() ?? null;
+        else { dir = d.multiplyScalar(1 / len); speed = left > 2.2 ? 3.3 : 1.2 + left; }
       }
       if (dir && speed > 0) {
         // a step, sliding along a rock or a bed instead of stopping dead (and never ending up inside one)
         const moved = this.stepTo(me.root.position.setY(0), dir, speed * dt);
-        // walking into a wall toward a tapped spot: give up after a moment
-        if (this.goto) { this.stuckT = moved < speed * dt * 0.25 ? this.stuckT + dt : 0; if (this.stuckT > 0.8) this.goto = null; }
+        // walking into a wall toward a tapped spot: another way from here, and if that fails too, stop there
+        if (this.goto) {
+          this.stuckT = moved < speed * dt * 0.25 ? this.stuckT + dt : 0;
+          if (this.stuckT > 0.6) {
+            const end = this.gotoWay[this.gotoWay.length - 1] ?? this.goto;
+            this.gotoWay = this.gotoAgain ? this.routeFrom(me.root.position, end) : [];
+            this.goto = this.gotoWay.shift() ?? null;
+            this.gotoAgain = false; this.stuckT = 0;
+          }
+        }
         turnTo(Math.atan2(dir.x, dir.z), 12);
         const run = speed > 2.2 && me.has('run'), gait = run ? 'run' : 'walk';
         me.play(gait, 0.2);

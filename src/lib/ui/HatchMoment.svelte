@@ -170,6 +170,8 @@
   async function run() {
     const egg = advView(p).incubator[slot];
     if (!egg) { onclose(); return; }
+    // every hatch starts on a clean stage: the Glimmer from the last one and its light are gone
+    scene?.clear();
     if (scene) scene.view = HATCH_VIEW();
     // the egg rises out of its nest into the light, over the stage where its Glimmer will stand
     const src = eggSrc(egg);

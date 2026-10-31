@@ -7,7 +7,8 @@
   // Behind the grown-up check like the Grown-ups screen, so a child at a shared computer can't wander in.
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { cloud, grownupOpen, signIn, signOut } from '../state/cloud.svelte';
+  import { cloud, grownupOpen, signInForTeach, signOut } from '../state/cloud.svelte';
+  import { sfx } from '../audio/sound';
   import GrownupGate from '../ui/GrownupGate.svelte';
   import { teach, act, loadMe, devSignIn, becomeTeacher, createClass, openClass } from '../teach/teacher.svelte';
   import { showClassCode } from '../teach/names';
@@ -27,11 +28,17 @@
   const status = $derived(teach.me?.teacher?.status ?? 'approved');
 
   onMount(() => { if (!teach.loaded || !teach.me?.signedIn) void loadMe(); });
-  function google() { try { sessionStorage.setItem('kp-teach-return', '1'); } catch { /* fine */ } signIn('google'); }
   async function out() { await signOut(); teach.me = { signedIn: false }; teach.classes = []; teach.current = null; }
-  /** Back: from a class to all of them, then back to where For teachers was opened from */
+  /** Back: from a class to all of them, then back to where For teachers was opened from (Home, or the
+   *  player list with nobody picked: game.back) */
   function back() { if (teach.current) { teach.current = null; return; } game.back(); }
+  /** A parent who came this way to sign in: their players are on the player list, not here. */
+  function parent() { sfx.click(); game.go(game.save.profiles.length ? 'players' : 'newPlayer'); }
 </script>
+
+{#snippet parentWay()}
+  <button class="btn" onclick={parent}>I'm a parent, take me to my players</button>
+{/snippet}
 
 {#snippet waiting()}
   <section class="panel wait" class:no={status === 'declined'}>
@@ -74,7 +81,8 @@
               <li>Students log in with the class code and pictures, or with their own school Google account. They never give us an email.</li>
             </ul>
             <div class="row">
-              {#if cloud.google}<button class="btn btn-primary" onclick={google}>Sign in with Google</button>{/if}
+              {#if cloud.google}<button class="btn btn-primary" onclick={signInForTeach}>Sign in with Google</button>{/if}
+              {@render parentWay()}
               {#if !cloud.google && !teach.dev}<p class="muted">Sign-in isn't set up on this copy of Keypals.</p>{/if}
             </div>
             {#if teach.dev}
@@ -89,7 +97,7 @@
           <section class="panel">
             <h2>Teachers sign in with Google</h2>
             <p>You're signed in with {teach.me.account?.provider === 'microsoft' ? 'Microsoft' : 'another account'}. To make classes, sign out and sign in with a Google account: a school one is best, so your classes are on straight away.</p>
-            <div class="row"><button class="btn btn-primary" onclick={out}>Sign out</button></div>
+            <div class="row"><button class="btn btn-primary" onclick={out}>Sign out</button>{@render parentWay()}</div>
           </section>
         {:else if !teach.me.teacher}
           <section class="panel">
@@ -108,7 +116,7 @@
               </ul>
               <label class="check"><input type="checkbox" bind:checked={agree} /> I agree</label>
             </div>
-            <div class="row"><button class="btn btn-primary" disabled={!display.trim() || !agree || teach.busy} onclick={() => act(() => becomeTeacher(display, agree))}>Continue</button></div>
+            <div class="row"><button class="btn btn-primary" disabled={!display.trim() || !agree || teach.busy} onclick={() => act(() => becomeTeacher(display, agree))}>Continue</button>{@render parentWay()}</div>
           </section>
         {:else if teach.current}
           {#if status !== 'approved'}{@render waiting()}{/if}

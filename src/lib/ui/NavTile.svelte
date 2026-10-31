@@ -11,9 +11,13 @@
   };
   let { label, kind, art, size = 'md', tone = 'plain', badge, hotkey, title, onclick }: Props = $props();
   const px = $derived(size === 'lg' ? 92 : size === 'md' ? 62 : size === 'bar' ? 38 : 40);
+  // a short word stays on one line; a longer one wraps to fit the button, and a long place name ("Back to
+  // Expressions and equations map") is a little smaller as well, so a label is never wider than its button
+  const wraps = $derived(label.length > 10);
+  const long = $derived(label.length > 22);
 </script>
 
-<button class="tile {size} {tone}" {title} aria-label={title ?? label} onclick={() => { sfx.click(); onclick(); }}>
+<button class="tile {size} {tone}" class:wraps class:long {title} aria-label={title ?? label} onclick={() => { sfx.click(); onclick(); }}>
   <span class="gloss" aria-hidden="true"></span>
   <span class="pic" style:width="{px}px" style:height="{px}px">
     {#if art}{@render art()}{:else if kind}<TileArt {kind} size={px} />{/if}
@@ -45,9 +49,13 @@
   .lg .pic { animation: tile-bob 2.8s ease-in-out infinite; }
   @keyframes tile-bob { 50% { transform: translateY(-4px); } }
   .lbl { position: relative; font: 600 17px/1.1 var(--font-ui); text-align: center; white-space: nowrap; }
+  .wraps { max-width: 100%; }
+  .wraps .lbl { white-space: normal; text-wrap: balance; overflow-wrap: anywhere; }
   .lg { min-width: 170px; padding: 16px 20px 14px; }
   .lg .lbl { font-size: 23px; }
+  .lg.long .lbl { font-size: 18px; }
   .md { min-width: 112px; padding: 10px 14px 10px; border-radius: 22px; }
+  .md.long .lbl { font-size: 14.5px; }
   .sm { flex-direction: row; gap: 8px; padding: 6px 14px 6px 8px; border-radius: 18px; }
   .sm .lbl { font-size: 16px; }
   /* the top bar's tiles: a small picture over its word, so five fit beside the compass on a laptop */

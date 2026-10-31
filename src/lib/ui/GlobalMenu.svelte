@@ -2,12 +2,14 @@
   // The Menu (the three lines on the top bar of every screen): the music (what's playing, next song, pick a
   // station: the note on the bar opens the same, and on a phone this is where it is), music and sounds on or off, then
   // go anywhere, by level (Home, Typing, Math, Arcade, Adventure, My Sky Island, My stuff, My path), then
-  // Settings, Ideas and help, Grown-ups, For teachers and About. No scores here: how you're doing is in My
+  // Settings, Ideas and help, Grown-ups, For teachers and About, and Sign in with Google until a grown-up has. No scores here: how you're doing is in My
   // stuff › My progress. A tap outside it, or Esc, closes it.
   import { onDestroy, onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
+  import { cloud, goSaveOnline } from '../state/cloud.svelte';
+  import SaveChip from './SaveChip.svelte';
   import { menuMore, menuPlaces, type MenuItem } from '../nav';
   import CloseButton from './CloseButton.svelte';
   import QuickToggles from './QuickToggles.svelte';
@@ -34,6 +36,7 @@
       <h2>Menu</h2>
       <CloseButton onclick={close} label="Close the menu" size={42} />
     </header>
+    <div class="save"><SaveChip compact /></div><!-- who's signed in and where progress is kept -->
     <MusicNow compact onpick={() => game.closeMenu()} />
     <QuickToggles />
     <h3>Go to</h3>
@@ -46,6 +49,9 @@
       {#each more as t (t.id)}
         <button class="row" onclick={() => go(t)}><img src="{base}{t.icon}" alt="" /><span>{t.name}</span></button>
       {/each}
+      {#if cloud.online && cloud.google && !cloud.account}
+        <button class="row" onclick={() => { sfx.click(); game.closeMenu(); goSaveOnline(); }}><img src="{base}icons/cloud-save.webp" alt="" /><span>Sign in with Google</span></button>
+      {/if}
     </nav>
   </div>
 </div>
@@ -57,6 +63,8 @@
   .top { display: flex; align-items: center; gap: 10px; }
   .cmp { width: 40px; height: 40px; object-fit: contain; }
   .top h2 { flex: 1; margin: 0; font-size: 28px; }
+  .save { display: flex; margin-top: -8px; min-width: 0; }
+  .save:empty { display: none; }
   h3 { margin: 4px 0 -4px; font: 700 14px var(--font-body); color: var(--muted); }
   .places { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .place { display: flex; align-items: center; gap: 10px; border: 0; cursor: pointer; text-align: left; padding: 8px 10px; border-radius: 18px; background: #f7f4fd; box-shadow: inset 0 0 0 2px #ece6f6; font: 600 18px var(--font-ui); color: var(--ink); }

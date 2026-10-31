@@ -1,8 +1,7 @@
-// Pictures of the real 3D buddy, dressed in everything it has on and in a Look, drawn by a small renderer
-// of its own on a see-through background: Home's buddy (framed exactly as the tickled 3D buddy in
-// fun/liveBuddy.ts, so the swap doesn't jump and the gear is on both) and the Look cards in Settings.
-// Each picture is kept for the visit, and Home's last one is kept on this computer too, so a refresh
-// shows the dressed buddy straight away.
+// A picture of the real 3D buddy, dressed in everything it has on and in the player's Look, drawn by a small
+// renderer of its own on a see-through background: Home's buddy (framed exactly as the tickled 3D buddy in
+// fun/liveBuddy.ts, so the swap doesn't jump and the gear is on both). Each picture is kept for the visit, and
+// Home's last one is kept on this computer too, so a refresh shows the dressed buddy straight away.
 import * as THREE from 'three';
 import { Character } from './character';
 import { dressUp } from './dress';
@@ -48,10 +47,7 @@ function character(id: FriendId) {
   return p;
 }
 
-/** 'full': the whole buddy as on Home; 'bust': from the waist up; 'face': head and shoulders, close enough to
- *  see a Look's edges and shading (the Look cards in Settings) */
-export type Frame = 'full' | 'bust' | 'face';
-const keyOf = (id: FriendId, look: BuddyLook, dress: Dress | null | undefined, size: number, frame: Frame = 'full', dpr = 1) => `${id}|${look}|${size}|${frame}|${dpr === 1 ? '' : dpr}|${JSON.stringify(dress ?? null)}`;
+const keyOf = (id: FriendId, look: BuddyLook, dress: Dress | null | undefined, size: number) => `${id}|${look}|${size}|${JSON.stringify(dress ?? null)}`;
 
 /** The picture saved on this computer for this buddy, look and outfit, if it's the one asked for. */
 export function storedPicture(id: FriendId, dress: Dress | null | undefined, size: number, look: BuddyLook = currentLook()): string | null {
@@ -59,17 +55,14 @@ export function storedPicture(id: FriendId, dress: Dress | null | undefined, siz
 }
 
 /** A picture (data URL) of a buddy standing as on Home: dressed in `dress` (the save's look when not
- *  given), in `look` (the one picked in Settings when not given), `size` pixels square. `keep` saves it on
- *  this computer for next time. */
-export function buddyPicture(id: FriendId, o: { dress?: Dress | null; look?: BuddyLook; size?: number; keep?: boolean; frame?: Frame; dpr?: number } = {}): Promise<string | null> {
-  const look = o.look ?? currentLook(), size = Math.round(o.size ?? 200), frame = o.frame ?? 'full';
-  // `dpr`: drawn for a screen's sharper pixels (`size` is then in CSS pixels): a Look's edge comes out as
-  // thick as it is on the buddy in the game
-  const dpr = Math.max(1, Math.min(3, o.dpr ?? 1));
-  const key = keyOf(id, look, o.dress, size, frame, dpr);
+ *  given), in the Look picked in Settings, `size` pixels square. `keep` saves it on this computer for next
+ *  time. */
+export function buddyPicture(id: FriendId, o: { dress?: Dress | null; size?: number; keep?: boolean } = {}): Promise<string | null> {
+  const look = currentLook(), size = Math.round(o.size ?? 200);
+  const key = keyOf(id, look, o.dress, size);
   let p = pics.get(key);
   if (!p) {
-    p = (queue = queue.then(() => draw(id, o.dress, look, size, frame, dpr)).catch(() => null)) as Promise<string | null>;
+    p = (queue = queue.then(() => draw(id, o.dress, look, size)).catch(() => null)) as Promise<string | null>;
     pics.set(key, p);
     p.then(u => { if (!u) pics.delete(key); });
   }
@@ -77,7 +70,7 @@ export function buddyPicture(id: FriendId, o: { dress?: Dress | null; look?: Bud
   return p;
 }
 
-async function draw(id: FriendId, dress: Dress | null | undefined, look: BuddyLook, size: number, frame: Frame, dpr = 1): Promise<string | null> {
+async function draw(id: FriendId, dress: Dress | null | undefined, look: BuddyLook, size: number): Promise<string | null> {
   const r = setup();
   const c = await character(id);
   if (!c) return null;
@@ -93,12 +86,10 @@ async function draw(id: FriendId, dress: Dress | null | undefined, look: BuddyLo
   for (const b of Object.values(c.bones)) pb.expandByPoint(b.getWorldPosition(new THREE.Vector3()));
   const hy = c.bones.Head?.getWorldPosition(new THREE.Vector3()).y ?? pb.max.y;
   const top = Math.max(pb.max.y, hy) + 0.32;
-  // the whole buddy (Home), from the waist up, or head and shoulders (a Look card)
-  const h = frame === 'face' ? top * 0.5 : frame === 'bust' ? top * 0.66 : top * 1.04, aim = new THREE.Vector3(0, frame === 'full' ? top / 2 : top - h / 2 - top * 0.02, 0);
+  const h = top * 1.04, aim = new THREE.Vector3(0, top / 2, 0);
   const d = h / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)));
   cam.position.set(aim.x, aim.y + h * 0.04, aim.z + d);
   cam.lookAt(aim);
-  r.setPixelRatio(dpr);
   r.setSize(size, size, false);
   r.render(scene, cam);
   return r.domElement.toDataURL('image/png');

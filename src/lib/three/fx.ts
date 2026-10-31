@@ -245,6 +245,13 @@ export class Fx {
     (this.geo.attributes.misc as THREE.BufferAttribute).needsUpdate = true;
   }
 
+  /** Nothing left in the air: every sparkle and beam gone at once. */
+  clear() {
+    for (const p of this.ps) p.alive = false;
+    for (const b of this.beams) { b.mesh.removeFromParent(); b.mesh.geometry.dispose(); (b.mesh.material as THREE.Material).dispose(); }
+    this.beams = [];
+  }
+
   dispose() {
     this.root.removeFromParent();
     this.geo.dispose(); (this.points.material as THREE.Material).dispose(); this.tex.dispose();

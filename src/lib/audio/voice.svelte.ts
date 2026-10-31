@@ -5,6 +5,7 @@
 
 import { ALL_LINES, type Line } from '../content/voice';
 import { game } from '../state/game.svelte';
+import { onPageAway, pageAway } from './away';
 
 const BY_ID = new Map(ALL_LINES.map(l => [l.id, l]));
 export const voiceState = $state<{ caption: string | null; speaker: string | null; playing: string | null }>({ caption: null, speaker: null, playing: null });
@@ -13,6 +14,14 @@ let audio: HTMLAudioElement | null = null;
 let important = false;
 let captionTimer: ReturnType<typeof setTimeout> | undefined;
 const missing = new Set<string>();
+/** how to start or carry on the line now, while the game is put away (away.ts): it finishes when it's back,
+ *  so a Learn that is waiting for the line just waits */
+let startLine: (() => void) | null = null;
+let held: (() => void) | null = null;
+onPageAway({
+  away() { if (audio && !audio.paused && !audio.ended) { audio.pause(); held = startLine; } },
+  back() { const go = held; held = null; go?.(); },
+});
 
 function allowed(line: Line) {
   // the coach and the buddies' Learn voices (kid-a, kid-b, kid-c) speak out loud; the Keypals' own old
@@ -22,6 +31,7 @@ function allowed(line: Line) {
 
 function stopAll() {
   if (audio) { audio.onended = null; audio.pause(); audio = null; }
+  held = null;
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
 }
 
@@ -58,7 +68,8 @@ export function say(id: string, opts: { important?: boolean; caption?: boolean }
     a.onerror = () => { missing.add(id); if (audio === a) readInstead(line, done); };
     // play() also fails when a newer line cuts this one off before it starts (clicking quickly), or
     // before the page has been tapped: neither means the clip is missing, so nothing else speaks
-    a.play().catch(() => { if (audio === a) readInstead(line, done); else resolve(); });
+    startLine = () => { a.play().catch(() => { if (audio === a) readInstead(line, done); else resolve(); }); };
+    if (pageAway()) held = startLine; else startLine();
   });
 }
 

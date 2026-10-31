@@ -5,6 +5,7 @@
 import type { Finger } from '../art/cast';
 import { AUTO, STATION, type MusicPlace, type StationChoice, type StationId } from './stations';
 import type { RegionId } from '../engine/course';
+import { onPageAway, pageAway, soundInterrupted } from './away';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -21,7 +22,8 @@ let hushes = 0;
 const musicLevel = () => (musicOn && enabled && hushes === 0 ? 0.32 : 0);
 
 function ac(): AudioContext | null {
-  if (typeof window === 'undefined') return null;
+  // (the game put away starts no sound, and doesn't wake the sound up: away.ts)
+  if (typeof window === 'undefined' || pageAway()) return null;
   if (!ctx) {
     const C = window.AudioContext ?? (window as any).webkitAudioContext;
     if (!C) return null;
@@ -38,6 +40,9 @@ function ac(): AudioContext | null {
     synthBus = ctx.createGain();
     synthBus.gain.value = 1;
     synthBus.connect(musicBus);
+    // (a phone call, or another app taking the sound over: "interrupted", which only some browsers have)
+    const c = ctx;
+    c.addEventListener('statechange', () => soundInterrupted((c.state as string) === 'interrupted'));
   }
   if (ctx.state === 'suspended') void ctx.resume();
   return ctx;
@@ -160,6 +165,7 @@ function play(name: string, o: { gain?: number; rate?: number; delay?: number } 
     src.playbackRate.value = o.rate ?? 1;
     g.gain.value = o.gain ?? 1;
     src.connect(g); g.connect(sfxBus!);
+    if (pageAway()) return;
     // a buffer that took a moment to arrive plays straight away (never in the past)
     src.start(Math.max(c.currentTime, asked));
   });
@@ -216,7 +222,7 @@ function windAt(level: number) {
   wind.idle = setTimeout(stopWind, 300);
 }
 function stopWind() {
-  const c = ac(), w = wind;
+  const c = ctx, w = wind;
   wind = null;
   if (!c || !w) return;
   w.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.2);
@@ -1031,12 +1037,15 @@ function nextIndex(id: StationId): number {
   }
   return o.list[o.at++];
 }
-function playDeck(d: Deck) { d.el.play().then(() => { fails = 0; }).catch(() => { /* waits for a tap (unlockAudio) */ }); }
+function playDeck(d: Deck) { if (pageAway()) return; d.el.play().then(() => { fails = 0; }).catch(() => { /* waits for a tap (unlockAudio) */ }); }
+/** the songs fading out after a switch (the game going away stops them too) */
+const fading = new Set<Deck>();
 function fadeOutDeck(d: Deck | null) {
   if (!d || !ctx) return;
   const g = d.gain.gain, now = ctx.currentTime;
   g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0, now + FADE);
-  setTimeout(() => { d.el.pause(); d.el.removeAttribute('src'); d.el.load(); d.gain.disconnect(); }, FADE * 1000 + 150);
+  fading.add(d);
+  setTimeout(() => { fading.delete(d); d.el.pause(); d.el.removeAttribute('src'); d.el.load(); d.gain.disconnect(); }, FADE * 1000 + 150);
 }
 function playTrack(id: StationId, idx?: number) {
   const c = ac();
@@ -1120,17 +1129,40 @@ export function resumeMusic() {
   if (!started) { started = true; applyMusic(); return; }
   wake();
 }
-/** Wake the sound up: the browser suspends it until a tap or key, and pauses it when the page goes into
- *  the back/forward cache. Called on page show, when the tab comes back, and on every tap or key (cheap
- *  when everything is already playing). */
+/** Wake the sound up: the browser suspends it until a tap or key. Called on every tap or key (cheap when
+ *  everything is already playing). */
 function wake() {
-  if (!ctx) return;
+  if (!ctx || pageAway()) return;
   if (ctx.state !== 'running') void ctx.resume();
   if (deck && deck.el.paused && musicOn && enabled && started) playDeck(deck);
 }
+/** What the lock screen's play and pause buttons show (and do, below) */
+function lockScreen(state: 'playing' | 'paused') { if (typeof navigator !== 'undefined' && navigator.mediaSession) navigator.mediaSession.playbackState = state; }
+/** the music was playing when the game went away: it carries on when it's back */
+let musicWas = false;
+onPageAway({
+  away() {
+    musicWas = !!deck && !deck.el.paused;
+    deck?.el.pause();
+    fading.forEach(d => d.el.pause());
+    // (every note, effect and looped sound stops with the sound itself)
+    if (ctx?.state === 'running') void ctx.suspend().catch(() => { /* a closed sound is quiet already */ });
+    lockScreen('paused');
+  },
+  back() {
+    if (ctx && ctx.state !== 'running') void ctx.resume().catch(() => { /* a phone may wait for a tap: wake() */ });
+    // (the game may have moved on while it was away: the music for where it is now)
+    if (started) applyMusic();
+    if (musicWas && deck && musicOn && enabled) { playDeck(deck); lockScreen('playing'); }
+    musicWas = false;
+  },
+});
 if (typeof window !== 'undefined') {
-  window.addEventListener('pageshow', (e) => { if (e.persisted) wake(); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+  // the lock screen's buttons: they can't start the music behind a locked phone
+  if (typeof navigator !== 'undefined' && navigator.mediaSession) {
+    navigator.mediaSession.setActionHandler('play', () => wake());
+    navigator.mediaSession.setActionHandler('pause', () => deck?.el.pause());
+  }
   for (const ev of ['pointerdown', 'keydown', 'touchend'] as const) window.addEventListener(ev, wake, { capture: true, passive: true });
 }
 /** The next song on this station. */
@@ -1156,6 +1188,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
     bus: () => ({ gain: musicBus ? Math.round(musicBus.gain.value * 1000) / 1000 : null, hushes }),
     endSoon: () => { if (deck && deck.el.duration) deck.el.currentTime = deck.el.duration - 1.5; },
     state: () => ctx?.state ?? 'none',
+    away: pageAway,
     /** how loud the game's output is right now (RMS), to check something is really playing */
     level: () => {
       if (!ctx || !master) return null;
