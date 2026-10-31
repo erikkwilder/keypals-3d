@@ -1,19 +1,20 @@
 <script lang="ts">
   // The big "Next on my path" button on an end card (path/next.ts): the next thing's picture, and its name.
+  // From a stop on the Journey trail it leads back to the trail and says which stop is lit there.
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
-  import { KIND_ICON, KIND_NAME } from './units';
   import { startPathNext, type PathNext } from './next';
 
-  type Props = { next: PathNext; hotkey?: string; compact?: boolean };
-  let { next, hotkey, compact = false }: Props = $props();
+  /** `wide`: a row of its own, over a card's other buttons */
+  type Props = { next: PathNext; hotkey?: string; compact?: boolean; wide?: boolean };
+  let { next, hotkey, compact = false, wide = false }: Props = $props();
   const base = import.meta.env.BASE_URL;
   function go() { sfx.click(); if (game.profile) startPathNext(game.profile, next); }
 </script>
 
-<button class="pn" class:compact onclick={go} title="Next on my path: {next.item.name}">
-  <img src="{base}{KIND_ICON[next.item.kind]}" alt="" />
-  <span class="tx"><small>Next on my path · {KIND_NAME[next.item.kind]}</small><b>{next.item.name}</b></span>
+<button class="pn" class:compact class:wide onclick={go} title="{next.trail ? 'Back to the trail' : 'Next on my path'}: {next.name}">
+  <img src="{base}{next.icon}" alt="" />
+  <span class="tx">{#if next.trail}<em>Back to the trail</em>{/if}<small>{next.word}</small><b>{next.name}</b></span>
   {#if hotkey}<span class="kbd">{hotkey}</span>{/if}
 </button>
 
@@ -24,10 +25,12 @@
   img { width: 64px; height: 64px; object-fit: contain; flex: none; filter: drop-shadow(0 3px 4px rgba(0, 60, 30, .25)); }
   .tx { display: flex; flex-direction: column; min-width: 0; }
   small { font: 800 12px var(--font-body); letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+  em { font: 600 19px/1.1 var(--font-ui); font-style: normal; color: #0b3a2a; }
   b { font: 600 24px/1.1 var(--font-ui); color: #0b3a2a; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
   .kbd { position: absolute; top: -9px; right: 12px; font: 800 11px var(--font-body); color: var(--ink2); background: #fff; border-radius: 8px; padding: 2px 7px; box-shadow: 0 2px 0 #d6cceb; }
   .compact { padding: 8px 16px 8px 8px; gap: 8px; border-radius: 22px; }
   .compact img { width: 46px; height: 46px; }
   .compact b { font-size: 19px; }
+  .wide { flex: 1 1 100%; width: 100%; box-sizing: border-box; margin-bottom: 4px; }
   @keyframes pn-in { from { opacity: 0; transform: translateY(10px) scale(.92); } }
 </style>

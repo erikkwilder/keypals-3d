@@ -17,7 +17,7 @@ export function unitFromAssignment(a: UnitWork): Unit {
   return {
     id: `class:${a.id}`, subject, area: base?.area ?? 'class', region: base?.region, n: base?.n ?? 0, name: a.title, part: base ? `${base.part} · ${base.name}` : 'Class work',
     blurb: base?.blurb ?? '', grade: base?.grade ?? null, color: base?.color ?? '#7c5cf5', art: base?.art ?? 'icons/book.webp',
-    skills: base?.skills ?? [], groups: base?.groups, checkTrip: base?.checkTrip, gameNeed: 1, battleNeed: 1,
+    skills: base?.skills ?? [], groups: base?.groups, checkTrip: base?.checkTrip, gameNeed: 1, battleNeed: 1, world: base?.world,
     items: items.map(r => itemOf(r, subject)),
   };
 }

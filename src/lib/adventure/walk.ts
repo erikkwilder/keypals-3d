@@ -5,16 +5,20 @@
 import { NODE, currentNode, nodeOpen, nodesOf, type Adventure, type WorldId } from './state';
 import { legLength, other, setOff, trailsOf, type MapKind, type Pt, type TrailEdge, type Trails } from './trails';
 
-export type Ctx = { tr: Trails; kind: MapKind; size: readonly [number, number]; a: Adventure };
-export const ctxOf = (world: WorldId, kind: MapKind, size: readonly [number, number], a: Adventure): Ctx => ({ tr: trailsOf(world), kind, size, a });
+/** A Journey walk (path/journey.ts) in place of the map's own rules: only these trails, and nothing past the
+ *  lit stop. */
+export type TrailWalk = { edges: Set<number>; shut: Set<string> };
+export type Ctx = { tr: Trails; kind: MapKind; size: readonly [number, number]; a: Adventure; walk?: TrailWalk | null };
+export const ctxOf = (world: WorldId, kind: MapKind, size: readonly [number, number], a: Adventure, walk: TrailWalk | null = null): Ctx => ({ tr: trailsOf(world), kind, size, a, walk });
 
 /** A stop that isn't open yet: a gate stands on the trail in front of it. */
 export function locked(c: Ctx, id: string): boolean {
+  if (c.walk) return c.walk.shut.has(id);
   const p = c.tr.point[id];
   return !!p && p.kind === 'stop' && !nodeOpen(c.a, NODE[id]);
 }
 /** A hidden spot's trail can be walked once the spot is found. */
-export const usable = (c: Ctx, e: TrailEdge) => !e.hidden || !!c.a.hidden?.includes(e.b);
+export const usable = (c: Ctx, e: TrailEdge) => (!e.hidden || !!c.a.hidden?.includes(e.b)) && (!c.walk || c.walk.edges.has(e.id));
 /** how far before a locked stop its gate stands (the picture's pixels) */
 export const gateGap = (c: Ctx, len: number) => Math.min(len * 0.45, 0.065 * Math.min(c.size[0], c.size[1]));
 /** How far along a trail from `from` the buddy can go: all the way, or up to the gate. */

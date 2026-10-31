@@ -12,6 +12,8 @@
   import { clearOldLine } from '../arcade/feedback';
   import { exitsOf } from '../arcade/exits';
   import ExitButtons from '../arcade/ui/ExitButtons.svelte';
+  import GameEndButtons from '../path/GameEndButtons.svelte';
+  import { endEnter } from '../path/next';
   import PauseButton from '../ui/PauseButton.svelte';
   import { sfx, startMusic, musicEnergy, setPlaceStation } from '../audio/sound';
   import { stage } from '../three/stage';
@@ -253,6 +255,7 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
+    if (phase === 'done' && e.key === 'Enter' && endEnter(game.profile, 'game:showdown')) { e.preventDefault(); return; }
     if (phase === 'play' && step === 'explain' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); goOn(); return; }
     if (phase === 'play' && step === 'bet' && /^[1-4]$/.test(e.key)) { const c = betColors[Number(e.key) - 1]; if (c) { e.preventDefault(); void pickBet(c); } return; }
     if (phase !== 'play' && e.key === 'Enter') { e.preventDefault(); start(daily); }
@@ -363,9 +366,7 @@
         {#if tallyPic}<div class="tally end"><small>Your Best Bet spins</small><DataPicView d={tallyPic} size={narrow ? 90 : 110} /></div>{/if}
         <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <ExitButtons {exits} />
-          {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
-          <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
+          <GameEndButtons activity="game:showdown" {exits} {daily} onagain={start} />
         </div>
       </div>
     </div>

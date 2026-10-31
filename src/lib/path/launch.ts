@@ -11,23 +11,27 @@ import { SUBJECT, type WayId } from '../subjects';
 import { openThing } from '../nav';
 import { classLesson } from '../teach/launch';
 import { advOf, type WorldId } from '../adventure/state';
-import { lastWorld, worldSubject } from '../adventure/worlds';
+import { adventureVisit, lastWorld, worldSubject } from '../adventure/worlds';
 import type { PathItem, Unit } from './units';
 import { unitFromAssignment } from './classPath';
 import { unitState } from './progress';
 import { warmLesson } from './lessonProgress';
+import { battleStop, journeyOf } from './journey';
 import { clearPass, pass } from './pass';
 import type { AssignmentData } from '../teach/assignments';
 
 /** the subject My path shows when it opens again (after a Learn episode, from Home) */
 export const pathView = { subject: '' };
-/** the path item started last and the activity it opened ("lesson:<id>", "learn:<id>"), so that
- *  activity's end card can offer the next one (path/next.ts) */
-export const pathRun: { cur: { ref: string; subject: string; unit: string; activity: string } | null } = { cur: null };
-const ran = (u: Unit, it: PathItem, activity: string) => { pathRun.cur = { ref: it.ref, subject: u.subject, unit: u.id, activity }; };
+/** the path item started last and the activity it opened ("lesson:<id>", "learn:<id>", "game:<id>",
+ *  "battle:<world>"), so that activity's end card can offer the next one (path/next.ts); `trail`: it was
+ *  started from a stop on the Journey trail, so its end card leads back to the trail */
+export const pathRun: { cur: { ref: string; subject: string; unit: string; activity: string; trail?: boolean } | null } = { cur: null };
 
-export function startItem(p: Profile, u: Unit, it: PathItem) {
+/** `trail`: started from a stop on the Journey trail (screens/Adventure.svelte): a battle starts straight away
+ *  on that world's map instead of opening it. */
+export function startItem(p: Profile, u: Unit, it: PathItem, trail = false) {
   const [k, a, b] = it.ref.split(':');
+  const ran = (u: Unit, it: PathItem, activity: string) => { pathRun.cur = { ref: it.ref, subject: u.subject, unit: u.id, activity, trail }; };
   pathView.subject = u.subject;
   if (k === 'ep') {
     const t = SUBJECT.math.ways.learn.things.find(x => x.id === a);
@@ -68,9 +72,9 @@ export function startItem(p: Profile, u: Unit, it: PathItem) {
     if (l) { sfx.click(); game.setHome('math'); ran(u, it, `lesson:${l.id}`); game.startSkill(l.id); }
     return;
   }
-  pathRun.cur = null;
   if (k === 'game') {
     const t = SUBJECT.math.ways.games.things.find(x => x.id === a);
+    ran(u, it, `game:${a}`);
     const was = game.screen;
     pass.game = true; // (a game on the path never counts against the Arcade's limit)
     if (t) openThing(SUBJECT.math, 'games', t);
@@ -85,9 +89,14 @@ export function startItem(p: Profile, u: Unit, it: PathItem) {
     worldSubject.id = subj;
     lastWorld.id = a as WorldId;
     pass.world = a; pass.fought = false; // (Path only still opens this stop, and play time doesn't hold it up)
+    ran(u, it, `battle:${a}`);
+    if (trail) { game.battleNode = battleStop(p, a as WorldId).id; game.battleKey++; game.go('battle'); return; }
+    // (the trail's own lit stop waits on the trail; any other opens its world)
+    adventureVisit.free = journeyOf(p)?.lit?.item.ref !== it.ref;
     game.go('adventure');
     return;
   }
+  pathRun.cur = null;
   if (k === 'thing') {
     const s = SUBJECT[u.subject], t = s?.ways[a as WayId]?.things.find(x => x.id === b);
     const was = game.screen;

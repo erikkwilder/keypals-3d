@@ -7,6 +7,8 @@
   // Glimmer inside is revealed, with its rarity.
   import PauseButton from '../ui/PauseButton.svelte';
   import { onDestroy, onMount } from 'svelte';
+  import PathNextButton from '../path/PathNextButton.svelte';
+  import { mayRepeat, onTrail, pathNext, startPathNext } from '../path/next';
   import { Tween } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
   import { fade } from 'svelte/transition';
@@ -261,7 +263,7 @@
 
   // typing cards and typing blocks
   function onKey(e: KeyboardEvent) {
-    if (ui === 'won' || ui === 'lost') { if (e.key === 'Enter') { e.preventDefault(); toMap(); } return; }
+    if (ui === 'won' || ui === 'lost') { if (e.key === 'Enter') { e.preventDefault(); if (ui === 'won' && pn && game.profile) startPathNext(game.profile, pn); else toMap(); } return; }
     if (subject === 'math') {
       // a skill card's own input takes the keys
       if (ui === 'answer' && sel?.item) { if (e.key === 'Escape') escape(); return; }
@@ -446,6 +448,13 @@
     game.update(pp => { out = applyBattle(pp, { node: node.id, subject, won: false, perfect: false, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, skillAnswers: b.skillAnswers, team: team.map(t => t.id), crystal: false, treasureNose: false, at: Date.now(), seed }); });
   }
   function toMap() { game.leaveActivity(); }
+  // started from the path: its next thing on the end card, or back to the trail from a Journey stop. Play again
+  // stays away from a stop on the trail and from a child kept to the path: a battle there is one step, not
+  // the way into free battles
+  const activity = `battle:${island.world}`;
+  const pn = $derived(ui === 'won' || ui === 'lost' ? pathNext(game.profile, activity) : null);
+  const repeat = $derived(mayRepeat(game.profile, activity));
+  const backWord = onTrail(activity) ? 'Back to the trail' : 'Back to the map';
   function again() { game.battleKey++; }
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
   // after a win: your own Glimmers by their grown-up names, and any that just reached the level to evolve
@@ -596,19 +605,23 @@
       <p class="tapnote" class:in={step >= 2}>Tap a prize to see what it's for</p>
       {#if out.islandDone}<div class="island-done"><Icon name="sparkle" size={26} /> {island.name} is free of storms!{island.world === 'sky' && island.id !== 'bay' ? ' The next island is open.' : ''}</div>{/if}
       <div class="rbtns" class:in={step >= 2}>
-        <button class="btn" onclick={again}>Play again</button>
-        <button class="btn btn-primary" onclick={toMap}>Back to the map <span class="kbd">enter</span></button>
+        {#if pn}<PathNextButton next={pn} wide compact={narrow} hotkey={narrow ? undefined : 'enter'} />{/if}
+        {#if repeat}<button class="btn" onclick={again}>Play again</button>{/if}
+        {#if !pn?.trail}<button class="btn" class:btn-primary={!pn} onclick={toMap}>{backWord} {#if !pn}<span class="kbd">enter</span>{/if}</button>{/if}
       </div>
     </div>
   {:else if ui === 'won'}
-    <div class="reveal"><div class="rbtns in"><button class="btn btn-primary" onclick={toMap}>Back to the map</button></div></div>
+    <div class="reveal"><div class="rbtns in"><button class="btn btn-primary" onclick={toMap}>{backWord}</button></div></div>
   {/if}
   {#if ui === 'lost'}
     <div class="lostbox card">
       <Critter friend={p0.buddy} size={narrow ? 84 : 110} mood="sleep" />
       <h2>{FRIEND[p0.buddy].name} needs a rest</h2>
       <p>Try again! When it hits back, answer the quick one fast to put your shield up. You keep everything you've won.</p>
-      <div class="rbtns in"><button class="btn" onclick={toMap}>Back to the map</button><button class="btn btn-primary" onclick={again}>Try again</button></div>
+      <div class="rbtns in">
+        {#if pn && !pn.trail}<PathNextButton next={pn} wide compact={narrow} />{/if}
+        <button class="btn" onclick={toMap}>{backWord}</button><button class="btn" class:btn-primary={!pn || pn.trail} onclick={again}>Try again</button>
+      </div>
     </div>
   {/if}
 

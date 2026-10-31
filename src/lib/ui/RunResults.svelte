@@ -49,7 +49,7 @@
   import PauseButton from './PauseButton.svelte';
   import RewardTap from './RewardTap.svelte';
   import PathNextButton from '../path/PathNextButton.svelte';
-  import { pathNext, startPathNext } from '../path/next';
+  import { onTrail, pathNext, startPathNext } from '../path/next';
   import { placeName } from '../nav';
   import Icon from './Icon.svelte';
   import { funEvent } from '../fun/bus';
@@ -289,8 +289,11 @@
   }
   const myDance = $derived(game.profile ? danceOf(game.profile, buddy) : danceOf(p));
   /** the way out: back to where the lesson or trip was started from */
-  const backName = game.from ? placeName(game.from) : 'Home';
-  // started from My path (or the Today card): the path's next thing is the main button, Back and Home the others
+  // (a stop on the Journey trail goes back to the trail)
+  const fromTrail = onTrail(`lesson:${run.lessonId ?? ''}`);
+  const backName = fromTrail ? 'the trail' : game.from ? placeName(game.from) : 'Home';
+  // started from My path (or the Today card): the path's next thing is the main button, Back and Home the
+  // others; from the trail, the button back to it says which stop is lit, and Try again sits beside it
   const pn = pathNext(game.profile, `lesson:${run.lessonId ?? ''}`);
   function home() { game.go('hub'); }
   const opened = performance.now();
@@ -343,7 +346,8 @@
     </div>
   </div>
 
-  {#if earned.length}
+  <!-- (the card comes with its first prize: an empty box would sit here while the score adds up) -->
+  {#if earned.length && earnedShown > 0}
     <div class="earned card" bind:this={earnedEl} use:moreBelow>
       {#snippet tile(e: Earned, i: number)}
         <div class="item" class:shown={i < earnedShown}>
@@ -437,7 +441,10 @@
     </div>
 
     <div class="tiles" class:show={showButtons} class:withpath={!!pn}>
-      {#if pn}
+      {#if pn?.trail}
+        <NavTile size="md" tone="butter" kind="redo" label="Try again" hotkey={narrow ? undefined : 'space'} onclick={onretry} />
+        <PathNextButton next={pn} hotkey={narrow ? undefined : 'enter'} compact={narrow || short} />
+      {:else if pn}
         <NavTile size="md" tone="sky" kind={backName === 'Home' ? 'home' : 'map'} label="Back to {backName}" onclick={onhome} />
         {#if backName !== 'Home'}<NavTile size="md" tone="butter" kind="home" label="Home" onclick={home} />
         {:else}<NavTile size="md" tone="butter" kind="redo" label="Try again" hotkey={narrow ? undefined : 'space'} onclick={onretry} />{/if}
@@ -678,7 +685,7 @@
   .lvup { position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; top: -14px; font: 700 26px var(--font-ui); color: #fff; background: linear-gradient(135deg, var(--primary), var(--pink)); padding: 6px 18px; border-radius: 999px; box-shadow: 0 0 0 4px #fff, var(--shadow); animation: lvup 1.4s cubic-bezier(.3, .8, .3, 1) forwards; pointer-events: none; }
   @keyframes lvup { 0% { transform: scale(.3); opacity: 0; } 20% { transform: scale(1.15); opacity: 1; } 75% { opacity: 1; } 100% { transform: translateY(-26px); opacity: 0; } }
   .goal { margin: 12px 0 0; font: 600 14.5px/1.35 var(--font-body); color: var(--ink2); background: #fff7d6; border-radius: 14px; padding: 8px 14px; animation: fade-up .35s ease; }
-  .tiles { display: flex; justify-content: center; align-items: flex-end; gap: 12px; margin-top: 14px; opacity: 0; transform: translateY(10px); transition: all .35s ease; pointer-events: none; }
+  .tiles { display: flex; justify-content: center; align-items: stretch; gap: 12px; margin-top: 14px; opacity: 0; transform: translateY(10px); transition: all .35s ease; pointer-events: none; }
   .tiles.small { gap: 8px; margin-top: 10px; }
   /* five small buttons share the panel's width: picture over the word */
   .tiles.small :global(.tile) { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 2px; padding: 6px 4px 7px; }

@@ -11,6 +11,8 @@
   import { clearOldLine } from '../arcade/feedback';
   import { exitsOf } from '../arcade/exits';
   import ExitButtons from '../arcade/ui/ExitButtons.svelte';
+  import GameEndButtons from '../path/GameEndButtons.svelte';
+  import { endEnter } from '../path/next';
   import PauseButton from '../ui/PauseButton.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
@@ -159,6 +161,7 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
+    if (phase === 'done' && e.key === 'Enter' && endEnter(game.profile, 'game:clockrush')) { e.preventDefault(); return; }
     if (phase === 'play' && order && (order.kind === 'read' || order.kind === 'train' || order.kind === 'catch') && /^[1-4]$/.test(e.key)) {
       const ids = order.kind === 'catch' ? order.clocks!.map(c => c.id) : order.item.choices!.map(c => c.id);
       const id = ids[Number(e.key) - 1]; if (id && !wrongIds.includes(id)) submit({ kind: 'choice', id }, id);
@@ -288,9 +291,7 @@
         </div>
         <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <ExitButtons {exits} />
-          {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
-          <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
+          <GameEndButtons activity="game:clockrush" {exits} {daily} onagain={start} />
         </div>
       </div>
     </div>

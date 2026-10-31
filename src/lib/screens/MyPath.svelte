@@ -12,6 +12,7 @@
   import Bar from '../ui/Bar.svelte';
   import PageTabs from '../ui/PageTabs.svelte';
   import TodayCard from '../path/TodayCard.svelte';
+  import LearnOverlay from '../path/LearnOverlay.svelte';
   import { PATH_SUBJECTS, KIND_ICON, KIND_NAME, kindColor, gradeName } from '../path/units';
   import { LEVEL_WORD, pathStates, unitLevels, type ItemState, type UnitState } from '../path/progress';
   import { classUnits, pathSubject, playerRules } from '../path/player.svelte';
@@ -98,6 +99,7 @@
 </script>
 
 <svelte:window onkeydown={onKey} />
+<LearnOverlay />
 
 {#snippet unitCard(s: UnitState, teacher: string | null)}
   {@const open = isOpen(s)}

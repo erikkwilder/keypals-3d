@@ -184,6 +184,11 @@ export type Adventure = {
   hidden?: string[];
   /** the 100-Glimmer ladder's counters and the goals whose eggs have come (ladderSave.ts) */
   ladder?: import('./ladderSave').LadderSave;
+  /** the player's own choice of how to play the map (path/journey.ts); no choice yet: a new player's Journey,
+   *  an older player's Free play */
+  mode?: 'journey' | 'free';
+  /** the stretch of Journey last walked, so a new unit or a new world gets its small arrival */
+  trail?: { world: string; unit: string };
 };
 export const newAdventure = (): Adventure => ({
   shells: 0, xp: 0, glimmers: {}, team: [null, null], incubator: [null, null, null], nest: [], eggsMade: 0, nodes: {},

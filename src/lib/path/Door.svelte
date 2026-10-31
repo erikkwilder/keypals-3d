@@ -7,8 +7,9 @@
   import { sfx } from '../audio/sound';
   import { STOP, type Door } from './rules';
 
-  type Props = { door: Door };
-  let { door }: Props = $props();
+  /** `onback`: this door stands in front of Free play, over the Journey trail: back to the trail */
+  type Props = { door: Door; onback?: () => void };
+  let { door, onback }: Props = $props();
   const base = import.meta.env.BASE_URL;
   const stop = $derived(door.kind === 'time' ? STOP[door.place] : null);
   const title = $derived(stop ? stop.title : door.kind === 'path' && door.keep === 'only' ? 'Today is a path day!' : 'First, your path!');
@@ -28,7 +29,8 @@
     {#if door.kind === 'time' && door.earned}<p class="small">Practice earns more time here: every minute of practice adds a minute.</p>{/if}
     {#if said}<p class="small said">{said}</p>{/if}
     <div class="row">
-      <button class="btn btn-primary btn-big" onclick={() => { sfx.click(); game.go('path'); }}><img src="{base}icons/path.webp" alt="" />Go to my path</button>
+      {#if onback}<button class="btn btn-primary btn-big" onclick={() => { sfx.click(); onback?.(); }}><img src="{base}icons/path.webp" alt="" />Back to the trail</button>
+      {:else}<button class="btn btn-primary btn-big" onclick={() => { sfx.click(); game.go('path'); }}><img src="{base}icons/path.webp" alt="" />Go to my path</button>{/if}
       <button class="btn btn-big" onclick={() => { sfx.click(); game.go('hub'); }}><img src="{base}game/icon-home.webp" alt="" />Home</button>
     </div>
   </div>

@@ -19,7 +19,10 @@ import { arcadeOf, type ArcadeId } from './arcade/arcade';
 import { playNextLevel, playOf, type PlayGame } from './math/playground';
 import { builderOf, builderOpen } from './math/place/builder';
 import { advOf, worldOpen, type WorldId } from './adventure/state';
-import { lastWorld, WORLD_PIN, worldSubject } from './adventure/worlds';
+import { adventureVisit, lastWorld, WORLD_PIN, worldSubject } from './adventure/worlds';
+import { modeFor } from './path/journey';
+import { playerRules } from './path/player.svelte';
+import { pathHolds } from './path/rules';
 
 export const wayOf = (s: string): WayId => game.way[s] ?? 'practice';
 /** a part of math by its chip name, for a sentence ("place value") */
@@ -113,6 +116,7 @@ export function openThing(s: Subject, w: WayId, t: Thing) {
   game.update(pp => { advOf(pp).subject = 'math'; });
   worldSubject.id = 'math';
   lastWorld.id = id;
+  adventureVisit.free = true;
   game.visit('adventure');
 }
 
@@ -163,12 +167,18 @@ export function placementFor(chip: string) {
 export const strandName = (chip: string) => { const a = AREA[chip as AreaId]; return a?.op ? STRAND[a.op].name : a?.name ?? ''; };
 export const subjectOf = (id: string) => SUBJECT[id];
 
+/** Adventure from Home or the Menu: the worlds of the subject played last; the Journey trail is math's. */
+function adventureSubject(): 'typing' | 'math' {
+  const p = game.profile;
+  return p && modeFor(p, pathHolds(p, playerRules(p))) === 'journey' ? 'math' : game.homeGame;
+}
+
 /** Open one of the places that take every subject (Home's "Play anywhere", the Menu). */
 export function openAnywhere(id: Anywhere['id']) {
   sfx.click();
   if (id === 'duel') { game.duelMode = 'duel'; game.duelRival = null; game.duelKey++; game.go('duel'); return; }
   // Adventure from Home or the menu: the worlds of the subject played last
-  if (id === 'adventure') worldSubject.id = game.homeGame;
+  if (id === 'adventure') worldSubject.id = adventureSubject();
   game.go(id === 'drop' ? 'drop' : id === 'rivals' ? 'rivals' : id);
 }
 
@@ -401,7 +411,7 @@ export function menuPlaces(): MenuItem[] {
     { id: 'hub', name: 'Home', icon: 'game/icon-home.webp', go: () => game.go('hub') },
     ...SUBJECTS.map(s => ({ id: s.id, name: s.name, icon: s.icon, go: () => openSubjectPage(s.id) })),
     { id: 'arcade', name: 'Arcade', icon: 'icons/arcade.webp', go: () => game.go('arcade') },
-    { id: 'adventure', name: 'Adventure', icon: 'game/icon-grump.webp', go: () => { worldSubject.id = game.homeGame; game.go('adventure'); } },
+    { id: 'adventure', name: 'Adventure', icon: 'game/icon-grump.webp', go: () => { worldSubject.id = adventureSubject(); game.go('adventure'); } },
     { id: 'island', name: 'My Sky Island', icon: 'island/tile.webp', go: () => game.go('island') },
     { id: 'mystuff', name: 'My stuff', icon: 'game/chest.webp', go: () => game.go('mystuff') },
     { id: 'path', name: 'My path', icon: 'icons/path.webp', go: () => game.go('path') },

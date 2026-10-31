@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { game } from './lib/state/game.svelte';
   import { configureSound, startMusic, unlockAudio, setMusicStyle, setMusicStation, setPlaceStation } from './lib/audio/sound';
-  import { lastWorld, stationOf } from './lib/adventure/worlds';
+  import { lastWorld, stationOf, worldSubject } from './lib/adventure/worlds';
   import { NODE, ISLAND } from './lib/adventure/state';
   import SvgDefs from './lib/ui/SvgDefs.svelte';
   // the title is the only screen that comes with the first page; every other screen (its 3D scene, its
@@ -19,6 +19,7 @@
   import { doorFor } from './lib/path/rules';
   import { freeClock, playerRules, watchFree } from './lib/path/player.svelte';
   import { keepPass, passOn } from './lib/path/pass';
+  import { journeyHere } from './lib/path/journey';
   import { loadClasses, startClasses } from './lib/teach/student.svelte';
   import { cloud, startCloud } from './lib/state/cloud.svelte';
   import FancyAntIntro, { introDue } from './lib/ui/FancyAntIntro.svelte';
@@ -101,7 +102,7 @@
   $effect(() => { const on = cloud.online, id = game.profile?.id; if (on && id) untrack(() => void loadClasses(game.profile)); });
   // (a Learn episode opened over a subject page, as the market's and the clockmaker's are, is Learn)
   // (a game or a stop the path or class work opened: no door, and no minutes counted)
-  const door = $derived(game.profile ? doorFor((game.screen === 'map' || game.screen === 'way') && game.learnOverlay ? 'learn' : game.screen, game.closetTab, game.profile, playerRules(game.profile), Date.now(), freeClock.running, { work: passOn(game.screen), playing: freeClock.playing }) : null);
+  const door = $derived(game.profile ? doorFor((game.screen === 'map' || game.screen === 'way') && game.learnOverlay ? 'learn' : game.screen, game.closetTab, game.profile, playerRules(game.profile), Date.now(), freeClock.running, { work: passOn(game.screen) || (game.screen === 'adventure' && journeyHere(game.profile, worldSubject.id)), playing: freeClock.playing }) : null);
   // minutes count while a free-time place is open (not while its door is shut)
   $effect(() => { const s = game.screen, t = game.closetTab, id = game.profile?.id ?? null, shut = !!door; untrack(() => { keepPass(s); watchFree(shut || passOn(s) ? 'hub' : s, t, id); }); });
   // a class turned sound off: every switch reads it

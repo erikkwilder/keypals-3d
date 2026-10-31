@@ -65,6 +65,8 @@ export type Unit = {
   gameNeed?: number; battleNeed?: number;
   /** math: its curriculum lessons, in order */
   lessons?: string[];
+  /** the Adventure world its battles happen in (its stretch of trail in Journey mode) */
+  world?: string;
   items: PathItem[];
 };
 
@@ -259,7 +261,7 @@ function curriculumUnits(): Unit[] {
     out.push({
       id: `math:${cu.id}`, subject: 'math', area, n: cu.n, name: unitTitle(cu), part: AREA[area].name, blurb: ls.map(l => l.kidTitle).join(' · '), grade: cu.grade,
       color: AREA[area].color, art: ids.map(artOf).find(Boolean) ?? `regions/${world}.webp`, skills, groups: facts, checkTrip,
-      gameNeed: firstGame, battleNeed: firstWin, lessons: ids, items,
+      gameNeed: firstGame, battleNeed: firstWin, lessons: ids, world, items,
     });
   }
   return out;

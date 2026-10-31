@@ -7,6 +7,9 @@
   // stop to walk there by itself. It stops at every stop and fork, hops at a fork, runs when you keep
   // pushing, and stands at a little gate in front of a stop that isn't open yet. Enter (or a tap on the
   // stop) opens it.
+  // On the Journey trail (`journey`, path/journey.ts) the same map and the same walking show a stretch of the
+  // child's math unit: small stops on the world's own main route instead of its battles, one lit. Walking to
+  // the lit stop starts it; stops ahead wait; the side trails to chests and Bonus Rounds stay open.
   import { onDestroy, onMount, untrack } from 'svelte';
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
@@ -19,19 +22,22 @@
   import Icon from './Icon.svelte';
   import Confetti from './Confetti.svelte';
   import BonusRound from './BonusRound.svelte';
+  import { STOP_ICON, STOP_WORD, type Journey, type TrailStop } from '../path/journey';
 
-  type Props = { world: WorldId; kind: MapKind; tall: boolean; paused?: boolean; onopen: (n: MapNode) => void };
-  let { world, kind, tall, paused = false, onopen }: Props = $props();
+  type Props = { world: WorldId; kind: MapKind; tall: boolean; paused?: boolean; onopen: (n: MapNode) => void; journey?: Journey | null; onstop?: (s: TrailStop) => void };
+  let { world, kind, tall, paused = false, onopen, journey = null, onstop }: Props = $props();
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
   const a = $derived({ ...advView(p), settings: playRules.of(p) });
   const wmap = $derived(mapOf(world));
   const size = $derived(wmap.size[kind]);
-  const ctx = $derived(ctxOf(world, kind, size, a));
+  const ctx = $derived(ctxOf(world, kind, size, a, journey?.walk));
   const tr = $derived(ctx.tr);
   /** where the buddy could walk from the first stop: trails beyond are shown faint, gates on their edge */
-  const home = $derived(reachable(ctx, tr.points.find(q => q.kind === 'stop')!.id));
+  const home = $derived(reachable(ctx, journey?.start ?? tr.points.find(q => q.kind === 'stop')!.id));
+  /** the stop standing on a trail point, on the Journey trail */
+  const stopOn = (id: string) => journey?.stretch.find(s => s.at === id) ?? null;
   const cur = $derived(currentNode(a, world));
   /** the stops open and not won yet: "Next!" (both branch battles at once) */
   const nexts = $derived(new Set(tr.points.filter(q => q.kind === 'stop' && nodeOpen(a, NODE[q.id]) && !(NODE[q.id].kind === 'practice' ? practiceDone(a, q.id) : cleared(a, q.id))).map(q => q.id)));
@@ -73,9 +79,11 @@
   }
   function place(id: string) { at = id; leg = null; d = 0; moving = false; plan = []; goal = null; here = id; }
   function init() {
-    place(startPoint(ctx, world));
-    cam.ready = false; shown = `${world}|${kind}`;
+    place(journey?.start ?? startPoint(ctx, world));
+    cam.ready = false; shown = viewKey();
   }
+  /** what's on show: a new one puts the buddy back on its start */
+  const viewKey = () => `${world}|${kind}|${journey?.key ?? ''}`;
 
   // ---------- input ----------
   type Dir = 'up' | 'down' | 'left' | 'right';
@@ -97,6 +105,7 @@
     if (busy() || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
     const dir = KEYDIR[e.code];
     if (dir) { e.preventDefault(); held.add(dir); return; }
+    if ((e.key === 'Enter' || e.key === ' ') && journey?.lit) { e.preventDefault(); if (!moving) goLit(); return; }
     if ((e.key === 'Enter' || e.key === ' ') && here && !moving) { e.preventDefault(); act(here, true); }
   }
   function keyUp(e: KeyboardEvent) { const dir = KEYDIR[e.code]; if (dir) held.delete(dir); }
@@ -128,7 +137,10 @@
   function act(id: string, keys = false) {
     const pt = tr.point[id];
     if (!pt) return;
-    if (pt.kind === 'stop') { save(); onopen(NODE[id]); return; }
+    if (journey) {
+      const s = stopOn(id);
+      if (s?.lit) { sfx.pop(); onstop?.(s); return; }
+    } else if (pt.kind === 'stop') { save(); onopen(NODE[id]); return; }
     if (pt.kind === 'chest') { chest(pt); return; }
     if (pt.kind === 'hidden') { hidden(pt); return; }
     if (pt.kind === 'bonus') { bonusAsk(pt); return; }
@@ -141,14 +153,15 @@
     // a hidden spot nearby shows itself when you get to the place its trail leaves from
     for (const e of tr.out[id] ?? []) if (e.hidden && !hiddenFound(a, e.b)) reveal(tr.point[e.b]);
     if (pt.kind === 'chest' || pt.kind === 'hidden' || pt.kind === 'bonus') { act(id); return; }
-    if (byTap && pt.kind === 'stop') { act(id); return; }
+    // (walking to the lit stop starts it, by tap, keys or stick)
+    if (journey ? stopOn(id)?.lit : byTap && pt.kind === 'stop') { act(id); return; }
     if (forks >= 3 || pt.kind === 'join') walker?.hop();
     if (pt.kind === 'stop') sfx.pop();
   }
   /** the gate: it won't open yet */
   function bump() {
     walker?.bump(); sfx.nope();
-    if (!bumped) { bumped = true; game.say(leg && NODE[leg.to] ? `${gateWhy(leg.to)}` : 'Not open yet!'); }
+    if (!bumped) { bumped = true; game.say(journey ? 'Go to the glowing stop first!' : leg && NODE[leg.to] ? `${gateWhy(leg.to)}` : 'Not open yet!'); }
   }
   function gateWhy(id: string) {
     const n = NODE[id], isl = ISLAND[n.island];
@@ -156,7 +169,7 @@
   }
 
   function tick(dt: number) {
-    if (shown !== `${world}|${kind}`) init();
+    if (shown !== viewKey()) init();
     const go = busy() ? null : push();
     restT = Math.max(0, restT - dt);
     if (go) {
@@ -230,6 +243,16 @@
     plan = legs; goal = id;
   }
 
+  /** a tap on a stop on the Journey trail: the lit one, or a word about the others */
+  function tapStop(s: TrailStop) {
+    if (busy()) return;
+    if (s.lit) { tapPoint(s.at); return; }
+    sfx.pop();
+    game.say(s.done ? `Done: ${s.name}` : `Coming up: ${s.name}. Go to the glowing stop first!`);
+  }
+  /** Walk to the lit stop (the big button under the map): getting there starts it. */
+  export function goLit() { if (journey?.lit) tapPoint(journey.lit.at); }
+
   // ---------- finds ----------
   let prize = $state<{ title: string; text: string; img: string; egg: string | null } | null>(null);
   let prizeTimer = 0;
@@ -266,6 +289,7 @@
   }
 
   function save() {
+    if (journey) return; // (the trail's place comes from the stops; Free play keeps its own)
     const id = at ?? (leg ? (leg.stop < leg.len - 0.5 || d < leg.len / 2 ? leg.from : leg.to) : null);
     if (id && game.profile) untrack(() => game.update(pp => saveWalk(pp, world, id)));
   }
@@ -337,19 +361,20 @@
   // ---------- what's drawn ----------
   const pct = (q: Pt) => `left:${q[0]}%;top:${q[1]}%`;
   const lineOf = (pts: Pt[]) => pts.map((q, i) => `${i ? 'L' : 'M'}${((q[0] / 100) * size[0]).toFixed(1)} ${((q[1] / 100) * size[1]).toFixed(1)}`).join(' ');
-  const trails = $derived(tr.edges.filter(e => usable(ctx, e)).map(e => ({ id: e.id, d: lineOf(legPoints(tr, e, e.a, kind)), on: home.has(e.a) && home.has(e.b) })));
+  const trails = $derived(tr.edges.filter(e => usable(ctx, e)).map(e => ({ id: e.id, d: lineOf(legPoints(tr, e, e.a, kind)), on: journey ? journey.way.has(e.a) || journey.way.has(e.b) : home.has(e.a) && home.has(e.b) })));
   /** a gate on each trail from where you can walk into a stop that isn't open yet */
-  const gates = $derived(tr.edges.flatMap(e => {
+  const gates = $derived(journey ? [] : tr.edges.flatMap(e => {
     const from = home.has(e.a) && locked(ctx, e.b) ? e.a : home.has(e.b) && locked(ctx, e.a) ? e.b : null;
     if (!from || !usable(ctx, e)) return [];
     const g = along(tr, e, from, reach(ctx, e, from) + 6, kind, size).at;
     return [{ id: e.id, at: [(g[0] / size[0]) * 100, (g[1] / size[1]) * 100] as Pt }];
   }));
   const stops = $derived(tr.points.filter(q => q.kind === 'stop'));
-  const finds = $derived(tr.points.filter(q => q.kind === 'chest' || q.kind === 'bonus' || (q.kind === 'hidden' && hiddenFound(a, q.id))));
+  // (on the trail: the side trails it passes, none past the lit stop)
+  const finds = $derived(tr.points.filter(q => (q.kind === 'chest' || q.kind === 'bonus' || (q.kind === 'hidden' && hiddenFound(a, q.id))) && (!journey || (tr.out[q.id] ?? []).some(e => usable(ctx, e) && home.has(other(e, q.id))))));
   const kindName = { battle: 'Battle', practice: 'Practice', champion: 'Champion' };
   const bubble = $derived.by(() => {
-    if (!here || paused) return null;
+    if (!here || paused || journey) return null;
     const pt = tr.point[here];
     if (pt?.kind !== 'stop') return null;
     const n = NODE[here];
@@ -369,7 +394,14 @@
       {/each}
     </svg>
     {#each gates as g (g.id)}<img class="gate" src="{base}game/gate.webp" alt="" style={pct(g.at)} draggable="false" />{/each}
-    {#each stops as q (q.id)}
+    {#each journey?.stretch ?? [] as s (s.id)}
+      <button class="jstop {s.kind}" class:done={s.done} class:lit={s.lit} class:ahead={!s.done && !s.lit} style={pct(tr.point[s.at].at[kind])} onclick={() => tapStop(s)} aria-label="{STOP_WORD[s.kind]}: {s.name}{s.done ? ' (done)' : s.lit ? ' (next)' : ''}">
+        <span class="disc"><img src="{base}{STOP_ICON[s.kind]}" alt="" draggable="false" /></span>
+        {#if s.done}<span class="tick"><Icon name="check" size={20} /></span>{/if}
+        {#if s.lit}<span class="nx">Next!</span>{/if}
+      </button>
+    {/each}
+    {#each journey ? [] : stops as q (q.id)}
       {@const n = NODE[q.id]}
       {@const done = cleared(a, q.id)}
       {@const ok = nodeOpen(a, n)}
@@ -388,7 +420,7 @@
         {:else}<img class="spark" src="{base}icons/sparkle.webp" alt="" draggable="false" />{/if}
       </button>
     {/each}
-    {#each islandsOf(world).filter(i => tr.point[`${i.id}-0`]) as isl (isl.id)}
+    {#each journey ? [] : islandsOf(world).filter(i => tr.point[`${i.id}-0`]) as isl (isl.id)}
       {@const f = tr.point[`${isl.id}-0`].at[kind]}
       <span class="iname" use:nameEl data-x={f[0]} data-y={f[1] + (tall ? 4.2 : 7)} style="left:{f[0]}%;top:{f[1] + (tall ? 4.2 : 7)}%">{isl.name}</span>
     {/each}
@@ -396,13 +428,13 @@
     {#if bubble}<button class="bubble" bind:this={bubbleEl} onclick={() => here && act(here)}>{bubble}<small>{touchy ? 'Tap' : 'Enter'}</small></button>{/if}
   </div>
 
-  {#if showStick}
+  {#if showStick && !journey}
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="stick" bind:this={stickEl} onpointerdown={stickDown} onpointermove={stickMove} onpointerup={stickUp} onpointercancel={stickUp} onlostpointercapture={stickUp} role="presentation" aria-label="Walk">
       <span class="knob" style:transform="translate({(stick?.x ?? 0) * 34}px, {(stick?.y ?? 0) * 34}px)"></span>
     </div>
   {/if}
-  {#if !walked && !paused}<p class="hint">{showStick ? 'Walk with the stick, or tap a stop' : 'Walk with the arrow keys or W A S D, or click a stop'}</p>{/if}
+  {#if !walked && !paused && !journey}<p class="hint">{showStick ? 'Walk with the stick, or tap a stop' : 'Walk with the arrow keys or W A S D, or click a stop'}</p>{/if}
 
   {#if prize}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -446,6 +478,25 @@
   .crown { color: #7a5200; background: #fff3c4; box-shadow: 0 0 0 2px #ffd36b; }
   .nx { color: #fff; background: var(--primary); box-shadow: 0 0 0 2px #fff; }
   .nx.bonusword { background: #7b3fd6; }
+
+  /* a stop on the Journey trail: a small round marker, plain so the painting stays the picture */
+  .jstop { position: absolute; transform: translate(-50%, -62%); width: clamp(44px, 3.9vw, 60px); aspect-ratio: 1; border: 0; padding: 0; background: none; cursor: pointer; z-index: 2; transition: transform .15s; }
+  .jstop .disc { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--stop, #7c5cf5), 0 6px 10px -2px rgba(40, 20, 10, .5); box-sizing: border-box; }
+  .jstop img { width: 76%; height: 76%; object-fit: contain; pointer-events: none; }
+  .jstop.warmup { --stop: #f0a92e; } .jstop.learn { --stop: #f0a92e; } .jstop.try { --stop: #2e9e8e; } .jstop.practice { --stop: #4a8de8; }
+  .jstop.quick { --stop: #2e9e6e; } .jstop.battle { --stop: #d9543f; } .jstop.game { --stop: #e2468f; } .jstop.champion { --stop: #e0a21c; width: clamp(56px, 5vw, 76px); }
+  .jstop.champion img { width: 100%; height: 100%; }
+  .jstop:hover { transform: translate(-50%, -68%) scale(1.06); }
+  .jstop.ahead .disc { background: #f3f0f8; box-shadow: 0 0 0 3px rgba(255, 255, 255, .85), 0 4px 8px -2px rgba(40, 20, 10, .4); }
+  .jstop.ahead img { filter: grayscale(.75) opacity(.72); }
+  .jstop.done .disc { box-shadow: 0 0 0 3px #fff, 0 0 0 5px #2fbf73, 0 4px 8px -2px rgba(40, 20, 10, .45); }
+  .jstop.done img { filter: saturate(.7) opacity(.8); }
+  .jstop.lit { scale: 1.22; z-index: 3; animation: litin .5s cubic-bezier(.3, .8, .4, 1.6); }
+  .jstop.lit .disc { animation: lit 1.4s ease-in-out infinite; }
+  @keyframes lit { 50% { box-shadow: 0 0 0 3px #fff, 0 0 0 6px #ffc93d, 0 0 26px 10px rgba(255, 220, 110, .95); } }
+  @keyframes litin { from { scale: .6; } }
+  :global(:root[data-motion='reduced']) .jstop.lit .disc { animation: none; box-shadow: 0 0 0 3px #fff, 0 0 0 6px #ffc93d, 0 0 22px 8px rgba(255, 220, 110, .9); }
+  .jstop .nx { font-size: 12px; margin-top: 3px; }
 
   .find { position: absolute; transform: translate(-50%, -66%); border: 0; padding: 0; background: none; cursor: pointer; z-index: 2; transition: transform .15s; }
   .find:hover { transform: translate(-50%, -72%) scale(1.08); }

@@ -61,6 +61,9 @@ export const stationOf = (w: string | undefined | null) => (w ? WORLD_PIN[w]?.st
 
 /** The world the Adventure map last showed, so coming back from a battle lands on the same world. */
 export const lastWorld: { id: WorldId } = { id: 'sky' };
+/** Adventure opened on one world by name (a topic's Adventure, a battle that isn't the trail's lit stop): Free
+ *  play this visit, on that world, whichever mode the player keeps. Adventure reads it as it opens. */
+export const adventureVisit = { free: false };
 /** Whose worlds Adventure shows: the subject it was opened from (Typing, Math), so a typing adventure's
  *  world map opens on the typing worlds. */
 export const worldSubject: { id: WorldSubject } = { id: 'math' };

@@ -3,6 +3,7 @@
 // "Back to ..." goes (game.from, kept by state/game.svelte.ts). A game reads this once, as it opens.
 import { game } from '../state/game.svelte';
 import { placeName } from '../nav';
+import { pathRun } from '../path/launch';
 import type { AreaId } from '../math/skills/types';
 
 export type Exits = {
@@ -18,6 +19,6 @@ export function exitsOf(_area?: AreaId): Exits {
   const name = from ? placeName(from) : 'Home';
   return {
     back: () => game.leaveActivity(),
-    backTo: name === 'Arcade' ? 'the Arcade' : name,
+    backTo: from?.screen === 'adventure' && pathRun.cur?.trail ? 'the trail' : name === 'Arcade' ? 'the Arcade' : name,
   };
 }

@@ -13,6 +13,8 @@
   import { clearOldLine } from '../arcade/feedback';
   import { exitsOf } from '../arcade/exits';
   import ExitButtons from '../arcade/ui/ExitButtons.svelte';
+  import GameEndButtons from '../path/GameEndButtons.svelte';
+  import { endEnter } from '../path/next';
   import PauseButton from '../ui/PauseButton.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
@@ -259,6 +261,7 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
+    if (phase === 'done' && e.key === 'Enter' && endEnter(game.profile, 'game:builder')) { e.preventDefault(); return; }
     const key = e.key.toLowerCase();
     if (phase === 'play') {
       const k = ({ h: 'h', t: 't', o: 'o', '1': 'h', '2': 't', '3': 'o' } as Record<string, Kind>)[key];
@@ -380,9 +383,7 @@
         </div>
         <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <ExitButtons {exits} before={() => (builderOpen.toy = false)} />
-          {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
-          <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
+          <GameEndButtons activity="game:builder" {exits} {daily} onagain={start} before={() => (builderOpen.toy = false)} />
         </div>
       </div>
     </div>

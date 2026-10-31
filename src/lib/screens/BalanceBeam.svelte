@@ -10,6 +10,8 @@
   import { clearOldLine } from '../arcade/feedback';
   import { exitsOf } from '../arcade/exits';
   import ExitButtons from '../arcade/ui/ExitButtons.svelte';
+  import GameEndButtons from '../path/GameEndButtons.svelte';
+  import { endEnter } from '../path/next';
   import PauseButton from '../ui/PauseButton.svelte';
   import { sfx, startMusic, musicEnergy } from '../audio/sound';
   import { stage } from '../three/stage';
@@ -176,6 +178,7 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (phase === 'done' && e.key === 'Enter' && endEnter(game.profile, 'game:balance')) { e.preventDefault(); return; }
     if (phase === 'play') {
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
       else if (e.key === 'Backspace') { e.preventDefault(); back(); }
@@ -266,9 +269,7 @@
         </div>
         <PrizeRow {o} buddy={p.buddy} />
         <div class="acts">
-          <ExitButtons {exits} />
-          {#if !daily}<button class="btn" onclick={() => start(true)}>Today's challenge</button>{/if}
-          <button class="btn btn-primary big" onclick={() => start(daily)}>Play again <span class="kbd">enter</span></button>
+          <GameEndButtons activity="game:balance" {exits} {daily} onagain={start} />
         </div>
       </div>
     </div>

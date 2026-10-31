@@ -537,8 +537,10 @@
         {:else if pn && phase === 'card'}
           <!-- started from My path: its next thing is the main button; back where it came from, or Home -->
           <PathNextButton next={pn} hotkey={narrow ? undefined : 'enter'} compact={narrow} />
-          <button class="btn btn-big" onclick={leave}>Back to {backLabel}</button>
-          {#if backLabel !== 'Home'}<button class="btn btn-big" onclick={home}>Home</button>{/if}
+          {#if !pn.trail}
+            <button class="btn btn-big" onclick={leave}>Back to {backLabel}</button>
+            {#if backLabel !== 'Home'}<button class="btn btn-big" onclick={home}>Home</button>{/if}
+          {/if}
         {:else}
           {#if onpractice && phase === 'card'}<button class="btn btn-big" onclick={() => { sfx.click(); onpractice?.(); }}>Practise it now</button>{/if}
           <button class="btn btn-primary btn-big" onclick={leave}>More tricks <span class="kbd">enter</span></button>

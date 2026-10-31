@@ -11,6 +11,9 @@
   import { dailyGoal, type Answered, type ArcadeGame, type ArcadeOutcome } from '../arcade';
   import Stars from '../../ui/Stars.svelte';
   import NavTile from '../../ui/NavTile.svelte';
+  import PathNextButton from '../../path/PathNextButton.svelte';
+  import { endEnter, mayRepeat, pathNext } from '../../path/next';
+  import { game as game2 } from '../../state/game.svelte';
   import Confetti from '../../ui/Confetti.svelte';
   import Icon from '../../ui/Icon.svelte';
   import RewardTap from '../../ui/RewardTap.svelte';
@@ -18,6 +21,10 @@
   /** `backTo`/`onback`: where the round was started from (the Arcade, a topic, Home): the one way out here */
   type Props = { outcome: ArcadeOutcome; game: ArcadeGame; daily: boolean; answered: Answered[]; bestCombo: number; compact: boolean; onagain: () => void; backTo: string; onback: () => void };
   let { outcome: o, game: G, daily, answered, bestCombo, compact, onagain, backTo, onback }: Props = $props();
+  // started from the path: the next thing there is the big button (path/next.ts)
+  const activity = `game:${G.id}`;
+  const next = $derived(pathNext(game2.profile, activity));
+  const again = $derived(mayRepeat(game2.profile, activity));
 
   const right = $derived(answered.filter(a => a.ok).length);
   const title = $derived(o.newBest ? 'New best!' : o.stars === 3 ? 'Three stars!' : o.stars === 2 ? 'Great run!' : o.stars === 1 ? 'Nice one!' : 'Good practice!');
@@ -37,7 +44,9 @@
   const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
 
   function onKey(e: KeyboardEvent) {
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onagain(); }
+    if (game2.modalOpen) return;
+    if (e.key === 'Enter' && endEnter(game2.profile, activity)) { e.preventDefault(); return; }
+    if ((e.key === ' ' || e.key === 'Enter') && again) { e.preventDefault(); onagain(); }
 
   }
   onMount(() => {
@@ -103,8 +112,9 @@
 
     <div class="tiles">
       <!-- three in a row: a little smaller when the third is the way back to a page -->
-      <NavTile size={compact ? 'md' : 'lg'} tone="mint" kind="redo" label="Play again" hotkey={compact ? undefined : 'space'} onclick={onagain} />
-      <NavTile size={compact ? 'md' : 'lg'} tone="sky" kind={backTo === 'Home' ? 'home' : 'map'} label="Back to {backTo}" onclick={onback} />
+      {#if again}<NavTile size={compact || next ? 'md' : 'lg'} tone="mint" kind="redo" label="Play again" hotkey={compact ? undefined : 'space'} onclick={onagain} />{/if}
+      {#if !next?.trail}<NavTile size={compact || next ? 'md' : 'lg'} tone="sky" kind={backTo === 'Home' ? 'home' : 'map'} label="Back to {backTo}" onclick={onback} />{/if}
+      {#if next}<PathNextButton {next} {compact} hotkey={compact ? undefined : 'enter'} />{/if}
     </div>
   </div>
   <Confetti {burst} x={50} y={30} />

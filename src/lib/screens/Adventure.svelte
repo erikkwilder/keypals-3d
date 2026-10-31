@@ -1,12 +1,23 @@
+<script lang="ts" module>
+  /** how far the trail was the last time the map showed it: coming back with more done gets a small cheer */
+  const trailSeen = { unit: '', done: 0 };
+</script>
+
 <script lang="ts">
   // Adventure: the painted map of a world (the sky islands, or Fraction Falls). Each island has battles, a
   // practice stop and a Champion at the end. Your buddy stands on the next stop; your team, eggs and the
   // shop are in the corner; the big World map button (how many worlds are open, and "New world!" when one
   // opens) shows every world of the subject Adventure was opened from: the typing worlds from Typing, the
   // math worlds on their painted picture from Math, with a tab for each.
-  // The first visit starts with a short story (four pictures), then a tip pointing at the first battle.
+  // The first visit starts with a short story (four pictures), then a tip pointing at the first battle; the ?
+  // on the map plays it again.
+  // Math worlds have two ways to play, side by side at the top of the map. Journey (path/journey.ts): the
+  // child's unit is a stretch of trail on its world's map, one stop lit, and walking there starts it, in the
+  // order My path has them and on the same progress. Free play: everything above, as it always was. A grown-up's
+  // or teacher's Path only keeps a child on the trail, and Free play's door says who set it. Typing has no
+  // Journey yet: its Adventure is as it was.
   import CloseButton from '../ui/CloseButton.svelte';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { game } from '../state/game.svelte';
   import { sfx, setPlaceStation } from '../audio/sound';
   import { nextLesson } from '../engine/profile';
@@ -17,7 +28,7 @@
   import { advOf, advView, playRules, canPass, cleared, collectStop, currentNode, ISLAND, islandsOf, markSeen, nodesOf, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, worldOpen, type MapNode, type WorldId, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
   import { DuelScene } from '../three/duelScene';
-  import { WORLD_PIN, TYPING_SOON, lastWorld, mapOf, stationOf, worldSubject, worldsFor, type WorldPin, type WorldSubject } from '../adventure/worlds';
+  import { WORLD_PIN, TYPING_SOON, adventureVisit, lastWorld, mapOf, stationOf, worldSubject, worldsFor, type WorldPin, type WorldSubject } from '../adventure/worlds';
   import { nextSkillLesson } from '../math/skills/course';
   import { AREA } from '../math/skills/registry';
   import { openTopicMap } from '../nav';
@@ -30,6 +41,12 @@
   import Icon from '../ui/Icon.svelte';
   import { passOn } from '../path/pass';
   import { playerRules } from '../path/player.svelte';
+  import { journeyOf, modeFor, setMode, STOP_ICON, STOP_WORD, type AdvMode, type TrailStop } from '../path/journey';
+  import { pathRun, startItem } from '../path/launch';
+  import { doorFor, pathHolds, type Door } from '../path/rules';
+  import { gradeName } from '../path/units';
+  import DoorCard from '../path/Door.svelte';
+  import LearnOverlay from '../path/LearnOverlay.svelte';
   // WALK: the walking map layer
   import MapWalker from '../ui/MapWalker.svelte';
 
@@ -45,11 +62,62 @@
   // the world on show: the last one looked at (back from a battle lands on the same world)
   // (a world of another subject, or not open yet: the Sky Islands, which every subject has)
   const startWorld: WorldId = lastWorld.id !== 'sky' && (!worldOpen(game.profile!, lastWorld.id) || !WORLD_PIN[lastWorld.id]?.subjects.includes(worldSubject.id)) ? 'sky' : lastWorld.id;
-  lastWorld.id = startWorld;
-  let world = $state<WorldId>(startWorld);
   /** whose worlds: the subject Adventure was opened from (the world map's tab) */
   let subj = $state<WorldSubject>(worldSubject.id);
   let tab = $state<WorldSubject>(worldSubject.id);
+  /** the story: which card is showing (-1: none); the first visit starts on it */
+  let intro = $state(untrack(() => (advView(p).seen?.includes('intro') ? -1 : 0)));
+  // ---------- the two ways to play ----------
+  const rules = $derived(playerRules(p));
+  /** a grown-up or teacher is keeping the child to the path: Journey, and Free play has a door */
+  const holds = $derived(pathHolds(p, rules));
+  const journey = $derived(subj === 'math' ? journeyOf(p) : null);
+  /** opened on one world (a topic's Adventure, a battle that isn't the lit stop): Free play this time */
+  let visitFree = $state(adventureVisit.free);
+  adventureVisit.free = false;
+  const onTrail = $derived(!!journey && !visitFree && modeFor(p, holds) === 'journey');
+  /** the world on show in Free play (the trail shows its own) */
+  let freeWorld: WorldId = startWorld;
+  let world = $state<WorldId>(untrack(() => (onTrail ? journey!.world : startWorld)));
+  lastWorld.id = world;
+  $effect(() => {
+    const w = onTrail ? journey!.world : freeWorld;
+    if (w !== untrack(() => world)) { world = w; lastWorld.id = w; setPlaceStation(stationOf(w)); }
+  });
+  /** the map walker, for the big Go button */
+  let walker: MapWalker | undefined = $state();
+  /** Free play's door, while a grown-up or teacher holds a child to the path */
+  let shut = $state<Door | null>(null);
+  function pick(m: AdvMode) {
+    if (m === 'free' && holds) { sfx.nope(); shut = doorFor('adventure', game.closetTab, p, rules); return; }
+    if ((m === 'journey') === onTrail) return;
+    sfx.pop(); open = null; picker = false; visitFree = false;
+    game.update(pp => { setMode(pp, m); });
+  }
+  /** a stop reached: start it the way My path does */
+  function startStop(s: TrailStop) {
+    if (!journey) return;
+    if (!a.seen?.includes('trail1')) game.update(pp => markSeen(pp, 'trail1'));
+    startItem(p, journey.state.unit, s.item, true);
+  }
+  // the small moment when the trail opens somewhere new
+  let arrival = $state<{ title: string; line: string } | null>(null);
+  let arrivalTimer = 0;
+  function arrive() {
+    const j = journey!, was = a.trail;
+    if (was?.unit === j.state.unit.id && was.world === j.world) return;
+    const name = j.world === 'sky' ? 'the Sky Islands' : WORLD_PIN[j.world].name;
+    arrival = !was ? { title: `Your Journey starts in ${name}!`, line: j.state.unit.name } : was.world !== j.world ? { title: `Welcome to ${name}!`, line: `Your trail goes on here: ${j.state.unit.name}` } : { title: 'A new stretch of trail!', line: j.state.unit.name };
+    sfx.complete(); burst++;
+    clearTimeout(arrivalTimer); arrivalTimer = window.setTimeout(() => (arrival = null), 3400);
+    game.update(pp => { advOf(pp).trail = { world: j.world, unit: j.state.unit.id }; });
+  }
+  $effect(() => { if (onTrail && journey && intro < 0) untrack(arrive); });
+  onDestroy(() => clearTimeout(arrivalTimer));
+  /** the first time on the trail: a word about Go, gone once they go */
+  let gone = $state(false);
+  const tip = $derived(onTrail && intro < 0 && !arrival && !shut && !gone && !a.seen?.includes('trail1'));
+  function goLit() { sfx.click(); gone = true; game.update(pp => markSeen(pp, 'trail1')); walker?.goLit(); }
   const SUBJ_NAME: Record<WorldSubject, string> = { typing: 'Typing', math: 'Math' };
   const liveOpen = (s: WorldSubject) => worldsFor(s).filter(w => w.map && worldOpen(p, w.id as WorldId));
   const nOpen = $derived(liveOpen(subj).length);
@@ -96,7 +164,6 @@
   }
 
   // the first visit: the story, then a tip at the first battle
-  let intro = $state(-1);
   let mapTip = $state(false);
   const SLIDES = [
     { img: 'intro-story', title: 'Storms made the Glimmers grumpy!', text: 'Glimmers are little island creatures with special powers. A storm cloud is raining on each one. Cheer one up with your answers, and it joins your team!' },
@@ -104,20 +171,25 @@
     { img: 'intro-practice', title: 'Practice hatches eggs', text: 'Every right answer in math and typing practice makes your eggs grow. When an egg is full, it hatches into a new Glimmer! Practice earns shells for the shop too.' },
     { img: 'intro-glimmers', title: 'Find them all', text: `${GLIMMER_TOTAL} Glimmers live in Keypals, and each island has its own. Some are easy to find, some are very rare, and some come from big goals. Cheer up each island's Champion to open the next island.` },
     { img: 'intro-duel', title: 'Play with your family', text: 'Take turns with a grown-up or a friend in a Family Duel, or battle someone\'s ghost in Rival Ghosts. Whoever cheers up the Glimmer first wins it!' },
-  ];
+    { img: 'worlds-wide', title: 'Journey or Free play', text: 'On a Journey your buddy walks from stop to stop: learn, practice, a battle, a game. Just go to the glowing stop. In Free play you pick your own battles. Switch any time at the top of the map.', math: true },
+  ].filter(s => !s.math || subj === 'math');
 
   onMount(() => {
     const onR = () => { tall = innerWidth < 760 || innerHeight > innerWidth * 1.1; requestAnimationFrame(fit); };
     addEventListener('resize', onR);
     const ro = new ResizeObserver(fit); if (wrap) ro.observe(wrap);
     fit();
+    // back on the map: what's started from here now isn't from a stop until a stop starts it
+    if (pathRun.cur?.trail) pathRun.cur = null;
+    setPlaceStation(stationOf(world));
+    // back with a stop done: a small cheer as the next one lights
+    { const j = untrack(() => journey); if (j && untrack(() => onTrail)) { if (trailSeen.unit === j.state.unit.id && j.done > trailSeen.done) { burst++; sfx.pop(); } trailSeen.unit = j.state.unit.id; trailSeen.done = j.done; } }
     // a practice stop reached: the next practice session finishes it
     reach(world);
     // build the arena of the next battle while the map is up, so a battle opens without a blank moment
     { const c = currentNode(advView(game.profile!), world); if (c) DuelScene.warm(ISLAND[c.island].region); }
     const seen = new Set(advView(game.profile!).seen ?? []);
-    if (!seen.has('intro')) intro = 0;
-    else if (!seen.has('map1') && !advView(game.profile!).battles) mapTip = true;
+    if (seen.has('intro') && !seen.has('map1') && !advView(game.profile!).battles) mapTip = true;
     return () => { removeEventListener('resize', onR); ro.disconnect(); };
   });
   $effect(() => { void kind; void world; requestAnimationFrame(fit); });
@@ -142,7 +214,7 @@
     if (subj !== tab) { subj = tab; worldSubject.id = tab; }
     if (id === 'sky' && a.subject !== tab) game.update(pp => { advOf(pp).subject = tab; });
     if (id === world) return;
-    world = id; lastWorld.id = id;
+    world = id; freeWorld = id; lastWorld.id = id;
     setPlaceStation(stationOf(id));
     reach(id);
     if (id !== 'sky' && !a.seen?.includes(`world-${id}`)) { game.say(`Welcome to ${w.name}! ${w.blurb}`); game.update(pp => markSeen(pp, `world-${id}`)); }
@@ -203,12 +275,48 @@
   <div class="mapwrap" bind:this={wrap} style:--bg="url({new URL(`${base}${wmap[kind]}`, document.baseURI).href})">
     <div class="backdrop"></div>
     <!-- WALK: the map you walk round with your buddy (trails, stops, finds, the 3D buddy): ui/MapWalker.svelte -->
-    <MapWalker {world} {kind} {tall} paused={!!open || picker || intro >= 0} onopen={tap} />
+    <MapWalker bind:this={walker} {world} {kind} {tall} paused={!!open || picker || intro >= 0 || !!arrival || !!shut} onopen={tap} journey={onTrail ? journey : null} onstop={startStop} />
+    {#if journey}
+      <!-- the two ways to play, side by side -->
+      <div class="modes" role="tablist" aria-label="How to play">
+        <button role="tab" aria-selected={onTrail} class:on={onTrail} onclick={() => pick('journey')}><img src="{base}icons/path.webp" alt="" />Journey</button>
+        <button role="tab" aria-selected={!onTrail} class:on={!onTrail} onclick={() => pick('free')}><img src="{base}game/icon-grump.webp" alt="" />Free play</button>
+      </div>
+    {/if}
+    {#if onTrail && journey}
+      {@const u = journey.state.unit}
+      <div class="jinfo">
+        <small>{journey.teacher ? `From ${journey.teacher}` : u.grade !== null ? `${gradeName(u.grade)} · Unit ${u.n}` : u.part}</small>
+        <b>{u.name}</b>
+        <span class="jbar" title="{journey.done} of {journey.of} stops"><i style:width="{(journey.done / Math.max(1, journey.of)) * 100}%"></i></span>
+      </div>
+    {/if}
+    <button class="advhelp" onclick={() => { sfx.pop(); intro = 0; }} title="How Adventure works" aria-label="How Adventure works"><img src="{base}icons/help.webp" alt="" /></button>
   </div>
 
   <!-- the dock of three: the World map (every world), your Glimmers, your eggs. Family Duel and Rival
        Ghosts are in the Arcade's Play together; the Shop is in My stuff. -->
-  {#if onStop}
+  {#if onTrail && journey}
+    <!-- the trail's one thing to do: the lit stop. Your Glimmers and eggs stay in reach, unless the day is a path day. -->
+    <div class="dock" class:solo={holds}>
+      {#if journey.lit}
+        {@const s = journey.lit}
+        <button class="nextstop" onclick={goLit} title="Go to the next stop: {s.name}">
+          <img src="{base}{STOP_ICON[s.kind]}" alt="" />
+          <span class="nst"><small>Next stop · {STOP_WORD[s.kind]}</small><b>{s.name}</b></span>
+          <span class="gogo">Go!</span>
+        </button>
+      {/if}
+      {#if !holds}
+        <NavTile label="Glimmers" tone="lilac" badge={a.fresh.length ? 'New' : undefined} title="Your Glimmers and your team" onclick={() => { game.glimmerTab = 'team'; game.visit('glimmers'); }}>
+          {#snippet art()}<span class="faces">{#each faces as t}<img class:ghost={!team.length} src="{base}game/glimmers/face/{t}{a.glimmers[t]?.evolved ? '-evo' : ''}.webp" alt="" />{/each}</span>{/snippet}
+        </NavTile>
+        <NavTile label="Eggs" tone="butter" badge={ready ? `${ready} ready!` : eggs ? eggs : undefined} title="Your eggs hatch when you practice" onclick={() => game.visit('eggs')}>
+          {#snippet art()}<img class="tileimg" src="{base}game/egg-{a.incubator.find(e => e)?.rarity ?? 'rare'}.webp" alt="" />{/snippet}
+        </NavTile>
+      {/if}
+    </div>
+  {:else if onStop}
     <p class="stopnote">Your path brought you here: tap your next stop.</p>
   {:else}
   <div class="dock">
@@ -226,7 +334,7 @@
   </div>
   {/if}
 
-  {#if !play.open}
+  {#if !play.open && !onTrail}
     <div class="closed card">
       <h2>Adventure is resting</h2>
       <p>{play.why}</p>
@@ -235,8 +343,19 @@
     </div>
   {/if}
 
-  {#if mapTip && cur && !picker}<Coach text="Tap here for your first battle!" at=".node.here" place="below" />
+  {#if tip}<Coach text="Tap Go! and your buddy walks to this stop." at=".jstop.lit" />
+  {:else if onTrail}<!-- (the world map's tips wait for Free play) -->
+  {:else if mapTip && cur && !picker}<Coach text="Tap here for your first battle!" at=".node.here" place="below" />
   {:else if nudge && !onStop && !picker && !open && intro < 0}<Coach text="A new world is open: {nudge.name}! Tap the World map to go there." at=".worldbtn" place="below" button="Got it" onok={nudged} />{/if}
+
+  {#if arrival}
+    <button class="arrive card" onclick={() => (arrival = null)}>
+      <Critter friend={p.buddy} size={tall ? 62 : 84} mood="dance" />
+      <span><b>{arrival.title}</b><small>{arrival.line}</small></span>
+    </button>
+  {/if}
+  <LearnOverlay />
+  {#if shut}<div class="doorover"><DoorCard door={shut} onback={() => (shut = null)} /></div>{/if}
 
   {#if open}
     {@const n = open}
@@ -374,6 +493,34 @@
   .adv { display: flex; flex-direction: column; background: #cfe6fb; overflow: hidden; }
   .introcard { position: relative; }
   .introx { position: absolute; top: 10px; right: 10px; z-index: 3; }
+  /* the two ways to play: big pictures and one word each, on a white pill so they read on any map */
+  .modes { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 4; display: flex; gap: 4px; padding: 5px; border-radius: 999px; background: rgba(255, 255, 255, .94); box-shadow: 0 8px 18px -10px rgba(40, 20, 80, .6); }
+  .modes button { display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; padding: 4px 18px 4px 6px; border-radius: 999px; background: transparent; color: var(--ink2); font: 600 19px var(--font-ui); white-space: nowrap; }
+  .modes img { width: 36px; height: 36px; object-fit: contain; }
+  .modes button.on { background: var(--primary); color: #fff; box-shadow: inset 0 -3px 0 var(--primary-edge); }
+  /* the unit on the trail, and how far along it */
+  .jinfo { position: absolute; left: 14px; top: 10px; z-index: 3; display: flex; flex-direction: column; gap: 1px; min-width: 190px; max-width: 280px; padding: 7px 14px 9px; border-radius: 18px; background: rgba(255, 255, 255, .92); box-shadow: 0 8px 18px -10px rgba(40, 20, 80, .6); }
+  .jinfo small { font: 800 11.5px var(--font-body); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  .jinfo b { font: 600 19px/1.15 var(--font-ui); color: var(--ink); }
+  .jbar { display: block; height: 9px; margin-top: 4px; border-radius: 999px; background: #ece6f6; overflow: hidden; }
+  .jbar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #7fe0a8, #2fb36e); transition: width .5s ease; }
+  .advhelp { position: absolute; right: 12px; top: 12px; z-index: 4; width: 44px; height: 44px; padding: 5px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #ffd36b, 0 6px 12px -6px rgba(40, 20, 80, .6); cursor: pointer; }
+  .advhelp img { width: 100%; height: 100%; object-fit: contain; }
+  /* the one big button under the trail: where to go next */
+  .nextstop { display: flex; align-items: center; gap: 12px; min-width: 0; width: 460px; max-width: 100%; border: 0; cursor: pointer; text-align: left; padding: 8px 10px 8px 12px; border-radius: 24px; color: #fff; background: linear-gradient(var(--primary-hi), var(--primary)); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .35), 0 6px 0 var(--primary-edge); transition: transform .14s, box-shadow .14s; }
+  .nextstop:hover { transform: translateY(-2px); }
+  .nextstop:active { transform: translateY(4px); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .35), 0 2px 0 var(--primary-edge); }
+  .nextstop > img { flex: none; width: 66px; height: 66px; padding: 7px; box-sizing: border-box; object-fit: contain; border-radius: 50%; background: #fff; }
+  .nst { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .nst small { font: 800 12px var(--font-body); letter-spacing: .05em; text-transform: uppercase; opacity: .92; }
+  .nst b { font: 600 24px/1.1 var(--font-ui); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+  .gogo { flex: none; font: 700 22px var(--font-ui); color: var(--primary); background: #fff; padding: 12px 18px; border-radius: 18px; }
+  .arrive { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); z-index: 9; display: flex; align-items: center; gap: 12px; max-width: min(560px, 92vw); padding: 10px 24px 10px 12px; border: 0; cursor: pointer; text-align: left; animation: arrive .5s cubic-bezier(.3, .8, .4, 1.4); box-shadow: 0 0 0 4px #ffd36b, 0 16px 34px -12px rgba(40, 20, 60, .6); }
+  .arrive span { display: flex; flex-direction: column; min-width: 0; }
+  .arrive b { font: 600 25px/1.15 var(--font-ui); color: var(--ink); }
+  .arrive small { font: 700 15px/1.3 var(--font-body); color: var(--ink2); }
+  @keyframes arrive { from { opacity: 0; translate: 0 -14px; scale: .92; } }
+  .doorover { position: absolute; inset: 0; z-index: 25; }
   .chip { display: flex; align-items: center; gap: 6px; font: 600 18px var(--font-ui); background: #fff; border-radius: 999px; padding: 4px 12px 4px 4px; box-shadow: var(--shadow-sm); border: 0; color: var(--ink); }
   .chip img { width: 30px; height: 30px; object-fit: contain; }
   .chip.help { width: 40px; height: 40px; justify-content: center; padding: 0; font-size: 22px; color: var(--primary); cursor: pointer; box-shadow: 0 0 0 3px #ffd36b; }
@@ -545,6 +692,16 @@
   .tall .dock :global(.tile .pic) { width: 46px !important; height: 46px !important; }
   .tall .faces img { width: 34px; height: 34px; }
   .tall .faces img + img { margin-left: -12px; }
+  .tall .modes { top: 8px; left: 10px; transform: none; padding: 4px; } .tall .modes button { font-size: 16px; padding: 3px 12px 3px 4px; gap: 5px; } .tall .modes img { width: 28px; height: 28px; }
+  .tall .advhelp { right: 10px; top: 10px; width: 38px; height: 38px; padding: 4px; }
+  .tall .jinfo { left: 10px; right: 10px; top: 58px; max-width: none; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 8px; padding: 5px 12px 7px; border-radius: 14px; }
+  .tall .jinfo b { font-size: 16px; } .tall .jinfo small { font-size: 10.5px; } .tall .jbar { flex: 1 1 100%; height: 7px; margin-top: 3px; }
+  .tall .nextstop { flex: 1; width: auto; gap: 8px; padding: 6px 8px; border-radius: 20px; }
+  .tall .nextstop > img { width: 48px; height: 48px; padding: 5px; }
+  .tall .nst small { font-size: 10px; } .tall .nst b { font-size: 17px; }
+  .tall .gogo { font-size: 17px; padding: 9px 10px; border-radius: 14px; }
+  .tall .dock:not(.solo) .nextstop .gogo { display: none; }
+  .tall .arrive { top: 16%; padding: 8px 16px 8px 8px; } .tall .arrive b { font-size: 20px; } .tall .arrive small { font-size: 13.5px; }
   .tall .oddrow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tall .odd img { width: 26px; height: 32px; } .tall .odd span { font-size: 12px; }
   .tall .introcard { grid-template-columns: 1fr; }
