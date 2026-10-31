@@ -14,7 +14,7 @@
 </script>
 
 {#if beat}
-  <BeatEpisode lesson={beat} {embedded} {check} {onclose} {onpractice} {onwatch} />
+  <BeatEpisode lesson={beat} {embedded} {check} {onclose} {onpractice} />
 {:else}
   <EpisodeClassic id={plain} {embedded} {check} {onclose} {onpractice} {onwatch} />
 {/if}

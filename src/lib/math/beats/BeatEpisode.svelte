@@ -13,7 +13,6 @@
   import { hush, lineText, say } from '../../audio/voice.svelte';
   import { danceOf } from '../../engine/profile';
   import { advView } from '../../adventure/state';
-  import { FRIEND } from '../../art/cast';
   import { finishLesson, markChecked, type Board } from '../learn';
   import { mathOf } from '../progress';
   import { SETS } from '../episodes';
@@ -28,8 +27,8 @@
   import { pathNext, startPathNext, type PathNext } from '../../path/next';
   import type { BeatLesson, Choice, Notes, Pin, Teller, World } from './types';
 
-  type Props = { lesson: BeatLesson<World>; embedded?: boolean; check?: boolean; onclose: () => void; onpractice?: () => void; onwatch?: () => void };
-  let { lesson, embedded = false, check = false, onclose, onpractice, onwatch }: Props = $props();
+  type Props = { lesson: BeatLesson<World>; embedded?: boolean; check?: boolean; onclose: () => void; onpractice?: () => void };
+  let { lesson, embedded = false, check = false, onclose, onpractice }: Props = $props();
 
   const base = import.meta.env.BASE_URL;
   // (keyed by its lesson: this doesn't change while it's open)
@@ -258,7 +257,7 @@
   <div class="bottom" bind:clientHeight={bottomH}>
     {#if ask?.kind === 'num'}
       <div class="turn">
-        <div class="ask"><span class="q">{ask.prompt}</span><span class="box">{typed || ' '}</span><button class="btn btn-primary gobtn" disabled={!typed} onclick={send}>Go <span class="kbd">enter</span></button></div>
+        <div class="ask"><svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3 28 9.5v13L16 29 4 22.5v-13z" fill="#8f7bff"/><path d="M16 3 28 9.5 16 16 4 9.5z" fill="#c9bcff"/><path d="M16 16v13L4 22.5v-13z" fill="#6d5ae0"/></svg><span class="q">{ask.prompt}</span><span class="box">{typed || ' '}</span><button class="btn btn-primary gobtn" disabled={!typed} onclick={send}>Go <span class="kbd">enter</span></button></div>
         <NumPad ondigit={typeDigit} onback={back} compact={narrow} lit={null} />
       </div>
     {:else if ask?.kind === 'pick'}
@@ -309,7 +308,6 @@
     </div>
   {/if}
   <Confetti {burst} x={narrow ? 50 : 30} y={40} />
-  <span hidden>{FRIEND[buddy].name}{onwatch ? '' : ''}</span>
 </div>
 
 <style>
@@ -376,6 +374,7 @@
   .choice:active { transform: translateY(3px); }
   .turn { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(1000px, 100%); }
   .ask { display: flex; align-items: center; gap: 12px; font: 600 clamp(26px, 4vh, 38px)/1.1 var(--font-ui); color: var(--ink); background: rgba(255, 255, 255, .95); padding: 8px 12px 8px 22px; border-radius: 24px; box-shadow: 0 12px 28px -12px rgba(60, 30, 10, .6); }
+  .ico { width: 1.1em; height: 1.1em; flex: none; }
   .box { min-width: 2.2em; padding: 2px 12px; border-radius: 16px; background: #f4f0fb; box-shadow: inset 0 0 0 3px #d9cff0; text-align: center; white-space: pre; }
   .gobtn { display: inline-flex; align-items: center; gap: 6px; font-size: 20px; }
 

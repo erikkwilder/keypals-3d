@@ -11,7 +11,7 @@ import { loadTexture } from './assets';
 import type { EpisodeScene } from './episodeScene';
 import type { Pin } from '../math/beats/types';
 import type { CrateWorld, Face } from '../math/beats/crateLesson';
-import { MAX_SPILL, firstRow, layer, pourOrder, rowBack, seenOnly, sumParts, volume, type Dims, type Slot } from '../math/beats/crate';
+import { firstRow, layer, pourOrder, rowBack, seenOnly, sumParts, volume, type Dims, type Slot } from '../math/beats/crate';
 import { bSfx } from '../math/beats/sounds';
 
 const TY = 0.48;
@@ -29,7 +29,7 @@ const OFF = 0.034;
 /** the layers' colours, one after another, so layers read as layers */
 const TINT = [0x7f8cff, 0x35c9bd, 0xb78bff, 0x4fb2ff, 0x7be0a6];
 
-type Cube = { m: THREE.Mesh; slot: Slot | null; from: THREE.Vector3; to: THREE.Vector3; t0: number; dur: number; arc: number; land?: () => void; leaving: number; hop: number };
+type Cube = { m: THREE.Mesh; slot: Slot | null; from: THREE.Vector3; to: THREE.Vector3; t0: number; dur: number; arc: number; land?: () => void; leaving: number };
 type Job =
   | { kind: 'trace'; axis: 'l' | 'w' | 'h'; step: number; done: () => void }
   | { kind: 'sweep'; axis: 'w' | 'h'; step: number; done: () => void }
@@ -56,7 +56,8 @@ export class CrateKit implements CrateWorld {
   private roller: THREE.Mesh | null = null;
   private rollFrom = 0; private rollTo = 0; private rollT = 0;
   private cubes: Cube[] = [];
-  private spill: Cube[] = [];
+  /** more cubes than fit: the count stands higher */
+  private over = false;
   private ghosts: THREE.Mesh[] = [];
   private ghostMat: THREE.MeshBasicMaterial | null = null;
   private ghostUntil = 0;
@@ -118,8 +119,7 @@ export class CrateKit implements CrateWorld {
     this.crate.removeFromParent();
     this.crate.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh && m.geometry !== this.geo) { m.geometry.dispose(); for (const mt of [m.material].flat()) if (!this.isShared(mt)) mt.dispose(); } });
     this.crate = null; this.cubes = []; this.walls = []; this.lid = null; this.lines = {}; this.roller = null;
-    for (const c of this.spill) c.m.removeFromParent();
-    this.spill = []; this.ghosts = [];
+    this.ghosts = []; this.over = false;
   }
   /** a mesh's material, in both of its looks (the stage swaps in a cheaper one on a weak computer) */
   private matsOf(m: THREE.Mesh) { return [m.material, (m.userData as { fullMat?: THREE.Material }).fullMat].flat().filter(Boolean) as THREE.Material[]; }
@@ -213,7 +213,7 @@ export class CrateKit implements CrateWorld {
   private edgeAt(a: 'l' | 'w' | 'h') {
     const n = this.d[a], up = this.tipK > 0.5;
     if (a === 'l') return this.world(this.linePoint(a, n / 2, up ? 0.13 : 0.11));
-    if (a === 'w') return up ? this.world(this.linePoint(a, n / 2)).add(new THREE.Vector3(0.11, 0.02, 0.1)) : this.world(this.linePoint(a, n + 0.5, 0.03));
+    if (a === 'w') return up ? this.world(this.linePoint(a, n / 2)).add(new THREE.Vector3(0.11, 0.02, 0.1)) : this.world(this.linePoint(a, n / 2, 0.16));
     return up ? this.world(this.linePoint(a, n / 2)).add(new THREE.Vector3(-0.05, 0.02, 0.15)) : this.world(this.linePoint(a, n + 0.42));
   }
   private slotPos(s: Slot) {
@@ -239,7 +239,7 @@ export class CrateKit implements CrateWorld {
   }
   private overCrate() {
     const { d, c } = this;
-    const up = this.tipK > 0.5 ? d.l * c : d.h * c;
+    const up = this.tipK > 0.5 ? d.l * c : (d.h + (this.over ? 2 : 0)) * c;
     return (this.crate?.position.clone() ?? new THREE.Vector3(0, TY, 0)).add(new THREE.Vector3(0, up + 0.12, -0.02));
   }
   private addCube(slot: Slot, from: THREE.Vector3, delay: number, dur: number, arc: number, land?: () => void, color?: number) {
@@ -247,7 +247,7 @@ export class CrateKit implements CrateWorld {
     const to = this.slotPos(slot);
     m.position.copy(from); m.visible = false;
     this.body.add(m);
-    const cube: Cube = { m, slot, from: from.clone(), to, t0: this.now + delay, dur, arc, land, leaving: 0, hop: 0 };
+    const cube: Cube = { m, slot, from: from.clone(), to, t0: this.now + delay, dur, arc, land, leaving: 0 };
     this.cubes.push(cube);
     return cube;
   }
@@ -317,27 +317,17 @@ export class CrateKit implements CrateWorld {
     await this.wait(900);
   }
   async pour(n: number) {
-    const order = pourOrder(this.d), v = order.length;
-    const inCrate = Math.min(n, v), over = Math.max(0, n - v), shown = Math.min(over, MAX_SPILL);
-    const gap = Math.min(0.09, 2.4 / Math.max(1, inCrate + shown));
+    // (cubes that don't fit stand up out of the top, so "too many" can be seen at a glance)
+    const order = pourOrder({ ...this.d, h: this.d.h + 2 }), v = volume(this.d), shown = Math.min(n, order.length);
+    const gap = Math.min(0.09, 2.4 / Math.max(1, shown));
     const from = this.horn();
+    this.over = n > v;
     this.countPin(0);
-    for (let i = 0; i < inCrate; i++) this.addCube(order[i], from, i * gap, 0.42, 0.22, () => { bSfx.clack(); this.countPin(this.count + 1); });
+    for (let i = 0; i < shown; i++) this.addCube(order[i], from, i * gap, 0.42, 0.22, () => { bSfx.clack(); this.countPin(this.count + 1); });
     bSfx.tink();
-    for (let i = 0; i < shown; i++) this.spillCube(i, inCrate * gap + i * gap, () => { bSfx.clack(); this.countPin(this.count + 1); });
-    await this.wait(Math.max(300, (inCrate + shown) * gap * 1000 + 480));
-    if (over > shown) this.countPin(n);
-    if (over) this.pin({ id: 'left', text: `${over} left over`, kind: 'word', at: () => this.spillPoint() });
-  }
-  private spillPoint() { return (this.crate?.position.clone() ?? new THREE.Vector3()).add(new THREE.Vector3(-0.52 * (this.s / 0.0032), 0.03, 0.42)); }
-  private spillCube(i: number, delay: number, land: () => void) {
-    const c = this.c, m = this.cubeAt(null, this.tint(i)), col = i % 8, row = Math.floor(i / 8) % 3, up = Math.floor(i / 24);
-    const at = this.spillPoint().add(new THREE.Vector3((col - 3.5) * c * 0.98 + 0.35, c / 2 + up * c, row * -c * 0.98 + 0.02));
-    at.y = TY + c / 2 + up * c;
-    this.root.add(m);
-    m.visible = false;
-    const from = this.root.worldToLocal(this.body.localToWorld(this.horn()));
-    this.spill.push({ m, slot: null, from, to: at, t0: this.now + delay, dur: 0.5, arc: 0.25, land, leaving: 0, hop: 0 });
+    await this.wait(Math.max(300, shown * gap * 1000 + 480));
+    if (n > shown) this.countPin(n);
+    if (n > v) this.pin({ id: 'left', text: `${n - v} too many`, kind: 'word', at: () => this.overCrate().add(new THREE.Vector3(0.42, -0.14, 0)) });
   }
   async pourSeen() {
     const slots = seenOnly(this.d), gap = Math.min(0.05, 2 / slots.length), from = this.horn();
@@ -375,11 +365,11 @@ export class CrateKit implements CrateWorld {
     await this.wait(750);
   }
   async clear() {
-    this.unpin(p => p.id === 'count' || p.id === 'left' || p.kind === 'tick');
+    this.unpin(p => p.id === 'count' || p.id === 'left' || p.id === 'hollow' || p.kind === 'tick');
     this.lidTo = 0;
-    const all = [...this.cubes, ...this.spill];
+    const all = this.cubes;
     for (const [i, c] of all.entries()) c.leaving = this.now + Math.min(0.5, i * 0.012);
-    this.liftTo = 0;
+    this.liftTo = 0; this.over = false;
     for (const m of this.ghosts) { m.removeFromParent(); }
     this.ghosts = [];
     await this.wait(all.length ? 620 : 100);
@@ -423,7 +413,7 @@ export class CrateKit implements CrateWorld {
   }
   async row() { await this.wait(this.spawnRow()); }
   sweep(axis: 'w' | 'h') {
-    return new Promise<void>(res => { this.job = { kind: 'sweep', axis, step: 0, done: res }; this.markTick(axis, 0); this.changed(); });
+    return new Promise<void>(res => { this.job = { kind: 'sweep', axis, step: 0, done: res }; this.unpin(p => p.id === `edge-${axis}`); this.markTick(axis, 0); this.changed(); });
   }
   /** Number the steps of a sweep on its line: rows, then layers, each counting everything so far. */
   private markTick(axis: 'w' | 'h', step: number) {
@@ -456,7 +446,12 @@ export class CrateKit implements CrateWorld {
     const j = this.job; if (!j || j.kind === 'face') return;
     this.job = null; this.held = false;
     if (j.kind === 'trace') { if (this.roller) this.roller.visible = false; this.setLine(j.axis, this.d[j.axis]); this.edgePin(j.axis); this.unpin(p => p.id === 'roll'); }
-    else { const { d } = this, floor = d.l * d.w; this.countPin(this.count, j.axis === 'w' ? `${d.l} × ${d.w} = ${floor}` : `${floor} × ${d.h} = ${floor * d.h}`); }
+    else {
+      const { d } = this, floor = d.l * d.w;
+      this.countPin(this.count, j.axis === 'w' ? `${d.l} × ${d.w} = ${floor}` : `${floor} × ${d.h} = ${floor * d.h}`);
+      this.unpin(p => p.kind === 'tick');
+      this.edgePin(j.axis);
+    }
     this.sc.nod(); this.sc.palDo('hop');
     this.changed();
     j.done();
@@ -466,15 +461,12 @@ export class CrateKit implements CrateWorld {
     const j = this.job; if (!j) return;
     if (j.kind === 'face') { this.job = null; j.done('top'); this.changed(); return; }
     const n = j.kind === 'trace' ? this.d[j.axis] : j.axis === 'w' ? this.d.w - 1 : this.d.h - 1, gap = 320;
-    let i = 0;
     const go = () => {
       if (this.job !== j) return;
-      i++;
       if (j.kind === 'trace') { j.step = Math.min(n, j.step + 1); this.rollTo = j.step; this.setLine(j.axis, j.step); bSfx.tick(j.step); this.rollPin(j); }
       else this.stepSweep(j, Math.min(n, j.step + 1));
       if (j.step >= n) setTimeout(() => this.endJob(), 420); else setTimeout(go, gap);
     };
-    void i;
     go();
   }
   private rollPin(j: Extract<Job, { kind: 'trace' }>) {
@@ -589,17 +581,18 @@ export class CrateKit implements CrateWorld {
     await this.wait(rest.length * 90 + 520);
   }
   async topUp(n: number) {
-    const { d } = this, floor = d.l * d.w, v = volume(d), extra = Math.max(0, n - floor), up = layer(d, 1).slice(0, Math.min(extra, floor)), from = this.horn();
+    const { d } = this, floor = d.l * d.w, v = volume(d), extra = Math.max(0, n - floor), from = this.horn();
     if (!extra) { this.sc.shrug(); await this.wait(900); return; }
-    const made = up.map((s, i) => this.addCube(s, from, i * 0.07, 0.42, 0.2, () => { bSfx.clack(); this.countPin(this.count + 1); }));
-    const over = Math.min(Math.max(0, n - v), MAX_SPILL);
-    for (let i = 0; i < over; i++) this.spillCube(i, up.length * 0.07 + i * 0.06, () => bSfx.clack());
-    await this.wait(up.length * 70 + over * 60 + 500);
+    const up = pourOrder({ ...d, h: d.h + 2 }).slice(floor, Math.min(n, floor * (d.h + 2)));
+    this.over = n > v;
+    const gap = Math.min(0.07, 1.6 / up.length);
+    const made = up.map((s, i) => this.addCube(s, from, i * gap, 0.42, 0.2, () => { bSfx.clack(); this.countPin(this.count + 1); }));
+    await this.wait(up.length * gap * 1000 + 500);
     if (n < v) await this.rattle();
-    else if (n > v) { this.pin({ id: 'left', text: `${n - v} left over`, kind: 'word', at: () => this.spillPoint() }); await this.wait(1100); this.unpin(p => p.id === 'left'); }
+    else if (n > v) { this.pin({ id: 'left', text: `${n - v} too many`, kind: 'word', at: () => this.overCrate().add(new THREE.Vector3(0.42, -0.14, 0)) }); await this.wait(1300); this.unpin(p => p.id === 'left'); }
     for (const c of made) c.leaving = this.now;
-    for (const c of this.spill) c.leaving = this.now;
-    this.countPin(floor);
+    this.over = false;
+    this.countPin(floor, `${d.l} × ${d.w} = ${floor}`);
     await this.wait(420);
   }
   writeSum(d: Dims, under?: string[], inks?: ('a' | 'b' | 'c')[]) {
@@ -627,7 +620,21 @@ export class CrateKit implements CrateWorld {
     }
   }
   async peek(on: boolean) { this.glassTo = on ? 1 : 0; if (this.lid) this.lidTo = on ? 0 : 1; await this.wait(520); }
-  async liftTop() { this.liftTo = 1; bSfx.tink(); await this.wait(900); }
+  /** The top layer lifts off and the near walls go see-through: the crate is hollow, and you can see it. */
+  async liftTop() {
+    this.liftTo = 1; bSfx.tink();
+    await this.wait(800);
+    const { d } = this;
+    for (const c of this.cubes) if (c.slot && c.slot.y !== d.h - 1 && (c.slot.z === d.w - 1 || c.slot.x === d.l - 1)) c.m.material = this.seeThrough(this.tint(c.slot.y));
+    this.pin({ id: 'hollow', text: 'hollow!', kind: 'word', at: () => this.world(new THREE.Vector3(0, this.c * 1.4, 0)) });
+    await this.wait(1300);
+  }
+  private seeThrough(color: number) {
+    const key = color + 1;
+    let m = this.mats.get(key);
+    if (!m) { m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.14, depthWrite: false }); this.mats.set(key, m); }
+    return m;
+  }
   async eatCracked() {
     const g = this.cracked; if (!g) return;
     this.crackedGo = this.now;
@@ -652,12 +659,12 @@ export class CrateKit implements CrateWorld {
     this.hookCarry = false; this.hookY = this.hookTo = 3;
     for (const a of ['l', 'w', 'h'] as const) this.setLine(a, d[a]);
     if (!/empty|shut/.test(name)) for (const s of pourOrder(d)) this.addCube(s, this.slotPos(s), -9, 0.01, 0);
-    if (name.includes('spilling')) for (let i = 0; i < MAX_SPILL; i++) this.spillCube(i, -9, () => {});
+    if (name.includes('spilling')) for (const s of pourOrder({ ...d, h: d.h + 2 }).slice(volume(d))) this.addCube(s, this.slotPos(s), -9, 0.01, 0);
     if (name.includes('stood')) this.tipK = this.tipTo = 0.999999;
   }
   /** what's on the table now, for the overlap check */
   things(): { name: string; obj: THREE.Object3D }[] {
-    return [...(this.crate ? [{ name: 'crate', obj: this.crate as THREE.Object3D }] : []), ...this.spill.map((c, i) => ({ name: `spilled cube ${i}`, obj: c.m as THREE.Object3D }))];
+    return this.crate ? [{ name: 'crate', obj: this.crate }] : [];
   }
 
   // ---------- each frame ----------
@@ -692,7 +699,7 @@ export class CrateKit implements CrateWorld {
       const a = -smooth(this.tipK) * Math.PI / 2, L = this.d.l * this.c, H0 = this.d.h * this.c, hx = L / 2;
       this.body.rotation.z = a;
       const ca = Math.cos(a), sa = Math.sin(a);
-      this.body.position.y = -(hx * sa);
+      this.body.position.y = -(hx * sa) + smooth(this.tipK) * 0.046;
       this.body.position.x += hx - hx * ca - smooth(this.tipK) * (L / 2 + H0 / 2);
     }
     // the cubes
@@ -700,8 +707,8 @@ export class CrateKit implements CrateWorld {
     this.lifted += (this.liftTo - this.lifted) * Math.min(1, dt * 5);
     const sk = this.shakeUntil > t ? this.shakeK : 0;
     const topY = this.d.h - 1;
-    for (const list of [this.cubes, this.spill]) for (let i = list.length - 1; i >= 0; i--) {
-      const q = list[i], m = q.m;
+    for (let i = this.cubes.length - 1; i >= 0; i--) {
+      const q = this.cubes[i], m = q.m;
       const k = clamp01((t - q.t0) / q.dur);
       if (t < q.t0) { m.visible = false; continue; }
       m.visible = true;
@@ -714,7 +721,7 @@ export class CrateKit implements CrateWorld {
       if (q.leaving && t > q.leaving) {
         const lk = clamp01((t - q.leaving) / 0.28);
         sz *= 1 - smooth(lk);
-        if (lk >= 1) { m.removeFromParent(); list.splice(i, 1); continue; }
+        if (lk >= 1) { m.removeFromParent(); this.cubes.splice(i, 1); continue; }
       }
       m.scale.setScalar(Math.max(0.0001, sz));
     }

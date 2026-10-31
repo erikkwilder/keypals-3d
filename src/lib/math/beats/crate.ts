@@ -43,9 +43,6 @@ export function wrongIdea(n: number, d: Dims): WrongIdea | null {
   return null;
 }
 
-/** The biggest pile the table shows: past this, the count says the rest. */
-export const MAX_SPILL = 36;
-
 /** The sum as it's written at the end, each number with the line it came from. */
 export type SumPart = { t: string; c?: 'a' | 'b' | 'c' };
 export const sumParts = (d: Dims, inks: ('a' | 'b' | 'c')[] = ['a', 'b', 'c']): SumPart[] => [{ t: String(d.l), c: inks[0] }, { t: '×' }, { t: String(d.w), c: inks[1] }, { t: '×' }, { t: String(d.h), c: inks[2] }, { t: '=' }, { t: String(volume(d)) }];

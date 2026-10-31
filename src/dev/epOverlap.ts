@@ -183,10 +183,8 @@ export async function epOverlap(only?: string[], buddy?: FriendId): Promise<{ co
       w.pose(name);
       for (let i = 0; i < 90; i++) { t += 1 / 30; s.update(1 / 30, t); w.update(1 / 30, t); }
       pictures++;
-      const parts = w.things(), extra: Thing[] = [];
-      const pile = new THREE.Box3();
-      for (const p of parts) { const box = solidBox(p.obj); if (!box) continue; if (p.name === 'crate') extra.push({ name: 'crate', kind: 'piece', box, obj: p.obj }); else pile.union(box); }
-      if (!pile.isEmpty()) extra.push({ name: 'pile of spilled cubes', kind: 'piece', box: pile, obj: parts[0].obj });
+      const extra: Thing[] = [];
+      for (const p of w.things()) { const box = solidBox(p.obj); if (box) extra.push({ name: p.name, kind: 'piece', box, obj: p.obj }); }
       issues.push(...checkNow(s, id, name, extra));
     }
     w.dispose(); s.dispose();

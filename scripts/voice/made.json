@@ -2979,6 +2979,81 @@
   "voice": "coach",
   "h": "9142ccf735"
  },
+ "ep.crate.build": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "6add281c56"
+ },
+ "ep.crate.check": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "53ecd45ebd"
+ },
+ "ep.crate.guess": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "b36530bfac"
+ },
+ "ep.crate.help": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "ec8e96f184"
+ },
+ "ep.crate.job": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "fd88201325"
+ },
+ "ep.crate.layer": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "b58476ea84"
+ },
+ "ep.crate.lucky": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "99899f914e"
+ },
+ "ep.crate.measure": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "3127c8143c"
+ },
+ "ep.crate.name": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "8ae5aa149b"
+ },
+ "ep.crate.off": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "cda59524a0"
+ },
+ "ep.crate.same": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "4b6d3dfd71"
+ },
+ "ep.crate.shut": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "59fb890cad"
+ },
+ "ep.crate.three": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "0b1b1097bf"
+ },
+ "ep.crate.tip": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "7529277782"
+ },
+ "ep.crate.why": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "58a65c0f9c"
+ },
  "ep.data-bars.card": {
   "engine": "local",
   "voice": "coach",
