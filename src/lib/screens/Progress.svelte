@@ -1,5 +1,6 @@
 <script lang="ts">
-  // My progress (a page of My stuff), for the child (a grown-up's Progress reports link here too):
+  // My progress (a page of My stuff), for the child (a grown-up's Reports open it for any child, playing or
+  // not: then it's only to read, with nothing that starts a game):
   // - Time playing: minutes each day this week (green when the goal was hit), the last four weeks, all together.
   // - Going well: math skills that are solid, keys typed fast and right, facts in bloom, speed going up.
   // - Keep practising: skills still growing and tricky keys (each skill opens its topic). Never "behind".
@@ -10,13 +11,14 @@
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
   import { ALL_LESSONS, LESSON, lessonTitle } from '../engine/course';
-  import { bookView, dayKey, passed, totalStars } from '../engine/profile';
+  import { bookView, dayKey, passed, type Profile } from '../engine/profile';
+  import { allStars } from '../engine/team';
   import { mastery } from '../engine/mastery';
   import { AWARD } from '../engine/achievements';
   import { STICKER } from '../engine/stickers';
   import type { LedgerEntry } from '../engine/ledger';
   import { PAINTED_MEDAL_IDS } from '../art/stickerArt';
-  import { mathOf, mathStarsTotal, stageCounts, ALL_GARDEN_IDS } from '../math/progress';
+  import { mathOf, stageCounts, ALL_GARDEN_IDS } from '../math/progress';
   import { MATH_LESSON, groupFacts } from '../math/course';
   import { factId } from '../math/facts';
   import { SKILL_LESSON } from '../math/skills/course';
@@ -32,7 +34,10 @@
   import Ring from '../ui/Ring.svelte';
 
   const base = import.meta.env.BASE_URL;
-  const p = $derived(game.profile!);
+  // (opened from a grown-up's Reports for one child: that child, and Back goes to that child's report)
+  const other = game.progressFor; game.progressFor = null;
+  const p = $derived<Profile>(game.save.profiles.find(x => x.id === other) ?? game.profile!);
+  const reading = $derived(!!other && other !== game.profile?.id);
   const m = $derived(mathOf(p));
   const a = $derived(advView(p));
   const book = $derived(bookView(p));
@@ -87,7 +92,7 @@
   const trips = $derived(m.totals?.trips ?? 0);
   const tricks = $derived(m.learned?.length ?? 0);
   const games = $derived(Object.values(p.arcade ?? {}).reduce((t, r) => t + ((r as { plays?: number } | undefined)?.plays ?? 0), 0));
-  const stars = $derived(totalStars(p) + mathStarsTotal(m));
+  const stars = $derived(allStars(p));
 
   // ---------- what I earned ----------
   type Ev = LedgerEntry;
@@ -148,7 +153,7 @@
 </script>
 
 <div class="screen prog">
-  <Header />
+  <Header title={reading ? `${p.name}'s progress` : undefined} back={other ? () => { game.skillsFor = other; game.back(); } : undefined} />
   <div class="body scroll">
     <div class="wrap">
       <div class="lc">
@@ -191,7 +196,7 @@
           {#if growing.length || trickyKeys.length}
             <p class="sub">These are growing. A little more practice makes them strong!</p>
             <ul class="chips">
-              {#each growing.slice(0, 8) as x (x.s.id)}<li><button class="chip go" style:--ac={x.area.color} onclick={() => practise(x.area.id)} title="Practise {x.area.name}"><i></i>{x.s.name}<img class="arr" src="{base}icons/right.webp" alt="" /></button></li>{/each}
+              {#each growing.slice(0, 8) as x (x.s.id)}<li>{#if reading}<span class="chip go" style:--ac={x.area.color}><i></i>{x.s.name}</span>{:else}<button class="chip go" style:--ac={x.area.color} onclick={() => practise(x.area.id)} title="Practise {x.area.name}"><i></i>{x.s.name}<img class="arr" src="{base}icons/right.webp" alt="" /></button>{/if}</li>{/each}
               {#if trickyKeys.length}<li class="chip keys"><span>Tricky keys to practise</span>{#each trickyKeys as k (k.ch)}<kbd>{k.ch.toUpperCase()}</kbd>{/each}</li>{/if}
             </ul>
           {:else}
@@ -210,10 +215,10 @@
             <div class="tile"><b>{fmt(tricks)}</b><span>tricks learned</span></div>
             <div class="tile"><b>{fmt(games)}</b><span>Arcade games played</span></div>
           </div>
-          <div class="go">
+          {#if !reading}<div class="go">
             <button class="btn" onclick={() => { sfx.click(); openSubjectPage('typing'); }}><img src="{base}game/icon-typing.webp" alt="" />Typing</button>
             <button class="btn" onclick={() => { sfx.click(); openSubjectPage('math'); }}><img src="{base}game/icon-math.webp" alt="" />Math</button>
-          </div>
+          </div>{/if}
         </section>
       </div>
 

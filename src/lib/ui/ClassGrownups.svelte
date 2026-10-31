@@ -1,13 +1,12 @@
 <script lang="ts">
-  // On the Grown-ups screen: the teacher area, linking this player to a class (the teacher says yes
-  // first) or unlinking it, and the world boards for the Arcade's daily challenge (off unless turned on;
-  // a made-up name, never the player's own).
+  // On Grown-ups › Players: linking this player to a class (the teacher says yes first) or unlinking it, and
+  // the world boards for the Arcade's daily challenge (off unless turned on; a made-up name, never the
+  // player's own).
   import { game } from '../state/game.svelte';
   import { cloud } from '../state/cloud.svelte';
   import type { Profile } from '../engine/profile';
   import { send } from '../teach/api';
   import { classesOf, loadClasses, lookupClass, mineOf, type ClassLook } from '../teach/student.svelte';
-  import { openTeach } from '../teach/teacher.svelte';
   import { boardPrefs, setWorldBoards } from '../teach/boards';
   import { cleanClassCode } from '../teach/names';
 
@@ -49,16 +48,12 @@
 </script>
 
 <div class="card cg">
-  <div class="teachrow">
-    <div><h3>Teachers</h3><p class="muted">Make a class, give class work, see a gradebook and reports. Students log in with a class code and two pictures.</p></div>
-    <button class="btn btn-primary" onclick={() => openTeach('grownups')}>Keypals for teachers</button>
-  </div>
-
-  <h4>{p.name} and a class</h4>
+  <h3>{p.name} and a class</h3>
   {#if !cloud.online}
     <p class="muted small">Linking to a class works on keypals.org.</p>
   {:else if !p.cloud}
-    <p class="muted small">Save {p.name} online first (above), then you can link {p.name} to a class so school and home progress are one.</p>
+    <p class="muted small">{p.name} needs to be saved online first. Then you can link {p.name} to a class so school and home progress are one.</p>
+    <button class="btn" onclick={() => { game.guSection = 'saving'; game.go('grownups'); }}>Go to Sign-in and saving</button>
   {:else}
     {#each classes as c (c.id)}
       <p class="small">In <b>{c.name}</b> ({c.teacher}) as {c.student.name}. {#if c.home && asking !== c.id}<button class="lnk" disabled={busy} onclick={() => (asking = c.id)}>Unlink</button>{/if}</p>
@@ -103,9 +98,7 @@
 
 <style>
   .cg { padding: 18px 20px; }
-  .teachrow { display: flex; align-items: center; gap: 16px; }
-  .teachrow h3 { margin: 0 0 2px; }
-  .teachrow p { margin: 0; font: 600 14px/1.4 var(--font-body); }
+  h3 { font-size: 21px; margin: 0 0 8px; }
   h4 { margin: 16px 0 4px; font-size: 16px; }
   .small { font-size: 13.5px; margin: 4px 0 8px; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -116,5 +109,4 @@
   .msg { color: var(--primary); font-weight: 700; }
   .ask { margin: 6px 0 10px; padding: 10px 14px; border-radius: 14px; background: #fff4e0; box-shadow: inset 0 0 0 2px #ffd59a; }
   .ask p { margin: 0 0 8px; }
-  @media (max-width: 600px) { .teachrow { flex-direction: column; align-items: stretch; } }
 </style>

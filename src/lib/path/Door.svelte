@@ -1,7 +1,8 @@
 <script lang="ts">
   // What stands at the door of a place when a grown-up or teacher said so (rules.ts): the place's time is
   // up today ("That's enough island time today. Your island will be here tomorrow!"), or the path comes
-  // first. Kind words, the place's own picture, and a way to the path or Home.
+  // first. Kind words, who set it (the right person: your teacher or your grown-up), the place's own
+  // picture, and a way to the path or Home.
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
   import { STOP, type Door } from './rules';
@@ -11,9 +12,11 @@
   const base = import.meta.env.BASE_URL;
   const stop = $derived(door.kind === 'time' ? STOP[door.place] : null);
   const title = $derived(stop ? stop.title : door.kind === 'path' && door.keep === 'only' ? 'Today is a path day!' : 'First, your path!');
+  const who = $derived(door.from === 'class' ? 'Your teacher' : 'Your grown-up');
   const line = $derived(stop ? stop.line : door.kind === 'path' && door.keep === 'only'
-    ? `${door.from === 'class' ? 'Your teacher' : 'Your grown-up'} put the path on for today. It has Learn, practice, games and battles in it.`
+    ? `${who} put the path on for today. It has Learn, practice, games and battles in it.`
     : `Do ${door.kind === 'path' && door.left === 1 ? '1 more thing' : `${door.kind === 'path' ? door.left : 1} more things`} on your path, then everything opens.`);
+  const said = $derived(door.kind === 'time' ? `${who} set this limit.` : door.keep === 'first' ? `${who} asked for the path first.` : '');
   const art = $derived(stop ? stop.art : 'icons/path.webp');
 </script>
 
@@ -23,6 +26,7 @@
     <h1>{title}</h1>
     <p>{line}</p>
     {#if door.kind === 'time' && door.earned}<p class="small">Practice earns more time here: every minute of practice adds a minute.</p>{/if}
+    {#if said}<p class="small said">{said}</p>{/if}
     <div class="row">
       <button class="btn btn-primary btn-big" onclick={() => { sfx.click(); game.go('path'); }}><img src="{base}icons/path.webp" alt="" />Go to my path</button>
       <button class="btn btn-big" onclick={() => { sfx.click(); game.go('hub'); }}><img src="{base}game/icon-home.webp" alt="" />Home</button>

@@ -10,7 +10,7 @@
   import { onDestroy, onMount, untrack } from 'svelte';
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
-  import { advView, cleared, currentNode, ISLAND, islandsOf, NODE, nodeOpen, practiceDone, type MapNode, type WorldId } from '../adventure/state';
+  import { advView, playRules, cleared, currentNode, ISLAND, islandsOf, NODE, nodeOpen, practiceDone, type MapNode, type WorldId } from '../adventure/state';
   import { mapOf } from '../adventure/worlds';
   import { along, findId, legPoints, other, px, type MapKind, type Pt, type TrailPoint } from '../adventure/trails';
   import { ctxOf, legOf, locked, pickTrail, reach, reachable, route, startPoint, usable, type Leg } from '../adventure/walk';
@@ -25,7 +25,7 @@
 
   const base = import.meta.env.BASE_URL;
   const p = $derived(game.profile!);
-  const a = $derived(advView(p));
+  const a = $derived({ ...advView(p), settings: playRules.of(p) });
   const wmap = $derived(mapOf(world));
   const size = $derived(wmap.size[kind]);
   const ctx = $derived(ctxOf(world, kind, size, a));

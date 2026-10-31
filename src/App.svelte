@@ -18,6 +18,7 @@
   // My path, and the doors grown-ups and teachers can close (the free-time places' daily time, the path first)
   import { doorFor } from './lib/path/rules';
   import { freeClock, playerRules, watchFree } from './lib/path/player.svelte';
+  import { keepPass, passOn } from './lib/path/pass';
   import { loadClasses, startClasses } from './lib/teach/student.svelte';
   import { cloud, startCloud } from './lib/state/cloud.svelte';
   import FancyAntIntro, { introDue } from './lib/ui/FancyAntIntro.svelte';
@@ -99,9 +100,12 @@
   // a class player's class rules (and class work) as soon as the server answers, whatever screen is open
   $effect(() => { const on = cloud.online, id = game.profile?.id; if (on && id) untrack(() => void loadClasses(game.profile)); });
   // (a Learn episode opened over a subject page, as the market's and the clockmaker's are, is Learn)
-  const door = $derived(game.profile ? doorFor((game.screen === 'map' || game.screen === 'way') && game.learnOverlay ? 'learn' : game.screen, game.closetTab, game.profile, playerRules(game.profile), Date.now(), freeClock.running) : null);
+  // (a game or a stop the path or class work opened: no door, and no minutes counted)
+  const door = $derived(game.profile ? doorFor((game.screen === 'map' || game.screen === 'way') && game.learnOverlay ? 'learn' : game.screen, game.closetTab, game.profile, playerRules(game.profile), Date.now(), freeClock.running, { work: passOn(game.screen), playing: freeClock.playing }) : null);
   // minutes count while a free-time place is open (not while its door is shut)
-  $effect(() => { const s = game.screen, t = game.closetTab, id = game.profile?.id ?? null, shut = !!door; untrack(() => watchFree(shut ? 'hub' : s, t, id)); });
+  $effect(() => { const s = game.screen, t = game.closetTab, id = game.profile?.id ?? null, shut = !!door; untrack(() => { keepPass(s); watchFree(shut || passOn(s) ? 'hub' : s, t, id); }); });
+  // a class turned sound off: every switch reads it
+  $effect(() => { const p = game.profile; game.quiet = p ? playerRules(p).quiet : false; });
   // the FancyAnt film plays once a visit when the game opens (not on dev shortcuts like #run=)
   let intro = $state(!location.hash && introDue());
   // every 3D buddy dresses from the player's save: its hat, everything else it has on, and its nudges

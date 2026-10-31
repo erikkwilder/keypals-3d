@@ -1,28 +1,36 @@
 <script lang="ts">
-  // Grown-ups (behind the grown-up check): a plain list of sections, each its own page (← Grown-ups |
-  // Time and goals): Players and saving, Time and goals, Progress reports, Classes, Ideas and help, About,
-  // and Admin (only for the admin). Back from a section comes back to the list.
+  // Grown-ups (behind the grown-up check): one family's children. Four rows, each its own page (← Grown-ups |
+  // Time and rules): Sign-in and saving (who's signed in first), Players (add, rename, delete, link to a class,
+  // My Words, boards), Time and rules, Reports; and Admin for the admin. Pick a child once at the top of a
+  // page. Back from a section comes back to the list. Ideas and About are in the Menu.
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
   import { outfitOf } from '../engine/profile';
   import { ALL_LESSONS } from '../engine/course';
-  import { dayKey, migrate, totalStars, type Profile } from '../engine/profile';
+  import { dayKey, MAX_PROFILES, migrate, type Profile } from '../engine/profile';
+  import { allStars } from '../engine/team';
+  import { mathOf } from '../math/progress';
+  import { AREAS, skillsOf } from '../math/skills/registry';
+  import { skillStatus } from '../math/skills/progress';
   import { mastery } from '../engine/mastery';
   import { LAYOUTS } from '../engine/layouts';
   import { RIDES } from '../engine/rides';
   import { GAME_NAME, SOURCE_PUBLIC, SOURCE_URL, STUDIO, STUDIO_URL } from '../config';
   import { openExternal, saveTextFile } from '../state/platform';
   import { addTester } from '../state/dev';
-  import { advOf, advView, PLAY_RULES, type AdvSettings, type PlayRule } from '../adventure/state';
-  import { AREAS } from '../math/skills/registry';
+  import { advOf, advView, type AdvSettings } from '../adventure/state';
   // My path's rules for a home player: things a day, keep to the path, where the math path starts, and
-  // daily limits for the free-time places (path/rules.ts)
-  import { FREE_PLACES, KEEPS, KEEP_TEXT, LIMITS, LIMIT_NAME, PLACE_NAME, homeRules, setHomeRules, usedMs, type FreePlace, type Keep, type Limit } from '../path/rules';
+  // play time, on the card a teacher's Class rules uses too (path/rules.ts, path/RulesCard.svelte)
+  import { DEFAULT_GOAL, RULE_WORDS, homeRules, ruleDiffs, setHomeRules, usedMs, type FreePlace, type Keep, type Limit, type PlayChoice } from '../path/rules';
+  import { ruledBy } from '../path/player.svelte';
+  import RulesCard from '../path/RulesCard.svelte';
+  import { classesOf, loadClasses } from '../teach/student.svelte';
+  import { dueText, goalText, progressOf } from '../teach/assignments';
   import { gradeName } from '../path/units';
   import { GU_NAME } from '../nav';
   import Header from '../ui/Header.svelte';
   import Critter from '../ui/Critter.svelte';
-  import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, addFromAccount, addAllFromAccount, grownupOpen, showCode } from '../state/cloud.svelte';
+  import { cloud, makeCode, forgetCode, signIn, signOut, deleteAccount, deleteEverywhere, deleteHereOnly, inAccount, addFromAccount, addAllFromAccount, grownupOpen, showCode, call } from '../state/cloud.svelte';
   import { isClassLogin } from '../state/classHere';
   import { notHereCodes } from '../state/sync';
   import { onOldAddress } from '../state/move';
@@ -40,17 +48,18 @@
 
   // the sections: each its own page (game.guSection; null: the list)
   const sec = $derived(game.guSection);
-  type Sec = { id: string; name: string; line: string; icon: string; go?: () => void };
+  type Sec = { id: string; name: string; line: string; icon: string };
+  /** Admin: teachers waiting for a yes */
+  let waitingTeachers = $state(0);
+  $effect(() => { if (cloud.account?.admin) void call<{ teachers: { status: string }[] }>('/admin/teachers').then(r => { waitingTeachers = r.teachers.filter(t => t.status === 'pending').length; }).catch(() => null); });
   const SECTIONS = $derived<Sec[]>([
-    { id: 'players', name: GU_NAME.players, line: 'Saving online, save codes and a progress file', icon: 'icons/cloud-save.webp' },
-    { id: 'time', name: GU_NAME.time, line: 'Daily goal, My path, free-time limits, Adventure play time, My Words', icon: 'icons/clock.webp' },
-    { id: 'progress', name: GU_NAME.progress, line: 'Minutes, stars, speed, every key, and math skills by grade', icon: 'icons/chart.webp' },
-    { id: 'classes', name: GU_NAME.classes, line: 'Teachers: your classes. Families: join a class', icon: 'icons/coach.webp' },
-    { id: 'ideas', name: 'Ideas and help', line: 'Suggest a game, vote on ideas, or tell us about a problem', icon: 'icons/bulb.webp', go: () => game.openIdeas() },
-    { id: 'about', name: 'About Keypals', line: 'Who makes it, how it is made, and how to get in touch', icon: 'brand/ant-mark.png', go: () => game.openAbout() },
-    ...(cloud.account?.admin ? [{ id: 'admin', name: GU_NAME.admin, line: 'Only you see this', icon: 'icons/gem.webp' }] : []),
+    { id: 'saving', name: GU_NAME.saving, line: cloud.account ? `Signed in as ${cloud.account.name?.split(' ')[0] ?? cloud.account.email}. Saving online, save codes and more` : 'Sign in with Google, saving online, save codes and more', icon: 'icons/cloud-save.webp' },
+    { id: 'players', name: GU_NAME.players, line: 'Add, rename or delete a player, link to a class, My Words, boards', icon: 'icons/grownups.webp' },
+    { id: 'time', name: GU_NAME.time, line: 'Daily goal, the path, and play time for the fun places', icon: 'icons/clock.webp' },
+    { id: 'progress', name: GU_NAME.progress, line: 'Math, typing, class work and minutes for each child', icon: 'icons/chart.webp' },
+    ...(cloud.account?.admin ? [{ id: 'admin', name: GU_NAME.admin, line: waitingTeachers ? `${waitingTeachers} teacher${waitingTeachers === 1 ? '' : 's'} waiting` : 'Only you see this', icon: 'icons/gem.webp' }] : []),
   ]);
-  function openSec(x: Sec) { sfx.click(); if (x.go) { x.go(); return; } game.guSection = x.id; game.go('grownups'); }
+  function openSec(x: Sec) { sfx.click(); game.guSection = x.id; game.go('grownups'); }
 
   let saveMsg = $state<string | null>(null);
   async function act(fn: () => Promise<unknown>, done?: string) {
@@ -89,7 +98,7 @@
   let words = $state(game.save.profiles.find(x => x.id === selected)?.customText ?? '');
   $effect(() => { words = p?.customText ?? ''; });
 
-  const passedCount = $derived(p ? ALL_LESSONS.filter(l => (p.lessons[l.id]?.stars ?? 0) > 0).length : 0);
+  const passedCount = $derived(p ? ALL_LESSONS.filter(l => (p!.lessons[l.id]?.stars ?? 0) > 0).length : 0);
   const hist = $derived(p ? p.history.slice(-30) : []);
   const avgWpm = $derived(hist.length ? hist.reduce((a, h) => a + h.wpm, 0) / hist.length : 0);
   const avgAcc = $derived(hist.length ? hist.reduce((a, h) => a + h.acc, 0) / hist.length : 0);
@@ -120,8 +129,56 @@
   const practiceToday = $derived(p ? (p.days[dayKey(Date.now())]?.ms ?? 0) : 0);
   const hr = $derived(p ? homeRules(p) : {} as ReturnType<typeof homeRules>);
   function setAdv(patch: Partial<AdvSettings>) {
-    game.save.profiles.forEach(x => { if (x.id === selected) { const a = advOf(x); a.settings = { ...a.settings, ...patch }; } });
-    game.persist();
+    setFor(x => { const a = advOf(x); a.settings = { ...a.settings, ...patch }; });
+  }
+  function setRules(patch: { keep?: Keep; goal?: number; limits?: Partial<Record<FreePlace, Limit>>; play?: PlayChoice }) {
+    const { play, ...rest } = patch;
+    if (play) setAdv(play);
+    if (Object.keys(rest).length) setFor(x => setHomeRules(x, rest));
+  }
+  // the classes around this child: the ones whose rules hold, and the family's own player linked to one
+  $effect(() => { if (p) void loadClasses(p); });
+  const ruling = $derived(ruledBy(p ?? null));
+  const linked = $derived(classesOf(p ?? null).filter(c => c.home));
+  /** a player a class made: the teacher looks after their name and their online copy */
+  const classKid = $derived(!!p && (isClassLogin(p) || ruling.length > 0));
+  /** the line under each rule where the class and this family disagree */
+  const notes = $derived.by(() => {
+    const out: Record<string, string> = {};
+    if (p) for (const c of ruling) for (const d of ruleDiffs(p, c.settings ?? {})) out[d.key] = d.counts === 'class' ? `${c.name} says ${d.cls}, so that counts.` : `${c.name} says ${d.cls}. Yours is stricter, so yours counts.`;
+    return out;
+  });
+  // the report: every subject
+  const playedMs = $derived(p ? Object.values(p.days).reduce((t, d) => t + (d?.ms ?? 0), 0) : 0);
+  const mathDone = $derived(p ? Object.values(mathOf(p).lessons).filter(l => (l?.stars ?? 0) > 0).length : 0);
+  const skillsSolid = $derived(p ? AREAS.filter(a => a.live).flatMap(a => skillsOf(a.id)).filter(s => !s.facts && skillStatus(mathOf(p!), s.id) === 'solid').length : 0);
+  // renaming and deleting a player, any child: a player kept in the signed-in grown-up's account can go
+  // everywhere (every computer) or from this computer only; a class player only leaves this computer
+  let newName = $state('');
+  $effect(() => { newName = p?.name ?? ''; });
+  function rename() {
+    const n = newName.trim().slice(0, 16);
+    if (n) setFor(x => { x.name = n; });
+    game.say('Name saved');
+  }
+  let askDel = $state<string | null>(null);
+  let delBusy = $state(false);
+  let delMsg = $state<string | null>(null);
+  const everywhereAsk = $derived(!!cloud.account && inAccount(p));
+  function removeHereOnly() {
+    if (!p) return;
+    const name = p.name; askDel = null;
+    deleteHereOnly(p.id);
+    game.say(`${name} is off this computer.`);
+    if (!game.save.profiles.length) game.go('newPlayer');
+  }
+  async function removeEverywhere() {
+    if (!p) return;
+    const name = p.name, id = p.id;
+    delBusy = true; delMsg = null;
+    try { await deleteEverywhere(id); askDel = null; game.say(`${name} was deleted from your account and every computer.`, 5000); if (!game.save.profiles.length) game.go('newPlayer'); }
+    catch (e) { delMsg = (e as Error).message; }
+    finally { delBusy = false; }
   }
   /** change the player picked here (the one playing, or another on this computer) */
   function setFor(fn: (x: Profile) => void) {
@@ -172,6 +229,16 @@
   const fmtMin = (ms: number) => (ms < 3600000 ? `${Math.round(ms / 60000)} min` : `${(ms / 3600000).toFixed(1)} h`);
 </script>
 
+{#snippet whoRow()}
+  <div class="who">
+    {#each game.save.profiles as pr (pr.id)}
+      <button class="pp" class:on={pr.id === selected} aria-pressed={pr.id === selected} onclick={() => (selected = pr.id)}>
+        <Critter friend={pr.buddy} look={pr.settings.look} accessory={outfitOf(pr)} size={52} round /><span>{pr.name}</span>
+      </button>
+    {/each}
+  </div>
+{/snippet}
+
 <div class="screen gu">
   <Header back={game.profile ? undefined : () => game.go('players')} />
   {#if !unlocked}
@@ -189,35 +256,75 @@
           {/each}
         </nav>
       {/if}
-      {#if sec && sec !== 'admin'}
-      <div class="who">
-        {#each game.save.profiles as pr (pr.id)}
-          <button class="pp" class:on={pr.id === selected} onclick={() => (selected = pr.id)}>
-            <Critter friend={pr.buddy} look={pr.settings.look} accessory={outfitOf(pr)} size={52} round /><span>{pr.name}</span>
-          </button>
-        {/each}
-      </div>
-      {/if}
-      {#if sec === 'players'}
-        <!-- first on the page: where progress is kept, signing in, save codes (the save chips open straight
-             here); it works with no player on this device too (a new phone, just signed in) -->
+
+      {#if sec === 'saving'}
+        <!-- first of all: who's signed in. It works with no player on this device too (a new phone, just signed in) -->
+        {#if saveMsg}<p class="small msg">{saveMsg}</p>{/if}
         <div class="card pane acct" bind:this={acctEl} class:flash={flashAcct}>
-          <h3>Saving online</h3>
+          <h3>{cloud.account ? 'Signed in' : 'Sign in'}</h3>
           {#if !cloud.online}
-            <p class="muted small">Progress is kept on this computer. Saving online works on keypals.org.</p>
-          {:else if !p}
-            <p class="muted small">There are no players on this device yet. Make one, or sign in below to bring the players in your account.</p>
-            <div class="row"><button class="btn btn-primary" onclick={() => game.go('newPlayer')}>New player</button></div>
+            <p class="muted small">Progress is kept on this computer. Signing in and saving online work on keypals.org.</p>
+          {:else if cloud.account}
+            <p class="small">Signed in as <b>{cloud.account.name ?? cloud.account.email}</b>{#if cloud.account.email && cloud.account.name}{' '}({cloud.account.email}){/if}. Players on this computer are kept in your account and saved online. Every computer you sign in on shows the same players, and a player deleted everywhere goes from all of them.</p>
+            {#if waiting.length}
+              <p class="muted small">In your account, not on this computer: {waiting.map(cp => cp.name).join(', ')}{waiting.some(cp => removedHere.has(cp.code)) ? ' (removed from this computer only)' : ''}.</p>
+              <div class="row">
+                <button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(async () => { const n = await addAllFromAccount(); return n; }, `Added ${waiting.length === 1 ? waiting[0].name : `all ${waiting.length} players`} to this computer.`)}>{waiting.length === 1 ? `Add ${waiting[0].name} here` : 'Add them all here'}</button>
+                {#if waiting.length > 1}{#each waiting as cp (cp.code)}<button class="btn" disabled={cloud.busy} onclick={() => act(() => addFromAccount(cp.code), `${cp.name} is on this computer now.`)}>Add {cp.name}</button>{/each}{/if}
+              </div>
+            {/if}
+            <div class="row">
+              <button class="btn" onclick={() => act(signOut)}>Sign out</button>
+              {#if !confirmDelete}<button class="btn" onclick={askDelete}>Delete my account</button>{/if}
+            </div>
+            {#if confirmDelete}
+              <div class="stopask" role="alertdialog" aria-label="Delete your account?">
+                <p class="small"><b>Delete your account?</b> You'll be signed out for good. Players on this computer stay on this computer. Pick what happens to the {cloud.players.length === 1 ? 'player' : `${cloud.players.length} players`} saved in your account:</p>
+                <ul class="small">
+                  <li><b>Keep players' codes:</b> they stay saved online and their save codes keep working.</li>
+                  <li><b>Delete saved players:</b> their online copies are deleted and their save codes stop working. This can't be undone.</li>
+                </ul>
+                {#if myClasses.length}
+                  <p class="small"><b>You teach {myClasses.length === 1 ? 'a class' : `${myClasses.length} classes`}: {myClasses.map(c => c.name).join(', ')}.</b> Deleting your account does not delete {myClasses.length === 1 ? 'it' : 'them'}. Students can still log in and play, but nobody can change {myClasses.length === 1 ? 'that class' : 'those classes'} or see {myClasses.length === 1 ? 'its' : 'their'} reports any more. To remove a class and its class players, delete it in For teachers first.</p>
+                {/if}
+                <div class="row">
+                  <button class="btn" onclick={() => (confirmDelete = false)}>Keep my account</button>
+                  {#if myClasses.length}<button class="btn" onclick={() => game.visit('teach')}>Open For teachers</button>{/if}
+                  <button class="btn" onclick={() => act(() => deleteAccount(false), 'Account deleted. Players keep their save codes.')}>Delete account, keep players' codes</button>
+                  <button class="btn" onclick={() => act(() => deleteAccount(true), 'Account and saved players deleted.')}>Delete account and saved players</button>
+                </div>
+              </div>
+            {/if}
+          {:else if cloud.google || cloud.microsoft}
+            <p class="muted small">Sign in to keep all your players together and bring them to any computer in one go, with no codes to remember. Children don't sign in or give an email.</p>
+            <div class="row">
+              {#if cloud.google}<button class="btn btn-primary" onclick={() => signIn('google')}>Sign in with Google</button>{/if}
+              {#if cloud.microsoft}<button class="btn" onclick={() => signIn('microsoft')}>Sign in with Microsoft</button>{/if}
+            </div>
           {:else}
-            {#if p.cloud}
+            <p class="muted small">Signing in isn't set up on this copy of Keypals. Save codes still work.</p>
+          {/if}
+        </div>
+
+        <div class="card pane">
+          <h3>Saving online</h3>
+          {#if !p}
+            <p class="muted small">There are no players on this device yet. Make one, or sign in above to bring the players in your account.</p>
+            <div class="row"><button class="btn" class:btn-primary={!!cloud.account} onclick={() => game.go('newPlayer')}>New player</button></div>
+          {:else}
+            {@render whoRow()}
+            {#if !cloud.online}
+              <p class="muted small">Saving online works on keypals.org.</p>
+            {:else if p.cloud}
               <p class="small"><b>{p.name}'s save code:</b> <span class="code">{showCode(p.cloud.code)}</span></p>
               <p class="muted small">Type it on any computer ("Already play on another computer?" on the player screen) to bring {p.name}'s progress over. It keeps saving as {p.name} plays. If two computers both play, their progress is combined, so nothing is lost.</p>
               <div class="row">
-                <button class="btn btn-primary" onclick={() => (printing = p ?? null)}>Print a code card</button>
+                <button class="btn" onclick={() => (printing = p ?? null)}>Print a code card</button>
                 <!-- (a class player belongs to their class: it's not for a grown-up here to stop) -->
-                {#if !isClassLogin(p) && confirmStop !== p.id}<button class="btn" disabled={cloud.busy} onclick={() => (confirmStop = p.id)}>Stop saving {p.name} online</button>{/if}
+                {#if !classKid && confirmStop !== p.id}<button class="btn" disabled={cloud.busy} onclick={() => (confirmStop = p.id)}>Stop saving {p.name} online</button>{/if}
               </div>
-              {#if !isClassLogin(p) && confirmStop === p.id}
+              {#if classKid}<p class="muted small">{p.name} belongs to a class: the teacher looks after this online copy.</p>{/if}
+              {#if !classKid && confirmStop === p.id}
                 <div class="stopask" role="alertdialog" aria-label="Stop saving {p.name} online?">
                   <p class="small"><b>Stop saving {p.name} online?</b> This deletes the online copy of {p.name}'s progress and the save code stops working. Progress stays on this computer only: other computers won't get it, and if this browser is cleared it's gone.</p>
                   <div class="row">
@@ -228,66 +335,20 @@
               {/if}
             {:else}
               <p class="muted small">Turn on saving online so {p.name}'s progress is safe if this browser is cleared or the device is lost, and to play on another computer too. It saves only the nickname and game progress.</p>
-              <div class="row"><button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(() => makeCode(p.id), `${p.name} is saved online. Print the code card to keep it safe.`)}>Save {p.name} online</button></div>
+              <div class="row"><button class="btn" class:btn-primary={!!cloud.account} disabled={cloud.busy} onclick={() => act(() => makeCode(p.id), `${p.name} is saved online. Print the code card to keep it safe.`)}>Save {p.name} online</button></div>
             {/if}
           {/if}
-          {#if cloud.online && (cloud.google || cloud.microsoft || cloud.account)}
-            <h4>Parents and teachers</h4>
-            {#if cloud.account}
-              <p class="small">Signed in as <b>{cloud.account.name ?? cloud.account.email}</b>{#if cloud.account.email && cloud.account.name}{' '}({cloud.account.email}){/if}. Players on this computer are kept in your account and saved online. Every computer you sign in on shows the same players, and a player deleted everywhere goes from all of them.</p>
-              {#if waiting.length}
-                <p class="muted small">In your account, not on this computer: {waiting.map(cp => cp.name).join(', ')}{waiting.some(cp => removedHere.has(cp.code)) ? ' (removed from this computer only)' : ''}.</p>
-                <div class="row">
-                  <button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(async () => { const n = await addAllFromAccount(); return n; }, `Added ${waiting.length === 1 ? waiting[0].name : `all ${waiting.length} players`} to this computer.`)}>{waiting.length === 1 ? `Add ${waiting[0].name} here` : 'Add them all here'}</button>
-                  {#if waiting.length > 1}{#each waiting as cp (cp.code)}<button class="btn" disabled={cloud.busy} onclick={() => act(() => addFromAccount(cp.code), `${cp.name} is on this computer now.`)}>Add {cp.name}</button>{/each}{/if}
-                </div>
-              {/if}
-              <div class="row">
-                <button class="btn" onclick={() => act(signOut)}>Sign out</button>
-                {#if !confirmDelete}<button class="btn" onclick={askDelete}>Delete my account</button>{/if}
-              </div>
-              {#if confirmDelete}
-                <div class="stopask" role="alertdialog" aria-label="Delete your account?">
-                  <p class="small"><b>Delete your account?</b> You'll be signed out for good. Players on this computer stay on this computer. Pick what happens to the {cloud.players.length === 1 ? 'player' : `${cloud.players.length} players`} saved in your account:</p>
-                  <ul class="small">
-                    <li><b>Keep players' codes:</b> they stay saved online and their save codes keep working.</li>
-                    <li><b>Delete saved players:</b> their online copies are deleted and their save codes stop working. This can't be undone.</li>
-                  </ul>
-                  {#if myClasses.length}
-                    <p class="small"><b>You teach {myClasses.length === 1 ? 'a class' : `${myClasses.length} classes`}: {myClasses.map(c => c.name).join(', ')}.</b> Deleting your account does not delete {myClasses.length === 1 ? 'it' : 'them'}. Students can still log in and play, but nobody can change {myClasses.length === 1 ? 'that class' : 'those classes'} or see {myClasses.length === 1 ? 'its' : 'their'} reports any more. To remove a class and its class players, delete it in For teachers first.</p>
-                  {/if}
-                  <div class="row">
-                    <button class="btn" onclick={() => (confirmDelete = false)}>Keep my account</button>
-                    {#if myClasses.length}<button class="btn" onclick={() => game.visit('teach')}>Open For teachers</button>{/if}
-                    <button class="btn" onclick={() => act(() => deleteAccount(false), 'Account deleted. Players keep their save codes.')}>Delete account, keep players' codes</button>
-                    <button class="btn" onclick={() => act(() => deleteAccount(true), 'Account and saved players deleted.')}>Delete account and saved players</button>
-                  </div>
-                </div>
-              {/if}
-            {:else}
-              <p class="muted small">Sign in to keep all your players together and bring them to any computer in one go, with no codes to remember. Children don't sign in or give an email.</p>
-              <div class="row">
-                {#if cloud.google}<button class="btn" onclick={() => signIn('google')}>Sign in with Google</button>{/if}
-                {#if cloud.microsoft}<button class="btn" onclick={() => signIn('microsoft')}>Sign in with Microsoft</button>{/if}
-              </div>
-            {/if}
-          {/if}
+        </div>
+
+        <div class="card pane more">
+          <h3>More</h3>
           {#if cloud.online && oldAddress && game.save.profiles.some(x => !x.allBuddies)}
             <h4>Keypals has a new address: keypals.org</h4>
             <p class="muted small">Progress is kept separately at each address, so bring your players over once: each gets a save code if it hasn't one, and keypals.org opens with them. Both copies keep saving to the same place, so nothing is lost.</p>
-            <div class="row"><button class="btn btn-primary" disabled={cloud.busy} onclick={() => act(moveToOrg)}>Move my players to keypals.org</button></div>
+            <div class="row"><button class="btn" disabled={cloud.busy} onclick={() => act(moveToOrg)}>Move my players to keypals.org</button></div>
           {/if}
-          {#if saveMsg}<p class="small msg">{saveMsg}</p>{/if}
-          <p class="muted small"><a href="privacy" target="_blank" rel="noopener">How we look after your information</a></p>
-          <h4>Counting visits</h4>
-          <p class="muted small">So we know how many people play and what they play, the game counts visits without knowing who anyone is: how many players came today, which screens and games were opened, how long games lasted, the kind of device and the country. No names, save codes, addresses or ids, and no outside trackers. <a href="privacy#counting" target="_blank" rel="noopener">What we count</a></p>
-          {#if browserSaysNo()}
-            <p class="muted small"><b>This browser asks sites not to track it, so visits from this computer are never counted.</b></p>
-          {:else}
-            <label class="sw"><input type="checkbox" checked={noCount} onchange={(e) => { noCount = e.currentTarget.checked; setCountingOff(noCount); }} /> Don't count my visits (this computer; it also stops automatic problem reports)</label>
-          {/if}
-          <h4>Progress file</h4>
-          <p class="muted small">Or keep a copy yourself: save a file, and load it on another computer.</p>
+          <h4>A copy you keep yourself</h4>
+          <p class="muted small">Save a file, and load it on another computer.</p>
           <div class="row">
             <button class="btn" onclick={exportSave}>Save progress to a file</button>
             <button class="btn" onclick={() => fileInput?.click()}>Load progress from a file</button>
@@ -302,48 +363,90 @@
               </div>
             </div>
           {/if}
+          <h4>Counting visits</h4>
+          <p class="muted small">So we know how many people play and what they play, the game counts visits without knowing who anyone is: how many players came today, which screens and games were opened, how long games lasted, the kind of device and the country. No names, save codes, addresses or ids, and no outside trackers. <a href="privacy#counting" target="_blank" rel="noopener">What we count</a></p>
+          {#if browserSaysNo()}
+            <p class="muted small"><b>This browser asks sites not to track it, so visits from this computer are never counted.</b></p>
+          {:else}
+            <label class="sw"><input type="checkbox" checked={noCount} onchange={(e) => { noCount = e.currentTarget.checked; setCountingOff(noCount); }} /> Don't count my visits (this computer; it also stops automatic problem reports)</label>
+          {/if}
+          <p class="muted small"><a href="privacy" target="_blank" rel="noopener">How we look after your information</a></p>
         </div>
       {/if}
-      {#if !p && sec && sec !== 'admin' && sec !== 'players'}
+
+      {#if !p && sec && sec !== 'admin' && sec !== 'saving'}
         <div class="card pane">
           <h3>No players on this device yet</h3>
-          <p class="muted small">This page is about a player. Make one, or sign in under Players and saving to bring yours here.</p>
+          <p class="muted small">This page is about a player. Make one, or sign in under Sign-in and saving to bring yours here.</p>
           <div class="row"><button class="btn btn-primary" onclick={() => game.go('newPlayer')}>New player</button></div>
         </div>
       {/if}
-      {#if p && sec && sec !== 'admin'}
-        {#if sec === 'progress'}
-        <div class="cards">
-          <div class="stat card"><b>{fmtMin(p.totals.ms)}</b><span>practiced</span></div>
-          <div class="stat card"><b>{passedCount}/{ALL_LESSONS.length}</b><span>lessons passed</span></div>
-          <div class="stat card"><b>{totalStars(p)}</b><span>stars</span></div>
-          <div class="stat card"><b>{Math.round(avgWpm)}</b><span>words a minute (last 30)</span></div>
-          <div class="stat card"><b>{Math.round(avgAcc * 100)}%</b><span>accuracy (last 30)</span></div>
-          <div class="stat card"><b>{RIDES[p.rideBest].name}</b><span>best ride</span></div>
+
+      {#if p && sec === 'players'}
+        <div class="whoadd">
+          {@render whoRow()}
+          {#if game.save.profiles.length < MAX_PROFILES}<button class="btn addp" onclick={() => { sfx.click(); game.go('newPlayer'); }}>+ New player</button>{/if}
         </div>
-        {/if}
-        {#if sec === 'progress'}
-        <div class="card tryall">
-          <div><h3>Math skills by grade</h3><p class="muted">Every math skill from kindergarten to 8th grade, with its school standard and where {p.name} is on each: not started, growing or solid.</p></div>
-          <button class="btn btn-primary" onclick={() => { game.skillsFor = p!.id; game.go('skills'); }}>See skills</button>
+        <div class="card pane">
+          <h3>Name</h3>
+          {#if classKid}
+            <p class="muted small">{p.name} belongs to a class, so the teacher looks after this name.</p>
+          {:else}
+            <form class="row" onsubmit={(e) => { e.preventDefault(); rename(); }}>
+              <input class="txt" bind:value={newName} maxlength="16" aria-label="{p.name}'s name" />
+              <button class="btn" disabled={!newName.trim() || newName.trim() === p.name}>Save</button>
+            </form>
+          {/if}
         </div>
-        {#if p.id === game.profile?.id}
-        <!-- the page the child sees: what's going well, what's growing, time, and everything earned with when -->
-        <div class="card tryall">
-          <div><h3>{p.name}'s My progress</h3><p class="muted">The page {p.name} sees in My stuff: what's going well, what's still growing, minutes each day and week, and every star, shell, egg, medal, sticker and Glimmer earned, with when and from what.</p></div>
-          <button class="btn" onclick={() => game.visit('progress')}>Open My progress</button>
+        <ClassGrownups {p} /><!-- linking to a class, world boards -->
+        <div class="card pane">
+          <h3>My Words</h3>
+          <p class="muted small">Paste a spelling list or any text. It becomes the "My Words" lesson on the Open Road (opens after Bottom Row Burrows).</p>
+          {#each classesOf(p).filter(c => c.settings?.words?.trim()) as c (c.id)}<p class="small said">{c.name} added a spelling list too: it's in the lesson with yours.</p>{/each}
+          <textarea bind:value={words} rows="5" placeholder="because, friend, beautiful, enough..."></textarea>
+          <button class="btn" onclick={saveWords}>Save word list</button>
         </div>
-        {/if}
-        {/if}
-        {#if sec === 'classes'}
-        <ClassGrownups {p} /><!-- classes: teachers, linking to a class, world boards -->
-        {/if}
-        {#if sec === 'time'}
-        <!-- time and goals (moved here from Settings: the grown-ups choose them, the player just plays) -->
+        <div class="card pane">
+          <h3>Delete {p.name}</h3>
+          {#if askDel !== p.id}
+            <p class="muted small">{classKid ? `Takes ${p.name} off this computer. ${p.name} stays in the class.` : p.cloud ? `Takes ${p.name} off this computer, or deletes ${p.name} for good.` : `Deletes ${p.name} and all their stars and stickers from this computer.`}</p>
+            <button class="btn danger" onclick={() => (askDel = p.id)}>{classKid ? `Take ${p.name} off this computer` : `Delete ${p.name}`}</button>
+          {:else if classKid}
+            <div class="stopask" role="alertdialog" aria-label="Take {p.name} off this computer?">
+              <p class="small"><b>Take {p.name} off this computer?</b> {p.name} stays in the class with all their progress, and can log in again with the class code. Only the teacher can remove {p.name} from the class.</p>
+              <div class="row"><button class="btn" onclick={() => (askDel = null)}>Keep</button><button class="btn danger" onclick={removeHereOnly}>Take {p.name} off this computer</button></div>
+            </div>
+          {:else if everywhereAsk}
+            <div class="stopask" role="alertdialog" aria-label="Delete {p.name}?">
+              <p class="small"><b>Delete {p.name} everywhere, or just from this computer?</b> Everywhere: {p.name} and all their stars and stickers are deleted from your account and from every computer they're on. Just this computer: {p.name} stays in your account and can be added again under Sign-in and saving.</p>
+              <div class="row">
+                <button class="btn" onclick={() => (askDel = null)}>Keep</button>
+                <button class="btn" disabled={delBusy} onclick={removeHereOnly}>Just this computer</button>
+                <button class="btn danger" disabled={delBusy} onclick={removeEverywhere}>Delete everywhere</button>
+              </div>
+              {#if delMsg}<p class="small">{delMsg}</p>{/if}
+            </div>
+          {:else if p.cloud}
+            <div class="stopask" role="alertdialog" aria-label="Take {p.name} off this computer?">
+              <p class="small"><b>Take {p.name} off this computer?</b> The online copy stays, and the save code <span class="code">{showCode(p.cloud.code)}</span> brings {p.name} back. To delete the online copy too, stop saving online first (in Sign-in and saving).</p>
+              <div class="row"><button class="btn" onclick={() => (askDel = null)}>Keep</button><button class="btn danger" onclick={removeHereOnly}>Take {p.name} off this computer</button></div>
+            </div>
+          {:else}
+            <div class="stopask" role="alertdialog" aria-label="Delete {p.name}?">
+              <p class="small"><b>Delete {p.name} and all their stars and stickers?</b> {p.name} isn't saved online, so this can't be undone.</p>
+              <div class="row"><button class="btn" onclick={() => (askDel = null)}>Keep</button><button class="btn danger" onclick={removeHereOnly}>Yes, delete {p.name}</button></div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if p && sec === 'time'}
+        {@render whoRow()}
+        {#if linked.length}<p class="small said wide">{p.name} is linked to {linked.map(c => c.name).join(' and ')}. A family's own player keeps the family's rules at home and at school, so yours are the ones that count.</p>{/if}
         <div class="card pane goals">
-          <h3>Time and goals for {p.name}</h3>
+          <h3>Goals for {p.name}</h3>
           <div class="grow">
-            <span class="gl"><b>Daily goal</b><small>Minutes of lessons, trips, Learn and games a day. The minutes in the top bar fill up toward it.</small></span>
+            <span class="gl"><b>Daily goal</b><small>Minutes of lessons, trips, Learn and games a day. Home shows how far along today is.</small></span>
             <div class="seg">{#each [5, 10, 15, 20, 30] as m (m)}<button class:on={p.settings.dailyGoalMin === m} onclick={() => setFor(x => { x.settings.dailyGoalMin = m; })}>{m} min</button>{/each}</div>
           </div>
           <label class="grow">
@@ -356,58 +459,57 @@
               <input type="checkbox" checked={!!p.settings.easy} onchange={(e) => { const v = e.currentTarget.checked; setFor(x => { x.settings.easy = v; }); }} />
             </label>
           {/if}
-          <div class="grow">
-            <span class="gl"><b>My path: things a day</b><small>My path suggests what to do next. Home shows how many of today's things are done ("2 of 3 things done today").</small></span>
-            <div class="seg">{#each [1, 2, 3, 4, 5] as n (n)}<button class:on={(hr.goal ?? 3) === n} onclick={() => setFor(x => setHomeRules(x, { goal: n }))}>{n}</button>{/each}</div>
-          </div>
-          <div class="grow">
-            <span class="gl"><b>Keep to the path</b><small>{KEEP_TEXT[hr.keep ?? 'off'].text}</small></span>
-            <div class="seg">{#each KEEPS as k (k)}<button class:on={(hr.keep ?? 'off') === k} onclick={() => setFor(x => setHomeRules(x, { keep: k as Keep }))}>{KEEP_TEXT[k].name}</button>{/each}</div>
-          </div>
           <label class="grow">
-            <span class="gl"><b>Math path starts at</b><small>The units before it stay open, but the path begins here. A class's grade counts first for a class player.</small></span>
+            <span class="gl"><b>{RULE_WORDS.grade}</b><small>The units before it stay open, but the path begins here.</small>{#if ruling[0]}<small class="said">{ruling[0].name} is {gradeName(ruling[0].grade)}, so the path starts there.</small>{/if}</span>
             <select class="gsel" value={hr.grade ?? -1} onchange={(e) => { const v = Number((e.currentTarget as HTMLSelectElement).value); setFor(x => setHomeRules(x, { grade: v < 0 ? null : v })); }}>
               <option value={-1}>The beginning</option>{#each [0, 1, 2, 3, 4, 5, 6, 7, 8] as g (g)}<option value={g}>{gradeName(g)}</option>{/each}
             </select>
           </label>
-          <div class="grow limits">
-            <span class="gl"><b>Free-time limits</b><small>A daily limit for the just-for-fun places. When the time's up, the door says so kindly and points to the path. Earned: 5 minutes, plus a minute for every minute of practice.</small></span>
-            <div class="lims">
-              {#each FREE_PLACES as pl (pl)}
-                <label>{PLACE_NAME[pl as FreePlace]}<select value={hr.limits?.[pl as FreePlace] ?? 'off'} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value as Limit; setFor(x => setHomeRules(x, { limits: { [pl]: v } })); }}>{#each LIMITS as l (l)}<option value={l}>{LIMIT_NAME(l as Limit)}</option>{/each}</select>
-                  <small>{Math.round(usedMs(p, pl as FreePlace) / 60000)} min today</small></label>
-              {/each}
-            </div>
-          </div>
         </div>
-        {/if}
-        {#if sec === 'time'}
-        <div class="card pane advset">
-          <h3>Adventure: play time</h3>
-          <p class="muted small">Adventure is the battle mode. Every move in a battle is still a math answer or a typed word, and practice is where the eggs hatch. Choose how play time works for {p.name}.</p>
-          <div class="rules">
-            {#each Object.entries(PLAY_RULES) as [id, r]}
-              <button class="rule" class:on={adv?.settings.rule === id} onclick={() => setAdv({ rule: id as PlayRule })}><b>{r.name}</b><span>{r.text}</span></button>
+        <RulesCard who={p.name} keep={hr.keep ?? 'off'} goal={hr.goal ?? DEFAULT_GOAL} limits={hr.limits ?? {}} play={adv!.settings} set={setRules} note={k => notes[k]} used={pl => Math.round(usedMs(p!, pl) / 60000)}>
+          {#snippet today()}
+            <p class="playline">Today: <b>{fmtMin(practiceToday)}</b> practice{#if adv?.day.key === dayKey(Date.now())}, <b>{fmtMin(adv.day.ms)}</b> Adventure: <b>{adv.day.answers}</b> answers in battles, <b>{adv.day.answers ? Math.round((adv.day.right / adv.day.answers) * 100) : 0}%</b> right{:else}, no Adventure yet{/if}.</p>
+          {/snippet}
+        </RulesCard>
+      {/if}
+
+      {#if p && sec === 'progress'}
+        {@render whoRow()}
+        <div class="cards">
+          <div class="stat card"><b>{fmtMin(playedMs)}</b><span>played, all subjects</span></div>
+          <div class="stat card"><b>{allStars(p)}</b><span>stars, all games</span></div>
+          <div class="stat card"><b>{mathDone}</b><span>math trips passed</span></div>
+          <div class="stat card"><b>{skillsSolid}</b><span>math skills solid</span></div>
+          <div class="stat card"><b>{passedCount}/{ALL_LESSONS.length}</b><span>typing lessons passed</span></div>
+          <div class="stat card"><b>{Math.round(avgWpm)}</b><span>words a minute (last 30)</span></div>
+          <div class="stat card"><b>{Math.round(avgAcc * 100)}%</b><span>typing accuracy (last 30)</span></div>
+          <div class="stat card"><b>{RIDES[p.rideBest].name}</b><span>best ride</span></div>
+        </div>
+        <div class="card tryall">
+          <div><h3>Math skills by grade</h3><p class="muted">Every math skill from kindergarten to 8th grade, with its school standard and where {p.name} is on each: not started, growing or solid.</p></div>
+          <button class="btn btn-primary" onclick={() => { game.skillsFor = p!.id; game.go('skills'); }}>See skills</button>
+        </div>
+        {#if classesOf(p).length}
+          <div class="card pane">
+            <h3>Class work</h3>
+            {#each classesOf(p) as c (c.id)}
+              <p class="small"><b>{c.name}</b> ({c.teacher})</p>
+              {#if c.assignments.length}
+                <ul class="work">
+                  {#each c.assignments as a (a.id)}
+                    {@const pr = progressOf(p, a)}
+                    <li><span><b>{a.title}</b><small>{goalText(a)}{a.due ? ` · due ${dueText(a.due)}` : ''}</small></span><span class="wbar"><i style:width="{Math.min(100, pr.done * 100)}%"></i></span><em>{pr.done >= 1 ? 'Done' : pr.status === 'not started' ? 'Not started' : pr.status === 'late' ? 'Late' : `${Math.round(pr.done * 100)}%`}</em></li>
+                  {/each}
+                </ul>
+              {:else}<p class="muted small">No class work right now.</p>{/if}
             {/each}
           </div>
-          <div class="opts">
-            {#if adv?.settings.rule === 'balanced'}
-              <label>Play minutes per practice minute
-                <select value={adv.settings.ratio} onchange={(e) => setAdv({ ratio: Number((e.currentTarget as HTMLSelectElement).value) })}>{#each [0.5, 1, 1.5, 2] as r}<option value={r}>{r === 0.5 ? '1 for every 2' : r === 1 ? '1 for 1' : r === 1.5 ? '3 for every 2' : '2 for 1'}</option>{/each}</select></label>
-              <label>Free minutes each day
-                <select value={adv.settings.freeMin} onchange={(e) => setAdv({ freeMin: Number((e.currentTarget as HTMLSelectElement).value) })}>{#each [0, 5, 10, 15, 20] as m}<option value={m}>{m} min</option>{/each}</select></label>
-            {/if}
-            <label>Most Adventure a day
-              <select value={adv?.settings.capMin ?? 0} onchange={(e) => setAdv({ capMin: Number((e.currentTarget as HTMLSelectElement).value) })}>{#each [0, 15, 20, 30, 45, 60] as m}<option value={m}>{m ? `${m} min` : 'No limit'}</option>{/each}</select></label>
-            <label>Family Duel and Rival Ghosts
-              <select value={adv?.settings.versus === false ? 'off' : 'on'} onchange={(e) => setAdv({ versus: (e.currentTarget as HTMLSelectElement).value === 'on' })}><option value="on">On (players on this device only)</option><option value="off">Off</option></select></label>
-            <label>Battles use
-              <select value={adv?.settings.focus ?? 'all'} onchange={(e) => setAdv({ focus: (e.currentTarget as HTMLSelectElement).value as AdvSettings['focus'] })}><option value="all">All the math met so far</option><option value="+">Adding only</option><option value="-">Taking away only</option><option value="x">Times only</option><option value="/">Sharing only</option>{#each AREAS.filter(a => a.live && !a.op) as a (a.id)}<option value={a.id}>{a.name} only</option>{/each}</select></label>
-          </div>
-          <p class="playline">Today: <b>{fmtMin(practiceToday)}</b> practice{#if adv?.day.key === dayKey(Date.now())}, <b>{fmtMin(adv.day.ms)}</b> Adventure: <b>{adv.day.answers}</b> answers in battles, <b>{adv.day.answers ? Math.round((adv.day.right / adv.day.answers) * 100) : 0}%</b> right{:else}, no Adventure yet{/if}.</p>
-        </div>
         {/if}
-        {#if sec === 'progress'}
+        <!-- the page the child sees: what's going well, what's growing, time, and everything earned with when -->
+        <div class="card tryall">
+          <div><h3>{p.name}'s My progress</h3><p class="muted">The page {p.name} sees in My stuff: what's going well, what's still growing, minutes each day and week, and every star, shell, egg, medal, sticker and Glimmer earned, with when and from what.</p></div>
+          <button class="btn" onclick={() => { game.progressFor = p!.id; game.visit('progress'); }}>Open My progress</button>
+        </div>
         <div class="two">
           <div class="card pane">
             <h3>Minutes per day</h3>
@@ -419,14 +521,12 @@
             <p class="muted small">Daily goal: {p.settings.dailyGoalMin} min. Green bars hit it.</p>
           </div>
           <div class="card pane">
-            <h3>Speed, last {hist.length} runs</h3>
+            <h3>Typing speed, last {hist.length} runs</h3>
             {#if sparkPts}
               <svg viewBox="0 0 300 100" class="spark"><polyline points={sparkPts} fill="none" stroke="var(--primary)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" /></svg>
-            {:else}<p class="muted">A few more runs and a chart shows up here.</p>{/if}
+            {:else}<p class="muted">A few more typing runs and a chart shows up here.</p>{/if}
           </div>
         </div>
-        {/if}
-        {#if sec === 'progress'}
         <div class="card pane">
           <h3>Key by key</h3>
           <p class="muted small">Green keys are mastered; warm keys need practice. "Tricky Keys" on the Open Road drills them.</p>
@@ -436,16 +536,8 @@
             {/each}
           </div>
         </div>
-        {/if}
-        {#if sec === 'time'}
-        <div class="card pane">
-          <h3>My Words</h3>
-          <p class="muted small">Paste a spelling list or any text. It becomes the "My Words" lesson on the Open Road (opens after Bottom Row Burrows).</p>
-          <textarea bind:value={words} rows="5" placeholder="because, friend, beautiful, enough..."></textarea>
-          <button class="btn btn-primary" onclick={saveWords}>Save word list</button>
-        </div>
-        {/if}
       {/if}
+
       {#if printing?.cloud}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -482,6 +574,21 @@
   .secrow b { font: 600 20px var(--font-ui); color: var(--ink); }
   .secrow small { font: 700 14px/1.3 var(--font-body); color: var(--muted); }
   .secrow .chev { width: 26px; height: 26px; opacity: .6; }
+  .whoadd { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .addp { flex: none; }
+  .txt { flex: 1 1 200px; max-width: 280px; min-width: 0; padding: 8px 12px; border-radius: 12px; border: 2px solid var(--line); background: #fff; font: 600 16px var(--font-body); }
+  .danger { color: #c0396f; }
+  .said { font: 700 13px/1.35 var(--font-body); color: #8a4a00; background: #fff4e0; padding: 4px 10px; border-radius: 10px; }
+  .gl .said { display: block; margin-top: 4px; padding: 2px 8px; }
+  .said.wide { margin: 0; }
+  .work { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .work li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .work span:first-child { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; }
+  .work b { font: 700 15px var(--font-body); color: var(--ink); }
+  .work small { font: 600 13px var(--font-body); color: var(--muted); }
+  .wbar { width: 110px; height: 10px; border-radius: 99px; background: #efedf3; overflow: hidden; flex: none; }
+  .wbar i { display: block; height: 100%; background: #4fcf9f; }
+  .work em { font: 700 13px var(--font-body); font-style: normal; color: var(--ink2); min-width: 72px; text-align: right; }
   .tryall { display: flex; align-items: center; gap: 16px; padding: 14px 18px; margin: 12px 0; }
   .tryall h3 { margin: 0 0 2px; }
   .tryall > .btn { flex: none; white-space: nowrap; }
@@ -497,12 +604,6 @@
   .gl small { font: 600 13px/1.35 var(--font-body); color: var(--muted); }
   .grow input[type='checkbox'] { width: 22px; height: 22px; accent-color: var(--primary); flex: none; }
   .gsel { font: 600 15px var(--font-body); padding: 6px 10px; border-radius: 10px; border: 2px solid #e6dff5; flex: none; }
-  .limits { flex-wrap: wrap; }
-  .lims { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 12px; flex: 1 1 520px; }
-  .lims label { display: flex; flex-direction: column; gap: 3px; font: 700 13px var(--font-body); color: var(--ink2); }
-  .lims select { font: 600 14px var(--font-body); padding: 6px 8px; border-radius: 10px; border: 2px solid #e6dff5; }
-  .lims small { font: 700 11.5px var(--font-body); color: var(--muted); }
-  @media (max-width: 760px) { .lims { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .seg { display: flex; gap: 4px; background: var(--bg2); padding: 4px; border-radius: 14px; flex: none; }
   .seg button { border: 0; background: none; padding: 7px 10px; border-radius: 10px; font: 700 13px var(--font-body); color: var(--muted); cursor: pointer; }
   .seg button.on { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
@@ -525,7 +626,7 @@
   .who { display: flex; gap: 10px; flex-wrap: wrap; }
   .pp { display: flex; align-items: center; gap: 6px; padding: 4px 14px 4px 4px; border-radius: 999px; background: #fff; border: 3px solid transparent; box-shadow: var(--shadow-sm); cursor: pointer; font: 600 17px var(--font-ui); color: var(--ink); }
   .pp.on { border-color: var(--primary-hi); }
-  .cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
   .stat { padding: 14px; display: flex; flex-direction: column; }
   .stat b { font: 600 28px var(--font-ui); }
   .stat span { font-size: 13px; color: var(--muted); font-weight: 700; }
@@ -533,17 +634,7 @@
   .pane { padding: 18px 20px; }
   .acct { scroll-margin-top: 12px; transition: box-shadow .4s; }
   .acct.flash { box-shadow: 0 0 0 4px #7fd6a6, 0 0 30px rgba(80, 200, 140, .5); }
-  .advset { margin-bottom: 12px; }
-  .rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
-  .rule { display: flex; flex-direction: column; gap: 3px; text-align: left; border: 3px solid #ece6f6; background: #fff; border-radius: 16px; padding: 10px 12px; cursor: pointer; }
-  .rule b { font: 600 18px var(--font-ui); color: var(--ink); }
-  .rule span { font: 600 13px/1.35 var(--font-body); color: var(--muted); }
-  .rule.on { border-color: var(--primary-hi); background: #f6f2ff; }
-  .opts { display: flex; flex-wrap: wrap; gap: 10px 18px; }
-  .opts label { display: flex; flex-direction: column; gap: 4px; font: 700 13px var(--font-body); color: var(--ink2); }
-  .opts select { font: 600 15px var(--font-body); padding: 6px 10px; border-radius: 10px; border: 2px solid #e6dff5; }
   .playline { margin: 10px 0 0; font: 600 14px var(--font-body); color: var(--ink2); }
-  @media (max-width: 600px) { .rules { grid-template-columns: 1fr; } }
   h3 { font-size: 21px; margin-bottom: 8px; }
   .small { font-size: 13px; margin: 4px 0 10px; }
   .bars { display: flex; align-items: flex-end; gap: 6px; height: 120px; }
@@ -558,10 +649,10 @@
   textarea { width: 100%; padding: 12px; border-radius: 14px; border: 2px solid var(--line); font: 600 16px var(--font-body); margin-bottom: 10px; resize: vertical; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; }
   .about p { color: var(--ink2); }
-  /* phones: the six numbers in two rows of three, charts one under the other, smaller keys */
+  /* phones: the numbers two by two, charts one under the other, smaller keys */
   @media (max-width: 760px) {
     .body { padding: 14px 12px 40px; }
-    .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .stat { padding: 10px; } .stat b { font-size: 20px; }
     .two { grid-template-columns: 1fr; }
     .hrow { gap: 3px; } .hrow span { width: 25px; height: 30px; font-size: 13px; border-radius: 7px; }

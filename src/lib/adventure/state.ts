@@ -24,6 +24,7 @@ import { championPrize, type BuddyGear, type GearItem, type Wardrobe } from './g
 import type { RegionId } from '../engine/course';
 import { newStats, noteStats, type GhostStats, type RivalState } from './ghosts';
 import { parallel, tellStops } from './trails';
+import { pass } from '../path/pass';
 
 // ---------- the map ----------
 export type IslandId = 'meadow' | 'treetops' | 'bay' | 'falls' | 'caves' | 'market' | 'clockwork' | 'peaks' | 'jungle' | 'frost' | 'fair' | 'stars';
@@ -248,18 +249,21 @@ export function collectStop(p: Profile, id: string): { shells: number; ready: Ra
   return { shells: 20, ready: warmEggs(p, 5) };
 }
 
-// ---------- play time: the grown-ups' rule ----------
+// ---------- play time: the grown-ups' and the class's rule ----------
 export const PLAY_RULES: Record<PlayRule, { name: string; text: string }> = {
-  open: { name: 'Open', text: 'Adventure is always open. Practice still hatches eggs and finishes the practice stops.' },
+  open: { name: 'Open', text: 'Always open. Practice still hatches eggs and finishes the practice stops.' },
   balanced: { name: 'Balanced', text: 'Practice earns play time, plus some free minutes every day.' },
-  practiceFirst: { name: 'Practice first', text: 'Adventure opens once today\'s practice goal is reached.' },
+  practiceFirst: { name: 'Practice first', text: 'Opens once today\'s practice goal is reached.' },
 };
+/** The play-time rules that hold for a player: their own, plus their class's when they're in one
+ *  (path/player.svelte.ts fills that in). Battles, the Arcade and Glimmer Drop all read it here. */
+export const playRules = { of: (p: Profile): AdvSettings => advView(p).settings };
 export function today(a: Adventure, now: number) { const k = dayKey(now); if (a.day.key !== k) a.day = { key: k, ms: 0, answers: 0, right: 0 }; return a.day; }
 export function practiceMinToday(p: Profile, now = Date.now()) { return (p.days[dayKey(now)]?.ms ?? 0) / 60000; }
 /** Whether Adventure is open now, and how many play minutes are left today (null: no limit). */
 export function playLeft(p: Profile, now = Date.now()): { open: boolean; left: number | null; why: string } {
   // read only (screens call this while drawing)
-  const a = advView(p), s = a.settings, used = (a.day.key === dayKey(now) ? a.day.ms : 0) / 60000;
+  const a = advView(p), s = playRules.of(p), used = (a.day.key === dayKey(now) ? a.day.ms : 0) / 60000;
   let left: number | null = null;
   if (s.rule === 'practiceFirst' && !p.days[dayKey(now)]?.goal) return { open: false, left: 0, why: 'Adventure opens once today\'s practice goal is reached.' };
   if (s.rule === 'balanced') left = s.freeMin + practiceMinToday(p, now) * s.ratio - used;
@@ -273,7 +277,7 @@ export function playLeft(p: Profile, now = Date.now()): { open: boolean; left: n
  *  plus facts. Open cards come in once some times or plus facts are known well. `only`: a math world's
  *  area (Fraction Falls), which wins over the grown-ups' focus. */
 export function mathPool(p: Profile, only?: AreaId): Pool {
-  const m = mathOf(p), focus = only ?? advView(p).settings.focus;
+  const m = mathOf(p), focus = only ?? playRules.of(p).focus;
   // a math world's area, or one the grown-ups chose (fractions...): every card is one of its questions, and
   // so is each quick block when the area has questions with a whole-number answer, negative ones too (the
   // block box has a minus key and Check for those: battle.ts quickItem); the facts met so far are there
@@ -498,7 +502,9 @@ export function applyBattle(p: Profile, r: BattleRun): BattleOutcome {
   const a = advOf(p), rng = mulberry32(r.seed ^ 0x5bd1e995);
   const node = NODE[r.node], isl = ISLAND[node.island], islandN = isl.tier;
   const day = today(a, r.at);
-  day.ms += r.ms; day.answers += r.answers; day.right += r.right;
+  // (a stop the path or class work sent you to isn't play time)
+  if (!pass.world) day.ms += r.ms;
+  day.answers += r.answers; day.right += r.right;
   noteLadder(p, a, r.right, r.at);
   a.battles++;
   // how you play, for your Rival Ghost

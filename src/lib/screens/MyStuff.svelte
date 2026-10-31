@@ -5,7 +5,8 @@
   // progress. Opened from the top bar's chest on every screen; Back goes where it was opened from.
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
-  import { bookView, palOf, totalStars } from '../engine/profile';
+  import { bookView, palOf } from '../engine/profile';
+  import { allStars } from '../engine/team';
   import { STICKERS, levelFromXp } from '../engine/stickers';
   import { MEDALS } from '../engine/achievements';
   import { DANCES, forBuddy } from '../engine/rewards';
@@ -13,7 +14,7 @@
   import { GLIMMER_TOTAL } from '../adventure/glimmers';
   import { advView, teamOf } from '../adventure/state';
   import { CATALOG, ownsItem } from '../adventure/wardrobe';
-  import { mathOf, mathStarsTotal, stageCounts, ALL_GARDEN_IDS } from '../math/progress';
+  import { mathOf, stageCounts, ALL_GARDEN_IDS } from '../math/progress';
   import { FRIEND } from '../art/cast';
   import Header from '../ui/Header.svelte';
   import { STUFF_GO } from '../nav';
@@ -52,7 +53,7 @@
     { id: 'glimmers', name: 'Glimmers', count: `${found}`, line: `of ${GLIMMER_TOTAL} met${team.length ? ` · ${team.length} on your team` : ''}`, pic: 'glimmers', tone: '#2e9e6e', go: STUFF_GO.glimmers },
     { id: 'eggs', name: 'Eggs', count: `${eggsAll}`, line: eggsReady ? `${eggsReady} ready to hatch!` : eggsAll ? 'warming up' : 'practice hatches eggs', pic: 'eggs', badge: warming ? `game/egg-${warming.rarity}.webp` : undefined, tone: '#b4561a', hot: eggsReady > 0, go: STUFF_GO.eggs },
     { id: 'garden', name: 'Fact Garden', count: `${blooms}`, line: `in bloom · ${growing} growing`, pic: 'garden', tone: '#1f7a50', go: STUFF_GO.garden },
-    { id: 'progress', name: 'My progress', count: fmt(totalStars(p) + mathStarsTotal(m)), line: "stars, what's going well, and what you earned", pic: 'progress', tone: '#5b3fd0', go: STUFF_GO.progress },
+    { id: 'progress', name: 'My progress', count: fmt(allStars(p)), line: "stars, what's going well, and what you earned", pic: 'progress', tone: '#5b3fd0', go: STUFF_GO.progress },
   ]);
   function go(f: () => void) { sfx.click(); f(); }
 </script>

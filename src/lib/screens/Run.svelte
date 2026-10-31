@@ -1,5 +1,6 @@
 <script lang="ts">
   import PauseButton from '../ui/PauseButton.svelte';
+  import { wordsFor } from '../path/player.svelte';
   import { placeName } from '../nav';
   import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
@@ -56,7 +57,7 @@
     seed: Math.floor(Math.random() * 1e9),
     words: grown ? WORDS_KIDS.concat(WORDS_GROWN) : WORDS_KIDS,
     pools: POOLS,
-    custom: profile.customText,
+    custom: wordsFor(profile),
   });
   // now and then one letter in the middle of the lesson is golden: typing it right is a little party
   const gold = (() => { if (!chance(1 / 5)) return -1; const at = [...text].map((c, i) => (/[a-z]/i.test(c) && i > text.length * 0.25 && i < text.length * 0.8 ? i : -1)).filter(i => i >= 0); return at.length ? at[Math.floor(Math.random() * at.length)] : -1; })();
@@ -481,7 +482,7 @@
           <div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore ?? Math.round(record.bestWpm)} · {move === 'run' ? 'ride' : 'top speed'}: {rideName(record.bestRide, move)}{#if record.platinum} · platinum!{/if}</div>
         {/if}
         <div class="pills">
-          <label class="pill"><input type="checkbox" checked={game.settings.voice !== false} onchange={() => toggleVoice('voice')} /> Coach voice</label>
+          <label class="pill"><input type="checkbox" disabled={game.quiet} checked={game.settings.voice !== false} onchange={() => toggleVoice('voice')} /> Coach voice</label>
           <button class="pill" onclick={speakIntro}><TileArt kind="sfx" size={24} /> Hear it again</button>
           <label class="pill"><input type="checkbox" bind:checked={keyboardOn} /> Keyboard</label>
           <label class="pill"><input type="checkbox" bind:checked={handsOn} onchange={() => (handsEverShown ||= handsOn)} /> Hands</label>

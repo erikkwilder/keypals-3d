@@ -22,12 +22,12 @@
 <div class="music" class:off={musicOff} class:compact>
   <img class="st" src="{base}icons/music/{now.station}.webp" alt="" />
   <div class="nt">
-    {#if musicOff}<b>Music is off</b>
+    {#if musicOff}<b>{game.quiet ? 'Your teacher turned this off' : 'Music is off'}</b>
     {:else}<small>Now playing · {STATION[now.station]?.name ?? ''}</small><b>{now.title ?? '...'}</b>{/if}
   </div>
   <div class="mb">
-    <button class="btn" onclick={next}><img src="{base}icons/play.webp" alt="" />Next song</button>
-    <button class="btn" onclick={pick}><img src="{base}icons/music.webp" alt="" />Pick music</button>
+    <button class="btn" disabled={game.quiet} onclick={next}><img src="{base}icons/play.webp" alt="" />Next song</button>
+    <button class="btn" disabled={game.quiet} onclick={pick}><img src="{base}icons/music.webp" alt="" />Pick music</button>
   </div>
 </div>
 

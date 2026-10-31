@@ -57,7 +57,7 @@
       <TileArt kind={mode === 'setup' ? 'sfx' : 'settings'} size={52} />
       <div>
         <h2>{mode === 'setup' ? 'How should Keypals sound?' : 'Settings'}</h2>
-        <p class="muted">{mode === 'setup' ? 'Tap to switch things on or off. You can change this any time in the Menu.' : 'Tap a card to switch it on or off.'}</p>
+        <p class="muted">{game.quiet ? 'Your teacher turned the sound off for your class.' : mode === 'setup' ? 'Tap to switch things on or off. You can change this any time in the Menu.' : 'Tap a card to switch it on or off.'}</p>
       </div>
       <button class="x" aria-label="Close" onclick={close}><TileArt kind="close" size={40} /></button>
     </div>
@@ -65,7 +65,7 @@
     <div class="grid">
       {#each ROWS as r (r.key)}
         {@const on = isOn(r.key)}
-        <button class="opt" class:on onclick={() => toggle(r.key)} aria-pressed={on}>
+        <button class="opt" class:on disabled={game.quiet} onclick={() => toggle(r.key)} aria-pressed={on}>
           <span class="pic">
             {#if r.art}<TileArt kind={r.art} size={70} off={!on} />
             {:else if p}<span class="pal" class:off={!on}><Critter friend={p.buddy} look={s.look} accessory={outfitOf(p)} size={74} lite /><span class="bub">hi!</span></span>{/if}

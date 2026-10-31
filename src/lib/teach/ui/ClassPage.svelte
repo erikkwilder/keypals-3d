@@ -1,6 +1,6 @@
 <script lang="ts">
   // One class: its code and login cards up top, then tabs: this week, students, class work, the
-  // gradebook, skills, standards, the class's boards, and settings. A student's own page opens over it.
+  // gradebook, skills, standards, the class's boards, and class rules. A student's own page opens over it.
   import { teach, act, loadProfiles, type Tab } from '../teacher.svelte';
   import { showClassCode } from '../names';
   import type { Kid } from '../reports';
@@ -22,7 +22,7 @@
   const kids = $derived<Kid[]>(active.map(s => ({ id: s.id, name: s.name, profile: teach.profiles[s.id] ?? null })));
   const TABS: { id: Tab; name: string }[] = [
     { id: 'overview', name: 'This week' }, { id: 'students', name: 'Students' }, { id: 'work', name: 'Class work' }, { id: 'gradebook', name: 'Gradebook' },
-    { id: 'skills', name: 'Skills' }, { id: 'standards', name: 'Standards' }, { id: 'boards', name: 'Boards' }, { id: 'settings', name: 'Settings' },
+    { id: 'skills', name: 'Skills' }, { id: 'standards', name: 'Standards' }, { id: 'boards', name: 'Boards' }, { id: 'settings', name: 'Class rules' },
   ];
   function go(t: Tab) { teach.tab = t; teach.studentId = null; teach.msg = null; }
 </script>

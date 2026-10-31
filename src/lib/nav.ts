@@ -191,7 +191,7 @@ export const SCREEN_NAME: Partial<Record<Screen, string>> = {
 };
 /** Grown-ups' sections (screens/Grownups.svelte) */
 export const GU_NAME: Record<string, string> = {
-  players: 'Players and saving', time: 'Time and goals', progress: 'Progress reports', classes: 'Classes', admin: 'Admin',
+  saving: 'Sign-in and saving', players: 'Players', time: 'Time and rules', progress: 'Reports', admin: 'Admin',
 };
 /** What a place is called (a page's title, and "Back to ..." on a Pause card). */
 export function placeName(pl: Place): string {
@@ -221,7 +221,7 @@ export function trailOf(pl: Place): string {
   }
   if (pl.screen === 'map' || pl.screen === 'way') return c.topic ? `${SUBJECT[s]?.name ?? ''} › ${topicName(s, c.topic)}` : SUBJECT[s]?.name ?? '';
   if (pl.screen === 'grownups' && c.guSection) return 'Grown-ups';
-  if (pl.screen === 'skills') return 'Grown-ups › Progress reports';
+  if (pl.screen === 'skills') return 'Grown-ups › Reports';
   return '';
 }
 

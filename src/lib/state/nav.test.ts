@@ -102,7 +102,7 @@ describe('nobody picked: a new phone just back from signing in with Google', () 
     expect(game.screen).toBe('teach');
     fresh('Signed in');
     landSignedIn(false);
-    expect(game.here()).toEqual(P('grownups', { guSection: 'players' }));
+    expect(game.here()).toEqual(P('grownups', { guSection: 'saving' }));
   });
   it('the sign-in button is on the first screens, and the teachers\' page is not the only way in', () => {
     for (const f of ['../screens/Title.svelte', '../screens/NewPlayer.svelte', '../screens/Players.svelte']) expect(src(f), f).toContain('<GoogleSignIn');
@@ -110,10 +110,10 @@ describe('nobody picked: a new phone just back from signing in with Google', () 
   });
   it('the Grown-ups saving page works with no player on this device, and every other page says what to do', () => {
     const g = src('../screens/Grownups.svelte');
-    const pane = g.indexOf('class="card pane acct"'), onlyWithPlayer = g.indexOf("{#if p && sec && sec !== 'admin'}");
+    const pane = g.indexOf('class="card pane acct"'), onlyWithPlayer = g.indexOf("{#if p && sec === 'players'}");
     expect(pane).toBeGreaterThan(0);
     expect(pane, 'the saving page is not inside the block that needs a player').toBeLessThan(onlyWithPlayer);
-    expect(g).toContain("{#if !p && sec && sec !== 'admin' && sec !== 'players'}");
+    expect(g).toContain("{#if !p && sec && sec !== 'admin' && sec !== 'saving'}");
   });
   it('the teachers\' page offers a parent the way to their players, signed in or not', () => {
     const t = src('../screens/Teach.svelte');
@@ -419,7 +419,7 @@ describe('saving online, for grown-ups', () => {
   });
   it('a class player has no Stop saving, and their copy is never deleted from here', async () => {
     const g = src('../screens/Grownups.svelte');
-    expect(g.match(/!isClassLogin\(p\) && confirmStop/g)?.length).toBe(2);
+    expect(g.match(/!classKid && confirmStop/g)?.length).toBe(2);
     const p = player('Class kid', 'BLUE-OWL-SKY-2');
     const store: Record<string, string> = { 'kp-class-here': JSON.stringify(['BLUE-OWL-SKY-2']) };
     vi.stubGlobal('localStorage', { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = v; }, removeItem: (k: string) => { delete store[k]; } });

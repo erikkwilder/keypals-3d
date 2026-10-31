@@ -120,8 +120,12 @@ class Game {
   get profile(): Profile | null {
     return this.save.profiles.find(p => p.id === this.save.activeId) ?? null;
   }
+  /** a class turned sound off for this player (App.svelte): music, sounds and the voice stay off, whatever
+   *  the player's own switches say, and those switches are kept as they were for when it's turned back on */
+  quiet = $state(false);
   get settings(): Settings {
-    return this.profile?.settings ?? defaultish;
+    const s = this.profile?.settings ?? defaultish;
+    return this.quiet ? { ...s, sound: false, music: false, voice: false } : s;
   }
   get layout() {
     return LAYOUTS[this.settings.layout] ?? LAYOUTS.qwerty;
@@ -351,6 +355,8 @@ class Game {
   skillLessonId = $state('frac-a-1');
   /** the player the grown-ups' skills report is about (null: the one playing) */
   skillsFor = $state<string | null>(null);
+  /** My progress, opened from a grown-up's Reports for this child (who may not be the one playing) */
+  progressFor = $state<string | null>(null);
   /** the area the math map shows (a skill area), or null */
   mathArea = $state<import('../math/skills/types').AreaId | null>(null);
   skillLast = $state<(import('../math/skills/progress').SkillOutcome & { lessonId: string; stats: import('../math/meter').TripStats; results: import('../math/skills/progress').SkillResult[]; stars: number; bestRide: number; finished: boolean }) | null>(null);
