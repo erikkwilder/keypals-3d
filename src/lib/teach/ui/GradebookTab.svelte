@@ -30,6 +30,17 @@
   {#if !work.length}
     <p class="muted">No class work yet: make some on the Class work tab.</p>
   {:else}
+    <!-- a phone: one block a student, nothing runs off the side -->
+    <div class="bykid">
+      {#each grid as row (row.k.id)}
+        <div class="kid">
+          <div class="kh"><button class="namebtn" onclick={() => (teach.studentId = row.k.id)}>{row.k.name}</button><b>{avg(row.cells) ?? '—'}</b></div>
+          {#each row.cells as pr, i (work[i].id)}
+            {#if pr !== undefined}<p><span>{work[i].title}</span><em style:background={COLORS[pr?.status ?? 'not started']} style:color={INK[pr?.status ?? 'not started']}>{pr?.score ?? 0}</em></p>{/if}
+          {/each}
+        </div>
+      {/each}
+    </div>
     <div class="scrollx">
       <table class="tt gb">
         <thead>
@@ -71,4 +82,14 @@
   .sc { display: inline-flex; flex-direction: column; align-items: center; min-width: 74px; padding: 4px 8px; border-radius: 10px; font: 600 18px var(--font-ui); line-height: 1.1; }
   .sc small { font: 800 10.5px var(--font-body); }
   .na { color: #b8b0c8; }
+  .bykid { display: none; }
+  @media (max-width: 760px) {
+    .scrollx { display: none; }
+    .bykid { display: flex; flex-direction: column; gap: 8px; }
+    .kid { padding: 8px 0; border-top: 1px solid #f0ecf7; }
+    .kh { display: flex; justify-content: space-between; align-items: center; }
+    .kid p { display: flex; justify-content: space-between; gap: 10px; margin: 4px 0 0; align-items: center; }
+    .kid p span { min-width: 0; overflow-wrap: anywhere; }
+    .kid em { font: 800 13px var(--font-body); font-style: normal; padding: 2px 10px; border-radius: 8px; }
+  }
 </style>

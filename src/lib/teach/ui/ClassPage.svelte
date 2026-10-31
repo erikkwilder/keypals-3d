@@ -1,6 +1,6 @@
 <script lang="ts">
   // One class: its code and login cards up top, then tabs: this week, students, class work, the
-  // gradebook, skills, standards, the class's boards, and settings. A student's own page opens over it.
+  // gradebook, skills, standards, the class's boards, and class rules. A student's own page opens over it.
   import { teach, act, loadProfiles, type Tab } from '../teacher.svelte';
   import { showClassCode } from '../names';
   import type { Kid } from '../reports';
@@ -22,7 +22,7 @@
   const kids = $derived<Kid[]>(active.map(s => ({ id: s.id, name: s.name, profile: teach.profiles[s.id] ?? null })));
   const TABS: { id: Tab; name: string }[] = [
     { id: 'overview', name: 'This week' }, { id: 'students', name: 'Students' }, { id: 'work', name: 'Class work' }, { id: 'gradebook', name: 'Gradebook' },
-    { id: 'skills', name: 'Skills' }, { id: 'standards', name: 'Standards' }, { id: 'boards', name: 'Boards' }, { id: 'settings', name: 'Settings' },
+    { id: 'skills', name: 'Skills' }, { id: 'standards', name: 'Standards' }, { id: 'boards', name: 'Boards' }, { id: 'settings', name: 'Class rules' },
   ];
   function go(t: Tab) { teach.tab = t; teach.studentId = null; teach.msg = null; }
 </script>
@@ -34,7 +34,7 @@
       <span>Grade {GRADES[c.class.grade]} · {active.length} student{active.length === 1 ? '' : 's'}</span>
     </div>
     <div class="ccode"><span>Class code</span><b>{showClassCode(c.class.code)}</b></div>
-    <button class="btn btn-primary" disabled={!active.length} onclick={() => (teach.printing = true)}>Print login cards</button>
+    <button class="btn" disabled={!active.length} onclick={() => (teach.printing = true)}>Print login cards</button>
   </section>
 
   <nav class="tabs" aria-label="Class pages">
@@ -101,5 +101,15 @@
   @media (max-width: 700px) {
     .ct h2 { font-size: 22px; }
     .tabs button { padding: 8px 9px; font-size: 13.5px; }
+    .teachui :global(.tp) { padding: 14px; }
+    .teachui :global(.tt th) { white-space: normal; padding: 6px 4px; }
+    .teachui :global(.tt td) { padding: 6px 4px; overflow-wrap: anywhere; }
+  }
+  /* a phone: a table marked "stack" turns into blocks, one a row, so nothing runs off the side */
+  @media (max-width: 760px) {
+    .teachui :global(.tt.stack thead) { display: none; }
+    .teachui :global(.tt.stack tr) { display: block; padding: 8px 0; border-bottom: 1px solid #f0ecf7; }
+    .teachui :global(.tt.stack td) { display: block; padding: 3px 0; border: 0; overflow-wrap: anywhere; }
+    .teachui :global(.tt.stack td[data-l]::before) { content: attr(data-l) ': '; font-weight: 800; color: #7a7092; }
   }
 </style>

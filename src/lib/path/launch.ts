@@ -16,6 +16,7 @@ import type { PathItem, Unit } from './units';
 import { unitFromAssignment } from './classPath';
 import { unitState } from './progress';
 import { warmLesson } from './lessonProgress';
+import { clearPass, pass } from './pass';
 import type { AssignmentData } from '../teach/assignments';
 
 /** the subject My path shows when it opens again (after a Learn episode, from Home) */
@@ -70,7 +71,10 @@ export function startItem(p: Profile, u: Unit, it: PathItem) {
   pathRun.cur = null;
   if (k === 'game') {
     const t = SUBJECT.math.ways.games.things.find(x => x.id === a);
+    const was = game.screen;
+    pass.game = true; // (a game on the path never counts against the Arcade's limit)
     if (t) openThing(SUBJECT.math, 'games', t);
+    if (game.screen === was) clearPass();
     return;
   }
   if (k === 'battle') {
@@ -80,12 +84,17 @@ export function startItem(p: Profile, u: Unit, it: PathItem) {
     game.update(pp => { advOf(pp).subject = subj; });
     worldSubject.id = subj;
     lastWorld.id = a as WorldId;
+    pass.world = a; pass.fought = false; // (Path only still opens this stop, and play time doesn't hold it up)
     game.go('adventure');
     return;
   }
   if (k === 'thing') {
     const s = SUBJECT[u.subject], t = s?.ways[a as WayId]?.things.find(x => x.id === b);
+    const was = game.screen;
+    if (a === 'adventure') { pass.world = b; pass.fought = false; }
+    if (a === 'games') pass.game = true;
     if (s && t) openThing(s, a as WayId, t);
+    if (game.screen === was) clearPass();
   }
 }
 

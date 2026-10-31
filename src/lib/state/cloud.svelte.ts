@@ -32,7 +32,7 @@ export const cloud = $state({
   /** a grown-up was signed in on this computer and isn't any more (the sign-in ran out, or was ended on
    *  another computer): Home says so until they sign in again or choose to stay signed out */
   signedOut: null as null | { name: string },
-  /** the next Grown-ups screen opens straight on "Saving online" (from the menu or a save-status chip) */
+  /** the next Grown-ups screen opens straight on "Sign-in and saving" (from the menu or a save-status chip) */
   focusAccount: false,
 });
 
@@ -57,8 +57,8 @@ export function saveStatus(p: Profile | null): { kind: 'account' | 'code' | 'cla
   if (who) return { kind: 'local', text: `Signed in as ${who}: not saved online yet`, short: `Signed in as ${who}` };
   return { kind: 'local', text: 'Only on this computer: keep your progress safe', short: 'Not saved online' };
 }
-/** Open the grown-ups' "Saving online" (behind the grown-up check). */
-export function goSaveOnline() { cloud.focusAccount = true; game.guSection = 'players'; game.visit('grownups'); }
+/** Open the grown-ups' "Sign-in and saving" (behind the grown-up check). */
+export function goSaveOnline() { cloud.focusAccount = true; game.guSection = 'saving'; game.visit('grownups'); }
 
 /** A server answer that wasn't "ok", with its status (410: a grown-up deleted that player everywhere). */
 export class ApiError extends Error {
@@ -324,7 +324,9 @@ export function signInForTeach() { try { sessionStorage.setItem(TEACH_RETURN, '1
 export async function signOut() { await call('/auth/logout', { method: 'POST' }).catch(() => null); cloud.account = null; cloud.players = []; forgetSignIn(); cloud.signedOut = null; }
 export async function deleteAccount(withPlayers: boolean) {
   await call('/me', { method: 'DELETE', body: JSON.stringify({ players: withPlayers }) });
-  if (withPlayers) for (const p of game.save.profiles) { if (p.cloud) dropBase(p.cloud.code); delete p.cloud; }
+  // (only the players the account held lost their online copies: a class player here, or one saved with
+  // just a code, keeps its save)
+  if (withPlayers) for (const p of game.save.profiles) { if (p.cloud && viaAccount(p.cloud.code) && !isClassLogin(p)) { dropBase(p.cloud.code); delete p.cloud; } }
   game.persist();
   cloud.account = null; cloud.players = [];
   forgetSignIn(); cloud.signedOut = null;
@@ -357,7 +359,7 @@ export async function addFromAccount(code: string) { clearNotHere(code); return 
  *  deleted by that grown-up, signed in. */
 export async function forgetCode(id: string) {
   const p = game.save.profiles.find(x => x.id === id);
-  // (a class player's copy is the class's: it's not deleted from here)
+  // (a class player's copy is the class's: it's not deleted from here, and the server refuses too)
   if (!p?.cloud || isClassLogin(p)) return;
   await call(`/players/${p.cloud.code}`, { method: 'DELETE' });
   dropBase(p.cloud.code);
@@ -432,7 +434,7 @@ function teachReturn(): boolean {
  *  yet: choose who's playing (their players have just come from the account), or make the first one. */
 export function landSignedIn(fromTeach: boolean) {
   if (fromTeach) game.go('teach');
-  else if (game.profile) { game.guSection = 'players'; game.go('grownups'); }
+  else if (game.profile) { game.guSection = 'saving'; game.go('grownups'); }
   else game.go(game.save.profiles.length ? 'players' : 'newPlayer');
 }
 

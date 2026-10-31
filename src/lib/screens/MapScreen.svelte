@@ -4,6 +4,7 @@
   // on the island's page (screens/Topic.svelte).
   import { onMount, tick } from 'svelte';
   import { game } from '../state/game.svelte';
+  import { wordsFor } from '../path/player.svelte';
   import { outfitOf } from '../engine/profile';
   import { MOVE_WORD, REGIONS, lessonMove, lessonTitle, type Lesson } from '../engine/course';
   import { isUnlocked, nextLesson, passed, regionUnlocked, totalStars } from '../engine/profile';
@@ -55,7 +56,7 @@
       return;
     }
     sfx.click();
-    if (l.kind === 'custom' && !p.customText.trim()) {
+    if (l.kind === 'custom' && !wordsFor(p).trim()) {
       game.say('Ask a grown-up to add your words in Grown-ups first!');
       return;
     }

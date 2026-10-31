@@ -1,6 +1,6 @@
 // My path for the player who's playing: the rules that hold for them (their grown-ups' and their class's:
 // rules.ts), their teacher's units at the top of the path, the subject the path shows, and the clock that
-// counts minutes in the free-time places (the Fact Garden, My Sky Island, the Wardrobe and Shop, Dances).
+// counts minutes in the free-time places (the Arcade, the Fact Garden, My Sky Island, the Wardrobe and Shop, Dances).
 import { game } from '../state/game.svelte';
 import type { Profile } from '../engine/profile';
 import { classesOf, type StudentClass } from '../teach/student.svelte';
@@ -10,6 +10,7 @@ import { nextOnPath, unitState, type UnitState } from './progress';
 import { addUsed, placeOf, rulesFor, type ClassSettings, type FreePlace, type Rules } from './rules';
 import { PATH_SUBJECTS, type Unit } from './units';
 import { pathView } from './launch';
+import { playRules } from '../adventure/state';
 
 /** The classes whose rules hold for a player: the ones that made the player (a family's own player linked
  *  to a class plays by the family's rules at home). */
@@ -18,6 +19,10 @@ export const ruledBy = (p: Profile | null): StudentClass[] => classesOf(p).filte
 export const classRules = (p: Profile | null): ClassSettings[] => ruledBy(p).map(c => ({ ...(c.settings ?? {}), grade: c.grade }));
 /** The rules for a player now. */
 export const playerRules = (p: Profile, now = Date.now()): Rules => rulesFor(p, classRules(p), now);
+// (Adventure, Glimmer Drop and the Arcade read play time through this, so a class's rules count everywhere)
+playRules.of = p => playerRules(p).play;
+/** A class's spelling list joins the player's own My Words (a linked player gets it too: it's class work, not a rule). */
+export const wordsFor = (p: Profile): string => [p.customText, ...classesOf(p).map(c => c.settings?.words ?? '')].filter(w => w?.trim()).join(' ');
 
 export type ClassUnit = { unit: Unit; a: Assignment; teacher: string; state: UnitState };
 /** A player's teacher's units (class work that's a unit), in the order they were given. */
@@ -49,7 +54,9 @@ export function nextFor(p: Profile, subject?: string, now = Date.now()) {
 
 // ---------- the free-time clock ----------
 /** minutes being counted now, not yet written to the save (the doors read it, so they close on time) */
-export const freeClock = $state({ place: null as FreePlace | null, running: 0 });
+export const freeClock = $state({ place: null as FreePlace | null, running: 0,
+  /** a game of the Arcade's is under way: when time runs out it may finish (rules.ts GAME_GRACE_MIN) */
+  playing: false });
 let timer: ReturnType<typeof setInterval> | undefined;
 let who: string | null = null;
 /** Write the minutes counted so far into the player's save. */
@@ -66,6 +73,7 @@ function flush() {
 /** Count time while a free-time place is on screen (App.svelte calls this whenever the screen changes). */
 export function watchFree(screen: Parameters<typeof placeOf>[0], closetTab: string, playerId: string | null) {
   const place = playerId ? placeOf(screen, closetTab) : null;
+  freeClock.playing = place === 'arcade' && screen !== 'arcade';
   if (place === freeClock.place && playerId === who) return;
   flush();
   clearInterval(timer);

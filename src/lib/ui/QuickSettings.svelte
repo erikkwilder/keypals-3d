@@ -57,7 +57,7 @@
       <TileArt kind={mode === 'setup' ? 'sfx' : 'settings'} size={52} />
       <div>
         <h2>{mode === 'setup' ? 'How should Keypals sound?' : 'Settings'}</h2>
-        <p class="muted">{mode === 'setup' ? 'Tap to switch things on or off. You can change this any time in the Menu.' : 'Tap a card to switch it on or off.'}</p>
+        <p class="muted">{game.quiet ? 'Your teacher turned the sound off for your class.' : mode === 'setup' ? 'Tap to switch things on or off. You can change this any time in the Menu.' : 'Tap a card to switch it on or off.'}</p>
       </div>
       <button class="x" aria-label="Close" onclick={close}><TileArt kind="close" size={40} /></button>
     </div>
@@ -65,7 +65,7 @@
     <div class="grid">
       {#each ROWS as r (r.key)}
         {@const on = isOn(r.key)}
-        <button class="opt" class:on onclick={() => toggle(r.key)} aria-pressed={on}>
+        <button class="opt" class:on disabled={game.quiet} onclick={() => toggle(r.key)} aria-pressed={on}>
           <span class="pic">
             {#if r.art}<TileArt kind={r.art} size={70} off={!on} />
             {:else if p}<span class="pal" class:off={!on}><Critter friend={p.buddy} look={s.look} accessory={outfitOf(p)} size={74} lite /><span class="bub">hi!</span></span>{/if}
@@ -76,6 +76,7 @@
       {/each}
     </div>
 
+    {#if !game.quiet}
     <button class="opt wide pickmusic" onclick={() => { sfx.click(); game.openMusic(); }}>
       <span class="pic"><img src="{import.meta.env.BASE_URL}icons/music/{s.musicStation && s.musicStation !== 'auto' ? s.musicStation : 'happy'}.webp" alt="" width="62" height="62" /></span>
       <span class="txt"><b>Pick your music</b><small>{s.musicStation && s.musicStation !== 'auto' ? STATION[s.musicStation].name : 'Auto'}: calm, happy, adventure, rock, electronic, retro and more</small></span>
@@ -87,6 +88,7 @@
       <input type="range" min="0" max="1" step="0.05" value={s.volume} oninput={(e) => game.update(pp => { pp.settings.volume = +e.currentTarget.value; })} aria-label="Volume" />
       <span class="muted">Volume</span>
     </label>
+    {/if}
 
     {#if mode !== 'setup'}
       <button class="opt wide" class:on={s.demos !== 'off'} onclick={() => setDemos(s.demos === 'off')} aria-pressed={s.demos !== 'off'}>

@@ -19,7 +19,7 @@
     <label class="ck"><input type="checkbox" bind:checked={onlyNear} /> Only standards near grade {c.class.grade === 0 ? 'K' : c.class.grade}</label>
   </div>
   <div class="legend">{#each LEVELS as l (l)}<span style:background={LEVEL_COLOR[l].bg} style:color={LEVEL_COLOR[l].ink}>{LEVEL_COLOR[l].label}</span>{/each}</div>
-  <table class="tt">
+  <table class="tt stack">
     <thead><tr><th>Standard</th><th>Skills in Keypals</th><th class="w">Class</th><th></th></tr></thead>
     <tbody>
       {#each rows as r (r.code)}
@@ -28,7 +28,7 @@
           <td class="code">{r.code}</td>
           <td>{r.skills.map(s => s.name).join(', ')} <span class="muted">({r.skills[0]?.area})</span></td>
           <td class="w">
-            <div class="stack">{#each [...LEVELS].reverse() as l (l)}<i style:width="{(r.counts[l] / n) * 100}%" style:background={LEVEL_COLOR[l].bg} title="{LEVEL_COLOR[l].label}: {r.counts[l]}"></i>{/each}</div>
+            <div class="lvbar">{#each [...LEVELS].reverse() as l (l)}<i style:width="{(r.counts[l] / n) * 100}%" style:background={LEVEL_COLOR[l].bg} title="{LEVEL_COLOR[l].label}: {r.counts[l]}"></i>{/each}</div>
             <span class="muted">{[...LEVELS].reverse().filter(l => r.counts[l]).map(l => `${r.counts[l]} ${LEVEL_COLOR[l].label.toLowerCase()}`).join(' · ')}</span>
           </td>
           <td><button class="sbtn" onclick={() => (open = open === r.code ? null : r.code)}>{open === r.code ? 'Hide' : 'Names'}</button></td>
@@ -53,7 +53,12 @@
   .legend span { font: 800 12px var(--font-body); padding: 3px 10px; border-radius: 99px; }
   .code { font: 700 13px ui-monospace, monospace; white-space: nowrap; }
   .w { width: 34%; }
-  .stack { display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: #efedf3; margin-bottom: 3px; }
-  .stack i { display: block; height: 100%; }
+  .lvbar { display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: #efedf3; margin-bottom: 3px; }
+  .lvbar i { display: block; height: 100%; }
   .names p { margin: 4px 0; }
+  @media (max-width: 760px) {
+    .w { width: auto; }
+    .legend { flex-wrap: wrap; }
+    .names td:first-child { display: none; }
+  }
 </style>

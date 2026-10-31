@@ -33,6 +33,8 @@ export function teamStats(p: Profile) {
   };
 }
 type Stats = ReturnType<typeof teamStats>;
+/** A player's stars, the same number everywhere it's shown: every game, typing and math. */
+export const allStars = (p: Profile) => teamStats(p).stars;
 
 /** Two ways to join: how far along the closer one is, in its own words ("12 of 20 lessons"). */
 const either = (a: number, ofA: number, wa: string, b: number, ofB: number, wb: string): [number, number, string] => (a / ofA >= b / ofB ? [a, ofA, wa] : [b, ofB, wb]);

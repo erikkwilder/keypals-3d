@@ -119,11 +119,11 @@ describe('who may teach, and when classes turn on', () => {
 
 describe("a class's My path rules and unit class work", () => {
   it('settings are checked, kept, and sent to students (without how they sign in)', async () => {
-    expect(cleanClassSettings({ keep: 'nope', goal: 99, limits: { island: '15', garden: '999', pool: '10' }, google: 'maybe', domain: 'x' })).toEqual({ keep: 'off', goal: 6, limits: { island: '15' }, google: 'on', domain: null });
+    expect(cleanClassSettings({ keep: 'nope', goal: 99, limits: { island: '15', garden: '999', pool: '10' }, google: 'maybe', domain: 'x' })).toEqual({ keep: 'off', goal: 6, limits: { island: '15' }, play: {}, sound: 'on', words: '', order: [], google: 'on', domain: null });
     const t = await devTeacher('Ms. Rivera');
     const c = await classWith(t.cookie, 'Maria');
     const r = await call('PATCH', `/teach/classes/${c.id}`, { settings: { keep: 'first', goal: 2, limits: { island: '10', dances: 'earned' }, domain: 'Lincoln.org' } }, { cookie: t.cookie });
-    expect(r.json.settings).toEqual({ keep: 'first', goal: 2, limits: { island: '10', dances: 'earned' }, google: 'on', domain: 'lincoln.org' });
+    expect(r.json.settings).toEqual({ keep: 'first', goal: 2, limits: { island: '10', dances: 'earned' }, play: {}, sound: 'on', words: '', order: [], google: 'on', domain: 'lincoln.org' });
     // a later change keeps the rest
     await call('PATCH', `/teach/classes/${c.id}`, { settings: { limits: { garden: '20' } } }, { cookie: t.cookie });
     const detail = (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie: t.cookie })).json;
@@ -131,7 +131,46 @@ describe("a class's My path rules and unit class work", () => {
     expect(detail.teacher).toEqual({ status: 'approved', domain: 'school.test' });
     const lg = await call('POST', `/class/${c.code}/login`, { student: c.students[0].id, pics: c.students[0].pics });
     const mine = (await call('GET', `/class/student/${lg.json.code}?week=2026-10-26`)).json.classes[0];
-    expect(mine.settings).toEqual({ keep: 'first', goal: 2, limits: { island: '10', dances: 'earned', garden: '20' } });
+    expect(mine.settings).toEqual({ keep: 'first', goal: 2, limits: { island: '10', dances: 'earned', garden: '20' }, play: {}, sound: 'on', words: '' });
+  });
+  it('a class from before these rules keeps working, and gets the usual', async () => {
+    const t = await devTeacher('Ms. Rivera');
+    const c = await classWith(t.cookie, 'Maria');
+    env.DB.db.prepare('INSERT INTO class_settings (class, data, updated) VALUES (?, ?, ?)').run(c.id, JSON.stringify({ keep: 'first', goal: 2, limits: { island: '10' }, google: 'on', domain: null }), 1);
+    const lg = await call('POST', `/class/${c.code}/login`, { student: c.students[0].id, pics: c.students[0].pics });
+    const mine = (await call('GET', `/class/student/${lg.json.code}?week=2026-10-26`)).json.classes[0];
+    expect(mine.settings).toEqual({ keep: 'first', goal: 2, limits: { island: '10' }, play: {}, sound: 'on', words: '' });
+    // an older game changing one rule leaves the new ones alone
+    await call('PATCH', `/teach/classes/${c.id}`, { settings: { play: { rule: 'open' }, sound: 'off' } }, { cookie: t.cookie });
+    const r = await call('PATCH', `/teach/classes/${c.id}`, { settings: { keep: 'only' } }, { cookie: t.cookie });
+    expect(r.json.settings).toMatchObject({ keep: 'only', play: { rule: 'open' }, sound: 'off' });
+  });
+  it('teachers set play time, an Arcade limit, sound off and a spelling list; students get them', async () => {
+    const t = await devTeacher('Ms. Rivera');
+    const c = await classWith(t.cookie, 'Maria');
+    const r = await call('PATCH', `/teach/classes/${c.id}`, { settings: { limits: { arcade: '15' }, play: { rule: 'balanced', ratio: 2, freeMin: 5, capMin: 30, focus: 'fractions', versus: false }, sound: 'off', words: 'because friend <b>' } }, { cookie: t.cookie });
+    expect(r.json.settings).toMatchObject({ limits: { arcade: '15' }, play: { rule: 'balanced', ratio: 2, freeMin: 5, capMin: 30, focus: 'fractions', versus: false }, sound: 'off', words: 'because friend b' });
+    const lg = await call('POST', `/class/${c.code}/login`, { student: c.students[0].id, pics: c.students[0].pics });
+    const mine = (await call('GET', `/class/student/${lg.json.code}?week=2026-10-26`)).json.classes[0];
+    expect(mine.settings).toMatchObject({ limits: { arcade: '15' }, play: { ratio: 2, focus: 'fractions' }, sound: 'off', words: 'because friend b' });
+    expect(mine.settings.google).toBeUndefined();
+  });
+  it('play time choices are checked', () => {
+    expect(cleanClassSettings({ play: { rule: 'never', ratio: 7, freeMin: -1, capMin: 1000, focus: '<script>', versus: 'yes' } }).play).toEqual({});
+  });
+  it('a teacher puts units in their own order: students get them that way, older games too', async () => {
+    const t = await devTeacher('Ms. Rivera');
+    const c = await classWith(t.cookie, 'Maria');
+    const unit = (title: string) => ({ what: 'unit', title, items: ['ep:frac-parts'], goal: { type: 'finish', n: 1 } });
+    const ids: string[] = [];
+    for (const n of ['First', 'Second', 'Third']) ids.push((await call('POST', `/teach/classes/${c.id}/assignments`, { data: unit(n) }, { cookie: t.cookie })).json.assignment.id);
+    await call('PATCH', `/teach/classes/${c.id}`, { settings: { order: [ids[2], ids[0]] } }, { cookie: t.cookie });
+    const lg = await call('POST', `/class/${c.code}/login`, { student: c.students[0].id, pics: c.students[0].pics });
+    const mine = (await call('GET', `/class/student/${lg.json.code}?week=2026-10-26`)).json.classes[0];
+    expect(mine.assignments.map((a: { title: string }) => a.title)).toEqual(['Third', 'First', 'Second']);
+    const detail = (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie: t.cookie })).json;
+    expect(detail.settings.order).toEqual([ids[2], ids[0]]);
+    expect(detail.assignments.map((a: { title: string }) => a.title)).toEqual(['Third', 'First', 'Second']);
   });
   it('a unit: its items in order, checked; nothing else becomes an item', async () => {
     const u: any = cleanAssignment({ what: 'unit', title: 'Pie Pantry', unit: 'math:frac-a', subject: 'math', items: ['ep:frac-parts', 'trip:frac-a-1', 'game:pizza', 'battle:falls', 'check', 'bad item', 'skill:fr-equal', 'evil:<x>'], goal: { type: 'right', n: 5 } });

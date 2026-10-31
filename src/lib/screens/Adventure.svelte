@@ -14,7 +14,7 @@
   import { nextToLearn } from '../math/learn';
   import { FRIEND } from '../art/cast';
   import { ALL_GLIMMERS, GLIMMER, GLIMMER_TOTAL, RARITIES, RARITY, glimmersOf, type GlimmerId, type Rarity } from '../adventure/glimmers';
-  import { advOf, advView, canPass, cleared, collectStop, currentNode, ISLAND, islandsOf, markSeen, nodesOf, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, worldOpen, type MapNode, type WorldId, owns } from '../adventure/state';
+  import { advOf, advView, playRules, canPass, cleared, collectStop, currentNode, ISLAND, islandsOf, markSeen, nodesOf, nodeOpen, playLeft, practiceDone, reachStop, SHOP, buy, EGG_ODDS, PLAY_RULES, worldOpen, type MapNode, type WorldId, owns } from '../adventure/state';
   import { SPOTS } from '../adventure/mapSpots';
   import { DuelScene } from '../three/duelScene';
   import { WORLD_PIN, TYPING_SOON, lastWorld, mapOf, stationOf, worldSubject, worldsFor, type WorldPin, type WorldSubject } from '../adventure/worlds';
@@ -28,6 +28,8 @@
   import Coach from '../ui/Coach.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
+  import { passOn } from '../path/pass';
+  import { playerRules } from '../path/player.svelte';
   // WALK: the walking map layer
   import MapWalker from '../ui/MapWalker.svelte';
 
@@ -35,7 +37,8 @@
   // Learn: the next trick not learned yet, offered on a practice stop
   const learnTip = $derived.by(() => { const pr = game.profile; if (!pr) return null; const mm = mathOf(pr); return nextToLearn(mm, nextMathLesson(mm, mm.totals.trips ? (mm.strand ?? 'x') : '+')); });
   const p = $derived(game.profile!);
-  const a = $derived(advView(p));
+  // (a class's Open lets practice stops be stepped past too: nodeOpen reads the rule from here)
+  const a = $derived({ ...advView(p), settings: playRules.of(p) });
   let tall = $state(innerWidth < 760 || innerHeight > innerWidth * 1.1);
   const kind = $derived(tall ? 'tall' : 'wide');
   const spots = $derived(SPOTS[kind]);
@@ -65,7 +68,10 @@
   const cur = $derived(currentNode(a, world));
   let open = $state<MapNode | null>(null);
   let burst = $state(0);
-  const play = $derived(playLeft(p));
+  /** the path or class work sent you to this world's next stop: only that stop is open, and play time doesn't
+   *  hold it up (path/pass.ts) */
+  const onStop = passOn('adventure');
+  const play = $derived(onStop ? { open: true, left: null, why: '' } : playLeft(p));
   const ready = $derived(a.incubator.filter(e => e && e.have >= e.need).length);
   const eggs = $derived(a.incubator.filter(e => !!e).length + a.nest.length);
   const team = $derived(a.team.filter(t => t && owns(a, t)) as GlimmerId[]);
@@ -157,6 +163,7 @@
     if (!advView(game.profile!).battles) mapTip = true;
   }
   function tap(n: MapNode) {
+    if (onStop && n.id !== cur?.id) { sfx.nope(); game.say('Your path is at the next stop today.'); return; }
     if (!nodeOpen(a, n)) { sfx.nope(); game.say('Finish the stops before this one first.'); return; }
     if (mapTip) { mapTip = false; game.update(pp => markSeen(pp, 'map1')); }
     open = n; oddsOpen = null; sfx.pop();
@@ -201,6 +208,9 @@
 
   <!-- the dock of three: the World map (every world), your Glimmers, your eggs. Family Duel and Rival
        Ghosts are in the Arcade's Play together; the Shop is in My stuff. -->
+  {#if onStop}
+    <p class="stopnote">Your path brought you here: tap your next stop.</p>
+  {:else}
   <div class="dock">
     <button class="worldbtn" class:hasnew={fresh.length > 0} onclick={openWorlds} title="Every {SUBJ_NAME[subj].toLowerCase()} world of Adventure" aria-label="World map: {nOpen} of {nAll} {SUBJ_NAME[subj].toLowerCase()} worlds open{fresh.length ? ', a new world is open' : ''}">
       <img src="{base}game/worlds-wide.webp" alt="" />
@@ -214,17 +224,19 @@
       {#snippet art()}<img class="tileimg" src="{base}game/egg-{a.incubator.find(e => e)?.rarity ?? 'rare'}.webp" alt="" />{/snippet}
     </NavTile>
   </div>
+  {/if}
 
   {#if !play.open}
     <div class="closed card">
       <h2>Adventure is resting</h2>
       <p>{play.why}</p>
+      {#if playerRules(p).playFrom !== 'none'}<p class="said">{playerRules(p).playFrom === 'class' ? 'Your teacher' : 'Your grown-up'} set this.</p>{/if}
       <div class="row"><button class="btn btn-primary" onclick={() => goPractice('math')}>Math practice</button><button class="btn btn-primary" onclick={() => goPractice('typing')}>Typing practice</button></div>
     </div>
   {/if}
 
   {#if mapTip && cur && !picker}<Coach text="Tap here for your first battle!" at=".node.here" place="below" />
-  {:else if nudge && !picker && !open && intro < 0}<Coach text="A new world is open: {nudge.name}! Tap the World map to go there." at=".worldbtn" place="below" button="Got it" onok={nudged} />{/if}
+  {:else if nudge && !onStop && !picker && !open && intro < 0}<Coach text="A new world is open: {nudge.name}! Tap the World map to go there." at=".worldbtn" place="below" button="Got it" onok={nudged} />{/if}
 
   {#if open}
     {@const n = open}
@@ -372,6 +384,8 @@
   .backdrop { position: absolute; inset: -40px; background: var(--bg) center / cover; filter: blur(22px) saturate(1.1); }
   @keyframes hop { 50% { translate: 0 -6px; } }
 
+  .closed .said { font-size: 15px; color: var(--muted); }
+  .stopnote { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 4; margin: 0; padding: 10px 18px; border-radius: 20px; background: rgba(255, 255, 255, .94); font: 700 16px var(--font-body); color: var(--ink); box-shadow: var(--shadow-sm); max-width: calc(100vw - 32px); text-align: center; }
   /* the World map: big, in the corner of every map, with how many worlds are open and a badge for a new one */
   .worldbtn { position: absolute; left: 14px; top: 12px; z-index: 3; display: flex; align-items: center; gap: 12px; border: 0; cursor: pointer; background: linear-gradient(#fff, #fff8e4); border-radius: 24px; padding: 7px 20px 7px 7px; box-shadow: 0 0 0 4px #ffc93d, 0 6px 0 #e0a21c, 0 16px 30px -12px rgba(60, 40, 0, .55); text-align: left; transition: transform .15s; }
   .worldbtn:hover { transform: translateY(-2px) scale(1.03); }

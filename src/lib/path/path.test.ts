@@ -3,7 +3,7 @@
 // this", where a path starts by grade, today's summary, a teacher's unit as class work, keeping a player
 // to the path, and the free-time limits.
 import { describe, expect, it } from 'vitest';
-import { dayKey, newProfile, type Profile } from '../engine/profile';
+import { dayKey, migrate, newProfile, type Profile } from '../engine/profile';
 import { REGIONS } from '../engine/course';
 import { finishLesson } from '../math/learn';
 import { mathOf } from '../math/progress';
@@ -11,7 +11,7 @@ import { AREAS, SKILL } from '../math/skills/registry';
 import { SKILL_REGIONS } from '../math/skills/course';
 import { MATH_REGIONS } from '../math/course';
 import { applyPlacement, skillLadder } from '../math/skills/placement';
-import { advOf, nodesOf } from '../adventure/state';
+import { advOf, advView, DEFAULT_SETTINGS, nodesOf, playLeft, playRules } from '../adventure/state';
 import { addEvent, noteActivity, activityBase } from '../teach/activity';
 import { gradebookCsv, progressOf, type Assignment } from '../teach/assignments';
 import { KIND_NAME, episodeSkill, episodeSkills, pathOf, PATH_SUBJECTS, unitById } from './units';
@@ -19,7 +19,8 @@ import { SKILL_LESSON } from '../math/skills/course';
 import { MATH_LESSON } from '../math/course';
 import { lessonForStop } from '../math/learn';
 import { doneToday, itemDone, nextOnPath, notePath, pathSave, pathStates, startPath, todayLine, unitLevel, unitState, type PathProfile } from './progress';
-import { addUsed, allowed, doorFor, pathHolds, placeOf, rulesFor, setHomeRules, timeLeft, usedMs, type ClassSettings } from './rules';
+import { addUsed, allowed, doorFor, familyPlay, pathHolds, placeOf, playFor, ruleDiffs, rulesFor, setHomeRules, timeLeft, usedMs, GAME_GRACE_MIN, type ClassSettings } from './rules';
+import { clearPass, keepPass, pass, passOn } from './pass';
 import { unitFromAssignment } from './classPath';
 import { mergeProfile } from '../state/merge';
 
@@ -292,7 +293,7 @@ describe('keeping to the path', () => {
     expect(pathHolds(p, r, MON)).toBe(true);
     expect(doorFor('arcade', 'outfits', p, r, MON)).toMatchObject({ kind: 'path', left: 2, from: 'class' });
     expect(doorFor('map', 'outfits', p, r, MON)).not.toBeNull();
-    for (const s of ['path', 'hub', 'run', 'mathRun', 'skillRun', 'learn', 'battle', 'adventure', 'arcadePlay', 'pizza', 'grownups', 'teach'] as const) expect(doorFor(s, 'outfits', p, r, MON)).toBeNull();
+    for (const s of ['path', 'hub', 'run', 'mathRun', 'skillRun', 'learn', 'battle', 'arcadePlay', 'pizza', 'grownups', 'teach'] as const) expect(doorFor(s, 'outfits', p, r, MON)).toBeNull();
     finishLesson(p, 'sh-sides', MON); finishLesson(p, 'sh-halves', MON); notePath(p, MON);
     expect(pathHolds(p, r, MON)).toBe(false);
     expect(doorFor('arcade', 'outfits', p, r, MON)).toBeNull();
@@ -317,7 +318,7 @@ describe('free-time limits', () => {
     expect(timeLeft(p, 'island', r, MON).leftMin).toBeCloseTo(4);
     expect(doorFor('island', 'outfits', p, r, MON)).toBeNull();
     // the minute being counted now counts too
-    expect(doorFor('island', 'outfits', p, r, MON, 4 * 60000)).toEqual({ kind: 'time', place: 'island', earned: false });
+    expect(doorFor('island', 'outfits', p, r, MON, 4 * 60000)).toEqual({ kind: 'time', place: 'island', earned: false, from: 'home' });
     addUsed(p, 'island', 4 * 60000, MON);
     expect(doorFor('island', 'outfits', p, r, MON)).toMatchObject({ kind: 'time', place: 'island' });
     expect(doorFor('garden', 'outfits', p, r, MON)).toBeNull();
@@ -337,7 +338,178 @@ describe('free-time limits', () => {
     expect(rulesFor(p, [{ limits: { dances: 'earned' } }], MON).limits.dances).toBe('earned');
     expect(rulesFor(p, [{ limits: { dances: '10' } }], MON).limits.dances).toBe('10');
     addUsed(p, 'dances', 17 * 60000, MON);
-    expect(doorFor('dances', 'dances', p, rulesFor(p, [{ limits: { dances: 'earned' } }], MON), MON)).toEqual({ kind: 'time', place: 'dances', earned: true });
+    expect(doorFor('dances', 'dances', p, rulesFor(p, [{ limits: { dances: 'earned' } }], MON), MON)).toEqual({ kind: 'time', place: 'dances', earned: true, from: 'class' });
+  });
+});
+
+describe('Path only means the path', () => {
+  const only = (p: ReturnType<typeof kid>) => rulesFor(p, [{ keep: 'only' }], MON);
+  it('Adventure is closed like every roaming place, under Path first too', () => {
+    const p = kid();
+    expect(doorFor('adventure', 'outfits', p, only(p), MON)).toMatchObject({ kind: 'path', keep: 'only' });
+    startPath(p, MON - DAY);
+    expect(doorFor('adventure', 'outfits', p, rulesFor(p, [{ keep: 'first', goal: 2 }], MON), MON)).toMatchObject({ kind: 'path', keep: 'first' });
+  });
+  it('except the stop the path sends you to, for that one battle', () => {
+    const p = kid(), r = only(p);
+    clearPass();
+    pass.world = 'falls';
+    keepPass('adventure');
+    expect(passOn('adventure')).toBe(true);
+    expect(doorFor('adventure', 'outfits', p, r, MON, 0, { work: passOn('adventure') })).toBeNull();
+    keepPass('battle');
+    expect(passOn('battle')).toBe(true);
+    // back on the map after it: the door again
+    expect(passOn('adventure')).toBe(false);
+    expect(doorFor('adventure', 'outfits', p, r, MON, 0, { work: passOn('adventure') })).toMatchObject({ kind: 'path' });
+    keepPass('adventure');
+    expect(pass.world).toBeNull();
+  });
+  it('leaving the stop for anywhere else ends it', () => {
+    clearPass();
+    pass.world = 'falls';
+    keepPass('hub');
+    expect(passOn('adventure')).toBe(false);
+  });
+});
+
+describe('the door names the right person', () => {
+  it('a home Path only stays the family\'s even when a class only set a limit', () => {
+    const p = kid();
+    setHomeRules(p, { keep: 'only' });
+    const r = rulesFor(p, [{ keep: 'off', limits: { garden: '10' } }], MON);
+    expect(r).toMatchObject({ keep: 'only', from: 'home', limitFrom: { garden: 'class' } });
+    expect(doorFor('arcade', 'outfits', p, r, MON)).toMatchObject({ kind: 'path', keep: 'only', from: 'home' });
+  });
+  it('a class\'s Path only is the teacher\'s', () => {
+    const p = kid();
+    setHomeRules(p, { keep: 'first', limits: { garden: '30' } });
+    const r = rulesFor(p, [{ keep: 'only', limits: { garden: '10' } }], MON);
+    expect(r).toMatchObject({ keep: 'only', from: 'class' });
+    addUsed(p, 'garden', 11 * 60000, MON);
+    expect(timeLeft(p, 'garden', r, MON).open).toBe(false);
+  });
+  it('each limit says who set it: the shorter one', () => {
+    const p = kid();
+    setHomeRules(p, { limits: { island: '10', garden: '30' } });
+    const r = rulesFor(p, [{ limits: { island: '20', garden: '15' } }], MON);
+    expect(r.limits).toMatchObject({ island: '10', garden: '15' });
+    expect(r.limitFrom).toMatchObject({ island: 'home', garden: 'class' });
+  });
+});
+
+describe('the Arcade has a limit', () => {
+  it('the lobby and every game count; a game on the path or in class work does not', () => {
+    const p = kid();
+    setHomeRules(p, { limits: { arcade: '10' } });
+    const r = rulesFor(p, [], MON);
+    for (const s of ['arcade', 'arcadePlay', 'pizza', 'playground', 'bench'] as const) expect(placeOf(s, 'outfits'), s).toBe('arcade');
+    expect(placeOf('drop', 'outfits')).toBeNull();
+    addUsed(p, 'arcade', 10 * 60000, MON);
+    expect(doorFor('arcade', 'outfits', p, r, MON)).toMatchObject({ kind: 'time', place: 'arcade', from: 'home' });
+    expect(doorFor('pizza', 'outfits', p, r, MON)).toMatchObject({ kind: 'time', place: 'arcade' });
+    expect(doorFor('pizza', 'outfits', p, r, MON, 0, { work: true })).toBeNull();
+  });
+  it('a game under way may finish; a new one can\'t start', () => {
+    const p = kid();
+    setHomeRules(p, { limits: { arcade: '10' } });
+    const r = rulesFor(p, [], MON);
+    addUsed(p, 'arcade', 11 * 60000, MON);
+    expect(doorFor('pizza', 'outfits', p, r, MON, 0, { playing: true })).toBeNull();
+    expect(doorFor('pizza', 'outfits', p, r, MON, GAME_GRACE_MIN * 60000, { playing: true })).toMatchObject({ kind: 'time' });
+    expect(doorFor('pizza', 'outfits', p, r, MON)).toMatchObject({ kind: 'time' });
+  });
+  it('an old save, with no Arcade limit, plays as before', () => {
+    const old = migrate({ profiles: [{ id: 'a', name: 'Old', settings: { keepPath: 'first', limits: { garden: '10' } } }] }).profiles[0];
+    const r = rulesFor(old, [], MON);
+    expect(r.limits).toEqual({ garden: '10' });
+    expect(doorFor('arcade', 'outfits', old, { ...r, keep: 'off' }, MON)).toBeNull();
+    expect(r.play).toMatchObject(DEFAULT_SETTINGS);
+  });
+});
+
+describe('play time: family and class', () => {
+  const home = (p: ReturnType<typeof kid>, s: Partial<typeof DEFAULT_SETTINGS>) => { const a = advOf(p); a.settings = { ...a.settings, ...s }; };
+  it('with no class, it is the player\'s own, and an old class with no play time changes nothing', () => {
+    const p = kid();
+    home(p, { rule: 'practiceFirst', capMin: 20 });
+    expect(playFor(p).play).toEqual(advView(p).settings);
+    expect(playFor(p, [{ keep: 'first', goal: 3, limits: {} }]).play).toEqual(advView(p).settings);
+    expect(playFor(p).from).toBe('home');
+  });
+  it('the usual settings are nobody\'s choice, so a class can open things up', () => {
+    const p = kid();
+    expect(familyPlay(p)).toEqual({});
+    expect(playFor(p, [{ play: { rule: 'open' } }])).toMatchObject({ play: { rule: 'open' }, from: 'class' });
+  });
+  it('the ratio a teacher sets is the one that counts', () => {
+    const p = kid();
+    expect(playFor(p, [{ play: { ratio: 2, freeMin: 5 } }]).play).toMatchObject({ ratio: 2, freeMin: 5 });
+  });
+  it('anything a family chose: the stricter one wins', () => {
+    const p = kid();
+    home(p, { rule: 'practiceFirst', ratio: 0.5, capMin: 30 });
+    expect(playFor(p, [{ play: { rule: 'open', ratio: 2, capMin: 20 } }]).play).toMatchObject({ rule: 'practiceFirst', ratio: 0.5, capMin: 20 });
+    home(p, { rule: 'open' });
+    expect(playFor(p, [{ play: { rule: 'balanced' } }]).play.rule).toBe('balanced');
+    expect(playFor(p, [{ play: { versus: false } }]).play.versus).toBe(false);
+  });
+  it('what battles use: the class\'s first', () => {
+    const p = kid();
+    home(p, { focus: 'fractions' });
+    expect(playFor(p, [{ play: { focus: 'x' } }]).play.focus).toBe('x');
+    expect(playFor(p, [{ play: { focus: 'all' } }]).play.focus).toBe('fractions');
+  });
+  it('play time reads what holds, class included', () => {
+    const p = kid(), was = playRules.of;
+    p.days[dayKey(MON)] = { ms: 0, runs: 0 };
+    playRules.of = x => playFor(x, [{ play: { rule: 'practiceFirst' } }]).play;
+    expect(playLeft(p, MON).open).toBe(false);
+    playRules.of = x => playFor(x, [{ play: { rule: 'open' } }]).play;
+    expect(playLeft(p, MON)).toMatchObject({ open: true, left: null });
+    playRules.of = was;
+  });
+});
+
+describe('the pages say who wins', () => {
+  it('in the same words on both sides, and which one counts', () => {
+    const p = kid();
+    setHomeRules(p, { keep: 'off', goal: 2, limits: { arcade: '30', island: '10' } });
+    const d = ruleDiffs(p, { keep: 'only', goal: 5, limits: { arcade: '10', island: '20' } }, MON);
+    expect(d.find(x => x.key === 'keep')).toMatchObject({ label: 'Keep to the path', family: 'Free to roam', cls: 'Path only', counts: 'class' });
+    expect(d.find(x => x.key === 'goal')).toMatchObject({ label: 'Things a day', family: '2', cls: '5', counts: 'class' });
+    expect(d.find(x => x.key === 'limit:arcade')).toMatchObject({ label: 'Arcade', family: '30 min a day', cls: '10 min a day', counts: 'class' });
+    expect(d.find(x => x.key === 'limit:island')).toMatchObject({ family: '10 min a day', cls: '20 min a day', counts: 'family' });
+  });
+  it('nothing to say when they agree, or for an old class with no rules', () => {
+    const p = kid();
+    expect(ruleDiffs(p, {}, MON)).toEqual([]);
+    expect(ruleDiffs(p, { keep: 'off', goal: 3, limits: {} }, MON)).toEqual([]);
+  });
+  it('play time too', () => {
+    const p = kid();
+    expect(ruleDiffs(p, { play: { rule: 'open' } }, MON).find(x => x.key === 'rule')).toMatchObject({ family: 'Balanced', cls: 'Open', counts: 'class' });
+    const a = advOf(p); a.settings = { ...a.settings, rule: 'practiceFirst' };
+    expect(ruleDiffs(p, { play: { rule: 'open' } }, MON).find(x => x.key === 'rule')).toMatchObject({ family: 'Practice first', cls: 'Open', counts: 'family' });
+  });
+});
+
+describe('sound off for a class', () => {
+  it('only a class that says so', () => {
+    const p = kid();
+    expect(rulesFor(p).quiet).toBe(false);
+    expect(rulesFor(p, [{ keep: 'off' }]).quiet).toBe(false);
+    expect(rulesFor(p, [{ sound: 'on' }]).quiet).toBe(false);
+    expect(rulesFor(p, [{ sound: 'off' }]).quiet).toBe(true);
+  });
+});
+
+describe('a class\'s spelling list', () => {
+  it('joins the player\'s own My Words', async () => {
+    const { wordsFor } = await import('./player.svelte');
+    const p = kid();
+    p.customText = 'because friend';
+    expect(wordsFor(p)).toBe('because friend');
   });
 });
 

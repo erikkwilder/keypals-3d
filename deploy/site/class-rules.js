@@ -87,23 +87,36 @@ export function cleanWeek(b) {
 export const WORLD_GAMES = { slalom: 75000, catch: 16500, tower: 30000 };
 export const worldScoreOk = (game, score) => Object.hasOwn(WORLD_GAMES, game) && Number.isInteger(score) && score > 0 && score <= WORLD_GAMES[game];
 
-// ---------- a class's path and time rules, and students' Google sign-in (src/lib/path/rules.ts) ----------
+// ---------- a class's path, time and play rules, and students' Google sign-in (src/lib/path/rules.ts) ----------
 /** Keep students on My path: off, path first (the rest opens once today's path things are done), path only. */
 export const KEEPS = ['off', 'first', 'only'];
 /** A daily limit for a free-time place: off, minutes, or earned by practice. */
 export const LIMITS = ['off', '10', '15', '20', '30', 'earned'];
-export const FREE_PLACES = ['garden', 'island', 'closet', 'dances'];
+export const FREE_PLACES = ['arcade', 'garden', 'island', 'closet', 'dances'];
+/** How play time is earned, and the choices that go with it (the same as the Grown-ups screen's). */
+export const PLAY_RULES = ['open', 'balanced', 'practiceFirst'];
+export const PLAY_RATIOS = [0.5, 1, 1.5, 2], PLAY_FREE = [0, 5, 10, 15, 20], PLAY_CAPS = [0, 15, 20, 30, 45, 60];
+/** A class's spelling list: plain text, the same size as a player's My Words. */
+export const cleanWords = (raw) => String(raw ?? '').replace(/[<>`]/g, '').slice(0, 3000);
+/** Class work in the order the teacher put it: the ones in `order` first, the rest after, as they came. */
+export function inOrder(list, order) {
+  const at = new Map((Array.isArray(order) ? order : []).map((id, i) => [id, i]));
+  const rank = (x) => (at.has(x.id) ? at.get(x.id) : Infinity);
+  return list.map((x, i) => [x, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
+}
 /** A school's internet domain ("school.org"), or null. */
 export function cleanDomain(raw) {
   const d = String(raw ?? '').trim().toLowerCase().replace(/^.*@/, '');
   return d.length <= 80 && /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) ? d : null;
 }
-/** A class's settings, checked, on top of what it had: keep (to the path), goal (path things a day),
- *  limits (per free-time place), google (students may sign in with Google: on or off) and domain (only
- *  Google accounts from this school domain, or null for any). */
+/** A class's settings, checked, on top of what it had: keep (to the path), goal (things a day), limits (per
+ *  free-time place), play (how play time is earned, what battles use: anything left out is the family's
+ *  or the usual), sound ('off': sound off for the class), words (a spelling list), order (class work ids in
+ *  the teacher's order), google (students may sign in with Google: on or off) and domain (only Google
+ *  accounts from this school domain, or null for any). Classes saved before any of these get the usual. */
 export function cleanClassSettings(raw, was = {}) {
   const b = raw && typeof raw === 'object' ? raw : {};
-  const out = { keep: 'off', goal: 3, limits: {}, google: 'on', domain: null, ...was };
+  const out = { keep: 'off', goal: 3, limits: {}, play: {}, sound: 'on', words: '', order: [], google: 'on', domain: null, ...was };
   if (KEEPS.includes(b.keep)) out.keep = b.keep;
   if (b.goal !== undefined) out.goal = Math.max(1, Math.min(6, Math.round(Number(b.goal) || 3)));
   if (b.limits && typeof b.limits === 'object') {
@@ -111,6 +124,19 @@ export function cleanClassSettings(raw, was = {}) {
     for (const k of FREE_PLACES) if (LIMITS.includes(b.limits[k])) l[k] = b.limits[k];
     out.limits = l;
   }
+  if (b.play && typeof b.play === 'object') {
+    const p = { ...out.play }, y = b.play;
+    if (PLAY_RULES.includes(y.rule)) p.rule = y.rule;
+    if (PLAY_RATIOS.includes(y.ratio)) p.ratio = y.ratio;
+    if (PLAY_FREE.includes(y.freeMin)) p.freeMin = y.freeMin;
+    if (PLAY_CAPS.includes(y.capMin)) p.capMin = y.capMin;
+    if (typeof y.focus === 'string' && /^[\w+\-/]{1,20}$/.test(y.focus)) p.focus = y.focus;
+    if (typeof y.versus === 'boolean') p.versus = y.versus;
+    out.play = p;
+  }
+  if (b.sound === 'on' || b.sound === 'off') out.sound = b.sound;
+  if (b.words !== undefined) out.words = cleanWords(b.words);
+  if (Array.isArray(b.order)) out.order = b.order.filter(x => typeof x === 'string' && x.length <= 40).slice(0, 200);
   if (b.google === 'on' || b.google === 'off') out.google = b.google;
   if (b.domain !== undefined) out.domain = b.domain === null || b.domain === '' ? null : cleanDomain(b.domain);
   return out;

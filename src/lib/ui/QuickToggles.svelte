@@ -1,6 +1,6 @@
 <script lang="ts">
   // Music on or off, sounds on or off: the quick row at the top of the Menu and on the Pause card (the rest
-  // is in Settings).
+  // is in Settings). Greyed when a class turned sound off (the music card above them says so).
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
   const base = import.meta.env.BASE_URL;
@@ -9,8 +9,8 @@
 </script>
 
 <div class="qt" role="group" aria-label="Music and sounds">
-  <button class:off={!s.music} aria-pressed={s.music} onclick={() => flip('music')}><img src="{base}icons/music.webp" alt="" /><span>Music {s.music ? 'on' : 'off'}</span></button>
-  <button class:off={!s.sound} aria-pressed={s.sound} onclick={() => flip('sound')}><img src="{base}icons/sfx.webp" alt="" /><span>Sounds {s.sound ? 'on' : 'off'}</span></button>
+  <button class:off={!s.music} disabled={game.quiet} aria-pressed={s.music} onclick={() => flip('music')}><img src="{base}icons/music.webp" alt="" /><span>Music {s.music ? 'on' : 'off'}</span></button>
+  <button class:off={!s.sound} disabled={game.quiet} aria-pressed={s.sound} onclick={() => flip('sound')}><img src="{base}icons/sfx.webp" alt="" /><span>Sounds {s.sound ? 'on' : 'off'}</span></button>
 </div>
 
 <style>
@@ -19,4 +19,5 @@
   button img { width: 30px; height: 30px; object-fit: contain; }
   button.off { border-color: #e6e1ee; background: #f6f4f9; color: var(--muted); }
   button.off img { filter: grayscale(1); opacity: .6; }
+  button:disabled { cursor: default; }
 </style>

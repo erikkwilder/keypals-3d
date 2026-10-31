@@ -54,11 +54,11 @@
     <div class="now" class:off>
       <img src={art(now.station)} alt="" />
       <div class="nt">
-        {#if off}<b>Music is off</b><small>Switch it on to hear your station</small>
+        {#if off}<b>{game.quiet ? 'Your teacher turned this off' : 'Music is off'}</b>{#if !game.quiet}<small>Switch it on to hear your station</small>{/if}
         {:else}<small>Now playing{choice === 'auto' ? ' (Auto)' : ''} · {playingName}</small><b>{now.title ?? '...'}</b>{#if now.artist}<em>{now.artist}</em>{/if}{/if}
       </div>
       {#if !off}<button class="skip" onclick={() => { sfx.click(); skipTrack(); }} aria-label="Next song"><TileArt kind="play" size={30} /><span>Next song</span></button>{/if}
-      <button class="sw" class:on={!off} onclick={toggle} aria-pressed={!off} aria-label="Music on or off"><i></i><em>{off ? 'Off' : 'On'}</em></button>
+      <button class="sw" class:on={!off} disabled={game.quiet} onclick={toggle} aria-pressed={!off} aria-label="Music on or off"><i></i><em>{off ? 'Off' : 'On'}</em></button>
     </div>
 
     <div class="grid">

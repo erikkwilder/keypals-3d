@@ -33,6 +33,15 @@
   {#if !skills.length || !kids.length}
     <p class="muted">Nothing to show yet.</p>
   {:else}
+    <!-- a phone: one block a student, the skills wrapping as coloured chips -->
+    <div class="bykid">
+      {#each grid as row (row.id)}
+        <div class="kid">
+          <button class="namebtn" onclick={() => (teach.studentId = row.id)}>{row.name}</button>
+          <div class="chips">{#each row.levels as l, i (skills[i])}<span style:background={LEVEL_COLOR[l].bg} style:color={LEVEL_COLOR[l].ink} title="{SKILL[skills[i]]?.name}, {LEVEL_COLOR[l].label.toLowerCase()}">{SKILL[skills[i]]?.short ?? SKILL[skills[i]]?.name}</span>{/each}</div>
+        </div>
+      {/each}
+    </div>
     <div class="scrollx">
       <table class="tt grid">
         <thead>
@@ -68,4 +77,13 @@
   .lad b { width: 4px; border-radius: 2px; background: rgba(255, 255, 255, .75); }
   .lad b.on { background: currentColor; }
   .sum td { font: 800 12.5px var(--font-body); color: #6d6680; }
+  .bykid { display: none; }
+  @media (max-width: 760px) {
+    .scrollx { display: none; }
+    .legend { flex-wrap: wrap; }
+    .bykid { display: flex; flex-direction: column; gap: 10px; }
+    .kid { padding: 8px 0; border-top: 1px solid #f0ecf7; }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .chips span { font: 700 12.5px var(--font-body); padding: 3px 8px; border-radius: 8px; }
+  }
 </style>

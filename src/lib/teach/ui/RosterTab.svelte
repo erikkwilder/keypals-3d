@@ -13,6 +13,8 @@
   let renaming = $state<string | null>(null);
   let newName = $state('');
   let removing = $state<string | null>(null);
+  /** the student "New pictures" is asking about (their printed card stops working) */
+  let picturing = $state<string | null>(null);
   const nameOf = (id: string | null) => c.students.find(s => s.id === id)?.name ?? '';
   async function add() { const r = await act(() => addStudents(text)); if (r) { teach.msg = `Added ${r.length} student${r.length === 1 ? '' : 's'}. Print their login cards from the top of the page.`; text = ''; } }
   function startRename(s: Student) { renaming = s.id; newName = s.name; }
@@ -53,7 +55,7 @@
   {#if !active.length}
     <p class="muted">No students yet.</p>
   {:else}
-    <table class="tt">
+    <table class="tt stack">
       <thead><tr><th>Name</th><th>Picture password</th><th>Player</th><th></th></tr></thead>
       <tbody>
         {#each active as s (s.id)}
@@ -66,13 +68,17 @@
             <td><PicturePass pics={s.pics} size={34} /></td>
             <td class="muted">{s.home ? 'From home (the family keeps it)' : 'Made by the class'}{s.google ? ' · signs in with Google' : ''}</td>
             <td class="r">
-              {#if removing === s.id}
+              {#if picturing === s.id}
+                <span class="sure">New pictures for {s.name}? Their old login card stops working.</span>
+                <button class="sbtn warn" onclick={() => act(() => resetPics(s.id), `${s.name} has new pictures. Print a new card.`).then(() => (picturing = null))}>New pictures</button>
+                <button class="sbtn" onclick={() => (picturing = null)}>Keep</button>
+              {:else if removing === s.id}
                 <span class="sure">Remove {s.name}?{s.home ? '' : ' Their class player and progress are deleted.'}</span>
                 <button class="sbtn warn" onclick={() => act(() => removeStudent(s.id), `${s.name} was removed.`).then(() => (removing = null))}>Remove</button>
                 <button class="sbtn" onclick={() => (removing = null)}>Keep</button>
               {:else}
                 <button class="sbtn" onclick={() => startRename(s)}>Rename</button>
-                <button class="sbtn" onclick={() => act(() => resetPics(s.id), `${s.name} has new pictures. Print a new card.`)}>New pictures</button>
+                <button class="sbtn" onclick={() => (picturing = s.id)}>New pictures</button>
                 <button class="sbtn warn" onclick={() => (removing = s.id)}>Remove</button>
               {/if}
             </td>

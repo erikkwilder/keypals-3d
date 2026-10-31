@@ -17,6 +17,7 @@
   const live = $derived(!!ch && ch.ends > Date.now());
   const endsText = $derived(ch ? new Date(ch.ends - 1).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : '');
   const mine = $derived(c.class.id);
+  let leaving = $state(false);
 </script>
 
 <div class="two">
@@ -58,7 +59,10 @@
       {#each ch.classes as x, i (x.id)}<li class:me={x.id === mine}><span class="pl">{i + 1}</span><b>{x.name}</b><span class="n">{x.avg} a student</span><span class="m">{x.students} students</span></li>{/each}
     </ol>
     {#if ch.classes.length < 2}<p class="muted">Waiting for another class to join with the code.</p>{/if}
-    <button class="sbtn warn" onclick={() => act(leaveChallenge, 'Left the challenge.')}>Leave the challenge</button>
+    {#if leaving}
+      <p class="muted">Leave the challenge? Your class drops off its board this week. You can join again with the code.</p>
+      <div class="row"><button class="sbtn" onclick={() => (leaving = false)}>Stay in it</button><button class="sbtn warn" onclick={() => { leaving = false; void act(leaveChallenge, 'Left the challenge.'); }}>Leave the challenge</button></div>
+    {:else}<button class="sbtn warn" onclick={() => (leaving = true)}>Leave the challenge</button>{/if}
   {:else}
     {#if ch}<p class="muted">Last challenge: {ch.classes.map((x, i) => `${i + 1}. ${x.name} (${x.avg})`).join(', ')}</p>{/if}
     <p class="muted">Race another class for a week: the class with the most right answers per student wins. Make a code and give it to another teacher, or join with theirs.</p>

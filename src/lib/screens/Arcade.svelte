@@ -8,7 +8,7 @@
   // Drop stands here too: just for fun, played with the same play time as Adventure.
   import { onDestroy, onMount } from 'svelte';
   import { game, type Screen } from '../state/game.svelte';
-  import { advView, playLeft } from '../adventure/state';
+  import { advView, playLeft, playRules } from '../adventure/state';
   import { dropOf } from '../drop/save';
   import { ARCADE, ARCADE_GAMES, arcadeOf, dailyBeaten, dailyGame, dailyGoal, DAILY_SHELLS, type ArcadeId } from '../arcade/arcade';
   import { stage } from '../three/stage';
@@ -41,7 +41,7 @@
   const drop = $derived(dropOf(p));
   const time = $derived(playLeft(p));
   const playText = $derived(!time.open ? 'Play time is used up today' : time.left === null ? 'Uses play time' : `${Math.max(0, Math.floor(time.left))} min of play time left`);
-  const versus = $derived(advView(p).settings.versus !== false);
+  const versus = $derived(playRules.of(p).versus !== false);
 
   let scene: PlazaScene | null = null;
   let spotEl: HTMLDivElement | undefined = $state();

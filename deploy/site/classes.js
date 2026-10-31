@@ -29,7 +29,7 @@
 // variable never set on the live site) AND the address is 127.0.0.1 or localhost. (&gmail=1: a plain
 // Gmail account; otherwise a school account.) Students have one too (/class/google/dev).
 
-import { CLASS_WORDS, MAX_CLASSES, MAX_STUDENTS, PICTURE_COUNT, START_BUDDIES, cleanClassName, cleanClassSettings, cleanStudentName, cleanTeacherName, cleanWeek, domainOk, googleDomain, isAlias, isBuddyId, isDay, isWeek, splitNames, teacherStatusFor, worldScoreOk } from './class-rules.js';
+import { CLASS_WORDS, MAX_CLASSES, MAX_STUDENTS, PICTURE_COUNT, START_BUDDIES, cleanClassName, cleanClassSettings, cleanStudentName, cleanTeacherName, cleanWeek, domainOk, googleDomain, inOrder, isAlias, isBuddyId, isDay, isWeek, splitNames, teacherStatusFor, worldScoreOk } from './class-rules.js';
 
 /** Tables for the weekly backup (worker.js backup): table and its key. The world boards aren't kept. */
 export const CLASS_TABLES = { teachers: 'account', classes: 'id', students: 'id', assignments: 'id', player_week: 'id', challenges: 'id', challenge_classes: 'id', teacher_status: 'account', class_settings: 'class', student_google: 'gid', account_domains: 'account' };
@@ -85,6 +85,8 @@ async function classOfPlayer(env, code, any = false) {
     return await env.DB.prepare(any ? 'SELECT class FROM students WHERE player = ? AND home = 0 LIMIT 1' : "SELECT class FROM students WHERE player = ? AND status = 'active' LIMIT 1").bind(code).first();
   } catch { return null; }
 }
+/** Did a class make this player (not a family's player linked to a class)? */
+export const madeByClass = async (env, code) => !!(await classOfPlayer(env, code, true));
 /** A whole class plays on one school address, so opening and saving a class player count by the player's
  *  own code (an hour's worth each) and by its class (room for a big class), never by the address. */
 export const CLASS_PLAYER_LIMITS = { open: 120, save: 900 };
@@ -126,8 +128,9 @@ async function settingsOf(env, classId) {
   let d = {}; try { d = row ? JSON.parse(row.data) : {}; } catch { /* the usual */ }
   return cleanClassSettings(d);
 }
-/** What students' games need of the settings (not how they sign in). */
-const playSettings = (s) => ({ keep: s.keep, goal: s.goal, limits: s.limits });
+/** What students' games need of the settings (not how they sign in, and they get the order as the order of
+ *  their class work: older games read that without knowing). */
+const playSettings = (s) => ({ keep: s.keep, goal: s.goal, limits: s.limits, play: s.play, sound: s.sound, words: s.words });
 /** The school domain Google gave an account at sign-in (null: a plain Gmail account, or none). */
 async function domainOf(env, account) {
   try { return (await env.DB.prepare('SELECT hd FROM account_domains WHERE account = ?').bind(account).first())?.hd ?? null; } catch { return null; }
@@ -389,8 +392,9 @@ export async function classApi(request, env, url, path, h) {
         let google = new Set();
         try { google = new Set(((await DB.prepare('SELECT student FROM student_google WHERE class = ?').bind(c.id).all()).results ?? []).map(x => x.student)); } catch { /* before the schema: none */ }
         const students = (st.results ?? []).map(s => ({ id: s.id, name: s.name, pics: picsOf(s.pics), home: !!s.home, status: s.status, claims: s.claims, buddy: s.buddy, created: s.created, google: google.has(s.id) }));
-        const assignments = (as.results ?? []).map(a => ({ id: a.id, ...JSON.parse(a.data), created: a.created, archived: !!a.archived }));
-        return h.json({ class: classView(c), students, assignments, week: week ? await classWeek(env, c.id, week) : [], challenge: await challengeOf(env, c.id), settings: await settingsOf(env, c.id), teacher: { status: await statusOf(env, acct), domain: await domainOf(env, acct) } });
+        const settings = await settingsOf(env, c.id);
+        const assignments = inOrder((as.results ?? []).map(a => ({ id: a.id, ...JSON.parse(a.data), created: a.created, archived: !!a.archived })), settings.order);
+        return h.json({ class: classView(c), students, assignments, week: week ? await classWeek(env, c.id, week) : [], challenge: await challengeOf(env, c.id), settings, teacher: { status: await statusOf(env, acct), domain: await domainOf(env, acct) } });
       }
       if (rest === '' && method === 'PATCH') {
         const body = await h.readBody(request) || {};
@@ -602,7 +606,8 @@ export async function classApi(request, env, url, path, h) {
       if (r.status !== 'active') { pending.push({ id: r.id, name: r.name, teacher: r.display }); continue; }
       if (!(await classOn(env, r))) continue;
       const as = (await DB.prepare('SELECT id, data, created FROM assignments WHERE class = ? AND archived = 0 ORDER BY created').bind(r.id).all()).results ?? [];
-      const assignments = as.map(a => ({ id: a.id, ...JSON.parse(a.data), created: a.created })).filter(a => !a.students || a.students.includes(r.sid));
+      const set = await settingsOf(env, r.id);
+      const assignments = inOrder(as.map(a => ({ id: a.id, ...JSON.parse(a.data), created: a.created })).filter(a => !a.students || a.students.includes(r.sid)), set.order);
       const wk = week ? await classWeek(env, r.id, week) : [];
       classes.push({
         id: r.id, name: r.name, grade: r.grade, teacher: r.display ?? 'Your teacher', home: !!r.home,
@@ -610,7 +615,7 @@ export async function classApi(request, env, url, path, h) {
         week: { right: wk.reduce((t, x) => t + x.right, 0), ms: wk.reduce((t, x) => t + x.ms, 0), played: wk.filter(x => x.right || x.ms).length, students: wk.length },
         rows: r.board ? wk.map(x => ({ name: x.name, buddy: x.buddy, right: x.right, ms: x.ms, me: x.id === r.sid })) : [],
         challenge: await challengeOf(env, r.id),
-        settings: playSettings(await settingsOf(env, r.id)),
+        settings: playSettings(set),
       });
     }
     return h.json({ classes, pending });

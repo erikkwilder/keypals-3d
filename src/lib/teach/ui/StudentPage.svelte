@@ -64,16 +64,16 @@
   <div class="tp">
     <h3>Class work</h3>
     {#if !r.work.length}<p class="muted">No class work for {s.name} yet.</p>{:else}
-      <table class="tt">
+      <table class="tt stack">
         <thead><tr><th>Class work</th><th>Goal</th><th>Due</th><th>Progress</th><th>Accuracy</th><th>Score</th><th>Status</th></tr></thead>
         <tbody>
           {#each r.work as { a, pr } (a.id)}
             <tr>
               <td><b>{a.title}</b><br /><span class="muted">{pr.parts.map(x => `${x.done ? '✓ ' : ''}${x.name}`).join(', ')}</span></td>
-              <td>{goalText(a)}</td><td>{dueText(a.due)}</td>
+              <td data-l="Goal">{goalText(a)}</td><td data-l="Due">{dueText(a.due)}</td>
               <td><div class="pbar"><i style:width="{pr.done * 100}%"></i></div>{Math.round(pr.done * 100)}%</td>
-              <td>{pr.acc === null ? '—' : `${Math.round(pr.acc * 100)}%`}</td>
-              <td><b>{pr.score}</b></td>
+              <td data-l="Accuracy">{pr.acc === null ? '—' : `${Math.round(pr.acc * 100)}%`}</td>
+              <td data-l="Score"><b>{pr.score}</b></td>
               <td><span class="chip" style:background={COLORS[pr.status]}>{STATUS_NAME[pr.status]}</span></td>
             </tr>
           {/each}

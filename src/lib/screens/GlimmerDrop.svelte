@@ -11,7 +11,8 @@
   import { ShowScene } from '../three/showScene';
   import { sfx } from '../audio/sound';
   import { dayKey } from '../engine/profile';
-  import { playLeft, PLAY_RULES, advView } from '../adventure/state';
+  import { playLeft, PLAY_RULES, playRules } from '../adventure/state';
+  import { playerRules } from '../path/player.svelte';
   import { nextLesson } from '../engine/profile';
   import { mathOf, nextMathLesson } from '../math/progress';
   import { CHAIN, DropGame, JAR, TOP, daySeed, type DropEvent } from '../drop/engine';
@@ -541,7 +542,7 @@
     <div class="title"><small>Just for fun</small><b>Glimmer Drop</b></div>
     {#if phase !== 'menu'}<span class="chip mode">{mode === 'daily' ? "Today's jar" : 'Free play'}</span>{/if}
     <span class="sp"></span>
-    {#if left !== null}<span class="chip time" class:low={left < 2} title={PLAY_RULES[advView(p).settings.rule].text}><Icon name="clock" size={20} /> {Math.max(0, Math.ceil(left))}<span class="mn">&nbsp;min</span></span>{/if}
+    {#if left !== null}<span class="chip time" class:low={left < 2} title={PLAY_RULES[playRules.of(p).rule].text}><Icon name="clock" size={20} /> {Math.max(0, Math.ceil(left))}<span class="mn">&nbsp;min</span></span>{/if}
   </div>
 
   <div class="main">
@@ -617,7 +618,7 @@
           </div>
           {#if left !== null}<p class="playnote"><Icon name="clock" size={18} /> {Math.max(0, Math.ceil(left))} minute{Math.ceil(left) === 1 ? '' : 's'} of play time left today. Practice earns more.</p>{/if}
         {:else}
-          <p class="playnote closed">{playLeft(p).why || 'Play time is used up for today.'}</p>
+          <p class="playnote closed">{playLeft(p).why || 'Play time is used up for today.'}{playerRules(p).playFrom === 'class' ? ' Your teacher set this.' : playerRules(p).playFrom === 'home' ? ' Your grown-up set this.' : ''}</p>
           <div class="modes"><button class="btn btn-primary" onclick={() => practice('math')}>Math practice</button><button class="btn btn-primary" onclick={() => practice('typing')}>Typing practice</button></div>
         {/if}
       </div>

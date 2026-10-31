@@ -19,7 +19,7 @@
 // Once a week (from the daily tidy-up) the players and accounts are copied to the R2 bucket bound as
 // BACKUPS, kept 90 days by the bucket's own rule (restore: deploy/site/RESTORE.md).
 
-import { classApi, classPlayerLimited, tidyClasses, CLASS_TABLES, noteSignIn, studentGoogleBack } from './classes.js'; // classes for teachers, and the boards
+import { classApi, classPlayerLimited, madeByClass, tidyClasses, CLASS_TABLES, noteSignIn, studentGoogleBack } from './classes.js'; // classes for teachers, and the boards
 
 const WORDS = ('apple acorn anchor arrow badger bamboo banana basket beach beaver berry bird biscuit blossom boat bramble breeze brick bubble bucket bunny cactus camel candle canoe canyon carrot castle cedar cherry cloud clover coconut comet coral cotton crab crayon cricket crystal daisy desert dingo dolphin donut dragon drum duck eagle earth echo elm ember fable falcon feather fern fiddle finch flame flower forest fossil fox frog galaxy garden gecko ginger glacier globe goose grape gull hammock harbor harp hazel hedge heron hill honey hoop iceberg igloo island ivy jelly jungle kayak kettle kite kiwi koala ladder lagoon lake lantern lark leaf lemon lilac lily lime llama lotus lunar maple marble meadow melon meteor mint mitten moon moose moss mountain mouse muffin nectar nest noodle nutmeg oak oasis ocean olive orbit orchid otter owl paddle panda parrot peach peanut pear pebble pelican pepper petal piano pickle pine pixel planet plum pond poppy prairie pretzel puffin pumpkin quail quartz rabbit radish rain rainbow raven reef ribbon river robin rocket rose ruby saddle sail salmon sandal sapphire scarf seal seed shell sky sloth snail snow sparrow spruce squid star stone storm sugar summer sun swan taco tide tiger toad topaz tortoise trail tulip tuna turnip turtle tulip umbrella valley velvet violet volcano waffle walnut walrus water wave whale willow wind wombat yak yarn zebra zinnia').split(' ').filter((w, i, a) => a.indexOf(w) === i);
 const DAY = 86400000;
@@ -236,6 +236,8 @@ async function api(request, env, url, base) {
         const acct = await currentAccount(env, request);
         if (!acct || acct.id !== row.account) return fail(403, "This player is kept in a grown-up's account. Sign in as that grown-up to stop saving it online.");
       }
+      // a player a class made belongs to the class: the teacher's reports read this copy
+      if (await madeByClass(env, code)) return fail(403, 'This player belongs to a class. Only the teacher can remove them.');
       await env.DB.prepare('DELETE FROM players WHERE code = ?').bind(code).run();
       return json({ ok: true });
     }
