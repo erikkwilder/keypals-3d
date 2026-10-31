@@ -2,12 +2,13 @@
   // The Menu (the three lines on the top bar of every screen): the music (what's playing, next song, pick a
   // station: the note on the bar opens the same, and on a phone this is where it is), music and sounds on or off, then
   // go anywhere, by level (Home, Typing, Math, Arcade, Adventure, My Sky Island, My stuff, My path), then
-  // Settings, Ideas and help, Grown-ups, For teachers and About. No scores here: how you're doing is in My
+  // Settings, Ideas and help, Grown-ups, For teachers and About, and Sign in with Google until a grown-up has. No scores here: how you're doing is in My
   // stuff › My progress. A tap outside it, or Esc, closes it.
   import { onDestroy, onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
+  import { cloud, goSaveOnline } from '../state/cloud.svelte';
   import { menuMore, menuPlaces, type MenuItem } from '../nav';
   import CloseButton from './CloseButton.svelte';
   import QuickToggles from './QuickToggles.svelte';
@@ -46,6 +47,9 @@
       {#each more as t (t.id)}
         <button class="row" onclick={() => go(t)}><img src="{base}{t.icon}" alt="" /><span>{t.name}</span></button>
       {/each}
+      {#if cloud.online && cloud.google && !cloud.account}
+        <button class="row" onclick={() => { sfx.click(); game.closeMenu(); goSaveOnline(); }}><img src="{base}icons/cloud-save.webp" alt="" /><span>Sign in with Google</span></button>
+      {/if}
     </nav>
   </div>
 </div>

@@ -205,13 +205,4 @@ export function startClasses() {
   };
   route();
   window.addEventListener('hashchange', route);
-  // back from signing in with Google from the teacher area: the game opens the Grown-ups screen; go on
-  // to the teacher area instead
-  try {
-    if (sessionStorage.getItem('kp-teach-return') && /signin=/.test(location.hash)) {
-      sessionStorage.removeItem('kp-teach-return');
-      const until = Date.now() + 20000;
-      const t = setInterval(() => { if (game.screen === 'grownups' || Date.now() > until) { clearInterval(t); if (game.screen === 'grownups') game.go('teach'); } }, 200);
-    }
-  } catch { /* no session storage: stay on Grown-ups */ }
 }

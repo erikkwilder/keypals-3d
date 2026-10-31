@@ -7,7 +7,7 @@
   // Behind the grown-up check like the Grown-ups screen, so a child at a shared computer can't wander in.
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
-  import { cloud, grownupOpen, signIn, signOut } from '../state/cloud.svelte';
+  import { cloud, grownupOpen, signInForTeach, signOut } from '../state/cloud.svelte';
   import GrownupGate from '../ui/GrownupGate.svelte';
   import { teach, act, loadMe, devSignIn, becomeTeacher, createClass, openClass } from '../teach/teacher.svelte';
   import { showClassCode } from '../teach/names';
@@ -27,9 +27,9 @@
   const status = $derived(teach.me?.teacher?.status ?? 'approved');
 
   onMount(() => { if (!teach.loaded || !teach.me?.signedIn) void loadMe(); });
-  function google() { try { sessionStorage.setItem('kp-teach-return', '1'); } catch { /* fine */ } signIn('google'); }
   async function out() { await signOut(); teach.me = { signedIn: false }; teach.classes = []; teach.current = null; }
-  /** Back: from a class to all of them, then back to where For teachers was opened from */
+  /** Back: from a class to all of them, then back to where For teachers was opened from (Home, or the
+   *  player list with nobody picked: game.back) */
   function back() { if (teach.current) { teach.current = null; return; } game.back(); }
 </script>
 
@@ -74,7 +74,7 @@
               <li>Students log in with the class code and pictures, or with their own school Google account. They never give us an email.</li>
             </ul>
             <div class="row">
-              {#if cloud.google}<button class="btn btn-primary" onclick={google}>Sign in with Google</button>{/if}
+              {#if cloud.google}<button class="btn btn-primary" onclick={signInForTeach}>Sign in with Google</button>{/if}
               {#if !cloud.google && !teach.dev}<p class="muted">Sign-in isn't set up on this copy of Keypals.</p>{/if}
             </div>
             {#if teach.dev}

@@ -13,6 +13,7 @@
   import SafeReminder from '../ui/SafeReminder.svelte';
   import { cloud, goSaveOnline, catchUpSoon } from '../state/cloud.svelte';
   import ClassEntry from '../ui/ClassEntry.svelte';
+  import GoogleSignIn from '../ui/GoogleSignIn.svelte';
   import { onMount } from 'svelte';
   // players added or deleted on another computer show up here (at most once a minute)
   onMount(() => catchUpSoon());
@@ -47,15 +48,16 @@
       </button>
     {/if}
   </div>
+  <div class="signin"><GoogleSignIn /></div>
   <SafeReminder />
   <SaveCodeForm />
   <ClassEntry /><!-- classes: "I'm in a class" and "For teachers" -->
   <div class="foot">
     <button class="btn btn-ghost" onclick={() => game.openGrownups()}>Grown-ups</button>
-    <!-- signing in, easy to find, and easy to see once it's done -->
+    <!-- once signed in, easy to see (the way in is Sign in with Google, above) -->
     {#if cloud.online && cloud.account}
       <button class="btn btn-ghost acct on" onclick={goSaveOnline} title="Saving online: see or change it"><img src="{import.meta.env.BASE_URL}icons/cloud-save.webp" alt="" />Signed in as {cloud.account.name?.split(' ')[0] ?? cloud.account.email}</button>
-    {:else if cloud.online && (cloud.google || cloud.microsoft)}
+    {:else if cloud.online && cloud.microsoft && !cloud.google}
       <button class="btn btn-ghost acct" onclick={goSaveOnline}><img src="{import.meta.env.BASE_URL}icons/cloud-save.webp" alt="" />{cloud.signedOut ? 'Signed out: sign in again' : 'Grown-ups: sign in'}</button>
     {/if}
   </div>
@@ -76,6 +78,7 @@
   .tag { background: var(--bg2); padding: 2px 8px; border-radius: 999px; }
   .add { justify-content: center; border-style: dashed; background: rgba(255, 255, 255, .6); min-height: 230px; }
   .plus { width: 90px; height: 90px; border-radius: 50%; display: grid; place-items: center; font: 600 54px/1 var(--font-ui); background: var(--bg2); color: var(--primary); }
+  .signin { margin-top: 18px; }
   .foot { margin-top: 26px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
   .acct { display: inline-flex; align-items: center; gap: 6px; }
   .acct img { width: 28px; height: 28px; object-fit: contain; margin: -4px 0; }

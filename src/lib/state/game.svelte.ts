@@ -175,7 +175,7 @@ class Game {
     const top = this.returns.at(-1);
     // (back along a chain of cross-links: the ones before this one stay, to unwind next)
     if (top && samePlace(top.at, h)) { const rest = this.returns.slice(0, -1); this.goPlace(top.to); this.returns = rest; return; }
-    const up = parentOf(h, this.from);
+    const up = this.upFrom(h);
     if (up) this.goPlace(up);
   }
   /** The place Back goes to from here (null on Home). */
@@ -183,13 +183,21 @@ class Game {
     const h = this.here();
     const top = this.returns.at(-1);
     if (top && samePlace(top.at, h)) return top.to;
-    return parentOf(h, this.from);
+    return this.upFrom(h);
+  }
+  /** One level up. Home needs a player: with nobody picked (a new phone back from signing in with Google,
+   *  which reloads the game with no way back remembered) up from anywhere is the player list. */
+  private upFrom(pl: Place): Place | null {
+    const up = parentOf(pl, this.from);
+    return up?.screen === 'hub' && !this.profile ? { screen: 'players', ctx: {} } : up;
   }
   /** Leave an activity: back to where it was started from. */
   leaveActivity() { this.goPlace(this.from ?? { screen: 'hub', ctx: {} }); }
   /** `via`: arriving by a cross-link from there (the cross-links on the way back to it stay, so a chain of
    *  them unwinds in order) */
   private arrive(next: Screen, via: Place | null = null) {
+    // (Home can't draw without a player: nothing may land there with nobody picked, or the screen hangs)
+    if (next === 'hub' && !this.profile) next = 'players';
     const was = this.here();
     if (isActivity(next) && !isActivity(this.screen)) this.from = was;
     this.screen = next;
@@ -227,6 +235,8 @@ class Game {
   }
   /** the menu that goes anywhere in the game (three lines on the top bar) */
   menuOpen = $state(false);
+  /** the grown-up check before "Sign in with Google" (ui/GoogleSignIn.svelte) is up over the screen */
+  gateOpen = $state(false);
   /** an activity's Pause card: open, and how to keep going */
   pause = $state<{ resume: () => void; back?: { name: string; go: () => void } } | null>(null);
   /** `back`: an activity opened over a page (a Learn episode over a trip or a Learn list) goes back to that page */
@@ -235,7 +245,7 @@ class Game {
   openMenu() { this.menuOpen = true; }
   closeMenu() { this.menuOpen = false; }
   /** something is open on top of the screen and owns the keyboard */
-  get modalOpen() { return this.sheet !== null || this.settingsOpen || this.musicOpen || this.menuOpen || this.pause !== null || this.chartLesson !== null || this.learnOverlay !== null; }
+  get modalOpen() { return this.sheet !== null || this.settingsOpen || this.musicOpen || this.menuOpen || this.gateOpen || this.pause !== null || this.chartLesson !== null || this.learnOverlay !== null; }
   openChart(id: string) { this.chartLesson = id; }
   closeChart() { this.chartLesson = null; }
   openStickers(tab: 'stickers' | 'medals' | 'rides' = 'stickers') {

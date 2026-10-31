@@ -315,6 +315,9 @@ async function doCatchUp(everyCode: boolean) {
 
 // ---------- grown-up sign-in ----------
 export function signIn(provider: 'google' | 'microsoft') { location.href = `api/auth/${provider}/start`; }
+const TEACH_RETURN = 'kp-teach-return';
+/** Sign in from the teachers' page, and come back to it. */
+export function signInForTeach() { try { sessionStorage.setItem(TEACH_RETURN, '1'); } catch { /* it comes back to Grown-ups instead */ } signIn('google'); }
 export async function signOut() { await call('/auth/logout', { method: 'POST' }).catch(() => null); cloud.account = null; cloud.players = []; forgetSignIn(); cloud.signedOut = null; }
 export async function deleteAccount(withPlayers: boolean) {
   await call('/me', { method: 'DELETE', body: JSON.stringify({ players: withPlayers }) });
@@ -402,15 +405,31 @@ export async function startCloud() {
     if (came.length && game.screen === 'title') game.go('players');
   }
   if (m) {
+    const fromTeach = teachReturn();
     if (m[1] === 'ok' && cloud.account) {
       count('signin', cloud.account.provider);
       const came = game.save.profiles.filter(p => !before.has(p.id)).map(p => p.name);
       game.say(came.length ? `Signed in. Your players are saved to your account, and ${came.length === 1 ? came[0] : `${came.slice(0, -1).join(', ')} and ${came[came.length - 1]}`} came from it.` : 'Signed in. Your players are saved to your account.', 6000);
       grownupOpenUntil = Date.now() + 10 * 60000;
-      game.guSection = 'players';
-      game.go('grownups');
-    } else if (m[1] !== 'ok') game.say(m[1] === 'cancelled' ? 'Sign-in was cancelled.' : 'Sign-in did not work. Please try again.', 5000);
+      landSignedIn(fromTeach);
+    } else {
+      game.say(m[1] === 'cancelled' ? 'Sign-in was cancelled.' : 'Sign-in did not work. Please try again.', 5000);
+      if (fromTeach) game.go('teach');
+    }
   }
+}
+
+/** Signing in from the teachers' page? (it marks that before going to Google; asked once) */
+function teachReturn(): boolean {
+  try { const t = !!sessionStorage.getItem(TEACH_RETURN); sessionStorage.removeItem(TEACH_RETURN); return t; } catch { return false; }
+}
+/** Back from signing in: the game has just restarted, so this picks the first place. From the teachers'
+ *  page, that page again. With a player playing, Grown-ups' saving online. On a new phone nobody is picked
+ *  yet: choose who's playing (their players have just come from the account), or make the first one. */
+export function landSignedIn(fromTeach: boolean) {
+  if (fromTeach) game.go('teach');
+  else if (game.profile) { game.guSection = 'players'; game.go('grownups'); }
+  else game.go(game.save.profiles.length ? 'players' : 'newPlayer');
 }
 
 // ---------- the grown-up check: open for ten minutes once passed ----------
