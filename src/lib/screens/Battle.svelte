@@ -10,6 +10,8 @@
   import { onDestroy, onMount } from 'svelte';
   import PathNextButton from '../path/PathNextButton.svelte';
   import { mayRepeat, onTrail, pathNext, startPathNext } from '../path/next';
+  import { pathRun } from '../path/launch';
+  import { noteBattleLost } from '../path/progress';
   import { Tween } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
   import { fade } from 'svelte/transition';
@@ -66,6 +68,8 @@
 
   let scene: BattleScene | null = null;
   let disposed = false;
+  /** a battle on the path lost twice: it counts, and the path goes on */
+  let movedOn = $state(false);
   let ui = $state<'loading' | 'intro' | 'pick' | 'answer' | 'busy' | 'block' | 'won' | 'lost'>('loading');
   let cards = $state<Card[]>([]);
   let finaleN = $state(b.finale);
@@ -264,7 +268,7 @@
 
   // typing cards and typing blocks
   function onKey(e: KeyboardEvent) {
-    if (ui === 'won' || ui === 'lost') { if (e.key === 'Enter') { e.preventDefault(); if (ui === 'won' && pn && game.profile) startPathNext(game.profile, pn); else toMap(); } return; }
+    if (ui === 'won' || ui === 'lost') { if (e.key === 'Enter') { e.preventDefault(); if ((ui === 'won' || movedOn) && pn && game.profile) startPathNext(game.profile, pn); else toMap(); } return; }
     if (subject === 'math') {
       // a skill card's own input takes the keys
       if (ui === 'answer' && sel?.item) { if (e.key === 'Escape') escape(); return; }
@@ -446,6 +450,8 @@
     ui = 'lost'; coach = null; letGo();
     game.update(pp => markSeen(pp, 'battle1', ...seen));
     scene?.lose(); sfx.tryAgain();
+    const r = pathRun.cur;
+    if (r?.activity === activity && r.ref.startsWith('battle:')) game.update(pp => { movedOn = noteBattleLost(pp, r.unit, r.ref); });
     game.update(pp => { out = applyBattle(pp, { node: node.id, subject, won: false, perfect: false, foe, ms: performance.now() - t0, answers: b.stats.answers + b.stats.blocks, right: b.stats.right, answered: b.answered, skillAnswers: b.skillAnswers, team: team.map(t => t.id), crystal: false, treasureNose: false, at: Date.now(), seed }); });
   }
   function toMap() { game.leaveActivity(); }
@@ -620,7 +626,7 @@
     <div class="lostbox card">
       <Critter friend={p0.buddy} size={narrow ? 84 : 110} mood="sleep" />
       <h2>{FRIEND[p0.buddy].name} needs a rest</h2>
-      <p>Try again! When it hits back, answer the quick one fast to put your shield up. You keep everything you've won.</p>
+      <p>{#if movedOn}That was a tough one, and you tried twice, so your path moves on. Come back and beat it any time.{:else}Try again! When it hits back, answer the quick one fast to put your shield up. You keep everything you've won.{/if}</p>
       <div class="rbtns in">
         {#if pn && !pn.trail}<PathNextButton next={pn} wide compact={narrow} />{/if}
         <button class="btn" onclick={toMap}>{backWord}</button><button class="btn" class:btn-primary={!pn || pn.trail} onclick={again}>Try again</button>

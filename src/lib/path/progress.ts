@@ -43,6 +43,8 @@ export type PathSave = {
   quick?: Record<string, number>;
   /** the curriculum's one-time step has stamped what was done before it (1) */
   cur?: number;
+  /** battles on the path lost, by item key: the second loss moves the child on */
+  lost?: Record<string, number>;
   /** minutes in the free-time places today (rules.ts) */
   time?: { day: string; ms: Record<string, number> };
 };
@@ -240,6 +242,17 @@ export function startPath(p: Profile, now = Date.now()) {
     for (const id of u.lessons ?? []) if (quick[id] === undefined && lessonTicks(p, id, now).quick) quick[id] = 0;
   }
   pp.path = { ...(pp.path ?? {}), done, quick, cur: 1 };
+}
+/** Two losses and a battle step counts as done: a stop on the path is never a wall. */
+export const LOSSES_TO_PASS = 2;
+/** A battle started from the path was lost. True when that moves the child on. */
+export function noteBattleLost(p: Profile, unitId: string, ref: string, now = Date.now()): boolean {
+  const pp = p as PathProfile, k = `${unitId}/${ref}`;
+  const lost = { ...(pp.path?.lost ?? {}) };
+  lost[k] = (lost[k] ?? 0) + 1;
+  const on = lost[k] >= LOSSES_TO_PASS;
+  pp.path = { ...(pp.path ?? {}), lost, ...(on ? { done: { [k]: now, ...(pp.path?.done ?? {}) } } : {}) };
+  return on;
 }
 /** After an activity: stamp the items it finished. `extra`: a teacher's units, counted from when given.
  *  Returns the keys stamped now. */

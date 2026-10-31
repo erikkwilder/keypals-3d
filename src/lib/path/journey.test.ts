@@ -9,7 +9,7 @@ import { trailsOf } from '../adventure/trails';
 import { WORLD_PINS } from '../adventure/worlds';
 import { mergeProfile } from '../state/merge';
 import { pathOf } from './units';
-import { nextOnPath, notePath, pathStates, unitState } from './progress';
+import { nextOnPath, noteBattleLost, notePath, pathSave, pathStates, unitState } from './progress';
 import { doorFor, pathHolds, rulesFor, setHomeRules } from './rules';
 import { pathRun } from './launch';
 import { unitFromAssignment } from './classPath';
@@ -286,5 +286,20 @@ describe('the end cards', () => {
     const p = kid(), before = JSON.stringify(pathStates(p, 'math', NOW).map(s => [s.unit.id, s.status, s.done]));
     journeyOf(p, NOW);
     expect(JSON.stringify(pathStates(p, 'math', NOW).map(s => [s.unit.id, s.status, s.done]))).toBe(before);
+  });
+});
+
+describe('a battle on the path', () => {
+  it('counts as done after two losses, so a stop is never a wall', () => {
+    const p = { path: { done: {}, cur: 1 } } as unknown as Profile;
+    expect(noteBattleLost(p, 'G3-U5', 'battle:falls:1')).toBe(false);
+    expect(pathSave(p).done?.['G3-U5/battle:falls:1']).toBeUndefined();
+    expect(noteBattleLost(p, 'G3-U5', 'battle:falls:1')).toBe(true);
+    expect(pathSave(p).done?.['G3-U5/battle:falls:1']).toBeDefined();
+  });
+  it('keeps what was stamped before', () => {
+    const p = { path: { done: { 'x/y': 5 }, cur: 1 } } as unknown as Profile;
+    noteBattleLost(p, 'G3-U5', 'battle:falls:1'); noteBattleLost(p, 'G3-U5', 'battle:falls:1');
+    expect(pathSave(p).done?.['x/y']).toBe(5);
   });
 });
