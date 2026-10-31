@@ -266,7 +266,8 @@
   }
 </script>
 
-<div class="screen adv" class:tall>
+<LearnOverlay />
+<div class="screen adv" class:tall class:behind={!!game.learnOverlay}>
   <Header />
 
   <div class="mapwrap" bind:this={wrap} style:--bg="url({new URL(`${base}${wmap[kind]}`, document.baseURI).href})">
@@ -276,7 +277,7 @@
     {#if journey}
       <!-- the two ways to play, side by side -->
       <div class="modes" role="tablist" aria-label="How to play">
-        <button role="tab" aria-selected={onTrail} class:on={onTrail} onclick={() => pick('journey')}><img src="{base}icons/path.webp" alt="" />Journey</button>
+        <button role="tab" aria-selected={onTrail} class:on={onTrail} onclick={() => pick('journey')}><img src="{base}icons/path.webp" alt="" />Journey{#if !onTrail && !a.mode}<em>New</em>{/if}</button>
         <button role="tab" aria-selected={!onTrail} class:on={!onTrail} onclick={() => pick('free')}><img src="{base}game/icon-grump.webp" alt="" />Free play</button>
       </div>
     {/if}
@@ -351,7 +352,6 @@
       <span><b>{arrival.title}</b><small>{arrival.line}</small></span>
     </button>
   {/if}
-  <LearnOverlay />
   {#if shut}<div class="doorover"><DoorCard door={shut} onback={() => (shut = null)} /></div>{/if}
 
   {#if open}
@@ -488,12 +488,14 @@
 
 <style>
   .adv { display: flex; flex-direction: column; background: #cfe6fb; overflow: hidden; }
+  .adv.behind { visibility: hidden; }
   .introcard { position: relative; }
   .introx { position: absolute; top: 10px; right: 10px; z-index: 3; }
   /* the two ways to play: big pictures and one word each, on a white pill so they read on any map */
   .modes { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 4; display: flex; gap: 4px; padding: 5px; border-radius: 999px; background: rgba(255, 255, 255, .94); box-shadow: 0 8px 18px -10px rgba(40, 20, 80, .6); }
   .modes button { display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer; padding: 4px 18px 4px 6px; border-radius: 999px; background: transparent; color: var(--ink2); font: 600 19px var(--font-ui); white-space: nowrap; }
   .modes img { width: 36px; height: 36px; object-fit: contain; }
+  .modes em { font: 800 11px var(--font-body); font-style: normal; color: #fff; background: #e2468f; border-radius: 999px; padding: 2px 7px; }
   .modes button.on { background: var(--primary); color: #fff; box-shadow: inset 0 -3px 0 var(--primary-edge); }
   /* the unit on the trail, and how far along it */
   .jinfo { position: absolute; left: 14px; top: 10px; z-index: 3; display: flex; flex-direction: column; gap: 1px; min-width: 190px; max-width: 280px; padding: 7px 14px 9px; border-radius: 18px; background: rgba(255, 255, 255, .92); box-shadow: 0 8px 18px -10px rgba(40, 20, 80, .6); }
@@ -512,7 +514,7 @@
   .nst small { font: 800 12px var(--font-body); letter-spacing: .05em; text-transform: uppercase; opacity: .92; }
   .nst b { font: 600 24px/1.1 var(--font-ui); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
   .gogo { flex: none; font: 700 22px var(--font-ui); color: var(--primary); background: #fff; padding: 12px 18px; border-radius: 18px; }
-  .arrive { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); z-index: 9; display: flex; align-items: center; gap: 12px; max-width: min(560px, 92vw); padding: 10px 24px 10px 12px; border: 0; cursor: pointer; text-align: left; animation: arrive .5s cubic-bezier(.3, .8, .4, 1.4); box-shadow: 0 0 0 4px #ffd36b, 0 16px 34px -12px rgba(40, 20, 60, .6); }
+  .arrive { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); z-index: 9; display: flex; align-items: center; gap: 12px; width: max-content; max-width: min(620px, 92vw); padding: 10px 24px 10px 12px; border: 0; cursor: pointer; text-align: left; animation: arrive .5s cubic-bezier(.3, .8, .4, 1.4); box-shadow: 0 0 0 4px #ffd36b, 0 16px 34px -12px rgba(40, 20, 60, .6); }
   .arrive span { display: flex; flex-direction: column; min-width: 0; }
   .arrive b { font: 600 25px/1.15 var(--font-ui); color: var(--ink); }
   .arrive small { font: 700 15px/1.3 var(--font-body); color: var(--ink2); }
@@ -699,7 +701,7 @@
   .tall .nst small { font-size: 9.5px; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .tall .nst b { font-size: 16px; }
   .tall .dock:not(.solo) .nextstop { min-width: 0; flex: 1 1 0; gap: 5px; padding: 6px 6px; }
   .tall .gogo { font-size: 15px; padding: 7px 8px; border-radius: 12px; }
-  .tall .arrive { top: 16%; padding: 8px 16px 8px 8px; } .tall .arrive b { font-size: 20px; } .tall .arrive small { font-size: 13.5px; }
+  .tall .arrive { top: 19%; left: 12px; right: 12px; transform: none; max-width: none; padding: 8px 16px 8px 8px; } .tall .arrive b { font-size: 20px; } .tall .arrive small { font-size: 13.5px; }
   .tall .oddrow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tall .odd img { width: 26px; height: 32px; } .tall .odd span { font-size: 12px; }
   .tall .introcard { grid-template-columns: 1fr; }

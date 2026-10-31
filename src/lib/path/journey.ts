@@ -136,8 +136,9 @@ function stretchWay(route: string[], page: number): string[] {
  *  next one when they leave room. A unit's last stretch ends on the Champion's own spot. */
 export function stretchPoints(world: WorldId, page: number, pages: number, n: number, champion: boolean): { points: string[]; start: string } {
   const route = routeOf(world), legs = legsOf(route);
+  // (the last stretch walks up to the Champion, never back from it)
+  if (champion && page === pages - 1) { const leg = legs[legs.length - 1]; return { points: leg.slice(-n), start: leg[leg.length - n - 1] ?? leg[0] }; }
   const start = page > 0 ? stretchWay(route, page - 1).at(-1)! : route[0];
-  if (champion && page === pages - 1) return { points: legs[legs.length - 1].slice(-n), start };
   const way = stretchWay(route, page);
   return { points: spread(n < way.length ? way.slice(1) : way, n), start };
 }

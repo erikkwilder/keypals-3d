@@ -12,6 +12,7 @@ import { pathOf } from './units';
 import { nextOnPath, notePath, pathStates, unitState } from './progress';
 import { doorFor, pathHolds, rulesFor, setHomeRules } from './rules';
 import { pathRun } from './launch';
+import { unitFromAssignment } from './classPath';
 import { mayRepeat, pathNext } from './next';
 import { battleNode, journeyFor, journeyHere, journeyOf, modeFor, modeOf, routeOf, setMode, stopsOf, stretchesOf, STRETCH_MAX, unitWorld, type Stop } from './journey';
 
@@ -186,6 +187,23 @@ describe('the trail on the maps', () => {
     expect(battleNode(advView(p), 'falls').id).toBe('falls-1');
     for (const n of nodesOf('falls')) a.nodes[n.id] = 1;
     expect(NODE[battleNode(advView(p), 'falls').id].kind).toBe('battle');
+  });
+});
+
+describe('a teacher\'s unit on the trail', () => {
+  const given = { id: 'a1', title: 'Fractions this week', unit: 'math:G3-U5', subject: 'math', items: ['ep:frac-one-piece', 'skill:fr-name', 'trip:les-g3-one-piece', 'battle:falls', 'game:pizza', 'ep:frac-parts', 'skill:fr-compare', 'check'] };
+  it('shows the teacher\'s items in the teacher\'s order, in its own world, a few at a time', () => {
+    const u = unitFromAssignment(given), s = unitState(kid(), u, { now: NOW, since: NOW - 1000 }), j = journeyFor(s, 'Ms Lee');
+    expect(unitWorld(u)).toBe('falls');
+    expect(j.stops.map(x => x.item.ref)).toEqual(given.items);
+    expect(j.teacher).toBe('Ms Lee');
+    expect(j.stretch.length).toBeLessThanOrEqual(STRETCH_MAX);
+    expect(j.pages).toBe(2);
+    expect(j.lit!.item.ref).toBe(s.next!.ref);
+  });
+  it('a teacher\'s own list with no unit behind it finds a world from its battle, or the Sky Islands', () => {
+    expect(unitWorld(unitFromAssignment({ id: 'a2', title: 'Mix', items: ['battle:caves', 'skill:fr-name'] }))).toBe('caves');
+    expect(unitWorld(unitFromAssignment({ id: 'a3', title: 'Mix', items: ['skill:fr-name'] }))).toBe('sky');
   });
 });
 

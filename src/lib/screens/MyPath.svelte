@@ -161,7 +161,7 @@
   </article>
 {/snippet}
 
-<div class="screen mypath">
+<div class="screen mypath" class:behind={!!game.learnOverlay}>
   <Bar trail="{doneUnits} of {main.length} units done" />
   {#if subjects.length > 1}
     <PageTabs label="Which subject" value={subject} onpick={pick} tabs={subjects.map(x => ({ id: x.id, label: x.name }))} />
@@ -193,6 +193,7 @@
 
 <style>
   .mypath { display: flex; flex-direction: column; background: linear-gradient(#eaf6ff, #f8f4ff 45%); }
+  .mypath.behind { visibility: hidden; }
   .ph { flex: none; display: flex; align-items: center; gap: 12px; padding: 8px 20px 6px; max-width: 1040px; width: 100%; margin: 0 auto; }
   .pi { width: 58px; height: 58px; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(60, 30, 110, .2)); }
   .pt { display: flex; flex-direction: column; }

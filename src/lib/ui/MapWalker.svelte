@@ -308,7 +308,7 @@
     // the camera: the buddy in the middle, the map's edges never inside the view
     // (on the trail the map can sit lower, so a stop at the very top of a map comes out from under the unit's card)
     const fit = (vSize: number, mSize: number, b: number, pad = 0) => (mSize <= vSize ? (vSize - mSize) / 2 : Math.min(pad, Math.max(vSize - mSize, vSize / 2 - b)));
-    const tx = fit(vw, mw, bx * scale), ty = fit(vh, mh, by * scale + (tall ? 0 : 20), journey ? (tall ? 110 : 50) : 0);
+    const tx = fit(vw, mw, bx * scale), ty = fit(vh, mh, by * scale + (tall ? 0 : 20), journey && tall ? 110 : 0);
     if (!Number.isFinite(cam.x) || !Number.isFinite(cam.y)) cam.ready = false;
     const k = cam.ready ? 1 - Math.exp(-dt * 5) : 1;
     cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; cam.ready = true;
