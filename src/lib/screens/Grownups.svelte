@@ -28,6 +28,8 @@
   import { onOldAddress } from '../state/move';
   import { moveToOrg } from '../state/cloud.svelte';
   import { browserSaysNo, countingOff, setCountingOff } from '../state/privacy';
+  import { clashes, clashText, loadInto, type Clash } from '../state/progressFile';
+  import { loadMe, teach } from '../teach/teacher.svelte';
   let noCount = $state(countingOff());
   /** on fancyant.com/keypals: offer moving the players to keypals.org */
   const oldAddress = onOldAddress(location.pathname);
@@ -139,19 +141,33 @@
     if (ok) game.say('Progress saved to a file.');
   }
   let fileInput: HTMLInputElement | undefined = $state();
+  /** a file picked that would replace someone here: it asks first */
+  let loadAsk = $state<{ file: Profile[]; clash: Clash[] } | null>(null);
   async function importSave(e: Event) {
-    const f = (e.currentTarget as HTMLInputElement).files?.[0];
+    const input = e.currentTarget as HTMLInputElement, f = input.files?.[0];
+    input.value = ''; // (the same file can be picked again)
     if (!f) return;
     try {
       const data = migrate(JSON.parse(await f.text()));
       if (!data.profiles.length) throw new Error('empty');
-      const ids = new Set(game.save.profiles.map(x => x.id));
-      for (const pr of data.profiles) { if (ids.has(pr.id)) game.save.profiles = game.save.profiles.map(x => (x.id === pr.id ? pr : x)); else game.save.profiles.push(pr); }
-      game.persist();
-      game.say(`Loaded ${data.profiles.length} player(s).`);
+      const clash = clashes(game.save.profiles, data.profiles);
+      if (clash.length) loadAsk = { file: data.profiles, clash }; else finishLoad(data.profiles);
     } catch {
       game.say('That file did not look like saved progress.');
     }
+  }
+  function finishLoad(file: Profile[]) {
+    loadAsk = null;
+    game.save.profiles = loadInto(game.save.profiles, file);
+    game.persist();
+    game.say(`Loaded ${file.length === 1 ? file[0].name : `${file.length} players`} from the file.`);
+  }
+  /** Delete my account: a teacher's classes aren't deleted with it, so they're named first */
+  let myClasses = $state<{ name: string }[]>([]);
+  async function askDelete() {
+    confirmDelete = true;
+    await loadMe().catch(() => null);
+    myClasses = teach.me?.teacher ? teach.classes.filter(c => !c.archived) : [];
   }
   const fmtMin = (ms: number) => (ms < 3600000 ? `${Math.round(ms / 60000)} min` : `${(ms / 3600000).toFixed(1)} h`);
 </script>
@@ -228,12 +244,26 @@
               {/if}
               <div class="row">
                 <button class="btn" onclick={() => act(signOut)}>Sign out</button>
-                {#if !confirmDelete}<button class="btn" onclick={() => (confirmDelete = true)}>Delete my account</button>
-                {:else}
-                  <button class="btn" onclick={() => act(() => deleteAccount(false), 'Account deleted. Players keep their save codes.')}>Delete account, keep players' codes</button>
-                  <button class="btn" onclick={() => act(() => deleteAccount(true), 'Account and saved players deleted.')}>Delete account and saved players</button>
-                {/if}
+                {#if !confirmDelete}<button class="btn" onclick={askDelete}>Delete my account</button>{/if}
               </div>
+              {#if confirmDelete}
+                <div class="stopask" role="alertdialog" aria-label="Delete your account?">
+                  <p class="small"><b>Delete your account?</b> You'll be signed out for good. Players on this computer stay on this computer. Pick what happens to the {cloud.players.length === 1 ? 'player' : `${cloud.players.length} players`} saved in your account:</p>
+                  <ul class="small">
+                    <li><b>Keep players' codes:</b> they stay saved online and their save codes keep working.</li>
+                    <li><b>Delete saved players:</b> their online copies are deleted and their save codes stop working. This can't be undone.</li>
+                  </ul>
+                  {#if myClasses.length}
+                    <p class="small"><b>You teach {myClasses.length === 1 ? 'a class' : `${myClasses.length} classes`}: {myClasses.map(c => c.name).join(', ')}.</b> Deleting your account does not delete {myClasses.length === 1 ? 'it' : 'them'}. Students can still log in and play, but nobody can change {myClasses.length === 1 ? 'that class' : 'those classes'} or see {myClasses.length === 1 ? 'its' : 'their'} reports any more. To remove a class and its class players, delete it in For teachers first.</p>
+                  {/if}
+                  <div class="row">
+                    <button class="btn" onclick={() => (confirmDelete = false)}>Keep my account</button>
+                    {#if myClasses.length}<button class="btn" onclick={() => game.visit('teach')}>Open For teachers</button>{/if}
+                    <button class="btn" onclick={() => act(() => deleteAccount(false), 'Account deleted. Players keep their save codes.')}>Delete account, keep players' codes</button>
+                    <button class="btn" onclick={() => act(() => deleteAccount(true), 'Account and saved players deleted.')}>Delete account and saved players</button>
+                  </div>
+                </div>
+              {/if}
             {:else}
               <p class="muted small">Sign in to keep all your players together and bring them to any computer in one go, with no codes to remember. Children don't sign in or give an email.</p>
               <div class="row">
@@ -263,6 +293,15 @@
             <button class="btn" onclick={() => fileInput?.click()}>Load progress from a file</button>
             <input type="file" accept="application/json,.json" bind:this={fileInput} onchange={importSave} hidden />
           </div>
+          {#if loadAsk}
+            <div class="stopask" role="alertdialog" aria-label="Replace players with the file's copy?">
+              <p class="small"><b>Replace {loadAsk.clash.length === 1 ? loadAsk.clash[0].name : `${loadAsk.clash.length} players`} with the file's copy?</b> {clashText(loadAsk.clash)} Anything done here since then is lost.</p>
+              <div class="row">
+                <button class="btn" onclick={() => (loadAsk = null)}>Keep what's here</button>
+                <button class="btn" onclick={() => finishLoad(loadAsk!.file)}>Yes, load the file</button>
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
       {#if !p && sec && sec !== 'admin' && sec !== 'players'}

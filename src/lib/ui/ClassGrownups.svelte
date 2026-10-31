@@ -21,6 +21,8 @@
   let name = $state('');
   let msg = $state<string | null>(null);
   let busy = $state(false);
+  /** the class "Unlink" is asking about */
+  let asking = $state<string | null>(null);
   const prefs = $derived(boardPrefs(p));
   $effect(() => { void loadClasses(p); });
   $effect(() => { name = p.name.split(' ')[0]; look = null; code = ''; msg = null; });
@@ -59,7 +61,16 @@
     <p class="muted small">Save {p.name} online first (above), then you can link {p.name} to a class so school and home progress are one.</p>
   {:else}
     {#each classes as c (c.id)}
-      <p class="small">In <b>{c.name}</b> ({c.teacher}) as {c.student.name}. {#if c.home}<button class="lnk" disabled={busy} onclick={() => unlink(c.id, c.name)}>Unlink</button>{/if}</p>
+      <p class="small">In <b>{c.name}</b> ({c.teacher}) as {c.student.name}. {#if c.home && asking !== c.id}<button class="lnk" disabled={busy} onclick={() => (asking = c.id)}>Unlink</button>{/if}</p>
+      {#if c.home && asking === c.id}
+        <div class="ask" role="alertdialog" aria-label="Unlink {p.name} from {c.name}?">
+          <p class="small"><b>Unlink {p.name} from {c.name}?</b> {p.name} leaves the class: {c.teacher} won't see {p.name}'s progress or give class work any more. {p.name}'s own progress stays. To join again, ask the teacher.</p>
+          <div class="row">
+            <button class="btn" onclick={() => (asking = null)}>Stay in the class</button>
+            <button class="btn" disabled={busy} onclick={() => { asking = null; void unlink(c.id, c.name); }}>Yes, unlink</button>
+          </div>
+        </div>
+      {/if}
     {/each}
     {#each mine?.pending ?? [] as c (c.id)}
       <p class="small">Waiting for {c.teacher ?? 'the teacher'} to say yes: <b>{c.name}</b>. <button class="lnk" disabled={busy} onclick={() => unlink(c.id, c.name)}>Cancel</button></p>
@@ -103,5 +114,7 @@
   .sw { display: flex; gap: 8px; align-items: center; font: 700 14.5px var(--font-body); color: var(--ink2); cursor: pointer; }
   .sw input { width: 20px; height: 20px; }
   .msg { color: var(--primary); font-weight: 700; }
+  .ask { margin: 6px 0 10px; padding: 10px 14px; border-radius: 14px; background: #fff4e0; box-shadow: inset 0 0 0 2px #ffd59a; }
+  .ask p { margin: 0 0 8px; }
   @media (max-width: 600px) { .teachrow { flex-direction: column; align-items: stretch; } }
 </style>

@@ -324,7 +324,9 @@ export function signInForTeach() { try { sessionStorage.setItem(TEACH_RETURN, '1
 export async function signOut() { await call('/auth/logout', { method: 'POST' }).catch(() => null); cloud.account = null; cloud.players = []; forgetSignIn(); cloud.signedOut = null; }
 export async function deleteAccount(withPlayers: boolean) {
   await call('/me', { method: 'DELETE', body: JSON.stringify({ players: withPlayers }) });
-  if (withPlayers) for (const p of game.save.profiles) { if (p.cloud) dropBase(p.cloud.code); delete p.cloud; }
+  // (only the players the account held lost their online copies: a class player here, or one saved with
+  // just a code, keeps its save)
+  if (withPlayers) for (const p of game.save.profiles) { if (p.cloud && viaAccount(p.cloud.code) && !isClassLogin(p)) { dropBase(p.cloud.code); delete p.cloud; } }
   game.persist();
   cloud.account = null; cloud.players = [];
   forgetSignIn(); cloud.signedOut = null;
@@ -357,7 +359,7 @@ export async function addFromAccount(code: string) { clearNotHere(code); return 
  *  deleted by that grown-up, signed in. */
 export async function forgetCode(id: string) {
   const p = game.save.profiles.find(x => x.id === id);
-  // (a class player's copy is the class's: it's not deleted from here)
+  // (a class player's copy is the class's: it's not deleted from here, and the server refuses too)
   if (!p?.cloud || isClassLogin(p)) return;
   await call(`/players/${p.cloud.code}`, { method: 'DELETE' });
   dropBase(p.cloud.code);

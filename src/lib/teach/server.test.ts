@@ -120,6 +120,20 @@ describe('teachers and classes', () => {
   });
 });
 
+describe('a class player can only be removed by the teacher', () => {
+  it('stopping saving online is refused for a player the class made, and still works for a family\'s', async () => {
+    const cookie = await teacher();
+    const c = await classWith(cookie, 'Ana');
+    const ok = await login(c.code, c.students[0].id, c.students[0].pics);
+    const r = await call('DELETE', `/players/${ok.json.code}`);
+    expect(r.status).toBe(403);
+    expect(r.json.error).toContain('belongs to a class');
+    expect(env.DB.rows('players')).toHaveLength(1);
+    const made = await call('POST', '/players', { profile: { name: 'Home' } });
+    expect((await call('DELETE', `/players/${made.json.code}`)).status).toBe(200);
+  });
+});
+
 describe('students logging in', () => {
   it('class code, tap your name, tap your two pictures', async () => {
     const cookie = await teacher();

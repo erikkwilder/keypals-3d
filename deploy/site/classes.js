@@ -85,6 +85,8 @@ async function classOfPlayer(env, code, any = false) {
     return await env.DB.prepare(any ? 'SELECT class FROM students WHERE player = ? AND home = 0 LIMIT 1' : "SELECT class FROM students WHERE player = ? AND status = 'active' LIMIT 1").bind(code).first();
   } catch { return null; }
 }
+/** Did a class make this player (not a family's player linked to a class)? */
+export const madeByClass = async (env, code) => !!(await classOfPlayer(env, code, true));
 /** A whole class plays on one school address, so opening and saving a class player count by the player's
  *  own code (an hour's worth each) and by its class (room for a big class), never by the address. */
 export const CLASS_PLAYER_LIMITS = { open: 120, save: 900 };

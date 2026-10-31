@@ -42,6 +42,8 @@
   }
   const setIdea = (id: number, body: Record<string, unknown>) => act(() => call(`/admin/ideas/${id}`, { method: 'POST', body: JSON.stringify(body) }));
   const setProblem = (id: number, status: Problem['status']) => act(() => call(`/admin/problems/${id}`, { method: 'POST', body: JSON.stringify({ status }) }));
+  /** the idea or problem Delete is asking about */
+  let asking = $state<string | null>(null);
   const dropProblem = (id: number) => act(() => call(`/admin/problems/${id}`, { method: 'DELETE' }));
   const dropIdea = (id: number) => act(() => call(`/admin/ideas/${id}`, { method: 'DELETE' }));
 
@@ -107,7 +109,8 @@
                   {#each ideas.filter(x => x.id !== i.id && x.status !== 'merged') as x (x.id)}<option value={x.id}>#{x.id} {x.text.slice(0, 50)}</option>{/each}
                 </select>
               {:else}<button class="btn" onclick={() => (merging = i.id)}>Merge...</button>{/if}
-              <button class="btn" onclick={() => dropIdea(i.id)}>Delete</button>
+              {#if asking === `i${i.id}`}<button class="btn" onclick={() => { asking = null; dropIdea(i.id); }}>Yes, delete it</button><button class="btn" onclick={() => (asking = null)}>Keep</button>
+              {:else}<button class="btn" onclick={() => (asking = `i${i.id}`)}>Delete</button>{/if}
             </div>
           {/if}
         </li>
@@ -130,7 +133,8 @@
           <div class="btns">
             {#if p.status === 'new'}<button class="btn" onclick={() => setProblem(p.id, 'read')}>Mark read</button>{/if}
             {#if p.status !== 'done'}<button class="btn btn-primary" onclick={() => setProblem(p.id, 'done')}>Done</button>{:else}<button class="btn" onclick={() => setProblem(p.id, 'new')}>Open again</button>{/if}
-            <button class="btn" onclick={() => dropProblem(p.id)}>Delete</button>
+            {#if asking === `p${p.id}`}<button class="btn" onclick={() => { asking = null; dropProblem(p.id); }}>Yes, delete it</button><button class="btn" onclick={() => (asking = null)}>Keep</button>
+            {:else}<button class="btn" onclick={() => (asking = `p${p.id}`)}>Delete</button>{/if}
           </div>
         </li>
       {/each}
