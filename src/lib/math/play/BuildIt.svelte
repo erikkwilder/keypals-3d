@@ -6,9 +6,9 @@
   import { sfx } from '../../audio/sound';
   import type { FriendId } from '../../art/cast';
   import type { PlayBuddy } from './buddy';
-  import { buildNumbers, slipStars } from '../playground';
+  import { buildNumbers, FirstTries, slipStars } from '../playground';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number; answers: boolean[] }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
   let corner: HTMLDivElement | undefined = $state();
   // the buddy about 100 pixels tall, whatever the corner's size
@@ -19,6 +19,7 @@
   let i = $state(0);
   let h = $state(0), t = $state(0), o = $state(0);
   let slips = $state(0);
+  const firsts = new FirstTries();
   let note = $state('');
   let ok = $state(false);
   let trade = $state(0);
@@ -45,14 +46,14 @@
   function check() {
     if (ok) return;
     if (value === target) {
-      ok = true; sfx.complete(); pal?.cheer();
+      ok = true; firsts.hit(); sfx.complete(); pal?.cheer();
       note = `Yes! ${hundreds ? `${h} hundred${h === 1 ? '' : 's'}, ` : ''}${t} ten${t === 1 ? '' : 's'} and ${o} one${o === 1 ? '' : 's'} make ${target}.`;
       timers.push(setTimeout(() => {
-        if (i + 1 >= nums.length) { ondone({ stars: slipStars(slips), ms: performance.now() - t0 }); return; }
+        if (i + 1 >= nums.length) { ondone({ stars: slipStars(slips), ms: performance.now() - t0, answers: firsts.answers }); return; }
         i++; h = 0; t = 0; o = 0; ok = false; note = '';
       }, 1500));
     } else {
-      slips++; sfx.miss(); pal?.oops();
+      slips++; firsts.miss(); sfx.miss(); pal?.oops();
       const T = Math.floor((target % 100) / 10), H = Math.floor(target / 100);
       note = `That's ${value}. ${target} has ${hundreds ? `${H} hundred${H === 1 ? '' : 's'}, ` : ''}${T} ten${T === 1 ? '' : 's'} and ${target % 10} one${target % 10 === 1 ? '' : 's'}.`;
     }

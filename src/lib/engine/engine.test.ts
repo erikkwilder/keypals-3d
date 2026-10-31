@@ -468,5 +468,7 @@ describe('medals brought back, one of each family', () => {
     const { existsSync } = await import('node:fs');
     for (const id of PAINTED_MEDAL_IDS) for (const t of [0, 1, 2, 3]) expect(existsSync(`public/icons/medals/${id}-${t}.webp`), `${id}-${t}`).toBe(true);
     for (const m of MEDALS) expect(renderMedal(m, 0), m.id).toMatch(/<svg/);
+    // every medal a child can win today is painted, none left in the older drawn art
+    for (const m of MEDALS) expect(PAINTED_MEDAL_IDS, m.id).toContain(m.id);
   });
 });

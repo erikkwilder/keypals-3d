@@ -28,7 +28,6 @@
   import { CATALOG, CAT, VIBES, bestFriendship, howText, nudgeItem, nudgeOf, ownsItem, wearItem, wornIn, type CatalogItem, type Vibe } from '../adventure/wardrobe';
   import { buyShop } from '../shop/shop';
   import { highlightWorn, nudgeGear, wornAt, wornNudge } from '../three/gear3d';
-  import { colourSoon } from '../adventure/colours';
   import Coach from '../ui/Coach.svelte';
   import { sfx } from '../audio/sound';
   import { stage } from '../three/stage';
@@ -113,11 +112,9 @@
     if (id === who) return;
     leaveMove(() => {
       who = id; sel = null;
-      if (cat === 'colour' && colourSoon(id)) cat = 'head';
       sfx.pop(); show(id);
     });
   }
-  const soonNote = () => { sfx.pop(); game.say(`${FRIEND[who].name}'s colours are coming soon! Every other buddy can wear yours.`); };
   function locked(r: Reward) { return r.level > lvl.level; }
   function nope(r: Reward) {
     shake = r.id; setTimeout(() => (shake = null), 400); sfx.nope();
@@ -205,7 +202,6 @@
   /** Tap a thing in the Shop: try it on (the buddy's real look comes back when you pick something else or leave). */
   function tryOn(c: CatalogItem) {
     sel = c; sfx.pop();
-    if (c.slot === 'colour' && colourSoon(who)) game.say(`${FRIEND[who].name}'s colours are coming soon! Every other buddy can wear this one.`);
     if (!scene) return;
     // (compare ids: a $state value is a proxy, never === the plain item)
     void scene.redress(who).then(() => { if (sel?.id !== c.id) return; if (c.slot === 'head') { scene?.char(who)?.nudgeHat(null); void scene?.wear(who, c.id); } else void scene?.wearGear(who, c.slot, c.id); });
@@ -474,18 +470,16 @@
         {#if mode !== 'keypals' && mode !== 'dances' && (joined || side === 'shop')}
           <div class="rail" class:wide={rail.length > 9}>
             {#each rail as r (r)}
-              {@const soon = r === 'colour' && colourSoon(who)}
               <div class="rw">
-                <button class="rb" class:on={cat === r} class:soon onclick={() => (soon && side === 'mine' ? soonNote() : setCat(r))}>
+                <button class="rb" class:on={cat === r} onclick={() => setCat(r)}>
                   {#if r === 'all'}<span class="rpic"><img src="{base}outfits/party_hat.webp" alt="" /></span>
                   {:else if r === 'dances'}<span class="rpic"><TileArt kind="dances" size={40} /></span>
                   {:else}
                     {@const sp = slotPic(r)}
-                    <span class="rpic" class:empty={!sp.on} style:--rc={sp.on && onSlot(r) ? RARITY[CAT[onSlot(r)!]?.rarity ?? 'common'].color : null}>{#if soon}<img src="{base}colours/colour_rainbow.webp" alt="" />{:else if sp.src}<img src="{base}{sp.src}" alt="" />{/if}</span>
+                    <span class="rpic" class:empty={!sp.on} style:--rc={sp.on && onSlot(r) ? RARITY[CAT[onSlot(r)!]?.rarity ?? 'common'].color : null}>{#if sp.src}<img src="{base}{sp.src}" alt="" />{/if}</span>
                   {/if}
                   <small>{CAT_NAME[r]}</small>
                 </button>
-                {#if soon && side === 'mine'}<em class="soonpill">soon</em>{/if}
                 {#if side === 'mine' && joined && isSlot(r) && movable(r)}<button class="gmv" onclick={() => startMove(r)} title="Move the {CAT[onSlot(r)!]?.name}" aria-label="Move the {CAT[onSlot(r)!]?.name}"><Icon name="hand" size={15} /></button>{/if}
               </div>
             {/each}
@@ -707,9 +701,6 @@
   .rpic img { width: 38px; height: 38px; object-fit: contain; }
   .rpic :global(img.art) { width: 38px; height: 38px; }
   .rpic.empty img { filter: grayscale(.85) opacity(.45); }
-  .rb.soon .rpic img { filter: grayscale(1) opacity(.45); }
-  .rb.soon small { color: var(--muted); }
-  .soonpill { position: absolute; top: -5px; right: -4px; pointer-events: none; font: 800 10px var(--font-body); font-style: normal; color: #fff; background: #9b8cc9; padding: 2px 7px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
   /* a little Move it button on every spot with something of yours on it */
   .gmv { position: absolute; top: -5px; right: -4px; width: 26px; height: 26px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; color: #5a3d00; background: linear-gradient(135deg, #ffe58a, #ffc94d); box-shadow: 0 0 0 2px #fff, var(--shadow-sm); }
   .gmv:active { transform: translateY(1px); }

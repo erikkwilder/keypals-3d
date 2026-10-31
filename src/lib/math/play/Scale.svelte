@@ -8,12 +8,12 @@
   import { sfx } from '../../audio/sound';
   import type { FriendId } from '../../art/cast';
   import type { PlayBuddy } from './buddy';
-  import { slipStars } from '../playground';
+  import { FirstTries, slipStars } from '../playground';
   import { SHELF, leftTotal, scaleChoices, scaleHow, scalePuzzles, tiltOf } from '../algebra/scale';
   import BalanceView from '../algebra/BalanceView.svelte';
   import Expr from '../skills/ui/Expr.svelte';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number; answers: boolean[] }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
   const base = import.meta.env.BASE_URL;
   let corner: HTMLDivElement | undefined = $state();
@@ -28,6 +28,7 @@
   let phase = $state<'weigh' | 'ask' | 'done'>('weigh');
   let picked = $state<number | null>(null);
   let slips = $state(0);
+  const firsts = new FirstTries();
   let note = $state('');
   let choices = $state<number[]>([]);
   const timers: ReturnType<typeof setTimeout>[] = [];
@@ -67,14 +68,14 @@
     if (phase !== 'ask') return;
     picked = v;
     if (v === z.w) {
-      phase = 'done'; sfx.cheer(); pal?.cheer();
+      phase = 'done'; firsts.hit(); sfx.cheer(); pal?.cheer();
       note = `Yes! ${scaleHow(z)}`;
       timers.push(setTimeout(() => {
-        if (i + 1 >= puzzles.length) { ondone({ stars: slipStars(slips), ms: performance.now() - t0 }); return; }
+        if (i + 1 >= puzzles.length) { ondone({ stars: slipStars(slips), ms: performance.now() - t0, answers: firsts.answers }); return; }
         i++; right = []; phase = 'weigh'; picked = null; note = '';
       }, 1900));
     } else {
-      slips++; sfx.miss(); pal?.oops();
+      slips++; firsts.miss(); sfx.miss(); pal?.oops();
       note = z.boxes > 1 ? `Not quite. ${z.left ? `Take the ${z.left} away first, then share` : 'Share'} ${z.left ? '' : `${L} `}between the ${z.boxes} boxes.` : z.left ? `Not quite. The box and ${z.left} make ${L}. Take the ${z.left} away.` : `Not quite. The box balances ${L}.`;
     }
   }

@@ -8,10 +8,10 @@
   import { sfx } from '../../audio/sound';
   import type { FriendId } from '../../art/cast';
   import type { PlayBuddy } from './buddy';
-  import { slipStars } from '../playground';
+  import { FirstTries, slipStars } from '../playground';
   import { SKETCH_LEVELS, pairOf, sketchHint, sketchRound, sketchTasks, type P } from '../integers/sketch';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number }) => void; pal?: PlayBuddy };
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number; answers: boolean[] }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
   const base = import.meta.env.BASE_URL;
   let corner: HTMLDivElement | undefined = $state();
@@ -24,6 +24,7 @@
   let pi = $state(0), ti = $state(0);
   let placed = $state<P[]>([]);
   let slips = $state(0);
+  const firsts = new FirstTries();
   let note = $state('');
   let flash = $state<{ at: P; k: number } | null>(null);
   let finished = $state(false);
@@ -55,17 +56,17 @@
     const q = { x: Math.round((sx - M) / S + g.xMin), y: Math.round(g.yMax - (sy - M) / S) };
     if (q.x < g.xMin || q.x > g.xMax || q.y < g.yMin || q.y > g.yMax) return;
     if (same(q, task.at)) {
-      placed = [...placed, q]; sfx.ding(Math.min(8, ti)); note = '';
+      placed = [...placed, q]; firsts.hit(); sfx.ding(Math.min(8, ti)); note = '';
       if (ti + 1 < plan.tasks.length) { ti++; return; }
       // the picture is done
       finished = true; sfx.complete(); pal?.cheer();
       note = `You drew ${pic.name}!`;
       timers.push(setTimeout(() => {
-        if (pi + 1 >= pictures.length) { ondone({ stars: slipStars(slips), ms: performance.now() - t0 }); return; }
+        if (pi + 1 >= pictures.length) { ondone({ stars: slipStars(slips), ms: performance.now() - t0, answers: firsts.answers }); return; }
         pi++; ti = 0; placed = []; finished = false; note = '';
       }, 2200));
     } else {
-      slips++; sfx.miss(); pal?.oops();
+      slips++; firsts.miss(); sfx.miss(); pal?.oops();
       flash = { at: q, k: Date.now() };
       note = sketchHint(task, q);
     }

@@ -42,8 +42,21 @@ describe('subjects and their four ways to play', () => {
     expect(wayCount(math, 'games')).toBeGreaterThanOrEqual(10);
     expect(wayCount(math, 'adventure')).toBe(10);
     const typing = SUBJECTS.find(s => s.id === 'typing')!;
-    expect(wayCount(typing, 'games')).toBe(0);
+    expect(wayCount(typing, 'games')).toBeGreaterThanOrEqual(8);
     expect(wayCount(typing, 'learn')).toBeGreaterThan(10);
+  });
+
+  it('typing has something real in every way, on every island', () => {
+    const typing = SUBJECTS.find(s => s.id === 'typing')!;
+    for (const c of typing.chips) for (const w of WAYS) expect(thingsIn(typing, w.id, c.id).filter(t => !t.soon).length, `${c.id} ${w.id}`).toBeGreaterThan(0);
+    // Capitals' Shift lessons and the symbol lessons are Learn too, and the Open Road's is your tricky keys
+    expect(thingsIn(typing, 'learn', 'cliffs').map(t => t.id)).toContain('cliffs-1');
+    expect(thingsIn(typing, 'learn', 'shores').map(t => t.id)).toContain('shores-2');
+    expect(thingsIn(typing, 'learn', 'road').map(t => t.id)).toEqual(['road-3']);
+    // Story Time needs capitals, so it waits for that island; the number keys get a game that takes them
+    expect(thingsIn(typing, 'games', 'village').map(t => t.id)).not.toContain('road-1');
+    expect(thingsIn(typing, 'games', 'cliffs').map(t => t.id)).toContain('road-1');
+    expect(thingsIn(typing, 'games', 'ridge').map(t => t.id)).toContain('tower');
   });
 
   it('filters by part and links a part to its other ways', () => {

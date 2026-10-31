@@ -6,6 +6,7 @@
   // rest. Five right in a row lights the Finale. When it's cheered right up, the cloud bursts and the
   // Glimmer inside is revealed, with its rarity.
   import PauseButton from '../ui/PauseButton.svelte';
+  import TeamPick from '../ui/TeamPick.svelte';
   import { onDestroy, onMount } from 'svelte';
   import PathNextButton from '../path/PathNextButton.svelte';
   import { mayRepeat, onTrail, pathNext, startPathNext } from '../path/next';
@@ -589,7 +590,7 @@
           <h2>{ownName(m.id)} joined you!</h2>
           <p class="pw"><b>In battles it helps you:</b> {GLIMMER[m.id].power.text(1 + (advView(game.profile!).glimmers[m.id]?.evolved ? EVOLVE_BOOST : 0))}</p>
           {#if advView(game.profile!).glimmers[m.id]?.evolved}<p class="pw"><b>Grown-up power:</b> {EVOLVED[m.id].perk}</p>{/if}
-          
+          <TeamPick id={m.id} />
         {:else}
           <h2>You already have {ownName(m.id)}</h2>
           <p class="pw">So yours got stronger{m.ups ? `: now level ${m.level}` : ''}! Find a new kind by playing other battles, or hatch an egg.</p>
@@ -894,8 +895,8 @@
   .stake img { width: 22px; height: 22px; object-fit: contain; }
   .blockbox :global(.pad) { flex-basis: 100%; }
 
-  .reveal { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 20px; background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .25), rgba(30, 20, 60, .55) 70%); }
-  .rays { position: absolute; left: 50%; top: 40%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px; background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, .22) 0 8deg, transparent 8deg 22deg); animation: spin 18s linear infinite; mask: radial-gradient(circle, #000 20%, transparent 60%); -webkit-mask: radial-gradient(circle, #000 20%, transparent 60%); pointer-events: none; }
+  .reveal { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: safe center; overflow: hidden auto; gap: 12px; padding: 20px; background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .25), rgba(30, 20, 60, .55) 70%); }
+  .rays { position: fixed; left: 50%; top: 40%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px; background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, .22) 0 8deg, transparent 8deg 22deg); animation: spin 18s linear infinite; mask: radial-gradient(circle, #000 20%, transparent 60%); -webkit-mask: radial-gradient(circle, #000 20%, transparent 60%); pointer-events: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .rtitle { position: relative; text-align: center; animation: titlein .7s cubic-bezier(.2, 1.4, .4, 1) both; }
   @keyframes titlein { 0% { opacity: 0; transform: scale(.4) rotate(-6deg); } 100% { opacity: 1; transform: none; } }
@@ -926,7 +927,6 @@
   .prize.egg img { animation: eggbounce 1s ease-in-out infinite; }
   .tapnote { position: relative; margin: 0; font: 700 14px var(--font-body); color: #fff; text-shadow: 0 1px 4px rgba(0, 0, 0, .6); opacity: 0; transition: opacity .4s; }
   .tapnote.in { opacity: 1; }
-  .teambtn { margin-top: 8px; }
   .infobox { width: min(520px, 92vw); padding: 18px 20px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
   .infobox h3 { margin: 0 0 4px; font-size: 22px; }
   .infobox p { margin: 0 0 6px; font: 600 16px/1.4 var(--font-body); color: var(--ink2); }

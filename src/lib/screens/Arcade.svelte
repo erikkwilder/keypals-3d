@@ -1,8 +1,9 @@
 <script lang="ts">
   // The Arcade (a place: ← Home | Arcade): a painted plaza on a sky island, the 3D buddy waving you in,
   // Today's challenge (the one big button: one game a day, the same course for everyone in the family, and
-  // bonus shells for beating its goal), then the cabinets under small headings: Typing, Math (each labelled
-  // by its topic), Play together (Family Duel, Rival Ghosts, and the Boards: class, family and world) and Just for fun (Glimmer Drop). Every game's
+  // bonus shells for beating its goal), then the cabinets under small headings: Typing (the Open Road's free
+  // play: subjects.ts), Math (each labelled by its topic), Play together (Family Duel, Rival Ghosts, and the
+  // Boards: class, family and world) and Just for fun (Glimmer Drop). Every game's
   // Pause card and end card come back here. Arcade rounds count as practice:
   // every answer feeds the fact memory, and they earn stars, shells and treasure (not lessons). Glimmer
   // Drop stands here too: just for fun, played with the same play time as Adventure.
@@ -18,7 +19,8 @@
   import Stars from '../ui/Stars.svelte';
   import Icon from '../ui/Icon.svelte';
   import Bar from '../ui/Bar.svelte';
-  import { openAnywhere } from '../nav';
+  import { openAnywhere, openThing, statusOf } from '../nav';
+  import { SUBJECT, TYPING_CABS, type TypingGame } from '../subjects';
   import { builderOf, builderOpen } from '../math/place/builder';
   import { treasureOf } from '../math/integers/treasure';
   import { showdownOf } from '../math/data/showdown';
@@ -109,6 +111,8 @@
   /** an area cabinet's plate: the best score once played (and its stars, like the fact games'), else what you do */
   const best = (c: AreaCab, r: Rec) => (!r.plays ? c.line : c.unit ? `Best ${fmt(r.best)} ${c.unit}` : `Best score ${fmt(r.best)}`);
   function openCab(c: AreaCab) { unlockAudio(); sfx.click(); scene?.cheer(); c.before?.(); game.go(c.screen); }
+  /** A typing cabinet: the Open Road's game, and its stars and best. A locked one says what opens it. */
+  function openTyping(c: TypingGame) { unlockAudio(); scene?.cheer(); openThing(SUBJECT.typing, 'games', c); }
   /** Glimmer Drop: just for fun, on its own screen (it spends play time); its cabinet is always last */
   function openDrop() { unlockAudio(); sfx.click(); scene?.cheer(); game.go('drop'); }
   /** each cabinet's own key, by its place: 1 to 9, then 0, then along the top row of letters (D is today's challenge) */
@@ -120,7 +124,7 @@
     if (!id || !el) { scene.look(null); say = 'Pick a game to play!'; return; }
     const r = el.getBoundingClientRect();
     scene.look((r.left + r.width / 2) / innerWidth);
-    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'drop' ? 'Squish them together!' : AREA_CABS.find(c => c.id === id)?.say ?? 'Pick a game to play!';
+    say = id === 'slalom' ? 'Wheee, the snowy mountain!' : id === 'catch' ? 'Catch them all!' : id === 'tower' ? 'How tall can we go?' : id === 'drop' ? 'Squish them together!' : AREA_CABS.find(c => c.id === id)?.say ?? TYPING_CABS.find(c => c.id === id)?.say ?? 'Pick a game to play!';
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -128,6 +132,7 @@
     if (n >= 1 && n <= ARCADE_GAMES.length) play(ARCADE_GAMES[n - 1].id);
     else if (n > ARCADE_GAMES.length && n <= ARCADE_GAMES.length + AREA_CABS.length) openCab(AREA_CABS[n - ARCADE_GAMES.length - 1]);
     else if (n === DROP_PLACE) openDrop();
+    else if (n > DROP_PLACE && n <= DROP_PLACE + TYPING_CABS.length) openTyping(TYPING_CABS[n - DROP_PLACE - 1]);
     if (e.key === 'd' || e.key === 'D') play(today, true);
   }
 
@@ -168,7 +173,16 @@
       </button>
 
       <h2 class="ch">Typing</h2>
-      <p class="soon">Typing games are on the way. For now, Speed Sprint on the Open Road is a race against the clock.</p>
+      <div class="cabs">
+        {#each TYPING_CABS as c, k (c.id)}
+          {@const st = statusOf(SUBJECT.typing, 'games', c, p)}
+          <button class="cab" class:shut={st.locked} style:--c={c.color} style:--d="{k * 90}ms" onclick={() => openTyping(c)} onpointerenter={(e) => hover(c.id, e.currentTarget)} onpointerleave={() => hover(null)}>
+            <img class="art" src="{import.meta.env.BASE_URL}{c.art}" alt="" />
+            <span class="plate"><span class="part">Every key you know</span><b>{c.name}</b><span class="bs wrap">{st.tag}</span><Stars n={p.lessons[c.id]?.stars ?? 0} of={3} size={compact ? 20 : 26} /></span>
+            {#if !compact && keyOf(DROP_PLACE + k + 1)}<span class="kbd">{keyOf(DROP_PLACE + k + 1)}</span>{/if}
+          </button>
+        {/each}
+      </div>
       <h2 class="ch">Math</h2>
       <div class="cabs">
         {#each ARCADE_GAMES as g, i (g.id)}
@@ -247,7 +261,6 @@
   .right::-webkit-scrollbar { display: none; }
   /* the small headings over each group of cabinets */
   .ch { align-self: flex-start; margin: 14px 0 -4px; padding: 3px 14px; border-radius: 999px; background: rgba(255, 255, 255, .92); font: 600 19px var(--font-ui); color: var(--ink); box-shadow: 0 4px 12px -6px rgba(40, 30, 90, .45); }
-  .soon { align-self: flex-start; margin: 0; padding: 6px 14px; border-radius: 14px; background: rgba(255, 255, 255, .85); font: 700 14px var(--font-body); color: var(--muted); }
   .cabs.pair { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .duo .art.tile { aspect-ratio: 1.3; object-fit: cover; border-radius: 22px; margin-bottom: -14px; box-shadow: 0 0 0 4px #fff; }
   /* the Boards' picture: a trophy over a little podium */
@@ -281,7 +294,8 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--c, #7c5cf5) 55%, #fff), 0 10px 20px -10px rgba(40, 30, 90, .45); }
   .plate b { font: 600 clamp(17px, 1.6vw, 22px)/1.1 var(--font-ui); color: var(--ink); white-space: nowrap; }
   .bs { font: 700 13px var(--font-body); color: var(--muted); white-space: nowrap; }
-  .duo .bs { white-space: normal; text-align: center; line-height: 1.25; }
+  .duo .bs, .bs.wrap { white-space: normal; text-align: center; line-height: 1.25; }
+  .cab.shut .art { filter: grayscale(.75) drop-shadow(0 14px 14px rgba(40, 30, 90, .3)); }
   /* which part of math a cabinet is, with the chip names the Math page uses */
   .part { position: absolute; top: -11px; left: 50%; translate: -50% 0; max-width: 104%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 10.5px var(--font-body); color: #fff; background: var(--c, #7c5cf5); padding: 2px 8px; border-radius: 999px; box-shadow: 0 0 0 2px #fff; }
   .kbd { position: absolute; top: 6px; left: 8px; z-index: 2; }

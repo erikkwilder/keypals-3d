@@ -176,9 +176,15 @@ const PAINT_FIX: Partial<Record<FriendId, Fix>> = {
   fluff: { tol: 2.6, bright: 2.1 }, diver: { tol: 2.6, bright: 2.1 },
   // brown tips on a tan coat, and straw in many yellows
   terrier: { tol: 1.7, bright: 1.8 }, straw: { tol: 2.2, bright: 2.1 },
+  // Mochi's fur is black and white: the black fur takes the colour, her jacket, backpack and eyes stay
+  cat: { only: ['head', 'neck', 'hand'], cut: [[0.348, 0.796, 0.7, 0.477, 0.854, 1], [0.542, 0.798, 0.7, 0.652, 0.854, 1]] },
+  // Ink's coat and fur are all one black: his eyes, striped socks and sneakers stay
+  rabbit: { skip: ['shin', 'foot'], cut: [[0.388, 0.658, 0.7, 0.463, 0.695, 1], [0.552, 0.655, 0.7, 0.613, 0.697, 1]] },
+  // Radar's orange is many oranges, on his face, hands, shoes and the patches on his suit
+  antenna: { tol: 2.2, bright: 2.1 },
 };
 const ZONES: Zone[] = ['head', 'neck', 'torso', 'arm', 'forearm', 'hand', 'thigh', 'shin', 'foot'];
-type Plan = { mask: THREE.CanvasTexture; h: number; hw: number; s: number; lum: number; grey: boolean };
+type Plan = { mask: THREE.CanvasTexture; h: number; hw: number; s: number; lum: number; grey: boolean; dark: boolean };
 const plans = new Map<string, Plan | null>();
 if (import.meta.env.DEV) (window as unknown as { __plans: typeof plans }).__plans = plans;
 const luma = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
@@ -251,7 +257,8 @@ function buildPlan(id: FriendId, model: THREE.Object3D): Plan | null {
   const ref = headRef(m, px, N, band), tol = ref.tol * (PAINT_FIX[id]?.tol ?? 1);
   const like = (r: number, gg: number, b: number) => {
     const [L, a, bb] = labOf(r, gg, b);
-    if (band.dark) { const [, sat, val] = hsvOf(r, gg, b); return sat < 0.3 && val < 0.42 && val > 0.03; }
+    // (a dark coat is rarely quite grey: near black, a warm or cool tint says nothing, so only lighter bits must be grey)
+    if (band.dark) { const [, sat, val] = hsvOf(r, gg, b); return val < 0.42 && (sat < 0.3 || val < 0.2); }
     // (darker bits of a colour are less colourful: compare at the body's lightness)
     const k = ref.L / Math.max(8, L);
     return Math.hypot(a * Math.min(k, 2) - ref.a, bb * Math.min(k, 2) - ref.b) <= tol && L >= ref.L * 0.42 && L <= ref.L * (PAINT_FIX[id]?.bright ?? 1.5) + 6;
@@ -298,11 +305,12 @@ function buildPlan(id: FriendId, model: THREE.Object3D): Plan | null {
       const t = stack.pop()!; ar += area[t]; head ||= tz[t] === 'head';
       each(t, o => { if (body[o] && comp[o] < 0) { comp[o] = t0; stack.push(o); list.push(o); } });
     }
-    if (head || ar >= bodyArea * 0.012) list.forEach(t => (inn[t] = 1));
+    // (on a black buddy a little piece on the head is a pupil, not fur)
+    if ((head && !band.dark) || ar >= bodyArea * 0.012) list.forEach(t => (inn[t] = 1));
   }
   if (!inn.some(Boolean)) return null;
   // close little holes (a spot, a stripe, a crease): a triangle mostly surrounded by the body joins it
-  for (let pass = 0; pass < 2; pass++) {
+  for (let pass = 0; pass < (band.dark ? 4 : 2); pass++) {
     const add: number[] = [];
     for (let t = 0; t < tris; t++) {
       if (inn[t] || (tz[t] as string) === 'skip') continue;
@@ -340,9 +348,9 @@ function buildPlan(id: FriendId, model: THREE.Object3D): Plan | null {
   // (no smaller copies: those blur the pieces' edges into lines when the buddy is small on screen)
   mask.flipY = false; mask.colorSpace = THREE.NoColorSpace; mask.generateMipmaps = false; mask.minFilter = THREE.LinearFilter;
   const S0 = S / wsum;
-  return { mask, h: ((Math.atan2(hy, hx) / (Math.PI * 2)) + 1) % 1, hw: Math.max(0.06, band.w * 1.2) * (fix.tol ?? 1), s: S0, lum: Math.max(0.04, L / wsum), grey: band.dark || S0 < 0.16 };
+  return { mask, h: ((Math.atan2(hy, hx) / (Math.PI * 2)) + 1) % 1, hw: Math.max(0.06, band.w * 1.2) * (fix.tol ?? 1), s: S0, lum: Math.max(0.04, L / wsum), grey: band.dark || S0 < 0.16, dark: band.dark };
 }
-const PAINT_HEAD = `uniform float uPaint; uniform sampler2D uMask; uniform float uLum; uniform float uSB; uniform float uH0; uniform float uHW; uniform float uGrey;
+const PAINT_HEAD = `uniform float uPaint; uniform sampler2D uMask; uniform float uLum; uniform float uSB; uniform float uH0; uniform float uHW; uniform float uGrey; uniform float uDark;
 uniform float uHT; uniform float uST; uniform float uK; uniform float uMode; uniform float uPTime;
 vec3 kpHsv(vec3 c) { vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0); vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g)); vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r)); float d = q.x - min(q.w, q.y); float e = 1.0e-10; return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x); }
 vec3 kpRgb(vec3 c) { vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0); vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www); return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y); }
@@ -360,17 +368,18 @@ if (uPaint > 0.5) {
     float L = dot(sc, vec3(0.299, 0.587, 0.114));
     float r = L / uLum;
     float dh = fract(hsv.x - uH0 + 0.5) - 0.5;
-    // dark markings (stripes, spots, lines) take the new hue but stay just as dark as they were
-    float body = smoothstep(0.3, 0.52, r);
+    // dark markings (stripes, spots, lines) take the new hue but stay just as dark as they were; a black
+    // coat is all dark marks, so there only the coat's own soft shading stays, gently
+    float body = uDark > 0.5 ? 1.0 : smoothstep(0.3, 0.52, r);
     float hw = uHW * mix(3.0, 1.0, body);
-    float like = uGrey > 0.5 ? 1.0 - smoothstep(0.24, 0.4, hsv.y)
+    float like = uGrey > 0.5 ? max(1.0 - smoothstep(0.24, 0.4, hsv.y), uDark * (1.0 - smoothstep(0.18, 0.28, hsv.z)))
       : mix(1.0, 1.0 - smoothstep(hw, hw * 2.0, abs(dh)), smoothstep(0.1, 0.25, hsv.y));
     float w = m * like;
     if (w > 0.001) {
       float hue = fract(uHT + (uGrey > 0.5 ? 0.0 : dh * 0.35) + 1.0);
       float sat = clamp(uST * mix(1.0, clamp(hsv.y / max(uSB, 0.05), 0.65, 1.3), uGrey > 0.5 ? 0.0 : 0.5), 0.0, 1.0);
       if (uMode > 1.5 && uMode < 2.5) { hue = fract(uPTime * 0.05 + vMapUv.y * 1.4 + vMapUv.x * 0.7); sat = 0.62; }
-      float Ln = mix(L, clamp(uLum * uK * pow(max(r, 0.0), 0.85), 0.0, 1.0), body);
+      float Ln = mix(L, clamp(uLum * uK * (uDark > 0.5 ? pow(clamp(r, 0.25, 3.0), 0.3) : pow(max(r, 0.0), 0.85)), 0.0, 1.0), body);
       sat *= mix(0.75, 1.0, body);
       vec3 base = kpRgb(vec3(hue, sat, 1.0));
       vec3 rgb = base * (Ln / max(dot(base, vec3(0.299, 0.587, 0.114)), 0.05));
@@ -557,7 +566,7 @@ export class Character {
       const plan = paintPlan(this.id, this.model);
       if (!plan) return;
       const u: Record<string, THREE.IUniform> = {
-        uPaint: { value: 1 }, uMask: { value: plan.mask }, uLum: { value: plan.lum }, uSB: { value: plan.s }, uH0: { value: plan.h }, uHW: { value: plan.hw }, uGrey: { value: plan.grey ? 1 : 0 },
+        uPaint: { value: 1 }, uMask: { value: plan.mask }, uLum: { value: plan.lum }, uSB: { value: plan.s }, uH0: { value: plan.h }, uHW: { value: plan.hw }, uGrey: { value: plan.grey ? 1 : 0 }, uDark: { value: plan.dark ? 1 : 0 },
         uHT: { value: 0 }, uST: { value: 0 }, uK: { value: 1 }, uMode: { value: 0 }, uPTime: { value: 0 },
       };
       this.model.traverse(o => {
@@ -583,7 +592,8 @@ export class Character {
     // how light the new colour is, against how light the buddy is
     const [r, g, b] = hsvToRgb(c.hue, c.sat, Math.min(1, 0.78 * c.light));
     u.uPaint.value = 1; u.uHT.value = c.hue; u.uST.value = c.sat;
-    u.uK.value = Math.max(0.3, Math.min(2.6, luma(r, g, b) / lum));
+    // (a black coat has far further to go to a bright colour)
+    u.uK.value = Math.max(0.3, Math.min((u.uDark.value as number) > 0.5 ? 12 : 2.6, luma(r, g, b) / lum));
     u.uMode.value = c.mode === 'gold' ? 1 : c.mode === 'rainbow' ? 2 : c.mode === 'galaxy' ? 3 : 0;
   }
 

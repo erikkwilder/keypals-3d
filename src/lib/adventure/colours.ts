@@ -3,7 +3,6 @@
 // colours as they are (three/character.ts setColour does it in the buddy's shader). Bought with shells
 // like everything else; each buddy keeps its own colour in its look.
 import type { Wearable } from './wearables';
-import type { FriendId } from '../art/cast';
 
 /** plain: a new hue; gold, rainbow and galaxy move a little */
 export type ColourMode = 'plain' | 'gold' | 'rainbow' | 'galaxy';
@@ -32,7 +31,3 @@ export const COLOURS_LIST: ColourDef[] = [
   C({ id: 'colour_galaxy', name: 'Galaxy', text: 'A whole night sky, with stars that twinkle when you move.', price: 280, rarity: 'legendary', vibe: 'magic', hue: 0.72, sat: 0.62, light: 0.7, mode: 'galaxy' }),
 ];
 export const COLOUR: Record<string, ColourDef> = Object.fromEntries(COLOURS_LIST.map(c => [c.id, c]));
-/** Buddies whose colours aren't ready yet (a black or patterned coat that won't take a new colour
- *  cleanly): the Wardrobe says so kindly instead of offering colours, and a saved colour doesn't show. */
-export const COLOUR_SOON: FriendId[] = ['cat', 'rabbit', 'antenna'];
-export const colourSoon = (id: FriendId) => COLOUR_SOON.includes(id);

@@ -1,7 +1,8 @@
 <script lang="ts">
   // My progress (a page of My stuff), for the child (a grown-up's Reports open it for any child, playing or
   // not: then it's only to read, with nothing that starts a game):
-  // - Time playing: minutes each day this week (green when the goal was hit), the last four weeks, all together.
+  // - Time playing: today's goal (Home's minutes open here), minutes each day this week (green when the goal
+  //   was hit, with the goal as a line), the last four weeks, all together.
   // - Going well: math skills that are solid, keys typed fast and right, facts in bloom, speed going up.
   // - Keep practising: skills still growing and tricky keys (each skill opens its topic). Never "behind".
   // - Practice done: lessons passed, trips, facts in bloom, tricks learned, games played, and each subject.
@@ -55,6 +56,8 @@
   const weeks = $derived(Array.from({ length: 4 }, (_, w) => { let min = 0; for (let d = 0; d < 7; d++) min += minOf(Date.now() - (w * 7 + d) * DAY); return { min, name: w === 0 ? 'This week' : w === 1 ? 'Last week' : `${w} weeks ago` }; }).reverse());
   const maxWeek = $derived(Math.max(goal * 7, ...weeks.map(w => w.min)));
   const allMin = $derived(Math.floor(Object.values(p.days).reduce((t, d) => t + (d?.ms ?? 0), 0) / 60000));
+  const todayMin = $derived(week[6].min);
+  const todayHit = $derived(week[6].goal);
   const hm = (min: number) => (min >= 60 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${min} min`);
 
   // ---------- skills: going well, and still growing ----------
@@ -160,10 +163,16 @@
         <!-- time playing -->
         <section class="card time">
           <header><img src="{base}icons/clock.webp" alt="" /><h2>Time playing</h2><span class="pill">{hm(weekMin)} this week</span></header>
-          <p class="words">{goalDays ? `You hit your ${goal}-minute goal on ${goalDays} ${goalDays === 1 ? 'day' : 'days'} this week!` : `Your goal is ${goal} minutes a day.`}</p>
+          <div class="goalnow" class:hit={todayHit}>
+            <div class="gl"><b>Today's goal</b><span>{todayMin} of {goal} minutes</span></div>
+            <span class="gb" role="progressbar" aria-label="Minutes today" aria-valuenow={Math.min(todayMin, goal)} aria-valuemax={goal}><i style:width="{Math.min(100, (todayMin / Math.max(1, goal)) * 100)}%"></i></span>
+            <p>{todayHit ? 'Goal hit! Today is green, and you earned the Goal Reached medal.' : `${goal - todayMin} more ${goal - todayMin === 1 ? 'minute' : 'minutes'} and today turns green.`}</p>
+          </div>
+          <p class="words">{goalDays ? `You hit your ${goal}-minute goal on ${goalDays} ${goalDays === 1 ? 'day' : 'days'} this week!` : `This week: a green day each time you hit ${goal} minutes.`}</p>
           <div class="days" role="img" aria-label="Minutes each day this week">
+            <span class="goalline" style:bottom="calc(18px + (100% - 36px) * {Math.min(1, goal / maxMin)})"><em>{goal} min</em></span>
             {#each week as d (d.key)}
-              <div class="dcol" class:today={d.today}><em>{d.min || ''}</em><span class="b" class:goal={d.goal} style:height="{Math.max(3, (d.min / maxMin) * 100)}%"></span><small>{d.day}</small></div>
+              <div class="dcol" class:today={d.today}><em>{d.min || ''}</em><span class="b" class:goal={d.goal} style:height="calc((100% - 36px) * {Math.max(0.03, d.min / maxMin)})"></span><small>{d.day}</small></div>
             {/each}
           </div>
           <div class="weeks">
@@ -284,7 +293,21 @@
   .empty { margin: 0; font: 600 15px/1.4 var(--font-body); color: var(--ink2); }
   .note { margin: 0; font: 600 14px var(--font-body); color: var(--ink2); }
   /* time */
-  .days { display: flex; align-items: flex-end; gap: 8px; height: 110px; }
+  .goalnow { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px 10px; border-radius: 16px; background: #fff8e6; box-shadow: inset 0 0 0 2px #ffe2a8; }
+  .goalnow.hit { background: #effaf4; box-shadow: inset 0 0 0 2px #cdeedd; }
+  .gl { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .gl b { font: 600 19px var(--font-ui); color: var(--ink); }
+  .gl span { font: 600 17px var(--font-ui); color: #8a5a00; }
+  .hit .gl span { color: #17704a; }
+  .gb { display: block; height: 14px; border-radius: 99px; background: #fff; box-shadow: inset 0 0 0 2px #ffe2a8; overflow: hidden; }
+  .gb i { display: block; height: 100%; min-width: 14px; border-radius: 99px; background: linear-gradient(#ffd166, #f0a92e); }
+  .hit .gb { box-shadow: inset 0 0 0 2px #cdeedd; }
+  .hit .gb i { background: linear-gradient(#7fe0a8, #2fb36e); }
+  .goalnow p { margin: 0; font: 600 14px/1.35 var(--font-body); color: var(--ink2); }
+  .days { position: relative; display: flex; align-items: flex-end; gap: 8px; height: 110px; }
+  /* the goal, as a line over the week's bars */
+  .goalline { position: absolute; left: 0; right: 0; border-top: 2px dashed #3fbf86; pointer-events: none; z-index: 1; }
+  .goalline em { position: absolute; right: 0; bottom: 2px; font: 800 11px var(--font-body); font-style: normal; color: #17704a; background: rgba(255, 255, 255, .85); padding: 0 4px; border-radius: 6px; }
   .dcol { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; }
   .dcol em { font: 700 12px var(--font-body); font-style: normal; color: var(--ink2); min-height: 15px; }
   .dcol .b { width: 100%; border-radius: 8px 8px 4px 4px; background: #c9bdf2; }

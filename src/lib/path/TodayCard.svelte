@@ -22,6 +22,10 @@
   const dots = $derived(Array.from({ length: Math.max(t.goal, Math.min(t.done, 8)) }, (_, i) => i < t.done));
   function go() { if (next) startItem(p, next.unit.unit, next.item); }
   function openPath() { sfx.click(); if (subject) pathView.subject = subject; game.visit('path'); }
+  // the minutes in the line open today's goal and the week (the time section of My progress)
+  const mins = $derived(`${t.min} of ${t.goalMin} minutes`);
+  const around = $derived(t.line.split(mins));
+  function openTime() { sfx.click(); game.visit('progress', true); }
 </script>
 
 <section class="today" class:compact class:page={onPage} aria-label="Today">
@@ -32,7 +36,7 @@
       <p>{next ? `${next.unit.unit.name}${next.item.day ? ` · Day ${next.item.day}` : ''}` : 'The whole path is done!'}</p>
     {:else}
       <h2>Today</h2>
-      <p>{t.line}</p>
+      <p>{around[0]}<button class="mins" onclick={openTime} title="See today's goal and your week">{mins}</button>{around[1]}</p>
       <div class="dots" aria-hidden="true">{#each dots as d, i (i)}<i class:on={d}></i>{/each}</div>
     {/if}
     {#if holds}<small class="note">{rules.keep === 'only' ? 'Today is a path day: your path and what it starts.' : `Your path comes first today. Then everything opens!`}</small>{/if}
@@ -56,6 +60,8 @@
   .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   h2 { margin: 0; font-size: 22px; color: #8a5a00; }
   .tx p { margin: 0; font: 700 15.5px/1.35 var(--font-body); color: var(--ink2); }
+  .mins { display: inline-block; border: 0; cursor: pointer; padding: 2px 10px; margin: 1px 0; border-radius: 999px; background: #fff3d6; box-shadow: inset 0 0 0 2px #ffd98f; font: inherit; color: #8a5a00; text-decoration: underline; text-underline-offset: 2px; transition: box-shadow .14s; }
+  .mins:hover, .mins:focus-visible { box-shadow: inset 0 0 0 2px #f0a92e; }
   .dots { display: flex; gap: 6px; margin-top: 2px; }
   .dots i { width: 16px; height: 16px; border-radius: 50%; background: #f1ecf8; box-shadow: inset 0 0 0 2px #e2d9f1; }
   .dots i.on { background: linear-gradient(#7fe0a8, #2fb36e); box-shadow: 0 2px 0 #23905a; }

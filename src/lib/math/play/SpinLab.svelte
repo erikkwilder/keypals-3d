@@ -9,10 +9,11 @@
   import type { FriendId } from '../../art/cast';
   import type { PlayBuddy } from './buddy';
   import { EXPERIMENTS, experiment, labStars, smartPick, trial, type Experiment } from '../data/lab';
+  import { FirstTries } from '../playground';
   import { COLOR, type ColorId, type DataPic } from '../data/pics';
   import DataPicView from '../data/ui/DataPic.svelte';
 
-  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number; right?: number }) => void; pal?: PlayBuddy };
+  type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number; right?: number; answers: boolean[] }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
   const lv = untrack(() => level);
   const rng = mulberry32(Date.now() % 1e9);
@@ -26,6 +27,7 @@
   let counts = $state<number[]>([]);
   let spins = $state(0);
   let smart = $state(0);
+  const firsts = new FirstTries();
   let rot = $state(0);
   let faces = $state<number[]>([3, 4]);
   let rollKey = $state(0);
@@ -50,6 +52,8 @@
   function choose(k: number) {
     if (pick !== null) return;
     pick = k; sfx.pop();
+    // (when every outcome is as likely, any pick is smart, so it says nothing about the child)
+    if (!ex.ways.every(w => w === ex.ways[0])) { if (!smartPick(ex, k)) firsts.miss(); firsts.hit(); }
     if (smartPick(ex, k)) { smart++; pal?.cheer(); note = ex.ways.every(w => w === ex.ways[0]) ? 'Every one is as likely, so any pick is smart! Now spin and see.' : `Smart pick! ${nameOf(ex.outcomes[k])} has the most ways to happen. Now ${ex.kind === 'spinner' ? 'spin' : 'roll'} and see.`; }
     else { const b = ex.ways.indexOf(Math.max(...ex.ways)); note = `Let's see! (${nameOf(ex.outcomes[b])} has the most ways: ${ex.ways[b]} of ${ex.ways.reduce((t, x) => t + x, 0)}.)`; }
   }
@@ -91,7 +95,7 @@
   }
   function nextOne() {
     sfx.click();
-    if (n + 1 >= EXPERIMENTS) { ondone({ stars: labStars(smart), ms: performance.now() - t0, right: smart * 3 }); return; }
+    if (n + 1 >= EXPERIMENTS) { ondone({ stars: labStars(smart), ms: performance.now() - t0, right: smart * 3, answers: firsts.answers }); return; }
     ex = experiment(lv, n + 1, rng); n++;
   }
   function wedge(i: number, k: number, r = 46) {

@@ -9,7 +9,8 @@
 //   Spin Lab         pick what comes up most, then spin and watch a bar graph grow: chance (math/data/lab.ts)
 //   Balance Scale    put weights on a balance until it's level, then say what a mystery box weighs
 //                    (math/algebra/scale.ts)
-// Rounds feed the same friendship, outfits, dances, stickers and daily minutes as every other game.
+// Rounds feed the same friendship, outfits, dances, stickers and daily minutes as every other game, and
+// their first tries move the child's level the way a practice trip's do (math/skills/ability.ts).
 import type { Profile, MedalWin, XpInfo } from '../engine/profile';
 import { buddyPal } from '../engine/profile';
 import type { PalProgress, StickerDef } from '../engine/stickers';
@@ -17,7 +18,7 @@ import type { Reward } from '../engine/rewards';
 import { settlePractice } from '../engine/settle';
 import { mathOf } from './progress';
 import type { Rng } from '../engine/rng';
-import { hasEvidence, pitch, TARGET } from './skills/ability';
+import { hasEvidence, noteAbility, pitch, TARGET } from './skills/ability';
 
 export type PlayGame = 'line' | 'bonds' | 'build' | 'stall' | 'lab' | 'sketch' | 'chance' | 'scale';
 export type PlayLevel = { n: number; title: string; hint: string };
@@ -168,10 +169,26 @@ export const playNextLevel = (p: Profile, g: PlayGame) => {
   return 5;
 };
 
+/** The rung a game's level is asked at: the first rung it calls ready for that level. */
+export function playRung(g: PlayGame, level: number): number {
+  const l = PLAY_SKILL[g].level, i = l.findIndex(x => x >= level);
+  return i < 0 ? l.length : i + 1;
+}
+/** First tries, the way a practice trip counts them: one question is one answer, right only if its first
+ *  try was, so a child stuck on one question isn't marked down again for each go. */
+export class FirstTries {
+  readonly answers: boolean[] = [];
+  private slipped = false;
+  /** a wrong try at this question */
+  miss() { if (!this.slipped) this.answers.push(false); this.slipped = true; }
+  /** this question is done */
+  hit() { if (!this.slipped) this.answers.push(true); this.slipped = false; }
+}
+
 export type PlayOutcome = { eggsReady?: import('../adventure/glimmers').Rarity[]; shells?: number; buddies: import('../art/cast').FriendId[]; profile: Profile; xp: XpInfo; rewards: Reward[]; stickers: StickerDef[]; medals: MedalWin[]; newBest: boolean; opened: number | null; goalJustHit: boolean };
 
 /** One finished round: its stars, friendship XP, rewards and stickers, and its minutes toward today's goal. */
-export function applyPlay(p0: Profile, run: { game: PlayGame; level: number; stars: number; ms: number; at: number; right?: number }): PlayOutcome {
+export function applyPlay(p0: Profile, run: { game: PlayGame; level: number; stars: number; ms: number; at: number; right?: number; answers?: boolean[] }): PlayOutcome {
   const p: Profile = structuredClone(p0);
   const m = (p.math = mathOf(p));
   const play = (m.play ??= {});
@@ -180,6 +197,10 @@ export function applyPlay(p0: Profile, run: { game: PlayGame; level: number; sta
   const wasOpen = run.level < 5 && playUnlocked(p0, run.game, run.level + 1);
   rec.stars[run.level - 1] = Math.max(before, run.stars);
   rec.plays++;
+  // every first try moves the child's level for this game's skill, as in a practice trip (these games have
+  // no clock, so a right answer counts as a quick one)
+  const skill = PLAY_SKILL[run.game].skill, rung = playRung(run.game, run.level);
+  noteAbility(m, (run.answers ?? []).map(ok => ({ skill, rung, ok, at: run.at })), 'trip', !!p.settings.grown);
   const opened = !wasOpen && run.level < 5 && run.stars > 0 ? run.level + 1 : null;
   // the buddy's counters, then the same ending as every practice game (playground minutes count toward
   // the goal too)
