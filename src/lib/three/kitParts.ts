@@ -74,6 +74,8 @@ export type RideState = {
   stride: number;
   /** how far along the course */
   s: number;
+  /** metres to the finish line */
+  left: number;
 };
 /** The six ways down the slope or across the bay: the same shape as the climb's kit. */
 export type RideKit = {
@@ -89,6 +91,8 @@ export type RideKit = {
   follow(dt: number, t: number): void;
   /** Not on the course any more (the dance, the swim steps): everything off. */
   rest(dt: number, t: number): void;
+  /** After the run: the ride it finished on, left lying here (false: it finished on the plain sled). */
+  park?(at: V, pitch: number): boolean;
   /** Called when a step changes, with where to put a burst. */
   onChange: ((step: number, up: boolean, at: V) => void) | null;
   /** Called on a touch-down that can be heard: `k` is how big. */

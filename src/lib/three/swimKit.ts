@@ -168,12 +168,12 @@ export async function swimKit(c: Character, env: { ghost?: THREE.Material | null
     for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) { const m = new THREE.Mesh(fg, fins); m.rotation.y = a; m.position.y = -torpedoL * 0.2; m.position.x = Math.cos(a) * torpedoR * 0.7; m.position.z = -Math.sin(a) * torpedoR * 0.7; torpedo.add(m); }
     torpedo.add(body, nose, glassRing, port);
     const bladeG = keep(new THREE.BoxGeometry(torpedoR * 1.5, 0.012, 0.09));
-    for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(bladeG, steelBlade()); m.rotation.y = (i / 3) * Math.PI * 2; m.rotation.z = 0.0; prop.add(m); }
+    const steel = gloss(0xc9d2dc, 0.3, { metalness: 0.7 });
+    for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(bladeG, steel); m.rotation.y = (i / 3) * Math.PI * 2; prop.add(m); }
     prop.position.y = -torpedoL * 0.53; torpedo.add(prop);
     // lying along the lane, nose first, the porthole toward the camera
     torpedo.rotation.z = -Math.PI / 2;
   }
-  function steelBlade() { return gloss(0xc9d2dc, 0.3, { metalness: 0.7 }); }
   inLane(5, torpedo);
 
   for (const w of gear) for (const x of w) shadows(x.o);
@@ -182,12 +182,13 @@ export async function swimKit(c: Character, env: { ghost?: THREE.Material | null
   // ---------- the wake, the spray, and the water rushing past ----------
   const fx = new THREE.Group(); stage.scene.add(fx);
   const wakeMap = keep(paint(256, 128, g => {
-    g.clearRect(0, 0, 256, 128);
-    const drawV = (a: number, w: number) => { g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(250, 64); g.quadraticCurveTo(120, 48, 8, 6); g.moveTo(250, 64); g.quadraticCurveTo(120, 80, 8, 122); g.stroke(); };
-    g.filter = 'blur(5px)'; drawV(0.55, 18); g.filter = 'blur(1px)'; drawV(0.85, 4);
-    g.filter = 'blur(10px)'; const grad = g.createLinearGradient(0, 0, 256, 0); grad.addColorStop(0, 'rgba(255,255,255,0)'); grad.addColorStop(1, 'rgba(255,255,255,0.75)'); g.fillStyle = grad; g.beginPath(); g.moveTo(250, 64); g.lineTo(20, 30); g.lineTo(20, 98); g.closePath(); g.fill();
+    // nothing but soft foam on the bright water: a darker trough inside the V, then its two white arms
+    const arm = (a: number, w: number) => { g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(250, 64); g.quadraticCurveTo(120, 50, 6, 8); g.moveTo(250, 64); g.quadraticCurveTo(120, 78, 6, 120); g.stroke(); };
+    g.filter = 'blur(9px)'; g.fillStyle = 'rgba(8,110,150,0.42)'; g.beginPath(); g.moveTo(250, 64); g.lineTo(20, 22); g.lineTo(20, 106); g.closePath(); g.fill();
+    g.filter = 'blur(4px)'; arm(0.8, 16); g.filter = 'blur(1px)'; arm(1, 5);
+    g.filter = 'blur(6px)'; g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 10; g.beginPath(); g.moveTo(250, 64); g.lineTo(40, 64); g.stroke();
     g.filter = 'none';
-    g.globalCompositeOperation = 'destination-in'; const fade = g.createLinearGradient(0, 0, 256, 0); fade.addColorStop(0, 'rgba(0,0,0,0)'); fade.addColorStop(0.5, 'rgba(0,0,0,0.9)'); fade.addColorStop(1, 'rgba(0,0,0,1)'); g.fillStyle = fade; g.fillRect(0, 0, 256, 128);
+    g.globalCompositeOperation = 'destination-in'; const fade = g.createLinearGradient(0, 0, 256, 0); fade.addColorStop(0, 'rgba(0,0,0,0)'); fade.addColorStop(0.45, 'rgba(0,0,0,0.85)'); fade.addColorStop(1, 'rgba(0,0,0,1)'); g.fillStyle = fade; g.fillRect(0, 0, 256, 128);
   }));
   const wakeMat = keep(new THREE.MeshBasicMaterial({ map: wakeMap, transparent: true, depthWrite: false, opacity: 0 }));
   const wake = new THREE.Mesh(keep(new THREE.PlaneGeometry(1, 1)), wakeMat); wake.rotation.x = -Math.PI / 2; wake.visible = !env.ghost; wake.renderOrder = 1; fx.add(wake);
@@ -278,12 +279,13 @@ export async function swimKit(c: Character, env: { ghost?: THREE.Material | null
   ];
 
   // ---------- running it ----------
-  let way = 0, from = 0, mix = 1, camUp = 0, camTall = 0, popAt = -9, hopAt = -9, restAt = true, sprayT = 0, wakeK = 0, wetWas = false, handWas = [false, false], flapT = 0;
+  let way = 0, from = 0, mix = 1, camUp = 0, camTall = 0, popAt = -9, hopAt = -9, restAt = true, sprayT = 0, wakeK = 0, wetWas = false, handWas = [false, false];
   const A = blankPose(), Bp = blankPose(), P = blankPose();
   const feet = ['LeftFoot', 'RightFoot'].map(n => [B[n], bindTurn(c, n)] as const);
   const v0 = new THREE.Vector3(), v1 = new THREE.Vector3(), q0 = new THREE.Quaternion(), q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion(), pq = new THREE.Quaternion(), rootQ = new THREE.Quaternion();
   const showWay = (w: number, vis: boolean) => { for (const x of gear[w]) x.o.visible = vis; };
   const swapWorn = (w: number) => { for (const slot of ['hand', 'feet', 'back', 'face'] as const) showWorn(c, slot, !HIDE[w].includes(slot)); };
+  const wornBack = () => { for (const slot of ['hand', 'feet', 'back', 'face'] as const) showWorn(c, slot, true); };
   const ofRig = (o: Pose) => {
     rig.updateMatrixWorld(true);
     o.hip.copy(B.Hips.getWorldPosition(v0)); rig.worldToLocal(o.hip);
@@ -359,7 +361,7 @@ export async function swimKit(c: Character, env: { ghost?: THREE.Material | null
       // the bow wave off the nose, and the wash behind the propeller
       sprayT = 0.02;
       const nose = torpedo.position.x + torpedoL * 0.5;
-      for (const sd of [-1, 1]) spray.emit(v1.set(rig.position.x + nose, 0.12, rig.position.z + sd * torpedoR), -S.v * 0.3 - 0.4, 1.3 + Math.random() * 0.9, sd * (1.1 + Math.random() * 0.8), 0.14, 0.42, 1.1, 6, FOAM);
+      for (const sd of [-1, 1]) spray.emit(v1.set(rig.position.x + nose - 0.3, 0.05, rig.position.z + sd * (torpedoR + 0.06)), -S.v * 0.3 - 0.4, 1 + Math.random() * 0.8, sd * (1.2 + Math.random() * 0.8), 0.1, 0.4, 0.8, 6, FOAM);
       splash(P.lf.x - 0.2, (Math.random() - 0.5) * 0.25, 1, 1.4, 0.2);
     }
     void t;
@@ -411,18 +413,17 @@ export async function swimKit(c: Character, env: { ghost?: THREE.Material | null
       const want = [0.2, 0.3, 0.55, 0.6, 0.15, 1][way] * S.m;
       wakeK += (want - wakeK) * Math.min(1, dt * 3);
       if (!env.ghost) {
-        const len = 1.6 + 5 * wakeK, wid = 1 + 2.4 * wakeK;
+        const len = 1.6 + 5.4 * wakeK, wid = 0.9 + 2.2 * wakeK;
         wake.position.set(rig.position.x + Math.min(P.lf.x, P.rf.x) - b.H * 0.2 - len / 2, 0.115, S.z); wake.scale.set(len, wid, 1);
-        wakeMat.opacity = Math.min(0.9, wakeK * 1.15);
+        wakeMat.opacity = Math.min(1, wakeK * 1.3);
       }
       spray?.update(dt, stage.camera);
       streaks?.update(dt, v1.set(rig.position.x, 0, S.z), 0, Math.max(0, Math.min(1, (way - 1) / 4)) * S.m);
-      void flapT;
     },
     rest(dt, t) {
       if (restAt) { spray?.update(dt, stage.camera); return; }
       restAt = true; S.m = 0; mix = 1;
-      showWay(way, false); swapWorn(0);
+      showWay(way, false); wornBack();
       c.root.rotation.set(0, 0, 0);
       wakeMat.opacity = 0; wakeK = 0;
       if (spray) { c.root.getWorldPosition(v0); splash(0, 0, 10, 2.2, 0.22); }
@@ -441,11 +442,8 @@ export async function swimKit(c: Character, env: { ghost?: THREE.Material | null
       } catch { /* it compiles when first drawn instead */ }
     },
     dispose() {
-      swapWorn(0);
-      for (const o of [...roots, rig, fx]) {
-        o.removeFromParent();
-        o.traverse(x => { const m = x as THREE.Mesh; if (m.isMesh && !f.feet.some(ft => ft.geo === m.geometry)) m.geometry?.dispose?.(); });
-      }
+      wornBack();
+      for (const o of [...roots, rig, fx]) o.removeFromParent();
       spray?.dispose(); streaks?.dispose();
       for (const x of own) x.dispose();
     },

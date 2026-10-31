@@ -185,19 +185,19 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
   const spray = env.ghost ? null : new Spray(fx, 100), streaks = env.ghost ? null : new Streaks(fx, 14, 0x9dbdea, [5, 1.5, 3.2], 0);
 
   // ---------- the six poses ----------
-  const S = { s: 0, t: 0, v: 0, m: 0, spin: 0, pole: 0 };
+  const S = { s: 0, t: 0, v: 0, m: 0, spin: 0, pole: 0, near: 1 };
   const sit = () => seatDrop(c);
   const torso = b.sy - b.hy;
   const poses: ((p: Pose) => void)[] = [
     // Wobbly Sled: fishtailing and tipping from side to side (sitOnSled does the sitting)
     p => {
       const w = 0.45 + 0.55 * S.m;
-      p.hop = 0; p.side = Math.sin(S.s * 0.9) * 0.1 * S.m; p.yaw = Math.sin(S.t * 2.6) * 0.14 * w; p.roll = Math.sin(S.t * 3.9) * 0.075 * w; p.tip = Math.sin(S.t * 6.1) * 0.012; p.face = 0; p.lean = 0; p.bank = 0; p.foot = Math.PI / 2;
+      p.hop = 0; p.side = Math.sin(S.s * 0.9) * 0.1 * S.near; p.yaw = Math.sin(S.t * 2.6) * 0.14 * w; p.roll = Math.sin(S.t * 3.9) * 0.075 * w; p.tip = Math.sin(S.t * 6.1) * 0.012; p.face = 0; p.lean = 0; p.bank = 0; p.foot = Math.PI / 2;
     },
     // Saucer: knees up in the dish, hands on the rim, the whole thing turning round
     p => {
       const seat = 0.075 + sit();
-      p.hop = 0; p.side = Math.sin(S.s * 0.5) * 0.3 * S.m; p.yaw = S.spin; p.roll = Math.sin(S.t * 2.3) * 0.05; p.tip = 0.06 + Math.sin(S.t * 1.7) * 0.04; p.face = 0; p.lean = -0.1; p.bank = 0; p.foot = Math.PI / 2;
+      p.hop = 0; p.side = Math.sin(S.s * 0.5) * 0.3 * S.near; p.yaw = S.spin; p.roll = Math.sin(S.t * 2.3) * 0.05; p.tip = 0.06 + Math.sin(S.t * 1.7) * 0.04; p.face = 0; p.lean = -0.1; p.bank = 0; p.foot = Math.PI / 2;
       p.hip.set(-0.08, seat, 0);
       const fx1 = -0.08 + b.leg * 0.86, fy = 0.13 + b.ankle;
       p.lf.set(fx1, fy, -b.hx - 0.03); p.rf.set(fx1, fy, b.hx + 0.03);
@@ -206,8 +206,8 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
     },
     // Skis: standing up, knees a little bent, poles pushing, swinging in small turns
     p => {
-      const a = (S.s / 9) * Math.PI * 2, A = 0.42 * S.m, gone = (2 * Math.PI * A) / 9;
-      p.hop = 0; p.side = Math.sin(a) * A; p.yaw = -Math.atan(gone * Math.cos(a)); p.roll = -Math.sin(a) * 0.16 * S.m; p.tip = 0; p.face = 0; p.lean = 0.32; p.bank = 0; p.foot = Math.PI / 2;
+      const a = (S.s / 9) * Math.PI * 2, A = 0.42 * S.near, gone = (2 * Math.PI * A) / 9;
+      p.hop = 0; p.side = Math.sin(a) * A; p.yaw = -Math.atan(gone * Math.cos(a)); p.roll = -Math.sin(a) * 0.16 * S.near; p.tip = 0; p.face = 0; p.lean = 0.32; p.bank = 0; p.foot = Math.PI / 2;
       const hy = TOP + b.hy - b.leg * (0.15 + 0.1 * S.m);
       p.hip.set(-0.06, hy, 0);
       const ank = TOP + b.ankle;
@@ -218,8 +218,8 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
     },
     // Snowboard: sideways, facing you, knees bent, arms out, leaning hard into big turns
     p => {
-      const a = (S.s / 14) * Math.PI * 2, A = 1.35 * S.m, gone = (2 * Math.PI * A) / 14;
-      p.hop = 0; p.side = Math.sin(a) * A; p.yaw = -Math.atan(gone * Math.cos(a)); p.roll = -Math.sin(a) * 0.5 * S.m; p.tip = 0; p.face = Math.PI / 2; p.lean = 0.2; p.bank = 0; p.foot = 0;
+      const a = (S.s / 14) * Math.PI * 2, A = 1.35 * S.near, gone = (2 * Math.PI * A) / 14;
+      p.hop = 0; p.side = Math.sin(a) * A; p.yaw = -Math.atan(gone * Math.cos(a)); p.roll = -Math.sin(a) * 0.5 * S.near; p.tip = 0; p.face = Math.PI / 2; p.lean = 0.2; p.bank = 0; p.foot = 0;
       const hy = TOP + b.hy - b.leg * 0.36;
       p.hip.set(0, hy, -0.05);
       const ank = TOP + b.ankle;
@@ -246,7 +246,7 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
   ];
 
   // ---------- running it ----------
-  let way = 0, from = 0, mix = 1, camUp = 0, camTall = 0, popAt = -9, hopAt = -9, hopH = 0, restAt = true, sprayT = 0, ballTurn = 0, lastS = 0, flip = 0, wasSign = 0;
+  let way = 0, from = 0, mix = 1, camUp = 0, camTall = 0, popAt = -9, hopAt = -9, hopH = 0, restAt = true, sprayT = 0, ballTurn = 0, lastS = 0, wasSign = 0, lastWay = 0;
   const A = blankPose(), Bp = blankPose(), P = blankPose();
   const feet = ['LeftFoot', 'RightFoot'].map(n => [B[n], bindTurn(c, n)] as const);
   const v0 = new THREE.Vector3(), v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), q0 = new THREE.Quaternion(), q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion(), dq = new THREE.Quaternion(), pq = new THREE.Quaternion();
@@ -338,7 +338,7 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
     get camTall() { return camTall; },
     onChange: null, onTouch: null,
     lead(dt, t, st) {
-      S.t = t; S.v = st.v;
+      S.t = t; S.v = st.v; S.near = smooth(st.left / 6);
       const ds = Math.max(0, st.s - lastS); lastS = st.s; S.s = st.s;
       S.m += (Math.min(1, st.v / 0.7) - S.m) * Math.min(1, dt * 4);
       S.spin += dt * (0.5 + 0.9 * S.m); S.pole = frac(st.s / 1.9);
@@ -356,8 +356,8 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
         kit.onChange?.(way, up, v0);
         if (spray && up) for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; spray.emit(v1.copy(v0).setY(v0.y - b.hy + 0.1), Math.cos(a) * 2.4, 1.2 + Math.random() * 1.4, Math.sin(a) * 2.4, 0.3, 0.7, 1.6, 3.4, i % 3 ? WHITE : SHADE); }
       }
-      camUp += ([0, 0, 0.08, 0.08, -0.1, 0.95][way] - camUp) * Math.min(1, dt * 3);
-      camTall += ([0, 0.1, 0.2, 0.25, 0.2, 1.7][way] - camTall) * Math.min(1, dt * 3);
+      camUp += ([0, 0, 0.08, 0.08, -0.1, 0.8][way] - camUp) * Math.min(1, dt * 3);
+      camTall += ([0, 0.1, 0.2, 0.25, 0.2, 1.4][way] - camTall) * Math.min(1, dt * 3);
       mix = Math.min(1, mix + dt / (from > way ? 0.7 : 0.4));
       rig.position.set(st.at.x, st.at.y, st.at.z + st.lane);
       rig.rotation.z = -st.pitch;
@@ -413,7 +413,7 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
       if (way === 3) {
         // a touch-down at the end of each turn
         const sg = Math.sign(Math.cos((S.s / 14) * Math.PI * 2));
-        if (sg !== wasSign) { wasSign = sg; if (S.m > 0.5) { flip++; deck.getWorldPosition(v0); kit.onTouch?.(0.6, v0); } }
+        if (sg !== wasSign) { wasSign = sg; if (S.m > 0.5) { deck.getWorldPosition(v0); kit.onTouch?.(0.6, v0); } }
       }
       emitSnow(dt, t);
       rig.getWorldPosition(v0);
@@ -422,12 +422,21 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
     },
     rest(dt) {
       if (restAt) { spray?.update(dt, stage.camera); return; }
-      restAt = true; S.m = 0; mix = 1;
+      restAt = true; S.m = 0; mix = 1; lastWay = way;
       show(way, false); swapWorn(0); env.sled.visible = true;
       if (way) { c.root.getWorldPosition(v0); v0.y += 0.3; kit.onTouch?.(1, v0); }
       way = 0; from = 0; camUp = 0; camTall = 0;
       deck.position.set(0, 0, 0); deck.rotation.set(0, 0, 0);
       streaks?.update(dt, v0, 0, 0);
+    },
+    park(at, pitch) {
+      if (!lastWay) return false;
+      // (the snowball stands well behind the buddy: it's a big thing)
+      rig.position.set(at.x, at.y, at.z - (lastWay === 5 ? 1.1 : 0));
+      rig.rotation.z = -pitch;
+      deck.position.set(0, 0, 0); deck.rotation.set(0, 0.35, 0);
+      rides[lastWay].visible = true; rides[lastWay].scale.setScalar(1);
+      return true;
     },
     async ready() {
       const r = stage.renderer;
@@ -440,7 +449,7 @@ export async function sledKit(c: Character, env: { sled: THREE.Object3D; ghost?:
     },
     dispose() {
       swapWorn(0);
-      for (const o of [rig, fx]) { o.removeFromParent(); o.traverse(x => { const m = x as THREE.Mesh; if (m.isMesh && !env.ghost) m.geometry?.dispose?.(); }); }
+      for (const o of [rig, fx]) o.removeFromParent();
       spray?.dispose(); streaks?.dispose();
       for (const x of own) x.dispose();
     },

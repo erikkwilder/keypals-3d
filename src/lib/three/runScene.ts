@@ -183,7 +183,7 @@ export class RunScene implements Controller {
     if (this.gone) { k?.dispose(); return; }
     this.ride = k;
     if (k) {
-      k.onChange = (step, up, at) => { if (swim) sfx.splashSmall(up ? 1 : 0.5); this.puff.burst(at, up ? 30 : 12, swim ? 0xe8f8ff : 0xffffff); if (!up) sfx.levelDown(); else if (step >= 4) sfx.turbo(); else sfx.levelUp(step); };
+      k.onChange = (step, up, at) => { if (swim) sfx.splashSmall(up ? 1 : 0.5); this.puff.burst(at, !up ? 8 : swim ? 12 : 30, swim ? 0xe8f8ff : 0xffffff); if (!up) sfx.levelDown(); else if (step >= 4) sfx.turbo(); else sfx.levelUp(step); };
       k.onTouch = swim ? n => sfx.splashSmall(n) : (n, at) => this.puff.burst(at, Math.round(n * 10), 0xffffff);
       void k.ready();
     }
@@ -411,7 +411,7 @@ export class RunScene implements Controller {
       this.ghostMat.opacity = 0.32 * this.ghostFade;
       g.root.visible = !!this.startT && this.ghostFade > 0;
       const gf = this.island.trail.at(gs);
-      if (this.ghostSled && !this.ghostRide) this.ghostSled.visible = g.root.visible;
+      if (this.ghostSled) this.ghostSled.visible = g.root.visible && !this.ghostRide?.way;
       if (this.course) this.ghostOnCourse(g, gf, gs, done, t, dt);
       else {
         // a lane of its own, beyond the buddy (and clear of the rides)
@@ -452,7 +452,9 @@ export class RunScene implements Controller {
     } else if (kind === 'slide' && this.ride) {
       const pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
       me.root.position.copy(f.p);
-      this.ride.lead(dt, t, { step: this.tier, at: f.p, pitch, lane: 0, v, stride: this.stepLen, s: this.pos });
+      this.ride.lead(dt, t, { step: this.tier, at: f.p, pitch, lane: 0, v, stride: this.stepLen, s: this.pos, left: this.finishS - this.pos });
+      // the wind in your ears, from the skis on
+      if (this.ride.way >= 2 && v > 0.5 && !this.paused) sfx.wind(0.1 + this.ride.way * 0.12);
     } else if (kind === 'slide') {
       const yaw = Math.atan2(f.t.x, f.t.z), pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
       if (sled) { sled.visible = true; sled.position.copy(f.p); sled.rotation.set(0, yaw - Math.PI / 2, -pitch); }
@@ -472,7 +474,7 @@ export class RunScene implements Controller {
     } else if (this.ride) {
       this.outOfWater = false;
       me.root.position.copy(f.p);
-      this.ride.lead(dt, t, { step: this.tier, at: f.p, pitch: 0, lane: 0, v, stride: this.stepLen, s: this.pos });
+      this.ride.lead(dt, t, { step: this.tier, at: f.p, pitch: 0, lane: 0, v, stride: this.stepLen, s: this.pos, left: this.finishS - this.pos });
     } else {
       this.outOfWater = false;
       me.root.position.copy(f.p);
@@ -515,7 +517,7 @@ export class RunScene implements Controller {
       if (g.root.visible) {
         const pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
         g.root.position.copy(f.p);
-        this.ghostRide.lead(dt, t, { step: going ? this.opts.ghostStep ?? 0 : 0, at: f.p, pitch, lane: -1.7, v: going ? gv : 0, stride: Math.max(this.keyLen, 0.9), s });
+        this.ghostRide.lead(dt, t, { step: going ? this.opts.ghostStep ?? 0 : 0, at: f.p, pitch, lane: -1.7, v: going ? gv : 0, stride: Math.max(this.keyLen, 0.9), s, left: this.finishS - s });
         g.update(dt); g.root.updateMatrixWorld(true);
         this.ghostRide.follow(dt, t);
       } else this.ghostRide.rest(dt, t);
@@ -533,7 +535,7 @@ export class RunScene implements Controller {
       if (this.ghostRide && !out && !onDock) {
         if (g.root.visible) {
           g.root.position.copy(f.p);
-          this.ghostRide.lead(dt, t, { step: going ? this.opts.ghostStep ?? 0 : 0, at: f.p, pitch: 0, lane: -1.2, v: going ? gv : 0, stride: Math.max(this.keyLen, 0.9), s });
+          this.ghostRide.lead(dt, t, { step: going ? this.opts.ghostStep ?? 0 : 0, at: f.p, pitch: 0, lane: -1.2, v: going ? gv : 0, stride: Math.max(this.keyLen, 0.9), s, left: this.finishS - s });
           g.update(dt); g.root.updateMatrixWorld(true);
           this.ghostRide.follow(dt, t);
         } else this.ghostRide.rest(dt, t);
@@ -597,6 +599,8 @@ export class RunScene implements Controller {
     const sled = this.island.root.userData.sled as THREE.Group | undefined;
     if (!sled) return;
     const f = this.island.trail.at(this.pos - 1.9), yaw = Math.atan2(f.t.x, f.t.z), pitch = Math.atan2(-f.t.y, Math.hypot(f.t.x, f.t.z));
+    // the ride it finished on, or the plain sled
+    if (this.ride?.park?.(f.p.clone().addScaledVector(f.n, -0.9), pitch)) { sled.visible = false; return; }
     sled.position.copy(f.p).addScaledVector(f.n, -0.9);
     sled.rotation.set(0, yaw - Math.PI / 2 + 0.35, -pitch, 'YXZ');
   }
