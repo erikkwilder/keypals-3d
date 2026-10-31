@@ -22,8 +22,9 @@ export const LADDERS: Record<Move, { name: string; verb: string }[]> = {
   run: RIDES,
   // (each is its own way up the cliff, with its own gear and motion: three/climbKit.ts)
   climb: [{ name: 'Hold On', verb: 'Holding on' }, { name: 'Rope Climber', verb: 'On the rope' }, { name: 'Spring Boots', verb: 'Bouncing up' }, { name: 'Grappling Hook', verb: 'Zipping up' }, { name: 'Jet Pack', verb: 'Flying up' }, { name: 'Rocket Boots', verb: 'Rocket boots' }],
-  slide: [{ name: 'Wobble', verb: 'Wobbling' }, { name: 'Glide', verb: 'Gliding' }, { name: 'Sled', verb: 'Sledding' }, { name: 'Zoom', verb: 'Zooming' }, { name: 'Bobsled', verb: 'Bobsledding' }, { name: 'Avalanche', verb: 'Avalanche' }],
-  swim: [{ name: 'Float', verb: 'Floating' }, { name: 'Paddle', verb: 'Paddling' }, { name: 'Swim', verb: 'Swimming' }, { name: 'Fast Swimmer', verb: 'Racing' }, { name: 'Dolphin', verb: 'Dolphin kick' }, { name: 'Torpedo', verb: 'Torpedo' }],
+  // (and each is its own ride down the slope or stroke across the bay: three/sledKit.ts and swimKit.ts)
+  slide: [{ name: 'Wobbly Sled', verb: 'Wobbling' }, { name: 'Saucer', verb: 'Spinning' }, { name: 'Skis', verb: 'Skiing' }, { name: 'Snowboard', verb: 'Snowboarding' }, { name: 'Bobsled', verb: 'Bobsledding' }, { name: 'Avalanche', verb: 'Avalanche' }],
+  swim: [{ name: 'Swim Ring', verb: 'Bobbing along' }, { name: 'Arm Bands', verb: 'Paddling' }, { name: 'Flippers', verb: 'Kicking' }, { name: 'Goggles', verb: 'Racing' }, { name: 'Dolphin', verb: 'Dolphin kick' }, { name: 'Torpedo', verb: 'Torpedo' }],
 };
 export const rideName = (tier: number, move: Move = 'run') => LADDERS[move][Math.max(0, Math.min(5, tier))].name;
 export const rideVerb = (tier: number, move: Move = 'run') => LADDERS[move][Math.max(0, Math.min(5, tier))].verb;

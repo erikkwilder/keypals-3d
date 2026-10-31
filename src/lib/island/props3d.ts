@@ -81,14 +81,15 @@ export class PropKit {
     return c;
   }
   /** One mesh for each material: the parts modelled here (a cottage is dozens of little pieces) merged into
-   *  as few draws as there are paints. Moving parts (named groups) and the game's models stay as they are. */
+   *  as few draws as there are paints. Moving parts (anything named, or inside something named) and the game's
+   *  models stay as they are. */
   private bake(root: THREE.Object3D) {
     root.updateMatrixWorld(true);
     const inv = root.matrixWorld.clone().invert(), groups = new Map<THREE.Material, THREE.BufferGeometry[]>(), done: THREE.Mesh[] = [];
     root.traverse(o => {
       const m = o as THREE.Mesh;
       if (!m.isMesh || !m.userData.own || m.userData.noShadow || Array.isArray(m.material)) return;
-      for (let q = m.parent; q && q !== root; q = q.parent) if (q.name) return;
+      for (let q: THREE.Object3D | null = m; q && q !== root; q = q.parent) if (q.name) return;
       const g = m.geometry.clone().applyMatrix4(inv.clone().multiply(m.matrixWorld));
       const flat = g.index ? g.toNonIndexed() : g; if (flat !== g) g.dispose();
       for (const k of Object.keys(flat.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') flat.deleteAttribute(k);

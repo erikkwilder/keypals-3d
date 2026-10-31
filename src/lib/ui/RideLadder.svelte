@@ -25,7 +25,7 @@
       {/key}
       {#if next}
         <span class="arrow"><Icon name="play" size={14} /></span>
-        <div class="rung next" title="Next: {next.name}">
+        <div class="rung next" title="Next: {rideName(tier + 1, move)}">
           <svg class="ring" viewBox="0 0 48 48"><circle cx="24" cy="24" r={R} fill="none" stroke="#ece6f7" stroke-width="4" /><circle cx="24" cy="24" r={R} fill="none" stroke={COLORS[tier + 1]} stroke-width="4" stroke-linecap="round" stroke-dasharray={C} stroke-dashoffset={C * (1 - progress)} transform="rotate(-90 24 24)" /></svg>
           <svg class="icon" viewBox="0 0 48 48">{@html rideIcon(tier + 1, '#cfc7e2', move)}</svg>
         </div>
@@ -33,7 +33,7 @@
     </div>
     <div class="dots" aria-hidden="true">
       {#each RIDES as r, i (r.id)}
-        <i class:got={i <= best} class:on={i === tier} class:rec={i === record && record > 0} style:--c={COLORS[i]} title={r.name}></i>
+        <i class:got={i <= best} class:on={i === tier} class:rec={i === record && record > 0} style:--c={COLORS[i]} title={rideName(i, move)}></i>
       {/each}
     </div>
   </div>
