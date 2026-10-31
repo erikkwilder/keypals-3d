@@ -952,6 +952,9 @@ export const BEAT_LINES: Line[] = [
   ep('ep.crate.shut', "This crate is nailed shut, so we can't look inside. But its edges are measured. How many cubes will fill it?"),
   ep('ep.crate.help', 'Your buddy is packing this crate, but the two 2s are confusing. Tap the part of the crate that 5 times 2 counts.', 'Your buddy is packing this crate, but the two twos are confusing. Tap the part of the crate that five times two counts.'),
   ep('ep.crate.off', 'Every crate is packed full, so the cubes are safe. Off they go on the Sky Ferry!'),
+  ep('ep.crate.seen', 'Prism only counted the cubes you can see from outside. The middle of the crate is still empty.'),
+  ep('ep.crate.two', "The other 2 isn't 2 extra cubes. The crate is 2 cubes tall, so that 2 counts layers.", "The other two isn't two extra cubes. The crate is two cubes tall, so that two counts layers."),
+  ep('ep.crate.face', 'That end is 2 by 2. Find a side that is 5 long and 2 across.', 'That end is two by two. Find a side that is five long and two across.'),
   ep('ep.crate.check', 'Here is a new crate, nailed shut. Use its edges to work out how many cubes will fill it.'),
 ];
 

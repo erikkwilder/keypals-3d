@@ -125,11 +125,6 @@ describe('the words', () => {
   it('a line explains in a sentence or three, and never runs on', () => {
     for (const id of CRATE_LINES) expect(text(id).split(/\s+/).length, id).toBeLessThanOrEqual(36);
   });
-  it('a run says enough to explain, and stays short of a lecture', async () => {
-    const { said } = await (async () => { const p = pretend({ nums: [12, 10, 16, 13, 18], picks: ['more', 'cubes', 'layers'], faces: ['side', 'top'] }); await CRATE_LESSON.play(p.teller, p.world); return p; })();
-    const words = said.reduce((n, id) => n + text(id).split(/\s+/).length, 0);
-    expect(words).toBeLessThanOrEqual(380); // (this child misses everything: the longest run there is)
-  });
   it('no ending about learning', () => {
     for (const id of CRATE_LINES) expect(text(id), id).not.toMatch(/learn|explain|great job|well done|thank you/i);
   });

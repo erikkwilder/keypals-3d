@@ -74,7 +74,7 @@ const FIRST: Dims = { l: 5, w: 3, h: 2 }, SHUT: Dims = { l: 6, w: 3, h: 4 }, BUD
 const STOOD: Dims = { l: 2, w: 3, h: 5 };
 const WORDS = ['length', 'width', 'height', 'volume'];
 /** the words a run of the lesson can say, all of them; the test holds the lesson to its budget */
-export const CRATE_LINES = ['intro', 'watch', 'job', 'guess', 'few', 'over', 'right', 'lucky', 'measure', 'three', 'bets', 'added', 'floored', 'build', 'why', 'row', 'rows', 'layer', 'up', 'name', 'tip', 'same', 'shut', 'help', 'off', 'check'].map(k => `ep.crate.${k}`);
+export const CRATE_LINES = ['intro', 'watch', 'job', 'guess', 'few', 'over', 'right', 'lucky', 'measure', 'three', 'bets', 'added', 'floored', 'build', 'why', 'row', 'rows', 'layer', 'up', 'name', 'tip', 'same', 'shut', 'seen', 'help', 'face', 'two', 'off', 'check'].map(k => `ep.crate.${k}`);
 
 /** The crate acts out a number: that many cubes go in, the crate answers, and `why` (if given) says what
  *  that showed: 'tell' for the plain words about short, over or full. */
@@ -101,7 +101,7 @@ async function shutCrate(t: Teller, w: CrateWorld, d: Dims, line: string, before
   await before?.();
   await w.peek(true);
   for (let miss = 0; ; miss++) {
-    if (await actOut(t, w, n, d)) break;
+    if (await actOut(t, w, n, d, 'tell')) break;
     await w.clear();
     if (miss >= 1) { await byHand(t, w); t.pal('happy'); t.buddy('nod'); await t.wait(600); await w.thunk(); break; }
     await w.peek(false);
@@ -202,6 +202,7 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
     await w.liftTop();
     await w.rattle();
     t.thought('pal', null); t.pal('sad');
+    await t.say('ep.crate.seen');
     await w.clear();
     await w.peek(false);
   });
@@ -219,6 +220,7 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
     await w.showFace(face);
     if (face !== 'side') break;
     t.buddy('shrug');
+    await t.say('ep.crate.face');
   }
   t.buddy('nod');
   await w.layerOn(face);
@@ -228,6 +230,7 @@ async function play(t: Teller, w: CrateWorld): Promise<Notes> {
     if (last === 'layers') break;
     await w.twoCubes();
     t.buddy('shrug');
+    await t.say('ep.crate.two');
   }
   await w.secondLayer();
   t.thought('buddy', '10 × 2 = 20'); t.buddy('cheer'); t.pal('happy');

@@ -226,7 +226,7 @@
   <div class="vignette"></div>
 
   {#if begin}<div class="begin"><button class="btn btn-primary" onclick={() => begin?.()}>Start the lesson</button></div>{/if}
-  {#if phase === 'load'}
+  {#if phase === 'load' && !begin}
     <div class="loading"><div class="lcard"><small>{place.name}</small><b>{L.title}</b><span class="dots3"><i></i><i></i><i></i></span></div></div>
   {/if}
 

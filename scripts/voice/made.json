@@ -2999,6 +2999,11 @@
   "voice": "coach",
   "h": "f9eab83205"
  },
+ "ep.crate.face": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "13f4ecaba2"
+ },
  "ep.crate.few": {
   "engine": "local",
   "voice": "coach",
@@ -3079,6 +3084,11 @@
   "voice": "coach",
   "h": "3b7d7fd9da"
  },
+ "ep.crate.seen": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "168568a2f8"
+ },
  "ep.crate.shut": {
   "engine": "local",
   "voice": "coach",
@@ -3093,6 +3103,11 @@
   "engine": "local",
   "voice": "coach",
   "h": "64bb5b03cd"
+ },
+ "ep.crate.two": {
+  "engine": "local",
+  "voice": "coach",
+  "h": "e80ac46cc6"
  },
  "ep.crate.up": {
   "engine": "local",

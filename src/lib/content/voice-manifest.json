@@ -1149,7 +1149,7 @@
   },
   "ep.crate.three": {
     "voice": "coach",
-    "ms": 7463
+    "ms": 2180
   },
   "ep.crate.bets": {
     "voice": "coach",
@@ -1181,7 +1181,7 @@
   },
   "ep.crate.layer": {
     "voice": "coach",
-    "ms": 6406
+    "ms": 2075
   },
   "ep.crate.up": {
     "voice": "coach",
@@ -1189,7 +1189,7 @@
   },
   "ep.crate.name": {
     "voice": "coach",
-    "ms": 9688
+    "ms": 1876
   },
   "ep.crate.tip": {
     "voice": "coach",
@@ -1197,7 +1197,7 @@
   },
   "ep.crate.same": {
     "voice": "coach",
-    "ms": 6242
+    "ms": 1781
   },
   "ep.crate.shut": {
     "voice": "coach",
@@ -1205,11 +1205,23 @@
   },
   "ep.crate.help": {
     "voice": "coach",
-    "ms": 6775
+    "ms": 2524
   },
   "ep.crate.off": {
     "voice": "coach",
     "ms": 1367
+  },
+  "ep.crate.seen": {
+    "voice": "coach",
+    "ms": 5902
+  },
+  "ep.crate.two": {
+    "voice": "coach",
+    "ms": 5827
+  },
+  "ep.crate.face": {
+    "voice": "coach",
+    "ms": 4442
   },
   "ep.crate.check": {
     "voice": "coach",
