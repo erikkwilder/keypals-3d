@@ -5,7 +5,7 @@
 // without creases). The result is a THREE.SkinnedMesh that glimmerMotion.ts poses: skinning runs on the
 // GPU and a Glimmer has 10 to 24 bones.
 //
-// A NEW GLIMMER (the 70 coming), once its model is in public/models/glimmers/<id>.glb and has a meta.json
+// A NEW GLIMMER (41 still to come on 2026-11-21), once its model is in public/models/glimmers/<id>.glb and has a meta.json
 // entry (height, head...):
 //   1. Run `node scripts/glimmers/rig-tool.mjs` and open the address it prints with ?id=<id>.
 //   2. Pick its body plan (four legs, two legs, flyer, swimmer, jelly, long, blob). Its landmarks are
@@ -16,6 +16,17 @@
 //      Walk, Happy, Attack...) to see it bend.
 //   4. Save: it writes the "rig" entry into meta.json. That's all; the game picks it up.
 // A Glimmer with no "rig" entry keeps the old wiggle (a vertex program that nods, wags and flaps).
+// Then take its `pending` off and run the tests: glimmerRig.test.ts checks every Glimmer with a model.
+// What went wrong most with the 29 of 2026-11-21, and the fix:
+//   - a guessed wing tip or hand that lands on a foot, an ear or the tail (the furthest point that way):
+//     place the tips yourself; the test names the two bones whose skin stretches
+//   - a head dot in the wrong place on a model posed at an angle (a three-quarter painting): check the
+//     head from the front; the face is often well off the middle
+//   - a flyer or swimmer with no legs still gets legs guessed at its lowest points: save "feet": []
+//   - eyes: mark the middle of each pupil on the front of the skin, not a dark spot found by colour (a
+//     panda's patches, a mouth, the back of the head on a smooth face)
+//   - something upside down or held (a hanging bat, a chick whose wing is joined to its face) moves more
+//     safely as a blob
 //
 // Landmarks are in the model file's metres (y up, facing +z, standing on y = 0): the same space as the
 // meta.json head, tail, wings and ears. Paired ones list the -x side first.

@@ -2,7 +2,7 @@
 // three math worlds (Fraction Falls, Counting Caves, Market Isle) and the 35 that come from goals a child
 // can see and plan for: milestones, collections, seasons, secrets and the four legends. Each has a power of
 // an existing kind (battle.ts already knows them all), a quirk and a grown-up form whose perk is that
-// kind's own grown-up perk. All of them are `pending` until their 3D models are made (the concept
+// kind's own grown-up perk. Each is `pending` until its 3D model is made (the concept
 // paintings are in public/game/glimmers): the Glimmer Book shows them "On its way" and nobody can earn one
 // yet. When a model ships, take its `pending` off and a child who already met its goal gets it right away.
 //
