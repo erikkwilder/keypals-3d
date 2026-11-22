@@ -169,7 +169,7 @@ describe('the eggs', () => {
     const p = player(), a = advOf(p);
     for (let i = 0; i < 6; i++) playDay(p, `2026-09-${String(8 + i).padStart(2, '0')}`); // 1,200 right answers
     const now = at('2026-09-14');
-    expect(GLIMMER.fireflyfawn.pending).toBe(true);
+    GLIMMER.fireflyfawn.pending = true; // as before its model was made (put back after the test)
     expect(ladderPlan(p, now).eggs.map(e => e.id)).not.toContain('fireflyfawn');
     checkLadder(p, now);
     expect(a.ladder!.waiting).toContain('fireflyfawn');
@@ -224,6 +224,7 @@ describe('the eggs', () => {
   it('a world\'s own Champion takes over its Champion battle once its model is in', () => {
     const p = player();
     const pool: Pool = { subject: 'math', facts: [{ f: { a: 3, b: 4, op: '+' }, stage: 1 }], open: false };
+    GLIMMER.crystalmammoth.pending = true; // as before its model was made (put back after the test)
     expect(ownChampion('caves')).toBeNull();
     expect(foeFor(p, NODE['caves-5'], pool, 1).glimmer).toBe('prismhorn');
     ship('crystalmammoth');

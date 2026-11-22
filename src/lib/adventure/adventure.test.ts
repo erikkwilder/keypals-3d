@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
 import { newProfile, dayKey, buddyPal } from '../engine/profile';
 import { answerOf } from '../math/facts';
 import { newBattle, play, block, finale, deal, openFact, sparkFor, hitFor, FINALE_AT, type Pool, type Foe } from './battle';
@@ -301,9 +302,9 @@ describe('Counting Caves', () => {
     const b = newBattle({ pool: pl, seed: 6, sparkMax: 20, role: 'heart', gear: null, team: [], foe: { ...foeFor(p, NODE['caves-0'], pl, 6), hit: 3 } });
     expect(b.cards.every(c => c.item?.skill.startsWith('pv-'))).toBe(true);
   });
-  it('its Grumbles shake crystals loose and live there; the Champion is the Prism Hornback', () => {
+  it('its Grumbles shake crystals loose and live there; the Champion is its own Crystal Mammoth (the Prism Hornback stood in until its model came)', () => {
     const p = newProfile('Ava', 'dino'), pl = mathPool(p, 'place');
-    expect(foeFor(p, NODE['caves-5'], pl, 1)).toMatchObject({ glimmer: 'prismhorn', champion: true, mischief: { kind: 'pebbles' } });
+    expect(foeFor(p, NODE['caves-5'], pl, 1)).toMatchObject({ glimmer: 'crystalmammoth', champion: true, mischief: { kind: 'pebbles' } });
     const seen = new Set<string>();
     for (let s = 1; s <= 200; s++) { const f = foeFor(p, NODE['caves-1'], pl, s); expect(f.mischief?.name).toMatch(/crystals/); seen.add(f.glimmer); }
     expect(['geodemole', 'rollodillo', 'potgolem'].every(id => seen.has(id))).toBe(true);
@@ -331,9 +332,9 @@ describe('Below Zero Caves', () => {
     const p = newProfile('Ava', 'dino'), pl = mathPool(p, 'integers');
     expect(pl.subject === 'math' && pl.skills!.every(s => s.key.startsWith('in-plot:'))).toBe(true);
   });
-  it('icicles fall when its Grumbles sulk, the frosty Glimmers live there, and the Comet Cat is its Champion', () => {
+  it('icicles fall when its Grumbles sulk, the frosty Glimmers live there, and its own Aurora Narwhal is its Champion (the Comet Cat stood in until its model came)', () => {
     const p = newProfile('Ava', 'dino'), pl = mathPool(p, 'integers');
-    expect(foeFor(p, NODE['frost-5'], pl, 1)).toMatchObject({ glimmer: 'cometcat', champion: true, mischief: { kind: 'snow' } });
+    expect(foeFor(p, NODE['frost-5'], pl, 1)).toMatchObject({ glimmer: 'auroranarwhal', champion: true, mischief: { kind: 'snow' } });
     const seen = new Set<string>();
     for (let s = 1; s <= 200; s++) { const f = foeFor(p, NODE['frost-1'], pl, s); expect(f.mischief?.name).toMatch(/icicle/); seen.add(f.glimmer); }
     expect(['snowseal', 'mittenyeti', 'frostjelly'].every(id => seen.has(id))).toBe(true);
@@ -343,7 +344,8 @@ describe('Below Zero Caves', () => {
     expect(FROST_GLIMMERS.length).toBe(4);
     expect(FROST_GLIMMERS.filter(g => g.champion)).toEqual([expect.objectContaining({ id: 'auroranarwhal', champion: 'frost' })]);
     for (const g of FROST_GLIMMERS) {
-      expect(g).toMatchObject({ source: 'native', world: 'frost', pending: true });
+      expect(g).toMatchObject({ source: 'native', world: 'frost' });
+      expect(!!g.pending, `${g.id} is on its way exactly while it has no model`).toBe(!existsSync(`public/models/glimmers/${g.id}.glb`));
       expect(GLIMMERS.some(x => x.id === g.id)).toBe(false); expect(GLIMMER[g.id]).toBe(g); expect(g.power.text(1).length).toBeGreaterThan(10);
     }
   });

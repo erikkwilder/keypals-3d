@@ -54,7 +54,8 @@ describe('Clockwork Isle', () => {
     expect(CLOCKWORK_GLIMMERS.filter(g => g.champion)).toEqual([expect.objectContaining({ id: 'gearlion', champion: 'clockwork' })]);
     const rolls = new Set<string>(GLIMMERS.map(g => g.id));
     for (const g of CLOCKWORK_GLIMMERS) {
-      expect(g).toMatchObject({ source: 'native', world: 'clockwork', pending: true });
+      expect(g).toMatchObject({ source: 'native', world: 'clockwork' });
+      expect(!!g.pending, `${g.id} is on its way exactly while it has no model`).toBe(!existsSync(`public/models/glimmers/${g.id}.glb`));
       // in the Book (GLIMMER, with a grown-up form and an outline), never in a random roll
       expect(GLIMMER[g.id]).toBe(g); expect(EVOLVED[g.id].name.length).toBeGreaterThan(3); expect(rolls.has(g.id), g.id).toBe(false);
       expect(pub(`game/glimmers/shape/${g.id}.webp`), g.id).toBe(true);

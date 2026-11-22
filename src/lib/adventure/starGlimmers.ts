@@ -18,7 +18,7 @@ export type StarGlimmerId = 'moonbeambat' | 'stardusthamster' | 'orbitotter' | '
 const pn = (base: number, lvl: number, every = 4) => base + Math.floor((Math.max(1, lvl) - 1) / every);
 
 export const STAR_GLIMMERS: (GlimmerDef & { id: StarGlimmerId })[] = [
-  { id: 'moonbeambat', source: 'native', world: 'stars', pending: true, name: 'Moonbeam Bat', rarity: 'common', element: 'frost',
+  { id: 'moonbeambat', source: 'native', world: 'stars', name: 'Moonbeam Bat', rarity: 'common', element: 'frost',
     quirk: 'Sleeps all day. Counts the stars all night, and never loses count.',
     power: { kind: 'boost', name: 'Moonbeam', base: 2, text: l => `Ice cards add ${pn(2, l)} more cheer.` } },
   { id: 'stardusthamster', source: 'native', world: 'stars', pending: true, name: 'Stardust Hamster', rarity: 'uncommon', element: 'sun',

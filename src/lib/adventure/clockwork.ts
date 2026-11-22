@@ -19,13 +19,13 @@ export type ClockworkGlimmerId = 'cuckoochick' | 'cogbeetle' | 'sandhog' | 'gear
 const pn = (base: number, lvl: number, every = 4) => base + Math.floor((Math.max(1, lvl) - 1) / every);
 
 export const CLOCKWORK_GLIMMERS: (GlimmerDef & { id: ClockworkGlimmerId })[] = [
-  { id: 'cuckoochick', source: 'native', world: 'clockwork', pending: true, name: 'Cuckoo Chick', rarity: 'common', element: 'leaf',
+  { id: 'cuckoochick', source: 'native', world: 'clockwork', name: 'Cuckoo Chick', rarity: 'common', element: 'leaf',
     quirk: 'Pops out of its little clock house to say cuckoo. Always one minute early.',
     power: { kind: 'opener', name: 'First Cuckoo', base: 5, text: l => `Your first right answer cuckoos ${pn(5, l)} extra cheer.` } },
   { id: 'cogbeetle', source: 'native', world: 'clockwork', pending: true, name: 'Cogwheel Beetle', rarity: 'uncommon', element: 'stone',
     quirk: 'Its shell is a brass gear. It spins round when it giggles.',
     power: { kind: 'shell', name: 'Gear Shell', text: () => 'Blocks the first rain or zap in every battle for you.' } },
-  { id: 'sandhog', source: 'native', world: 'clockwork', pending: true, name: 'Hourglass Hedgehog', rarity: 'rare', element: 'sun',
+  { id: 'sandhog', source: 'native', world: 'clockwork', name: 'Hourglass Hedgehog', rarity: 'rare', element: 'sun',
     quirk: 'Turns itself upside down whenever it needs a little more time.',
     power: { kind: 'coolhead', name: 'Slow Sand', base: 3, text: l => `Gives you ${pn(3, l, 8)} more seconds to block rain and zaps.` } },
   { id: 'gearlion', source: 'native', world: 'clockwork', champion: 'clockwork', pending: true, name: 'Gearmane Lion', rarity: 'legendary', element: 'sun', cloud: 'fox',

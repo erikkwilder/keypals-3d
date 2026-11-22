@@ -27,7 +27,7 @@ export const FROST_GLIMMERS: (GlimmerDef & { id: FrostGlimmerId })[] = [
   { id: 'compasscrab', source: 'native', world: 'frost', pending: true, name: 'Compass Crab', rarity: 'rare', element: 'stone',
     quirk: 'Always knows which way is north. Walks sideways anyway.',
     power: { kind: 'dig', name: 'Treasure Hunt', base: 6, text: l => `When you win a battle, it digs up ${pn(6, l)} extra shells.` } },
-  { id: 'auroranarwhal', source: 'native', world: 'frost', champion: 'frost', pending: true, name: 'Aurora Narwhal', rarity: 'legendary', element: 'frost',
+  { id: 'auroranarwhal', source: 'native', world: 'frost', champion: 'frost', name: 'Aurora Narwhal', rarity: 'legendary', element: 'frost',
     quirk: 'Its horn is an icicle that never melts. It always points to buried treasure.',
     power: { kind: 'lanterns', name: 'Northern Lights', base: 10, text: l => `Every 3rd right answer adds ${pn(10, l, 3)} big cheer.` } },
 ];

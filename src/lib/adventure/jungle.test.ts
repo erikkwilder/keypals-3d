@@ -2,6 +2,7 @@
 // battle card a ratio or a percent, juice showers from its Grumbles, and its own Glimmers written but kept
 // out of the game until their models are made.
 import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
 import { newProfile } from '../engine/profile';
 import { mathOf } from '../math/progress';
 import { noteSkillAnswers } from '../math/skills/progress';
@@ -41,9 +42,9 @@ describe('Juice Jungle', () => {
       expect(b.cards.every(c => c.item?.skill.startsWith('rt-'))).toBe(true);
     }
   });
-  it('its Grumbles send juice showers and live there; the Champion is the Pinecone Pangolin', () => {
+  it('its Grumbles send juice showers and live there; the Champion is its own Mango Jaguar (the Pinecone Pangolin stood in until its model came)', () => {
     const p = newProfile('Ava', 'dino'), pl = mathPool(p, 'ratios');
-    expect(foeFor(p, NODE['jungle-5'], pl, 1)).toMatchObject({ glimmer: 'pinepango', champion: true, mischief: { kind: 'rain' } });
+    expect(foeFor(p, NODE['jungle-5'], pl, 1)).toMatchObject({ glimmer: 'mangojaguar', champion: true, mischief: { kind: 'rain' } });
     const seen = new Set<string>();
     for (let s = 1; s <= 200; s++) { const f = foeFor(p, NODE['jungle-1'], pl, s); expect(f.mischief?.name).toMatch(/juice/); seen.add(f.glimmer); }
     expect(ISLAND.jungle.natives!.every(id => seen.has(id))).toBe(true);
@@ -52,7 +53,8 @@ describe('Juice Jungle', () => {
     expect(JUNGLE_GLIMMERS.length).toBe(4);
     expect(JUNGLE_GLIMMERS.filter(g => g.champion)).toEqual([expect.objectContaining({ id: 'mangojaguar', champion: 'jungle' })]);
     for (const g of JUNGLE_GLIMMERS) {
-      expect(g).toMatchObject({ source: 'native', world: 'jungle', pending: true });
+      expect(g).toMatchObject({ source: 'native', world: 'jungle' });
+      expect(!!g.pending, `${g.id} is on its way exactly while it has no model`).toBe(!existsSync(`public/models/glimmers/${g.id}.glb`));
       // in the Glimmer Book (GLIMMER), never in a random roll (GLIMMERS)
       expect(GLIMMERS.some(x => x.id === g.id)).toBe(false);
       expect(GLIMMER[g.id]).toBe(g);

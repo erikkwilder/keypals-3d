@@ -2,6 +2,7 @@
 // is one of its questions, its Grumbles send shooting stars, the Comet Cat is its Champion for now, and
 // its own Glimmers wait (pending) for their 3D models.
 import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
 import { newProfile } from '../engine/profile';
 import { mathOf } from '../math/progress';
 import { noteSkillAnswers } from '../math/skills/progress';
@@ -44,7 +45,8 @@ describe('Star Lab', () => {
     expect(STAR_GLIMMERS.length).toBe(4);
     expect(STAR_GLIMMERS.filter(g => g.champion)).toEqual([expect.objectContaining({ id: 'starmanelion', champion: 'stars' })]);
     for (const g of STAR_GLIMMERS) {
-      expect(g).toMatchObject({ source: 'native', world: 'stars', pending: true });
+      expect(g).toMatchObject({ source: 'native', world: 'stars' });
+      expect(!!g.pending, `${g.id} is on its way exactly while it has no model`).toBe(!existsSync(`public/models/glimmers/${g.id}.glb`));
       // in the Glimmer Book (GLIMMER), never in a random roll (GLIMMERS)
       expect(GLIMMERS.some(x => x.id === g.id)).toBe(false);
       expect(GLIMMER[g.id]).toBe(g);

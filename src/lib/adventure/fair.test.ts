@@ -2,6 +2,7 @@
 // card is a data question, its Grumbles send gusts of confetti, and its own Glimmers wait (pending) for
 // their 3D models, so they never turn up anywhere yet.
 import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
 import { newProfile } from '../engine/profile';
 import { newBattle } from './battle';
 import { advOf, currentNode, foeFor, mathPool, NODE, nodesOf, worldOpen, ISLAND } from './state';
@@ -48,7 +49,8 @@ describe('the Chance Fair', () => {
     expect(FAIR_GLIMMERS.length).toBe(4);
     expect(FAIR_GLIMMERS.filter(g => g.champion)).toEqual([expect.objectContaining({ id: 'spinpeacock', champion: 'fair' })]);
     for (const g of FAIR_GLIMMERS) {
-      expect(g).toMatchObject({ source: 'native', world: 'fair', pending: true });
+      expect(g).toMatchObject({ source: 'native', world: 'fair' });
+      expect(!!g.pending, `${g.id} is on its way exactly while it has no model`).toBe(!existsSync(`public/models/glimmers/${g.id}.glb`));
       // in the Glimmer Book (GLIMMER, with a grown-up form), never in a random roll (GLIMMERS)
       expect(GLIMMERS.some(x => x.id === g.id)).toBe(false);
       expect(GLIMMER[g.id]).toBe(g);

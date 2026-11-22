@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { glbPoints } from '../../../scripts/glimmers/glbPoints';
-import { GLIMMERS } from '../adventure/glimmers';
+import { ALL_GLIMMERS } from '../adventure/glimmers';
 import { PLANS, buildRig, cloudOf, fitFreedom, guessLandmarks, makeBones, skinWeights, type Landmarks, type Plan, type Rig } from './glimmerRig';
 import { ACT_LEN, ACTS, Animator, BASES } from './glimmerMotion';
 
@@ -74,7 +74,8 @@ describe('Glimmer skeletons', () => {
   }
 });
 
-// ---- the 30 Glimmers' own models ----
+// ---- every Glimmer's own model (all that have one: the ones not pending) ----
+const GLIMMERS = ALL_GLIMMERS.filter(g => !g.pending);
 type Meta = { rig?: Landmarks };
 const meta: Record<string, Meta> = JSON.parse(readFileSync('public/models/glimmers/meta.json', 'utf8'));
 const NEEDS: Record<Plan, (lm: Landmarks) => boolean> = {
@@ -82,7 +83,14 @@ const NEEDS: Record<Plan, (lm: Landmarks) => boolean> = {
   swimmer: lm => !!lm.tail && lm.fins?.length === 2, jelly: lm => (lm.tentacles?.length ?? 0) >= 3, serpent: lm => (lm.tail?.length ?? 0) >= 2, blob: () => true,
 };
 
-describe('the 30 Glimmers', () => {
+describe('every Glimmer with a model', () => {
+  it('has its model and a meta.json entry', () => {
+    for (const g of GLIMMERS) {
+      expect(existsSync(`public/models/glimmers/${g.id}.glb`), g.id).toBe(true);
+      expect(meta[g.id], g.id).toBeTruthy();
+    }
+  });
+
   it('every one has a body plan and its landmarks', () => {
     for (const g of GLIMMERS) {
       const lm = meta[g.id]?.rig;

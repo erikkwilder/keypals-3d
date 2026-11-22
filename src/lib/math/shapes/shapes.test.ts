@@ -2,6 +2,7 @@
 // generator's word for them), the dot-grid rules, the course (every trip reachable, Show What You Know),
 // the Learn episodes, Shape Shifter, Shape Builder and the Shape Peaks world.
 import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
 import { mulberry32 } from '../../engine/rng';
 import { newProfile } from '../../engine/profile';
 import { mathOf } from '../progress';
@@ -317,6 +318,8 @@ describe('Shape Peaks', () => {
   it('its own Glimmers are natives of Shape Peaks, on their way until their models come', () => {
     expect(SHAPE_PEAKS_GLIMMERS).toHaveLength(4);
     expect(SHAPE_PEAKS_GLIMMERS.filter(g => g.champion)).toEqual([expect.objectContaining({ id: 'prismgryphon', champion: 'peaks' })]);
-    expect(SHAPE_PEAKS_GLIMMERS.every(g => g.source === 'native' && g.world === 'peaks' && g.pending && GLIMMER[g.id] === g)).toBe(true);
+    expect(SHAPE_PEAKS_GLIMMERS.every(g => g.source === 'native' && g.world === 'peaks' && GLIMMER[g.id] === g)).toBe(true);
+    // on its way exactly while it has no model
+    for (const g of SHAPE_PEAKS_GLIMMERS) expect(!!g.pending, g.id).toBe(!existsSync(`public/models/glimmers/${g.id}.glb`));
   });
 });

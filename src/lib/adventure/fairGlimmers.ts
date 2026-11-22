@@ -18,13 +18,13 @@ export type FairGlimmerId = 'dicebun' | 'pinwheelfinch' | 'balloonpuff' | 'spinp
 const pn = (base: number, lvl: number, every = 4) => base + Math.floor((Math.max(1, lvl) - 1) / every);
 
 export const FAIR_GLIMMERS: (GlimmerDef & { id: FairGlimmerId })[] = [
-  { id: 'dicebun', source: 'native', world: 'fair', pending: true, name: 'Dice Bunny', rarity: 'common', element: 'stone',
+  { id: 'dicebun', source: 'native', world: 'fair', name: 'Dice Bunny', rarity: 'common', element: 'stone',
     quirk: 'Rolls over to say hello. Never lands the same way twice.',
     power: { kind: 'dig', name: 'Roll Out', base: 3, text: l => `When you win a battle, it rolls up ${pn(3, l)} extra shells.` } },
   { id: 'pinwheelfinch', source: 'native', world: 'fair', pending: true, name: 'Pinwheel Finch', rarity: 'uncommon', element: 'leaf',
     quirk: 'Its tail spins whenever it\'s happy. It\'s usually spinning.',
     power: { kind: 'opener', name: 'Spin Up', base: 5, text: l => `Your first right answer spins ${pn(5, l)} extra cheer.` } },
-  { id: 'balloonpuff', source: 'native', world: 'fair', pending: true, name: 'Balloon Puffer', rarity: 'rare', element: 'tide',
+  { id: 'balloonpuff', source: 'native', world: 'fair', name: 'Balloon Puffer', rarity: 'rare', element: 'tide',
     quirk: 'Floats on a ribbon. Lets go of it when it giggles.',
     power: { kind: 'bubbles', name: 'Balloon Shield', base: 4, text: () => 'Every 4th right answer floats a balloon that stops the next rain or zap. 2 shields a battle at most.' } },
   { id: 'spinpeacock', source: 'native', world: 'fair', champion: 'fair', pending: true, name: 'Spinwheel Peacock', rarity: 'legendary', element: 'leaf',
