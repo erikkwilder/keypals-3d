@@ -141,6 +141,8 @@ export class EpisodeScene implements Controller {
   private fracTex: FracTex = { pie: null, pizza: null, choc: null };
   /** the fraction episodes: one pie or bar big on a bare wooden table, the camera in close */
   private close = false;
+  /** the same close camera for another lesson whose things must look big (the counting lesson's cookies) */
+  closeUp() { this.close = true; }
   private shapeGeos = new Map<string, ReturnType<typeof shapeGeo>>();
   private plank: THREE.Group | null = null;
   private lineKey = '';

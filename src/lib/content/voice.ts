@@ -1022,7 +1022,7 @@ export const BEAT_LINES: Line[] = [
   ep('ep.count.b7.show', "Let's look at the numbers together. Each cookie got one number: 1, 2, 3, 4, 5, 6, 7. The last number is 7, so there are 7 cookies.", "Let's look at the numbers together. Each cookie got one number. One, two, three, four, five, six, seven. The last number is seven, so there are seven cookies."),
   ep('ep.count.try.b7', "So let's get out 7 plates, one for each cookie.", "So let's get out seven plates, one for each cookie."),
   ep('ep.count.try.bump', 'Uh oh, Sprout Bunny bumps the table. Watch what happens to the cookies.'),
-  ep('ep.count.moved', 'The cookies slid into a new spot, and the numbers are gone. Nobody ate one and nobody added one. How many cookies are there now?'),
+  ep('ep.count.moved', 'The cookies slid into a ring, and the numbers are gone. How many cookies are there now?'),
   ep('ep.count.moved.right', "Yes, there are still 7! The cookies only moved, and moving them doesn't add any or take any away.", "Yes, there are still seven! The cookies only moved, and moving them doesn't add any or take any away."),
   ep('ep.count.try.recount', "Let's count them again to check. This time we'll start from a different cookie."),
   ep('ep.count.recount.same', 'We started from a different cookie, and the last number is still 7. Wherever the cookies sit, there are 7 of them.', 'We started from a different cookie, and the last number is still seven. Wherever the cookies sit, there are seven of them.'),
