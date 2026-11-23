@@ -309,13 +309,33 @@ export class ShareKit implements ShareWorld {
     await this.wait(800);
     this.drop(o); if (this.other === o) this.other = null;
   }
-  /** the buddy's mouth: in front of its head bone and a little under it, where it faces (the Glimmer has mouthAt) */
+  /** the buddy's mouth: found once and kept in its Head bone's own space, so it turns and tips with the head (the Glimmer has mouthAt) */
+  private mouthInHead: THREE.Vector3 | null | undefined;
+  private born: number | null = null;
   private buddyMouth() {
     const me = this.sc.me, head = me.bones.Head;
     const box = (this.meBox ??= new THREE.Box3().setFromObject(me.root)), tall = box.max.y - box.min.y;
     if (!head) return me.root.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, tall * 0.8, tall * 0.1));
+    if (this.mouthInHead === undefined) this.mouthInHead = this.findMouth(head, tall);
+    if (this.mouthInHead) return this.mouthInHead.clone().applyMatrix4(head.matrixWorld);
     const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(me.root.getWorldQuaternion(new THREE.Quaternion()));
     return head.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, tall * 0.13).add(new THREE.Vector3(0, tall * 0.05, 0));
+  }
+  /**
+   * In front of the head bone the way the buddy faces and a little up is where the camera sees its mouth, but that
+   * point is inside a long snout (the dino's), so a piece flying there vanished into the face, and it didn't move
+   * when the head tipped. So once, while the buddy stands still near the start: look from the camera through that
+   * point, take the first spot on the buddy seen there, a touch nearer the camera, and keep it in the head's space.
+   */
+  private findMouth(head: THREE.Bone, tall: number) {
+    const me = this.sc.me, fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(me.root.getWorldQuaternion(new THREE.Quaternion()));
+    const at = head.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, tall * 0.13).add(new THREE.Vector3(0, tall * 0.05, 0));
+    const cam = stage.camera.getWorldPosition(new THREE.Vector3()), dir = at.clone().sub(cam).normalize(), far = cam.distanceTo(at);
+    const ray = new THREE.Raycaster(cam, dir, 0, far + tall * 0.3);
+    ray.camera = stage.camera;
+    const hit = ray.intersectObject(me.root, true)[0];
+    const p = hit && hit.distance < far ? hit.point.clone().addScaledVector(dir, -tall * 0.03) : at;
+    return head.worldToLocal(p);
   }
   async eat() {
     const b = this.bar!, { ps, out } = this.starts(b);
@@ -388,7 +408,9 @@ export class ShareKit implements ShareWorld {
   tryPoint() { const b = this.bar; return this.job && b ? this.world({ x: this.left(b) + b.sq * 0.5, y: BAR_Y, up: 0 }) : null; }
 
   update(dt: number, t: number) {
-    this.now = t;
+    this.now = t; this.born ??= t;
+    // (the buddy's mouth, found while it stands still a few seconds in)
+    if (this.mouthInHead === undefined && t - this.born > 5 && this.sc.me.bones.Head) this.buddyMouth();
     const s = this.s;
     // (on a phone the camera frames just the bar while the child cuts it, so each square is a big target:
     // about 45 px across at 390 px for a bar of 8; the plates are still in the picture, under it)
