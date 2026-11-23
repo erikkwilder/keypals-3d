@@ -415,6 +415,9 @@ export class EpisodeScene implements Controller {
   /** other things on the table (the measuring things: three/measureKit.ts), for the friends and the corner
    *  props to keep clear of */
   extraWork: () => THREE.Object3D[] = () => [];
+  /** a part of the board for the camera to frame instead of the whole table (null: the whole table): a lesson
+   *  sets it to have one thing big, on a phone the bar a child is cutting (three/shareKit.ts) */
+  frameBox: { x: number; y: number; w: number; h: number } | null = null;
   private workT = 0;
   /** the corner props' half widths */
   private propHalf: [number, number] = [0.15, 0.15];
@@ -1547,6 +1550,10 @@ export class EpisodeScene implements Controller {
       const p0 = this.boardPoint(bb.x, bb.y), p1 = this.boardPoint(bb.x + bb.w, bb.y + bb.h);
       content.min.set(Math.max(a.x0, p0.x) - 0.05, TY, Math.max(a.z0, p0.z) - 0.05);
       content.max.set(Math.min(a.x1, p1.x) + 0.05, TY + 0.12, Math.min(a.z1, p1.z) + 0.05);
+    }
+    if (this.frameBox) {
+      const f = this.frameBox, p0 = this.boardPoint(f.x, f.y), p1 = this.boardPoint(f.x + f.w, f.y + f.h);
+      content.min.set(p0.x - 0.02, TY, p0.z - 0.02); content.max.set(p1.x + 0.02, TY + 0.12, p1.z + 0.02);
     }
     if (this.armed && this.armed.t.kind === 'place') content.expandByPoint(new THREE.Vector3(0, TY, this.pileZ + this.r * 2.4 * Math.ceil(this.armed.t.ids.length / 10)));
     const head = this.buddyAt.clone().add(new THREE.Vector3(0, this.H * 1.02, 0));

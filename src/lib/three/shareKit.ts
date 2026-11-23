@@ -62,8 +62,10 @@ export class ShareKit implements ShareWorld {
   constructor(private sc: EpisodeScene) {
     sc.root.add(this.root);
     if (this.tall) { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; }
-    // (the friends and the corner props keep clear of the table's middle)
-    sc.extraWork = () => [this.root];
+    // (the friends and the corner props keep clear of the table's middle; on a phone not of a bar lying flat
+    // to be cut: it hides nothing, and stepping aside for it sent them out to the screen's sides, which pulled the
+    // camera back and made each square 33 px across instead of 40)
+    sc.extraWork = () => this.flatBar() ? [] : [this.root];
   }
 
   async load() {
@@ -77,6 +79,8 @@ export class ShareKit implements ShareWorld {
     this.root.add(this.knife);
   }
   bounds() { return this.tall ? { x: 137, y: 80, w: 326, h: 145 } : { x: 85, y: 80, w: 430, h: 145 }; }
+  /** on a phone, the child's bar while it lies flat to be cut (the camera frames just it then) */
+  private flatBar() { const b = this.bar; return this.tall && b && b.mine && b.mode === 'bar' && !b.out ? b : null; }
   /** where someone else's piece p stands to be compared: beside the plates, or on a phone behind plate p */
   /** where a piece laid for comparing stands: beside the plates; on a phone on the free plate's place, or behind the plates */
   private underAt() {
@@ -386,6 +390,10 @@ export class ShareKit implements ShareWorld {
   update(dt: number, t: number) {
     this.now = t;
     const s = this.s;
+    // (on a phone the camera frames just the bar while the child cuts it, so each square is a big target:
+    // about 45 px across at 390 px for a bar of 8; the plates are still in the picture, under it)
+    const fb = this.flatBar();
+    this.sc.frameBox = fb ? { x: this.left(fb) - 3, y: BAR_Y - fb.sq / 2, w: fb.n * fb.sq + 6, h: fb.sq } : null;
     for (const b of [this.bar, this.other]) for (const q of b?.squares ?? []) {
       if (q.gone && !this.flies.some(f => f.m === q.m)) { q.m.visible = false; continue; }
       if (this.flies.some(f => f.m === q.m)) continue;
@@ -434,6 +442,6 @@ export class ShareKit implements ShareWorld {
     for (const m of this.mats.values()) m.dispose();
     this.knife.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); (m.material as THREE.Material).dispose(); } });
     this.sc.extraWork = () => [];
-    this.sc.workZoom = 1; this.sc.tallPitch = null;
+    this.sc.workZoom = 1; this.sc.tallPitch = null; this.sc.frameBox = null;
   }
 }
