@@ -158,7 +158,7 @@ export class ShareKit implements ShareWorld {
     if (stacked && side) return this.world({ x: a.x + b.sq * 1.3, y: a.y, up: (a.up + z.up) / 2 });
     // (every other piece's cards a step higher, so the cards of two pieces side by side never land on each other)
     const step = p % 2 ? b.sq * 0.75 : 0;
-    if ((a.st ?? 0) > 0.5) return this.world({ x: a.x + (side < 0 ? -b.sq * 0.3 : side > 0 ? b.sq * 0.3 : 0), y: a.y, up: z.up + ((side < 0 ? b.sq * 1.6 : b.sq * 0.9) + step) * this.s });
+    if ((a.st ?? 0) > 0.5) return this.world({ x: a.x + (side < 0 ? -b.sq * 0.3 : side > 0 ? b.sq * 0.3 : 0), y: a.y, up: z.up + ((side < 0 ? b.sq * 1.85 : b.sq * 0.9) + step) * this.s });
     // (on the bar: a size card over the middle of its piece, every other one in front of the bar instead of behind it)
     if (side > 0) return this.world({ x: (a.x + z.x) / 2, y: p % 2 ? a.y + b.sq * 1.15 : a.y - b.sq * 0.35, up: a.up + b.sq * 0.4 * this.s });
     return this.world({ x: side < 0 ? a.x : (a.x + z.x) / 2, y: a.y - b.sq * 0.2, up: a.up + b.sq * 0.4 * this.s });
