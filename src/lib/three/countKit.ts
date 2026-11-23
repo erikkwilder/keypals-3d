@@ -55,11 +55,24 @@ const TALL: Layout = {
 const TALL_ZOOM = 2.8;
 /** ...and seen less steeply from above, so the table's depth takes less of that band and the cookies are wider */
 const TALL_PITCH = 0.52;
+/** A number on a cookie that lies on the tray stands this far out from the middle of the batch (back ones
+ *  further back, front ones further forward, round the circle outward), still on the cookie: two cookies side
+ *  by side in a mixed-up batch then never have their numbers on top of each other */
+const LBL_OUT = CR * 0.62;
+/** a second number on the same cookie (touched twice) stands this many cookie-halves above the first */
+const SECOND_UP = 1.25;
+/** Sprout Bunny leans over to each cookie it counts: this share of the way across, at most this far (metres),
+ *  and never nearer the buddy than this */
+const LEAN = 0.5, LEAN_MOST = 0.34, LEAN_CLEAR = 0.72;
+/** ...and bends down over the cookies this far (metres); further on a phone, where its head is just under the
+ *  narrator's words, so the thought it has after counting stays clear of them */
+const BEND = { wide: 0.03, tall: 0.1 };
 const smooth = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
 
 type Move = { from: THREE.Vector3; to: THREE.Vector3; t0: number; dur: number; arc: number; done?: () => void };
-type Cookie = { g: THREE.Group; num: number; shakeUntil: number; plate: THREE.Object3D | null };
+/** `out`: on the tray, which way from the middle of the batch its number stands (across, back); null in the row */
+type Cookie = { g: THREE.Group; num: number; shakeUntil: number; plate: THREE.Object3D | null; out: [number, number] | null };
 
 export class CountKit implements CountWorld {
   readonly root = new THREE.Group();
@@ -80,6 +93,9 @@ export class CountKit implements CountWorld {
   private shakeUntil = 0;
   /** after the bump: where each cookie sits in the ring on the tray (they go back there after plates) */
   private ring: [number, number][] | null = null;
+  /** Sprout Bunny leaning over to the cookie it is counting: the cookie, how far across it is now, how far
+   *  down (0-1), and when its little hop to this cookie began */
+  private lean = { to: null as THREE.Vector3 | null, x: 0, down: 0, at: -9 };
   private geo: { cookie?: THREE.BufferGeometry; chip?: THREE.BufferGeometry; plate?: THREE.BufferGeometry; rim?: THREE.BufferGeometry; mark?: THREE.BufferGeometry; ring?: THREE.BufferGeometry } = {};
   private mat: { cookie?: THREE.Material; chip?: THREE.Material; plate?: THREE.Material[]; rim?: THREE.Material; mark?: THREE.MeshBasicMaterial; bad?: THREE.MeshBasicMaterial; tray?: THREE.Material } = {};
 
@@ -148,7 +164,7 @@ export class CountKit implements CountWorld {
     }
     g.rotation.y = Math.random() * Math.PI * 2;
     this.root.add(g);
-    return { g, num: 0, shakeUntil: 0, plate: null };
+    return { g, num: 0, shakeUntil: 0, plate: null, out: null };
   }
   private makePlate() {
     const g = new THREE.Group(), R = PR * this.s;
@@ -170,7 +186,15 @@ export class CountKit implements CountWorld {
   private unmark() { for (const m of this.marks) m.removeFromParent(); this.marks = []; }
   private numPin(c: Cookie, n: number, second = false) {
     const i = this.cookies.indexOf(c);
-    this.pin({ id: `n${i}${second ? 'b' : ''}`, text: String(n), kind: 'tick', at: () => this.topOf(c).add(new THREE.Vector3(second ? CR * this.s * 1.1 : 0, 0.05, 0)) });
+    this.pin({ id: `n${i}${second ? 'b' : ''}`, text: String(n), kind: 'tick', at: () => this.labelAt(c, second) });
+  }
+  /** where a cookie's number stands: on top of it; on the tray a little outward from the batch's middle (see
+   *  LBL_OUT); a second number on the same cookie stands on top of the first, so both read as this cookie's */
+  private labelAt(c: Cookie, second: boolean) {
+    const p = this.topOf(c).add(new THREE.Vector3(0, 0.05, 0));
+    if (c.out) { const o = this.P(MID_X + c.out[0] * LBL_OUT, 100 + c.out[1] * LBL_OUT).sub(this.P(MID_X, 100)); p.x += o.x; p.z += o.z; }
+    if (second) p.y += CR * this.s * SECOND_UP;
+    return p;
   }
   /** the row's places, for `n` things */
   private rowAt(i: number, n: number) { const [x, y] = this.slot(i, n); return this.P(x, y); }
@@ -193,6 +217,7 @@ export class CountKit implements CountWorld {
       const c = this.makeCookie(), [u, v] = spots[i % spots.length];
       const to = this.P(MID_X + u - mid, this.L.trayY + v).add(new THREE.Vector3(0, 0.014, 0));
       c.g.position.copy(to).add(new THREE.Vector3(0, 0.6, 0));
+      c.out = [0, v < 0 ? -1 : 1];
       this.go(c.g, to, 0.45, { delay: i * 0.12, done: () => bSfx.clack() });
       this.cookies.push(c);
     }
@@ -200,7 +225,7 @@ export class CountKit implements CountWorld {
     await this.wait(n * 120 + 600);
   }
   async trayOut() {
-    this.unmark(); this.unpin(() => true);
+    this.unmark(); this.unpin(() => true); this.lean.to = null;
     const all: THREE.Object3D[] = [...this.cookies.map(c => c.g), ...this.plateObjs, ...(this.tray ? [this.tray] : [])];
     for (const o of all) this.go(o, o.position.clone().add(new THREE.Vector3(2.2, 0, 0)), 0.7);
     await this.wait(760);
@@ -211,7 +236,7 @@ export class CountKit implements CountWorld {
   }
   /** one cookie counted: it moves over to the row and its number stands on it */
   private countOne(c: Cookie) {
-    c.num = ++this.counted;
+    c.num = ++this.counted; c.out = null;
     this.go(c.g, this.rowAt(c.num - 1, this.cookies.length), 0.45, { arc: 0.1, done: () => bSfx.clack() });
     this.numPin(c, c.num);
     bSfx.tick(Math.min(8, c.num));
@@ -235,12 +260,15 @@ export class CountKit implements CountWorld {
       if (!this.cookies.some(x => !x.num)) this.job?.done();
     }, 420) as unknown as number;
   }
-  async slipCount(_who: 'buddy' | 'pal', slip: Slip) {
+  async slipCount(who: 'buddy' | 'pal', slip: Slip) {
     const n = this.cookies.length, path = countPath(n, slip), on = numbersOn(path, n);
     const seen = new Set<number>();
     for (let k = 0; k < path.length; k++) {
       const c = this.cookies[path[k]];
       this.numPin(c, k + 1, seen.has(path[k]));
+      // (each friend goes to the cookie it counts: Sprout Bunny leans over to it with a little hop, the buddy
+      // points at it, so the numbers come from what they do)
+      if (who === 'pal') { this.lean.to = this.topOf(c); this.lean.at = this.now; } else this.sc.point(this.topOf(c), 0.75);
       seen.add(path[k]);
       this.markOn([c.g]);
       bSfx.tick(Math.min(8, k + 1));
@@ -253,7 +281,7 @@ export class CountKit implements CountWorld {
     return path.length;
   }
   async clearNumbers() {
-    this.unmark();
+    this.unmark(); this.lean.to = null;
     this.unpin(p => /^n\d/.test(p.id));
     for (const c of this.cookies) c.num = 0;
     this.counted = 0;
@@ -266,7 +294,7 @@ export class CountKit implements CountWorld {
   async plates(n: number) {
     this.unmark();
     const show = Math.max(0, Math.min(n, MOST)), cs = this.inOrder(), N = Math.max(cs.length, show);
-    cs.forEach((c, i) => this.go(c.g, this.rowAt(i, N), 0.4, { arc: 0.1 }));
+    cs.forEach((c, i) => { c.out = null; this.go(c.g, this.rowAt(i, N), 0.4, { arc: 0.1 }); });
     await this.wait(cs.some(c => c.g.position.distanceTo(this.rowAt(cs.indexOf(c), N)) > 0.01) ? 450 : 0);
     const lift = new THREE.Vector3(0, PR * this.s * 0.12, 0), lines = this.L.cols < 8;
     for (let j = 0; j < show; j++) {
@@ -317,7 +345,7 @@ export class CountKit implements CountWorld {
       await this.wait(600);
     }
     // (bumped cookies go back to their places in the ring)
-    cs.forEach((c, i) => this.go(c.g, this.ring ? this.ringAt(this.cookies.indexOf(c)) : this.rowAt(i, cs.length), 0.4, { delay: i * 0.04, arc: 0.1 }));
+    cs.forEach((c, i) => { if (this.ring) c.out = this.ringOut(this.cookies.indexOf(c)); this.go(c.g, this.ring ? this.ringAt(this.cookies.indexOf(c)) : this.rowAt(i, cs.length), 0.4, { delay: i * 0.04, arc: 0.1 }); });
     await this.wait(this.ring ? 800 : 500);
     for (const p of gone) { p.removeFromParent(); this.moves.delete(p); }
   }
@@ -330,9 +358,11 @@ export class CountKit implements CountWorld {
     this.sc.palDo('hop');
     // (a ring on the tray, the cookies spaced evenly along it, so none touch; they go up over the tray's edge)
     this.ring = this.ringSpots(this.cookies.length, this.L.ring[0], this.L.ring[1]);
-    this.cookies.forEach((c, i) => this.go(c.g, this.ringAt(i), 0.7, { delay: 0.15 + i * 0.04, arc: 0.05 }));
+    this.cookies.forEach((c, i) => { c.out = this.ringOut(i); this.go(c.g, this.ringAt(i), 0.7, { delay: 0.15 + i * 0.04, arc: 0.05 }); });
     await this.wait(1300);
   }
+  /** outward from the circle's middle, at the `i`th place */
+  private ringOut(i: number): [number, number] { const q = this.ring![i], [a, b] = this.L.ring, x = q[0] / (a * a), y = q[1] / (b * b), l = Math.hypot(x, y) || 1; return [x / l, y / l]; }
   private ringAt(i: number) { const q = this.ring![i]; return this.P(MID_X + q[0], this.L.trayY + q[1]).add(new THREE.Vector3(0, 0.014, 0)); }
   /** `n` places evenly spaced along an oval (a, b: half across, half back), starting at the front */
   private ringSpots(n: number, a: number, b: number): [number, number][] {
@@ -382,8 +412,20 @@ export class CountKit implements CountWorld {
   handPoint() { const c = this.next(); return c ? this.topOf(c).add(new THREE.Vector3(0, -0.03 + Math.sin(this.now * 5) * 0.012, 0)) : null; }
   dragPath() { return null; }
 
-  update(_dt: number, t: number) {
+  update(dt: number, t: number) {
     this.now = t;
+    // Sprout Bunny leaning over to the cookie it counts (the scene has just put it in its own place for this
+    // frame): across toward the cookie, behind the table as before, never into the buddy, a little lower
+    const pal = this.sc.pal.root.position, ln = this.lean;
+    let want = 0;
+    if (ln.to) {
+      want = Math.max(-LEAN_MOST, Math.min(LEAN_MOST, (ln.to.x - pal.x) * LEAN));
+      const bx = this.sc.me.root.position.x;
+      want = bx < pal.x ? Math.max(want, Math.min(0, bx + LEAN_CLEAR - pal.x)) : Math.min(want, Math.max(0, bx - LEAN_CLEAR - pal.x));
+    }
+    const e = Math.min(1, dt * 9);
+    ln.x += (want - ln.x) * e; ln.down += ((ln.to ? 1 : 0) - ln.down) * e;
+    if (Math.abs(ln.x) > 1e-4 || ln.down > 1e-3) { pal.x += ln.x; pal.y += Math.sin(Math.PI * clamp01((t - ln.at) / 0.3)) * 0.05 - (this.L === TALL ? BEND.tall : BEND.wide) * ln.down; }
     for (const [o, m] of this.moves) {
       const k = clamp01((t - m.t0) / m.dur);
       if (t < m.t0) continue;
