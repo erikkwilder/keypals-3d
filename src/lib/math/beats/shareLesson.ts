@@ -233,8 +233,10 @@ async function check(t: Teller, w: ShareWorld, notes: Notes | null) {
   await w.plates(FRIENDS);
   if (notes?.small != null) t.myBet(notes.fair ? 'Your first cut yesterday was fair' : `Your first cut yesterday: ${notes.small} to ${notes.big} squares`);
   await t.say('ep.share.check');
-  await shareFour(t, w, NEXT_DAY, 'twelve');
+  // (yesterday's cut is a reminder for the question, not for today's answer: it goes before the child cuts,
+  // so it never stands beside what's said about today's pieces)
   t.myBet(null);
+  await shareFour(t, w, NEXT_DAY, 'twelve');
   const call = await t.pick('What is each piece called?', [{ id: '4', text: '1/4' }, { id: '12', text: '1/12' }, { id: '3', text: '1/3' }], 'ep.share.check.call');
   w.label('1/4');
   await t.say(call === '4' ? 'ep.share.check.call.yes' : 'ep.share.check.call.no');
