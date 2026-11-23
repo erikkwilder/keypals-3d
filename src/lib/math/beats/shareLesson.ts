@@ -206,6 +206,8 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
     w.label(null, '2/6');
     t.buddy('think');
     await t.say('ep.share.six.show');
+    // (the sixths go away before the thirds get their names, so a "1/3" never stands next to them)
+    await w.clearOther();
   }
   await t.say('ep.share.try.two');
   w.label('1/3');
