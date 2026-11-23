@@ -3,7 +3,7 @@
 // script keeps to the lesson rules (docs/lesson-rules.md). The film itself is checked by playing it.
 import { describe, expect, it } from 'vitest';
 import { writeFileSync } from 'node:fs';
-import { EQUATION_LESSON, EQUATION_LINES, FIRST, BUDDY, OWN, type EquationWorld } from './equationLesson';
+import { EQUATION_LESSON, EQUATION_LINES, FIRST, BUDDY, ONE_MORE, type EquationWorld } from './equationLesson';
 import { offOther, oneBagOff, partShare, swapped, written, xOf } from './equation';
 import type { Teller } from './types';
 import { EQ_LINES, LEARN_LINES } from '../../content/voice';
@@ -38,15 +38,15 @@ const stepsOf = (log: string[]): Step[] => log.flatMap((l): Step[] => {
 const announces = /\.try\./;
 const run = async (c: Child) => { const p = pretend({ nums: [...c.nums], picks: [...c.picks] }); const notes = await EQUATION_LESSON.play(p.teller, p.world); return { ...p, notes }; };
 
-// right: guess 4, 3 off, 4 off, 5, 6. All wrong: every number wrong, every pick wrong, the extra one wrong to the end.
-const RIGHT: Child = { nums: [4, 3, 4, 5, 6], picks: ['up', 'no'] };
-const WRONG: Child = { nums: [7, 1, 1, 7, 9, 3, 5, 1, 2, 5, 6, 7, 8], picks: ['level', 'yes'] };
-const MIXED: Child = { nums: [2, 5, 8, 4, 5, 9, 6], picks: ['down', 'yes'] };
+// right: guess 4, 3 off, 4 off, 5 on their own. All wrong: every number wrong, every pick wrong, the extra one wrong to the end.
+const RIGHT: Child = { nums: [4, 3, 4, 5], picks: ['up', 'no'] };
+const WRONG: Child = { nums: [7, 1, 1, 7, 9, 1, 2, 5, 6, 7, 8], picks: ['level', 'yes'] };
+const MIXED: Child = { nums: [2, 5, 8, 4, 5], picks: ['down', 'yes'] };
 
 describe('a balance with bags, in numbers', () => {
   it('each balance has a whole number in every bag', () => {
-    for (const e of [FIRST, BUDDY, OWN]) expect(Number.isInteger(xOf(e))).toBe(true);
-    expect([xOf(FIRST), xOf(BUDDY), xOf(OWN)]).toEqual([4, 5, 6]);
+    for (const e of [FIRST, BUDDY, ONE_MORE]) expect(Number.isInteger(xOf(e))).toBe(true);
+    expect([xOf(FIRST), xOf(BUDDY), xOf(ONE_MORE)]).toEqual([4, 5, 3]);
   });
   it('a guess in place of each bag tips the way its weight says', () => {
     expect(swapped(FIRST, 4).tip).toBe(0);
@@ -75,15 +75,14 @@ describe('the lesson, played by every kind of child', () => {
   });
   it('every number the child gives is put on the balance', async () => {
     const { log } = await run(WRONG);
-    for (const a of ['swapIn(7)', 'takeRight(1)', 'share(1)', 'swapIn(9)', 'swapIn(3)']) expect(log).toContain(a);
+    for (const a of ['swapIn(7)', 'takeRight(1)', 'share(1)', 'swapIn(9)', 'swapIn(2)']) expect(log).toContain(a);
   });
   it('a child wrong all the way through is shown each answer, and gets one more balance to do alone', async () => {
     const { log, said, notes } = await run(WRONG);
     expect(notes.own).toBe(0);
     expect(said).toContain('ep.eq.together');
-    expect(said).toContain('ep.eq.b.together');
     expect(said).toContain('ep.eq.d.in');
-    expect(log.filter(l => l.startsWith('takeOff')).length).toBe(3);
+    expect(log.filter(l => l.startsWith('takeOff')).length).toBe(2);
     expect(log.at(-1)).toMatch(/^say ep\.eq\.end/);
   });
   it('one right on their own is enough: no extra balance', async () => {
@@ -115,8 +114,8 @@ describe('the lesson, played by every kind of child', () => {
 describe('the lesson rules (docs/lesson-rules.md)', () => {
   const kids: Record<string, Child> = {
     'right every time': RIGHT, 'wrong every time': WRONG, 'mixed': MIXED,
-    'silly numbers': { nums: [9999, 0, 9999, 0, 9999, 0, 9999, 0, 9999, 0, 3], picks: ['down', 'yes'] },
-    'right after one miss each time': { nums: [5, 2, 3, 4, 5, 7, 6], picks: ['up', 'no'] },
+    'silly numbers': { nums: [9999, 0, 9999, 0, 9999, 0, 9999, 0, 3], picks: ['down', 'yes'] },
+    'right after one miss each time': { nums: [5, 2, 3, 7, 5], picks: ['up', 'no'] },
   };
   for (const [name, kid] of Object.entries(kids)) it(`a child who is ${name}: every try named, explained, and every answer waits`, async () => {
     const { log } = await run(kid);
