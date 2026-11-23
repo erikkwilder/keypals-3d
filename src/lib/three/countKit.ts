@@ -192,7 +192,14 @@ export class CountKit implements CountWorld {
    *  LBL_OUT); a second number on the same cookie stands on top of the first, so both read as this cookie's */
   private labelAt(c: Cookie, second: boolean) {
     const p = this.topOf(c).add(new THREE.Vector3(0, 0.05, 0));
-    if (c.out) { const o = this.P(MID_X + c.out[0] * LBL_OUT, 100 + c.out[1] * LBL_OUT).sub(this.P(MID_X, 100)); p.x += o.x; p.z += o.z; }
+    // (a phone's row in two lines: the back line's numbers stand back, the front line's forward, so a number
+    // in one line never touches the one in front of or behind it)
+    let out = c.out;
+    if (!out && this.L.lineGap && Math.max(this.cookies.length, this.plateObjs.length) > this.L.cols) {
+      const z0 = this.P(MID_X, this.L.rowY).z, z1 = this.P(MID_X, this.L.rowY + this.L.lineGap).z, z = c.g.position.z;
+      out = [0, (z - (z0 + z1) / 2) * (z1 - z0) > 0 ? 1 : -1];
+    }
+    if (out) { const o = this.P(MID_X + out[0] * LBL_OUT, 100 + out[1] * LBL_OUT).sub(this.P(MID_X, 100)); p.x += o.x; p.z += o.z; }
     if (second) p.y += CR * this.s * SECOND_UP;
     return p;
   }

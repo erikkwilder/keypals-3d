@@ -194,7 +194,7 @@ async function check(t: Teller, w: CountWorld) {
 
 export const COUNT_LESSON: BeatLesson<CountWorld> = {
   id: 'k-count', title: 'How Many Cookies?', blurb: 'Say one number for each thing. The last number tells you how many.', set: 'kitchen', star: 'sproutbun', color: '#e58a3a',
-  art: 'learn/data/card-sort.webp', beats: 6,
+  art: 'learn/ep/card-cookies.webp', beats: 6,
   world: async (sc: EpisodeScene) => { const { CountKit } = await import('../../three/countKit'); return new CountKit(sc); },
   play, check,
   card: n => [`Your first count: ${n.first ?? '?'} cookies`, 'The last number you say when you count tells you how many there are.'],
