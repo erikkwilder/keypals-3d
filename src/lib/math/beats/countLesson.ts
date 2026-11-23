@@ -46,13 +46,21 @@ export interface CountWorld extends World {
 const DEMO = 3, MINE = 5, MIXED = 7, NEXT_DAY = 6, EXTRA = 4;
 type Batch = 'b4' | 'b5' | 'b6' | 'b7';
 /** the words a run of the lesson can say, all of them */
-export const COUNT_LINES = ['intro', 'need', 'try.demo', 'demo.last', 'try.b3', 'demo.fit', 'turn', 'how', 'try.you', 'right', 'few', 'over',
+export const COUNT_LINES = ['intro', 'need', 'try.demo', 'demo.last', 'turn', 'how', 'try.you', 'right', 'few', 'over', 'try.zero', 'zero',
   'b5.why', 'b5.show', 'try.b5', 'fit', 'mixed', 'try.pal', 'pal.twice', 'try.buddy', 'buddy.skip', 'move', 'how2', 'b7.why', 'b7.show', 'try.b7',
   'try.bump', 'moved', 'moved.right', 'try.recount', 'recount.same', 'try.party', 'off', 'check', 'b6.why', 'b6.show', 'try.b6',
   'extra', 'b4.why', 'b4.show', 'try.b4'].map(k => `ep.count.${k}`);
 
 /** The child's number of plates: say whose it is, act it out, say what it showed. True when it fits. */
 async function platesTest(t: Teller, w: CountWorld, n: number, cookies: number): Promise<boolean> {
+  // (zero is no plates at all: said in its own words, not "your 0 plates weren't enough")
+  if (n === 0) {
+    await t.say('ep.count.try.zero');
+    await w.plates(0);
+    t.buddy('shrug'); t.pal('sad');
+    await t.say('ep.count.zero');
+    return false;
+  }
   await t.say('ep.count.try.you', n);
   await w.plates(n);
   const m = plateMeaning(n, cookies);
@@ -107,11 +115,9 @@ async function play(t: Teller, w: CountWorld): Promise<Notes> {
   await t.say('ep.count.demo.last');
   await lit;
   await t.go('Next');
-  await t.say('ep.count.try.b3');
-  await w.plates(DEMO);
+  // (no plates for the shown count: the child's own number is the first acted out, and its lines say what
+  // the plates mean, which keeps the lesson short for Kindergarten)
   t.pal('happy'); t.buddy('clap');
-  await t.say('ep.count.demo.fit');
-  await t.wait(500);
   await w.trayOut();
 
   // the child counts, with their own taps, and says how many

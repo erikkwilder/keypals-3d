@@ -244,7 +244,7 @@ export class CountKit implements CountWorld {
       seen.add(path[k]);
       this.markOn([c.g]);
       bSfx.tick(Math.min(8, k + 1));
-      await this.wait(700);
+      await this.wait(560);
     }
     const odd = slipped(path, n);
     this.markOn(odd >= 0 ? [this.cookies[odd].g] : [], true);

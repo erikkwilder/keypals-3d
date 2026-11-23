@@ -83,9 +83,12 @@ describe('the lesson, played by every kind of child', () => {
     expect(log.slice(asks[0] + 1, asks[1]).includes('tapCount()')).toBe(true);
   });
   it('every number is acted out with that many plates, even a silly one', async () => {
-    const { log } = await play({ nums: [9999, 0, 3, 4] });
+    const { log, said } = await play({ nums: [9999, 0, 3, 4] });
     expect(log).toContain('plates(9999)');
     expect(log).toContain('plates(0)');
+    // (zero gets its own words: no plates at all, not "your 0 plates weren't enough")
+    expect(JSON.stringify(said)).toMatch(/ep\.count\.zero/);
+    expect(JSON.stringify(said)).not.toMatch(/Your 0 plates/);
     expect(log).toContain('plates(3)');
   });
   it('a wrong count is looked at together, never asked again straight after being shown', async () => {
