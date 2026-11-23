@@ -54,7 +54,7 @@ export const EQUATION_LINES = ['intro', 'scale', 'level', 'letter', 'guess', 'tr
   'off.ask', 'try.off', 'off.up', 'off.no', 'other.ask', 'try.other', 'other.yes', 'other.few', 'other.many', 'other.fix',
   'share.ask', 'try.share', 'share.yes', 'share.few', 'share.many', 'share.how', 'share.done', 'write', 'write.read',
   'b.in', 'b.idea', 'b.ask', 'try.buddy', 'b.no', 'b.yes', 'b.rule', 'b.own', 'try.both', 'b.right', 'b.again', 'b.mid', 'b.piles', 'b.write',
-  'together', 'd.in', 'd.right', 'd.again', 'd.hint',
+  'together', 'd.in', 'd.right', 'd.again', 'try.d', 'd.mid', 'd.last', 'd.own', 'd.share', 'd.piles',
   'end', 'check', 'check.right', 'check.again', 'check.mid', 'check.piles'].map(k => `ep.eq.${k}`);
 
 /** Test a number for one bag: say whose it is, put it in place of each bag, say what the balance showed. The
@@ -173,17 +173,32 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   await t.say('ep.eq.b.write');
   await t.go('Next');
   w.clearSteps();
-  // (every child gets one right on their own before the end, even after being helped)
+  // (every child gets one right on their own before the end, even after being helped). Two tries at the whole
+  // balance; then, said kindly, the first step is done together with their hands, and the last step is still
+  // theirs: 4 bags against 12. A miss there is shown on the balance, the 12 shared into 4 piles. (Six tries of
+  // the whole balance, with the same hint each time, took two minutes and taught nothing new after the second.)
   let extra = false;
   if (!ownB) {
     extra = true;
     await w.scaleIn(ONE_MORE);
-    for (let miss = 0; miss < 6; miss++) {
-      const n = await t.num('How heavy is one bag?', miss === 0 ? 'ep.eq.d.in' : miss === 1 ? 'ep.eq.d.again' : 'ep.eq.d.hint');
+    let got = false;
+    for (let miss = 0; miss < 2 && !got; miss++) {
+      const n = await t.num('How heavy is one bag?', miss === 0 ? 'ep.eq.d.in' : 'ep.eq.d.again');
       t.myBet(String(n));
-      if (await test(t, w, ONE_MORE, n, 'ep.eq.d.right')) { t.myBet(null); await t.go('Next'); break; }
+      got = await test(t, w, ONE_MORE, n, 'ep.eq.d.right');
+      t.myBet(null);
     }
-    t.myBet(null);
+    if (!got) {
+      await t.say('ep.eq.try.d');
+      await t.hands('Drag the loose weight off, and the same from the other side', () => w.takeOff('both'), () => w.finish());
+      await t.say('ep.eq.d.mid');
+      const n = await t.num('How heavy is one bag?', 'ep.eq.d.last');
+      t.myBet(String(n));
+      const own = await test(t, w, { p: ONE_MORE.p, q: 0, r: ONE_MORE.r - ONE_MORE.q }, n, 'ep.eq.d.own');
+      t.myBet(null);
+      if (!own) { await t.say('ep.eq.d.share'); await w.shareOut(ONE_MORE.p); await t.say('ep.eq.d.piles'); }
+    }
+    await t.go('Next');
     await w.scaleOut();
   }
 

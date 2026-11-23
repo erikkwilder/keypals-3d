@@ -40,7 +40,7 @@ const run = async (c: Child) => { const p = pretend({ nums: [...c.nums], picks: 
 
 // right: guess 4, 3 off, 4 off, 5 on their own. All wrong: every number wrong, every pick wrong, the extra one wrong to the end.
 const RIGHT: Child = { nums: [4, 3, 4, 5], picks: ['up', 'no'] };
-const WRONG: Child = { nums: [7, 1, 1, 7, 9, 1, 2, 5, 6, 7, 8], picks: ['level', 'yes'] };
+const WRONG: Child = { nums: [7, 1, 1, 7, 9, 1, 2, 5], picks: ['level', 'yes'] };
 const MIXED: Child = { nums: [2, 5, 8, 4, 5], picks: ['down', 'yes'] };
 
 describe('a balance with bags, in numbers', () => {
@@ -82,8 +82,16 @@ describe('the lesson, played by every kind of child', () => {
     expect(notes.own).toBe(0);
     expect(said).toContain('ep.eq.together');
     expect(said).toContain('ep.eq.d.in');
-    expect(log.filter(l => l.startsWith('takeOff')).length).toBe(2);
+    expect(log.filter(l => l.startsWith('takeOff')).length).toBe(3);
+    expect(said).toContain('ep.eq.d.piles');
     expect(log.at(-1)).toMatch(/^say ep\.eq\.end/);
+  });
+  it('after two misses on the extra balance its first step is done together by hand, and the last step is the child\'s', async () => {
+    const { log, said } = await run({ nums: [7, 1, 1, 7, 9, 1, 2, 3], picks: ['level', 'yes'] });
+    expect(said).toContain('ep.eq.try.d');
+    expect(said).toContain('ep.eq.d.own');
+    expect(said).not.toContain('ep.eq.d.piles');
+    expect(log.filter(l => l.startsWith('swapIn')).length).toBe(6);
   });
   it('one right on their own is enough: no extra balance', async () => {
     const { said } = await run(MIXED);
