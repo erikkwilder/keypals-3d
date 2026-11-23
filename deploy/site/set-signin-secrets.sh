@@ -4,7 +4,10 @@
 # nothing is printed or saved to disk).
 # usage: deploy/site/set-signin-secrets.sh
 cd "$(dirname "$0")"
-export CLOUDFLARE_ACCOUNT_ID=2f5232a84d058ef9f332c077eef372d8 CLOUDFLARE_EMAIL=erikkwilder@gmail.com
+export CLOUDFLARE_ACCOUNT_ID=2f5232a84d058ef9f332c077eef372d8
+# the account's email stays on this computer (as in deploy.sh): ~/.cloudflare/email, or CLOUDFLARE_EMAIL set
+export CLOUDFLARE_EMAIL="${CLOUDFLARE_EMAIL:-$(cat ~/.cloudflare/email 2>/dev/null)}"
+[ -n "$CLOUDFLARE_EMAIL" ] || { echo "Put the Cloudflare account's email in ~/.cloudflare/email (or set CLOUDFLARE_EMAIL) first."; exit 1; }
 export CLOUDFLARE_API_KEY="$(cat ~/.cloudflare/global-api-key)"
 # ADMIN_EMAILS: who sees the Admin section on the Grown-ups screen (ideas, problems, numbers), comma
 # separated; Google sign-ins only

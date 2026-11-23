@@ -27,5 +27,6 @@ echo "built $DMG ($(du -h "$DMG" | cut -f1))"
 # hand-off copies
 mkdir -p "$HOME/Documents/mini-share/builds"
 cp "$DMG" "$HOME/Documents/mini-share/builds/"
-DRIVE="$HOME/Library/CloudStorage/GoogleDrive-erikkwilder@gmail.com/My Drive/Mini Builds"
+# (the Drive for desktop folder is named after the signed-in Google account: take the first one there)
+DRIVE="$(ls -d "$HOME"/Library/CloudStorage/GoogleDrive-*/"My Drive/Mini Builds" 2>/dev/null | head -1)"
 if [ -d "$DRIVE" ]; then cp "$DMG" "$DRIVE/" && echo "copied to Drive: Mini Builds"; else echo "Drive folder not found; skipped Drive copy"; fi

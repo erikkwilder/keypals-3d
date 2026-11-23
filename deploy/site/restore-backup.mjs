@@ -27,7 +27,11 @@ const which = args[0] && !args[0].startsWith('--') ? args[0] : 'latest';
 const DB = opt('--database', 'keypals'), ROOT = opt('--root', ''), PERSIST = opt('--persist-to');
 const LOCAL = flag('--local'), FROM_LOCAL = LOCAL || flag('--from-local'), WRITE = flag('--yes');
 const ACCOUNT = '2f5232a84d058ef9f332c077eef372d8';
-const env = { ...process.env, CLOUDFLARE_ACCOUNT_ID: ACCOUNT, CLOUDFLARE_EMAIL: 'erikkwilder@gmail.com', CLOUDFLARE_API_KEY: readFileSync(join(homedir(), '.cloudflare/global-api-key'), 'utf8').trim() };
+// the account's sign-in stays on this computer (as in deploy.sh): ~/.cloudflare/email (or CLOUDFLARE_EMAIL) and the key
+const readHome = (f) => { try { return readFileSync(join(homedir(), f), 'utf8').trim(); } catch { return ''; } };
+const EMAIL = process.env.CLOUDFLARE_EMAIL || readHome('.cloudflare/email');
+if (!EMAIL && !LOCAL) { console.error("Put the Cloudflare account's email in ~/.cloudflare/email (or set CLOUDFLARE_EMAIL) first."); process.exit(1); }
+const env = { ...process.env, CLOUDFLARE_ACCOUNT_ID: ACCOUNT, CLOUDFLARE_EMAIL: EMAIL, CLOUDFLARE_API_KEY: readHome('.cloudflare/global-api-key') };
 const wrangler = (a, opts = {}) => execFileSync('npx', ['wrangler', ...a], { cwd: HERE, env, maxBuffer: 1 << 30, ...opts });
 const where = (local) => (local ? ['--local', ...(PERSIST ? ['--persist-to', PERSIST] : [])] : ['--remote']);
 
