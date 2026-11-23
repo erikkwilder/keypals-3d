@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { goneNote, planSync, type AccountPlayer, type LocalPlayer } from './sync';
+import { goneNote, missingNote, planSync, type AccountPlayer, type LocalPlayer } from './sync';
 
 const acct = (...ps: [string, number][]): AccountPlayer[] => ps.map(([code, updated]) => ({ code, name: code.toLowerCase(), updated }));
 
@@ -77,5 +77,13 @@ describe('players follow the grown-up on every computer', () => {
     expect(goneNote(['Mia', 'Sam'])).toBe("Mia's and Sam's players were deleted by a grown-up.");
     expect(goneNote(['Mia', 'Sam', 'Zoe'])).toBe("Mia's, Sam's and Zoe's players were deleted by a grown-up.");
     expect(goneNote([])).toBe('');
+  });
+});
+
+describe('a saved copy that is no longer online', () => {
+  it('says the player stays on this computer', () => {
+    expect(missingNote(['Mia'])).toBe('Mia is no longer saved online (that was turned off on another computer), so that player is kept on this computer. Grown-ups can turn saving on again.');
+    expect(missingNote(['Mia', 'Leo'])).toMatch(/^Mia and Leo are no longer saved online .* so they are kept on this computer\./);
+    expect(missingNote([])).toBe('');
   });
 });

@@ -15,7 +15,7 @@ import { game } from './game.svelte';
 import { migrate, type Profile } from '../engine/profile';
 import { mergeProfile } from './merge';
 import { isClassLogin } from './classHere';
-import { planSync, goneNote, notHereCodes, markNotHere, clearNotHere, localOnlyIds, markLocalOnly, clearLocalOnly, type Tombstone } from './sync';
+import { planSync, goneNote, missingNote, notHereCodes, markNotHere, clearNotHere, localOnlyIds, markLocalOnly, clearLocalOnly, type Tombstone } from './sync';
 import { movedCodes, moveUrl } from './move';
 import { count, startCounting } from './counting';
 
@@ -60,15 +60,18 @@ export function saveStatus(p: Profile | null): { kind: 'account' | 'code' | 'cla
 /** Open the grown-ups' "Sign-in and saving" (behind the grown-up check). */
 export function goSaveOnline() { cloud.focusAccount = true; game.guSection = 'saving'; game.visit('grownups'); }
 
-/** A server answer that wasn't "ok", with its status (410: a grown-up deleted that player everywhere). */
+/** A server answer that wasn't "ok", with its status (410: a grown-up deleted that player everywhere;
+ *  404 with `missing`: there's no saved copy under that code any more, e.g. saving online was stopped on
+ *  another computer). */
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) { super(message); }
+  constructor(message: string, readonly status: number, readonly missing = false) { super(message); }
 }
 const isGone = (e: unknown) => e instanceof ApiError && e.status === 410;
+const isMissing = (e: unknown) => e instanceof ApiError && e.status === 404 && e.missing;
 export async function call<T = Record<string, unknown>>(path: string, init: RequestInit = {}): Promise<T> {
   const r = await fetch(`api${path}`, { credentials: 'same-origin', ...init, headers: { 'content-type': 'application/json', ...(init.headers ?? {}) } });
   const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new ApiError((body as { error?: string }).error || 'Saving online is not available right now.', r.status);
+  if (!r.ok) throw new ApiError((body as { error?: string }).error || 'Saving online is not available right now.', r.status, !!(body as { missing?: boolean }).missing);
   return body as T;
 }
 
@@ -211,6 +214,23 @@ function removeHere(ids: string[]) {
   }
 }
 /** Players a grown-up deleted everywhere: remove them here, with a gentle note. */
+/** Players whose saved copy is no longer there (saving online was stopped on another computer): keep them
+ *  here, stop sending them, and say so once. Before this, the game kept sending them after every change and
+ *  the server answered "not found" until it said "too many" (seen in the logs, 2026-10-31). */
+function takeMissing(list: Profile[]) {
+  const names: string[] = [];
+  for (const p of list) {
+    const live = game.save.profiles.find(x => x.id === p.id);
+    if (!live?.cloud) continue;
+    dropBase(live.cloud.code);
+    delete live.cloud;
+    markLocalOnly(live.id);
+    names.push(live.name);
+  }
+  if (!names.length) return;
+  game.persist();
+  game.say(missingNote(names), 7000);
+}
 function takeGone(list: { id: string; name: string }[]) {
   const seen = new Set<string>(), names: string[] = [];
   for (const g of list) if (!seen.has(g.id)) { seen.add(g.id); names.push(g.name); }
@@ -244,17 +264,18 @@ const keepLocal = (p: Profile) => !!p.allBuddies || localOnlyIds().includes(p.id
 async function pushAll() {
   if (pushing || !cloud.online) return;
   pushing = true;
-  const gone: { id: string; name: string }[] = [];
+  const gone: { id: string; name: string }[] = [], missing: Profile[] = [];
   try {
     for (const p of [...game.save.profiles]) {
       // signed in: a new player is filed under the account straight away
       if (!p.cloud) { if (cloud.account && !keepLocal(p)) await makeCode(p.id, false).catch(() => null); continue; }
       if (!changedHere(p)) continue;
-      try { await send(p); } catch (e) { if (isGone(e)) gone.push(p); /* else: try again after the next change */ }
+      try { await send(p); } catch (e) { if (isGone(e)) gone.push(p); else if (isMissing(e)) missing.push(p); /* else: try again after the next change */ }
     }
     game.persist();
   } finally { pushing = false; }
   takeGone(gone);
+  takeMissing(missing);
 }
 /** Catch one player up with its saved copy. Nothing changed here: take theirs. Both changed: combine. */
 async function pullOne(p: Profile) {
@@ -295,11 +316,12 @@ async function doCatchUp(everyCode: boolean) {
   // (a player who logged in through a class belongs to the class: never filed under whoever is signed in here)
   const local = game.save.profiles.map(p => ({ id: p.id, name: p.name, code: p.cloud?.code, at: p.cloud?.at, localOnly: keepLocal(p) || isClassLogin(p) }));
   const plan = planSync(local, cloud.account ? cloud.players : null, accountGone, notHereCodes(), everyCode);
-  const gone: { id: string; name: string }[] = [...plan.remove];
+  const gone: { id: string; name: string }[] = [...plan.remove], missing: Profile[] = [];
   for (const code of plan.pull) {
     const p = game.save.profiles.find(x => x.cloud?.code === code);
     if (!p) continue;
-    try { await pullOne(p); } catch (e) { if (isGone(e)) gone.push(p); /* missing or offline: keep this copy */ }
+    // its saved copy is gone: keep the player here and stop saving it online; offline: keep this copy
+    try { await pullOne(p); } catch (e) { if (isGone(e)) gone.push(p); else if (isMissing(e)) missing.push(p); }
   }
   for (const code of plan.add) await bring(code, false).catch(() => null);
   if (cloud.account) {
@@ -314,6 +336,7 @@ async function doCatchUp(everyCode: boolean) {
   }
   game.persist();
   takeGone(gone);
+  takeMissing(missing);
 }
 
 // ---------- grown-up sign-in ----------

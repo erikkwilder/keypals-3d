@@ -68,6 +68,14 @@ export function planSync(local: LocalPlayer[], account: AccountPlayer[] | null, 
 }
 
 /** "Mia's player was deleted by a grown-up." (or "Mia's and Sam's players were ...") */
+/** What the game says when players' saved copies are no longer online (saving was stopped on another
+ *  computer): they stay on this computer. */
+export function missingNote(names: string[]): string {
+  const n = names.filter(Boolean);
+  if (!n.length) return '';
+  const who = n.length === 1 ? n[0] : `${n.slice(0, -1).join(', ')} and ${n[n.length - 1]}`;
+  return `${who} ${n.length === 1 ? 'is' : 'are'} no longer saved online (that was turned off on another computer), so ${n.length === 1 ? 'that player is' : 'they are'} kept on this computer. Grown-ups can turn saving on again.`;
+}
 export function goneNote(names: string[]): string {
   const n = names.filter(Boolean);
   if (!n.length) return '';

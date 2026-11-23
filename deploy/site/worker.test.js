@@ -92,7 +92,11 @@ describe('players follow the grown-up: the server side', () => {
     expect(saved.json.stale).toBeUndefined();
     // stopping saving online is not a delete everywhere: other computers just keep their copy
     expect((await api(`/players/${made.json.code}`, { method: 'DELETE' })).status).toBe(200);
-    expect((await api(`/players/${made.json.code}`)).status).toBe(404);
+    const after = await api(`/players/${made.json.code}`);
+    expect([after.status, after.json.missing]).toEqual([404, true]);
+    // a computer that still has it gets the same answer when it saves, so it can stop trying
+    const late = await api(`/players/${made.json.code}`, { method: 'PUT', body: { profile: profile('Sam', { x: 2 }), updated: Date.now(), base: saved.json.updated } });
+    expect([late.status, late.json.missing]).toEqual([404, true]);
   });
 });
 
