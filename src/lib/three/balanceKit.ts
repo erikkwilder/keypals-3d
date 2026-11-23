@@ -19,14 +19,19 @@ import { bSfx } from '../math/beats/sounds';
 const MID = 300, PAN_Y = 215, ARM = 140, PR = 80;
 /** heights above the table, in board units: the pivot, the pans' posts, and the most the beam turns */
 const PIVOT = 46, POST = 16, TILT = 0.15;
-/** a weight and a bag */
-const WR = 10, WH = 13, BR = 25, BH = 55;
+/** a weight and a bag (on a phone the weights are a quarter bigger, and spaced to match: at the same size they
+ *  were 12 px across at 390 px wide) */
+const BR = 25, BH = 55;
+const TALL = typeof innerWidth === 'number' && innerWidth < innerHeight;
+const WR = TALL ? 12.5 : 10, WH = TALL ? 15 : 13;
+/** how far apart weights stand: in a stack in a bag's place, loose on a pan, in a pile on the table; bags in a row */
+const STACK = TALL ? 26 : 22, CELL = TALL ? 27 : 24, PCELL = TALL ? 27 : 22, BAGS = TALL ? 52 : 50;
 /** the piles of weights taken off, in front of each pan; the bags taken off go to the side */
 const PILE_Y = 335, PARK_X = 42;
 /** the most weights shown in one bag's place (a bigger number says so on its card) */
 const MOST = 12;
 /** on a phone: how much bigger the things on the table are, and how steeply the camera looks down at them */
-const TALL_ZOOM = 1.9, TALL_PITCH = 0.62;
+const TALL_ZOOM = 1.9, TALL_PITCH = 0.62, WIDE_PITCH = 0.58;
 const smooth = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
 
@@ -54,6 +59,8 @@ export class BalanceKit implements EquationWorld {
   private tilt = 0; private tiltV = 0;
   private parts = 0;
   private swapN = 0;
+  /** while a balance is being set up, before the other side's first weight: its count isn't shown yet */
+  private filling = false;
   private job: Job | null = null;
   private held: Item | null = null;
   private heldFrom: Where = 'L';
@@ -70,7 +77,9 @@ export class BalanceKit implements EquationWorld {
     // (the camera in close, as for the fraction lessons: at the usual distance a bag was about 25 px across. On a
     // phone the friends' heads and the number keys leave a short band, so the things on the table are made bigger
     // there instead, with the scene's workZoom, and seen less steeply from above)
-    if (innerWidth >= innerHeight) sc.closeUp(); else { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; }
+    // (on a wide screen it is seen from a little higher, WIDE_PITCH: from the usual low camera the raised pans sat
+    // on the table's far edge against the friends, with bare table in front)
+    if (innerWidth >= innerHeight) { sc.closeUp(); sc.widePitch = WIDE_PITCH; } else { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; }
   }
 
   async load() {
@@ -143,25 +152,30 @@ export class BalanceKit implements EquationWorld {
   // ---------- where each thing goes ----------
   private spot(it: Item): THREE.Vector3 {
     const panX = (side: 0 | 1) => MID + (side ? ARM : -ARM);
-    const stack = (k: number) => ({ dx: ((k % 2) - 0.5) * 22, dy: ((Math.floor(k / 2) % 2) - 0.5) * 22, h: Math.floor(k / 4) * WH });
+    const stack = (k: number) => ({ dx: ((k % 2) - 0.5) * STACK, dy: ((Math.floor(k / 2) % 2) - 0.5) * STACK, h: Math.floor(k / 4) * WH });
     switch (it.where) {
       case 'L': case 'swap': {
         // (up to 3 bags in a row at the back; 4 go in two rows of 2, and the loose weights sit further forward)
         const nb = this.e.p, two = nb > 3;
-        const bx = (i: number) => two ? ((i % 2) - 0.5) * 54 : (i - (nb - 1) / 2) * 50, by = (i: number) => two ? (i < 2 ? -50 : -2) : -30;
+        const bx = (i: number) => two ? ((i % 2) - 0.5) * 54 : (i - (nb - 1) / 2) * BAGS, by = (i: number) => two ? (i < 2 ? -50 : -2) : -30;
         if (it.kind === 'bag') return this.at(panX(0) + bx(it.i), PAN_Y + by(it.i), this.panH(0));
         if (it.where === 'swap') { const st = stack(it.slot); return this.at(panX(0) + bx(it.i) + st.dx, PAN_Y + by(it.i) + st.dy, this.panH(0) + st.h); }
-        const per = 5, cell = 24, k = it.slot % 15, layer = Math.floor(it.slot / 15);
+        const per = 5, cell = CELL, k = it.slot % 15, layer = Math.floor(it.slot / 15);
         return this.at(panX(0) + ((k % per) - 2) * cell, PAN_Y + (two ? 38 : 14) + Math.floor(k / per) * cell, this.panH(0) + layer * WH);
       }
       case 'R': {
-        if (this.parts && it.grp >= 0) { const st = stack(it.slot), gx = (it.grp - (this.parts - 1) / 2) * (this.parts > 2 ? 50 : 60); return this.at(panX(1) + gx + st.dx, PAN_Y + st.dy, this.panH(1) + st.h); }
-        const per = 5, cell = 24, k = it.slot % 15, layer = Math.floor(it.slot / 15);
+        // (4 piles stand in two rows of 2: in one row the outer ones went past the pan's rim)
+        if (this.parts && it.grp >= 0) {
+          const st = stack(it.slot), four = this.parts > 3;
+          const gx = four ? ((it.grp % 2) - 0.5) * 56 : (it.grp - (this.parts - 1) / 2) * (this.parts > 2 ? 50 : 60), gy = four ? (it.grp < 2 ? -28 : 28) : 0;
+          return this.at(panX(1) + gx + st.dx, PAN_Y + gy + st.dy, this.panH(1) + st.h);
+        }
+        const per = 5, cell = CELL, k = it.slot % 15, layer = Math.floor(it.slot / 15);
         return this.at(panX(1) + ((k % per) - 2) * cell, PAN_Y + (Math.floor(k / per) - 1) * cell, this.panH(1) + layer * WH);
       }
       case 'pileL': case 'pileR': {
-        const cx = MID + (it.where === 'pileR' ? ARM : -ARM), per = 6, cell = 22, k = it.slot % 18, layer = Math.floor(it.slot / 18);
-        return this.at(cx + ((k % per) - 2.5) * cell, PILE_Y + Math.floor(k / per) * cell - 22, layer * WH);
+        const cx = MID + (it.where === 'pileR' ? ARM : -ARM), per = 6, cell = PCELL, k = it.slot % 18, layer = Math.floor(it.slot / 18);
+        return this.at(cx + ((k % per) - 2.5) * cell, PILE_Y + Math.floor(k / per) * cell - PCELL, layer * WH);
       }
       case 'park': return this.at(PARK_X, PAN_Y - 30 + it.i * 58, 0);
       case 'row': { const n = this.items.filter(o => o.where === 'row').length; return this.at(MID + (it.i - (n - 1) / 2) * 78, PILE_Y - 10, 0); }
@@ -209,7 +223,7 @@ export class BalanceKit implements EquationWorld {
     if (!this.parts) count('loose', 'L', 'a', () => this.at(MID - ARM, PAN_Y + PR + 6, this.panH(0)));
     // (the other side's count shows 0 while the bags are still there, but not on a balance that stands empty)
     const empty = !this.items.some(o => o.where === 'L' || o.where === 'swap');
-    if (!this.parts) count('right', 'R', 'c', () => this.at(MID + ARM, PAN_Y + PR + 6, this.panH(1)), empty);
+    if (!this.parts) count('right', 'R', 'c', () => this.at(MID + ARM, PAN_Y + PR + 6, this.panH(1)), empty || this.filling);
     count('pileL', 'pileL', 'ink', () => this.at(MID - ARM + 92, PILE_Y - 10, 8));
     count('pileR', 'pileR', 'ink', () => this.at(MID + ARM + 92, PILE_Y - 10, 8));
     if (this.swapN) for (let i = 0; i < this.e.p; i++) out.push({ id: `swap${i}`, text: String(this.swapN), kind: 'tick', c: 'b', at: () => this.spot({ ...this.of('swap')[0], i, slot: 0, where: 'swap' } as Item).add(new THREE.Vector3(0, (Math.ceil(Math.min(this.swapN, MOST) / 4) * WH + 22) * this.s, 0)) });
@@ -224,11 +238,12 @@ export class BalanceKit implements EquationWorld {
   async scaleIn(e: Eq) {
     for (const it of this.items) it.g.removeFromParent();
     this.items = []; this.parts = 0; this.swapN = 0;
-    this.e = e; this.x = xOf(e);
+    this.e = e; this.x = xOf(e); this.filling = true;
     for (let i = 0; i < e.p; i++) this.make('bag', 'L', i, i * 0.12);
     for (let i = 0; i < e.q; i++) this.make('weight', 'L', 0, 0.3 + i * 0.1);
     this.changed();
     await this.wait(900 + e.q * 100);
+    this.filling = false;
     // the other side fills one weight at a time, and the balance comes level only at the last
     for (let i = 0; i < e.r; i++) { this.make('weight', 'R', 0, 0); this.changed(); await this.wait(i < e.r - 3 ? 150 : 380); }
     await this.wait(900);
@@ -461,7 +476,7 @@ export class BalanceKit implements EquationWorld {
   }
 
   dispose() {
-    this.sc.workZoom = 1; this.sc.tallPitch = null;
+    this.sc.workZoom = 1; this.sc.tallPitch = null; this.sc.widePitch = null;
     for (const it of this.items) it.g.removeFromParent();
     this.items = [];
     this.root.removeFromParent();
