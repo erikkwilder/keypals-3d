@@ -35,6 +35,10 @@ import { CLASS_WORDS, MAX_CLASSES, MAX_STUDENTS, PICTURE_COUNT, START_BUDDIES, c
 export const CLASS_TABLES = { teachers: 'account', classes: 'id', students: 'id', assignments: 'id', player_week: 'id', challenges: 'id', challenge_classes: 'id', teacher_status: 'account', class_settings: 'class', student_google: 'gid', account_domains: 'account' };
 
 const DAY = 86400000;
+/** When a class challenge's week is over: once its Sunday has ended across the Americas too (Monday 12:00 UTC).
+ *  A week's key is the child's own Monday, so ending at Monday 00:00 UTC closed it at 7 pm on a Sunday in Atlanta. */
+const GRACE = 12 * 3600000;
+export const weekEnds = week => Date.parse(week) + 7 * DAY + GRACE;
 const newId = (h) => h.randomToken(9);
 
 /** A class code: two words and a number (FOX-PEAR-42). */
@@ -197,7 +201,7 @@ async function challengeView(env, ch) {
     WHERE x.challenge = ? GROUP BY c.id, c.name`).bind(ch.week, ch.id).all();
   const classes = (r.results ?? []).map(x => ({ id: x.id, name: x.name, students: x.n, avg: x.n ? Math.round((x.correct / x.n) * 10) / 10 : 0 }))
     .sort((a, b) => b.avg - a.avg || a.name.localeCompare(b.name));
-  return { code: ch.code, week: ch.week, ends: Date.parse(ch.week) + 7 * DAY, classes };
+  return { code: ch.code, week: ch.week, ends: weekEnds(ch.week), classes };
 }
 async function challengeOf(env, classId) {
   const ch = await env.DB.prepare('SELECT c.* FROM challenge_classes x JOIN challenges c ON c.id = x.challenge WHERE x.class = ? ORDER BY c.week DESC LIMIT 1').bind(classId).first();
@@ -483,7 +487,7 @@ export async function classApi(request, env, url, path, h) {
         const body = await h.readBody(request) || {};
         const ch = await DB.prepare('SELECT * FROM challenges WHERE code = ?').bind(h.cleanCode(body.code)).first();
         if (!ch) return h.fail(404, "That challenge code wasn't found. Check the words and number.");
-        if (Date.parse(ch.week) + 7 * DAY < Date.now()) return h.fail(400, 'That challenge is over. Make a new one!');
+        if (weekEnds(ch.week) < Date.now()) return h.fail(400, 'That challenge is over. Make a new one!');
         const cur = await challengeOf(env, c.id);
         if (cur && cur.ends > Date.now()) return h.fail(400, cur.code === ch.code ? 'This class is in that challenge already.' : 'This class is in a challenge this week already.');
         const n = await DB.prepare('SELECT COUNT(*) AS n FROM challenge_classes WHERE challenge = ?').bind(ch.id).first();

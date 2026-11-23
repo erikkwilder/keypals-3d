@@ -15,7 +15,8 @@
   let joinCode = $state('');
   const ch = $derived(c.challenge);
   const live = $derived(!!ch && ch.ends > Date.now());
-  const endsText = $derived(ch ? new Date(ch.ends - 1).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : '');
+  // its last day is the week's Sunday (`ends` runs on to Monday noon UTC so the Americas get all of Sunday)
+  const endsText = $derived(ch ? new Date(Date.parse(ch.week) + 6 * 86400000 + 12 * 3600000).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' }) : '');
   const mine = $derived(c.class.id);
   let leaving = $state(false);
 </script>
