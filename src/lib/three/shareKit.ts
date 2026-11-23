@@ -17,7 +17,9 @@ import { fairCuts, piecesOf } from '../math/beats/share';
 import { bSfx } from '../math/beats/sounds';
 
 /** where things sit on the board: the bar's row, the first plate's row, the gap between plates, the parting at a cut */
-const BAR_Y = 100, ROW0 = 190, ROW_GAP = 38, PART = 7, CX = 300, COL_X = 345, PLATE_X = 128, PLATE_GAP = 62, COL_GAP = 42;
+// (the bar near the front and big, so every square is an easy target: the bounds wrap the bar, the plates and the
+// buddy's pieces beside them closely, because the camera frames the bounds, and empty board only makes everything smaller)
+const BAR_Y = 105, ROW0 = 192, ROW_GAP = 38, PART = 8, CX = 300, COL_X = 357, PLATE_X = 116, PLATE_GAP = 62, COL_GAP = 46;
 const MILK = 0x9a6542, DARK = 0x5a3524;
 const smooth = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
@@ -25,9 +27,11 @@ const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
 /** a square's place in board units: x, y on the board, and how high off the table */
 type At = { x: number; y: number; up: number; st?: number };
 type Sq = { m: THREE.Mesh; from: At; to: At; t0: number; dur: number; arc: number; gone?: boolean };
-type Bar = { n: number; sq: number; lines: number[]; squares: Sq[]; mine: boolean; mode: 'bar' | 'rows' | 'column' | 'under'; out?: boolean };
+type Bar = { n: number; sq: number; lines: number[]; squares: Sq[]; mine: boolean; mode: 'bar' | 'rows' | 'column' | 'under'; out?: boolean;
+  /** a piece given away: it stands on top of the piece on another plate */ given?: { from: number; to: number } };
 type Job = { kind: 'cut'; pieces: number; done: (lines: number[]) => void } | { kind: 'tap'; hint: number; done: (line: number) => void };
-type Fly = { m: THREE.Mesh; from: THREE.Vector3; to: () => THREE.Vector3; t0: number; dur: number };
+/** a square on its way into a mouth: the piece keeps its shape (`off`, from its middle) and shrinks as it goes */
+type Fly = { m: THREE.Mesh; from: THREE.Vector3; off: THREE.Vector3; sc0: THREE.Vector3; to: () => THREE.Vector3; t0: number; dur: number };
 
 export class ShareKit implements ShareWorld {
   readonly root = new THREE.Group();
@@ -47,6 +51,7 @@ export class ShareKit implements ShareWorld {
   private job: Job | null = null;
   private flies: Fly[] = [];
   private ray = new THREE.Raycaster();
+  private meBox: THREE.Box3 | null = null;
 
   constructor(private sc: EpisodeScene) {
     sc.root.add(this.root);
@@ -64,7 +69,7 @@ export class ShareKit implements ShareWorld {
     this.knife.visible = false;
     this.root.add(this.knife);
   }
-  bounds() { return { x: 70, y: 70, w: 460, h: 230 }; }
+  bounds() { return { x: 85, y: 80, w: 430, h: 145 }; }
   refit() { const a = this.sc.boardPoint(0, 0), b = this.sc.boardPoint(100, 0); this.s = (b.x - a.x) / 100; }
 
   private wait(ms: number) { return new Promise<void>(r => setTimeout(r, ms)); }
@@ -93,8 +98,10 @@ export class ShareKit implements ShareWorld {
     // standing up: each piece a tower of its squares, on its plate (or on the table to the right)
     const p = this.pieceOf(b, j), k = j - this.starts(b).out[p], tall = (k + 0.5) * b.sq * this.s + 0.004;
     if (b.mode === 'under') return p ? { x: this.left(b) + (j + 0.5) * b.sq + 520, y: BAR_Y, up: h } : { x: COL_X, y: ROW0, up: tall, st: 1 };
-    const x = b.mode === 'column' ? COL_X + p * COL_GAP : PLATE_X + p * PLATE_GAP;
-    return { x: x + (b.out ? 520 : 0), y: ROW0, up: tall + (b.mode === 'rows' && p < this.trays.length ? this.trayTop() : 0), st: 1 };
+    const g = b.mode === 'rows' && b.given?.from === p ? b.given : null;
+    const x = b.mode === 'column' ? COL_X + p * COL_GAP : PLATE_X + (g ? g.to : p) * PLATE_GAP;
+    const on = g ? this.starts(b).ps[g.to] * b.sq * this.s * 0.94 + 0.002 : 0;
+    return { x: x + (b.out ? 520 : 0), y: ROW0, up: tall + on + (b.mode === 'rows' && p < this.trays.length ? this.trayTop() : 0), st: 1 };
   }
   /** every square of the bar to its place, each piece a moment after the one before (`stagger` ms) */
   private relayout(b: Bar, dur = 0.45, stagger = 0, arc = 0) {
@@ -109,7 +116,7 @@ export class ShareKit implements ShareWorld {
     return { x: q.from.x + (q.to.x - q.from.x) * k, y: q.from.y + (q.to.y - q.from.y) * k, up: q.from.up + (q.to.up - q.from.up) * k + Math.sin(Math.PI * k) * q.arc, st };
   }
   private makeBar(n: number, mine: boolean): Bar {
-    const sq = Math.min(30, 300 / n), b: Bar = { n, sq, lines: [], squares: [], mine, mode: 'bar' };
+    const sq = Math.min(40, 380 / n), b: Bar = { n, sq, lines: [], squares: [], mine, mode: 'bar' };
     for (let j = 0; j < n; j++) {
       const m = new THREE.Mesh(this.geo!, this.mat(mine ? MILK : DARK));
       m.castShadow = true; m.receiveShadow = true;
@@ -124,6 +131,8 @@ export class ShareKit implements ShareWorld {
   private pieceTop(b: Bar, p: number, side = 0) {
     const { ps, out } = this.starts(b), qs = b.squares.slice(out[p], out[p] + ps[p]);
     const a = this.at(qs[0]), z = this.at(qs[qs.length - 1]);
+    const stacked = b.given && (p === b.given.from || p === b.given.to);
+    if (stacked && side) return this.world({ x: a.x + b.sq * 1.3, y: a.y, up: (a.up + z.up) / 2 });
     if ((a.st ?? 0) > 0.5) return this.world({ x: a.x + (side < 0 ? -b.sq * 0.3 : side > 0 ? b.sq * 0.3 : 0), y: a.y, up: z.up + (side < 0 ? b.sq * 1.6 : b.sq * 0.9) * this.s });
     return this.world({ x: side < 0 ? a.x : side > 0 ? z.x : (a.x + z.x) / 2, y: a.y - b.sq * 0.2, up: a.up + b.sq * 0.4 * this.s });
   }
@@ -145,8 +154,9 @@ export class ShareKit implements ShareWorld {
     const b = this.bar;
     this.pin({ id: 'count', text: `${squares} squares`, kind: 'count', at: () => this.world({ x: this.left(b) - b.sq * 1.8, y: BAR_Y, up: b.sq * 0.6 * this.s }) });
   }
-  async plates(n: number) {
+  async plates(n: number, owners?: string[]) {
     this.dropTrays();
+    owners?.forEach((who, p) => this.pin({ id: `owner-${p}`, text: who, kind: 'tick', c: 'ink', at: () => this.world({ x: PLATE_X + p * PLATE_GAP, y: ROW0 + (PLATE_GAP - 8) * 0.62, up: 0.01 }) }));
     for (let p = 0; p < n; p++) {
       const len = PLATE_GAP - 8;
       const m = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.42, 1, 32), this.trayMat);
@@ -158,7 +168,21 @@ export class ShareKit implements ShareWorld {
     bSfx.clack();
     await this.wait(400 + n * 180);
   }
-  private dropTrays() { for (const t of this.trays) { t.m.removeFromParent(); t.m.geometry.dispose(); } this.trays = []; }
+  private dropTrays() { for (const t of this.trays) { t.m.removeFromParent(); t.m.geometry.dispose(); } this.trays = []; this.unpin(p => p.id.startsWith('owner-')); }
+  async give(from: number, to: number) {
+    const b = this.bar!;
+    this.sizePins(b, false);
+    b.given = { from, to };
+    // (up in a high arc, so it goes over the piece it lands on, never through it)
+    this.relayout(b, 0.9, 0, 0.22);
+    await this.wait(1100);
+    bSfx.clack();
+  }
+  total(text: string | null) {
+    this.unpin(p => p.id === 'total');
+    const b = this.bar, g = b?.given;
+    if (text && b && g) this.pin({ id: 'total', text, kind: 'word', at: () => this.pieceTop(b, g.from, 0) });
+  }
 
   cut(pieces: number) {
     this.unpin(p => p.id === 'count');
@@ -238,7 +262,8 @@ export class ShareKit implements ShareWorld {
     this.sizePins(o, false);
     const len = o.n / b;
     this.pin({ id: 'osize-0', text: `${len} square${len === 1 ? '' : 's'}`, kind: 'tick', c: 'ink', at: () => this.pieceTop(o, 0, 1) });
-    for (const q of o.squares.slice(len)) q.gone = true;
+    // (the rest of that bar is put away, so nothing of it waits off to the side)
+    for (const q of o.squares.slice(len)) { q.gone = true; q.m.removeFromParent(); }
     await this.wait(300);
   }
   async clearOther() {
@@ -248,14 +273,25 @@ export class ShareKit implements ShareWorld {
     await this.wait(800);
     this.drop(o); if (this.other === o) this.other = null;
   }
+  /** the buddy's mouth: in front of its head bone and a little under it, where it faces (the Glimmer has mouthAt) */
+  private buddyMouth() {
+    const me = this.sc.me, head = me.bones.Head;
+    const box = (this.meBox ??= new THREE.Box3().setFromObject(me.root)), tall = box.max.y - box.min.y;
+    if (!head) return me.root.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, tall * 0.8, tall * 0.1));
+    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(me.root.getWorldQuaternion(new THREE.Quaternion()));
+    return head.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, tall * 0.13).add(new THREE.Vector3(0, tall * 0.03, 0));
+  }
   async eat() {
     const b = this.bar!, { ps, out } = this.starts(b);
-    this.pins = []; this.changed();
-    const me = this.sc.me as unknown as { root: THREE.Object3D; height?: number };
-    const mouths = [() => { const p = me.root.getWorldPosition(new THREE.Vector3()); return p.add(new THREE.Vector3(0, (me.height ?? 0.9) * me.root.scale.y * 0.78, 0.06)); }, () => this.sc.pal.mouthAt()];
+    this.unpin(p => !p.id.startsWith('owner-'));
+    const mouths = [() => this.buddyMouth(), () => this.sc.pal.mouthAt()];
     for (let p = 0; p < Math.min(2, ps.length); p++) {
+      if (b.given?.from === p) continue;
       if (p === 1) this.sc.palDo('act');
-      for (const q of b.squares.slice(out[p], out[p] + ps[p])) { q.gone = true; this.flies.push({ m: q.m, from: q.m.position.clone(), to: mouths[p], t0: this.now, dur: 0.8 }); }
+      const qs = b.squares.slice(out[p], out[p] + ps[p]), mid = new THREE.Vector3();
+      for (const q of qs) mid.add(q.m.position);
+      mid.divideScalar(qs.length);
+      for (const q of qs) { q.gone = true; this.flies.push({ m: q.m, from: mid.clone(), off: q.m.position.clone().sub(mid), sc0: q.m.scale.clone(), to: mouths[p], t0: this.now, dur: 0.8 }); }
       await this.wait(850);
       bSfx.gulp();
       if (p === 1) this.sc.palDo('happy'); else this.sc.nod();
@@ -345,11 +381,14 @@ export class ShareKit implements ShareWorld {
       this.knife.scale.setScalar(s / 0.0032);
     }
     // pieces flying to a mouth
+    // (bite-sized by the time it reaches the mouth, then it shrinks away right there, inside it)
     this.flies = this.flies.filter(f => {
-      const k = clamp01((t - f.t0) / f.dur), to = f.to();
-      f.m.position.lerpVectors(f.from, to, smooth(k)); f.m.position.y += Math.sin(Math.PI * k) * 0.08;
-      f.m.scale.multiplyScalar(k > 0.8 ? 0.85 : 1);
-      if (k >= 1) { f.m.visible = false; return false; }
+      const k = (t - f.t0) / f.dur, to = f.to(), h = (t - f.t0 - f.dur) / 0.45;
+      if (h >= 1) { f.m.visible = false; return false; }
+      const e = smooth(clamp01(k)), sz = k < 1 ? 1 - 0.5 * e : 0.5 * (1 - h);
+      f.m.position.lerpVectors(f.from, to, e).addScaledVector(f.off, sz);
+      if (k < 1) f.m.position.y += Math.sin(Math.PI * k) * 0.08;
+      f.m.scale.copy(f.sc0).multiplyScalar(sz);
       return true;
     });
     void dt;

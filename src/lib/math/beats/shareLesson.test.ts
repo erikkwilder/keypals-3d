@@ -38,12 +38,12 @@ const stepsOf = (log: string[]): Step[] => log.flatMap((l): Step[] => {
   if (l.startsWith('say ')) return [{ k: 'say', v: l.slice(4) }];
   if (l.startsWith('go ')) return [{ k: 'go', v: l.slice(3) }];
   if (l.startsWith('pick ') || l.startsWith('cut(') || l.startsWith('tapCut')) return [{ k: 'ask', v: l }];
-  if (l.startsWith('serve') || l.startsWith('otherBar') || l.startsWith('testOther') || l.startsWith('besides')) return [{ k: 'act', v: l }];
-  if (l.startsWith('label(') && !l.startsWith('label(null')) return [{ k: 'answer', v: l }];
+  if (l.startsWith('serve') || l.startsWith('otherBar') || l.startsWith('testOther') || l.startsWith('besides') || l.startsWith('give')) return [{ k: 'act', v: l }];
+  if ((l.startsWith('label(') && !l.startsWith('label(null')) || (l.startsWith('total(') && !l.startsWith('total(null'))) return [{ k: 'answer', v: l }];
   return [];
 });
-const RIGHT: Child = { cuts: [[2, 4, 6], [2, 4]], taps: [], picks: ['no', '4', '3'] };
-const WRONG: Child = { cuts: [[1, 4, 5], [3, 6, 7], [1, 2], [4, 5], [2, 4]], taps: [3, 4, 5, 2, 7, 6], picks: ['yes', '8', '6'] };
+const RIGHT: Child = { cuts: [[2, 4, 6], [2, 4]], taps: [], picks: ['no', '4', '3', '2'] };
+const WRONG: Child = { cuts: [[1, 4, 5], [3, 6, 7], [1, 2], [4, 5], [2, 4]], taps: [3, 4, 5, 2, 7, 6], picks: ['yes', '8', '6', '6'] };
 
 describe('a bar, in numbers', () => {
   it('cuts leave the pieces between them, in any order, ignoring a repeat', () => {

@@ -16,8 +16,8 @@ import { fair, fairCuts, middle, piecesOf } from './share';
 export interface ShareWorld extends World {
   /** a bar of this many squares comes in onto the table, its number of squares standing on it */
   barIn(squares: number): Promise<void>;
-  /** a plate for each friend along the front of the table */
-  plates(n: number): Promise<void>;
+  /** a plate for each friend along the front of the table (`owners`: whose each plate is, in front of it) */
+  plates(n: number, owners?: string[]): Promise<void>;
   /** the child taps the bar until it's in `pieces` pieces; each tap's knife cuts on the nearest line between
    *  squares. Resolves with the lines cut (a line has that many squares to its left) */
   cut(pieces: number): Promise<number[]>;
@@ -39,7 +39,11 @@ export interface ShareWorld extends World {
   besides(b: number): Promise<void>;
   /** whatever was laid under the child's pieces goes away */
   clearOther(): Promise<void>;
-  /** the pieces go back onto the plates; the buddy's and the Glimmer's go into their mouths */
+  /** the piece on plate `from` goes onto plate `to`, standing on top of the piece there */
+  give(from: number, to: number): Promise<void>;
+  /** a word over the two pieces stacked on one plate (null: gone) */
+  total(text: string | null): void;
+  /** the buddy's piece (plate 0) and the Glimmer's (plate 1, unless it was given away) go into their mouths */
   eat(): Promise<void>;
   /** the bar and the plates go */
   barOut(): Promise<void>;
@@ -52,7 +56,7 @@ const BAR = 8, FRIENDS = 4, BUDDY_CUTS = [1, 2, 4], LAST = 6, LAST_FRIENDS = 3, 
 export const SHARE_LINES = ['intro', 'plates', 'cut', 'try.you', 'try.again', 'try.together', 'try.last', 'fair', 'unfair', 'again', 'together', 'half', 'half.yes',
   'eight.half.no', 'eight.quarter', 'eight.quarter.no', 'twelve.half.no', 'twelve.quarter', 'twelve.quarter.no',
   'name', 'name.why', 'try.buddy', 'buddy.ask', 'try.test', 'buddy.yes', 'buddy.no', 'more', 'which', 'try.pal', 'eighth.you', 'eighth.pal', 'eighth.same', 'eighth.why',
-  'last', 'hint', 'call', 'try.name', 'call.squares', 'call.half', 'call.yes', 'eat', 'fair.together', 'quarter.yes', 'check', 'check.call', 'check.call.yes', 'check.call.no'].map(k => `ep.share.${k}`);
+  'last', 'hint', 'call', 'try.name', 'call.squares', 'call.half', 'call.yes', 'try.give', 'two.ask', 'try.two', 'two.yes', 'two.one', 'two.six', 'eat', 'fair.together', 'quarter.yes', 'check', 'check.call', 'check.call.yes', 'check.call.no'].map(k => `ep.share.${k}`);
 
 /** Which bar's worked answer: the lines carry that bar's own numbers. */
 type Key = 'eight' | 'twelve';
@@ -167,7 +171,7 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   // on their own: a new bar, three friends, no help but a hint, and the child names the piece
   t.beat(5);
   await w.barIn(LAST);
-  await w.plates(LAST_FRIENDS);
+  await w.plates(LAST_FRIENDS, ['Your buddy', 'Pebble', 'You']);
   await t.say('ep.share.last');
   for (let miss = 0; ; miss++) {
     const pieces = await tryCut(t, w, LAST, LAST_FRIENDS, 'ep.share.try.last');
@@ -188,8 +192,23 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   w.label(null);
   await w.clearOther();
 
-  // it ends with the snack: two thirds eaten, and the child's third still on their plate
+  // the rest of grade 3's idea, on the same plates: 2 pieces of one third each is two thirds (3.NF.A.1)
   t.beat(7);
+  await t.say('ep.share.try.give');
+  t.pal('happy');
+  await w.give(1, 2);
+  const two = await t.pick('How much of the bar is on your plate?', [{ id: '1', text: '1/3' }, { id: '2', text: '2/3' }, { id: '6', text: '2/6' }], 'ep.share.two.ask');
+  await t.say('ep.share.try.two');
+  w.label('1/3');
+  await t.wait(1200);
+  w.total('2/3');
+  if (two === '2') { t.buddy('clap'); t.pal('happy'); } else t.buddy('think');
+  await t.say(two === '2' ? 'ep.share.two.yes' : two === '1' ? 'ep.share.two.one' : 'ep.share.two.six');
+  await t.go('Next');
+  w.label(null); w.total(null);
+
+  // it ends with the snack: the buddy eats its third, and the child's two thirds are still on their plate
+  t.beat(8);
   await t.say('ep.share.eat');
   await w.eat();
   t.buddy('jump');
@@ -214,11 +233,12 @@ async function check(t: Teller, w: ShareWorld, notes: Notes | null) {
 
 export const SHARE_LESSON: BeatLesson<ShareWorld> = {
   id: 'frac-one-piece', title: 'Fair Shares', blurb: 'One of 4 equal pieces is 1/4. Cut the same bar into more pieces and each one is smaller.', set: 'workshop', star: 'pebbletort', color: '#b8743a',
-  art: 'learn/frac/card-choc.webp', beats: 8,
+  art: 'learn/frac/card-choc.webp', beats: 9,
   world: async (sc: EpisodeScene) => { const { ShareKit } = await import('../../three/shareKit'); return new ShareKit(sc); },
   play, check,
   card: n => [n.fair ? 'Your first cut was fair: every piece the same.' : `Your first cut gave pieces from ${n.small ?? '?'} to ${n.big ?? '?'} squares long.`,
-    'One of 4 equal pieces is one fourth, 1/4. Cut the same bar into more pieces, and each piece is smaller.'],
+    'One of 4 equal pieces is one fourth, 1/4. Cut the same bar into more pieces, and each piece is smaller.',
+    '2 pieces that are each one third make two thirds, 2/3.'],
 };
 
 /** (for the tests: the fair cuts of each bar in the lesson) */
