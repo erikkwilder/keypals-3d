@@ -45,11 +45,16 @@ const WIDE: Layout = {
   tidy: [80, 22], ring: [160, 50],
 };
 const TALL: Layout = {
-  trayY: 125, trayW: 300, trayD: 210, rowY: 272, cols: 4, rowW: 320, lineGap: 84,
-  bounds: { x: 130, y: 15, w: 340, h: 380 },
-  mixed: [[-100, -70], [10, -62], [110, -72], [-55, 2], [58, -4], [-108, 70], [0, 72], [104, 66]],
-  tidy: [58, 40], ring: [110, 70],
+  trayY: 95, trayW: 290, trayD: 150, rowY: 214, cols: 4, rowW: 290, lineGap: 76,
+  bounds: { x: 150, y: 15, w: 300, h: 318 },
+  mixed: [[-106, -30], [-36, -38], [36, -28], [106, -36], [-102, 34], [-34, 28], [38, 38], [104, 30]],
+  tidy: [58, 30], ring: [112, 44],
 };
+/** On a phone the things on the table are made this much bigger: the friends' heads above and the number
+ *  keys below leave a short band for the picture, so at the usual size a cookie was about 24 px across */
+const TALL_ZOOM = 2.8;
+/** ...and seen less steeply from above, so the table's depth takes less of that band and the cookies are wider */
+const TALL_PITCH = 0.52;
 const smooth = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
 
@@ -82,7 +87,7 @@ export class CountKit implements CountWorld {
     sc.root.add(this.root);
     // (on a wide screen the camera comes in close, like the fraction lessons', so a cookie is big enough to
     // see and tap; on a phone that would stand the friends further back and push the camera away)
-    if (this.L === WIDE) sc.closeUp();
+    if (this.L === WIDE) sc.closeUp(); else { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; }
     // (the friends and the corner props keep clear of the cookies and plates)
     sc.extraWork = () => [...(this.tray ? [this.tray] : []), ...this.cookies.map(c => c.g), ...this.plateObjs];
   }
@@ -398,5 +403,6 @@ export class CountKit implements CountWorld {
     for (const g of Object.values(this.geo)) g?.dispose();
     for (const m of Object.values(this.mat)) for (const x of [m].flat()) (x as THREE.Material | undefined)?.dispose();
     this.sc.extraWork = () => [];
+    this.sc.workZoom = 1; this.sc.tallPitch = null;
   }
 }
