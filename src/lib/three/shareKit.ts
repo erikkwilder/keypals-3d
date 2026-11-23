@@ -21,13 +21,17 @@ import { bSfx } from '../math/beats/sounds';
 // buddy's pieces beside them closely, because the camera frames the bounds, and empty board only makes everything smaller)
 const BAR_Y = 105, ROW0 = 192, ROW_GAP = 38, PART = 8, CX = 300, COL_X = 357, PLATE_X = 116, PLATE_GAP = 62, COL_GAP = 46;
 const MILK = 0x9a6542, DARK = 0x5a3524;
+/** a phone held upright: the plates go under the bar's middle and someone else's pieces stand in the bar's row,
+ *  behind the plates, so everything is only as wide as the bar and the bar fills the screen's width (each square
+ *  about 40 px across at 390 px, was 31); the table's things are made bigger and seen a little less from above */
+const TALL_PLATE_X = 207, TALL_ZOOM = 1.4, TALL_PITCH = 0.8;
 const smooth = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
 
 /** a square's place in board units: x, y on the board, and how high off the table */
 type At = { x: number; y: number; up: number; st?: number };
 type Sq = { m: THREE.Mesh; from: At; to: At; t0: number; dur: number; arc: number; gone?: boolean };
-type Bar = { n: number; sq: number; lines: number[]; squares: Sq[]; mine: boolean; mode: 'bar' | 'rows' | 'column' | 'under'; out?: boolean;
+type Bar = { n: number; sq: number; lines: number[]; squares: Sq[]; mine: boolean; mode: 'bar' | 'rows' | 'column' | 'under'; out?: boolean; keep?: number;
   /** a piece given away: it stands on top of the piece on another plate */ given?: { from: number; to: number } };
 type Job = { kind: 'cut'; pieces: number; done: (lines: number[]) => void } | { kind: 'tap'; hint: number; done: (line: number) => void };
 /** a square on its way into a mouth: the piece keeps its shape (`off`, from its middle) and shrinks as it goes */
@@ -52,9 +56,12 @@ export class ShareKit implements ShareWorld {
   private flies: Fly[] = [];
   private ray = new THREE.Raycaster();
   private meBox: THREE.Box3 | null = null;
+  private tall = innerWidth < innerHeight * 0.9;
+  private plateX = this.tall ? TALL_PLATE_X : PLATE_X;
 
   constructor(private sc: EpisodeScene) {
     sc.root.add(this.root);
+    if (this.tall) { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; }
     // (the friends and the corner props keep clear of the table's middle)
     sc.extraWork = () => [this.root];
   }
@@ -69,7 +76,14 @@ export class ShareKit implements ShareWorld {
     this.knife.visible = false;
     this.root.add(this.knife);
   }
-  bounds() { return { x: 85, y: 80, w: 430, h: 145 }; }
+  bounds() { return this.tall ? { x: 137, y: 80, w: 326, h: 145 } : { x: 85, y: 80, w: 430, h: 145 }; }
+  /** where someone else's piece p stands to be compared: beside the plates, or on a phone behind plate p */
+  /** where a piece laid for comparing stands: beside the plates; on a phone on the free plate's place, or behind the plates */
+  private underAt() {
+    if (!this.tall) return { x: COL_X, y: ROW0 };
+    return this.trays.length < 4 ? { x: this.plateX + this.trays.length * PLATE_GAP, y: ROW0 } : { x: this.plateX + 1.5 * PLATE_GAP, y: BAR_Y };
+  }
+  private colAt(p: number) { return this.tall ? { x: this.plateX + p * PLATE_GAP, y: BAR_Y } : { x: COL_X + p * COL_GAP, y: ROW0 }; }
   refit() { const a = this.sc.boardPoint(0, 0), b = this.sc.boardPoint(100, 0); this.s = (b.x - a.x) / 100; }
 
   private wait(ms: number) { return new Promise<void>(r => setTimeout(r, ms)); }
@@ -97,11 +111,16 @@ export class ShareKit implements ShareWorld {
     }
     // standing up: each piece a tower of its squares, on its plate (or on the table to the right)
     const p = this.pieceOf(b, j), k = j - this.starts(b).out[p], tall = (k + 0.5) * b.sq * this.s + 0.004;
-    if (b.mode === 'under') return p ? { x: this.left(b) + (j + 0.5) * b.sq + 520, y: BAR_Y, up: h } : { x: COL_X, y: ROW0, up: tall, st: 1 };
+    // ('under': the first `b.keep` pieces stand one on top of the other at the comparing place, the rest go away)
+    if (b.mode === 'under') {
+      if (p >= (b.keep ?? 1)) return { x: this.left(b) + (j + 0.5) * b.sq + 520, y: BAR_Y, up: h };
+      const c = this.underAt();
+      return { x: c.x, y: c.y, up: tall + (p ? this.starts(b).out[p] * b.sq * this.s + 0.002 : 0), st: 1 };
+    }
     const g = b.mode === 'rows' && b.given?.from === p ? b.given : null;
-    const x = b.mode === 'column' ? COL_X + p * COL_GAP : PLATE_X + (g ? g.to : p) * PLATE_GAP;
+    const c = b.mode === 'column' ? this.colAt(p) : { x: this.plateX + (g ? g.to : p) * PLATE_GAP, y: ROW0 };
     const on = g ? this.starts(b).ps[g.to] * b.sq * this.s * 0.94 + 0.002 : 0;
-    return { x: x + (b.out ? 520 : 0), y: ROW0, up: tall + on + (b.mode === 'rows' && p < this.trays.length ? this.trayTop() : 0), st: 1 };
+    return { x: c.x + (b.out ? 520 : 0), y: c.y, up: tall + on + (b.mode === 'rows' && p < this.trays.length ? this.trayTop() : 0), st: 1 };
   }
   /** every square of the bar to its place, each piece a moment after the one before (`stagger` ms) */
   private relayout(b: Bar, dur = 0.45, stagger = 0, arc = 0) {
@@ -133,8 +152,12 @@ export class ShareKit implements ShareWorld {
     const a = this.at(qs[0]), z = this.at(qs[qs.length - 1]);
     const stacked = b.given && (p === b.given.from || p === b.given.to);
     if (stacked && side) return this.world({ x: a.x + b.sq * 1.3, y: a.y, up: (a.up + z.up) / 2 });
-    if ((a.st ?? 0) > 0.5) return this.world({ x: a.x + (side < 0 ? -b.sq * 0.3 : side > 0 ? b.sq * 0.3 : 0), y: a.y, up: z.up + (side < 0 ? b.sq * 1.6 : b.sq * 0.9) * this.s });
-    return this.world({ x: side < 0 ? a.x : side > 0 ? z.x : (a.x + z.x) / 2, y: a.y - b.sq * 0.2, up: a.up + b.sq * 0.4 * this.s });
+    // (every other piece's cards a step higher, so the cards of two pieces side by side never land on each other)
+    const step = p % 2 ? b.sq * 0.75 : 0;
+    if ((a.st ?? 0) > 0.5) return this.world({ x: a.x + (side < 0 ? -b.sq * 0.3 : side > 0 ? b.sq * 0.3 : 0), y: a.y, up: z.up + ((side < 0 ? b.sq * 1.6 : b.sq * 0.9) + step) * this.s });
+    // (on the bar: a size card over the middle of its piece, every other one in front of the bar instead of behind it)
+    if (side > 0) return this.world({ x: (a.x + z.x) / 2, y: p % 2 ? a.y + b.sq * 1.15 : a.y - b.sq * 0.35, up: a.up + b.sq * 0.4 * this.s });
+    return this.world({ x: side < 0 ? a.x : (a.x + z.x) / 2, y: a.y - b.sq * 0.2, up: a.up + b.sq * 0.4 * this.s });
   }
   private sizePins(b: Bar, on: boolean) {
     const tag = b.mine ? 'size' : 'osize';
@@ -152,11 +175,12 @@ export class ShareKit implements ShareWorld {
     bSfx.clack();
     await this.wait(900);
     const b = this.bar;
-    this.pin({ id: 'count', text: `${squares} squares`, kind: 'count', at: () => this.world({ x: this.left(b) - b.sq * 1.8, y: BAR_Y, up: b.sq * 0.6 * this.s }) });
+    // (on a phone the bar is as wide as the screen, so its number stands behind its middle)
+    this.pin({ id: 'count', text: `${squares} squares`, kind: 'count', at: () => this.tall ? this.world({ x: CX, y: BAR_Y - b.sq * 1.4, up: b.sq * 0.6 * this.s }) : this.world({ x: this.left(b) - b.sq * 1.8, y: BAR_Y, up: b.sq * 0.6 * this.s }) });
   }
   async plates(n: number, owners?: string[]) {
     this.dropTrays();
-    owners?.forEach((who, p) => this.pin({ id: `owner-${p}`, text: who, kind: 'tick', c: 'ink', at: () => this.world({ x: PLATE_X + p * PLATE_GAP, y: ROW0 + (PLATE_GAP - 8) * 0.62, up: 0.01 }) }));
+    owners?.forEach((who, p) => this.pin({ id: `owner-${p}`, text: who, kind: 'tick', c: 'ink', at: () => this.world({ x: this.plateX + p * PLATE_GAP, y: ROW0 + (PLATE_GAP - 8) * 0.62, up: 0.01 }) }));
     for (let p = 0; p < n; p++) {
       const len = PLATE_GAP - 8;
       const m = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.42, 1, 32), this.trayMat);
@@ -233,7 +257,7 @@ export class ShareKit implements ShareWorld {
   label(mine: string | null, other?: string) {
     this.unpin(p => p.id.startsWith('name-'));
     if (mine && this.bar) { const b = this.bar; piecesOf(b.n, b.lines).forEach((_, p) => this.pin({ id: `name-m${p}`, text: mine, kind: 'word', at: () => this.pieceTop(b, p, -1) })); }
-    if (other && this.other) { const o = this.other; this.pin({ id: 'name-o0', text: other, kind: 'word', at: () => this.pieceTop(o, 0, -1) }); }
+    if (other && this.other) { const o = this.other; this.pin({ id: 'name-o0', text: other, kind: 'word', at: () => this.pieceTop(o, o.mode === 'under' ? (o.keep ?? 1) - 1 : 0, -1) }); }
   }
   async otherBar(lines: number[]) {
     this.drop(this.other);
@@ -250,25 +274,33 @@ export class ShareKit implements ShareWorld {
     this.sizePins(o, true);
     await this.wait(300);
   }
-  async besides(b: number) {
+  async besides(b: number, k = 1) {
     this.drop(this.other);
     const o = (this.other = this.makeBar(this.bar!.n, false));
     await this.wait(900);
     for (const g of fairCuts(o.n, b) ?? []) { this.chop(o, g); await this.wait(Math.max(160, 900 / b)); }
     await this.wait(300);
-    o.mode = 'under';
-    this.relayout(o, 0.7, 0, 0.05);
-    await this.wait(900);
+    o.mode = 'under'; o.keep = k;
+    this.relayout(o, 0.7, 250, 0.12);
+    await this.wait(900 + k * 250);
     this.sizePins(o, false);
-    const len = o.n / b;
-    this.pin({ id: 'osize-0', text: `${len} square${len === 1 ? '' : 's'}`, kind: 'tick', c: 'ink', at: () => this.pieceTop(o, 0, 1) });
+    const len = (o.n / b) * k;
+    this.pin({ id: 'osize-0', text: `${len} square${len === 1 ? '' : 's'}`, kind: 'tick', c: 'ink', at: () => this.pieceTop(o, k - 1, 1) });
+    // (pieces stacked: the child's stack says how many squares it has too, so the two can be compared)
+    const me = this.bar, g = me?.given;
+    if (k > 1 && me && g) {
+      const { ps, out } = this.starts(me), all = ps[g.to] + ps[g.from];
+      // (left of the stack, halfway up: the thirds' names stand on its right)
+      const at = () => { const lo = this.at(me.squares[out[g.to]]), hi = this.at(me.squares[out[g.from] + ps[g.from] - 1]); return this.world({ x: lo.x - me.sq * 1.4, y: lo.y, up: (lo.up + hi.up) / 2 }); };
+      this.pin({ id: 'size-stack', text: `${all} squares`, kind: 'tick', c: 'ink', at });
+    }
     // (the rest of that bar is put away, so nothing of it waits off to the side)
     for (const q of o.squares.slice(len)) { q.gone = true; q.m.removeFromParent(); }
     await this.wait(300);
   }
   async clearOther() {
     const o = this.other; if (!o) return;
-    this.sizePins(o, false); this.unpin(p => p.id === 'name-o0');
+    this.sizePins(o, false); this.unpin(p => p.id === 'name-o0' || p.id === 'size-stack');
     o.out = true; this.relayout(o, 0.6, 60);
     await this.wait(800);
     this.drop(o); if (this.other === o) this.other = null;
@@ -368,7 +400,7 @@ export class ShareKit implements ShareWorld {
       const b = this.bar; if (!b) break;
       const k = clamp01((t - tr.born) / 0.3), len = (tr.m.userData as { len: number }).len;
       tr.m.visible = k > 0;
-      tr.m.position.copy(this.world({ x: PLATE_X + tr.row * PLATE_GAP, y: ROW0, up: 0.004 }));
+      tr.m.position.copy(this.world({ x: this.plateX + tr.row * PLATE_GAP, y: ROW0, up: 0.004 }));
       tr.m.scale.set(len * s * smooth(k), 0.008, len * s * smooth(k));
     }
     // the knife: down and up at the line, then away after a moment
@@ -402,5 +434,6 @@ export class ShareKit implements ShareWorld {
     for (const m of this.mats.values()) m.dispose();
     this.knife.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); (m.material as THREE.Material).dispose(); } });
     this.sc.extraWork = () => [];
+    this.sc.workZoom = 1; this.sc.tallPitch = null;
   }
 }

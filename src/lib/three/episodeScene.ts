@@ -141,6 +141,13 @@ export class EpisodeScene implements Controller {
   private fracTex: FracTex = { pie: null, pizza: null, choc: null };
   /** the fraction episodes: one pie or bar big on a bare wooden table, the camera in close */
   private close = false;
+  /** the same close camera for another lesson whose things must look big (the counting lesson's cookies) */
+  closeUp() { this.close = true; }
+  /** how much bigger than usual a lesson's things are on the table (the counting lesson's cookies on a phone,
+   *  where the friends' heads and the number keys leave little room) */
+  workZoom = 1;
+  /** how steeply the work shots look down on a phone, when a lesson wants its own (flat things big across) */
+  tallPitch: number | null = null;
   private shapeGeos = new Map<string, ReturnType<typeof shapeGeo>>();
   private plank: THREE.Group | null = null;
   private lineKey = '';
@@ -452,7 +459,9 @@ export class EpisodeScene implements Controller {
     this.clearOf(this.me.root, this.buddyAt, back, -1);
     this.clearOf(this.pal.root, this.palHome, back, 1);
     this.backZ += (back - this.backZ) * 0.08;
-    this.table.position.z = this.backZ + 1.6; this.pool.position.z = this.backZ + 1.6;
+    // (a lesson that makes its things bigger makes the table deeper too, so its front edge stays out of the shot)
+    this.table.scale.z = this.pool.scale.z = this.workZoom;
+    this.table.position.z = this.backZ + 1.6 * this.workZoom; this.pool.position.z = this.backZ + 1.6 * this.workZoom;
     // the cloth under the work
     this.cloth.position.set((a.x0 + a.x1) / 2, TY + 0.002, (a.z0 + a.z1) / 2 + 0.02);
     this.cloth.visible = !this.close;
@@ -543,7 +552,7 @@ export class EpisodeScene implements Controller {
   /** Fit these board bounds onto the table (call when the picture's zoom changes). */
   fit(b: { x: number; y: number; w: number; h: number }) {
     // (stacked on a phone: narrower and deeper, seen from higher up)
-    const k = this.close ? 1.45 : 1;
+    const k = (this.close ? 1.45 : 1) * this.workZoom;
     const s = this.stack ? Math.min(1.05 * k / b.w, 1.3 * k / (b.h * DEPTH)) : Math.min(TW * k / b.w, TD * k / (b.h * DEPTH));
     const m = { cx: b.x + b.w / 2, cy: b.y + b.h / 2, s };
     // a new zoom: the tins, plates and plank are made again at the new size (the counters glide over)
@@ -1562,7 +1571,7 @@ export class EpisodeScene implements Controller {
       pts.push(new THREE.Vector3(head.x - 0.05, head.y + 0.06, head.z), new THREE.Vector3(head.x + 0.18, head.y - 0.3, head.z),
         new THREE.Vector3(this.palAt.x + 0.05, pt, this.palAt.z), new THREE.Vector3(this.palAt.x - 0.18, pt - 0.3, this.palAt.z));
       for (const q of pts.slice(8)) box.expandByPoint(q);
-      pitch = tall ? (s === 'board' ? 0.98 : 0.9) : s === 'board' ? 0.36 : 0.32;
+      pitch = tall ? (this.tallPitch ?? (s === 'board' ? 0.98 : 0.9)) : s === 'board' ? 0.36 : 0.32;
     }
     // the buddy close, turned toward it, with all of its picture in front (so nothing looms at the camera)
     else if (s === 'buddy') { box.copy(buddy).union(content); pitch = tall ? 0.5 : 0.2; yaw = -0.08; }

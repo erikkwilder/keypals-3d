@@ -35,8 +35,9 @@ export interface ShareWorld extends World {
   otherBar(lines: number[]): Promise<void>;
   /** that bar's pieces line up side by side too, with their lengths on them */
   testOther(): Promise<void>;
-  /** one piece of the same bar cut into `b` equal pieces is laid right under the child's first piece */
-  besides(b: number): Promise<void>;
+  /** one piece of the same bar cut into `b` equal pieces is laid right under the child's first piece
+   *  (`k` pieces: they stand one on top of the other, and the child's stack says how many squares it has too) */
+  besides(b: number, k?: number): Promise<void>;
   /** whatever was laid under the child's pieces goes away */
   clearOther(): Promise<void>;
   /** the piece on plate `from` goes onto plate `to`, standing on top of the piece there */
@@ -56,7 +57,7 @@ const BAR = 8, FRIENDS = 4, BUDDY_CUTS = [1, 2, 4], LAST = 6, LAST_FRIENDS = 3, 
 export const SHARE_LINES = ['intro', 'plates', 'cut', 'try.you', 'try.again', 'try.together', 'try.last', 'fair', 'unfair', 'again', 'together', 'half', 'half.yes',
   'eight.half.no', 'eight.quarter', 'eight.quarter.no', 'twelve.half.no', 'twelve.quarter', 'twelve.quarter.no',
   'name', 'name.why', 'try.buddy', 'buddy.ask', 'try.test', 'buddy.yes', 'buddy.no', 'more', 'which', 'try.pal', 'eighth.you', 'eighth.pal', 'eighth.same', 'eighth.why',
-  'last', 'hint', 'call', 'try.name', 'call.squares', 'call.half', 'call.yes', 'try.give', 'two.ask', 'try.two', 'two.yes', 'two.one', 'two.six', 'eat', 'fair.together', 'quarter.yes', 'check', 'check.call', 'check.call.yes', 'check.call.no'].map(k => `ep.share.${k}`);
+  'last', 'hint', 'call', 'try.name', 'call.squares', 'call.half', 'call.yes', 'try.give', 'two.ask', 'try.six', 'six.show', 'try.two', 'two.yes', 'two.one', 'two.six', 'eat', 'fair.together', 'quarter.yes', 'check', 'check.call', 'check.call.yes', 'check.call.no'].map(k => `ep.share.${k}`);
 
 /** Which bar's worked answer: the lines carry that bar's own numbers. */
 type Key = 'eight' | 'twelve';
@@ -198,6 +199,14 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   t.pal('happy');
   await w.give(1, 2);
   const two = await t.pick('How much of the bar is on your plate?', [{ id: '1', text: '1/3' }, { id: '2', text: '2/3' }, { id: '6', text: '2/6' }], 'ep.share.two.ask');
+  // (2/6 is acted out first: 2 pieces of the same bar cut into 6 stand beside the child's stack)
+  if (two === '6') {
+    await t.say('ep.share.try.six');
+    await w.besides(6, 2);
+    w.label(null, '2/6');
+    t.buddy('think');
+    await t.say('ep.share.six.show');
+  }
   await t.say('ep.share.try.two');
   w.label('1/3');
   await t.wait(1200);
@@ -206,6 +215,7 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   await t.say(two === '2' ? 'ep.share.two.yes' : two === '1' ? 'ep.share.two.one' : 'ep.share.two.six');
   await t.go('Next');
   w.label(null); w.total(null);
+  if (two === '6') await w.clearOther();
 
   // it ends with the snack: the buddy eats its third, and the child's two thirds are still on their plate
   t.beat(8);
