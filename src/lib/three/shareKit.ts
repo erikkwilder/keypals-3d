@@ -279,7 +279,7 @@ export class ShareKit implements ShareWorld {
     const box = (this.meBox ??= new THREE.Box3().setFromObject(me.root)), tall = box.max.y - box.min.y;
     if (!head) return me.root.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, tall * 0.8, tall * 0.1));
     const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(me.root.getWorldQuaternion(new THREE.Quaternion()));
-    return head.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, tall * 0.13).add(new THREE.Vector3(0, tall * 0.03, 0));
+    return head.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, tall * 0.13).add(new THREE.Vector3(0, tall * 0.05, 0));
   }
   async eat() {
     const b = this.bar!, { ps, out } = this.starts(b);
