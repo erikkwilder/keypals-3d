@@ -330,10 +330,13 @@ export class BalanceKit implements EquationWorld {
     // height between 34 and 54), so they never overlap at any size)
     const font = () => innerWidth < 760 ? 30 : Math.min(54, Math.max(34, innerHeight * 0.054));
     const row = () => font() * 1.1 + 22 + 34;
-    const up = (px: number) => { const a = this.screenOf(this.at(MID, PAN_Y + 30, 0)), b = this.screenOf(this.at(MID, PAN_Y + 30, 100)); return (px * 100) / Math.max(1, a.y - b.y); };
+    // (on a phone the stack stands further forward, on the empty front of the table: over the balance it ran up
+    // under the words at the top, seen at 390x844)
+    const base = () => innerWidth < 760 ? PILE_Y + 70 : PAN_Y + 30;
+    const up = (px: number) => { const a = this.screenOf(this.at(MID, base(), 0)), b = this.screenOf(this.at(MID, base(), 100)); return (px * 100) / Math.max(1, a.y - b.y); };
     const out: Pin[] = lines.flatMap((l, k): Pin[] => [
-      { id: `sum${k}`, text: l.parts.map(p => p.t).join(' '), kind: 'sum', parts: l.parts, at: () => this.at(MID, PAN_Y + 30, up(34 + (n - 1 - k) * row())) },
-      { id: `why${k}`, text: l.why, kind: 'word', at: () => this.at(MID, PAN_Y + 30, up(16 + (n - 1 - k) * row())) },
+      { id: `sum${k}`, text: l.parts.map(p => p.t).join(' '), kind: 'sum', parts: l.parts, at: () => this.at(MID, base(), up(34 + (n - 1 - k) * row())) },
+      { id: `why${k}`, text: l.why, kind: 'word', at: () => this.at(MID, base(), up(16 + (n - 1 - k) * row())) },
     ]);
     this.pins = [...this.pins.filter(p => p.kind !== 'sum' && !p.id.startsWith('why')), ...out];
     this.onChange?.();
