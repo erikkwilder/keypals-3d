@@ -70,7 +70,8 @@ async function tryCut(t: Teller, w: ShareWorld, squares: number, friends: number
   await w.serve();
   const pieces = piecesOf(squares, lines);
   if (fair(pieces)) { t.buddy('cheer'); t.pal('happy'); await t.say('ep.share.fair', pieces[0]); }
-  else { t.buddy('shrug'); t.pal('sad'); await t.say('ep.share.unfair'); }
+  // (an unfair cut is told with its own numbers: the smallest and the biggest piece, in squares)
+  else { t.buddy('shrug'); t.pal('sad'); await t.say('ep.share.unfair', Math.min(...pieces), Math.max(...pieces)); }
   return pieces;
 }
 /** One cut, on a line the script can judge: a wrong one is cut, its pieces shown, and undone. */
@@ -249,7 +250,7 @@ async function check(t: Teller, w: ShareWorld, notes: Notes | null) {
 
 export const SHARE_LESSON: BeatLesson<ShareWorld> = {
   id: 'frac-one-piece', title: 'Fair Shares', blurb: 'One of 4 equal pieces is 1/4. Cut the same bar into more pieces and each one is smaller.', set: 'workshop', star: 'pebbletort', color: '#b8743a',
-  art: 'learn/frac/card-choc.webp', beats: 9,
+  art: 'learn/frac/card-choc.webp', beats: 9, keys: false,
   world: async (sc: EpisodeScene) => { const { ShareKit } = await import('../../three/shareKit'); return new ShareKit(sc); },
   play, check,
   card: n => [n.fair ? 'Your first cut was fair: every piece the same.' : `Your first cut gave pieces from ${n.small ?? '?'} to ${n.big ?? '?'} squares long.`,

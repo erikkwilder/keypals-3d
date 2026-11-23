@@ -3,7 +3,9 @@
 // and the pieces part. Serving slides each piece onto its own plate, all starting from the same left edge, so
 // pieces stand up side by side like towers: a longer piece stands taller, and its length stands on it.
 // (Lying in rows they were hard to compare: the camera looks along the table, so depth is squashed.)
-// Someone else's bar (the buddy's, Pebble's) comes in darker, so it's never mistaken for the child's.
+// The bar being cut lies at the front and the plates stand behind it, so a bar lying flat is never hidden by
+// pieces standing on the plates: someone else's bar (the buddy's, Pebble's) comes in at the front too, in white
+// chocolate, so it's never mistaken for the child's and all its cuts can be seen while the child is asked about it.
 // Everything is placed in board units (the episode table's own) and turned into the room every frame, so the
 // picture keeps its shape at any screen size.
 import * as THREE from 'three';
@@ -19,8 +21,13 @@ import { bSfx } from '../math/beats/sounds';
 /** where things sit on the board: the bar's row, the first plate's row, the gap between plates, the parting at a cut */
 // (the bar near the front and big, so every square is an easy target: the bounds wrap the bar, the plates and the
 // buddy's pieces beside them closely, because the camera frames the bounds, and empty board only makes everything smaller)
-const BAR_Y = 105, ROW0 = 192, ROW_GAP = 38, PART = 8, CX = 300, COL_X = 357, PLATE_X = 116, PLATE_GAP = 62, COL_GAP = 46;
-const MILK = 0x9a6542, DARK = 0x5a3524;
+// (the bar's row is the front one: it was the back one, and someone else's bar lying there was hidden behind the
+// child's standing pieces at the very moment the child was asked about its pieces)
+const BAR_Y = 196, ROW0 = 112, ROW_GAP = 38, PART = 8, CX = 300, COL_X = 357, PLATE_X = 116, PLATE_GAP = 62, COL_GAP = 46;
+const MILK = 0x9a6542, WHITE = 0xf6e6c4;
+/** on a wide screen the things on the table are this much bigger against the friends (at the usual size a square
+ *  of the bar was about 30 px across at 1440 px, a third of Layers of Cubes' crate) */
+const WIDE_ZOOM = 1.6;
 /** a phone held upright: the plates go under the bar's middle and someone else's pieces stand in the bar's row,
  *  behind the plates, so everything is only as wide as the bar and the bar fills the screen's width (each square
  *  about 40 px across at 390 px, was 31); the table's things are made bigger and seen a little less from above */
@@ -61,7 +68,7 @@ export class ShareKit implements ShareWorld {
 
   constructor(private sc: EpisodeScene) {
     sc.root.add(this.root);
-    if (this.tall) { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; }
+    if (this.tall) { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; } else sc.workZoom = WIDE_ZOOM;
     // (the friends and the corner props keep clear of the table's middle; on a phone not of a bar lying flat
     // to be cut: it hides nothing, and stepping aside for it sent them out to the screen's sides, which pulled the
     // camera back and made each square 33 px across instead of 40)
@@ -87,7 +94,9 @@ export class ShareKit implements ShareWorld {
     if (!this.tall) return { x: COL_X, y: ROW0 };
     return this.trays.length < 4 ? { x: this.plateX + this.trays.length * PLATE_GAP, y: ROW0 } : { x: this.plateX + 1.5 * PLATE_GAP, y: BAR_Y };
   }
-  private colAt(p: number) { return this.tall ? { x: this.plateX + p * PLATE_GAP, y: BAR_Y } : { x: COL_X + p * COL_GAP, y: ROW0 }; }
+  /** where someone else's piece p stands to be compared: beside the plates; on a phone in the front row, each in
+   *  front of the gap between two plates, so none stands in front of one of the child's pieces */
+  private colAt(p: number) { return this.tall ? { x: this.plateX + (p + 0.5) * PLATE_GAP, y: BAR_Y } : { x: COL_X + p * COL_GAP, y: ROW0 }; }
   refit() { const a = this.sc.boardPoint(0, 0), b = this.sc.boardPoint(100, 0); this.s = (b.x - a.x) / 100; }
 
   private wait(ms: number) { return new Promise<void>(r => setTimeout(r, ms)); }
@@ -141,7 +150,7 @@ export class ShareKit implements ShareWorld {
   private makeBar(n: number, mine: boolean): Bar {
     const sq = Math.min(40, 380 / n), b: Bar = { n, sq, lines: [], squares: [], mine, mode: 'bar' };
     for (let j = 0; j < n; j++) {
-      const m = new THREE.Mesh(this.geo!, this.mat(mine ? MILK : DARK));
+      const m = new THREE.Mesh(this.geo!, this.mat(mine ? MILK : WHITE));
       m.castShadow = true; m.receiveShadow = true;
       this.root.add(m);
       const to = this.place(b, j), from = { ...to, x: to.x + 520 };
@@ -260,7 +269,9 @@ export class ShareKit implements ShareWorld {
   }
   label(mine: string | null, other?: string) {
     this.unpin(p => p.id.startsWith('name-'));
-    if (mine && this.bar) { const b = this.bar; piecesOf(b.n, b.lines).forEach((_, p) => this.pin({ id: `name-m${p}`, text: mine, kind: 'word', at: () => this.pieceTop(b, p, -1) })); }
+    // (a piece's name takes the place of its size card: both on every piece was eight cards over four pieces,
+    // and the squares of a standing piece can be counted on the piece itself)
+    if (mine && this.bar) { const b = this.bar; this.sizePins(b, false); piecesOf(b.n, b.lines).forEach((_, p) => this.pin({ id: `name-m${p}`, text: mine, kind: 'word', at: () => this.pieceTop(b, p, b.given && (p === b.given.from || p === b.given.to) ? -1 : 0) })); }
     if (other && this.other) { const o = this.other; this.pin({ id: 'name-o0', text: other, kind: 'word', at: () => this.pieceTop(o, o.mode === 'under' ? (o.keep ?? 1) - 1 : 0, -1) }); }
   }
   async otherBar(lines: number[]) {

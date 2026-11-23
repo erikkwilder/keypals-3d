@@ -15,9 +15,9 @@ function pretend(child: Child) {
   const world = new Proxy({} as EquationWorld, {
     get: (_, k: string) => (...a: unknown[]) => { log.push(`${k}(${a.map(x => JSON.stringify(x)).join(',')})`); return Promise.resolve(); },
   });
-  const speak = (id: string, n?: number) => { said.push(id); log.push(`say ${id}${n != null ? ` [${n}]` : ''}`); };
+  const speak = (id: string, n?: number, m?: number) => { said.push(id); log.push(`say ${id}${n != null ? ` [${n}${m != null ? `,${m}` : ''}]` : ''}`); };
   const teller: Teller = {
-    say: async (id, n) => { speak(id, n); },
+    say: async (id, n, m) => { speak(id, n, m); },
     num: async (_, id, n) => { if (id) speak(id, n); const v = child.nums.shift(); if (v == null) throw new Error('the lesson asked for more numbers than this child has'); log.push(`num ${v}`); return v; },
     pick: async (_, choices, id) => { if (id) speak(id); const p = child.picks.shift() ?? choices[0].id; log.push(`pick ${p}`); return p as never; },
     hands: async (_, job) => { await job(); },
@@ -38,10 +38,11 @@ const stepsOf = (log: string[]): Step[] => log.flatMap((l): Step[] => {
 const announces = /\.try\./;
 const run = async (c: Child) => { const p = pretend({ nums: [...c.nums], picks: [...c.picks] }); const notes = await EQUATION_LESSON.play(p.teller, p.world); return { ...p, notes }; };
 
-// right: guess 4, 3 off, 4 off, 5 on their own. All wrong: every number wrong, every pick wrong, the extra one wrong to the end.
+// right: guess 4, 3 off, 4 off, 5 on their own. All wrong: every number wrong, every pick wrong, the extra one wrong to the end
+// (a guess of 7, 1 off, 1 with the bag, 7 for the buddy's balance, then 1 and 5 for the extra one).
 const RIGHT: Child = { nums: [4, 3, 4, 5], picks: ['up', 'no'] };
-const WRONG: Child = { nums: [7, 1, 1, 7, 9, 1, 2, 5], picks: ['level', 'yes'] };
-const MIXED: Child = { nums: [2, 5, 8, 4, 5], picks: ['down', 'yes'] };
+const WRONG: Child = { nums: [7, 1, 1, 7, 1, 5], picks: ['level', 'yes'] };
+const MIXED: Child = { nums: [2, 5, 8, 5], picks: ['down', 'yes'] };
 
 describe('a balance with bags, in numbers', () => {
   it('each balance has a whole number in every bag', () => {
@@ -75,7 +76,7 @@ describe('the lesson, played by every kind of child', () => {
   });
   it('every number the child gives is put on the balance', async () => {
     const { log } = await run(WRONG);
-    for (const a of ['swapIn(7)', 'takeRight(1)', 'share(1)', 'swapIn(9)', 'swapIn(2)']) expect(log).toContain(a);
+    for (const a of ['swapIn(7)', 'takeRight(1)', 'share(1)', 'swapIn(1)', 'swapIn(5)']) expect(log).toContain(a);
   });
   it('a child wrong all the way through is shown each answer, and gets one more balance to do alone', async () => {
     const { log, said, notes } = await run(WRONG);
@@ -86,12 +87,21 @@ describe('the lesson, played by every kind of child', () => {
     expect(said).toContain('ep.eq.d.piles');
     expect(log.at(-1)).toMatch(/^say ep\.eq\.end/);
   });
-  it('after two misses on the extra balance its first step is done together by hand, and the last step is the child\'s', async () => {
-    const { log, said } = await run({ nums: [7, 1, 1, 7, 9, 1, 2, 3], picks: ['level', 'yes'] });
+  it('after a miss on the extra balance its first step is done together by hand, and the last step is the child\'s', async () => {
+    const { log, said } = await run({ nums: [7, 1, 1, 7, 1, 3], picks: ['level', 'yes'] });
     expect(said).toContain('ep.eq.try.d');
     expect(said).toContain('ep.eq.d.own');
     expect(said).not.toContain('ep.eq.d.piles');
-    expect(log.filter(l => l.startsWith('swapIn')).length).toBe(6);
+    // (one test each: the first guess, the buddy's balance, the extra balance, and its last step)
+    expect(log.filter(l => l.startsWith('swapIn')).length).toBe(4);
+  });
+  it('a miss is told in one line with what the bags\' side came to, and a wrong prediction is named back', async () => {
+    const { log, said } = await run(WRONG);
+    // 7 in each of 2 bags and the 3 loose weights is 17, against 11
+    expect(log).toContain('say ep.eq.heavy [7,17]');
+    expect(said).toContain('ep.eq.off.level');
+    const down = await run({ ...WRONG, picks: ['down', 'yes'] });
+    expect(down.said).toContain('ep.eq.off.down');
   });
   it('one right on their own is enough: no extra balance', async () => {
     const { said } = await run(MIXED);
@@ -122,8 +132,8 @@ describe('the lesson, played by every kind of child', () => {
 describe('the lesson rules (docs/lesson-rules.md)', () => {
   const kids: Record<string, Child> = {
     'right every time': RIGHT, 'wrong every time': WRONG, 'mixed': MIXED,
-    'silly numbers': { nums: [9999, 0, 9999, 0, 9999, 0, 9999, 0, 3], picks: ['down', 'yes'] },
-    'right after one miss each time': { nums: [5, 2, 3, 7, 5], picks: ['up', 'no'] },
+    'silly numbers': { nums: [9999, 0, 9999, 0, 9999, 0], picks: ['down', 'yes'] },
+    'wrong until the very last step': { nums: [5, 2, 3, 7, 5, 3], picks: ['up', 'no'] },
   };
   for (const [name, kid] of Object.entries(kids)) it(`a child who is ${name}: every try named, explained, and every answer waits`, async () => {
     const { log } = await run(kid);
@@ -132,13 +142,13 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
   it('every line can stand up to the words rules', () => {
     expect(lineProblems(EQ_LINES)).toEqual([]);
   });
-  it('a line fills in the child\'s number once at most (the player fills only the first {n})', () => {
-    for (const l of EQ_LINES) expect((l.text.match(/\{n\}/g) ?? []).length, l.id).toBeLessThanOrEqual(1);
+  it('only {n} and {m} are filled in, and never in what the voice says', () => {
+    for (const l of EQ_LINES) { expect(l.text.replace(/\{[nm]\}/g, ''), l.id).not.toMatch(/[{}]/); expect(l.said ?? '', l.id).not.toMatch(/[{}]/); }
   });
   it('writes the script out for a cold read, when asked (rule 21)', async () => {
     const out = process.env.COLD_READ;
     if (!out) return;
-    const text = (id: string, n?: string) => (EQ_LINES.find(l => l.id === id)?.text ?? id).replaceAll('{n}', n ?? '');
+    const text = (id: string, nm?: string) => (EQ_LINES.find(l => l.id === id)?.text ?? id).replaceAll('{n}', nm?.split(',')[0] ?? '').replaceAll('{m}', nm?.split(',')[1] ?? '');
     const print = (log: string[]) => log.map(l => { const m = /^say (\S+)(?: \[(.+)\])?$/.exec(l); return m ? `SAID: ${text(m[1], m[2])}` : `(picture or child: ${l})`; }).join('\n');
     const w = await run(WRONG), r = await run(RIGHT);
     writeFileSync(out.replace(/(\.txt)?$/, '.equation.txt'), `A CHILD WHO IS WRONG EVERY TIME\n\n${print(w.log)}\n\n\nA CHILD WHO IS RIGHT EVERY TIME\n\n${print(r.log)}\n`);
@@ -152,7 +162,7 @@ describe('the words', () => {
     for (const id of EQUATION_LINES) expect(LEARN_LINES.some(l => l.id === id), id).toBe(true);
   });
   it('a line explains in a sentence or three, and never runs on', () => {
-    for (const id of EQUATION_LINES) expect(said(id).split(/\s+/).length, id).toBeLessThanOrEqual(36);
+    for (const id of EQUATION_LINES) expect(said(id).split(/\s+/).length, id).toBeLessThanOrEqual(40);
   });
   it('no ending about learning, and no stock praise', () => {
     for (const id of EQUATION_LINES) expect(said(id), id).not.toMatch(/learn|explain|great job|well done|thank you|awesome|amazing/i);

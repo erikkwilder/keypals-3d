@@ -73,8 +73,10 @@
   const live = async <T,>(p: Promise<T>): Promise<T> => { const v = await p; if (gone) throw new Left(); return v; };
 
   const teller: Teller = {
-    async say(id, n) {
-      line = lineText(id).replace('{n}', String(n ?? ''));
+    async say(id, n, m) {
+      line = lineText(id).replace(/\{n\}/g, String(n ?? '')).replace(/\{m\}/g, String(m ?? ''));
+      // (for checking a lesson's pictures quickly while building it: `window.__fast = ms` holds each line that long)
+      if (import.meta.env.DEV && (window as unknown as { __fast?: number }).__fast) { await live(sleep((window as unknown as { __fast: number }).__fast)); return; }
       const t0 = performance.now();
       await live(Promise.race([say(id, { important: true, caption: false }), sleep(2500 + line.length * 95)]));
       if (game.settings.voice === false) await live(sleep(Math.max(0, Math.max(1500, line.length * 55) - (performance.now() - t0))));
@@ -167,6 +169,8 @@
   function move(e: PointerEvent) { if (world?.pointer('move', e.clientX, e.clientY)) e.preventDefault(); }
   function up(e: PointerEvent) { world?.pointer('up', e.clientX, e.clientY); }
   function pin(node: HTMLElement, at: () => Vector3 | null) {
+    // (hidden until the scene has put it on its point: the scene shows it on its next frame)
+    node.style.visibility = 'hidden';
     sc?.pin(node, at);
     return { update(n: () => Vector3 | null) { sc?.pin(node, n); }, destroy() { sc?.unpin(node); } };
   }
@@ -177,7 +181,8 @@
     const top = (narrow ? 58 + DOCK_H.narrow : 72 + DOCK_H.wide) / H;
     let bottom = 1 - (narrow ? 116 : 104) / H, right = 0.99;
     // (room for the number keys from the start, so the picture doesn't jump back when a question comes)
-    if (phase === 'play') bottom = 1 - (narrow ? 352 : 228) / H;
+    // (a lesson that never asks for a number keeps room for its choices only, so its picture is bigger)
+    if (phase === 'play') bottom = 1 - (L.keys === false ? (narrow ? 204 : 196) : (narrow ? 352 : 228)) / H;
     else if (phase === 'card' || phase === 'checked') { if (narrow) bottom = 0.5; else right = 0.5; }
     if (narrow && bottomH && phase === 'play') bottom = Math.min(bottom, 1 - (bottomH + 14) / H);
     return { top, bottom, left: 0.01, right };
@@ -211,9 +216,21 @@
     settling = requestAnimationFrame(settle);
     if (!root || phase === 'load') return;
     drawRoute();
-    const fixed = [...root.querySelectorAll(fixedCards())], free = [...root.querySelectorAll<HTMLElement>(freeCards())];
+    const fixed = [...root.querySelectorAll(fixedCards())];
+    // (a card whose thing is off the page, or that the scene hasn't put on its point yet, takes no part: when
+    // it comes back it starts in the clear again, as a new card does)
+    const free = [...root.querySelectorAll<HTMLElement>(freeCards())].filter(el => {
+      const shown = (el.closest<HTMLElement>('.pin')?.style.visibility ?? '') !== 'hidden';
+      if (!shown) { delete el.dataset.nx; delete el.dataset.ny; el.style.translate = ''; }
+      return shown;
+    });
     const nudged = free.map(el => ({ x: parseFloat(el.dataset.nx ?? '0'), y: parseFloat(el.dataset.ny ?? '0') }));
-    const box = (el: Element, give: number, n = { x: 0, y: 0 }): Card => { const r = el.getBoundingClientRect(); return { x: r.x - n.x, y: r.y - n.y, w: r.width, h: r.height, give }; };
+    // (a card's full size round its middle, not its size this frame: a card pops in from half size, and
+    // spaced by that it overlapped its neighbours until it had grown)
+    const box = (el: Element, give: number, n = { x: 0, y: 0 }): Card => {
+      const r = el.getBoundingClientRect(), h = el as HTMLElement, w = Math.max(r.width, h.offsetWidth || 0), t = Math.max(r.height, h.offsetHeight || 0);
+      return { x: r.x + r.width / 2 - w / 2 - n.x, y: r.y + r.height / 2 - t / 2 - n.y, w, h: t, give };
+    };
     const cards = [...fixed.map(el => box(el, 0)), ...free.map((el, i) => box(el, giveOf(el), nudged[i]))];
     const moves = separate(cards, { w: innerWidth, h: innerHeight }).slice(fixed.length);
     free.forEach((el, i) => {
@@ -242,6 +259,9 @@
       if (import.meta.env.DEV) void import('../../../dev/labelOverlap').then(m => { (window as unknown as { __labels: unknown }).__labels = m.labelOverlaps; });
       s.show(CLEAR, true); s.fit(wd.bounds()); wd.refit();
       wd.onChange = () => { pins = wd.pins; };
+      // (a short word the world wants heard as something happens: a count word as a cookie is touched. It never
+      // changes the words on screen, and never cuts into a line the narrator is saying)
+      wd.onWord = id => { void say(id, { caption: false }); };
       s.setView(viewFor());
       sc = s; world = wd;
       s.shot('wide');
@@ -283,7 +303,7 @@
     {#each showing as p (p.id)}
       <div class="pin" use:pin={pinOf(p.id)}>
         {#if p.kind === 'edge'}<span class="edge t-{p.c}">{p.text}</span>
-        {:else if p.kind === 'tick'}<span class="tick t-{p.c}">{p.text}</span>
+        {:else if p.kind === 'tick'}<span class="tick t-{p.c}" class:big={p.big}>{p.text}</span>
         {:else if p.kind === 'count'}<span class="count">{p.text}</span>
         {:else if p.kind === 'sum'}<div class="sum"><div class="row1">{#each p.parts ?? [] as q, i}<b class="t-{q.c ?? 'ink'}" style:animation-delay="{i * 0.12}s">{q.t}</b>{/each}</div>{#if p.under}<div class="row2">{#each p.under as u, i}{#if i}<i>{i === p.under.length - 1 ? '=' : '×'}</i>{/if}<span class="u{i}">{u}</span>{/each}</div>{/if}</div>
         {:else if fracOf(p.text)}{@const f = fracOf(p.text)!}<span class="word frac" aria-label={p.text}><b>{f[0]}</b><i></i><b>{f[1]}</b></span>
@@ -390,6 +410,7 @@
   .t-a { color: #1f6fd1; } .t-b { color: #d63c7c; } .t-c { color: #c47c00; } .t-ink { color: #2a1f45; }
   .edge { font: 700 clamp(28px, 4.2vh, 40px)/1 var(--font-ui); background: #fff; min-width: 1.2em; text-align: center; padding: 3px 9px 4px; border-radius: 14px; box-shadow: 0 0 0 3px currentColor, 0 6px 14px rgba(60, 30, 10, .4); animation: pop .35s cubic-bezier(.3, 1.6, .5, 1) both; }
   .tick { font: 700 20px/1 var(--font-ui); background: #fff; padding: 2px 8px; border-radius: 10px; box-shadow: 0 3px 8px rgba(80, 40, 10, .3); animation: pop .25s cubic-bezier(.3, 1.6, .5, 1) both; }
+  .tick.big { font-size: 27px; padding: 3px 10px 4px; border-radius: 13px; min-width: 1.15em; text-align: center; }
   .count { font: 700 clamp(34px, 5.4vh, 54px)/1 var(--font-ui); color: #3a2400; background: linear-gradient(#fffaf0, #fff0c8); padding: 4px 18px; border-radius: 18px; box-shadow: 0 0 0 3px #ffd75e, 0 10px 20px rgba(90, 50, 0, .3); }
   .frac { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; }
   .frac i { display: block; align-self: stretch; height: 3px; margin: 3px -2px; border-radius: 2px; background: currentColor; }
@@ -444,7 +465,7 @@
   .kbd { background: rgba(255, 255, 255, .25); border-color: rgba(255, 255, 255, .4); color: inherit; font-size: 11px; height: 22px; }
   .fix { display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .choices { display: flex; gap: 14px; }
-  .choice { min-width: 130px; height: 84px; padding: 0 18px; border: 0; border-radius: 24px; cursor: pointer; font: 600 28px var(--font-ui); color: var(--ink); background: linear-gradient(#fff, #fff4dc); box-shadow: 0 0 0 4px #ffd75e, 0 7px 0 #e0a51c, 0 14px 24px -8px rgba(90, 50, 0, .5); transition: transform .1s; }
+  .choice { min-width: 130px; min-height: 84px; padding: 6px 18px; line-height: 1.12; border: 0; border-radius: 24px; cursor: pointer; font: 600 28px var(--font-ui); color: var(--ink); background: linear-gradient(#fff, #fff4dc); box-shadow: 0 0 0 4px #ffd75e, 0 7px 0 #e0a51c, 0 14px 24px -8px rgba(90, 50, 0, .5); transition: transform .1s; }
   .choice:hover { transform: translateY(-3px); }
   .choice:active { transform: translateY(3px); }
   .turn { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(1000px, 100%); }
@@ -484,11 +505,15 @@
   .narrow .pill { font-size: 15px; padding: 10px 16px; text-align: center; white-space: normal; }
   .narrow .go { font-size: 18px; padding: 12px 20px; }
   .narrow .kbd { display: none; }
-  .narrow .choice { min-width: 92px; height: 70px; font-size: 22px; }
+  .narrow .choice { min-width: 92px; min-height: 70px; padding: 8px 12px; font-size: 21px; flex: 0 1 auto; }
+  .narrow .choices { max-width: 100%; }
   .narrow .choice.fracbtn { height: 92px; }
   .narrow .choices { gap: 10px; }
   .narrow .ask { font-size: 21px; padding: 6px 8px 6px 12px; gap: 8px; white-space: nowrap; }
   .narrow .tick { font-size: 15px; }
+  .narrow .tick.big { font-size: 21px; padding: 2px 8px 3px; }
+  /* a thought never runs off a phone's screen: it wraps */
+  .narrow .thought { white-space: normal; width: max-content; max-width: 64vw; text-align: center; font-size: 19px; line-height: 1.15; padding: 7px 13px; }
   .narrow .word { font-size: 15px; }
   .narrow .row1 { font-size: 30px; }
   .narrow .mybet { left: 8px; top: 124px; translate: none; padding: 4px 12px 6px; }

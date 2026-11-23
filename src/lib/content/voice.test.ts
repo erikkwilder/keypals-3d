@@ -15,8 +15,11 @@ describe('Learn lines, written for the ear', () => {
     }
     expect(bad).toEqual([]);
   });
-  it('lines stay short: one or two ideas', () => {
-    for (const l of LEARN_LINES) expect((l.said ?? l.text).split(/\s+/).length, l.id).toBeLessThanOrEqual(36);
+  // (40 words, the same ceiling as the lesson rules' "a paragraph" check in math/beats/rules.ts. It was 36 here,
+  // and lines were being shaved to fit it, a word at a time, which is how explanations turn into slogans. A line
+  // over the ceiling is two lines: split it, never squeeze it)
+  it('a line is one to three sentences: over 40 words it is split in two, never squeezed', () => {
+    for (const l of LEARN_LINES) expect((l.said ?? l.text).split(/\s+/).length, l.id).toBeLessThanOrEqual(40);
   });
   it('each buddy line is in every buddy voice, and every buddy has a voice', () => {
     const ids = new Set(BUDDY_LINES.map(l => l.id));

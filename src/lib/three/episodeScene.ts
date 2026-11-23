@@ -1322,7 +1322,9 @@ export class EpisodeScene implements Controller {
     for (const [el, at] of this.pins) {
       const p = at();
       const s = p ? this.toScreen(p) : null;
-      if (!s) { el.style.visibility = 'hidden'; continue; }
+      // (a word whose thing is off the page isn't shown: while the camera moves to a new picture, the page's
+      // card layout would pull every such card back onto the page, where they pile up at its edge)
+      if (!s || s.x < -8 || s.x > innerWidth + 8 || s.y > innerHeight + 8 || s.y < -160) { el.style.visibility = 'hidden'; continue; }
       el.style.visibility = '';
       // (kept below the top bar, so a bubble by a tall friend never hides under it)
       el.style.transform = `translate(${s.x.toFixed(1)}px, ${Math.min(innerHeight - 30, Math.max(110, s.y)).toFixed(1)}px)`;

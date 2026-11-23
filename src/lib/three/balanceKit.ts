@@ -215,10 +215,10 @@ export class BalanceKit implements EquationWorld {
     const keep = this.pins.filter(p => p.kind === 'sum' || p.id.startsWith('why'));
     const out: Pin[] = [...keep];
     const bags = this.items.filter(o => o.kind === 'bag' && o.where !== 'gone');
-    bags.forEach((b, k) => out.push({ id: `tag${k}`, text: (b.g.userData.tag as string | undefined) ?? 'x', kind: 'tick', c: 'b', at: () => b.pos.clone().add(new THREE.Vector3(0, BH * 0.45 * this.s, BR * 1.05 * this.s)) }));
+    bags.forEach((b, k) => out.push({ id: `tag${k}`, text: (b.g.userData.tag as string | undefined) ?? 'x', kind: 'tick', big: true, c: 'b', at: () => b.pos.clone().add(new THREE.Vector3(0, BH * 0.45 * this.s, BR * 1.05 * this.s)) }));
     const count = (id: string, where: Where, c: Pin['c'], at: () => THREE.Vector3, hide0 = true) => {
       const n = this.of(where).filter(o => o.grp < 0).length;
-      if (n || !hide0) out.push({ id, text: String(n), kind: 'tick', c, at });
+      if (n || !hide0) out.push({ id, text: String(n), kind: 'tick', big: true, c, at });
     };
     if (!this.parts) count('loose', 'L', 'a', () => this.at(MID - ARM, PAN_Y + PR + 6, this.panH(0)));
     // (the other side's count shows 0 while the bags are still there, but not on a balance that stands empty)
@@ -226,10 +226,10 @@ export class BalanceKit implements EquationWorld {
     if (!this.parts) count('right', 'R', 'c', () => this.at(MID + ARM, PAN_Y + PR + 6, this.panH(1)), empty || this.filling);
     count('pileL', 'pileL', 'ink', () => this.at(MID - ARM + 92, PILE_Y - 10, 8));
     count('pileR', 'pileR', 'ink', () => this.at(MID + ARM + 92, PILE_Y - 10, 8));
-    if (this.swapN) for (let i = 0; i < this.e.p; i++) out.push({ id: `swap${i}`, text: String(this.swapN), kind: 'tick', c: 'b', at: () => this.spot({ ...this.of('swap')[0], i, slot: 0, where: 'swap' } as Item).add(new THREE.Vector3(0, (Math.ceil(Math.min(this.swapN, MOST) / 4) * WH + 22) * this.s, 0)) });
+    if (this.swapN) for (let i = 0; i < this.e.p; i++) out.push({ id: `swap${i}`, text: String(this.swapN), kind: 'tick', big: true, c: 'b', at: () => this.spot({ ...this.of('swap')[0], i, slot: 0, where: 'swap' } as Item).add(new THREE.Vector3(0, (Math.ceil(Math.min(this.swapN, MOST) / 4) * WH + 22) * this.s, 0)) });
     if (this.parts) for (let gi = 0; gi < this.parts; gi++) {
       const n = this.items.filter(o => o.where === 'R' && o.grp === gi).length;
-      if (n) out.push({ id: `pile${gi}`, text: String(n), kind: 'tick', c: 'c', at: () => this.spot({ where: 'R', grp: gi, slot: 0, kind: 'weight' } as Item).add(new THREE.Vector3(0, (Math.ceil(n / 4) * WH + 20) * this.s, 0)) });
+      if (n) out.push({ id: `pile${gi}`, text: String(n), kind: 'tick', big: true, c: 'c', at: () => this.spot({ where: 'R', grp: gi, slot: 0, kind: 'weight' } as Item).add(new THREE.Vector3(0, (Math.ceil(n / 4) * WH + 20) * this.s, 0)) });
     }
     this.pins = out;
   }

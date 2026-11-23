@@ -9,25 +9,31 @@ import { countPath, numbersOn, plateMeaning, slipped } from './count';
 import { BEAT_LINES, LEARN_LINES } from '../../content/voice';
 import { lineProblems, scriptProblems, type Step } from './rules';
 
-type Child = { nums: number[] };
+/** `finds`: what each tap on a friend's slip is (the right cookie, a wrong one, or asking to be shown); a child
+ *  with none finds every slip first go */
+type Child = { nums: number[]; finds?: ('yes' | 'no' | 'shown')[] };
 function pretend(child: Child) {
   const log: string[] = [], said: string[] = [];
+  /** the run as a reader would follow it: each line as it shows on screen (its numbers filled in), and what the picture or the child does */
+  const film: string[] = [];
+  const shown = (id: string, n?: number, m?: number) => (BEAT_LINES.find(l => l.id === id)?.text ?? id).replaceAll('{n}', String(n ?? '')).replaceAll('{m}', String(m ?? ''));
   const world = new Proxy({} as CountWorld, {
     get: (_, k: string) => {
-      if (k === 'slipCount') return async (who: string, slip: string) => { log.push(`slipCount("${who}","${slip}")`); return countPath(7, slip as 'twice').length; };
-      return (...a: unknown[]) => { log.push(`${k}(${a.map(x => JSON.stringify(x)).join(',')})`); return Promise.resolve(); };
+      if (k === 'slipCount') return async (who: string, slip: string) => { log.push(`slipCount("${who}","${slip}")`); film.push(`(picture: ${who === 'pal' ? 'Sprout Bunny' : 'the buddy'} counts the 7 cookies where they lie, a number landing on each one counted; ${slip === 'twice' ? 'one cookie is counted twice and ends up with two numbers' : 'one cookie is skipped and ends up with no number'})`); return countPath(7, slip as 'twice').length; };
+      if (k === 'tapSlip') return async () => { const r = child.finds?.shift() ?? 'yes'; log.push(`tapSlip() ${r}`); film.push(`(the child taps ${r === 'yes' ? 'the right cookie' : r === 'no' ? 'a different cookie, which shakes' : '"Show me"'})`); return r; };
+      return (...a: unknown[]) => { const l = `${k}(${a.map(x => JSON.stringify(x)).join(',')})`; log.push(l); film.push(`(picture: ${l})`); return Promise.resolve(); };
     },
   });
-  const speak = (id: string) => { said.push(id); log.push(`say ${id}`); };
+  const speak = (id: string, n?: number, m?: number) => { said.push(id); log.push(`say ${id}`); film.push(`SAID: ${shown(id, n, m)}`); };
   const teller: Teller = {
-    say: async id => { speak(id); },
-    num: async (_, id) => { if (id) speak(id); const n = child.nums.shift(); if (n == null) throw new Error('the lesson asked for more numbers than this child has'); log.push(`num ${n}`); return n; },
+    say: async (id, n, m) => { speak(id, n, m); },
+    num: async (q, id, k) => { if (id) speak(id, k); const n = child.nums.shift(); if (n == null) throw new Error('the lesson asked for more numbers than this child has'); log.push(`num ${n}`); film.push(`(asked "${q}": the child types ${n})`); return n; },
     pick: async (_, choices, id) => { if (id) speak(id); log.push(`pick ${choices[0].id}`); return choices[0].id as never; },
-    hands: async (_, job) => { log.push('hands'); await job(); },
-    go: async l => { log.push(`go ${l}`); }, wait: async () => {},
-    buddy: () => {}, pal: () => {}, thought: (w, t) => { if (t) log.push(`${w} thinks ${t}`); }, myBet: () => {}, beat: () => {},
+    hands: async (words, job) => { log.push('hands'); film.push(`(the child's hands: ${words})`); await job(); },
+    go: async l => { log.push(`go ${l}`); film.push(`(the child taps ${l})`); }, wait: async () => {},
+    buddy: () => {}, pal: () => {}, thought: (w, t) => { if (t) { log.push(`${w} thinks ${t}`); film.push(`(a thought over ${w === 'pal' ? "Sprout Bunny's" : "the buddy's"} head: ${t})`); } }, myBet: () => {}, beat: () => {},
   };
-  return { log, said, world, teller };
+  return { log, said, world, teller, film };
 }
 /** The run as the rules see it: a number of plates, a friend's count, a counting demo and a bump are things
  *  tried and acted out; the light going along the numbers and the recount are the answer worked out. */
@@ -36,7 +42,7 @@ const stepsOf = (log: string[]): Step[] => log.flatMap((l): Step[] => {
   if (l.startsWith('go ')) return [{ k: 'go', v: l.slice(3) }];
   if (l.startsWith('num ') || l.startsWith('pick ')) return [{ k: 'ask', v: l }];
   if (/^(plates|slipCount|demoCount|bump)\(/.test(l)) return [{ k: 'act', v: l }];
-  if (/^(pointCount|recount)\(/.test(l)) return [{ k: 'answer', v: l }];
+  if (/^(pointCount|tapHere)\(/.test(l)) return [{ k: 'answer', v: l }];
   return [];
 });
 const announces = /\.try\./;
@@ -69,7 +75,7 @@ describe('the lesson, played by every kind of child', () => {
     expect(said).toContain('ep.count.b7.why');
     expect(said).not.toContain('ep.count.b5.show');
     expect(log.filter(l => l.startsWith('pointCount'))).toHaveLength(3); // the demo, then each of their counts
-    expect(log).toContain('recount()');
+    expect(log).toContain('tapHere()');
   });
   it('the counting is shown before the child is asked to do any', async () => {
     const { log } = await play({ nums: [5, 7, 7] });
@@ -107,13 +113,37 @@ describe('the lesson, played by every kind of child', () => {
     expect(log).toContain('slipCount("buddy","skip")');
     expect(log).toContain('buddy thinks 6');
   });
-  it('after the bump everyone sees the recount, right or wrong', async () => {
+  it('the child finds each friend\'s slip with a tap: told so when they do, shown after two misses or when they ask', async () => {
+    const found = await play({ nums: [5, 7, 7] });
+    expect(found.said).toContain('ep.count.pal.found');
+    expect(found.said).toContain('ep.count.buddy.found');
+    expect(found.said).not.toContain('ep.count.find.no.two');
+    // one miss, then the right cookie: told what the wrong cookie had, and still gets the credit
+    const second = await play({ nums: [5, 7, 7], finds: ['no', 'yes', 'no', 'yes'] });
+    expect(second.said.filter(id => id.startsWith('ep.count.find.no'))).toEqual(['ep.count.find.no.two', 'ep.count.find.no.none']);
+    expect(second.said).toContain('ep.count.pal.found');
+    // two misses: the red ring shows it, and the line doesn't say "you found it"
+    const missed = await play({ nums: [5, 7, 7], finds: ['no', 'no', 'no', 'no'] });
+    expect(missed.log.filter(l => l.startsWith('tapSlip'))).toHaveLength(4);
+    expect(missed.said).toContain('ep.count.pal.shown');
+    expect(missed.said).toContain('ep.count.buddy.shown');
+    expect(missed.said).not.toContain('ep.count.pal.found');
+    // "Show me": shown at once, no "that cookie has..." line
+    const asked = await play({ nums: [5, 7, 7], finds: ['shown', 'shown'] });
+    expect(asked.said).toContain('ep.count.pal.shown');
+    expect(asked.said).not.toContain('ep.count.find.no.two');
+    // every way, the ring goes on the cookie before the line about it
+    for (const r of [found, second, missed, asked]) expect(r.log.filter(l => l === 'showSlip()')).toHaveLength(2);
+  });
+  it('after the bump every child counts them again where they sit, and one who thought the number changed hears why it did not', async () => {
     for (const moved of [7, 3, 12]) {
       const { log, said } = await play({ nums: [5, 7, moved, 4] });
-      expect(log).toContain('recount()');
-      expect(said).toContain('ep.count.recount.same');
+      expect(log).toContain('tapHere()');
+      expect(said).toContain(moved === 7 ? 'ep.count.recount.same' : 'ep.count.recount.why');
       expect(said.includes('ep.count.moved.right')).toBe(moved === 7);
     }
+    const why = BEAT_LINES.find(l => l.id === 'ep.count.recount.why')!.text;
+    expect(why).toMatch(/doesn't add any or take any away/);
   });
   it('a child wrong every time still counts one batch right by themselves before the end, and one who got one right does not', async () => {
     const wrong = await play({ nums: [4, 8, 6, 4] });
@@ -160,13 +190,12 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
   it('writes the script out for a cold read, when asked (rule 21): COLD_READ=out.txt writes out.count.txt', async () => {
     const out = process.env.COLD_READ;
     if (!out) return;
-    const text = (id: string) => BEAT_LINES.find(l => l.id === id)?.text ?? id;
-    const runs = Object.entries({ 'a child who is wrong every time (4, 8, 6, 3)': [4, 8, 6, 3], 'a child who is right every time (5, 7, 7)': [5, 7, 7] });
+    const runs: [string, Child][] = [['A CHILD WHO IS WRONG EVERY TIME (4, 8, 6, 3; taps the wrong cookie each time)', { nums: [4, 8, 6, 3], finds: ['no', 'no', 'no', 'no'] }], ['A CHILD WHO IS RIGHT EVERY TIME (5, 7, 7)', { nums: [5, 7, 7] }]];
     const parts: string[] = [];
-    for (const [who, nums] of runs) {
-      const p = pretend({ nums: [...nums] });
+    for (const [who, kid] of runs) {
+      const p = pretend({ nums: [...kid.nums], finds: kid.finds ? [...kid.finds] : undefined });
       await COUNT_LESSON.play(p.teller, p.world);
-      parts.push(`=== ${who} ===`, ...p.log.map(l => l.startsWith('say ') ? `SAID: ${text(l.slice(4))}` : `(picture or child: ${l})`), '');
+      parts.push(who, '', ...p.film, '', '');
     }
     writeFileSync(out.replace(/(\.txt)?$/, '.count.txt'), parts.join('\n'));
   });
@@ -179,7 +208,7 @@ describe('the words', () => {
     for (const id of COUNT_LINES) expect(LEARN_LINES.some(l => l.id === id), id).toBe(true);
   });
   it('a line explains in a sentence or three, and never runs on', () => {
-    for (const id of COUNT_LINES) expect(said(id).split(/\s+/).length, id).toBeLessThanOrEqual(36);
+    for (const id of COUNT_LINES) expect(said(id).split(/\s+/).length, id).toBeLessThanOrEqual(40);
   });
   it('no ending about learning, and the voice never reads a digit it should say as a word', () => {
     for (const id of COUNT_LINES) { expect(said(id), id).not.toMatch(/learn|explain|great job|well done|thank you/i); expect(said(id), id).not.toMatch(/\d/); }

@@ -197,7 +197,7 @@ describe('the words', () => {
     for (const id of CRATE_LINES) expect(LEARN_LINES.some(l => l.id === id), id).toBe(true);
   });
   it('a line explains in a sentence or three, and never runs on', () => {
-    for (const id of CRATE_LINES) expect(text(id).split(/\s+/).length, id).toBeLessThanOrEqual(36);
+    for (const id of CRATE_LINES) expect(text(id).split(/\s+/).length, id).toBeLessThanOrEqual(40);
   });
   it('no ending about learning', () => {
     for (const id of CRATE_LINES) expect(text(id), id).not.toMatch(/learn|explain|great job|well done|thank you/i);

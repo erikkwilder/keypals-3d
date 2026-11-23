@@ -13,8 +13,9 @@ import { loadTexture } from './assets';
 import type { EpisodeScene } from './episodeScene';
 import type { Pin } from '../math/beats/types';
 import type { CountWorld } from '../math/beats/countLesson';
-import { countPath, numbersOn, slipped, type Slip } from '../math/beats/count';
+import { countPath, slipped, type Slip } from '../math/beats/count';
 import { bSfx } from '../math/beats/sounds';
+import { countWord } from '../content/voice';
 
 const TY = 0.48;
 const MID_X = 300;
@@ -78,6 +79,8 @@ export class CountKit implements CountWorld {
   readonly root = new THREE.Group();
   pins: Pin[] = [];
   onChange: (() => void) | null = null;
+  /** a count word to be heard as a cookie is counted (the page sets it) */
+  onWord: ((id: string) => void) | null = null;
   private now = 0;
   private s = 0.0032;
   /** the layout, chosen once by the screen's shape */
@@ -88,7 +91,11 @@ export class CountKit implements CountWorld {
   private marks: THREE.Mesh[] = [];
   private moves = new Map<THREE.Object3D, Move>();
   private counted = 0;
-  private job: { done: () => void } | null = null;
+  /** what the child's taps do now: count a cookie and move it to the front, count it where it sits, or find
+   *  the cookie a friend's count went wrong on */
+  private job: { kind: 'count' | 'here'; done: () => void } | { kind: 'slip'; done: (r: 'yes' | 'no' | 'shown') => void } | null = null;
+  /** the cookie a friend's count went wrong on (touched twice, or never), until the numbers are cleared */
+  private odd: Cookie | null = null;
   private auto = 0;
   private shakeUntil = 0;
   /** after the bump: where each cookie sits in the ring on the tray (they go back there after plates) */
@@ -186,7 +193,7 @@ export class CountKit implements CountWorld {
   private unmark() { for (const m of this.marks) m.removeFromParent(); this.marks = []; }
   private numPin(c: Cookie, n: number, second = false) {
     const i = this.cookies.indexOf(c);
-    this.pin({ id: `n${i}${second ? 'b' : ''}`, text: String(n), kind: 'tick', at: () => this.labelAt(c, second) });
+    this.pin({ id: `n${i}${second ? 'b' : ''}`, text: String(n), kind: 'tick', big: true, at: () => this.labelAt(c, second) });
   }
   /** where a cookie's number stands: on top of it; on the tray a little outward from the batch's middle (see
    *  LBL_OUT); a second number on the same cookie stands on top of the first, so both read as this cookie's */
@@ -247,28 +254,53 @@ export class CountKit implements CountWorld {
     this.go(c.g, this.rowAt(c.num - 1, this.cookies.length), 0.45, { arc: 0.1, done: () => bSfx.clack() });
     this.numPin(c, c.num);
     bSfx.tick(Math.min(8, c.num));
+    this.onWord?.(countWord(c.num));
+  }
+  /** one cookie counted where it sits (after the bump): its number stands on it, and it stays put */
+  private countHere(c: Cookie) {
+    c.num = ++this.counted;
+    this.numPin(c, c.num);
+    this.markOn([c.g]);
+    bSfx.tick(Math.min(8, c.num));
+    this.onWord?.(countWord(c.num));
   }
   async demoCount() {
     for (const c of this.cookies) { if (c.num) continue; this.countOne(c); await this.wait(900); }
     await this.wait(300);
   }
-  tapCount() {
+  private tapJob(kind: 'count' | 'here') {
     return new Promise<void>(res => {
-      this.job = { done: () => { this.job = null; clearInterval(this.auto); this.changed(); setTimeout(res, 500); } };
+      this.job = { kind, done: () => { this.job = null; clearInterval(this.auto); this.changed(); setTimeout(res, 500); } };
       this.changed();
     });
   }
+  tapCount() { return this.tapJob('count'); }
+  tapHere() { return this.tapJob('here'); }
+  tapSlip() {
+    return new Promise<'yes' | 'no' | 'shown'>(res => {
+      this.unmark();
+      this.job = { kind: 'slip', done: r => { this.job = null; this.changed(); setTimeout(() => res(r), 350); } };
+      this.changed();
+    });
+  }
+  async showSlip() {
+    this.markOn(this.odd ? [this.odd.g] : [], true);
+    if (this.odd) this.odd.shakeUntil = this.now + 0.6;
+    await this.wait(500);
+  }
   finish() {
-    if (!this.job) return;
+    const j = this.job;
+    if (!j) return;
+    if (j.kind === 'slip') { j.done('shown'); return; }
     clearInterval(this.auto);
     this.auto = setInterval(() => {
       const c = this.cookies.find(x => !x.num);
-      if (c) this.countOne(c);
-      if (!this.cookies.some(x => !x.num)) this.job?.done();
-    }, 420) as unknown as number;
+      if (c) { if (j.kind === 'here') this.countHere(c); else this.countOne(c); }
+      if (!this.cookies.some(x => !x.num)) j.done();
+    }, 620) as unknown as number;
   }
   async slipCount(who: 'buddy' | 'pal', slip: Slip) {
-    const n = this.cookies.length, path = countPath(n, slip), on = numbersOn(path, n);
+    const n = this.cookies.length, path = countPath(n, slip);
     const seen = new Set<number>();
     for (let k = 0; k < path.length; k++) {
       const c = this.cookies[path[k]];
@@ -281,14 +313,15 @@ export class CountKit implements CountWorld {
       bSfx.tick(Math.min(8, k + 1));
       await this.wait(560);
     }
+    // (which cookie it went wrong on is for the child to find: tapSlip. Nothing rings it yet)
     const odd = slipped(path, n);
-    this.markOn(odd >= 0 ? [this.cookies[odd].g] : [], true);
-    if (odd >= 0 && on[odd].length === 0) this.cookies[odd].shakeUntil = this.now + 0.8;
+    this.odd = odd >= 0 ? this.cookies[odd] : null;
+    this.unmark();
     await this.wait(500);
     return path.length;
   }
   async clearNumbers() {
-    this.unmark(); this.lean.to = null;
+    this.unmark(); this.lean.to = null; this.odd = null;
     this.unpin(p => /^n\d/.test(p.id));
     for (const c of this.cookies) c.num = 0;
     this.counted = 0;
@@ -378,18 +411,6 @@ export class CountKit implements CountWorld {
     for (let k = 0; k <= 720; k++) { const t = Math.PI / 2 + (k / 720) * Math.PI * 2, p: [number, number] = [Math.cos(t) * a, Math.sin(t) * b]; len += Math.hypot(p[0] - prev[0], p[1] - prev[1]); pts.push([p[0], p[1], len]); prev = p; }
     return Array.from({ length: n }, (_, i) => { const want = (i / n) * len, q = pts.find(p => p[2] >= want) ?? pts[0]; return [q[0], q[1]]; });
   }
-  async recount() {
-    const n = this.cookies.length, start = Math.min(3, n - 1);
-    for (let k = 0; k < n; k++) {
-      const c = this.cookies[(start + k) % n];
-      c.num = k + 1;
-      this.numPin(c, c.num);
-      this.markOn([c.g]);
-      bSfx.tick(Math.min(8, c.num));
-      await this.wait(650);
-    }
-    this.counted = n;
-  }
   async party() {
     this.unmark(); this.unpin(() => true);
     const cs = this.inOrder();
@@ -408,15 +429,27 @@ export class CountKit implements CountWorld {
     let best: Cookie | null = null, bestD = Math.max(64, innerWidth * 0.05);
     for (const c of this.cookies) { const p = this.screenOf(this.topOf(c)), d = Math.hypot(p.x - x, p.y - y); if (d < bestD) { best = c; bestD = d; } }
     if (!best) return false;
+    const j = this.job;
+    if (j.kind === 'slip') {
+      // (the right one answers; another one shakes, and the narrator says what that cookie has)
+      if (best === this.odd) { bSfx.thunk(); j.done('yes'); } else { best.shakeUntil = this.now + 0.5; bSfx.tick(0); j.done('no'); }
+      return true;
+    }
     if (best.num) { best.shakeUntil = this.now + 0.5; bSfx.tick(0); return true; }
-    this.countOne(best);
-    if (!this.cookies.some(c => !c.num)) this.job.done();
+    if (j.kind === 'here') this.countHere(best); else this.countOne(best);
+    if (!this.cookies.some(c => !c.num)) j.done();
     this.changed();
     return true;
   }
-  private next() { return this.job ? this.cookies.find(c => !c.num) ?? null : null; }
-  tryPoint() { const c = this.next(); return c ? this.topOf(c) : null; }
-  handPoint() { const c = this.next(); return c ? this.topOf(c).add(new THREE.Vector3(0, -0.03 + Math.sin(this.now * 5) * 0.012, 0)) : null; }
+  /** where the finger's hint rests: the next cookie to count; while the child looks for a friend's slip, the
+   *  middle of the tray (it shows where to tap, never which cookie) */
+  private next() { return this.job && this.job.kind !== 'slip' ? this.cookies.find(c => !c.num) ?? null : null; }
+  private trayMid() { return this.P(MID_X, this.L.trayY).add(new THREE.Vector3(0, 0.03, 0)); }
+  tryPoint() { if (this.job?.kind === 'slip') return this.trayMid(); const c = this.next(); return c ? this.topOf(c) : null; }
+  handPoint() {
+    if (this.job?.kind === 'slip') return this.trayMid().add(new THREE.Vector3(0, Math.sin(this.now * 5) * 0.012, 0));
+    const c = this.next(); return c ? this.topOf(c).add(new THREE.Vector3(0, -0.03 + Math.sin(this.now * 5) * 0.012, 0)) : null;
+  }
   dragPath() { return null; }
 
   update(dt: number, t: number) {

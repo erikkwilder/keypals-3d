@@ -5,9 +5,11 @@
 // no plate or a plate left empty. Young children learn more from being shown first than from guessing
 // (notes for Layers of Cubes: the problem-first gain reverses below grade 6), so the narrator counts the
 // first cookies, and only then does the child count with their own taps, each tapped cookie moving over
-// with its number. Sprout Bunny and the buddy each count a mixed-up batch with a slip children really
-// make (one cookie touched twice, one missed), and the numbers on the cookies show it. Then the cookies
-// get bumped into a ring: are there still as many? Reading is kept to numbers; the narrator says the rest.
+// with its number, and the number is heard as it lands. Sprout Bunny and the buddy each count a mixed-up
+// batch with a slip children really make (one cookie touched twice, one missed), and the child finds the
+// cookie it happened to with a tap: watching two counts and being told what went wrong was fifty seconds
+// with nothing to do. Then the cookies get bumped round the tray: are there still as many? The child
+// counts them again where they sit, starting anywhere. Reading is kept to numbers; the narrator says the rest.
 // docs/lesson-rules.md holds the rules for every lesson; rules.ts checks the ones a test can.
 import type { BeatLesson, Notes, Teller, World } from './types';
 import type { EpisodeScene } from '../../three/episodeScene';
@@ -27,6 +29,13 @@ export interface CountWorld extends World {
   finish(): void;
   /** a friend counts the cookies where they lie, with a slip; resolves with the number it got */
   slipCount(who: 'buddy' | 'pal', slip: Slip): Promise<number>;
+  /** the child taps the cookie the friend's count went wrong on: 'yes' for that one, 'no' for another (it
+   *  shakes), 'shown' when they asked to be shown */
+  tapSlip(): Promise<'yes' | 'no' | 'shown'>;
+  /** a red ring on the cookie the count went wrong on */
+  showSlip(): Promise<void>;
+  /** the child counts the cookies where they sit: each tapped cookie gets the next number and stays put */
+  tapHere(): Promise<void>;
   /** the numbers come off the cookies */
   clearNumbers(): Promise<void>;
   /** a light goes along the counted cookies, one number at a time, and stays on the last */
@@ -37,8 +46,6 @@ export interface CountWorld extends World {
   platesOff(): Promise<void>;
   /** the table is bumped: the cookies slide into a ring, and their numbers are gone */
   bump(): Promise<void>;
-  /** the narrator counts the ring again, starting from another cookie */
-  recount(): Promise<void>;
   /** the cookies on their plates go off to the party */
   party(): Promise<void>;
 }
@@ -47,8 +54,9 @@ const DEMO = 3, MINE = 5, MIXED = 7, NEXT_DAY = 6, EXTRA = 4;
 type Batch = 'b4' | 'b5' | 'b6' | 'b7';
 /** the words a run of the lesson can say, all of them */
 export const COUNT_LINES = ['intro', 'need', 'try.demo', 'demo.last', 'turn', 'how', 'try.you', 'right', 'few', 'over', 'try.zero', 'zero',
-  'b5.why', 'b5.show', 'try.b5', 'fit', 'mixed', 'try.pal', 'pal.twice', 'try.buddy', 'buddy.skip', 'move', 'how2', 'b7.why', 'b7.show', 'try.b7',
-  'try.bump', 'moved', 'moved.right', 'try.recount', 'recount.same', 'try.party', 'off', 'check', 'b6.why', 'b6.show', 'try.b6',
+  'b5.why', 'b5.show', 'try.b5', 'fit', 'mixed', 'try.pal', 'pal.find', 'pal.found', 'pal.shown', 'try.buddy', 'buddy.find', 'buddy.found', 'buddy.shown',
+  'find.no.two', 'find.no.none', 'move', 'how2', 'b7.why', 'b7.show', 'try.b7',
+  'try.bump', 'moved', 'moved.right', 'try.recount', 'recount.same', 'recount.why', 'try.party', 'off', 'check', 'b6.why', 'b6.show', 'try.b6',
   'extra', 'b4.why', 'b4.show', 'try.b4'].map(k => `ep.count.${k}`);
 
 /** The child's number of plates: say whose it is, act it out, say what it showed. True when it fits. */
@@ -98,12 +106,30 @@ async function howMany(t: Teller, w: CountWorld, cookies: number, b: Batch, line
   return n;
 }
 
+/** A friend's count went wrong on one cookie, and the child finds which: a tap that can be wrong (the cookie
+ *  shakes and the narrator says what that cookie has). Two misses, or "Show me", and the red ring shows it.
+ *  Either way the next line says what happened to that cookie and why the friend's number can't be right. */
+async function findSlip(t: Teller, w: CountWorld, who: 'pal' | 'buddy') {
+  const words = who === 'pal' ? 'Tap the cookie with two numbers' : 'Tap the cookie with no number';
+  const tap = { got: 'no' as 'yes' | 'no' | 'shown' };
+  for (let miss = 0; miss < 2; miss++) {
+    await t.hands(words, async () => { tap.got = await w.tapSlip(); }, () => w.finish());
+    if (tap.got !== 'no') break;
+    await t.say(who === 'pal' ? 'ep.count.find.no.two' : 'ep.count.find.no.none');
+  }
+  await w.showSlip();
+  if (tap.got === 'yes') { t.buddy('nod'); t.pal('happy'); }
+  await t.say(`ep.count.${who}.${tap.got === 'yes' ? 'found' : 'shown'}`);
+}
+
 async function play(t: Teller, w: CountWorld): Promise<Notes> {
   // why the number matters (a moment first, so the picture has settled before anything happens)
   t.beat(0);
   await t.wait(700);
+  // (the cookies come in as they're named, not after: the words and the picture together)
+  const tray = w.trayIn(DEMO);
   await t.say('ep.count.intro');
-  await w.trayIn(DEMO);
+  await tray;
   t.pal('hop');
   await t.say('ep.count.need');
 
@@ -128,29 +154,30 @@ async function play(t: Teller, w: CountWorld): Promise<Notes> {
   const first = await howMany(t, w, MINE, 'b5', 'ep.count.how');
   await w.trayOut();
 
-  // mixed up: Sprout Bunny touches one twice, the buddy misses one, and the numbers on the cookies show it
+  // mixed up: Sprout Bunny touches one twice, the buddy misses one, and the child finds each slip on the cookies
   t.beat(3);
   await w.trayIn(MIXED, { mixed: true });
   await t.say('ep.count.mixed');
   await t.say('ep.count.try.pal');
   t.pal('act');
   t.thought('pal', String(await w.slipCount('pal', 'twice')));
-  t.pal('sad');
-  await t.say('ep.count.pal.twice');
+  await t.say('ep.count.pal.find');
+  await findSlip(t, w, 'pal');
   t.thought('pal', null);
   await w.clearNumbers();
   await t.say('ep.count.try.buddy');
   t.buddy('point');
   t.thought('buddy', String(await w.slipCount('buddy', 'skip')));
-  t.buddy('shrug');
-  await t.say('ep.count.buddy.skip');
+  await t.say('ep.count.buddy.find');
+  await findSlip(t, w, 'buddy');
   t.thought('buddy', null);
   await w.clearNumbers();
   await t.say('ep.count.move');
   await t.hands('Tap each cookie', () => w.tapCount(), () => w.finish());
   const second = await howMany(t, w, MIXED, 'b7', 'ep.count.how2');
 
-  // bumped into a ring: still as many? Then counted again from another cookie, to check
+  // bumped round the tray: still as many? Then the child counts them again where they sit, starting anywhere.
+  // A child who thought the number had changed hears why it hasn't (it was only said to the child who was right)
   t.beat(4);
   await t.say('ep.count.try.bump');
   await w.bump();
@@ -158,8 +185,8 @@ async function play(t: Teller, w: CountWorld): Promise<Notes> {
   if (moved === MIXED) { t.buddy('clap'); t.pal('happy'); await t.say('ep.count.moved.right'); }
   else { t.myBet(String(moved)); await platesTest(t, w, moved, MIXED); t.myBet(null); await w.platesOff(); }
   await t.say('ep.count.try.recount');
-  await w.recount();
-  await t.say('ep.count.recount.same');
+  await t.hands('Tap each cookie to count it', () => w.tapHere(), () => w.finish());
+  await t.say(moved === MIXED ? 'ep.count.recount.same' : 'ep.count.recount.why');
   await t.go('Next');
 
   // a child who hasn't yet got one right by themselves counts a small new batch on their own (rule 12a)

@@ -45,7 +45,7 @@ export function lineProblems(lines: Line[]): string[] {
     // rule 18: no shared closing lines
     if (CLOSERS.some(c => c.test(l.text))) bad.push(`rule 18: "${l.text}" is a stock closing line (${l.id})`);
     // the words on screen and the words said are the same line
-    if (l.said && /\{n\}/.test(l.said)) bad.push(`rule 7: the voice can't say {n} (${l.id})`);
+    if (l.said && /\{[nm]\}/.test(l.said)) bad.push(`rule 7: the voice can't say {n} or {m} (${l.id})`);
   }
   return bad;
 }

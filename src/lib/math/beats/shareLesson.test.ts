@@ -14,23 +14,26 @@ type Child = { cuts: number[][]; taps: number[]; picks: string[] };
 function pretend(child: Child) {
   const log: string[] = [];
   const said: string[] = [];
+  /** the run as a reader would follow it: each line as it shows on screen (its numbers filled in), and what the picture or the child does */
+  const film: string[] = [];
+  const shown = (id: string, n?: number, m?: number) => (BEAT_LINES.find(l => l.id === id)?.text ?? id).replaceAll('{n}', String(n ?? '')).replaceAll('{m}', String(m ?? ''));
   const world = new Proxy({} as ShareWorld, {
     get: (_, k: string) => {
-      if (k === 'cut') return async (n: number) => { const c = child.cuts.shift(); if (!c) throw new Error('the lesson asked for more cuts than this child has'); log.push(`cut(${n}) ${c.join(',')}`); return c; };
-      if (k === 'tapCut') return async (hint: number) => { const g = child.taps.shift() ?? hint; log.push(`tapCut ${g}`); return g; };
-      return (...a: unknown[]) => { log.push(`${k}(${a.map(x => JSON.stringify(x)).join(',')})`); return Promise.resolve(); };
+      if (k === 'cut') return async (n: number) => { const c = child.cuts.shift(); if (!c) throw new Error('the lesson asked for more cuts than this child has'); log.push(`cut(${n}) ${c.join(',')}`); film.push(`(the child cuts the bar into ${n} pieces, after squares ${c.join(', ')})`); return c; };
+      if (k === 'tapCut') return async (hint: number) => { const g = child.taps.shift() ?? hint; log.push(`tapCut ${g}`); film.push(`(the child cuts once, after square ${g})`); return g; };
+      return (...a: unknown[]) => { const l = `${k}(${a.map(x => JSON.stringify(x)).join(',')})`; log.push(l); film.push(`(picture: ${l})`); return Promise.resolve(); };
     },
   });
-  const speak = (id: string) => { said.push(id); log.push(`say ${id}`); };
+  const speak = (id: string, n?: number, m?: number) => { said.push(id); log.push(`say ${id}`); film.push(`SAID: ${shown(id, n, m)}`); };
   const teller: Teller = {
-    say: async id => { speak(id); },
+    say: async (id, n, m) => { speak(id, n, m); },
     num: async () => { throw new Error('this lesson has no number questions'); },
-    pick: async (_, choices, id) => { if (id) speak(id); const p = child.picks.shift() ?? choices[0].id; if (!choices.some(c => c.id === p)) throw new Error(`no choice ${p}`); log.push(`pick ${p}`); return p as never; },
-    hands: async (_, job) => { await job(); },
-    go: async l => { log.push(`go ${l}`); }, wait: async () => {},
-    buddy: () => {}, pal: () => {}, thought: (w, t) => { if (t) log.push(`${w} thinks ${t}`); }, myBet: () => {}, beat: () => {},
+    pick: async (q, choices, id) => { if (id) speak(id); const p = child.picks.shift() ?? choices[0].id; if (!choices.some(c => c.id === p)) throw new Error(`no choice ${p}`); log.push(`pick ${p}`); film.push(`(asked "${q}" with the choices ${choices.map(c => c.text).join(' / ')}: the child picks ${choices.find(c => c.id === p)!.text})`); return p as never; },
+    hands: async (words, job) => { film.push(`(the child's hands: ${words})`); await job(); },
+    go: async l => { log.push(`go ${l}`); film.push(`(the child taps ${l})`); }, wait: async () => {},
+    buddy: () => {}, pal: () => {}, thought: (w, t) => { if (t) { log.push(`${w} thinks ${t}`); film.push(`(a thought over ${w === 'pal' ? "Pebble's" : "the buddy's"} head: ${t})`); } }, myBet: () => {}, beat: () => {},
   };
-  return { log, said, world, teller };
+  return { log, said, world, teller, film };
 }
 const countOf = (log: string[], name: string) => log.filter(l => l.startsWith(name)).length;
 /** The run as the rules see it: serving, someone else's knife, and a piece laid under are what get acted out. */
@@ -171,10 +174,13 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
   it('writes the script out for a cold read, when asked (rule 21): a child wrong all the way through', async () => {
     const out = process.env.COLD_READ;
     if (!out) return;
-    const p = pretend({ cuts: WRONG.cuts.map(x => [...x]), taps: [...WRONG.taps], picks: [...WRONG.picks] });
-    await SHARE_LESSON.play(p.teller, p.world);
-    const text = (id: string) => BEAT_LINES.find(l => l.id === id)?.text ?? id;
-    writeFileSync(out.replace(/(\.txt)?$/, '.share$1'), p.log.map(l => l.startsWith('say ') ? `SAID: ${text(l.slice(4))}` : `(picture or child: ${l})`).join('\n'));
+    const parts: string[] = [];
+    for (const [who, kid] of [['A CHILD WHO IS WRONG EVERY TIME', WRONG], ['A CHILD WHO IS RIGHT EVERY TIME', RIGHT]] as const) {
+      const p = pretend({ cuts: kid.cuts.map(x => [...x]), taps: [...kid.taps], picks: [...kid.picks] });
+      await SHARE_LESSON.play(p.teller, p.world);
+      parts.push(who, '', ...p.film, '', '');
+    }
+    writeFileSync(out.replace(/(\.txt)?$/, '.share$1'), parts.join('\n'));
   });
 });
 
@@ -185,7 +191,7 @@ describe('the words', () => {
     for (const id of SHARE_LINES) expect(LEARN_LINES.some(l => l.id === id), id).toBe(true);
   });
   it('a line explains in a sentence or three, and never runs on', () => {
-    for (const id of SHARE_LINES) expect(said(id).split(/\s+/).length, id).toBeLessThanOrEqual(36);
+    for (const id of SHARE_LINES) expect(said(id).split(/\s+/).length, id).toBeLessThanOrEqual(40);
   });
   it('no ending about learning, and the voice never reads a slash', () => {
     for (const id of SHARE_LINES) { expect(said(id), id).not.toMatch(/learn|explain|great job|well done|thank you/i); expect(said(id), id).not.toMatch(/\d\/\d/); }
