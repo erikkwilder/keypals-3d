@@ -50,9 +50,9 @@ const FIRST: Eq = { p: 2, q: 3, r: 11 }, BUDDY: Eq = { p: 3, q: 6, r: 21 }, ONE_
 const NEXT_DAY: Eq = { p: 2, q: 5, r: 17 };
 
 /** the words a run of the lesson can say, all of them */
-export const EQUATION_LINES = ['intro', 'scale', 'level', 'letter', 'guess', 'try.you', 'try.again', 'heavy', 'light', 'lucky', 'unlucky',
+export const EQUATION_LINES = ['intro', 'scale', 'level', 'letter', 'guess', 'try.you', 'try.again', 'heavy', 'heavy.sum', 'light', 'light.sum', 'lucky', 'unlucky',
   'off.ask', 'try.off', 'off.up', 'off.no', 'other.ask', 'try.other', 'other.yes', 'other.few', 'other.many', 'other.fix',
-  'share.ask', 'try.share', 'share.yes', 'share.few', 'share.many', 'share.how', 'share.done', 'write', 'write.read',
+  'share.idea', 'share.ask', 'try.share', 'share.yes', 'share.few', 'share.many', 'share.how', 'share.done', 'write', 'write.read',
   'b.in', 'b.idea', 'b.ask', 'try.buddy', 'b.no', 'b.yes', 'b.rule', 'b.own', 'try.both', 'b.right', 'b.again', 'b.mid', 'b.piles', 'b.write',
   'together', 'd.in', 'd.right', 'd.again', 'try.d', 'd.mid', 'd.last', 'd.own', 'd.share', 'd.piles',
   'end', 'check', 'check.right', 'check.again', 'check.mid', 'check.piles'].map(k => `ep.eq.${k}`);
@@ -67,6 +67,8 @@ async function test(t: Teller, w: EquationWorld, e: Eq, n: number, right: string
   const { tip } = swapped(e, n);
   if (tip === 0) { t.buddy('cheer'); t.pal('happy'); } else { t.buddy('shrug'); t.pal('sad'); }
   await t.say(tip === 0 ? right : tip > 0 ? 'ep.eq.heavy' : 'ep.eq.light', n);
+  // (and why: what the bags' side now comes to, against the other side's count on screen)
+  if (tip !== 0) await t.say(tip > 0 ? 'ep.eq.heavy.sum' : 'ep.eq.light.sum', e.p * n + e.q);
   await w.swapBack();
   return tip === 0;
 }
@@ -126,6 +128,8 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
 
   // one bag off: how many weights go with it? Their number is acted out, then the 8 is shared into 2 piles
   t.beat(3);
+  // (the halving idea is said before the question, so the question can be answered from what was taught)
+  await t.say('ep.eq.share.idea');
   const half = await t.num('How many weights come off with it?', 'ep.eq.share.ask');
   await t.say('ep.eq.try.share', half);
   await w.share(half);

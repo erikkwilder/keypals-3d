@@ -30,6 +30,6 @@ export function written(e: Eq): { parts: Part[]; why: string }[] {
   return [
     { parts: [{ t: bags, c: 'b' }, { t: '+' }, { t: String(e.q), c: 'a' }, { t: '=' }, { t: String(e.r), c: 'c' }], why: 'the balance at the start' },
     { parts: [{ t: bags, c: 'b' }, { t: '=' }, { t: String(e.r - e.q), c: 'c' }], why: `${e.q} off both sides` },
-    { parts: [{ t: 'x', c: 'b' }, { t: '=' }, { t: String(x), c: 'c' }], why: `each side shared into ${e.p}` },
+    { parts: [{ t: 'x', c: 'b' }, { t: '=' }, { t: String(x), c: 'c' }], why: e.p === 2 ? 'half of each side' : `each side shared into ${e.p}` },
   ];
 }
