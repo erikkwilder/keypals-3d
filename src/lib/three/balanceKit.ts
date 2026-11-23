@@ -16,15 +16,17 @@ import { xOf, type Eq, type Part } from '../math/beats/equation';
 import { bSfx } from '../math/beats/sounds';
 
 /** where things go, in board units: the middle, the pans' row, how far each pan is from the middle */
-const MID = 300, PAN_Y = 170, ARM = 140, PR = 80;
+const MID = 300, PAN_Y = 215, ARM = 140, PR = 80;
 /** heights above the table, in board units: the pivot, the pans' posts, and the most the beam turns */
 const PIVOT = 46, POST = 16, TILT = 0.15;
 /** a weight and a bag */
 const WR = 10, WH = 13, BR = 25, BH = 55;
 /** the piles of weights taken off, in front of each pan; the bags taken off go to the side */
-const PILE_Y = 300, PARK_X = 42;
+const PILE_Y = 335, PARK_X = 42;
 /** the most weights shown in one bag's place (a bigger number says so on its card) */
 const MOST = 12;
+/** on a phone: how much bigger the things on the table are, and how steeply the camera looks down at them */
+const TALL_ZOOM = 1.9, TALL_PITCH = 0.62;
 const smooth = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
 
@@ -65,8 +67,10 @@ export class BalanceKit implements EquationWorld {
     this.root.add(this.scale);
     // (the friends and the corner props keep clear of the balance)
     sc.extraWork = () => [this.scale];
-    // (the camera in close, as for the fraction lessons: at the usual distance a bag was about 25 px across)
-    sc.closeUp();
+    // (the camera in close, as for the fraction lessons: at the usual distance a bag was about 25 px across. On a
+    // phone the friends' heads and the number keys leave a short band, so the things on the table are made bigger
+    // there instead, with the scene's workZoom, and seen less steeply from above)
+    if (innerWidth >= innerHeight) sc.closeUp(); else { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; }
   }
 
   async load() {
@@ -159,7 +163,7 @@ export class BalanceKit implements EquationWorld {
         const cx = MID + (it.where === 'pileR' ? ARM : -ARM), per = 6, cell = 22, k = it.slot % 18, layer = Math.floor(it.slot / 18);
         return this.at(cx + ((k % per) - 2.5) * cell, PILE_Y + Math.floor(k / per) * cell - 22, layer * WH);
       }
-      case 'park': return this.at(PARK_X, 140 + it.i * 58, 0);
+      case 'park': return this.at(PARK_X, PAN_Y - 30 + it.i * 58, 0);
       case 'row': { const n = this.items.filter(o => o.where === 'row').length; return this.at(MID + (it.i - (n - 1) / 2) * 78, PILE_Y - 10, 0); }
       case 'held': return it.pos.clone();
       default: return it.from.clone().add(new THREE.Vector3(0, 120 * this.s, 0));
@@ -203,7 +207,9 @@ export class BalanceKit implements EquationWorld {
       if (n || !hide0) out.push({ id, text: String(n), kind: 'tick', c, at });
     };
     if (!this.parts) count('loose', 'L', 'a', () => this.at(MID - ARM, PAN_Y + PR + 6, this.panH(0)));
-    if (!this.parts) count('right', 'R', 'c', () => this.at(MID + ARM, PAN_Y + PR + 6, this.panH(1)), false);
+    // (the other side's count shows 0 while the bags are still there, but not on a balance that stands empty)
+    const empty = !this.items.some(o => o.where === 'L' || o.where === 'swap');
+    if (!this.parts) count('right', 'R', 'c', () => this.at(MID + ARM, PAN_Y + PR + 6, this.panH(1)), empty);
     count('pileL', 'pileL', 'ink', () => this.at(MID - ARM + 92, PILE_Y - 10, 8));
     count('pileR', 'pileR', 'ink', () => this.at(MID + ARM + 92, PILE_Y - 10, 8));
     if (this.swapN) for (let i = 0; i < this.e.p; i++) out.push({ id: `swap${i}`, text: String(this.swapN), kind: 'tick', c: 'b', at: () => this.spot({ ...this.of('swap')[0], i, slot: 0, where: 'swap' } as Item).add(new THREE.Vector3(0, (Math.ceil(Math.min(this.swapN, MOST) / 4) * WH + 22) * this.s, 0)) });
@@ -319,9 +325,15 @@ export class BalanceKit implements EquationWorld {
   }
   writeSteps(lines: { parts: Part[]; why: string }[]) {
     const n = lines.length;
+    // (one under the other, each with its words under it, over the empty balance. They are spaced in screen
+    // pixels, from the size the player draws a written line at (.row1: 30 px on a narrow screen, else 5.4% of the
+    // height between 34 and 54), so they never overlap at any size)
+    const font = () => innerWidth < 760 ? 30 : Math.min(54, Math.max(34, innerHeight * 0.054));
+    const row = () => font() * 1.1 + 22 + 34;
+    const up = (px: number) => { const a = this.screenOf(this.at(MID, PAN_Y + 30, 0)), b = this.screenOf(this.at(MID, PAN_Y + 30, 100)); return (px * 100) / Math.max(1, a.y - b.y); };
     const out: Pin[] = lines.flatMap((l, k): Pin[] => [
-      { id: `sum${k}`, text: l.parts.map(p => p.t).join(' '), kind: 'sum', parts: l.parts, at: () => this.at(MID - 70, PAN_Y, 40 + (n - 1 - k) * 62) },
-      { id: `why${k}`, text: l.why, kind: 'word', at: () => this.at(MID + 105, PAN_Y, 40 + (n - 1 - k) * 62) },
+      { id: `sum${k}`, text: l.parts.map(p => p.t).join(' '), kind: 'sum', parts: l.parts, at: () => this.at(MID, PAN_Y + 30, up(34 + (n - 1 - k) * row())) },
+      { id: `why${k}`, text: l.why, kind: 'word', at: () => this.at(MID, PAN_Y + 30, up(16 + (n - 1 - k) * row())) },
     ]);
     this.pins = [...this.pins.filter(p => p.kind !== 'sum' && !p.id.startsWith('why')), ...out];
     this.onChange?.();
@@ -446,6 +458,7 @@ export class BalanceKit implements EquationWorld {
   }
 
   dispose() {
+    this.sc.workZoom = 1; this.sc.tallPitch = null;
     for (const it of this.items) it.g.removeFromParent();
     this.items = [];
     this.root.removeFromParent();
