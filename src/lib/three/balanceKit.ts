@@ -65,6 +65,8 @@ export class BalanceKit implements EquationWorld {
     this.root.add(this.scale);
     // (the friends and the corner props keep clear of the balance)
     sc.extraWork = () => [this.scale];
+    // (the camera in close, as for the fraction lessons: at the usual distance a bag was about 25 px across)
+    sc.closeUp();
   }
 
   async load() {
@@ -318,8 +320,8 @@ export class BalanceKit implements EquationWorld {
   writeSteps(lines: { parts: Part[]; why: string }[]) {
     const n = lines.length;
     const out: Pin[] = lines.flatMap((l, k): Pin[] => [
-      { id: `sum${k}`, text: l.parts.map(p => p.t).join(' '), kind: 'sum', parts: l.parts, at: () => this.at(MID - 40, PAN_Y - 70, 175 + (n - 1 - k) * 48) },
-      { id: `why${k}`, text: l.why, kind: 'word', at: () => this.at(MID + 120, PAN_Y - 70, 175 + (n - 1 - k) * 48) },
+      { id: `sum${k}`, text: l.parts.map(p => p.t).join(' '), kind: 'sum', parts: l.parts, at: () => this.at(MID - 70, PAN_Y, 40 + (n - 1 - k) * 62) },
+      { id: `why${k}`, text: l.why, kind: 'word', at: () => this.at(MID + 105, PAN_Y, 40 + (n - 1 - k) * 62) },
     ]);
     this.pins = [...this.pins.filter(p => p.kind !== 'sum' && !p.id.startsWith('why')), ...out];
     this.onChange?.();

@@ -139,13 +139,13 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   }
   await t.go('Next');
 
-  // only now is it written, one line for each moment of the balance
+  // only now is it written, one line for each moment of the balance (over the empty balance, so it can be read)
+  await w.scaleOut();
   w.writeSteps(written(FIRST));
   await t.say('ep.eq.write');
   await t.say('ep.eq.write.read');
   await t.go('Next');
   w.clearSteps();
-  await w.scaleOut();
 
   // the buddy's way: share the bags but keep the loose weights. The child says first if it will work
   t.beat(4);
@@ -176,11 +176,11 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
     if (await test(t, w, { ...BUDDY, q: 0, r: BUDDY.r - BUDDY.q }, n)) { ownB = true; t.myBet(null); await t.say('ep.eq.b.right'); await t.go('Next'); break; }
     if (miss >= 1) { t.myBet(null); await t.say('ep.eq.b.together'); await w.shareOut(BUDDY.p); await t.say('ep.eq.b.piles'); await t.go('Next'); break; }
   }
+  await w.scaleOut();
   w.writeSteps(written(BUDDY));
   await t.say('ep.eq.b.write');
   await t.go('Next');
   w.clearSteps();
-  await w.scaleOut();
 
   // on their own: no hands, the balance only tests the answer
   t.beat(6);

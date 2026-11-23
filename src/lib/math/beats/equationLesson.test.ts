@@ -125,6 +125,9 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
   it('every line can stand up to the words rules', () => {
     expect(lineProblems(EQ_LINES)).toEqual([]);
   });
+  it('a line fills in the child\'s number once at most (the player fills only the first {n})', () => {
+    for (const l of EQ_LINES) expect((l.text.match(/\{n\}/g) ?? []).length, l.id).toBeLessThanOrEqual(1);
+  });
   it('writes the script out for a cold read, when asked (rule 21)', async () => {
     const out = process.env.COLD_READ;
     if (!out) return;
