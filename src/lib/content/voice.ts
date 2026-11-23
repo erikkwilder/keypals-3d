@@ -724,6 +724,75 @@ export const ALGEBRA_EPISODE_LINES: Line[] = [
   ep('ep.alg-ineq.card', 'You won the More Than card! An open dot leaves the number out. A filled dot counts it too.'),
 ];
 
+// Mystery Bags (math/beats/equationLesson.ts), the beat lesson that rebuilt Two Steps (alg-two-step). Kept
+// out of BEAT_LINES so the other beat lessons' lists don't change; LEARN_LINES takes them in.
+export const EQ_LINES: Line[] = [
+  ep('ep.eq.intro', "This is the Comet Cat. It filled some bags with star sand, the same amount in each. It needs to write how heavy one bag is on the bags' tags."),
+  ep('ep.eq.scale', "To find out, the Comet Cat puts two bags and 3 loose weights on one side of a balance. Watch the other side as weights go on, one at a time."),
+  ep('ep.eq.level', "With 11 weights it hangs level. Level means both sides weigh the same, so the two bags and the 3 loose weights together weigh as much as 11 weights."),
+  ep('ep.eq.letter', "The Comet Cat wrote x on each bag. x stands for how many weights one bag weighs: a number we don't know yet. Both bags say x because they weigh the same."),
+  ep('ep.eq.guess', "What do you think one bag weighs, counted in weights? Make a guess. Any guess can be tested on the balance."),
+  ep('ep.eq.try.you', "Let's test {n}. Each bag comes off, and {n} weights go in its place. If one bag really weighs {n}, it will still hang level.", "Let's test your number. Each bag comes off, and that many weights go in its place. If one bag really weighs that much, it will still hang level."),
+  ep('ep.eq.heavy', "With {n} in place of each bag, the bags' side went down, so it was heavier than the other side. One bag must weigh less than {n}.", "With your number in place of each bag, the bags' side went down, so it was heavier than the other side. One bag must weigh less than that."),
+  ep('ep.eq.light', "With {n} in place of each bag, the bags' side went up, so it was lighter than the other side. One bag must weigh more than {n}.", "With your number in place of each bag, the bags' side went up, so it was lighter than the other side. One bag must weigh more than that."),
+  ep('ep.eq.right', "With {n} in place of each bag, it stayed level. So one bag weighs the same as {n} weights.", "With your number in place of each bag, it stayed level. So one bag weighs the same as that many weights."),
+  ep('ep.eq.lucky', "You found it: 4 and 4 and 3 make 11. Now let's work it out without guessing, so you could find it even when the numbers are hard to guess."),
+  ep('ep.eq.unlucky', "Guessing can take a lot of tries, so let's work it out instead, one step at a time, by taking things off the balance."),
+  ep('ep.eq.off.why', "We want a bag on its own, so we can see what it balances. First the 3 loose weights have to come off the bags' side."),
+  ep('ep.eq.off.ask', "What do you think will happen if the 3 loose weights come off the bags' side, and nothing comes off the other side?"),
+  ep('ep.eq.try.off', "Let's see. Drag the 3 loose weights off the bags' side, and watch which way the balance goes."),
+  ep('ep.eq.off.up', "You thought the bags' side would go up, and it did. Your hands took 3 weights off it and nothing off the other side, so the bags' side is lighter now."),
+  ep('ep.eq.off.no', "The bags' side went up. Your hands took 3 weights off it and nothing off the other side, so the bags' side is lighter now."),
+  ep('ep.eq.other.ask', "The two sides weighed the same before. How many weights must come off the other side to make it level again?"),
+  ep('ep.eq.try.other', "Let's take your {n} off the other side.", "Let's take your number off the other side."),
+  ep('ep.eq.other.yes', "Level again. Both sides lost 3 weights, so they still weigh the same. Now the two bags on their own balance 8 weights."),
+  ep('ep.eq.other.few', "Your {n} wasn't enough: the other side is still heavier, so it stays down. The bags' side lost 3, so the other side has to lose 3 too.", "Your number wasn't enough: the other side is still heavier, so it stays down. The bags' side lost 3, so the other side has to lose 3 too."),
+  ep('ep.eq.other.many', "Your {n} was too many: now the other side is lighter, so it went up. The bags' side lost 3, so the other side has to lose 3 too.", "Your number was too many: now the other side is lighter, so it went up. The bags' side lost 3, so the other side has to lose 3 too."),
+  ep('ep.eq.other.fix', "With 3 off the other side, it's level again, because both sides lost the same. Now the two bags on their own balance 8 weights."),
+  ep('ep.eq.share.ask', "Now one of the two bags comes off. How many weights must come off the other side with it, so the balance stays level?"),
+  ep('ep.eq.try.share', "Let's take one bag off, and your {n} weights off the other side.", "Let's take one bag off, and your number of weights off the other side."),
+  ep('ep.eq.share.yes', "It stayed level with 4. The two bags weigh the same, so one bag is half of the bags' side, and half of the 8 weights is 4."),
+  ep('ep.eq.share.few', "With {n} off, the other side went down, so it's still heavier than one bag. One bag weighs more than {n} weights.", "With your number off, the other side went down, so it's still heavier than one bag. One bag weighs more than that many weights."),
+  ep('ep.eq.share.many', "With {n} off, the other side went up, so it's lighter than one bag now. One bag weighs less than {n} weights.", "With your number off, the other side went up, so it's lighter than one bag now. One bag weighs less than that many weights."),
+  ep('ep.eq.share.how', "Let's put them back. Here's a way to be sure: the two bags weigh the same, so the 8 weights are shared into 2 equal piles, one for each bag."),
+  ep('ep.eq.share.done', "Each pile has 4. One bag and one pile come off together, and it stays level, so one bag weighs 4, and x is 4."),
+  ep('ep.eq.write', "Here is what your hands did, written down. Each line is the balance at one moment, and the = sign means it hangs level.", "Here is what your hands did, written down. Each line is the balance at one moment, and the equals sign means it hangs level."),
+  ep('ep.eq.write.read', "2x means two bags that each weigh x. Taking 3 off both sides gave 2x = 8, and sharing each side into 2 gave x = 4.", "Two x means two bags that each weigh x. Taking three off both sides gave two x equals eight, and sharing each side into two gave x equals four."),
+  ep('ep.eq.b.in', "Here are three new bags, all the same, and 6 loose weights. Together they balance 21 weights. Your buddy has an idea for this one."),
+  ep('ep.eq.b.idea', "Your buddy wants to share first: keep one bag of the three, and a third of the 21 weights, which is 7. But your buddy keeps all 6 loose weights on the bags' side."),
+  ep('ep.eq.b.ask', "Will your buddy's way keep the balance level? Say what you think before we try it."),
+  ep('ep.eq.try.buddy', "Let's try your buddy's idea: two bags come off one side, and 14 weights come off the other, but the 6 loose weights stay."),
+  ep('ep.eq.b.no', "You said it would tip, and it did: the bags' side went down. Your buddy shared the bags into three, but not the 6 loose weights, so that side kept too much."),
+  ep('ep.eq.b.yes', "It tipped: the bags' side went down. Your buddy shared the bags into three, but not the 6 loose weights, so that side kept too much."),
+  ep('ep.eq.b.rule', "Whatever you do to one side, you have to do to everything on it, and to the other side too. Taking the loose weights off first is simpler, because then only bags are left to share."),
+  ep('ep.eq.b.back', "Let's put everything back the way it was, and this time do it in two steps, with your hands."),
+  ep('ep.eq.try.both', "Drag the loose weights off the bags' side, and take the same number off the other side, so the balance stays level."),
+  ep('ep.eq.b.off', "Both sides lost 6 weights, so it's still level. Now the three bags on their own balance 15 weights."),
+  ep('ep.eq.b.ask2', "Three bags that weigh the same balance 15 weights. How heavy is one bag?"),
+  ep('ep.eq.b.right', "Right: 5 and 5 and 5 make 15. Sharing the 15 weights into 3 equal piles gives 5 in each, one pile for each bag."),
+  ep('ep.eq.b.again', "Think of the 15 weights shared into 3 equal piles, one pile for each bag. Each bag weighs as much as one pile. How heavy is one bag?"),
+  ep('ep.eq.b.together', "This one is tricky, so let's share them together: the 15 weights go into 3 equal piles, one pile for each bag."),
+  ep('ep.eq.b.piles', "Each pile has 5. Two bags and two piles come off, and it stays level, so one bag weighs 5, and x is 5."),
+  ep('ep.eq.b.write', "Written down, it's the same two steps as before: 6 off both sides gave 3x = 15, and sharing each side into 3 gave x = 5.", "Written down, it's the same two steps as before: six off both sides gave three x equals fifteen, and sharing each side into three gave x equals five."),
+  ep('ep.eq.c.in', "This one is yours: three bags and 2 loose weights balance 20 weights. Use the same two steps in your head, and the balance will test your answer."),
+  ep('ep.eq.c.ask', "When you know how heavy one bag is, type it in."),
+  ep('ep.eq.c.right', "It stayed level: 6 and 6 and 6 and 2 make 20, the same as the other side. 2 off both sides leaves 18, and 18 shared into 3 is 6."),
+  ep('ep.eq.c.again', "Not level, so one bag isn't that. Try the two steps: what's left when 2 come off both sides, and what is that shared into 3?"),
+  ep('ep.eq.together', "This one is tricky, so let's do it together, one step at a time, starting with the loose weights."),
+  ep('ep.eq.c.mid', "Both sides lost 2 weights, so it's still level. Now the three bags on their own balance 18 weights, and they are shared into 3 equal piles."),
+  ep('ep.eq.c.piles', "Each pile has 6, so one bag weighs as much as one pile: 6 weights. You can check: 6 and 6 and 6 and 2 make 20."),
+  ep('ep.eq.d.in', "One more for you on your own: four bags and 1 loose weight balance 13 weights. How heavy is one bag?"),
+  ep('ep.eq.d.again', "Not level yet. Take the 1 loose weight off both sides in your head first. Then share what's left on the other side into 4."),
+  ep('ep.eq.d.hint', "With 1 off both sides, 12 weights are left for the 4 bags, shared equally. How many weights does each bag get?"),
+  ep('ep.eq.d.right', "Level: 3 and 3 and 3 and 3 and 1 make 13. You worked that one out on your own."),
+  ep('ep.eq.end', "Now the Comet Cat knows how heavy every bag is, so it writes each number on the bag's tag, where the x was. Each x was a number all along."),
+  ep('ep.eq.check', "Two bags and 5 loose weights balance 17 weights. How heavy is one bag? Work it out, and the balance will test your answer."),
+  ep('ep.eq.check.right', "It stayed level: 6 and 6 and 5 make 17. 5 off both sides leaves 12, and 12 shared into 2 is 6."),
+  ep('ep.eq.check.again', "Not level, so one bag isn't that. What's left when 5 come off both sides, and what is that shared into 2?"),
+  ep('ep.eq.check.mid', "Both sides lost 5 weights, so it's still level. Now the two bags on their own balance 12 weights, and they are shared into 2 equal piles."),
+  ep('ep.eq.check.piles', "Each pile has 6, so one bag weighs 6 weights. You can check: 6 and 6 and 5 make 17."),
+];
+
 // ---------- the buddy's own words in the Learn episodes ----------
 // The buddy has a go at each trick and gets it wrong (`<episode>.try`), then thanks you for the fix
 // (`<episode>.fixed`); and a few words for your own turns. Each line is recorded in every buddy voice
@@ -995,6 +1064,6 @@ export const BEAT_LINES: Line[] = [
   ep('ep.crate.check', "Here is a new crate with the lid on. The lines on the outside show it's 4 cubes long, 5 cubes wide and 3 cubes tall. How many cubes will fill it?", "Here is a new crate with the lid on. The lines on the outside show it's four cubes long, five cubes wide and three cubes tall. How many cubes will fill it?"),
 ];
 
-export const LEARN_LINES: Line[] = [...EPISODE_LINES, ...BEAT_LINES, ...MARKET_EPISODE_LINES, ...FRACTION_LINES, ...MEASURE_EPISODE_LINES, ...SHAPE_EPISODE_LINES, ...RATIO_LINES, ...NEGATIVE_LINES, ...DATA_EPISODE_LINES, ...ALGEBRA_EPISODE_LINES, ...BUDDY_LINES];
+export const LEARN_LINES: Line[] = [...EPISODE_LINES, ...BEAT_LINES, ...EQ_LINES, ...MARKET_EPISODE_LINES, ...FRACTION_LINES, ...MEASURE_EPISODE_LINES, ...SHAPE_EPISODE_LINES, ...RATIO_LINES, ...NEGATIVE_LINES, ...DATA_EPISODE_LINES, ...ALGEBRA_EPISODE_LINES, ...BUDDY_LINES];
 
 export const ALL_LINES: Line[] = [...HOME_TUTORIAL, ...LESSON_LINES, ...FINGER_LINES, ...REGION_LINES, ...COACH_BARKS, ...FRIEND_LINES, ...LEARN_LINES];

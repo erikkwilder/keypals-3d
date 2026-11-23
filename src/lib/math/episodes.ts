@@ -287,6 +287,7 @@ export const TRIMS: Record<string, { base: string; steps: number; title?: string
   'pv-big-numbers~hundred': { base: 'pv-big-numbers', steps: 2, title: 'A Hundred Is Ten Tens' },
   // the classic version of a lesson rebuilt as a beat lesson, kept to compare (ui/Episode.svelte)
   'sh-boxes~old': { base: 'sh-boxes', steps: 99 },
+  'alg-two-step~old': { base: 'alg-two-step', steps: 99 },
 };
 /** The episode whose words a (trimmed) episode speaks. */
 export const voiceBase = (id: string) => TRIMS[id]?.base ?? id;
