@@ -157,7 +157,7 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   t.beat(4);
   await w.scaleIn(BUDDY);
   await t.say('ep.eq.b.in');
-  t.thought('buddy', 'Share by 3: 1 bag and 6 = 7'); t.buddy('point');
+  t.thought('buddy', 'Share into 3: 1 bag and 6 = 7'); t.buddy('point');
   await t.say('ep.eq.b.idea');
   const works = await t.pick('Will it stay level?', [{ id: 'yes', text: 'Yes, it stays level' }, { id: 'no', text: 'No, it tips' }], 'ep.eq.b.ask');
   await t.say('ep.eq.try.buddy');
