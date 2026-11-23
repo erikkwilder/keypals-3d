@@ -52,7 +52,7 @@ const BAR = 8, FRIENDS = 4, BUDDY_CUTS = [1, 2, 4], LAST = 6, LAST_FRIENDS = 3, 
 export const SHARE_LINES = ['intro', 'plates', 'cut', 'try.you', 'try.again', 'try.together', 'try.last', 'fair', 'unfair', 'again', 'together', 'half', 'half.yes',
   'eight.half.no', 'eight.quarter', 'eight.quarter.no', 'twelve.half.no', 'twelve.quarter', 'twelve.quarter.no',
   'name', 'name.why', 'try.buddy', 'buddy.ask', 'try.test', 'buddy.yes', 'buddy.no', 'more', 'which', 'try.pal', 'eighth.you', 'eighth.pal', 'eighth.same', 'eighth.why',
-  'last', 'hint', 'call', 'try.name', 'call.squares', 'call.half', 'call.yes', 'eat', 'fair.together', 'check', 'check.call', 'check.call.yes', 'check.call.no'].map(k => `ep.share.${k}`);
+  'last', 'hint', 'call', 'try.name', 'call.squares', 'call.half', 'call.yes', 'eat', 'fair.together', 'quarter.yes', 'check', 'check.call', 'check.call.yes', 'check.call.no'].map(k => `ep.share.${k}`);
 
 /** Which bar's worked answer: the lines carry that bar's own numbers. */
 type Key = 'eight' | 'twelve';
@@ -82,6 +82,7 @@ async function cutAt(t: Teller, w: ShareWorld, words: string, ok: (g: number) =>
 /** Two unfair cuts: say so kindly, then halve and halve again together, each step with its reason. */
 async function together(t: Teller, w: ShareWorld, squares: number, k: Key) {
   await t.say('ep.share.together');
+  await w.join();
   const mid = middle(0, squares)!, half = squares / 2;
   await t.say('ep.share.half');
   await cutAt(t, w, 'Tap the middle of the bar', g => g === mid, mid, `ep.share.${k}.half.no`);
@@ -91,6 +92,8 @@ async function together(t: Teller, w: ShareWorld, squares: number, k: Key) {
   const quarters = [middle(0, mid)!, middle(mid, squares)!];
   const first = await cutAt(t, w, 'Tap the middle of one half', g => quarters.includes(g), quarters[0], `ep.share.${k}.quarter.no`);
   const other = quarters.find(q => q !== first)!;
+  t.buddy('nod');
+  await t.say('ep.share.quarter.yes', squares / FRIENDS);
   await cutAt(t, w, 'Now tap the middle of the other half', g => g === other, other, `ep.share.${k}.quarter.no`);
   await t.say('ep.share.try.together');
   await w.serve();
@@ -104,9 +107,9 @@ async function shareFour(t: Teller, w: ShareWorld, squares: number, k: Key): Pro
     const pieces = await tryCut(t, w, squares, FRIENDS, miss ? 'ep.share.try.again' : 'ep.share.try.you');
     if (!miss) first = pieces;
     if (fair(pieces)) break;
-    await w.join();
     if (miss >= 1) { await together(t, w, squares, k); break; }
     await t.say('ep.share.again', FRIENDS);
+    await w.join();
   }
   return first;
 }
@@ -169,8 +172,8 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   for (let miss = 0; ; miss++) {
     const pieces = await tryCut(t, w, LAST, LAST_FRIENDS, 'ep.share.try.last');
     if (fair(pieces)) break;
-    await w.join();
     await t.say(miss >= 1 ? 'ep.share.hint' : 'ep.share.again', LAST_FRIENDS);
+    await w.join();
   }
   t.beat(6);
   const call = await t.pick('What is each piece called?', [{ id: '3', text: '1/3' }, { id: '6', text: '1/6' }, { id: '2', text: '1/2' }], 'ep.share.call');
