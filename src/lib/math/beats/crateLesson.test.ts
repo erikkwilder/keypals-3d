@@ -193,7 +193,7 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
 describe('the words', () => {
   const text = (id: string) => BEAT_LINES.find(l => l.id === id)?.said ?? '';
   it('every line the lesson uses exists, and nothing else is written for it', () => {
-    expect(BEAT_LINES.map(l => l.id).sort()).toEqual([...CRATE_LINES].sort());
+    expect(BEAT_LINES.filter(l => l.id.startsWith('ep.crate.')).map(l => l.id).sort()).toEqual([...CRATE_LINES].sort());
     for (const id of CRATE_LINES) expect(LEARN_LINES.some(l => l.id === id), id).toBe(true);
   });
   it('a line explains in a sentence or three, and never runs on', () => {

@@ -1,0 +1,362 @@
+// The world of Fair Shares (math/beats/shareLesson.ts): a chocolate bar of squares on the workshop table, a long
+// plate for each friend, and a knife. A tap on the bar brings the knife down on the nearest line between squares,
+// and the pieces part. Serving slides each piece onto its own plate, all starting from the same left edge, so
+// the plates read like fraction strips: a longer piece sticks out further, and its length stands on it.
+// Someone else's bar (the buddy's, Pebble's) comes in darker, so it's never mistaken for the child's.
+// Everything is placed in board units (the episode table's own) and turned into the room every frame, so the
+// picture keeps its shape at any screen size.
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { stage } from './stage';
+import { loadTexture } from './assets';
+import type { EpisodeScene } from './episodeScene';
+import type { Pin } from '../math/beats/types';
+import type { ShareWorld } from '../math/beats/shareLesson';
+import { fairCuts, piecesOf } from '../math/beats/share';
+import { bSfx } from '../math/beats/sounds';
+
+/** where things sit on the board: the bar's row, the first plate's row, the gap between plates, the parting at a cut */
+const BAR_Y = 84, ROW0 = 130, ROW_GAP = 38, PART = 7, CX = 300, COL_X = 340;
+const MILK = 0x9a6542, DARK = 0x5a3524;
+const smooth = (k: number) => k * k * (3 - 2 * k);
+const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
+
+/** a square's place in board units: x, y on the board, and how high off the table */
+type At = { x: number; y: number; up: number };
+type Sq = { m: THREE.Mesh; from: At; to: At; t0: number; dur: number; arc: number; gone?: boolean };
+type Bar = { n: number; sq: number; lines: number[]; squares: Sq[]; mine: boolean; mode: 'bar' | 'rows' | 'column' | 'under'; out?: boolean };
+type Job = { kind: 'cut'; pieces: number; done: (lines: number[]) => void } | { kind: 'tap'; hint: number; done: (line: number) => void };
+type Fly = { m: THREE.Mesh; from: THREE.Vector3; to: () => THREE.Vector3; t0: number; dur: number };
+
+export class ShareKit implements ShareWorld {
+  readonly root = new THREE.Group();
+  pins: Pin[] = [];
+  onChange: (() => void) | null = null;
+  private now = 0;
+  private s = 0.0032;
+  private geo: THREE.BufferGeometry | null = null;
+  private tex: THREE.Texture | null = null;
+  private mats = new Map<number, THREE.Material>();
+  private bar: Bar | null = null;
+  private other: Bar | null = null;
+  private trays: { m: THREE.Mesh; born: number; row: number }[] = [];
+  private trayMat = new THREE.MeshStandardMaterial({ color: 0xf6f1e7, roughness: 0.35, metalness: 0.02 });
+  private knife = new THREE.Group();
+  private knifeAt = { x: CX, y: BAR_Y, t0: -9, seen: -9 };
+  private job: Job | null = null;
+  private flies: Fly[] = [];
+  private ray = new THREE.Raycaster();
+
+  constructor(private sc: EpisodeScene) {
+    sc.root.add(this.root);
+    // (the friends and the corner props keep clear of the table's middle)
+    sc.extraWork = () => [this.root];
+  }
+
+  async load() {
+    this.tex = await loadTexture('learn/frac/choc-top.webp');
+    this.geo = new RoundedBoxGeometry(1, 1, 1, 2, 0.14);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.11, 0.004), new THREE.MeshStandardMaterial({ color: 0xdfe4ea, metalness: 0.85, roughness: 0.2 }));
+    const handle = new THREE.Mesh(new RoundedBoxGeometry(0.02, 0.07, 0.02, 2, 0.006), new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: 0.7 }));
+    blade.position.y = 0.055; handle.position.y = 0.145;
+    this.knife.add(blade, handle);
+    this.knife.visible = false;
+    this.root.add(this.knife);
+  }
+  bounds() { return { x: 70, y: 70, w: 460, h: 230 }; }
+  refit() { const a = this.sc.boardPoint(0, 0), b = this.sc.boardPoint(100, 0); this.s = (b.x - a.x) / 100; }
+
+  private wait(ms: number) { return new Promise<void>(r => setTimeout(r, ms)); }
+  private changed() { this.onChange?.(); }
+  private pin(p: Pin) { this.pins = [...this.pins.filter(x => x.id !== p.id), p]; this.changed(); }
+  private unpin(test: (p: Pin) => boolean) { this.pins = this.pins.filter(p => !test(p)); this.changed(); }
+  private mat(color: number) {
+    let m = this.mats.get(color);
+    if (!m) { m = new THREE.MeshPhysicalMaterial({ color, map: this.tex, roughness: 0.38, clearcoat: 0.5, clearcoatRoughness: 0.3 }); this.mats.set(color, m); }
+    return m;
+  }
+  private world(a: At) { return this.sc.boardPoint(a.x, a.y, a.up); }
+
+  // ---------- where every square of a bar belongs ----------
+  private left(b: Bar) { return CX - (b.n * b.sq) / 2; }
+  private rowY(p: number) { return ROW0 + p * ROW_GAP; }
+  private trayTop() { return 0.006; }
+  private starts(b: Bar) { const ps = piecesOf(b.n, b.lines), out: number[] = []; let at = 0; for (const p of ps) { out.push(at); at += p; } return { ps, out }; }
+  private pieceOf(b: Bar, j: number) { const { out } = this.starts(b); let p = 0; while (p + 1 < out.length && out[p + 1] <= j) p++; return p; }
+  private place(b: Bar, j: number): At {
+    const h = (b.sq * 0.34 * this.s) / 2;
+    if (b.mode === 'bar') {
+      const before = b.lines.filter(g => g <= j).length;
+      return { x: this.left(b) + (j + 0.5) * b.sq + (before - b.lines.length / 2) * PART + (b.out ? 520 : 0), y: BAR_Y, up: h };
+    }
+    const p = this.pieceOf(b, j), k = j - this.starts(b).out[p];
+    if (b.mode === 'under') return p ? { x: this.left(b) + (j + 0.5) * b.sq + 520, y: BAR_Y, up: h } : { x: this.left(b) + (k + 0.5) * b.sq, y: this.rowY(this.trays.length), up: h };
+    const x0 = b.mode === 'column' ? COL_X : this.left(b);
+    return { x: x0 + (k + 0.5) * b.sq + (b.out ? 520 : 0), y: this.rowY(p), up: h + (b.mode === 'rows' && p < this.trays.length ? this.trayTop() : 0) };
+  }
+  /** every square of the bar to its place, each piece a moment after the one before (`stagger` ms) */
+  private relayout(b: Bar, dur = 0.45, stagger = 0, arc = 0) {
+    b.squares.forEach((q, j) => {
+      const cur = this.at(q), to = this.place(b, j), p = this.pieceOf(b, j);
+      q.from = cur; q.to = to; q.t0 = this.now + (p * stagger) / 1000; q.dur = dur; q.arc = arc;
+    });
+  }
+  private at(q: Sq): At {
+    const k = smooth(clamp01((this.now - q.t0) / q.dur));
+    return { x: q.from.x + (q.to.x - q.from.x) * k, y: q.from.y + (q.to.y - q.from.y) * k, up: q.from.up + (q.to.up - q.from.up) * k + Math.sin(Math.PI * k) * q.arc };
+  }
+  private makeBar(n: number, mine: boolean): Bar {
+    const sq = Math.min(30, 300 / n), b: Bar = { n, sq, lines: [], squares: [], mine, mode: 'bar' };
+    for (let j = 0; j < n; j++) {
+      const m = new THREE.Mesh(this.geo!, this.mat(mine ? MILK : DARK));
+      m.castShadow = true; m.receiveShadow = true;
+      this.root.add(m);
+      const to = this.place(b, j), from = { ...to, x: to.x + 520 };
+      b.squares.push({ m, from, to, t0: this.now + j * 0.02, dur: 0.7, arc: 0 });
+    }
+    return b;
+  }
+  private drop(b: Bar | null) { for (const q of b?.squares ?? []) q.m.removeFromParent(); }
+  /** the pieces' places on the screen: the middle of each, a little above it */
+  private pieceTop(b: Bar, p: number, side = 0) {
+    const { ps, out } = this.starts(b), qs = b.squares.slice(out[p], out[p] + ps[p]);
+    const a = this.at(qs[0]), z = this.at(qs[qs.length - 1]);
+    return this.world({ x: side < 0 ? a.x : side > 0 ? z.x : (a.x + z.x) / 2, y: a.y - b.sq * 0.2, up: a.up + b.sq * 0.4 * this.s });
+  }
+  private sizePins(b: Bar, on: boolean) {
+    const tag = b.mine ? 'size' : 'osize';
+    this.unpin(p => p.id.startsWith(`${tag}-`));
+    if (!on) return;
+    piecesOf(b.n, b.lines).forEach((len, p) => this.pin({ id: `${tag}-${p}`, text: `${len} square${len === 1 ? '' : 's'}`, kind: 'tick', c: 'ink', at: () => this.pieceTop(b, p, 1) }));
+  }
+
+  // ---------- the film ----------
+  async barIn(squares: number) {
+    this.pins = []; this.changed();
+    this.drop(this.bar); this.drop(this.other); this.other = null;
+    this.dropTrays();
+    this.bar = this.makeBar(squares, true);
+    bSfx.clack();
+    await this.wait(900);
+    const b = this.bar;
+    this.pin({ id: 'count', text: `${squares} squares`, kind: 'count', at: () => this.world({ x: CX, y: BAR_Y - b.sq * 0.9, up: b.sq * 0.6 * this.s }) });
+  }
+  async plates(n: number) {
+    this.dropTrays();
+    for (let p = 0; p < n; p++) {
+      const b = this.bar!, len = (b.n * b.sq) / 2 + 26;
+      const m = new THREE.Mesh(new RoundedBoxGeometry(1, 1, 1, 2, 0.2), this.trayMat);
+      m.receiveShadow = true;
+      (m.userData as { len?: number }).len = len;
+      this.root.add(m);
+      this.trays.push({ m, born: this.now + p * 0.18, row: p });
+    }
+    bSfx.clack();
+    await this.wait(400 + n * 180);
+  }
+  private dropTrays() { for (const t of this.trays) { t.m.removeFromParent(); t.m.geometry.dispose(); } this.trays = []; }
+
+  cut(pieces: number) {
+    this.unpin(p => p.id === 'count');
+    return new Promise<number[]>(res => { this.job = { kind: 'cut', pieces, done: res }; this.changed(); });
+  }
+  tapCut(hint: number) {
+    this.unpin(p => p.id === 'count');
+    return new Promise<number>(res => { this.job = { kind: 'tap', hint, done: res }; this.changed(); });
+  }
+  /** the knife comes down on line g of a bar, and its pieces part */
+  private chop(b: Bar, g: number) {
+    if (b.lines.includes(g)) return;
+    this.knifeAt = { x: this.left(b) + g * b.sq, y: BAR_Y, t0: this.now, seen: this.now };
+    b.lines = [...b.lines, g].sort((x, y) => x - y);
+    setTimeout(() => { this.relayout(b, 0.22); bSfx.clack(); this.changed(); }, 140);
+  }
+  private cutLine(g: number) {
+    const j = this.job, b = this.bar; if (!j || !b || b.lines.includes(g)) return;
+    this.chop(b, g);
+    if (j.kind === 'tap') { this.job = null; setTimeout(() => { this.sizePins(b, true); j.done(g); }, 420); }
+    else if (b.lines.length >= j.pieces - 1) { const lines = [...b.lines]; this.job = null; setTimeout(() => j.done(lines), 520); }
+    this.changed();
+  }
+  async uncut(line: number) {
+    const b = this.bar!;
+    b.lines = b.lines.filter(g => g !== line);
+    this.relayout(b, 0.35);
+    this.sizePins(b, b.lines.length > 0);
+    await this.wait(450);
+  }
+  async serve() {
+    const b = this.bar!, n = piecesOf(b.n, b.lines).length;
+    b.mode = 'rows';
+    this.sizePins(b, false);
+    this.relayout(b, 0.6, 260, 0.05);
+    await this.wait(n * 260 + 700);
+    this.sizePins(b, true);
+    bSfx.tick(2);
+    await this.wait(400);
+  }
+  async join() {
+    const b = this.bar!;
+    this.sizePins(b, false); this.unpin(p => p.id.startsWith('name-'));
+    b.lines = []; b.mode = 'bar';
+    this.relayout(b, 0.6, 120, 0.05);
+    await this.wait(1100);
+  }
+  label(mine: string | null, other?: string) {
+    this.unpin(p => p.id.startsWith('name-'));
+    if (mine && this.bar) { const b = this.bar; piecesOf(b.n, b.lines).forEach((_, p) => this.pin({ id: `name-m${p}`, text: mine, kind: 'word', at: () => this.pieceTop(b, p, -1) })); }
+    if (other && this.other) { const o = this.other; this.pin({ id: 'name-o0', text: other, kind: 'word', at: () => this.pieceTop(o, 0, -1) }); }
+  }
+  async otherBar(lines: number[]) {
+    this.drop(this.other);
+    const o = (this.other = this.makeBar(this.bar!.n, false));
+    await this.wait(900);
+    for (const g of lines) { this.chop(o, g); await this.wait(380); }
+    await this.wait(300);
+  }
+  async testOther() {
+    const o = this.other!;
+    o.mode = 'column';
+    this.relayout(o, 0.6, 260, 0.05);
+    await this.wait(piecesOf(o.n, o.lines).length * 260 + 700);
+    this.sizePins(o, true);
+    await this.wait(300);
+  }
+  async besides(b: number) {
+    this.drop(this.other);
+    const o = (this.other = this.makeBar(this.bar!.n, false));
+    await this.wait(900);
+    for (const g of fairCuts(o.n, b) ?? []) { this.chop(o, g); await this.wait(Math.max(160, 900 / b)); }
+    await this.wait(300);
+    o.mode = 'under';
+    this.relayout(o, 0.7, 0, 0.05);
+    await this.wait(900);
+    this.sizePins(o, false);
+    const len = o.n / b;
+    this.pin({ id: 'osize-0', text: `${len} square${len === 1 ? '' : 's'}`, kind: 'tick', c: 'ink', at: () => this.pieceTop(o, 0, 1) });
+    for (const q of o.squares.slice(len)) q.gone = true;
+    await this.wait(300);
+  }
+  async clearOther() {
+    const o = this.other; if (!o) return;
+    this.sizePins(o, false); this.unpin(p => p.id === 'name-o0');
+    o.out = true; this.relayout(o, 0.6, 60);
+    await this.wait(800);
+    this.drop(o); if (this.other === o) this.other = null;
+  }
+  async eat() {
+    const b = this.bar!, { ps, out } = this.starts(b);
+    this.pins = []; this.changed();
+    const me = this.sc.me as unknown as { root: THREE.Object3D; height?: number };
+    const mouths = [() => { const p = me.root.getWorldPosition(new THREE.Vector3()); return p.add(new THREE.Vector3(0, (me.height ?? 0.9) * me.root.scale.y * 0.78, 0.06)); }, () => this.sc.pal.mouthAt()];
+    for (let p = 0; p < Math.min(2, ps.length); p++) {
+      if (p === 1) this.sc.palDo('act');
+      for (const q of b.squares.slice(out[p], out[p] + ps[p])) { q.gone = true; this.flies.push({ m: q.m, from: q.m.position.clone(), to: mouths[p], t0: this.now, dur: 0.8 }); }
+      await this.wait(850);
+      bSfx.gulp();
+      if (p === 1) this.sc.palDo('happy'); else this.sc.nod();
+      this.sc.fx.emit({ at: mouths[p](), count: 10, shape: ['spark'], color: [0xc79a6a, 0xffffff], speed: [0.3, 0.7], life: [0.25, 0.5], size: [0.012, 0.03], gravity: 1.2 });
+      await this.wait(500);
+    }
+  }
+  async barOut() {
+    this.pins = []; this.changed();
+    for (const b of [this.bar, this.other]) if (b) { b.out = true; this.relayout(b, 0.7, 40); }
+    await this.wait(900);
+    this.drop(this.bar); this.drop(this.other); this.bar = this.other = null;
+    this.dropTrays();
+  }
+  finish() {
+    const j = this.job, b = this.bar; if (!j || !b) return;
+    if (j.kind === 'tap') { this.cutLine(j.hint); return; }
+    // the fair cuts that are left, or the middle of the longest piece when the cuts so far can't be fair
+    const go = () => {
+      if (this.job !== j) return;
+      const want = (fairCuts(b.n, j.pieces) ?? []).filter(g => !b.lines.includes(g));
+      const fallback = () => { const { ps, out } = this.starts(b); const p = ps.indexOf(Math.max(...ps)); return out[p] + Math.max(1, Math.floor(ps[p] / 2)); };
+      this.cutLine(want.length && b.lines.every(g => (fairCuts(b.n, j.pieces) ?? []).includes(g)) ? want[0] : fallback());
+      if (this.job === j) setTimeout(go, 420);
+    };
+    go();
+  }
+
+  // ---------- the child's hand ----------
+  private screenOf(p: THREE.Vector3) { const v = p.clone().project(stage.camera); return { x: ((v.x + 1) / 2) * innerWidth, y: ((1 - v.y) / 2) * innerHeight }; }
+  /** a tap on the bar: the nearest line between squares (null: not on the bar) */
+  private lineAt(x: number, y: number): number | null {
+    const b = this.bar; if (!b || b.mode !== 'bar') return null;
+    this.ray.setFromCamera(new THREE.Vector2((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1), stage.camera);
+    const top = this.world({ x: CX, y: BAR_Y, up: b.sq * 0.34 * this.s });
+    const hit = this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -top.y), new THREE.Vector3());
+    if (!hit) return null;
+    const o = this.sc.boardPoint(0, 0), ax = this.sc.boardPoint(100, 0), az = this.sc.boardPoint(0, 100);
+    const bx = ((hit.x - o.x) / (ax.x - o.x)) * 100, by = ((hit.z - o.z) / (az.z - o.z)) * 100;
+    if (Math.abs(by - BAR_Y) > b.sq * 1.4) return null;
+    const u = (bx - this.left(b)) / b.sq;
+    if (u < -0.6 || u > b.n + 0.6) return null;
+    return Math.max(1, Math.min(b.n - 1, Math.round(u)));
+  }
+  pointer(kind: 'down' | 'move' | 'up', x: number, y: number): boolean {
+    if (kind !== 'down' || !this.job) return false;
+    const g = this.lineAt(x, y);
+    if (g == null) return false;
+    this.cutLine(g);
+    return true;
+  }
+  /** the finger rests on the bar near its left end: it shows where to tap, never which line */
+  handPoint() {
+    const b = this.bar; if (!this.job || !b) return null;
+    return this.world({ x: this.left(b) + b.sq * 0.5, y: BAR_Y, up: b.sq * 0.5 * this.s + Math.abs(Math.sin(this.now * 3)) * 0.02 });
+  }
+  dragPath() { return null; }
+  tryPoint() { const b = this.bar; return this.job && b ? this.world({ x: this.left(b) + b.sq * 0.5, y: BAR_Y, up: 0 }) : null; }
+
+  update(dt: number, t: number) {
+    this.now = t;
+    const s = this.s;
+    for (const b of [this.bar, this.other]) for (const q of b?.squares ?? []) {
+      if (q.gone && !this.flies.some(f => f.m === q.m)) { q.m.visible = false; continue; }
+      if (this.flies.some(f => f.m === q.m)) continue;
+      const a = this.at(q);
+      q.m.visible = t >= q.t0 - 0.001 || q.from.x === q.to.x;
+      q.m.position.copy(this.world(a));
+      q.m.scale.set(b!.sq * s * 0.94, b!.sq * 0.34 * s, b!.sq * s * 0.94);
+    }
+    // the plates pop in, one after another, each under its row
+    for (const tr of this.trays) {
+      const b = this.bar; if (!b) break;
+      const k = clamp01((t - tr.born) / 0.3), len = (tr.m.userData as { len: number }).len;
+      tr.m.visible = k > 0;
+      tr.m.position.copy(this.world({ x: this.left(b) - 13 + len / 2, y: this.rowY(tr.row), up: 0.002 }));
+      tr.m.scale.set(len * s * smooth(k), 0.008, (ROW_GAP - 6) * s * smooth(k));
+    }
+    // the knife: down and up at the line, then away after a moment
+    const kk = t - this.knifeAt.t0;
+    this.knife.visible = t - this.knifeAt.seen < 1.2;
+    if (this.knife.visible && this.bar) {
+      const p = this.world({ x: this.knifeAt.x, y: this.knifeAt.y, up: 0 });
+      const down = kk < 0.14 ? kk / 0.14 : kk < 0.4 ? 1 - (kk - 0.14) / 0.26 : 0;
+      this.knife.position.set(p.x, p.y + 0.06 - smooth(clamp01(down)) * 0.06, p.z);
+      this.knife.scale.setScalar(s / 0.0032);
+    }
+    // pieces flying to a mouth
+    this.flies = this.flies.filter(f => {
+      const k = clamp01((t - f.t0) / f.dur), to = f.to();
+      f.m.position.lerpVectors(f.from, to, smooth(k)); f.m.position.y += Math.sin(Math.PI * k) * 0.08;
+      f.m.scale.multiplyScalar(k > 0.8 ? 0.85 : 1);
+      if (k >= 1) { f.m.visible = false; return false; }
+      return true;
+    });
+    void dt;
+  }
+
+  dispose() {
+    this.drop(this.bar); this.drop(this.other); this.dropTrays();
+    this.root.removeFromParent();
+    this.geo?.dispose();
+    this.trayMat.dispose();
+    for (const m of this.mats.values()) m.dispose();
+    this.knife.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); (m.material as THREE.Material).dispose(); } });
+    this.sc.extraWork = () => [];
+  }
+}
