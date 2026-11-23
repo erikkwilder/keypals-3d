@@ -143,6 +143,9 @@ async function finishSignIn(env, url, p, base) {
 // ---------- players (save codes) ----------
 /** A player deleted everywhere by a grown-up answers "gone" (410) with when, so a computer that still has
  *  a copy removes it instead of keeping or re-sending it. */
+// no saved copy under that code (never was, or someone stopped saving it online): `missing` tells the game
+// it's this code that's missing, not the whole server, so a computer that still has the player stops sending it
+const missingAnswer = (message) => json({ error: message, missing: true }, 404);
 async function goneAnswer(env, code) {
   const g = await env.DB.prepare('SELECT at FROM gone WHERE code = ?').bind(code).first();
   return g ? json({ code, gone: true, at: g.at, error: 'A grown-up deleted this player.' }, 410) : null;
@@ -199,7 +202,7 @@ async function api(request, env, url, base) {
       // guessing codes is slow: a few dozen tries an hour from one address
       if (await playerLimited(env, request, 'open', 60, code)) return fail(429, 'Too many tries from here. Try again later.');
       const row = await env.DB.prepare('SELECT data, updated FROM players WHERE code = ?').bind(code).first();
-      if (!row) return (await goneAnswer(env, code)) ?? fail(404, "That save code wasn't found. Check the words and number.");
+      if (!row) return (await goneAnswer(env, code)) ?? missingAnswer("That save code wasn't found. Check the words and number.");
       await env.DB.prepare('UPDATE players SET opened = ? WHERE code = ?').bind(Date.now(), code).run();
       return json({ code, profile: JSON.parse(row.data), updated: row.updated });
     }
@@ -209,7 +212,7 @@ async function api(request, env, url, base) {
       if (!body || typeof body.profile !== 'object') return fail(400, 'No player to save.');
       const row = await env.DB.prepare('SELECT updated FROM players WHERE code = ?').bind(code).first();
       // deleted everywhere by a grown-up: an old copy can't bring it back
-      if (!row) return (await goneAnswer(env, code)) ?? fail(404, 'That save code no longer exists.');
+      if (!row) return (await goneAnswer(env, code)) ?? missingAnswer('That save code no longer exists.');
       // always later than the copy it replaces, so the next save's `base` is unique
       const at = Math.max(Number(body.updated) || Date.now(), row.updated + 1);
       const data = JSON.stringify(body.profile);

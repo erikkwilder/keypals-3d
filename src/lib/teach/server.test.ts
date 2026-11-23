@@ -6,6 +6,7 @@ import worker from '../../../deploy/site/worker.js';
 import { newClassCode, newPics, cleanAssignment, PIC_TRIES } from '../../../deploy/site/classes.js';
 import { CLASS_WORDS, cleanStudentName, splitNames, isAlias, PICTURE_COUNT } from '../../../deploy/site/class-rules.js';
 import { TestD1 } from './d1.testutil';
+import { weekKey } from './activity';
 
 type Env = { DB: TestD1; KP_DEV_SIGNIN?: string };
 let env: Env;
@@ -213,6 +214,9 @@ describe('class work and the boards', () => {
     expect(off.goal).toBe(3000);
   });
   it('class against class: a challenge code, averages per student, class names only', async () => {
+    // this week's: a challenge can't be joined once its week is over (it was a fixed date, so the test
+    // started failing a week after it was written)
+    const week = weekKey(Date.now());
     const t1 = await teacher('Ms. Rivera'), t2 = await teacher('Mr. Kim');
     const a = await classWith(t1, 'Ana\nBen', 'Room 12'), b = await classWith(t2, 'Cy\nDee\nEd\nFay', 'Owls');
     const ch = await call('POST', `/teach/classes/${a.id}/challenge`, { week }, { cookie: t1 });
@@ -225,6 +229,21 @@ describe('class work and the boards', () => {
     const view = (await call('GET', `/class/student/${kid}?week=${week}`)).json.classes[0].challenge;
     expect(view.classes.map((x: { name: string; avg: number }) => [x.name, x.avg])).toEqual([['Owls', 80], ['Room 12', 75]]);
     expect(JSON.stringify(view)).not.toMatch(/Ana|Ben|Cy|Dee|Rivera|Kim/);
+  });
+  it('a challenge can still be joined on its last evening in America, and is over the next day', async () => {
+    const t1 = await teacher('Ms. Rivera'), t2 = await teacher('Mr. Kim');
+    const a = await classWith(t1, 'Ana\nBen', 'Room 12'), b = await classWith(t2, 'Cy\nDee', 'Owls'), c = await classWith(t2, 'Ed', 'Bees');
+    const real = Date.now;
+    try {
+      // the week of Monday 2 November; Sunday 8 November, 9 pm in Atlanta, is already Monday 02:00 UTC
+      Date.now = () => Date.parse('2026-11-09T02:00:00Z');
+      const code = (await call('POST', `/teach/classes/${a.id}/challenge`, { week: '2026-11-02' }, { cookie: t1 })).json.challenge.code;
+      expect((await call('POST', `/teach/classes/${b.id}/challenge/join`, { code }, { cookie: t2 })).status).toBe(200);
+      // Monday afternoon (UTC): the week is over everywhere in the Americas
+      Date.now = () => Date.parse('2026-11-09T15:00:00Z');
+      const late = await call('POST', `/teach/classes/${c.id}/challenge/join`, { code }, { cookie: t2 });
+      expect([late.status, late.json.error]).toEqual([400, 'That challenge is over. Make a new one!']);
+    } finally { Date.now = real; }
   });
   it('the family board: players in one grown-up account, this week', async () => {
     const mk = async (name: string) => (await call('POST', '/players', { profile: { name, buddy: 'dino' } })).json.code as string;

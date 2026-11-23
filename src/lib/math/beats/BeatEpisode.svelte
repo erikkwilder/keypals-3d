@@ -261,6 +261,8 @@
     removeEventListener('keydown', onKey, true);
     if (sc) { const s = sc; sc = null; world?.dispose(); world = null; if (stage.current() === ctl) stage.swap(before); s.dispose(); }
   });
+  /** a fraction written on its own ("1/4") is shown the way it's written by hand: one number over the other */
+  const fracOf = (t: string): [string, string] | null => { const m = /^(\d+)\/(\d+)$/.exec(t.trim()); return m ? [m[1], m[2]] : null; };
   const pinOf = (id: string) => () => world?.pins.find(p => p.id === id)?.at() ?? null;
   // (a running count stays out of a number question: it can be the answer)
   const showing = $derived(pins.filter(p => (phase === 'play' || p.kind === 'sum') && !(p.kind === 'count' && ask?.kind === 'num')));
@@ -284,6 +286,7 @@
         {:else if p.kind === 'tick'}<span class="tick t-{p.c}">{p.text}</span>
         {:else if p.kind === 'count'}<span class="count">{p.text}</span>
         {:else if p.kind === 'sum'}<div class="sum"><div class="row1">{#each p.parts ?? [] as q, i}<b class="t-{q.c ?? 'ink'}" style:animation-delay="{i * 0.12}s">{q.t}</b>{/each}</div>{#if p.under}<div class="row2">{#each p.under as u, i}{#if i}<i>{i === p.under.length - 1 ? '=' : '×'}</i>{/if}<span class="u{i}">{u}</span>{/each}</div>{/if}</div>
+        {:else if fracOf(p.text)}{@const f = fracOf(p.text)!}<span class="word frac" aria-label={p.text}><b>{f[0]}</b><i></i><b>{f[1]}</b></span>
         {:else}<span class="word">{p.text}</span>{/if}
       </div>
     {/each}
@@ -320,7 +323,7 @@
     {:else if ask?.kind === 'pick'}
       <div class="fix">
         <span class="pill task">{ask.prompt}</span>
-        <div class="choices">{#each ask.choices as c}<button class="choice" onclick={() => tap(c.id)}>{c.text}</button>{/each}</div>
+        <div class="choices">{#each ask.choices as c}{@const f = fracOf(c.text)}<button class="choice" class:fracbtn={!!f} onclick={() => tap(c.id)} aria-label={c.text}>{#if f}<span class="frac"><b>{f[0]}</b><i></i><b>{f[1]}</b></span>{:else}{c.text}{/if}</button>{/each}</div>
       </div>
     {:else if ask?.kind === 'hands'}
       <div class="row"><span class="pill task">{ask.words}</span>{#if stuck}<button class="btn ghostbtn" onclick={() => { sfx.click(); stuck = false; showMe?.(); }}>Show me</button>{/if}</div>
@@ -388,6 +391,10 @@
   .edge { font: 700 clamp(28px, 4.2vh, 40px)/1 var(--font-ui); background: #fff; min-width: 1.2em; text-align: center; padding: 3px 9px 4px; border-radius: 14px; box-shadow: 0 0 0 3px currentColor, 0 6px 14px rgba(60, 30, 10, .4); animation: pop .35s cubic-bezier(.3, 1.6, .5, 1) both; }
   .tick { font: 700 20px/1 var(--font-ui); background: #fff; padding: 2px 8px; border-radius: 10px; box-shadow: 0 3px 8px rgba(80, 40, 10, .3); animation: pop .25s cubic-bezier(.3, 1.6, .5, 1) both; }
   .count { font: 700 clamp(34px, 5.4vh, 54px)/1 var(--font-ui); color: #3a2400; background: linear-gradient(#fffaf0, #fff0c8); padding: 4px 18px; border-radius: 18px; box-shadow: 0 0 0 3px #ffd75e, 0 10px 20px rgba(90, 50, 0, .3); }
+  .frac { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; }
+  .frac i { display: block; align-self: stretch; height: 3px; margin: 3px -2px; border-radius: 2px; background: currentColor; }
+  .word.frac { padding: 5px 11px 6px; font-size: 21px; }
+  .choice.fracbtn { height: 104px; }
   .word { font: 700 19px/1 var(--font-ui); color: #5a3a14; background: rgba(255, 250, 235, .95); padding: 6px 12px; border-radius: 12px; box-shadow: 0 4px 10px rgba(80, 40, 10, .3); animation: pop .3s both; }
   .thought { transform: translate(-50%, -100%); font: 700 clamp(22px, 3.4vh, 32px)/1 var(--font-ui); color: #2a1f45; background: #fff; padding: 8px 16px; border-radius: 20px; box-shadow: 0 0 0 3px #d9cff0, 0 10px 18px rgba(60, 30, 90, .3); animation: pop .35s cubic-bezier(.3, 1.6, .5, 1) both; }
   .thought::after { content: ''; position: absolute; left: 50%; bottom: -14px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #d9cff0; }
@@ -478,6 +485,7 @@
   .narrow .go { font-size: 18px; padding: 12px 20px; }
   .narrow .kbd { display: none; }
   .narrow .choice { min-width: 92px; height: 70px; font-size: 22px; }
+  .narrow .choice.fracbtn { height: 92px; }
   .narrow .choices { gap: 10px; }
   .narrow .ask { font-size: 21px; padding: 6px 8px 6px 12px; gap: 8px; white-space: nowrap; }
   .narrow .tick { font-size: 15px; }

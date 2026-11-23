@@ -2,6 +2,7 @@
 import type { BeatLesson, World } from './types';
 import { CRATE_LESSON } from './crateLesson';
 import { COUNT_LESSON } from './countLesson';
+import { SHARE_LESSON } from './shareLesson';
 
-export const BEAT_LESSONS: BeatLesson<World>[] = [CRATE_LESSON as unknown as BeatLesson<World>, COUNT_LESSON as unknown as BeatLesson<World>];
+export const BEAT_LESSONS: BeatLesson<World>[] = [CRATE_LESSON as unknown as BeatLesson<World>, COUNT_LESSON as unknown as BeatLesson<World>, SHARE_LESSON as unknown as BeatLesson<World>];
 export const BEAT_LESSON: Record<string, BeatLesson<World>> = Object.fromEntries(BEAT_LESSONS.map(l => [l.id, l]));
