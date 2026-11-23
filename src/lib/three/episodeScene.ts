@@ -146,6 +146,9 @@ export class EpisodeScene implements Controller {
   /** how much bigger than usual a lesson's things are on the table (the counting lesson's cookies on a phone,
    *  where the friends' heads and the number keys leave little room) */
   workZoom = 1;
+  /** how steeply the camera looks down at the work on a wide screen (null: the usual): a lesson with tall things on
+   *  the table sets it to see them in front of the friends (three/balanceKit.ts) */
+  widePitch: number | null = null;
   /** how steeply the work shots look down on a phone, when a lesson wants its own (flat things big across) */
   tallPitch: number | null = null;
   private shapeGeos = new Map<string, ReturnType<typeof shapeGeo>>();
@@ -1578,7 +1581,7 @@ export class EpisodeScene implements Controller {
       pts.push(new THREE.Vector3(head.x - 0.05, head.y + 0.06, head.z), new THREE.Vector3(head.x + 0.18, head.y - 0.3, head.z),
         new THREE.Vector3(this.palAt.x + 0.05, pt, this.palAt.z), new THREE.Vector3(this.palAt.x - 0.18, pt - 0.3, this.palAt.z));
       for (const q of pts.slice(8)) box.expandByPoint(q);
-      pitch = tall ? (this.tallPitch ?? (s === 'board' ? 0.98 : 0.9)) : s === 'board' ? 0.36 : 0.32;
+      pitch = tall ? (this.tallPitch ?? (s === 'board' ? 0.98 : 0.9)) : this.widePitch ?? (s === 'board' ? 0.36 : 0.32);
     }
     // the buddy close, turned toward it, with all of its picture in front (so nothing looms at the camera)
     else if (s === 'buddy') { box.copy(buddy).union(content); pitch = tall ? 0.5 : 0.2; yaw = -0.08; }
