@@ -4,7 +4,7 @@
 // account, this week's stars) and the world board for the Arcade's daily challenge (made-up names only).
 import type { Profile } from '../engine/profile';
 import { newAlias } from './names';
-import type { BoardPrefs, ClassProfile } from './activity';
+import { weekKey, type BoardPrefs, type ClassProfile } from './activity';
 
 export type BoardRow = { name: string; buddy: string | null; right: number; ms: number; me?: boolean };
 
@@ -22,6 +22,12 @@ export function trophy(right: number, goal: number): { fill: number; stage: 0 | 
   const fill = Math.max(0, Math.min(1, right / goal));
   return { fill, stage: fill >= 1 ? 3 : fill >= 0.6 ? 2 : fill >= 0.25 ? 1 : 0, left: Math.max(0, goal - right) };
 }
+/** Is this class challenge still on for whoever is looking? A challenge is for one week (its Monday's date),
+ *  and a week turns over at each person's own midnight on Sunday. So it's on while their week hasn't gone
+ *  past it: all of Sunday evening in Atlanta, and over on Monday morning in London (where the server, which
+ *  waits for the Americas' Sunday to end, still lets last week's code be joined until Monday noon UTC). */
+export const challengeOn = (ch: { week: string } | null | undefined, now = Date.now()): boolean => !!ch && ch.week >= weekKey(now);
+
 /** A weekly goal to suggest for a class: about 100 right answers a student, rounded. */
 export const suggestGoal = (students: number) => Math.max(500, Math.round((students * 100) / 100) * 100);
 

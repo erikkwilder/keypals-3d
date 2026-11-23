@@ -36,7 +36,9 @@ export const CLASS_TABLES = { teachers: 'account', classes: 'id', students: 'id'
 
 const DAY = 86400000;
 /** When a class challenge's week is over: once its Sunday has ended across the Americas too (Monday 12:00 UTC).
- *  A week's key is the child's own Monday, so ending at Monday 00:00 UTC closed it at 7 pm on a Sunday in Atlanta. */
+ *  A week's key is the child's own Monday, so ending at Monday 00:00 UTC closed it at 7 pm on a Sunday in Atlanta.
+ *  This is only how long its code can still be joined. Whether a class "is in a challenge this week already"
+ *  goes by the week itself (below), so a class east of the Atlantic can start the new week's on Monday morning. */
 const GRACE = 12 * 3600000;
 export const weekEnds = week => Date.parse(week) + 7 * DAY + GRACE;
 const newId = (h) => h.randomToken(9);
@@ -471,7 +473,8 @@ export async function classApi(request, env, url, path, h) {
         const body = await h.readBody(request) || {};
         if (!isWeek(body.week)) return h.fail(400, 'Which week?');
         const cur = await challengeOf(env, c.id);
-        if (cur && cur.ends > Date.now()) return h.fail(400, 'This class is in a challenge this week already.');
+        // (by the week asked for, not by the clock: last week's may still be open for the Americas' Sunday)
+        if (cur && cur.week >= body.week) return h.fail(400, 'This class is in a challenge this week already.');
         const id = newId(h), now = Date.now();
         for (let tries = 0; tries < 6; tries++) {
           const code = newClassCode();
@@ -489,7 +492,7 @@ export async function classApi(request, env, url, path, h) {
         if (!ch) return h.fail(404, "That challenge code wasn't found. Check the words and number.");
         if (weekEnds(ch.week) < Date.now()) return h.fail(400, 'That challenge is over. Make a new one!');
         const cur = await challengeOf(env, c.id);
-        if (cur && cur.ends > Date.now()) return h.fail(400, cur.code === ch.code ? 'This class is in that challenge already.' : 'This class is in a challenge this week already.');
+        if (cur && cur.week >= ch.week) return h.fail(400, cur.code === ch.code ? 'This class is in that challenge already.' : 'This class is in a challenge this week already.');
         const n = await DB.prepare('SELECT COUNT(*) AS n FROM challenge_classes WHERE challenge = ?').bind(ch.id).first();
         if ((n?.n ?? 0) >= 8) return h.fail(400, 'That challenge is full (8 classes).');
         await DB.prepare('INSERT INTO challenge_classes (id, challenge, class, joined) VALUES (?, ?, ?, ?)').bind(newId(h), ch.id, c.id, Date.now()).run();

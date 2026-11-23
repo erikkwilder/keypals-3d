@@ -2,7 +2,7 @@
   // The class's boards: the class board (this week's right answers and minutes, first names, only
   // inside the class; on or off), the weekly class goal and its trophy, and class against class.
   import { teach, act, patchClass, makeChallenge, joinChallenge, leaveChallenge, refreshClass } from '../teacher.svelte';
-  import { ranked, suggestGoal } from '../boards';
+  import { ranked, suggestGoal, challengeOn } from '../boards';
   import { showClassCode } from '../names';
   import Trophy from './Trophy.svelte';
   import Critter from '../../ui/Critter.svelte';
@@ -14,8 +14,8 @@
   let goal = $state(teach.current?.class.goal || suggestGoal(teach.current?.students.length ?? 20));
   let joinCode = $state('');
   const ch = $derived(c.challenge);
-  const live = $derived(!!ch && ch.ends > Date.now());
-  // its last day is the week's Sunday (`ends` runs on to Monday noon UTC so the Americas get all of Sunday)
+  const live = $derived(challengeOn(ch));
+  // its last day is the week's Sunday
   const endsText = $derived(ch ? new Date(Date.parse(ch.week) + 6 * 86400000 + 12 * 3600000).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' }) : '');
   const mine = $derived(c.class.id);
   let leaving = $state(false);

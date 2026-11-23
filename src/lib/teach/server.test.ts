@@ -245,6 +245,28 @@ describe('class work and the boards', () => {
       expect([late.status, late.json.error]).toEqual([400, 'That challenge is over. Make a new one!']);
     } finally { Date.now = real; }
   });
+  it('a class can start the new week\'s challenge on Monday morning, while last week\'s can still be joined', async () => {
+    const t1 = await teacher('Ms. Rivera'), t2 = await teacher('Mr. Kim');
+    const a = await classWith(t1, 'Ana\nBen', 'Room 12'), b = await classWith(t2, 'Cy\nDee', 'Owls');
+    const real = Date.now;
+    try {
+      Date.now = () => Date.parse('2026-11-04T12:00:00Z');
+      const old = (await call('POST', `/teach/classes/${a.id}/challenge`, { week: '2026-11-02' }, { cookie: t1 })).json.challenge.code;
+      // the same week again: it's in one already
+      const twice = await call('POST', `/teach/classes/${a.id}/challenge`, { week: '2026-11-02' }, { cookie: t1 });
+      expect([twice.status, twice.json.error]).toEqual([400, 'This class is in a challenge this week already.']);
+      // Monday 9 November, 9 am in London: last week's code is still open (it's Sunday night in Hawaii),
+      // and that must not stop this class making the new week's
+      Date.now = () => Date.parse('2026-11-09T09:00:00Z');
+      const next = await call('POST', `/teach/classes/${a.id}/challenge`, { week: '2026-11-09' }, { cookie: t1 });
+      expect(next.status).toBe(200);
+      expect(next.json.challenge.week).toBe('2026-11-09');
+      expect((await call('POST', `/teach/classes/${b.id}/challenge/join`, { code: old }, { cookie: t2 })).status).toBe(200);
+      // a class in this week's can't go back and join last week's as well
+      const back = await call('POST', `/teach/classes/${a.id}/challenge/join`, { code: old }, { cookie: t1 });
+      expect([back.status, back.json.error]).toEqual([400, 'This class is in a challenge this week already.']);
+    } finally { Date.now = real; }
+  });
   it('the family board: players in one grown-up account, this week', async () => {
     const mk = async (name: string) => (await call('POST', '/players', { profile: { name, buddy: 'dino' } })).json.code as string;
     const a = await mk('Lulu'), b = await mk('Max'), c = await mk('Stranger');
