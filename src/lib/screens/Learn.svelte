@@ -7,6 +7,7 @@
   import { MATH_LESSONS } from '../math/course';
   import { LESSONS } from '../math/learn';
   import { isEpisode } from '../math/episodes';
+  import { BEAT_LESSON } from '../math/beats/lessons';
   import { FRAC_LESSONS } from '../math/fracEpisodes';
   import { SHAPE_LESSONS } from '../math/shapes/episodes';
   import { RATIO_LESSONS } from '../math/ratioEpisodes';
@@ -17,7 +18,8 @@
   import { openWay } from '../nav';
   import Episode from '../math/ui/Episode.svelte';
 
-  const open = $derived(game.learnId && isEpisode(game.learnId) ? game.learnId : null);
+  // (a lesson built only as a beat lesson has no classic episode)
+  const open = $derived(game.learnId && (isEpisode(game.learnId) || BEAT_LESSON[game.learnId]) ? game.learnId : null);
   /** the open episode is just its next-day quick check (a Learn page can open one that way) */
   let checking = $state(game.learnCheck);
   game.learnCheck = false;
