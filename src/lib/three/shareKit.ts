@@ -1,7 +1,8 @@
 // The world of Fair Shares (math/beats/shareLesson.ts): a chocolate bar of squares on the workshop table, a long
 // plate for each friend, and a knife. A tap on the bar brings the knife down on the nearest line between squares,
 // and the pieces part. Serving slides each piece onto its own plate, all starting from the same left edge, so
-// the plates read like fraction strips: a longer piece sticks out further, and its length stands on it.
+// pieces stand up side by side like towers: a longer piece stands taller, and its length stands on it.
+// (Lying in rows they were hard to compare: the camera looks along the table, so depth is squashed.)
 // Someone else's bar (the buddy's, Pebble's) comes in darker, so it's never mistaken for the child's.
 // Everything is placed in board units (the episode table's own) and turned into the room every frame, so the
 // picture keeps its shape at any screen size.
@@ -16,13 +17,13 @@ import { fairCuts, piecesOf } from '../math/beats/share';
 import { bSfx } from '../math/beats/sounds';
 
 /** where things sit on the board: the bar's row, the first plate's row, the gap between plates, the parting at a cut */
-const BAR_Y = 84, ROW0 = 130, ROW_GAP = 38, PART = 7, CX = 300, COL_X = 340;
+const BAR_Y = 100, ROW0 = 190, ROW_GAP = 38, PART = 7, CX = 300, COL_X = 345, PLATE_X = 128, PLATE_GAP = 62, COL_GAP = 42;
 const MILK = 0x9a6542, DARK = 0x5a3524;
 const smooth = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
 
 /** a square's place in board units: x, y on the board, and how high off the table */
-type At = { x: number; y: number; up: number };
+type At = { x: number; y: number; up: number; st?: number };
 type Sq = { m: THREE.Mesh; from: At; to: At; t0: number; dur: number; arc: number; gone?: boolean };
 type Bar = { n: number; sq: number; lines: number[]; squares: Sq[]; mine: boolean; mode: 'bar' | 'rows' | 'column' | 'under'; out?: boolean };
 type Job = { kind: 'cut'; pieces: number; done: (lines: number[]) => void } | { kind: 'tap'; hint: number; done: (line: number) => void };
@@ -89,10 +90,11 @@ export class ShareKit implements ShareWorld {
       const before = b.lines.filter(g => g <= j).length;
       return { x: this.left(b) + (j + 0.5) * b.sq + (before - b.lines.length / 2) * PART + (b.out ? 520 : 0), y: BAR_Y, up: h };
     }
-    const p = this.pieceOf(b, j), k = j - this.starts(b).out[p];
-    if (b.mode === 'under') return p ? { x: this.left(b) + (j + 0.5) * b.sq + 520, y: BAR_Y, up: h } : { x: this.left(b) + (k + 0.5) * b.sq, y: this.rowY(this.trays.length), up: h };
-    const x0 = b.mode === 'column' ? COL_X : this.left(b);
-    return { x: x0 + (k + 0.5) * b.sq + (b.out ? 520 : 0), y: this.rowY(p), up: h + (b.mode === 'rows' && p < this.trays.length ? this.trayTop() : 0) };
+    // standing up: each piece a tower of its squares, on its plate (or on the table to the right)
+    const p = this.pieceOf(b, j), k = j - this.starts(b).out[p], tall = (k + 0.5) * b.sq * this.s + 0.004;
+    if (b.mode === 'under') return p ? { x: this.left(b) + (j + 0.5) * b.sq + 520, y: BAR_Y, up: h } : { x: COL_X, y: ROW0, up: tall, st: 1 };
+    const x = b.mode === 'column' ? COL_X + p * COL_GAP : PLATE_X + p * PLATE_GAP;
+    return { x: x + (b.out ? 520 : 0), y: ROW0, up: tall + (b.mode === 'rows' && p < this.trays.length ? this.trayTop() : 0), st: 1 };
   }
   /** every square of the bar to its place, each piece a moment after the one before (`stagger` ms) */
   private relayout(b: Bar, dur = 0.45, stagger = 0, arc = 0) {
@@ -103,7 +105,8 @@ export class ShareKit implements ShareWorld {
   }
   private at(q: Sq): At {
     const k = smooth(clamp01((this.now - q.t0) / q.dur));
-    return { x: q.from.x + (q.to.x - q.from.x) * k, y: q.from.y + (q.to.y - q.from.y) * k, up: q.from.up + (q.to.up - q.from.up) * k + Math.sin(Math.PI * k) * q.arc };
+    const st = (q.from.st ?? 0) + ((q.to.st ?? 0) - (q.from.st ?? 0)) * k;
+    return { x: q.from.x + (q.to.x - q.from.x) * k, y: q.from.y + (q.to.y - q.from.y) * k, up: q.from.up + (q.to.up - q.from.up) * k + Math.sin(Math.PI * k) * q.arc, st };
   }
   private makeBar(n: number, mine: boolean): Bar {
     const sq = Math.min(30, 300 / n), b: Bar = { n, sq, lines: [], squares: [], mine, mode: 'bar' };
@@ -121,6 +124,7 @@ export class ShareKit implements ShareWorld {
   private pieceTop(b: Bar, p: number, side = 0) {
     const { ps, out } = this.starts(b), qs = b.squares.slice(out[p], out[p] + ps[p]);
     const a = this.at(qs[0]), z = this.at(qs[qs.length - 1]);
+    if ((a.st ?? 0) > 0.5) return this.world({ x: a.x + (side < 0 ? -b.sq * 0.3 : side > 0 ? b.sq * 0.3 : 0), y: a.y, up: z.up + (side < 0 ? b.sq * 1.6 : b.sq * 0.9) * this.s });
     return this.world({ x: side < 0 ? a.x : side > 0 ? z.x : (a.x + z.x) / 2, y: a.y - b.sq * 0.2, up: a.up + b.sq * 0.4 * this.s });
   }
   private sizePins(b: Bar, on: boolean) {
@@ -139,13 +143,13 @@ export class ShareKit implements ShareWorld {
     bSfx.clack();
     await this.wait(900);
     const b = this.bar;
-    this.pin({ id: 'count', text: `${squares} squares`, kind: 'count', at: () => this.world({ x: CX, y: BAR_Y - b.sq * 0.9, up: b.sq * 0.6 * this.s }) });
+    this.pin({ id: 'count', text: `${squares} squares`, kind: 'count', at: () => this.world({ x: this.left(b) - b.sq * 1.8, y: BAR_Y, up: b.sq * 0.6 * this.s }) });
   }
   async plates(n: number) {
     this.dropTrays();
     for (let p = 0; p < n; p++) {
-      const b = this.bar!, len = (b.n * b.sq) / 2 + 26;
-      const m = new THREE.Mesh(new RoundedBoxGeometry(1, 1, 1, 2, 0.2), this.trayMat);
+      const len = PLATE_GAP - 8;
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.42, 1, 32), this.trayMat);
       m.receiveShadow = true;
       (m.userData as { len?: number }).len = len;
       this.root.add(m);
@@ -320,15 +324,16 @@ export class ShareKit implements ShareWorld {
       const a = this.at(q);
       q.m.visible = t >= q.t0 - 0.001 || q.from.x === q.to.x;
       q.m.position.copy(this.world(a));
-      q.m.scale.set(b!.sq * s * 0.94, b!.sq * 0.34 * s, b!.sq * s * 0.94);
+      const st = a.st ?? 0, flat = b!.sq * 0.34 * s, full = b!.sq * s * 0.94;
+      q.m.scale.set(full, flat + (full - flat) * st, full + (flat - full) * st);
     }
     // the plates pop in, one after another, each under its row
     for (const tr of this.trays) {
       const b = this.bar; if (!b) break;
       const k = clamp01((t - tr.born) / 0.3), len = (tr.m.userData as { len: number }).len;
       tr.m.visible = k > 0;
-      tr.m.position.copy(this.world({ x: this.left(b) - 13 + len / 2, y: this.rowY(tr.row), up: 0.002 }));
-      tr.m.scale.set(len * s * smooth(k), 0.008, (ROW_GAP - 6) * s * smooth(k));
+      tr.m.position.copy(this.world({ x: PLATE_X + tr.row * PLATE_GAP, y: ROW0, up: 0.004 }));
+      tr.m.scale.set(len * s * smooth(k), 0.008, len * s * smooth(k));
     }
     // the knife: down and up at the line, then away after a moment
     const kk = t - this.knifeAt.t0;
