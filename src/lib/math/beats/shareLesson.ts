@@ -182,10 +182,12 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   await w.barIn(LAST);
   await w.plates(LAST_FRIENDS, ['Your buddy', 'Pebble', 'You']);
   await t.say('ep.share.last');
-  for (let miss = 0; ; miss++) {
+  // (a miss here gets the way to find the cuts straight away. It used to get a bare "try again" first, and a
+  // child who had already needed the first bar done together spent another 45 seconds failing before any help)
+  for (;;) {
     const pieces = await tryCut(t, w, LAST, LAST_FRIENDS, 'ep.share.try.last');
     if (fair(pieces)) break;
-    await t.say(miss >= 1 ? 'ep.share.hint' : 'ep.share.again', LAST_FRIENDS);
+    await t.say('ep.share.hint');
     await w.join();
   }
   t.beat(6);
