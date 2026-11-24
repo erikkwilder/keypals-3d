@@ -52,6 +52,7 @@ const FRAME_MS = 5;
 const SILENCE_DB = -62; // "sound" means a frame louder than this
 const GAP_FRAMES = 12; // quiet runs shorter than 60 ms stay inside a sound island
 const LEAD_MS = 40; // silence kept before the first sound
+const LEAD_MAX_MS = 600; // the most quiet (near-silence, a ducked breath) kept before the first word
 const TAIL_MS = 35; // kept after the last word decays below SILENCE_DB, so the fade-out covers the decay, not the word
 const FADE_IN_MS = 10;
 const FADE_OUT_MS = 40;
@@ -392,6 +393,19 @@ function processClip(id, rawPath, outPath, oneWord = false) {
     while (isl.length > 1 && isl[isl.length - 1].start > b) isl.pop();
     isl[0] = { ...isl[0], start: Math.max(isl[0].start, a) };
     isl[isl.length - 1] = { ...isl[isl.length - 1], end: Math.min(isl[isl.length - 1].end, b) };
+    for (const s of [isl[0], isl[isl.length - 1]]) s.frames = s.end - s.start + 1;
+  }
+  // The quiet before the first word (the model's near-silence and a ducked breath) is the pause a child hears
+  // between two lines: half a second is typical, but some takes held 1.5 s. Keep at most LEAD_MAX_MS of it.
+  {
+    const onset = fdb.findIndex((v, f) => f >= isl[0].start && v > peak - 35);
+    const keepFrom = onset - Math.round(LEAD_MAX_MS / FRAME_MS);
+    if (onset > 0 && keepFrom > isl[0].start) {
+      notes.push(`lead held to ${LEAD_MAX_MS}ms (was ${(onset - isl[0].start) * FRAME_MS}ms)`);
+      while (isl.length > 1 && isl[0].end < keepFrom) isl.shift();
+      isl[0] = { ...isl[0], start: Math.max(isl[0].start, keepFrom) };
+      isl[0].frames = isl[0].end - isl[0].start + 1;
+    }
   }
   const first = isl[0];
   const last = isl[isl.length - 1];
@@ -406,8 +420,9 @@ function processClip(id, rawPath, outPath, oneWord = false) {
   const y = new Float32Array(pad + (e0 - from));
   y.set(x.subarray(from, e0), pad);
 
-  // Duck breaths between words (quiet, noisy islands) instead of letting the level pass lift them.
-  for (let k = 1; k < isl.length - 1; k++) {
+  // Duck breaths between words (quiet, noisy islands) instead of letting the level pass lift them. (The first
+  // island too: what is left of a breath when the lead was held short. Speech is never quiet enough to count.)
+  for (let k = 0; k < isl.length - 1; k++) {
     const s = isl[k];
     if (!isBreath(s) || s.frames * FRAME_MS > 800) continue;
     const a = s.start * FRAME - from + pad;

@@ -1113,19 +1113,19 @@
   },
   "ep.share.intro": {
     "voice": "coach",
-    "ms": 8666
+    "ms": 8651
   },
   "ep.share.plates": {
     "voice": "coach",
-    "ms": 7279
+    "ms": 6376
   },
   "ep.share.cut": {
     "voice": "coach",
-    "ms": 9489
+    "ms": 9149
   },
   "ep.share.try.you": {
     "voice": "coach",
-    "ms": 7514
+    "ms": 7059
   },
   "ep.share.try.again": {
     "voice": "coach",
@@ -1133,23 +1133,23 @@
   },
   "ep.share.try.together": {
     "voice": "coach",
-    "ms": 6291
+    "ms": 6206
   },
   "ep.share.try.last": {
     "voice": "coach",
-    "ms": 5817
+    "ms": 5612
   },
   "ep.share.fair": {
     "voice": "coach",
-    "ms": 6900
+    "ms": 6366
   },
   "ep.share.fair.together": {
     "voice": "coach",
-    "ms": 7089
+    "ms": 6585
   },
   "ep.share.unfair": {
     "voice": "coach",
-    "ms": 12492
+    "ms": 11930
   },
   "ep.share.again": {
     "voice": "coach",
@@ -1161,15 +1161,15 @@
   },
   "ep.share.half": {
     "voice": "coach",
-    "ms": 9499
+    "ms": 9040
   },
   "ep.share.half.yes": {
     "voice": "coach",
-    "ms": 7209
+    "ms": 6456
   },
   "ep.share.eight.half.no": {
     "voice": "coach",
-    "ms": 9424
+    "ms": 8795
   },
   "ep.share.eight.quarter": {
     "voice": "coach",
@@ -1181,7 +1181,7 @@
   },
   "ep.share.eight.quarter.no": {
     "voice": "coach",
-    "ms": 9838
+    "ms": 9015
   },
   "ep.share.twelve.half.no": {
     "voice": "coach",
@@ -1193,7 +1193,7 @@
   },
   "ep.share.twelve.quarter.no": {
     "voice": "coach",
-    "ms": 10192
+    "ms": 9449
   },
   "ep.share.name": {
     "voice": "coach",
@@ -1205,7 +1205,7 @@
   },
   "ep.share.try.buddy": {
     "voice": "coach",
-    "ms": 9678
+    "ms": 9045
   },
   "ep.share.buddy.ask": {
     "voice": "coach",
@@ -1213,23 +1213,23 @@
   },
   "ep.share.try.test": {
     "voice": "coach",
-    "ms": 8685
+    "ms": 8217
   },
   "ep.share.buddy.yes": {
     "voice": "coach",
-    "ms": 13694
+    "ms": 13420
   },
   "ep.share.buddy.no": {
     "voice": "coach",
-    "ms": 11983
+    "ms": 11798
   },
   "ep.share.buddy.why": {
     "voice": "coach",
-    "ms": 6261
+    "ms": 6086
   },
   "ep.share.more": {
     "voice": "coach",
-    "ms": 10511
+    "ms": 10342
   },
   "ep.share.which": {
     "voice": "coach",
@@ -1237,23 +1237,23 @@
   },
   "ep.share.try.pal": {
     "voice": "coach",
-    "ms": 9813
+    "ms": 9459
   },
   "ep.share.eighth.you": {
     "voice": "coach",
-    "ms": 8236
+    "ms": 7523
   },
   "ep.share.eighth.pal": {
     "voice": "coach",
-    "ms": 9349
+    "ms": 9139
   },
   "ep.share.eighth.same": {
     "voice": "coach",
-    "ms": 7563
+    "ms": 7174
   },
   "ep.share.eighth.why": {
     "voice": "coach",
-    "ms": 12000
+    "ms": 11805
   },
   "ep.share.last": {
     "voice": "coach",
@@ -1261,7 +1261,7 @@
   },
   "ep.share.hint": {
     "voice": "coach",
-    "ms": 11973
+    "ms": 11260
   },
   "ep.share.call": {
     "voice": "coach",
@@ -1269,11 +1269,11 @@
   },
   "ep.share.try.name": {
     "voice": "coach",
-    "ms": 6126
+    "ms": 6098
   },
   "ep.share.call.squares": {
     "voice": "coach",
-    "ms": 8077
+    "ms": 7733
   },
   "ep.share.call.half": {
     "voice": "coach",
@@ -1281,15 +1281,15 @@
   },
   "ep.share.call.why": {
     "voice": "coach",
-    "ms": 10427
+    "ms": 9638
   },
   "ep.share.call.yes": {
     "voice": "coach",
-    "ms": 9593
+    "ms": 9026
   },
   "ep.share.try.give": {
     "voice": "coach",
-    "ms": 7199
+    "ms": 6755
   },
   "ep.share.two.have": {
     "voice": "coach",
@@ -1305,19 +1305,19 @@
   },
   "ep.share.six.show": {
     "voice": "coach",
-    "ms": 9898
+    "ms": 8990
   },
   "ep.share.try.two": {
     "voice": "coach",
-    "ms": 5463
+    "ms": 4799
   },
   "ep.share.try.two.together": {
     "voice": "coach",
-    "ms": 6525
+    "ms": 5817
   },
   "ep.share.two.yes": {
     "voice": "coach",
-    "ms": 7144
+    "ms": 6986
   },
   "ep.share.two.one": {
     "voice": "coach",
@@ -1357,7 +1357,7 @@
   },
   "ep.share.check.call.yes": {
     "voice": "coach",
-    "ms": 7418
+    "ms": 7089
   },
   "ep.share.check.call.no": {
     "voice": "coach",
@@ -1633,35 +1633,35 @@
   },
   "ep.count.need": {
     "voice": "coach",
-    "ms": 6850
+    "ms": 6076
   },
   "ep.count.try.demo": {
     "voice": "coach",
-    "ms": 6520
+    "ms": 6206
   },
   "ep.count.demo.last": {
     "voice": "coach",
-    "ms": 9199
+    "ms": 8690
   },
   "ep.count.turn": {
     "voice": "coach",
-    "ms": 7423
+    "ms": 6914
   },
   "ep.count.how": {
     "voice": "coach",
-    "ms": 5747
+    "ms": 4919
   },
   "ep.count.try.you": {
     "voice": "coach",
-    "ms": 4535
+    "ms": 4310
   },
   "ep.count.right": {
     "voice": "coach",
-    "ms": 4909
+    "ms": 4595
   },
   "ep.count.few": {
     "voice": "coach",
-    "ms": 7024
+    "ms": 6565
   },
   "ep.count.over": {
     "voice": "coach",
@@ -1677,15 +1677,15 @@
   },
   "ep.count.b5.why": {
     "voice": "coach",
-    "ms": 7977
+    "ms": 7423
   },
   "ep.count.b5.show": {
     "voice": "coach",
-    "ms": 9608
+    "ms": 9080
   },
   "ep.count.try.b5": {
     "voice": "coach",
-    "ms": 3128
+    "ms": 2978
   },
   "ep.count.fit": {
     "voice": "coach",
@@ -1693,15 +1693,15 @@
   },
   "ep.count.mixed": {
     "voice": "coach",
-    "ms": 8378
+    "ms": 7653
   },
   "ep.count.try.pal": {
     "voice": "coach",
-    "ms": 5119
+    "ms": 4826
   },
   "ep.count.pal.find": {
     "voice": "coach",
-    "ms": 7797
+    "ms": 7573
   },
   "ep.count.find.no.two": {
     "voice": "coach",
@@ -1713,7 +1713,7 @@
   },
   "ep.count.pal.shown": {
     "voice": "coach",
-    "ms": 11694
+    "ms": 11419
   },
   "ep.count.try.buddy": {
     "voice": "coach",
@@ -1725,11 +1725,11 @@
   },
   "ep.count.find.no.none": {
     "voice": "coach",
-    "ms": 4565
+    "ms": 4340
   },
   "ep.count.buddy.found": {
     "voice": "coach",
-    "ms": 8127
+    "ms": 7857
   },
   "ep.count.buddy.shown": {
     "voice": "coach",
@@ -1741,19 +1741,19 @@
   },
   "ep.count.move": {
     "voice": "coach",
-    "ms": 6360
+    "ms": 5982
   },
   "ep.count.how2": {
     "voice": "coach",
-    "ms": 6007
+    "ms": 5198
   },
   "ep.count.b7.why": {
     "voice": "coach",
-    "ms": 9888
+    "ms": 9329
   },
   "ep.count.b7.show": {
     "voice": "coach",
-    "ms": 13175
+    "ms": 12607
   },
   "ep.count.try.b7": {
     "voice": "coach",
@@ -1761,11 +1761,11 @@
   },
   "ep.count.try.bump": {
     "voice": "coach",
-    "ms": 4744
+    "ms": 4246
   },
   "ep.count.moved": {
     "voice": "coach",
-    "ms": 6436
+    "ms": 5418
   },
   "ep.count.moved.right": {
     "voice": "coach",
@@ -1773,7 +1773,7 @@
   },
   "ep.count.try.recount.again": {
     "voice": "coach",
-    "ms": 11270
+    "ms": 10895
   },
   "ep.count.recount.why": {
     "voice": "coach",
@@ -1785,15 +1785,15 @@
   },
   "ep.count.off": {
     "voice": "coach",
-    "ms": 7453
+    "ms": 7239
   },
   "ep.count.off.extra": {
     "voice": "coach",
-    "ms": 7418
+    "ms": 7229
   },
   "ep.count.extra": {
     "voice": "coach",
-    "ms": 9010
+    "ms": 8282
   },
   "ep.count.how.last": {
     "voice": "coach",
@@ -1817,7 +1817,7 @@
   },
   "ep.count.b6.why": {
     "voice": "coach",
-    "ms": 7792
+    "ms": 6954
   },
   "ep.count.b6.show": {
     "voice": "coach",
@@ -1825,7 +1825,7 @@
   },
   "ep.count.try.b6": {
     "voice": "coach",
-    "ms": 3188
+    "ms": 2759
   },
   "ep.eq.intro": {
     "voice": "coach",
@@ -1837,7 +1837,7 @@
   },
   "ep.eq.level": {
     "voice": "coach",
-    "ms": 10661
+    "ms": 10072
   },
   "ep.eq.letter": {
     "voice": "coach",
@@ -1845,19 +1845,19 @@
   },
   "ep.eq.guess": {
     "voice": "coach",
-    "ms": 6482
+    "ms": 6296
   },
   "ep.eq.try.you": {
     "voice": "coach",
-    "ms": 9768
+    "ms": 9753
   },
   "ep.eq.try.again": {
     "voice": "coach",
-    "ms": 2939
+    "ms": 2704
   },
   "ep.eq.heavy": {
     "voice": "coach",
-    "ms": 11694
+    "ms": 10666
   },
   "ep.eq.light": {
     "voice": "coach",
@@ -1865,7 +1865,7 @@
   },
   "ep.eq.lucky": {
     "voice": "coach",
-    "ms": 11594
+    "ms": 11570
   },
   "ep.eq.unlucky": {
     "voice": "coach",
@@ -1873,7 +1873,7 @@
   },
   "ep.eq.own.why": {
     "voice": "coach",
-    "ms": 10676
+    "ms": 10022
   },
   "ep.eq.try.off": {
     "voice": "coach",
@@ -1897,11 +1897,11 @@
   },
   "ep.eq.other.few": {
     "voice": "coach",
-    "ms": 9683
+    "ms": 9146
   },
   "ep.eq.other.many": {
     "voice": "coach",
-    "ms": 9050
+    "ms": 8710
   },
   "ep.eq.other.fix": {
     "voice": "coach",
@@ -1913,15 +1913,15 @@
   },
   "ep.eq.share.ask": {
     "voice": "coach",
-    "ms": 5428
+    "ms": 5210
   },
   "ep.eq.try.share": {
     "voice": "coach",
-    "ms": 3554
+    "ms": 2819
   },
   "ep.eq.share.yes": {
     "voice": "coach",
-    "ms": 9763
+    "ms": 9369
   },
   "ep.eq.share.few": {
     "voice": "coach",
@@ -1929,11 +1929,11 @@
   },
   "ep.eq.share.many": {
     "voice": "coach",
-    "ms": 7917
+    "ms": 6760
   },
   "ep.eq.share.how": {
     "voice": "coach",
-    "ms": 9813
+    "ms": 9650
   },
   "ep.eq.share.done": {
     "voice": "coach",
@@ -1945,7 +1945,7 @@
   },
   "ep.eq.write.read": {
     "voice": "coach",
-    "ms": 10541
+    "ms": 10247
   },
   "ep.eq.b.in": {
     "voice": "coach",
@@ -1953,7 +1953,7 @@
   },
   "ep.eq.b.idea": {
     "voice": "coach",
-    "ms": 13240
+    "ms": 12447
   },
   "ep.eq.b.ask": {
     "voice": "coach",
@@ -1965,7 +1965,7 @@
   },
   "ep.eq.b.no": {
     "voice": "coach",
-    "ms": 5947
+    "ms": 5637
   },
   "ep.eq.b.yes": {
     "voice": "coach",
@@ -1993,7 +1993,7 @@
   },
   "ep.eq.b.mid": {
     "voice": "coach",
-    "ms": 10207
+    "ms": 9718
   },
   "ep.eq.b.share": {
     "voice": "coach",
@@ -2001,7 +2001,7 @@
   },
   "ep.eq.b.piles": {
     "voice": "coach",
-    "ms": 9119
+    "ms": 9060
   },
   "ep.eq.b.write": {
     "voice": "coach",
@@ -2009,7 +2009,7 @@
   },
   "ep.eq.together": {
     "voice": "coach",
-    "ms": 5323
+    "ms": 4410
   },
   "ep.eq.b.seven": {
     "voice": "coach",
@@ -2049,11 +2049,11 @@
   },
   "ep.eq.end.we": {
     "voice": "coach",
-    "ms": 10087
+    "ms": 9968
   },
   "ep.eq.check": {
     "voice": "coach",
-    "ms": 9613
+    "ms": 9114
   },
   "ep.eq.check.right": {
     "voice": "coach",
@@ -2069,11 +2069,11 @@
   },
   "ep.eq.check.share": {
     "voice": "coach",
-    "ms": 7907
+    "ms": 6466
   },
   "ep.eq.check.piles": {
     "voice": "coach",
-    "ms": 6780
+    "ms": 6495
   },
   "ep.dec-coins.intro": {
     "voice": "coach",
