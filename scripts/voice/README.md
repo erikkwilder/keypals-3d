@@ -14,4 +14,4 @@
 
 **ElevenLabs** is still there, off by default: `node scripts/voice/generate.mjs --engine elevenlabs --only <id>` (key in `~/.keys/elevenlabs.key`; it stops if the account has under 20,000 credits left; `voice_id` and `settings` in `voices.json`).
 
-**Checking:** `node scripts/voice/check.mjs` (or `--match '^(ep|bv)\.'` for the Learn lines) measures levels and transcribes each clip with the local Whisper (mlx_whisper) to compare it with the words it should say.
+**Checking:** `node scripts/voice/check.mjs` (or `--match '^(ep|bv)\.'` for the Learn lines) measures levels and transcribes each clip with the local Whisper (mlx_whisper) to compare it with the words it should say. Besides the 90% letter match it compares the first and last word heard, which catches a short word lost at a cut edge or a word heard as another ("won" as "want"); two words that simply sound alike in this voice ("shore" and "sure") show up there too, and can stay when the caption shows the word.
