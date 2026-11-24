@@ -160,6 +160,7 @@
   $effect(() => { if (game.screen !== 'title') untrack(bootGone); });
 
   let canvas: HTMLCanvasElement | undefined = $state();
+  let no3d = $state(false);
   onMount(() => {
     if (canvas) {
       const c = canvas;
@@ -168,7 +169,9 @@
     }
     // the 3D stage (three.js) comes after the first page too: the title's words and button don't need it
     void import('./lib/three/stage').then(({ stage }) => {
-      if (canvas) stage.mount(canvas, game.settings.graphics === 'low');
+      // no WebGL (turned off, Lockdown Mode on an iPhone, no graphics chip): say so instead of a world that never
+      // comes (the error still goes to the problem reports)
+      if (canvas) try { stage.mount(canvas, game.settings.graphics === 'low'); } catch (e) { no3d = true; throw e; }
       stage.onAutoSmooth = () => game.say('Switched to smooth mode so the game runs better on this computer. You can change it in Settings.', 6000);
     });
     installProblemReports();
@@ -256,6 +259,7 @@
   {#if game.pause}{@render layer(O.pause)}{/if}
   {#if game.profile}{@render layer(O.fun)}{/if}
   {#if game.toast}<div class="toast" class:high={game.screen === 'shop'}>{game.toast}</div>{/if}
+  {#if no3d}<div class="no3d" role="alert"><b>Keypals can't draw its 3D world in this browser.</b> 3D graphics (WebGL) are turned off or not available here. Try another browser, or turn on hardware acceleration in this browser's settings. On an iPhone or iPad, Lockdown Mode turns 3D graphics off.</div>{/if}
 </main>
 
 <style>
@@ -265,4 +269,5 @@
   /* (the Shop: under the top bar, clear of the buy card and the note at the bottom) */
   .toast.high { bottom: auto; top: 76px; }
   .settings-layer { position: fixed; inset: 0; z-index: 70; animation: fade-up .2s ease; }
+  .no3d { position: fixed; left: 0; right: 0; bottom: 96px; margin: 0 auto; width: min(640px, calc(100vw - 32px)); z-index: 120; background: #fff; color: var(--ink); border: 2px solid #f0c36b; border-radius: 16px; padding: 12px 16px; font: 600 15px/1.4 var(--font-body); box-shadow: var(--shadow); }
 </style>
