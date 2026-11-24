@@ -1179,7 +1179,7 @@ export const BEAT_LINES: Line[] = [
   ep('ep.count.b4.why', 'The last cookie you counted got the number 4, so there are 4 cookies. You counted them all by yourself.', 'The last cookie you counted got the number four, so there are four cookies. You counted them all by yourself.'),
   ep('ep.count.b4.show', "Let's look at the numbers together. Each cookie got one number: 1, 2, 3, 4. The last number is 4, so there are 4 cookies.", "Let's look at the numbers together. Each cookie got one number. One, two, three, four. The last number is four, so there are four cookies."),
   ep('ep.count.try.b4', "So let's get out 4 plates, one for each cookie.", "So let's get out four plates, one for each cookie."),
-  ep('ep.count.check', "Here are some new cookies for Sprout Bunny's party, all mixed up. Tap each cookie once to count it."),
+  ep('ep.count.check', "Here are some new cookies for Sprout Bunny's party, all over the tray. Tap each cookie one time to count it."),
   ep('ep.count.b6.why', 'The last cookie you counted got the number 6, so there are 6 cookies. The last number you say tells you how many.', 'The last cookie you counted got the number six, so there are six cookies. The last number you say tells you how many.'),
   ep('ep.count.b6.show', "Let's look at the numbers together. Each cookie got one number: 1, 2, 3, 4, 5, 6. The last number is 6, so there are 6 cookies.", "Let's look at the numbers together. Each cookie got one number. One, two, three, four, five, six. The last number is six, so there are six cookies."),
   ep('ep.count.try.b6', "So let's get out 6 plates, one for each cookie.", "So let's get out six plates, one for each cookie."),

@@ -100,8 +100,8 @@ export function devBoot() {
   if (key === 'drop') { ensure(); game.go('drop'); }
   // the Arcade: #arcade (the plaza), #arcade=slalom|catch|tower (straight into a round), #arcade=daily
   if (key === 'arcade') { ensure(); game.setHome('math'); if (val === 'daily') import('../arcade/arcade').then(a => game.playArcade(a.dailyGame(), true)); else if (val) game.playArcade(val as 'slalom' | 'catch' | 'tower'); else game.go('arcade'); }
-  // Learn: #learn (the list of tricks) or #learn=make-ten (that lesson)
-  if (key === 'learn') { ensure(); if (val) game.openLearn(val); else void import('../nav').then(n => n.openWay('math', null, 'learn')); }
+  // Learn: #learn (the list of tricks), #learn=make-ten (that lesson) or #learn=make-ten,check (its next-day quick check)
+  if (key === 'learn') { ensure(); if (val) { const [id, c] = val.split(','); game.learnCheck = c === 'check'; game.openLearn(id); } else void import('../nav').then(n => n.openWay('math', null, 'learn')); }
   // evolutions: #evolve=puddlepup (level 5, ready to evolve), #evolved=puddlepup,sparkmoth (grown up, on the team)
   if (key === 'evolve' || key === 'evolved') {
     ensure();
