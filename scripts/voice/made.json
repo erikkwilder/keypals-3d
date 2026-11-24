@@ -5311,453 +5311,453 @@
  },
  "ep.rt-batches.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "fd4ac99f97"
+  "voice": "coach-exclaim",
+  "h": "fa26e35528"
  },
  "ep.rt-batches.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "fd4685036a"
+  "voice": "coach-exclaim",
+  "h": "e2364688c2"
  },
  "ep.rt-batches.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "222d35114f"
+  "voice": "coach-exclaim",
+  "h": "a692e0dfc5"
  },
  "ep.rt-batches.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "929c6e216b"
+  "voice": "coach-exclaim",
+  "h": "9458a81e28"
  },
  "ep.rt-batches.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "25429f554a"
+  "voice": "coach-exclaim",
+  "h": "8df49c6a5b"
  },
  "ep.rt-batches.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "084d404364"
+  "voice": "coach-exclaim",
+  "h": "1c03a80ebc"
  },
  "ep.rt-for-every.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "2ef3464e0d"
+  "voice": "coach-exclaim",
+  "h": "b2eb10f513"
  },
  "ep.rt-for-every.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "13a8d39d90"
+  "voice": "coach-exclaim",
+  "h": "3f2332abd6"
  },
  "ep.rt-for-every.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "072318813f"
+  "voice": "coach-exclaim",
+  "h": "f2b24cb277"
  },
  "ep.rt-for-every.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "3b2f209685"
+  "voice": "coach-exclaim",
+  "h": "f53dfbf8b3"
  },
  "ep.rt-for-every.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "04f03b5f24"
+  "voice": "coach-exclaim",
+  "h": "16a6ad4d7b"
  },
  "ep.rt-for-every.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "fd254477c2"
+  "voice": "coach-exclaim",
+  "h": "6b3e1f662a"
  },
  "ep.rt-one-each.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "e365ae593f"
+  "voice": "coach-exclaim",
+  "h": "fc1744d3ec"
  },
  "ep.rt-one-each.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "dbe8c2920b"
+  "voice": "coach-exclaim",
+  "h": "5ccd06480d"
  },
  "ep.rt-one-each.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "46ef7f4db2"
+  "voice": "coach-exclaim",
+  "h": "0a26c0b5ee"
  },
  "ep.rt-one-each.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "32acdbbfe4"
+  "voice": "coach-exclaim",
+  "h": "ed65ea7d89"
  },
  "ep.rt-one-each.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "9294daff36"
+  "voice": "coach-exclaim",
+  "h": "6e1b853604"
  },
  "ep.rt-one-each.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "c119ad98e3"
+  "voice": "coach-exclaim",
+  "h": "a4ba41390f"
  },
  "ep.rt-out-of-100.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "6bc549d30c"
+  "voice": "coach-exclaim",
+  "h": "5204ae433e"
  },
  "ep.rt-out-of-100.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "4efc38d362"
+  "voice": "coach-exclaim",
+  "h": "0dd4cb435e"
  },
  "ep.rt-out-of-100.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "48bd3e8882"
+  "voice": "coach-exclaim",
+  "h": "e979ba6506"
  },
  "ep.rt-out-of-100.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "6852cff930"
+  "voice": "coach-exclaim",
+  "h": "842c30b709"
  },
  "ep.rt-out-of-100.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "2daa801a00"
+  "voice": "coach-exclaim",
+  "h": "a5f5aa0c90"
  },
  "ep.rt-out-of-100.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "81331caf86"
+  "voice": "coach-exclaim",
+  "h": "321063c584"
  },
  "ep.rt-percent-of.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "94c887f1c7"
+  "voice": "coach-exclaim",
+  "h": "12fc1150dc"
  },
  "ep.rt-percent-of.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "10615fa27c"
+  "voice": "coach-exclaim",
+  "h": "8a5eac4bd4"
  },
  "ep.rt-percent-of.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "3638698f96"
+  "voice": "coach-exclaim",
+  "h": "39dbd46c66"
  },
  "ep.rt-percent-of.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "0a2d975752"
+  "voice": "coach-exclaim",
+  "h": "9395024752"
  },
  "ep.rt-percent-of.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "8359566aa3"
+  "voice": "coach-exclaim",
+  "h": "9a78a09e9c"
  },
  "ep.rt-percent-of.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "bcdc71b086"
+  "voice": "coach-exclaim",
+  "h": "7b45e7789e"
  },
  "ep.rt-percent-off.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "70b98d7f70"
+  "voice": "coach-exclaim",
+  "h": "9690e8befc"
  },
  "ep.rt-percent-off.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "152af19423"
+  "voice": "coach-exclaim",
+  "h": "4926305bcf"
  },
  "ep.rt-percent-off.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "f541c95290"
+  "voice": "coach-exclaim",
+  "h": "a40339f7cf"
  },
  "ep.rt-percent-off.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "8c72652182"
+  "voice": "coach-exclaim",
+  "h": "e084932c90"
  },
  "ep.rt-percent-off.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "9731b4971e"
+  "voice": "coach-exclaim",
+  "h": "cf8a5b18b2"
  },
  "ep.rt-percent-off.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "bfaa044e67"
+  "voice": "coach-exclaim",
+  "h": "5b89a995c4"
  },
  "ep.rt-two-lines.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "dceaa9f086"
+  "voice": "coach-exclaim",
+  "h": "4d152c5a91"
  },
  "ep.rt-two-lines.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "42d3aa27b3"
+  "voice": "coach-exclaim",
+  "h": "c0b7cdd3aa"
  },
  "ep.rt-two-lines.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "621f924ce6"
+  "voice": "coach-exclaim",
+  "h": "828dda975e"
  },
  "ep.rt-two-lines.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "d7ce0a459b"
+  "voice": "coach-exclaim",
+  "h": "524362caed"
  },
  "ep.rt-two-lines.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "5b007416d1"
+  "voice": "coach-exclaim",
+  "h": "2f750bf5a3"
  },
  "ep.rt-two-lines.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "3660901bc4"
+  "voice": "coach-exclaim",
+  "h": "8927e873c7"
  },
  "ep.sh-angles.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "cc0b1983f9"
+  "voice": "coach-exclaim",
+  "h": "59926a9a18"
  },
  "ep.sh-angles.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "ea92bf9a7a"
+  "voice": "coach-exclaim",
+  "h": "504dd69599"
  },
  "ep.sh-angles.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "16931c23da"
+  "voice": "coach-exclaim",
+  "h": "97cee50f59"
  },
  "ep.sh-angles.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "dba48e7f4f"
+  "voice": "coach-exclaim",
+  "h": "920748dbe6"
  },
  "ep.sh-angles.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "758e92a02d"
+  "voice": "coach-exclaim",
+  "h": "c77bb55aed"
  },
  "ep.sh-angles.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "0e1cc352d3"
+  "voice": "coach-exclaim",
+  "h": "7338ddabf0"
  },
  "ep.sh-angles.s4": {
   "engine": "local",
-  "voice": "coach",
-  "h": "1f2ca7124e"
+  "voice": "coach-exclaim",
+  "h": "723d689bc0"
  },
  "ep.sh-boxes.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "728e48543e"
+  "voice": "coach-exclaim",
+  "h": "03d3366151"
  },
  "ep.sh-boxes.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "3c66c015aa"
+  "voice": "coach-exclaim",
+  "h": "de91c2d828"
  },
  "ep.sh-boxes.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "a05118ed07"
+  "voice": "coach-exclaim",
+  "h": "1d3a55b156"
  },
  "ep.sh-boxes.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "aaccaef4bb"
+  "voice": "coach-exclaim",
+  "h": "387b48015e"
  },
  "ep.sh-boxes.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "05d4c8f447"
+  "voice": "coach-exclaim",
+  "h": "defe033683"
  },
  "ep.sh-boxes.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "1557c18fa5"
+  "voice": "coach-exclaim",
+  "h": "053c578031"
  },
  "ep.sh-halves.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "9cc6433bcf"
+  "voice": "coach-exclaim",
+  "h": "eebdf6d430"
  },
  "ep.sh-halves.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "27762d2497"
+  "voice": "coach-exclaim",
+  "h": "9047d4b81b"
  },
  "ep.sh-halves.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "bfd838d615"
+  "voice": "coach-exclaim",
+  "h": "657505be7f"
  },
  "ep.sh-halves.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "2e0a3f4eff"
+  "voice": "coach-exclaim",
+  "h": "c61c185cae"
  },
  "ep.sh-halves.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "45ad2b5b5e"
+  "voice": "coach-exclaim",
+  "h": "2cc43334d6"
  },
  "ep.sh-halves.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "60e1b9e23b"
+  "voice": "coach-exclaim",
+  "h": "322061b169"
  },
  "ep.sh-halves.s4": {
   "engine": "local",
-  "voice": "coach",
-  "h": "86032b4e2f"
+  "voice": "coach-exclaim",
+  "h": "6d4b56095d"
  },
  "ep.sh-pyth.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "01f7356024"
+  "voice": "coach-exclaim",
+  "h": "34e8a4d033"
  },
  "ep.sh-pyth.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "ca135f4d0f"
+  "voice": "coach-exclaim",
+  "h": "0a31bd3ad6"
  },
  "ep.sh-pyth.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "7004e2bc42"
+  "voice": "coach-exclaim",
+  "h": "de81b58abf"
  },
  "ep.sh-pyth.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "48c18498d0"
+  "voice": "coach-exclaim",
+  "h": "d0ff17f35e"
  },
  "ep.sh-pyth.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "3426e06405"
+  "voice": "coach-exclaim",
+  "h": "6260bd7225"
  },
  "ep.sh-pyth.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "de69138ee0"
+  "voice": "coach-exclaim",
+  "h": "4775e4be21"
  },
  "ep.sh-sides.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "6e48c1b403"
+  "voice": "coach-exclaim",
+  "h": "423e73d3e6"
  },
  "ep.sh-sides.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "938588afcd"
+  "voice": "coach-exclaim",
+  "h": "cb31479625"
  },
  "ep.sh-sides.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "fe1e23172e"
+  "voice": "coach-exclaim",
+  "h": "b63cab9ec1"
  },
  "ep.sh-sides.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "3ce1249518"
+  "voice": "coach-exclaim",
+  "h": "3bba56a16a"
  },
  "ep.sh-sides.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "083e20ded7"
+  "voice": "coach-exclaim",
+  "h": "d4731caec8"
  },
  "ep.sh-sides.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "e5b81e08eb"
+  "voice": "coach-exclaim",
+  "h": "d6e5cc7dd1"
  },
  "ep.sh-sides.s4": {
   "engine": "local",
-  "voice": "coach",
-  "h": "270b442292"
+  "voice": "coach-exclaim",
+  "h": "89498ac7b4"
  },
  "ep.sh-tri-180.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "caa8480367"
+  "voice": "coach-exclaim",
+  "h": "72ec70676f"
  },
  "ep.sh-tri-180.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "af9da6c3a3"
+  "voice": "coach-exclaim",
+  "h": "9faba06730"
  },
  "ep.sh-tri-180.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "21b65a3bd0"
+  "voice": "coach-exclaim",
+  "h": "953263bd77"
  },
  "ep.sh-tri-180.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "f7f5500094"
+  "voice": "coach-exclaim",
+  "h": "053492561e"
  },
  "ep.sh-tri-180.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "63c06d0d96"
+  "voice": "coach-exclaim",
+  "h": "b5c82096b9"
  },
  "ep.sh-tri-180.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "a55e6b1939"
+  "voice": "coach-exclaim",
+  "h": "7d3a8fd182"
  },
  "ep.sh-tri-180.s4": {
   "engine": "local",
-  "voice": "coach",
-  "h": "d242938d3e"
+  "voice": "coach-exclaim",
+  "h": "f0a4d69723"
  },
  "ep.sh-tri-area.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "9b71a1cf00"
+  "voice": "coach-exclaim",
+  "h": "387dba88b8"
  },
  "ep.sh-tri-area.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "524482bc8f"
+  "voice": "coach-exclaim",
+  "h": "a826631e5a"
  },
  "ep.sh-tri-area.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "b369d77edf"
+  "voice": "coach-exclaim",
+  "h": "5906659131"
  },
  "ep.sh-tri-area.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "713a5d6e11"
+  "voice": "coach-exclaim",
+  "h": "08cb147821"
  },
  "ep.sh-tri-area.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "ee493e39bc"
+  "voice": "coach-exclaim",
+  "h": "256c47f81c"
  },
  "ep.sh-tri-area.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "6763ac3974"
+  "voice": "coach-exclaim",
+  "h": "36b89b565b"
  },
  "ep.sh-tri-area.s4": {
   "engine": "local",
-  "voice": "coach",
-  "h": "7ce802c126"
+  "voice": "coach-exclaim",
+  "h": "9d6e04e609"
  },
  "ep.sh-tri-area.s5": {
   "engine": "local",
-  "voice": "coach",
-  "h": "c017b922ae"
+  "voice": "coach-exclaim",
+  "h": "ddbe24d8c0"
  },
  "ep.share.again": {
   "engine": "local",
@@ -6076,363 +6076,363 @@
  },
  "ep.teach": {
   "engine": "local",
-  "voice": "coach",
-  "h": "b1c22a6e29"
+  "voice": "coach-exclaim",
+  "h": "478bcc60a8"
  },
  "ep.ten-back.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "52d79536ff"
+  "voice": "coach-exclaim",
+  "h": "ae191e6244"
  },
  "ep.ten-back.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "a1b7ee5e01"
+  "voice": "coach-exclaim",
+  "h": "9e8337d8f7"
  },
  "ep.ten-back.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "4d076b4605"
+  "voice": "coach-exclaim",
+  "h": "f07ec05703"
  },
  "ep.ten-back.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "755ba66ce1"
+  "voice": "coach-exclaim",
+  "h": "64ccf06fb9"
  },
  "ep.ten-back.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "e4c15cea4d"
+  "voice": "coach-exclaim",
+  "h": "90eb9f76d5"
  },
  "ep.ten-back.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "19291b579a"
+  "voice": "coach-exclaim",
+  "h": "c88b372738"
  },
  "ep.think-plus.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "fa5e440c60"
+  "voice": "coach-exclaim",
+  "h": "f7decdc9a0"
  },
  "ep.think-plus.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "2e86960481"
+  "voice": "coach-exclaim",
+  "h": "d2a0545af9"
  },
  "ep.think-plus.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "284b0c3e19"
+  "voice": "coach-exclaim",
+  "h": "f8fc401b5f"
  },
  "ep.think-plus.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "721999fd36"
+  "voice": "coach-exclaim",
+  "h": "642f086343"
  },
  "ep.think-plus.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "6f1d936fe6"
+  "voice": "coach-exclaim",
+  "h": "11a60234ea"
  },
  "ep.think-plus.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "ba41fc8d67"
+  "voice": "coach-exclaim",
+  "h": "cf475a6ea3"
  },
  "ep.think-times.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "5f548dd483"
+  "voice": "coach-exclaim",
+  "h": "3ccc4a34c4"
  },
  "ep.think-times.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "5e457f5476"
+  "voice": "coach-exclaim",
+  "h": "d26fe73392"
  },
  "ep.think-times.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "a2c6458e9b"
+  "voice": "coach-exclaim",
+  "h": "d07df4dc85"
  },
  "ep.think-times.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "f11b66cd01"
+  "voice": "coach-exclaim",
+  "h": "0f573d9227"
  },
  "ep.think-times.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "4868c29fed"
+  "voice": "coach-exclaim",
+  "h": "53c45c2cf6"
  },
  "ep.think-times.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "9d8fe48311"
+  "voice": "coach-exclaim",
+  "h": "6ad81b9cc8"
  },
  "ep.times-10.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "5b4c230a24"
+  "voice": "coach-exclaim",
+  "h": "f5e55fb2cd"
  },
  "ep.times-10.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "e5544f836f"
+  "voice": "coach-exclaim",
+  "h": "d6922eb588"
  },
  "ep.times-10.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "0fc8da3d5e"
+  "voice": "coach-exclaim",
+  "h": "17a4fd155b"
  },
  "ep.times-10.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "391bcfe7a4"
+  "voice": "coach-exclaim",
+  "h": "effb271799"
  },
  "ep.times-10.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "914e703b67"
+  "voice": "coach-exclaim",
+  "h": "7587ba0ad4"
  },
  "ep.times-2.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "98ab679593"
+  "voice": "coach-exclaim",
+  "h": "acf1469e7f"
  },
  "ep.times-2.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "bcb4ea2944"
+  "voice": "coach-exclaim",
+  "h": "323b5a6a1e"
  },
  "ep.times-2.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "2ebb08ec6d"
+  "voice": "coach-exclaim",
+  "h": "f8a23fe89c"
  },
  "ep.times-2.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "f8e9e3aa5e"
+  "voice": "coach-exclaim",
+  "h": "f0a3ad55d6"
  },
  "ep.times-2.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "03a027a68d"
+  "voice": "coach-exclaim",
+  "h": "234461bd52"
  },
  "ep.times-3.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "17d74c8ab9"
+  "voice": "coach-exclaim",
+  "h": "3e760c8bfb"
  },
  "ep.times-3.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "0eab717b83"
+  "voice": "coach-exclaim",
+  "h": "46a4500f40"
  },
  "ep.times-3.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "719413e0e6"
+  "voice": "coach-exclaim",
+  "h": "27b6b29ed0"
  },
  "ep.times-3.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "52c53f39d7"
+  "voice": "coach-exclaim",
+  "h": "27360b1417"
  },
  "ep.times-4.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "f8d64b7e2a"
+  "voice": "coach-exclaim",
+  "h": "d5010b49fb"
  },
  "ep.times-4.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "4b4660d009"
+  "voice": "coach-exclaim",
+  "h": "5913a8d1f5"
  },
  "ep.times-4.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "ee1cf3f4d6"
+  "voice": "coach-exclaim",
+  "h": "db033f90a9"
  },
  "ep.times-4.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "9a5fec2c4b"
+  "voice": "coach-exclaim",
+  "h": "71d4ec4756"
  },
  "ep.times-4.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "c87dcde7fd"
+  "voice": "coach-exclaim",
+  "h": "f6607464af"
  },
  "ep.times-5.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "34aee834ab"
+  "voice": "coach-exclaim",
+  "h": "3c834ffa6f"
  },
  "ep.times-5.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "1c7e66a589"
+  "voice": "coach-exclaim",
+  "h": "e161aafb86"
  },
  "ep.times-5.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "8669f20ca7"
+  "voice": "coach-exclaim",
+  "h": "021c47a4d7"
  },
  "ep.times-5.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "d945bcbf97"
+  "voice": "coach-exclaim",
+  "h": "a1f62bf9c1"
  },
  "ep.times-5.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "e5b1f5dab6"
+  "voice": "coach-exclaim",
+  "h": "6cf70f08a6"
  },
  "ep.times-6.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "91de4355d9"
+  "voice": "coach-exclaim",
+  "h": "8e2ce04546"
  },
  "ep.times-6.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "1c7d2f7906"
+  "voice": "coach-exclaim",
+  "h": "1492b563e3"
  },
  "ep.times-6.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "b8b1e5ef6b"
+  "voice": "coach-exclaim",
+  "h": "68f2c0c22f"
  },
  "ep.times-6.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "d1a5f8272d"
+  "voice": "coach-exclaim",
+  "h": "ec31c9770c"
  },
  "ep.times-7.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "23b8426891"
+  "voice": "coach-exclaim",
+  "h": "b6d7fd3d2e"
  },
  "ep.times-7.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "7f6bd86e70"
+  "voice": "coach-exclaim",
+  "h": "0b527ffcce"
  },
  "ep.times-7.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "fda9af6eef"
+  "voice": "coach-exclaim",
+  "h": "0f4946d136"
  },
  "ep.times-7.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "b17a02f9dc"
+  "voice": "coach-exclaim",
+  "h": "4acf351679"
  },
  "ep.times-7.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "e1d18dd38a"
+  "voice": "coach-exclaim",
+  "h": "3d0358bea8"
  },
  "ep.times-8.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "86802156e9"
+  "voice": "coach-exclaim",
+  "h": "abec926a25"
  },
  "ep.times-8.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "2106b40c6a"
+  "voice": "coach-exclaim",
+  "h": "2a73956b14"
  },
  "ep.times-8.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "1989df0633"
+  "voice": "coach-exclaim",
+  "h": "e9bf15a80e"
  },
  "ep.times-8.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "9a5fec2c4b"
+  "voice": "coach-exclaim",
+  "h": "71d4ec4756"
  },
  "ep.times-8.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "72cdb4dad2"
+  "voice": "coach-exclaim",
+  "h": "cf6a36100d"
  },
  "ep.times-8.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "242e4e44e2"
+  "voice": "coach-exclaim",
+  "h": "d66ae1330f"
  },
  "ep.times-9.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "8f67132683"
+  "voice": "coach-exclaim",
+  "h": "4cc8cb31f0"
  },
  "ep.times-9.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "f278a2706d"
+  "voice": "coach-exclaim",
+  "h": "11c8a60f1e"
  },
  "ep.times-9.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "1c4af72fef"
+  "voice": "coach-exclaim",
+  "h": "ffdf767b98"
  },
  "ep.times-9.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "81ffaa406c"
+  "voice": "coach-exclaim",
+  "h": "b3eefda849"
  },
  "ep.times-9.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "864a2d3708"
+  "voice": "coach-exclaim",
+  "h": "6041031bd1"
  },
  "ep.tomorrow": {
   "engine": "local",
-  "voice": "coach",
-  "h": "c81d58aff8"
+  "voice": "coach-exclaim",
+  "h": "f0dbf0136a"
  },
  "ep.turn": {
   "engine": "local",
-  "voice": "coach",
-  "h": "05c4e8e450"
+  "voice": "coach-exclaim",
+  "h": "e4d4a71d11"
  },
  "ep.turn2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "b459704edf"
+  "voice": "coach-exclaim",
+  "h": "337580cb8e"
  },
  "ep.zero-one.card": {
   "engine": "local",
-  "voice": "coach",
-  "h": "f70ac87a08"
+  "voice": "coach-exclaim",
+  "h": "c2237678e7"
  },
  "ep.zero-one.intro": {
   "engine": "local",
-  "voice": "coach",
-  "h": "b1c2b886dd"
+  "voice": "coach-exclaim",
+  "h": "96d9a0d2f6"
  },
  "ep.zero-one.s0": {
   "engine": "local",
-  "voice": "coach",
-  "h": "190b83ac7c"
+  "voice": "coach-exclaim",
+  "h": "1343baa11b"
  },
  "ep.zero-one.s1": {
   "engine": "local",
-  "voice": "coach",
-  "h": "879122688a"
+  "voice": "coach-exclaim",
+  "h": "3d0a23b440"
  },
  "ep.zero-one.s2": {
   "engine": "local",
-  "voice": "coach",
-  "h": "669f93f013"
+  "voice": "coach-exclaim",
+  "h": "e3f8fb0eb1"
  },
  "ep.zero-one.s3": {
   "engine": "local",
-  "voice": "coach",
-  "h": "f932dfc6af"
+  "voice": "coach-exclaim",
+  "h": "7b30eea6a5"
  },
  "finger.LI.down": {
   "engine": "local",
