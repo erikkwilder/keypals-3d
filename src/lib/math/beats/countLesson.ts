@@ -55,9 +55,9 @@ type Batch = 'b4' | 'b5' | 'b6' | 'b7';
 /** the words a run of the lesson can say, all of them */
 export const COUNT_LINES = ['intro', 'need', 'try.demo', 'demo.last', 'turn', 'how', 'try.you', 'right', 'few', 'over', 'try.zero', 'zero',
   'b5.why', 'b5.show', 'try.b5', 'fit', 'mixed', 'try.pal', 'pal.find', 'pal.found', 'pal.shown', 'try.buddy', 'buddy.find', 'buddy.found', 'buddy.shown',
-  'find.no.two', 'find.no.none', 'move', 'how2', 'b7.why', 'b7.show', 'try.b7',
-  'try.bump', 'moved', 'moved.right', 'try.recount', 'recount.same', 'recount.why', 'try.party', 'off', 'check', 'b6.why', 'b6.show', 'try.b6',
-  'extra', 'b4.why', 'b4.show', 'try.b4'].map(k => `ep.count.${k}`);
+  'find.no.two', 'find.no.none', 'move.why', 'move', 'how2', 'b7.why', 'b7.show', 'try.b7',
+  'try.bump', 'moved', 'moved.right', 'try.recount', 'try.recount.again', 'recount.same', 'recount.why', 'try.party', 'off', 'off.extra', 'check', 'b6.why', 'b6.show', 'try.b6',
+  'extra', 'how.last', 'b4.why', 'b4.show', 'try.b4'].map(k => `ep.count.${k}`);
 
 /** The child's number of plates: say whose it is, act it out, say what it showed. True when it fits. */
 async function platesTest(t: Teller, w: CountWorld, n: number, cookies: number): Promise<boolean> {
@@ -79,7 +79,7 @@ async function platesTest(t: Teller, w: CountWorld, n: number, cookies: number):
 }
 /** "How many?" after the child has counted: their number is acted out with plates, and then, right or
  *  wrong, the numbers on the cookies are gone through to show where the answer comes from. */
-async function howMany(t: Teller, w: CountWorld, cookies: number, b: Batch, line: string): Promise<number> {
+async function howMany(t: Teller, w: CountWorld, cookies: number, b: Batch, line: string, keep = false): Promise<number> {
   const n = await t.num('How many cookies?', line);
   t.myBet(String(n));
   const right = await platesTest(t, w, n, cookies);
@@ -89,7 +89,8 @@ async function howMany(t: Teller, w: CountWorld, cookies: number, b: Batch, line
     await t.say(`ep.count.${b}.why`);
     await lit;
     await t.go('Next');
-    await w.platesOff();
+    // (`keep`: the last batch of the lesson goes to the party on these plates)
+    if (!keep) await w.platesOff();
     return n;
   }
   await w.platesOff();
@@ -102,7 +103,7 @@ async function howMany(t: Teller, w: CountWorld, cookies: number, b: Batch, line
   await w.plates(cookies);
   t.pal('happy'); t.buddy('nod');
   await t.say('ep.count.fit');
-  await w.platesOff();
+  if (!keep) await w.platesOff();
   return n;
 }
 
@@ -115,7 +116,9 @@ async function findSlip(t: Teller, w: CountWorld, who: 'pal' | 'buddy') {
   for (let miss = 0; miss < 2; miss++) {
     await t.hands(words, async () => { tap.got = await w.tapSlip(); }, () => w.finish());
     if (tap.got !== 'no') break;
-    await t.say(who === 'pal' ? 'ep.count.find.no.two' : 'ep.count.find.no.none');
+    // (after the first miss: what that cookie has, and what to look for. After the second the ring shows it
+    // straight away: "look for it" and then showing it in the same breath would make no sense)
+    if (miss === 0) await t.say(who === 'pal' ? 'ep.count.find.no.two' : 'ep.count.find.no.none');
   }
   await w.showSlip();
   if (tap.got === 'yes') { t.buddy('nod'); t.pal('happy'); }
@@ -172,6 +175,8 @@ async function play(t: Teller, w: CountWorld): Promise<Notes> {
   await findSlip(t, w, 'buddy');
   t.thought('buddy', null);
   await w.clearNumbers();
+  // (why, then what to do: two short lines, not one long one for a child who only hears it)
+  await t.say('ep.count.move.why');
   await t.say('ep.count.move');
   await t.hands('Tap each cookie', () => w.tapCount(), () => w.finish());
   const second = await howMany(t, w, MIXED, 'b7', 'ep.count.how2');
@@ -184,28 +189,30 @@ async function play(t: Teller, w: CountWorld): Promise<Notes> {
   const moved = await t.num('How many cookies now?', 'ep.count.moved');
   if (moved === MIXED) { t.buddy('clap'); t.pal('happy'); await t.say('ep.count.moved.right'); }
   else { t.myBet(String(moved)); await platesTest(t, w, moved, MIXED); t.myBet(null); await w.platesOff(); }
-  await t.say('ep.count.try.recount');
+  // ("to check" only for a child whose number was right: a wrong one has nothing to check)
+  await t.say(moved === MIXED ? 'ep.count.try.recount' : 'ep.count.try.recount.again');
   await t.hands('Tap each cookie to count it', () => w.tapHere(), () => w.finish());
   await t.say(moved === MIXED ? 'ep.count.recount.same' : 'ep.count.recount.why');
   await t.go('Next');
 
   // a child who hasn't yet got one right by themselves counts a small new batch on their own (rule 12a)
-  let party = MIXED;
+  // (its question says where to look: the cookie tapped last. And its plates stay on: these cookies go to the
+  // party on them, so the ending doesn't lay the same plates a second time)
+  let extra = false;
   if (first !== MINE && second !== MIXED && moved !== MIXED) {
+    extra = true;
     await w.trayOut();
     await w.trayIn(EXTRA);
     await t.say('ep.count.extra');
     await t.hands('Tap each cookie', () => w.tapCount(), () => w.finish());
-    await howMany(t, w, EXTRA, 'b4', 'ep.count.how');
-    party = EXTRA;
+    await howMany(t, w, EXTRA, 'b4', 'ep.count.how.last', true);
   }
 
-  // the end of this story: a plate for every cookie, and off they go
+  // the end of this story, and what the counting was for: as many plates as cookies, and off they go
   t.beat(5);
-  await t.say('ep.count.try.party');
-  await w.plates(party);
+  if (!extra) { await t.say('ep.count.try.party'); await w.plates(MIXED); }
   t.pal('happy'); t.buddy('jump');
-  await t.say('ep.count.off');
+  await t.say(extra ? 'ep.count.off.extra' : 'ep.count.off');
   await w.party();
   await t.wait(400);
   return { first, second, moved };

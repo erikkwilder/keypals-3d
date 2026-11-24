@@ -125,6 +125,8 @@ describe('the lesson, played by every kind of child', () => {
     // two misses: the red ring shows it, and the line doesn't say "you found it"
     const missed = await play({ nums: [5, 7, 7], finds: ['no', 'no', 'no', 'no'] });
     expect(missed.log.filter(l => l.startsWith('tapSlip'))).toHaveLength(4);
+    // (told what the wrong cookie had once for each friend, not again just before being shown)
+    expect(missed.said.filter(id => id.startsWith('ep.count.find.no'))).toEqual(['ep.count.find.no.two', 'ep.count.find.no.none']);
     expect(missed.said).toContain('ep.count.pal.shown');
     expect(missed.said).toContain('ep.count.buddy.shown');
     expect(missed.said).not.toContain('ep.count.pal.found');
@@ -162,6 +164,28 @@ describe('the lesson, played by every kind of child', () => {
       expect(scriptProblems({ steps: stepsOf(p.log), announces })).toEqual([]);
     }
     expect(COUNT_LESSON.card({ first: 4 })[0]).toContain('4');
+  });
+});
+
+describe('what the cold read of 23 November found', () => {
+  it('the ending uses the number that was counted, and a child on the extra tray is not shown the same plates twice', async () => {
+    const right = await play({ nums: [5, 7, 7] });
+    expect(right.said.at(-2)).toBe('ep.count.try.party');
+    expect(right.said.at(-1)).toBe('ep.count.off');
+    const wrong = await play({ nums: [4, 8, 6, 3] });
+    expect(wrong.said).not.toContain('ep.count.try.party');
+    expect(wrong.said.at(-1)).toBe('ep.count.off.extra');
+    // (the plates the extra tray ended on are the ones that go to the party: nothing takes them off and lays them again)
+    const from = wrong.log.lastIndexOf('plates(4)');
+    expect(wrong.log.slice(from)).not.toContain('platesOff()');
+    expect(wrong.said).toContain('ep.count.how.last');
+  });
+  it('the child who was wrong about the mixed-up cookies also hears "not 8 and not 6", and why counting in place is safe now', async () => {
+    const { said } = await play({ nums: [4, 8, 6, 3] });
+    expect(BEAT_LINES.find(l => l.id === 'ep.count.b7.show')!.text).toMatch(/not 8 and not 6/);
+    expect(said).toContain('ep.count.try.recount.again');
+    expect(said).not.toContain('ep.count.try.recount');
+    expect(BEAT_LINES.find(l => l.id === 'ep.count.try.recount.again')!.text).toMatch(/its number shows it's been counted/);
   });
 });
 

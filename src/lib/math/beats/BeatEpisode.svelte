@@ -73,8 +73,8 @@
   const live = async <T,>(p: Promise<T>): Promise<T> => { const v = await p; if (gone) throw new Left(); return v; };
 
   const teller: Teller = {
-    async say(id, n, m) {
-      line = lineText(id).replace(/\{n\}/g, String(n ?? '')).replace(/\{m\}/g, String(m ?? ''));
+    async say(id, n, m, k) {
+      line = lineText(id).replace(/\{n\}/g, String(n ?? '')).replace(/\{m\}/g, String(m ?? '')).replace(/\{k\}/g, String(k ?? ''));
       // (for checking a lesson's pictures quickly while building it: `window.__fast = ms` holds each line that long)
       if (import.meta.env.DEV && (window as unknown as { __fast?: number }).__fast) { await live(sleep((window as unknown as { __fast: number }).__fast)); return; }
       const t0 = performance.now();

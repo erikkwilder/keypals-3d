@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { stage } from './stage';
+import { SceneWaits } from './sceneWaits';
 import { loadTexture } from './assets';
 import type { EpisodeScene } from './episodeScene';
 import type { Pin } from '../math/beats/types';
@@ -107,7 +108,10 @@ export class CrateKit implements CrateWorld {
   bounds() { return { x: 70, y: 70, w: 460, h: 230 }; }
   refit() { const a = this.sc.boardPoint(0, 0), b = this.sc.boardPoint(100, 0); this.s = (b.x - a.x) / 100; }
 
-  private wait(ms: number) { return new Promise<void>(r => setTimeout(r, ms)); }
+  /** (waits on the scene's clock, as the movements are: sceneWaits.ts) */
+  private waits = new SceneWaits();
+  private wait(ms: number) { return this.waits.wait(ms); }
+  private later(ms: number, fn: () => void) { this.waits.later(ms, fn); }
   private changed() { this.onChange?.(); }
   private pin(p: Pin) { this.pins = [...this.pins.filter(x => x.id !== p.id), p]; this.changed(); }
   private unpin(test: (p: Pin) => boolean) { this.pins = this.pins.filter(p => !test(p)); this.changed(); }
@@ -479,7 +483,7 @@ export class CrateKit implements CrateWorld {
       if (this.job !== j) return;
       if (j.kind === 'trace') { j.step = Math.min(n, j.step + 1); this.rollTo = j.step; this.setLine(j.axis, j.step); bSfx.tick(j.step); this.rollPin(j); }
       else this.stepSweep(j, Math.min(n, j.step + 1));
-      if (j.step >= n) setTimeout(() => this.endJob(), 420); else setTimeout(go, gap);
+      if (j.step >= n) this.later(420, () => this.endJob()); else this.later(gap, go);
     };
     go();
   }
@@ -694,6 +698,7 @@ export class CrateKit implements CrateWorld {
   // ---------- each frame ----------
   update(dt: number, t: number) {
     this.now = t;
+    this.waits.tick(t);
     const c = this.crate;
     // a drawn line follows the hand gently
     if (this.job?.kind === 'trace') {
@@ -783,6 +788,7 @@ export class CrateKit implements CrateWorld {
   }
 
   dispose() {
+    this.waits.clear();
     this.dropCrate();
     this.cracked?.removeFromParent();
     this.rope?.removeFromParent();

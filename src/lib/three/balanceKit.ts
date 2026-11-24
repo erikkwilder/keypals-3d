@@ -9,6 +9,7 @@
 // the other side).
 import * as THREE from 'three';
 import { stage } from './stage';
+import { SceneWaits } from './sceneWaits';
 import type { EpisodeScene } from './episodeScene';
 import type { Pin } from '../math/beats/types';
 import type { EquationWorld } from '../math/beats/equationLesson';
@@ -206,7 +207,10 @@ export class BalanceKit implements EquationWorld {
     this.root.add(g);
     return it;
   }
-  private wait(ms: number) { return new Promise<void>(r => setTimeout(r, ms)); }
+  /** (waits on the scene's clock, as the movements are: sceneWaits.ts) */
+  private waits = new SceneWaits();
+  private wait(ms: number) { return this.waits.wait(ms); }
+  private later(ms: number, fn: () => void) { this.waits.later(ms, fn); }
   private of(where: Where, kind: 'bag' | 'weight' = 'weight') { return this.items.filter(o => o.where === where && o.kind === kind); }
   private changed() { this.pinAll(); this.onChange?.(); }
 
@@ -378,7 +382,7 @@ export class BalanceKit implements EquationWorld {
     }
     this.changed();
     this.job = null;
-    setTimeout(() => j.done(), 900);
+    this.later(900, () => j.done());
   }
 
   // ---------- the child's hands ----------
@@ -435,18 +439,19 @@ export class BalanceKit implements EquationWorld {
     this.send(it, to, 0, 0.35);
     this.changed();
     // done: no loose weights on the bags' side (and, for both sides, level)
-    setTimeout(() => {
+    this.later(420, () => {
       if (this.job !== j) return;
       const { l, r } = this.sides();
       const left = this.of('L').length === 0 && !this.held;
-      if (left && (j.from === 'left' || l === r)) { this.job = null; this.changed(); setTimeout(() => j.done(), 500); }
-    }, 420);
+      if (left && (j.from === 'left' || l === r)) { this.job = null; this.changed(); this.later(500, () => j.done()); }
+    });
     return true;
   }
 
   // ---------- each frame ----------
   update(dt: number, t: number) {
     this.now = t;
+    this.waits.tick(t);
     const { l, r } = this.sides();
     // the beam swings on a spring toward what's really on each side
     const want = TILT * Math.max(-1, Math.min(1, (l - r) / 2.5));
@@ -476,6 +481,7 @@ export class BalanceKit implements EquationWorld {
   }
 
   dispose() {
+    this.waits.clear();
     this.sc.workZoom = 1; this.sc.tallPitch = null; this.sc.widePitch = null;
     for (const it of this.items) it.g.removeFromParent();
     this.items = [];

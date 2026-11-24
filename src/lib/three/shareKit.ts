@@ -4,13 +4,14 @@
 // pieces stand up side by side like towers: a longer piece stands taller, and its length stands on it.
 // (Lying in rows they were hard to compare: the camera looks along the table, so depth is squashed.)
 // The bar being cut lies at the front and the plates stand behind it, so a bar lying flat is never hidden by
-// pieces standing on the plates: someone else's bar (the buddy's, Pebble's) comes in at the front too, in white
-// chocolate, so it's never mistaken for the child's and all its cuts can be seen while the child is asked about it.
+// pieces standing on the plates: someone else's bar (the buddy's, Pebble's) comes in at the front too, in a
+// lighter chocolate, so it's never mistaken for the child's and all its cuts can be seen while the child is asked about it.
 // Everything is placed in board units (the episode table's own) and turned into the room every frame, so the
 // picture keeps its shape at any screen size.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { stage } from './stage';
+import { SceneWaits } from './sceneWaits';
 import { loadTexture } from './assets';
 import type { EpisodeScene } from './episodeScene';
 import type { Pin } from '../math/beats/types';
@@ -99,7 +100,10 @@ export class ShareKit implements ShareWorld {
   private colAt(p: number) { return this.tall ? { x: this.plateX + (p + 0.5) * PLATE_GAP, y: BAR_Y } : { x: COL_X + p * COL_GAP, y: ROW0 }; }
   refit() { const a = this.sc.boardPoint(0, 0), b = this.sc.boardPoint(100, 0); this.s = (b.x - a.x) / 100; }
 
-  private wait(ms: number) { return new Promise<void>(r => setTimeout(r, ms)); }
+  /** (waits on the scene's clock, as the movements are: kitParts.ts SceneWaits) */
+  private waits = new SceneWaits();
+  private wait(ms: number) { return this.waits.wait(ms); }
+  private later(ms: number, fn: () => void) { this.waits.later(ms, fn); }
   private changed() { this.onChange?.(); }
   private pin(p: Pin) { this.pins = [...this.pins.filter(x => x.id !== p.id), p]; this.changed(); }
   private unpin(test: (p: Pin) => boolean) { this.pins = this.pins.filter(p => !test(p)); this.changed(); }
@@ -218,7 +222,12 @@ export class ShareKit implements ShareWorld {
   total(text: string | null) {
     this.unpin(p => p.id === 'total');
     const b = this.bar, g = b?.given;
-    if (text && b && g) this.pin({ id: 'total', text, kind: 'word', at: () => this.pieceTop(b, g.from, 0) });
+    // (to the left of the stack, halfway up: the pieces' names stand on its right, and on top of a stack this
+    // tall the card went under the narrator's words)
+    if (text && b && g) {
+      const { ps, out } = this.starts(b);
+      this.pin({ id: 'total', text, kind: 'word', at: () => { const lo = this.at(b.squares[out[g.to]]), hi = this.at(b.squares[out[g.from] + ps[g.from] - 1]); return this.world({ x: lo.x - b.sq * 1.25, y: lo.y, up: (lo.up + hi.up) / 2 }); } });
+    }
   }
 
   cut(pieces: number) {
@@ -234,13 +243,13 @@ export class ShareKit implements ShareWorld {
     if (b.lines.includes(g)) return;
     this.knifeAt = { x: this.left(b) + g * b.sq, y: BAR_Y, t0: this.now, seen: this.now };
     b.lines = [...b.lines, g].sort((x, y) => x - y);
-    setTimeout(() => { this.relayout(b, 0.22); bSfx.clack(); this.changed(); }, 140);
+    this.later(140, () => { this.relayout(b, 0.22); bSfx.clack(); this.changed(); });
   }
   private cutLine(g: number) {
     const j = this.job, b = this.bar; if (!j || !b || b.lines.includes(g)) return;
     this.chop(b, g);
-    if (j.kind === 'tap') { this.job = null; setTimeout(() => { this.sizePins(b, true); j.done(g); }, 420); }
-    else if (b.lines.length >= j.pieces - 1) { const lines = [...b.lines]; this.job = null; setTimeout(() => j.done(lines), 520); }
+    if (j.kind === 'tap') { this.job = null; this.later(420, () => { this.sizePins(b, true); j.done(g); }); }
+    else if (b.lines.length >= j.pieces - 1) { const lines = [...b.lines]; this.job = null; this.later(520, () => j.done(lines)); }
     this.changed();
   }
   async uncut(line: number) {
@@ -382,7 +391,7 @@ export class ShareKit implements ShareWorld {
       const want = (fairCuts(b.n, j.pieces) ?? []).filter(g => !b.lines.includes(g));
       const fallback = () => { const { ps, out } = this.starts(b); const p = ps.indexOf(Math.max(...ps)); return out[p] + Math.max(1, Math.floor(ps[p] / 2)); };
       this.cutLine(want.length && b.lines.every(g => (fairCuts(b.n, j.pieces) ?? []).includes(g)) ? want[0] : fallback());
-      if (this.job === j) setTimeout(go, 420);
+      if (this.job === j) this.later(420, go);
     };
     go();
   }
@@ -420,6 +429,7 @@ export class ShareKit implements ShareWorld {
 
   update(dt: number, t: number) {
     this.now = t; this.born ??= t;
+    this.waits.tick(t);
     // (the buddy's mouth, found while it stands still a few seconds in)
     if (this.mouthInHead === undefined && t - this.born > 5 && this.sc.me.bones.Head) this.buddyMouth();
     const s = this.s;
@@ -468,6 +478,7 @@ export class ShareKit implements ShareWorld {
   }
 
   dispose() {
+    this.waits.clear();
     this.drop(this.bar); this.drop(this.other); this.dropTrays();
     this.root.removeFromParent();
     this.geo?.dispose();

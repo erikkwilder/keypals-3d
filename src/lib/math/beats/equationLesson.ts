@@ -53,16 +53,16 @@ const NEXT_DAY: Eq = { p: 2, q: 5, r: 17 };
 
 /** the words a run of the lesson can say, all of them */
 export const EQUATION_LINES = ['intro', 'scale', 'level', 'letter', 'guess', 'try.you', 'try.again', 'heavy', 'light', 'lucky', 'unlucky',
-  'off.ask', 'try.off', 'off.up', 'off.down', 'off.level', 'other.ask', 'try.other', 'other.yes', 'other.few', 'other.many', 'other.fix',
+  'own.why', 'off.ask', 'try.off', 'off.up', 'off.down', 'off.level', 'other.ask', 'try.other', 'other.yes', 'other.few', 'other.many', 'other.fix',
   'share.idea', 'share.ask', 'try.share', 'share.yes', 'share.few', 'share.many', 'share.how', 'share.done', 'write', 'write.read',
-  'b.in', 'b.idea', 'b.ask', 'try.buddy', 'b.no', 'b.yes', 'b.kept', 'b.rule', 'b.own', 'try.both', 'b.right', 'b.mid', 'b.piles', 'b.write',
+  'b.in', 'b.idea', 'b.ask', 'try.buddy', 'b.no', 'b.yes', 'b.kept', 'b.rule', 'b.own', 'try.both', 'b.right', 'b.seven', 'b.mid', 'b.share', 'b.piles', 'b.write',
   'together', 'd.in', 'd.right', 'try.d', 'd.mid', 'd.last', 'd.own', 'd.share', 'd.piles',
-  'end', 'check', 'check.right', 'check.again', 'check.mid', 'check.piles'].map(k => `ep.eq.${k}`);
+  'end', 'end.we', 'check', 'check.right', 'check.again', 'check.mid', 'check.share', 'check.piles'].map(k => `ep.eq.${k}`);
 
 /** Test a number for one bag: say whose it is, put it in place of each bag, say what the balance showed. The
  *  first test says how a test works; later ones just say whose number goes in. A right number gets its own line,
  *  which says it stayed level and why. */
-async function test(t: Teller, w: EquationWorld, e: Eq, n: number, right: string, first = false): Promise<boolean> {
+async function test(t: Teller, w: EquationWorld, e: Eq, n: number, right: string, first = false, told?: string): Promise<boolean> {
   await t.say(first ? 'ep.eq.try.you' : 'ep.eq.try.again', n);
   t.pal('act');
   await w.swapIn(n);
@@ -70,7 +70,8 @@ async function test(t: Teller, w: EquationWorld, e: Eq, n: number, right: string
   if (tip === 0) { t.buddy('cheer'); t.pal('happy'); } else { t.buddy('shrug'); t.pal('sad'); }
   // (a miss says, in one line, what the bags' side now comes to against the other side's count on screen, which
   // way that tips it, and so whether a bag weighs more or less than their number)
-  await t.say(tip === 0 ? right : tip > 0 ? 'ep.eq.heavy' : 'ep.eq.light', n, e.p * n + e.q);
+  // (`told`: a miss that is a particular mistake gets its own line, which says what that mistake was)
+  await t.say(tip === 0 ? right : told ?? (tip > 0 ? 'ep.eq.heavy' : 'ep.eq.light'), n, e.p * n + e.q, e.r);
   await w.swapBack();
   return tip === 0;
 }
@@ -83,13 +84,18 @@ async function onOwn(t: Teller, w: EquationWorld, e: Eq, k: 'b' | 'check'): Prom
   for (let miss = 0; miss < tries; miss++) {
     const n = await t.num('How heavy is one bag?', miss ? `ep.eq.${k}.again` : undefined);
     t.myBet(String(n));
-    if (await test(t, w, e, n, `ep.eq.${k}.right`)) { t.myBet(null); await t.go('Next'); return true; }
+    // (the other side shared into as many parts as there are bags, with the loose weights still on: the buddy's
+    // own mistake, made again. It's told so, not just "less than your number")
+    const buddys = k === 'b' && e.q > 0 && n * e.p === e.r ? 'ep.eq.b.seven' : undefined;
+    if (await test(t, w, e, n, `ep.eq.${k}.right`, false, buddys)) { t.myBet(null); await t.go('Next'); return true; }
   }
   t.myBet(null);
   await t.say('ep.eq.together');
   await t.say('ep.eq.try.both');
   await t.hands('Drag the loose weights off, the same from each side', () => w.takeOff('both'), () => w.finish());
   await t.say(`ep.eq.${k}.mid`);
+  // (why piles, and how many: said before they form)
+  await t.say(`ep.eq.${k}.share`);
   await w.shareOut(e.p);
   await t.say(`ep.eq.${k}.piles`);
   await t.go('Next');
@@ -117,6 +123,8 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
 
   // the loose weights off: first from one side only (their prediction, then their hands), and it tips
   t.beat(2);
+  // (why a bag on its own is what we're after, before the first step toward it)
+  await t.say('ep.eq.own.why');
   const guess = await t.pick("What will the bags' side do?", [{ id: 'up', text: 'Go up' }, { id: 'down', text: 'Go down' }, { id: 'level', text: 'Stay level' }], 'ep.eq.off.ask');
   await t.say('ep.eq.try.off');
   await t.hands("Drag the 3 loose weights off the bags' side", () => w.takeOff('left'), () => w.finish());
@@ -142,7 +150,8 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   if (sh === 0) { t.pal('happy'); t.buddy('clap'); await t.say('ep.eq.share.yes'); }
   else {
     t.buddy('shrug');
-    await t.say(sh < 0 ? 'ep.eq.share.few' : 'ep.eq.share.many', half);
+    // (what's left on the other side, which way it went, and so what that says about one bag)
+    await t.say(sh < 0 ? 'ep.eq.share.few' : 'ep.eq.share.many', half, Math.max(0, FIRST.r - FIRST.q - half));
     await t.say('ep.eq.share.how');
     await w.reset('bags');
     await w.shareOut(FIRST.p);
@@ -188,7 +197,7 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   // balance; then, said kindly, the first step is done together with their hands, and the last step is still
   // theirs: 4 bags against 12. A miss there is shown on the balance, the 12 shared into 4 piles. (More tries at
   // the whole balance, with the same hint each time, took minutes and taught nothing new.)
-  let extra = false;
+  let extra = false, solved = ownB;
   if (!ownB) {
     extra = true;
     await w.scaleIn(ONE_MORE);
@@ -196,6 +205,7 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
     t.myBet(String(n1));
     const got = await test(t, w, ONE_MORE, n1, 'ep.eq.d.right');
     t.myBet(null);
+    solved = got;
     if (!got) {
       await t.say('ep.eq.try.d');
       await t.hands('Drag the loose weight off, and the same from the other side', () => w.takeOff('both'), () => w.finish());
@@ -204,6 +214,7 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
       t.myBet(String(n));
       const own = await test(t, w, { p: ONE_MORE.p, q: 0, r: ONE_MORE.r - ONE_MORE.q }, n, 'ep.eq.d.own');
       t.myBet(null);
+      solved = own;
       if (!own) { await t.say('ep.eq.d.share'); await w.shareOut(ONE_MORE.p); await t.say('ep.eq.d.piles'); }
     }
     await t.go('Next');
@@ -215,7 +226,8 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   const today = [FIRST, BUDDY, ...(extra ? [ONE_MORE] : [])];
   await w.tags(today.map(xOf), today.map(e => e.p));
   t.pal('happy'); t.buddy('jump');
-  await t.say('ep.eq.end');
+  // ("you found" only for a child who found one on their own; otherwise "now we know": no praise for nothing)
+  await t.say(solved ? 'ep.eq.end' : 'ep.eq.end.we');
   await t.wait(600);
   return { first, own: ownB ? 1 : 0 };
 }

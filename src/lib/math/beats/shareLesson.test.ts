@@ -101,7 +101,7 @@ describe('the lesson, played by every kind of child', () => {
   it('the buddy\'s pieces and Pebble\'s eighth are acted out whatever the child picks', async () => {
     for (const c of [RIGHT, WRONG]) {
       const { log } = await play(c);
-      expect(log).toContain('otherBar([1,2,4])');
+      expect(log).toContain('otherBar([1,2,5])');
       expect(log).toContain('testOther()');
       expect(log).toContain('besides(8)');
     }
@@ -181,6 +181,35 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
       parts.push(who, '', ...p.film, '', '');
     }
     writeFileSync(out.replace(/(\.txt)?$/, '.share$1'), parts.join('\n'));
+  });
+});
+
+describe('what the cold read of 23 November found', () => {
+  const run = async (c: Child) => { const p = pretend({ cuts: c.cuts.map(x => [...x]), taps: [...c.taps], picks: [...c.picks] }); const notes = await SHARE_LESSON.play(p.teller, p.world); return { ...p, notes }; };
+  it('none of the buddy\'s pieces is a fourth of the bar (a 2-square piece of an 8-square bar would be)', async () => {
+    const { log } = await run(WRONG);
+    const cut = log.find(l => l.startsWith('otherBar('))!;
+    const lines = JSON.parse(cut.slice('otherBar('.length, -1)) as number[];
+    const pieces = [...lines, 8].map((g, i) => g - (i ? lines[i - 1] : 0));
+    expect(pieces).toHaveLength(4);
+    expect(pieces.reduce((a, b) => a + b, 0)).toBe(8);
+    expect(pieces).not.toContain(2);
+    const text = BEAT_LINES.find(l => l.id === 'ep.share.buddy.no')!.text;
+    for (const n of pieces) expect(text).toContain(String(n));
+  });
+  it('a child who named no piece right gets one more to name alone before the end; one who did is not asked again', async () => {
+    const wrong = await run(WRONG);
+    expect(wrong.said).toContain('ep.share.own.ask');
+    expect(wrong.said.indexOf('ep.share.own.ask')).toBeLessThan(wrong.said.indexOf('ep.share.eat'));
+    const right = await run(RIGHT);
+    expect(right.said).not.toContain('ep.share.own.ask');
+  });
+  it('the reasons the right child hears reach the wrong child too: what the bottom number and the top number count', async () => {
+    const { said } = await run(WRONG);
+    expect(said).toContain('ep.share.call.why');
+    expect(said).toContain('ep.share.two.top');
+    expect(said).toContain('ep.share.try.two.together');
+    expect(said).not.toContain('ep.share.try.two');
   });
 });
 

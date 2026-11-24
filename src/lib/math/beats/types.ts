@@ -15,9 +15,9 @@ export type Choice<T extends string = string> = { id: T; text: string };
 
 /** What a script can ask of the player. */
 export interface Teller {
-  /** the coach says one line (its words stay up); done when it's said. `n` fills {n} in the words on screen,
-   *  and `m` fills {m} (the voice says the line's spoken form, which has neither) */
-  say(id: string, n?: number, m?: number): Promise<void>;
+  /** the coach says one line (its words stay up); done when it's said. `n`, `m` and `k` fill {n}, {m} and {k}
+   *  in the words on screen (the voice says the line's spoken form, which has none of them) */
+  say(id: string, n?: number, m?: number, k?: number): Promise<void>;
   /** wait for a number from the child (it's what the world then acts out); `line` is said as it opens */
   num(prompt: string, line?: string, n?: number): Promise<number>;
   /** wait for a tap on one of these */

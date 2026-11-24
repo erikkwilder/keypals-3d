@@ -15,9 +15,9 @@ function pretend(child: Child) {
   const world = new Proxy({} as EquationWorld, {
     get: (_, k: string) => (...a: unknown[]) => { log.push(`${k}(${a.map(x => JSON.stringify(x)).join(',')})`); return Promise.resolve(); },
   });
-  const speak = (id: string, n?: number, m?: number) => { said.push(id); log.push(`say ${id}${n != null ? ` [${n}${m != null ? `,${m}` : ''}]` : ''}`); };
+  const speak = (id: string, n?: number, m?: number, k?: number) => { said.push(id); log.push(`say ${id}${n != null ? ` [${[n, m, k].filter(x => x != null).join(',')}]` : ''}`); };
   const teller: Teller = {
-    say: async (id, n, m) => { speak(id, n, m); },
+    say: async (id, n, m, k) => { speak(id, n, m, k); },
     num: async (_, id, n) => { if (id) speak(id, n); const v = child.nums.shift(); if (v == null) throw new Error('the lesson asked for more numbers than this child has'); log.push(`num ${v}`); return v; },
     pick: async (_, choices, id) => { if (id) speak(id); const p = child.picks.shift() ?? choices[0].id; log.push(`pick ${p}`); return p as never; },
     hands: async (_, job) => { await job(); },
@@ -98,7 +98,7 @@ describe('the lesson, played by every kind of child', () => {
   it('a miss is told in one line with what the bags\' side came to, and a wrong prediction is named back', async () => {
     const { log, said } = await run(WRONG);
     // 7 in each of 2 bags and the 3 loose weights is 17, against 11
-    expect(log).toContain('say ep.eq.heavy [7,17]');
+    expect(log).toContain('say ep.eq.heavy [7,17,11]');
     expect(said).toContain('ep.eq.off.level');
     const down = await run({ ...WRONG, picks: ['down', 'yes'] });
     expect(down.said).toContain('ep.eq.off.down');
@@ -142,13 +142,26 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
   it('every line can stand up to the words rules', () => {
     expect(lineProblems(EQ_LINES)).toEqual([]);
   });
-  it('only {n} and {m} are filled in, and never in what the voice says', () => {
-    for (const l of EQ_LINES) { expect(l.text.replace(/\{[nm]\}/g, ''), l.id).not.toMatch(/[{}]/); expect(l.said ?? '', l.id).not.toMatch(/[{}]/); }
+  it('only {n}, {m} and {k} are filled in, and never in what the voice says', () => {
+    for (const l of EQ_LINES) { expect(l.text.replace(/\{[nmk]\}/g, ''), l.id).not.toMatch(/[{}]/); expect(l.said ?? '', l.id).not.toMatch(/[{}]/); }
+  });
+  it('a guess of the buddy\'s own mistake on the buddy\'s balance is told what the mistake was', async () => {
+    const { said, log } = await run(WRONG);   // 7 = 21 shared into 3, with the 6 loose weights still on
+    expect(said).toContain('ep.eq.b.seven');
+    expect(log).toContain('say ep.eq.b.seven [7,27,21]');
+    const other = await run({ nums: [7, 1, 1, 9, 1, 5], picks: ['level', 'yes'] });
+    expect(other.said).not.toContain('ep.eq.b.seven');
+    expect(other.log).toContain('say ep.eq.heavy [9,33,21]');
+  });
+  it('a child who solved nothing alone is not told "you found"; one who did the last step is', async () => {
+    expect((await run(WRONG)).said).toContain('ep.eq.end.we');
+    expect((await run(RIGHT)).said).toContain('ep.eq.end');
+    expect((await run({ nums: [7, 1, 1, 7, 1, 3], picks: ['level', 'yes'] })).said).toContain('ep.eq.end');
   });
   it('writes the script out for a cold read, when asked (rule 21)', async () => {
     const out = process.env.COLD_READ;
     if (!out) return;
-    const text = (id: string, nm?: string) => (EQ_LINES.find(l => l.id === id)?.text ?? id).replaceAll('{n}', nm?.split(',')[0] ?? '').replaceAll('{m}', nm?.split(',')[1] ?? '');
+    const text = (id: string, nm?: string) => (EQ_LINES.find(l => l.id === id)?.text ?? id).replaceAll('{n}', nm?.split(',')[0] ?? '').replaceAll('{m}', nm?.split(',')[1] ?? '').replaceAll('{k}', nm?.split(',')[2] ?? '');
     const print = (log: string[]) => log.map(l => { const m = /^say (\S+)(?: \[(.+)\])?$/.exec(l); return m ? `SAID: ${text(m[1], m[2])}` : `(picture or child: ${l})`; }).join('\n');
     const w = await run(WRONG), r = await run(RIGHT);
     writeFileSync(out.replace(/(\.txt)?$/, '.equation.txt'), `A CHILD WHO IS WRONG EVERY TIME\n\n${print(w.log)}\n\n\nA CHILD WHO IS RIGHT EVERY TIME\n\n${print(r.log)}\n`);

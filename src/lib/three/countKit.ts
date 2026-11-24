@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { stage } from './stage';
+import { SceneWaits } from './sceneWaits';
 import { loadTexture } from './assets';
 import type { EpisodeScene } from './episodeScene';
 import type { Pin } from '../math/beats/types';
@@ -141,7 +142,10 @@ export class CountKit implements CountWorld {
     this.geo.ring = new THREE.TorusGeometry(R * 1.12, r * 0.12, 6, 36);
   }
 
-  private wait(ms: number) { return new Promise<void>(r => setTimeout(r, ms)); }
+  /** (waits on the scene's clock, as the movements are: kitParts.ts SceneWaits) */
+  private waits = new SceneWaits();
+  private wait(ms: number) { return this.waits.wait(ms); }
+  private later(ms: number, fn: () => void) { this.waits.later(ms, fn); }
   private changed() { this.onChange?.(); }
   private pin(p: Pin) { this.pins = [...this.pins.filter(x => x.id !== p.id), p]; this.changed(); }
   private unpin(test: (p: Pin) => boolean) { this.pins = this.pins.filter(p => !test(p)); this.changed(); }
@@ -270,7 +274,7 @@ export class CountKit implements CountWorld {
   }
   private tapJob(kind: 'count' | 'here') {
     return new Promise<void>(res => {
-      this.job = { kind, done: () => { this.job = null; clearInterval(this.auto); this.changed(); setTimeout(res, 500); } };
+      this.job = { kind, done: () => { this.job = null; this.auto++; this.changed(); this.later(500, res); } };
       this.changed();
     });
   }
@@ -279,7 +283,7 @@ export class CountKit implements CountWorld {
   tapSlip() {
     return new Promise<'yes' | 'no' | 'shown'>(res => {
       this.unmark();
-      this.job = { kind: 'slip', done: r => { this.job = null; this.changed(); setTimeout(() => res(r), 350); } };
+      this.job = { kind: 'slip', done: r => { this.job = null; this.changed(); this.later(350, () => res(r)); } };
       this.changed();
     });
   }
@@ -292,12 +296,16 @@ export class CountKit implements CountWorld {
     const j = this.job;
     if (!j) return;
     if (j.kind === 'slip') { j.done('shown'); return; }
-    clearInterval(this.auto);
-    this.auto = setInterval(() => {
+    // (one cookie, then the next after its movement, until all are counted; `auto` changes when the job ends or
+    // "Show me" is asked again, which stops an older run)
+    const run = ++this.auto;
+    const step = () => {
+      if (run !== this.auto || this.job !== j) return;
       const c = this.cookies.find(x => !x.num);
       if (c) { if (j.kind === 'here') this.countHere(c); else this.countOne(c); }
-      if (!this.cookies.some(x => !x.num)) j.done();
-    }, 620) as unknown as number;
+      if (!this.cookies.some(x => !x.num)) j.done(); else this.later(620, step);
+    };
+    step();
   }
   async slipCount(who: 'buddy' | 'pal', slip: Slip) {
     const n = this.cookies.length, path = countPath(n, slip);
@@ -349,7 +357,7 @@ export class CountKit implements CountWorld {
         if (c) {
           c.plate = p;
           this.go(c.g, c.g.position.clone().add(new THREE.Vector3(0, 0.16, 0)), 0.28);
-          setTimeout(() => this.go(c.g, to.clone().add(lift), 0.3, { done: () => bSfx.clack() }), 1250 + j * 70);
+          this.later(1250 + j * 70, () => this.go(c.g, to.clone().add(lift), 0.3, { done: () => bSfx.clack() }));
         }
       } else {
         // (each plate slides in from the front to its place in the row; the cookie there hops up as it comes,
@@ -376,7 +384,7 @@ export class CountKit implements CountWorld {
     if (this.L.cols < 8) {
       // (a phone: the cookies jump up off their plates, the plates slide out to the right under them, and the
       // cookies come down where they were)
-      cs.forEach((c, i) => { if (!c.plate) return; const at = this.rowAt(i, N); this.go(c.g, at.clone().add(new THREE.Vector3(0, 0.16, 0)), 0.28); setTimeout(() => this.go(c.g, at, 0.3), 1150); c.plate = null; });
+      cs.forEach((c, i) => { if (!c.plate) return; const at = this.rowAt(i, N); this.go(c.g, at.clone().add(new THREE.Vector3(0, 0.16, 0)), 0.28); this.later(1150, () => this.go(c.g, at, 0.3)); c.plate = null; });
       for (const p of gone) this.go(p, p.position.clone().add(new THREE.Vector3(380 * this.s, 0, 0)), 0.8, { delay: 0.3 });
       await this.wait(1500);
     } else {
@@ -454,6 +462,7 @@ export class CountKit implements CountWorld {
 
   update(dt: number, t: number) {
     this.now = t;
+    this.waits.tick(t);
     // Sprout Bunny leaning over to the cookie it counts (the scene has just put it in its own place for this
     // frame): across toward the cookie, behind the table as before, never into the buddy, a little lower
     const pal = this.sc.pal.root.position, ln = this.lean;
@@ -479,7 +488,7 @@ export class CountKit implements CountWorld {
     for (const m of this.marks) m.scale.setScalar(pulse);
   }
   dispose() {
-    clearInterval(this.auto);
+    this.auto++; this.waits.clear();
     this.root.removeFromParent();
     this.tray?.geometry.dispose();
     for (const g of Object.values(this.geo)) g?.dispose();
