@@ -179,7 +179,7 @@ describe('students logging in', () => {
 });
 
 describe('class work and the boards', () => {
-  const week = '2026-10-26';
+  const week = weekKey(Date.now()); // (the boards take only a week near now)
   it('assignments are checked and trimmed; students see only theirs', async () => {
     expect(cleanAssignment({ what: 'skills', skills: [], goal: { type: 'right', n: 10 } })).toBeNull();
     expect(cleanAssignment({ what: 'oops', skills: ['fr-name'], goal: { type: 'right', n: 10 } })).toBeNull();
@@ -242,7 +242,8 @@ describe('class work and the boards', () => {
       // Monday afternoon (UTC): the week is over everywhere in the Americas
       Date.now = () => Date.parse('2026-11-09T15:00:00Z');
       const late = await call('POST', `/teach/classes/${c.id}/challenge/join`, { code }, { cookie: t2 });
-      expect([late.status, late.json.error]).toEqual([400, 'That challenge is over. Make a new one!']);
+      // (the same answer as a wrong code, so codes can't be found by trying)
+      expect([late.status, late.json.error]).toEqual([404, "That code can't be joined. Check the words and number: a challenge that's over or full can't be joined either."]);
     } finally { Date.now = real; }
   });
   it('a class can start the new week\'s challenge on Monday morning, while last week\'s can still be joined', async () => {

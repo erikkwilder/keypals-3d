@@ -5,6 +5,7 @@ import { makeD1 } from './test/d1.js';
 import { RESTORE_ORDER, restoreLines } from './restore-sql.mjs';
 import { CLASS_TABLES } from './classes.js';
 import { gunzipSync } from 'node:zlib';
+import { readFileSync } from 'node:fs';
 
 const b64url = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const sha256 = async (text) => b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
@@ -239,6 +240,8 @@ describe('the weekly backup', () => {
     await env.DB.prepare("INSERT INTO ideas (kind, text, status, votes, merged_into, created, updated) VALUES ('idea', 'More foxes', 'merged', 4, 7, 1, 2)").run();
     await env.DB.prepare("INSERT INTO problems (kind, text, sig, stack, times, status, created, lastseen) VALUES ('auto', 'Oops', 'abc', 'line 1', 3, 'read', 1, 2)").run();
     await env.DB.prepare("INSERT INTO class_settings (class, data, updated) VALUES ('c1', '{\"keep\":\"only\"}', 5)").run();
+    // (a grown-up's account: what's kept for a teacher goes with the account)
+    await env.DB.prepare("INSERT INTO accounts (id, provider, sub, email, name, created, seen) VALUES ('a1', 'google', 's-a1', NULL, 'Teacher', 5, ?)").bind(Date.now()).run();
     await env.DB.prepare("INSERT INTO teacher_status (account, status, created) VALUES ('a1', 'ok', 5)").run();
     await env.DB.prepare("INSERT INTO student_google (gid, student, class, created) VALUES ('g1', 's1', 'c1', 5)").run();
     await env.DB.prepare("INSERT INTO account_domains (account, hd, updated) VALUES ('a1', 'school.org', 5)").run();
@@ -289,6 +292,16 @@ describe('counting visits on the server', () => {
     expect(rows.map(r => [r.event, r.key, r.n])).toEqual([['play_sec', '', 600]]);
     expect(rows[0].day).toBe(today());
     expect((await api('/count', { method: 'POST', body: { day: today(), counts: Array(81).fill({ e: 'screen', k: 'hub', n: 1 }) } })).status).toBe(400);
+  });
+
+  it("takes every screen the game has (src/lib/state/game.svelte.ts Screen), so a new one isn't dropped unseen", async () => {
+    const { env, api } = site();
+    const src = readFileSync(new URL('../../src/lib/state/game.svelte.ts', import.meta.url), 'utf8').replace(/\/\/.*$/gm, '');
+    const from = src.indexOf('export type Screen =');
+    const screens = [...src.slice(from, src.indexOf(';', from)).matchAll(/'(\w+)'/g)].map(m => m[1].toLowerCase());
+    expect(screens.length).toBeGreaterThan(40);
+    await api('/count', { method: 'POST', body: { day: today(), counts: screens.map(k => ({ e: 'screen', k, n: 1 })) } });
+    expect((await env.DB.prepare("SELECT key FROM counts WHERE event = 'screen'").all()).results.map(r => r.key).sort()).toEqual([...screens].sort());
   });
 });
 

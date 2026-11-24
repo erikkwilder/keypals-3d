@@ -14,7 +14,8 @@ const gap = process.env.SHOW_GAPS ? it : it.fails;
 const b64url = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const sha256 = async (text) => b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
 const GOOGLE = { GOOGLE_CLIENT_ID: 'client-id', GOOGLE_CLIENT_SECRET: 'client-secret' };
-const WEEK = '2026-11-23';
+/** this week's Monday, as the game sends it (the boards take only a week near now) */
+const WEEK = (() => { const d = new Date(); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); })();
 const DAY = 86400000;
 const ATTACKER = '203.0.113.9', FAMILY = '198.51.100.7';
 
@@ -434,6 +435,24 @@ describe('classes: other teachers, children, outsiders', () => {
     expect((await s.api(`/class/${c.code}/login`, { method: 'POST', body: { student: maria.id, pics: maria.pair }, ip: FAMILY })).status).toBe(200);
   });
 
+  it("[L9] challenge codes can't be found by trying: a wrong code and one that's over get one answer, a teacher's tries are limited, and another class's id is never shown", async () => {
+    const s = site();
+    const a = await s.teacher('Ms. Ames'), b = await s.teacher('Mr. Bell');
+    const ca = await s.classWith(a, 'Maria', 'Room A'), cb = await s.classWith(b, 'Sam', 'Room B');
+    const code = (await s.api(`/teach/classes/${ca.id}/challenge`, { method: 'POST', body: { week: WEEK }, cookie: a.token })).json.challenge.code;
+    await s.env.DB.prepare("INSERT INTO challenges (id, code, week, created, owner) VALUES ('ch-old', 'OWL-FERN-12', '2026-01-05', 0, ?)").bind(ca.id).run();
+    const join = (c) => s.api(`/teach/classes/${cb.id}/challenge/join`, { method: 'POST', body: { code: c }, cookie: b.token });
+    const wrong = await join('NOPE-NOPE-11'), over = await join('OWL-FERN-12');
+    expect([over.status, over.json.error]).toEqual([wrong.status, wrong.json.error]);
+    const ok = await join(code);
+    expect(ok.json.challenge.classes.map(x => x.name).sort()).toEqual(['Room A', 'Room B']);
+    expect(ok.json.challenge.classes.find(x => x.name === 'Room B').id).toBe(cb.id); // its own, to show which is theirs
+    expect(JSON.stringify(ok.json)).not.toContain(ca.id);
+    let n = 3;
+    while ((await join('NOPE-NOPE-11')).status !== 429) n++;
+    expect(n).toBe(20);
+  });
+
   gap("[L7] a family must show it really is a classmate (the child's two pictures) before that classmate's player is swapped for theirs", async () => {
     const s = site();
     const t = await s.teacher();
@@ -462,7 +481,7 @@ describe('rate limits and code guessing', () => {
     }
   });
 
-  gap('[M1] addresses in one IPv6 /64 (one home, one cheap server) share one limit', async () => {
+  it('[M1] addresses in one IPv6 /64 (one home, one cheap server) share one limit', async () => {
     const s = site();
     for (let i = 0; i < 60; i++) await s.api(`/players/NOPE-NOPE-NOPE-${i}`, { ip: '2001:db8:1:2::1' });
     expect((await s.api('/players/NOPE-NOPE-NOPE-99', { ip: '2001:db8:1:2::1' })).status).toBe(429);
@@ -475,7 +494,7 @@ describe('rate limits and code guessing', () => {
     expect({ answeredOf200: answers.filter(r => r.status !== 429).length }).toEqual({ answeredOf200: 60 });
   });
 
-  gap('[M1] once an address has used its 60 save-code tries for the hour, no other route will check a save code for it', async () => {
+  it('[M1] once an address has used its 60 save-code tries for the hour, no other route will check a save code for it', async () => {
     const s = site();
     const nope = (i) => `NOPE-NOPE-NOPE-${i}`;
     let n = 0;
@@ -489,7 +508,7 @@ describe('rate limits and code guessing', () => {
     expect({ opensBefore429: n, ...other }).toEqual({ opensBefore429: 60, savePlayer: 429, saveWeek: 429, familyBoard: 429, stopSaving: 429 });
   });
 
-  gap('[M1] once an address has used its 600 class-code tries for the hour, every route that looks up a class code says "too many"', async () => {
+  it('[M1] once an address has used its 600 class-code tries for the hour, every route that looks up a class code says "too many"', async () => {
     const s = site(GOOGLE);
     const nope = (i) => `NOPE-ZZ-${10 + (i % 90)}-${i}`;
     let n = 0;
@@ -554,7 +573,7 @@ describe('what is kept about a child, and for how long', () => {
     });
   });
 
-  gap('[M4] deleting a player deletes its weekly records (nickname, buddy, right answers, minutes, stars) too', async () => {
+  it('[M4] deleting a player deletes its weekly records (nickname, buddy, right answers, minutes, stars) too', async () => {
     const s = site();
     const a = await s.grownup();
     const make = async (name, cookie) => (await s.api('/players', { method: 'POST', body: { profile: { name, buddy: 'dino' } }, cookie })).json.code;
@@ -568,7 +587,7 @@ describe('what is kept about a child, and for how long', () => {
       .toEqual({ playersLeft: 0, weeksLeft: [] });
   });
 
-  gap("[M2] deleting a teacher's account removes their classes and the children on them, and closes the class code", async () => {
+  it("[M2] deleting a teacher's account removes their classes and the children on them, and closes the class code", async () => {
     const s = site();
     const t = await s.teacher();
     const c = await s.classWith(t);
@@ -583,7 +602,7 @@ describe('what is kept about a child, and for how long', () => {
     expect(after).toEqual({ classes: 0, students: 0, teacher: 0, teacherStatus: 0, schoolDomain: 0, classPage: 404, studentLogin: 404 });
   });
 
-  gap("[M2] the 3-year tidy-up of an unused account takes the teacher's classes and rosters with it", async () => {
+  it("[M2] the 3-year tidy-up of an unused account takes the teacher's classes and rosters with it", async () => {
     const s = site();
     const t = await s.teacher();
     const c = await s.classWith(t);
@@ -607,7 +626,7 @@ describe('what is kept about a child, and for how long', () => {
       .toEqual({ players: 0, students: [] });
   });
 
-  gap('[M5] a week far in the future is refused (or tidied away), so the boards\' records cannot pile up for ever', async () => {
+  it('[M5] a week far in the future is refused (or tidied away), so the boards\' records cannot pile up for ever', async () => {
     const s = site();
     const { json: { code } } = await s.api('/players', { method: 'POST', body: { profile: { name: 'Mia' } } });
     const put = await s.api(`/class/week/${code}`, { method: 'PUT', body: { week: '9999-12-27', right: 5, name: 'Mia' } });
@@ -615,7 +634,7 @@ describe('what is kept about a child, and for how long', () => {
     expect({ put: put.status, left: s.count("SELECT count(*) AS n FROM player_week WHERE week = '9999-12-27'") }).toEqual({ put: 400, left: 0 });
   });
 
-  gap('[L4] the limits table holds no network address that can be worked back out', async () => {
+  it('[L4] the limits table holds no network address that can be worked back out', async () => {
     const s = site();
     await s.api('/players/NOPE-NOPE-NOPE-1', { ip: '192.0.2.77' });
     const keys = s.env.DB.sqlite.prepare('SELECT key FROM limits').all().map(r => r.key);
@@ -640,7 +659,7 @@ describe('input limits and headers', () => {
     expect(s.count('SELECT count(*) AS n FROM players')).toBe(0);
   });
 
-  gap('[M6] visit counts take only the kinds of keys the game sends, so one address cannot add thousands of made-up rows an hour', async () => {
+  it('[M6] visit counts take only the kinds of keys the game sends, so one address cannot add thousands of made-up rows an hour', async () => {
     const s = site();
     const counts = Array.from({ length: 80 }, (_, i) => ({ e: 'screen', k: `made-up-${i}-${Math.random().toString(36).slice(2, 10)}`, n: 1 }));
     expect((await s.api('/count', { method: 'POST', body: { day: new Date().toISOString().slice(0, 10), counts } })).status).toBe(204);
