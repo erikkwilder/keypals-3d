@@ -70,16 +70,21 @@ const starterProfile = (name, buddy, now) => JSON.stringify({ name, buddy, creat
  *  address, which is fine). All addresses together get twice that, so many addresses can't guess a pair. */
 export const PIC_TRIES = 5, PIC_REST_MIN = 10, PIC_TRIES_ALL = 10;
 
+let swept = 0;
 /** One more for a key: true when that's over `max` this window (worker.js limited() counts this way too).
  *  Counted and checked in one statement, so calls sent all at once can't all read "not yet" before any of
- *  them writes. */
+ *  them writes. Rows whose window is over are deleted as we go (at most once a minute from each copy of the
+ *  Worker), so none is kept long past its window: the privacy notice says up to an hour. */
 export async function hit(env, key, max, minutes) {
   const now = Date.now();
+  if (now - swept > 60000) { swept = now; await env.DB.prepare('DELETE FROM limits WHERE reset < ?').bind(now).run(); }
   const row = await env.DB.prepare(`INSERT INTO limits (key, n, reset) VALUES (?, 1, ?)
     ON CONFLICT(key) DO UPDATE SET n = CASE WHEN reset < ? THEN 1 ELSE n + 1 END, reset = CASE WHEN reset < ? THEN excluded.reset ELSE reset END
     RETURNING n`).bind(key, now + minutes * 60000, now, now).first();
   return row.n > max;
 }
+/** Gives back one try hit() counted: a code that turned out to exist (worker.js codeTry). */
+export const giveBack = (env, key) => env.DB.prepare('UPDATE limits SET n = n - 1 WHERE key = ? AND n > 0').bind(key).run();
 /** The class of an active student's player (null: not a class player). Saving players must never fail
  *  because of classes: before schema-classes.sql is applied there's simply no class to find. */
 async function classOfPlayer(env, code, any = false) {
@@ -89,9 +94,10 @@ async function classOfPlayer(env, code, any = false) {
 }
 /** Did a class make this player (not a family's player linked to a class)? */
 export const madeByClass = async (env, code) => !!(await classOfPlayer(env, code, true));
-/** A whole class plays on one school address, so opening and saving a class player count by the player's
- *  own code (an hour's worth each) and by its class (room for a big class), never by the address. */
-export const CLASS_PLAYER_LIMITS = { open: 120, save: 900 };
+/** A whole class plays on one school address, so opening and saving a class player, and sending its week for
+ *  the boards, count by the player's own code (an hour's worth each) and by its class (room for a big class),
+ *  never by the address. */
+export const CLASS_PLAYER_LIMITS = { open: 120, save: 900, 'cls-week': 900 };
 export const CLASS_ROOM = 45;
 /**
  * The limit for opening or saving a player (worker.js /players/<code>): for a class player (an active
@@ -194,20 +200,22 @@ async function classWeek(env, classId, week) {
     ORDER BY correct DESC, ms DESC, s.name`).bind(week, classId).all();
   return (r.results ?? []).map(x => ({ id: x.id, name: x.name, buddy: x.buddy, right: x.correct, ms: x.ms, stars: x.stars }));
 }
-/** A class against class challenge: every class's average right answers per student for its week (names only). */
-async function challengeView(env, ch) {
+/** A class against class challenge: every class's average right answers per student for its week (names only:
+ *  another class's id is never sent, so it can't be tried elsewhere; the asking class's own is, so the game
+ *  can show which one is theirs). */
+async function challengeView(env, ch, mine) {
   const r = await env.DB.prepare(`SELECT c.id, c.name, COUNT(s.id) AS n, COALESCE(SUM(w.correct), 0) AS correct
     FROM challenge_classes x JOIN classes c ON c.id = x.class
     LEFT JOIN students s ON s.class = c.id AND s.status = 'active'
     LEFT JOIN player_week w ON w.id = s.player || ':' || ?
     WHERE x.challenge = ? GROUP BY c.id, c.name`).bind(ch.week, ch.id).all();
   const classes = (r.results ?? []).map(x => ({ id: x.id, name: x.name, students: x.n, avg: x.n ? Math.round((x.correct / x.n) * 10) / 10 : 0 }))
-    .sort((a, b) => b.avg - a.avg || a.name.localeCompare(b.name));
+    .sort((a, b) => b.avg - a.avg || a.name.localeCompare(b.name)).map((x, i) => (x.id === mine ? x : { ...x, id: `class-${i + 1}` }));
   return { code: ch.code, week: ch.week, ends: weekEnds(ch.week), classes };
 }
 async function challengeOf(env, classId) {
   const ch = await env.DB.prepare('SELECT c.* FROM challenge_classes x JOIN challenges c ON c.id = x.challenge WHERE x.class = ? ORDER BY c.week DESC LIMIT 1').bind(classId).first();
-  return ch ? challengeView(env, ch) : null;
+  return ch ? challengeView(env, ch, classId) : null;
 }
 
 /** Remove students: a player the class made goes too (unless a family keeps it in their account; one the
@@ -225,12 +233,35 @@ async function dropStudents(env, rows, teacher = '') {
   if (st.length) await env.DB.batch(st);
 }
 
+/** Delete a class and everything in it: its students (dropStudents), class work, challenge places, settings
+ *  and Google sign-ins. When the teacher deletes it, and for each class of a teacher whose account goes
+ *  (deleteTeacher, tidyClasses). How many players the class made went with it. */
+export async function deleteClass(env, id, teacher) {
+  const st = (await env.DB.prepare('SELECT id, player, home FROM students WHERE class = ?').bind(id).all()).results ?? [];
+  await dropStudents(env, st, teacher);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM assignments WHERE class = ?').bind(id),
+    env.DB.prepare('DELETE FROM challenge_classes WHERE class = ?').bind(id),
+    env.DB.prepare('DELETE FROM class_settings WHERE class = ?').bind(id),
+    env.DB.prepare('DELETE FROM student_google WHERE class = ?').bind(id),
+    env.DB.prepare('DELETE FROM classes WHERE id = ?').bind(id),
+  ]);
+  return st.filter(s => !s.home).length;
+}
+/** worker.js, when a grown-up deletes their account: a teacher's classes and the children on them go too, and
+ *  so do what made them a teacher and the school domain Google gave, right away (as the privacy notice says).
+ *  The 3-year tidy-up does the same for an account nobody used (tidyClasses). */
+export async function deleteTeacher(env, account) {
+  for (const c of (await env.DB.prepare('SELECT id FROM classes WHERE teacher = ?').bind(account).all()).results ?? []) await deleteClass(env, c.id, account);
+  await env.DB.batch(['teachers', 'teacher_status', 'account_domains'].map(t => env.DB.prepare(`DELETE FROM ${t} WHERE account = ?`).bind(account)));
+}
+
 const devReady = (env, url) => env.KP_DEV_SIGNIN === '1' && (url.hostname === '127.0.0.1' || url.hostname === 'localhost');
 
 /** A student's two pictures: null when right; else the answer to send (wrong, or resting after too many).
  *  Every try is counted before it's checked (PIC_TRIES); a right answer clears this child's count. */
 async function picturesWrong(env, h, request, s, pics) {
-  const all = `pics:${s.id}`, here = `${all}:${await h.sha256((request.headers.get('cf-connecting-ip') || 'unknown') + 'pics')}`;
+  const all = `pics:${s.id}`, here = `${all}:${await h.addressHash(env, request, 'pics')}`;
   if (await hit(env, here, PIC_TRIES, PIC_REST_MIN) || await hit(env, all, PIC_TRIES_ALL, PIC_REST_MIN)) return h.fail(429, "Let's take a little break. Ask your teacher to check your pictures.");
   const given = Array.isArray(pics) ? pics.map(Number) : [];
   const want = picsOf(s.pics);
@@ -275,7 +306,8 @@ async function ticketOf(env, h, ticket) {
 
 /**
  * Our part of the API, or null when the path isn't ours. `h` is worker.js's toolbox: json, fail,
- * currentAccount, limited, readBody, sha256, randomToken, cookie, cleanCode, newCode, and base (the game's
+ * currentAccount, limited, codeTry, playerTry, addressHash, readBody, sha256, randomToken, cookie, cleanCode,
+ * newCode, and base (the game's
  * path: /keypals on fancyant.com, empty on keypals.org).
  */
 export async function classApi(request, env, url, path, h) {
@@ -417,16 +449,7 @@ export async function classApi(request, env, url, path, h) {
         // a typed confirmation: the class's name
         const body = await h.readBody(request) || {};
         if (String(body.confirm ?? '').trim().toLowerCase() !== c.name.trim().toLowerCase()) return h.fail(400, `Type the class's name, ${c.name}, to delete it.`);
-        const st = await DB.prepare('SELECT id, player, home FROM students WHERE class = ?').bind(c.id).all();
-        await dropStudents(env, st.results ?? [], acct);
-        await DB.batch([
-          DB.prepare('DELETE FROM assignments WHERE class = ?').bind(c.id),
-          DB.prepare('DELETE FROM challenge_classes WHERE class = ?').bind(c.id),
-          DB.prepare('DELETE FROM class_settings WHERE class = ?').bind(c.id),
-          DB.prepare('DELETE FROM student_google WHERE class = ?').bind(c.id),
-          DB.prepare('DELETE FROM classes WHERE id = ?').bind(c.id),
-        ]);
-        return h.json({ ok: true, removed: (st.results ?? []).filter(s => !s.home).length });
+        return h.json({ ok: true, removed: await deleteClass(env, c.id, acct) });
       }
       if (rest === '/students' && method === 'POST') {
         const body = await h.readBody(request) || {};
@@ -481,14 +504,16 @@ export async function classApi(request, env, url, path, h) {
         return h.fail(500, 'Could not make a challenge code. Try again.');
       }
       if (rest === '/challenge/join' && method === 'POST') {
+        // a teacher's tries at challenge codes are limited, and a code that's wrong, over or full gets the one
+        // answer, so codes (and the classes in them) can't be found by trying
+        if (await hit(env, `cls-join:${acct}`, 20, 60)) return h.fail(429, 'That is a lot of tries. Try again in a while.');
         const body = await h.readBody(request) || {};
         const ch = await DB.prepare('SELECT * FROM challenges WHERE code = ?').bind(h.cleanCode(body.code)).first();
-        if (!ch) return h.fail(404, "That challenge code wasn't found. Check the words and number.");
-        if (weekEnds(ch.week) < Date.now()) return h.fail(400, 'That challenge is over. Make a new one!');
         const cur = await challengeOf(env, c.id);
-        if (cur && cur.week >= ch.week) return h.fail(400, cur.code === ch.code ? 'This class is in that challenge already.' : 'This class is in a challenge this week already.');
-        const n = await DB.prepare('SELECT COUNT(*) AS n FROM challenge_classes WHERE challenge = ?').bind(ch.id).first();
-        if ((n?.n ?? 0) >= 8) return h.fail(400, 'That challenge is full (8 classes).');
+        if (ch && cur && cur.code === ch.code) return h.fail(400, 'This class is in that challenge already.');
+        const n = ch ? await DB.prepare('SELECT COUNT(*) AS n FROM challenge_classes WHERE challenge = ?').bind(ch.id).first() : null;
+        if (!ch || weekEnds(ch.week) < Date.now() || (n?.n ?? 0) >= 8) return h.fail(404, "That code can't be joined. Check the words and number: a challenge that's over or full can't be joined either.");
+        if (cur && cur.week >= ch.week) return h.fail(400, 'This class is in a challenge this week already.');
         await DB.prepare('INSERT INTO challenge_classes (id, challenge, class, joined) VALUES (?, ?, ?, ?)').bind(newId(h), ch.id, c.id, Date.now()).run();
         return h.json({ challenge: await challengeOf(env, c.id) });
       }
@@ -566,11 +591,18 @@ export async function classApi(request, env, url, path, h) {
     if (await h.limited(env, request, 'cls-link', 30, 60)) return h.fail(429, 'Too many tries from here. Try again later.');
     const body = await h.readBody(request) || {};
     const player = h.cleanCode(body.player);
+    // (a class code, then a save code: each on the budget every route that looks one up shares, worker.js codeTry)
+    const classFound = await h.codeTry(env, request, 'cls-code');
+    if (!classFound) return h.fail(429, 'Too many tries from here. Try again later.');
     const c = await DB.prepare('SELECT * FROM classes WHERE code = ? AND archived = 0').bind(h.cleanCode(body.code)).first();
     if (!c) return h.fail(404, "That class code wasn't found. Check the words and number.");
+    await classFound();
     if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
+    const playerFound = await h.codeTry(env, request);
+    if (!playerFound) return h.fail(429, 'Too many tries from here. Try again later.');
     const p = await DB.prepare('SELECT code, data FROM players WHERE code = ?').bind(player).first();
     if (!p) return h.fail(404, 'Save this player online first.');
+    await playerFound();
     const dup = await DB.prepare('SELECT id, status FROM students WHERE class = ? AND player = ?').bind(c.id, player).first();
     if (dup) return h.json({ ok: true, status: dup.status });
     let claims = null, name = cleanStudentName(body.name);
@@ -623,15 +655,23 @@ export async function classApi(request, env, url, path, h) {
   }
   m = path.match(/^\/class\/week\/([^/]+)$/);
   if (m && method === 'PUT') {
-    // the game sends this week's effort after playing (for the boards)
-    if (await h.limited(env, request, 'cls-week', 6000, 60)) return h.fail(429, 'Saving too often. It will catch up.');
+    // the game sends this week's effort after playing (for the boards): only for a week near now (its Monday,
+    // two weeks either way), so nobody can make records for weeks to come that the tidy-up never reaches
     const code = h.cleanCode(decodeURIComponent(m[1]));
     const body = await h.readBody(request, 4000) || {};
-    if (!isWeek(body.week)) return h.fail(400, 'Which week?');
-    const p = await DB.prepare('SELECT code FROM players WHERE code = ?').bind(code).first();
+    const monday = Date.parse(body.week);
+    if (!isWeek(body.week) || new Date(monday).getUTCDay() !== 1 || !(Math.abs(Date.now() - monday) <= 15 * DAY)) return h.fail(400, 'Which week?');
+    // a class player counts by its code and class (a whole class shares one school address), anyone else by
+    // address and on the budget every route that looks up a save code shares (worker.js playerTry)
+    const found = await h.playerTry(env, request, 'cls-week', 6000, code);
+    if (!found) return h.fail(429, 'Saving too often. It will catch up.');
+    const p = await DB.prepare('SELECT code, data FROM players WHERE code = ?').bind(code).first();
     if (!p) return h.fail(404, 'That save code no longer exists.');
+    await found();
     const w = cleanWeek(body), now = Date.now();
-    const name = typeof body.name === 'string' ? body.name.replace(/[<>`@]/g, '').trim().slice(0, 16) : null;
+    // the nickname the family board shows is the player's own, as saved: never a name sent with the week
+    let name = null;
+    try { const d = JSON.parse(p.data); if (typeof d?.name === 'string') name = d.name.replace(/[<>`@]/g, '').trim().slice(0, 16) || null; } catch { /* no name to show */ }
     const buddy = isBuddyId(body.buddy) ? body.buddy : null;
     await DB.prepare(`INSERT INTO player_week (id, player, week, correct, ms, stars, name, buddy, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET correct = excluded.correct, ms = excluded.ms, stars = excluded.stars, name = excluded.name, buddy = excluded.buddy, updated = excluded.updated`)
@@ -666,8 +706,11 @@ export async function classApi(request, env, url, path, h) {
     const body = await h.readBody(request, 2000) || {};
     const t = await ticketOf(env, h, body.ticket);
     if (!t) return h.fail(410, 'That sign-in ran out. Sign in with Google again.');
+    const found = await h.codeTry(env, request, 'cls-code');
+    if (!found) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
     const c = await DB.prepare('SELECT * FROM classes WHERE code = ?').bind(h.cleanCode(body.code)).first();
     if (!c) return h.fail(404, "That class code wasn't found. Check the words and number.");
+    await found();
     if (c.archived) return h.fail(410, 'This class is closed. Ask your teacher.');
     if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
     const set = await settingsOf(env, c.id, c.teacher);
@@ -721,8 +764,11 @@ export async function classApi(request, env, url, path, h) {
   m = path.match(/^\/class\/([^/]+)\/login$/);
   if (m && method === 'POST') {
     if (await h.limited(env, request, 'cls-login', 1200, 60)) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
+    const found = await h.codeTry(env, request, 'cls-code');
+    if (!found) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
     const c = await DB.prepare('SELECT id, archived, teacher FROM classes WHERE code = ?').bind(h.cleanCode(decodeURIComponent(m[1]))).first();
     if (!c) return h.fail(404, "That class code wasn't found.");
+    await found();
     if (c.archived) return h.fail(410, 'This class is closed. Ask your teacher.');
     if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
     const body = await h.readBody(request) || {};
@@ -736,8 +782,13 @@ export async function classApi(request, env, url, path, h) {
   if (m && method === 'GET') {
     // a class code: the class and its students' names, to tap your own
     if (await h.limited(env, request, 'cls-open', 600, 60)) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
+    // (and on the budget every route that looks up a class code shares, used up only by codes that aren't
+    // found: worker.js codeTry)
+    const found = await h.codeTry(env, request, 'cls-code');
+    if (!found) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
     const c = await DB.prepare('SELECT c.id, c.name, c.grade, c.archived, c.teacher, t.display FROM classes c LEFT JOIN teachers t ON t.account = c.teacher WHERE c.code = ?').bind(h.cleanCode(decodeURIComponent(m[1]))).first();
     if (!c) return h.fail(404, "That class code wasn't found. Check the words and number.");
+    await found();
     if (c.archived) return h.fail(410, 'This class is closed. Ask your teacher.');
     if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
     const st = await DB.prepare("SELECT id, name, buddy FROM students WHERE class = ? AND status = 'active' ORDER BY name").bind(c.id).all();
@@ -751,8 +802,11 @@ export async function classApi(request, env, url, path, h) {
     const code = h.cleanCode(decodeURIComponent(m[1]));
     const week = url.searchParams.get('week');
     if (!isWeek(week)) return h.fail(400, 'Which week?');
+    const found = await h.codeTry(env, request);
+    if (!found) return h.fail(429, 'Too many tries from here. Try again later.');
     const p = await DB.prepare('SELECT account FROM players WHERE code = ?').bind(code).first();
     if (!p) return h.fail(404, 'That save code no longer exists.');
+    await found();
     if (!p.account) return h.json({ players: [], account: false });
     const r = await DB.prepare(`SELECT p.code, w.name, w.buddy, w.correct, w.ms, w.stars FROM players p JOIN player_week w ON w.id = p.code || ':' || ?
       WHERE p.account = ? ORDER BY w.stars DESC, w.correct DESC`).bind(week, p.account).all();
@@ -786,7 +840,8 @@ export async function classApi(request, env, url, path, h) {
   return null;
 }
 
-/** Once a day (worker.js tidy): old world boards, old weeks, families' link requests nobody answered. */
+/** Once a day (worker.js tidy): old world boards, old weeks, families' link requests nobody answered, and
+ *  what's left of accounts and players that are gone. */
 export async function tidyClasses(env) {
   const now = Date.now();
   const day = (t) => new Date(t).toISOString().slice(0, 10);
@@ -798,4 +853,11 @@ export async function tidyClasses(env) {
   await env.DB.prepare('DELETE FROM challenge_classes WHERE class NOT IN (SELECT id FROM classes)').run();
   await env.DB.prepare('DELETE FROM google_tickets WHERE expires < ?').bind(now).run();
   await env.DB.prepare('DELETE FROM student_google WHERE student NOT IN (SELECT id FROM students)').run();
+  // a teacher's classes and the children on them go with the teacher's account (not used for 3 years:
+  // worker.js tidy; or deleted before deleteTeacher did it straight away), and so do the teacher's rows and
+  // the school domain of any grown-up whose account is gone
+  for (const c of (await env.DB.prepare('SELECT id, teacher FROM classes WHERE teacher NOT IN (SELECT id FROM accounts)').all()).results ?? []) await deleteClass(env, c.id, c.teacher);
+  for (const t of ['teachers', 'teacher_status', 'account_domains']) await env.DB.prepare(`DELETE FROM ${t} WHERE account NOT IN (SELECT id FROM accounts)`).run();
+  // weekly records whose player is gone (stopped, deleted everywhere, or not opened for 18 months)
+  await env.DB.prepare('DELETE FROM player_week WHERE player NOT IN (SELECT code FROM players)').run();
 }

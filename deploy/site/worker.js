@@ -19,7 +19,7 @@
 // Once a week (from the daily tidy-up) the players and accounts are copied to the R2 bucket bound as
 // BACKUPS, kept 90 days by the bucket's own rule (restore: deploy/site/RESTORE.md).
 
-import { classApi, classPlayerLimited, madeByClass, tidyClasses, CLASS_TABLES, noteSignIn, studentGoogleBack, hit } from './classes.js'; // classes for teachers, and the boards
+import { classApi, classPlayerLimited, madeByClass, tidyClasses, CLASS_TABLES, noteSignIn, studentGoogleBack, hit, giveBack, deleteTeacher } from './classes.js'; // classes for teachers, and the boards
 
 const WORDS = ('apple acorn anchor arrow badger bamboo banana basket beach beaver berry bird biscuit blossom boat bramble breeze brick bubble bucket bunny cactus camel candle canoe canyon carrot castle cedar cherry cloud clover coconut comet coral cotton crab crayon cricket crystal daisy desert dingo dolphin donut dragon drum duck eagle earth echo elm ember fable falcon feather fern fiddle finch flame flower forest fossil fox frog galaxy garden gecko ginger glacier globe goose grape gull hammock harbor harp hazel hedge heron hill honey hoop iceberg igloo island ivy jelly jungle kayak kettle kite kiwi koala ladder lagoon lake lantern lark leaf lemon lilac lily lime llama lotus lunar maple marble meadow melon meteor mint mitten moon moose moss mountain mouse muffin nectar nest noodle nutmeg oak oasis ocean olive orbit orchid otter owl paddle panda parrot peach peanut pear pebble pelican pepper petal piano pickle pine pixel planet plum pond poppy prairie pretzel puffin pumpkin quail quartz rabbit radish rain rainbow raven reef ribbon river robin rocket rose ruby saddle sail salmon sandal sapphire scarf seal seed shell sky sloth snail snow sparrow spruce squid star stone storm sugar summer sun swan taco tide tiger toad topaz tortoise trail tulip tuna turnip turtle tulip umbrella valley velvet violet volcano waffle walnut walrus water wave whale willow wind wombat yak yarn zebra zinnia').split(' ').filter((w, i, a) => a.indexOf(w) === i);
 const DAY = 86400000;
@@ -39,16 +39,58 @@ function newCode() {
 }
 const cleanCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-/** At most `max` calls per `minutes` from one address (only a hash of the address is kept). Counted and
- *  checked in one statement (classes.js hit), so calls sent all at once can't all slip in under the limit. */
+/** The address a limit goes by. An IPv6 address goes by its first 64 bits: a home, a phone or a rented server
+ *  is given a whole /64, and each of its 2^64 addresses would otherwise get a limit of its own. */
+function addressOf(request) {
+  const ip = String(request.headers.get('cf-connecting-ip') || 'unknown').toLowerCase();
+  const v4 = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (v4 || !ip.includes(':')) return v4 ? v4[1] : ip;
+  const [head, tail] = ip.split('::'), a = head ? head.split(':') : [], b = tail ? tail.split(':') : [];
+  const groups = tail === undefined ? a : [...a, ...Array(Math.max(0, 8 - a.length - b.length)).fill('0'), ...b];
+  return `${groups.slice(0, 4).map(g => (parseInt(g, 16) || 0).toString(16)).join(':')}::/64`;
+}
+/** Today's random value for scrambling addresses: a limits row of its own (`salt:` and the day), made by the
+ *  first request of the day (UTC), the same for both game addresses (one database), and deleted once the day
+ *  is over (classes.js hit). It's never in the code, so the limits table can't be worked back to addresses. */
+let salt = { day: '', value: 0 };
+async function todaysSalt(env) {
+  const day = isoDay(Date.now());
+  if (salt.day === day) return salt.value;
+  const key = `salt:${day}`, r = crypto.getRandomValues(new Uint32Array(2));
+  await env.DB.prepare('INSERT OR IGNORE INTO limits (key, n, reset) VALUES (?, ?, ?)').bind(key, (r[0] % 2 ** 21) * 2 ** 32 + r[1], Date.parse(day) + DAY).run();
+  const row = await env.DB.prepare('SELECT n FROM limits WHERE key = ?').bind(key).first();
+  salt = { day, value: row.n };
+  return row.n;
+}
+/** An address as the limits table keeps it: scrambled with today's random value, never the address itself. */
+const addressHash = async (env, request, what) => sha256(`${await todaysSalt(env)}:${addressOf(request)}:${what}`);
+
+/** At most `max` calls per `minutes` from one address (only its scrambled hash is kept). Counted and checked
+ *  in one statement (classes.js hit), so calls sent all at once can't all slip in under the limit. */
 async function limited(env, request, what, max, minutes) {
-  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
-  return hit(env, `${what}:${await sha256(ip + what)}`, max, minutes);
+  return hit(env, `${what}:${await addressHash(env, request, what)}`, max, minutes);
 }
 
-/** Opening or saving a player: a class player counts by its code and class (a whole class shares one
- *  school address: classes.js), everyone else by address as above. */
-const playerLimited = async (env, request, what, max, code) => (await classPlayerLimited(env, what, code, sha256)) ?? limited(env, request, what, max, 60);
+/** Every route that looks up a save code draws on one budget per address, the one opening a player uses
+ *  (`open`, 60 an hour), and every route that looks up a class code on another (`cls-code`, 600 an hour), so
+ *  no route is a faster way to guess codes than another. A try is counted before the code is looked up (tries
+ *  sent all at once can't slip in under it) and given back when the code is found: call the answer then. So a
+ *  family's or a class's own use never spends it, only codes that aren't there do. null: none left this hour. */
+const CODE_TRIES = { open: 60, 'cls-code': 600 };
+async function codeTry(env, request, what = 'open') {
+  const key = `${what}:${await addressHash(env, request, what)}`;
+  return (await hit(env, key, CODE_TRIES[what], 60)) ? null : () => giveBack(env, key);
+}
+
+/** Opening or saving a player: a class player counts by its code and class (a whole class shares one school
+ *  address: classes.js), everyone else by address, saving on the save-code budget too (codeTry: opening is
+ *  that budget). null when over a limit, else what to call once the code is found. */
+async function playerTry(env, request, what, max, code) {
+  const cls = await classPlayerLimited(env, what, code, sha256);
+  if (cls !== null) return cls ? null : async () => {};
+  if (await limited(env, request, what, max, 60)) return null;
+  return what === 'open' ? async () => {} : codeTry(env, request);
+}
 
 // ---------- sign-in providers ----------
 const PROVIDERS = {
@@ -188,7 +230,7 @@ async function api(request, env, url, base) {
   const from = request.headers.get('origin');
   if (from && from !== url.origin && !['GET', 'HEAD', 'OPTIONS'].includes(method)) return fail(403, 'This can only be done from Keypals itself.');
   // classes, class work and the boards (classes.js): its own paths, null for everything else
-  const cls = await classApi(request, env, url, path, { json, fail, currentAccount, limited, readBody, sha256, randomToken, cookie, cleanCode, newCode, base, isAdmin }); if (cls) return cls;
+  const cls = await classApi(request, env, url, path, { json, fail, currentAccount, limited, codeTry, playerTry, addressHash, readBody, sha256, randomToken, cookie, cleanCode, newCode, base, isAdmin }); if (cls) return cls;
   // which sign-ins are available
   if (path === '/config' && method === 'GET') return json({ google: ready(env, 'google'), microsoft: ready(env, 'microsoft') });
 
@@ -228,19 +270,21 @@ async function api(request, env, url, base) {
     const code = cleanCode(decodeURIComponent(m[1]));
     if (method === 'GET') {
       // guessing codes is slow: a few dozen tries an hour from one address
-      if (await playerLimited(env, request, 'open', 60, code)) return fail(429, 'Too many tries from here. Try again later.');
+      if (!(await playerTry(env, request, 'open', 60, code))) return fail(429, 'Too many tries from here. Try again later.');
       const row = await env.DB.prepare('SELECT data, updated FROM players WHERE code = ?').bind(code).first();
       if (!row) return (await goneAnswer(env, code)) ?? missingAnswer("That save code wasn't found. Check the words and number.");
       await env.DB.prepare('UPDATE players SET opened = ? WHERE code = ?').bind(Date.now(), code).run();
       return json({ code, profile: JSON.parse(row.data), updated: row.updated });
     }
     if (method === 'PUT') {
-      if (await playerLimited(env, request, 'save', 600, code)) return fail(429, 'Saving too often. It will catch up.');
+      const found = await playerTry(env, request, 'save', 600, code);
+      if (!found) return fail(429, 'Saving too often. It will catch up.');
       const body = await readBody(request);
       if (!isProfile(body?.profile)) return fail(400, 'No player to save.');
       const row = await env.DB.prepare('SELECT updated FROM players WHERE code = ?').bind(code).first();
       // deleted everywhere by a grown-up: an old copy can't bring it back
       if (!row) return (await goneAnswer(env, code)) ?? missingAnswer('That save code no longer exists.');
+      await found();
       // always later than the copy it replaces, so the next save's `base` is unique
       const at = Math.max(Number(body.updated) || Date.now(), row.updated + 1);
       const data = JSON.stringify(body.profile);
@@ -261,15 +305,19 @@ async function api(request, env, url, base) {
       // deleting is limited like opening (codes can't be guessed by deleting), and a player kept in a
       // grown-up's account can only be deleted by that grown-up, signed in
       if (await limited(env, request, 'delete', 20, 60)) return fail(429, 'Too many tries from here. Try again later.');
+      const found = await codeTry(env, request);
+      if (!found) return fail(429, 'Too many tries from here. Try again later.');
       const row = await env.DB.prepare('SELECT account FROM players WHERE code = ?').bind(code).first();
       if (!row) return fail(404, "That save code wasn't found.");
+      await found();
       if (row.account) {
         const acct = await currentAccount(env, request);
         if (!acct || acct.id !== row.account) return fail(403, "This player is kept in a grown-up's account. Sign in as that grown-up to stop saving it online.");
       }
       // a player a class made belongs to the class: the teacher's reports read this copy
       if (await madeByClass(env, code)) return fail(403, 'This player belongs to a class. Only the teacher can remove them.');
-      await env.DB.prepare('DELETE FROM players WHERE code = ?').bind(code).run();
+      // its weekly records for the boards (nickname, buddy, each week's effort) go with it
+      await env.DB.batch([env.DB.prepare('DELETE FROM players WHERE code = ?').bind(code), env.DB.prepare('DELETE FROM player_week WHERE player = ?').bind(code)]);
       return json({ ok: true });
     }
   }
@@ -289,8 +337,11 @@ async function api(request, env, url, base) {
     const acct = await currentAccount(env, request);
     if (!acct) return fail(401, 'Not signed in.');
     const body = await readBody(request) || {};
-    if (body.players) await env.DB.prepare('DELETE FROM players WHERE account = ?').bind(acct.id).run();
+    // (with the players, their weekly records for the boards)
+    if (body.players) await env.DB.batch([env.DB.prepare('DELETE FROM player_week WHERE player IN (SELECT code FROM players WHERE account = ?)').bind(acct.id), env.DB.prepare('DELETE FROM players WHERE account = ?').bind(acct.id)]);
     else await env.DB.prepare('UPDATE players SET account = NULL WHERE account = ?').bind(acct.id).run();
+    // a teacher's classes and the children on them, and the school domain Google gave (classes.js)
+    await deleteTeacher(env, acct.id);
     await env.DB.prepare('DELETE FROM sessions WHERE account = ?').bind(acct.id).run();
     await env.DB.prepare('UPDATE gone SET account = NULL WHERE account = ?').bind(acct.id).run();
     await env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(acct.id).run();
@@ -319,6 +370,7 @@ async function api(request, env, url, base) {
     if (!row || row.account !== acct.id) return (await goneAnswer(env, code)) ?? fail(404, 'That player was not found in your account.');
     await env.DB.batch([
       env.DB.prepare('DELETE FROM players WHERE code = ? AND account = ?').bind(code, acct.id),
+      env.DB.prepare('DELETE FROM player_week WHERE player = ?').bind(code),
       env.DB.prepare('INSERT OR REPLACE INTO gone (code, account, at) VALUES (?, ?, ?)').bind(code, acct.id, Date.now()),
     ]);
     return json({ ok: true });
@@ -378,7 +430,20 @@ const firstFrame = (stack) => stack.split('\n').find(l => /:\d+:\d+/.test(l)) ??
 // CF-IPCountry, country only) for each game opening. No address, browser string, name, code or id is
 // stored. The device's own date is used for the day (that's the day its "first visit today" means), if
 // it's within a day of the server's.
-const COUNT_EVENTS = new Set(['open', 'player_day', 'player_week', 'player_month', 'player_new', 'back', 'screen', 'game', 'subject', 'area', 'game_min', 'stars', 'play_sec', 'signin']);
+// What the game sends for each event (src/lib/state/counts.ts EVENTS, counting.ts), and nothing else is kept,
+// so made-up keys can't fill the table: the game's screens (src/lib/state/game.svelte.ts Screen, lowercased as
+// counts.ts cleanKey sends them), its kinds of game, its buckets and subjects. An area is a subject and the
+// first word of a lesson's id; there are only so many, and a day takes at most COUNT_KEYS_A_DAY keys an event.
+const SUBJECTS = 'typing|math|arcade|adventure';
+const SCREENS = 'title players newplayer hub map run results stickers closet settings grownups mathrun mathresults garden playground adventure battle glimmers eggs learn duel rivals shop skillrun skillresults skills pizza builder drop arcade arcadeplay market ideas teach classlogin boards clockrush bench shifter shapebuilder smoothie treasure showdown balance island mystuff about path subject topic way keypals dances progress'.split(' ');
+const COUNT_KEYS = {
+  open: /^(phone|tablet|computer)$/, player_day: /^$/, player_week: /^$/, player_month: /^$/, player_new: /^$/, play_sec: /^$/,
+  back: /^(0|1|2-6|7|8-29|30|31\+)$/, screen: new RegExp(`^(${SCREENS.join('|')})$`),
+  game: /^(typing-lesson|math-trip|skill-trip|arcade-[a-z]{1,20}|battle|glimmer-drop|rival-ghost|family-duel|playground|pizza|builder|market|smoothie|showdown|balance|fact-garden|learn)$/,
+  subject: new RegExp(`^(${SUBJECTS})$`), area: new RegExp(`^(${SUBJECTS}):[a-z0-9._-]{1,30}$`), stars: new RegExp(`^(${SUBJECTS}):[0-5]$`),
+  game_min: /^(<1|1-2|3-5|6-10|11-20|20\+)$/, signin: /^(google|microsoft)$/,
+};
+const COUNT_KEYS_A_DAY = 300;
 const isoDay = (t) => new Date(t).toISOString().slice(0, 10);
 async function takeCounts(request, env) {
   // generous (a school shares one address), and over the limit the counts are just dropped
@@ -390,15 +455,18 @@ async function takeCounts(request, env) {
   const rows = new Map();
   const add = (e, k, n) => { const id = `${e}\u0000${k}`; rows.set(id, [e, k, (rows.get(id)?.[2] ?? 0) + n]); };
   for (const c of body.counts) {
-    if (!c || !COUNT_EVENTS.has(c.e)) continue;
+    if (!c || !Object.hasOwn(COUNT_KEYS, c.e)) continue;
     const k = String(c.k ?? '');
     const n = Math.floor(Number(c.n));
-    if (!/^[a-z0-9:+._<-]{0,40}$/.test(k) || !(n >= 1) || n > (c.e === 'play_sec' ? 4 * 3600 : 500)) continue;
+    if (!COUNT_KEYS[c.e].test(k) || !(n >= 1) || n > (c.e === 'play_sec' ? 4 * 3600 : 500)) continue;
     add(c.e, k, n);
     if (c.e === 'open') add('country', /^[A-Z]{2}$/.test(request.cf?.country ?? '') ? request.cf.country : (/^[A-Z]{2}$/.test(request.headers.get('cf-ipcountry') ?? '') ? request.headers.get('cf-ipcountry') : 'XX'), n);
   }
   if (rows.size) {
-    await env.DB.batch([...rows.values()].map(([e, k, n]) => env.DB.prepare('INSERT INTO counts (day, event, key, n) VALUES (?, ?, ?, ?) ON CONFLICT(day, event, key) DO UPDATE SET n = n + excluded.n').bind(day, e, k, n)));
+    // (a key new today only while its event has fewer than COUNT_KEYS_A_DAY)
+    await env.DB.batch([...rows.values()].map(([e, k, n]) => env.DB.prepare(`INSERT INTO counts (day, event, key, n) SELECT ?, ?, ?, ?
+      WHERE (SELECT COUNT(*) FROM counts WHERE day = ? AND event = ?) < ? OR EXISTS (SELECT 1 FROM counts WHERE day = ? AND event = ? AND key = ?)
+      ON CONFLICT(day, event, key) DO UPDATE SET n = n + excluded.n`).bind(day, e, k, n, day, e, COUNT_KEYS_A_DAY, day, e, k)));
   }
   return new Response(null, { status: 204 });
 }
@@ -511,6 +579,7 @@ async function tidy(env) {
   await env.DB.prepare('DELETE FROM players WHERE opened < ? AND account IS NULL').bind(now - 548 * DAY).run();
   await env.DB.prepare('DELETE FROM sessions WHERE expires < ?').bind(now).run();
   await env.DB.prepare('DELETE FROM limits WHERE reset < ?').bind(now).run();
+  // (a teacher's classes and the children on them go with the account: classes.js tidyClasses)
   await env.DB.prepare('DELETE FROM accounts WHERE seen < ?').bind(now - 3 * 365 * DAY).run();
   await env.DB.prepare('DELETE FROM gone WHERE at < ?').bind(now - 3 * 365 * DAY).run();
   // ideas and help: an email for a reply is kept 180 days; a problem not seen for 180 days goes

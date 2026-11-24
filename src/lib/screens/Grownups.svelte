@@ -219,12 +219,12 @@
     game.persist();
     game.say(`Loaded ${file.length === 1 ? file[0].name : `${file.length} players`} from the file.`);
   }
-  /** Delete my account: a teacher's classes aren't deleted with it, so they're named first */
+  /** Delete my account: a teacher's classes (archived ones too) are deleted with it, so they're named first */
   let myClasses = $state<{ name: string }[]>([]);
   async function askDelete() {
     confirmDelete = true;
     await loadMe().catch(() => null);
-    myClasses = teach.me?.teacher ? teach.classes.filter(c => !c.archived) : [];
+    myClasses = teach.me?.teacher ? [...teach.classes] : [];
   }
   const fmtMin = (ms: number) => (ms < 3600000 ? `${Math.round(ms / 60000)} min` : `${(ms / 3600000).toFixed(1)} h`);
 </script>
@@ -285,7 +285,7 @@
                   <li><b>Delete saved players:</b> their online copies are deleted and their save codes stop working. This can't be undone.</li>
                 </ul>
                 {#if myClasses.length}
-                  <p class="small"><b>You teach {myClasses.length === 1 ? 'a class' : `${myClasses.length} classes`}: {myClasses.map(c => c.name).join(', ')}.</b> Deleting your account does not delete {myClasses.length === 1 ? 'it' : 'them'}. Students can still log in and play, but nobody can change {myClasses.length === 1 ? 'that class' : 'those classes'} or see {myClasses.length === 1 ? 'its' : 'their'} reports any more. To remove a class and its class players, delete it in For teachers first.</p>
+                  <p class="small"><b>You teach {myClasses.length === 1 ? 'a class' : `${myClasses.length} classes`}: {myClasses.map(c => c.name).join(', ')}.</b> Deleting your account deletes {myClasses.length === 1 ? 'it' : 'them'} too, straight away: the class code stops working, and the students on {myClasses.length === 1 ? 'it' : 'them'} and the players the class made, with their progress, are deleted. A player a family linked from home stays the family's. This can't be undone.</p>
                 {/if}
                 <div class="row">
                   <button class="btn" onclick={() => (confirmDelete = false)}>Keep my account</button>
