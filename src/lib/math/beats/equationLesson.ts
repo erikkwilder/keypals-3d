@@ -53,7 +53,7 @@ const NEXT_DAY: Eq = { p: 2, q: 5, r: 17 };
 
 /** the words a run of the lesson can say, all of them */
 export const EQUATION_LINES = ['intro', 'scale', 'level', 'letter', 'guess', 'try.you', 'try.again', 'heavy', 'light', 'lucky', 'unlucky',
-  'own.why', 'off.ask', 'try.off', 'off.up', 'off.down', 'off.level', 'other.ask', 'try.other', 'other.yes', 'other.few', 'other.many', 'other.fix',
+  'own.why', 'try.off', 'off.up', 'other.ask', 'try.other', 'other.yes', 'other.few', 'other.many', 'other.fix',
   'share.idea', 'share.ask', 'try.share', 'share.yes', 'share.few', 'share.many', 'share.how', 'share.done', 'write', 'write.read',
   'b.in', 'b.idea', 'b.ask', 'try.buddy', 'b.no', 'b.yes', 'b.kept', 'b.rule', 'b.own', 'try.both', 'b.right', 'b.seven', 'b.mid', 'b.share', 'b.piles', 'b.write',
   'together', 'd.in', 'd.right', 'try.d', 'd.mid', 'd.last', 'd.own', 'd.share', 'd.piles',
@@ -123,14 +123,14 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
 
   // the loose weights off: first from one side only (their prediction, then their hands), and it tips
   t.beat(2);
-  // (why a bag on its own is what we're after, before the first step toward it)
+  // (why a bag on its own is what we're after, before the first step toward it. Their hands take the loose
+  // weights off one side only and the balance shows what that does. A "what will happen?" choice stood here: it
+  // was easy, and it and its answer were twenty seconds of a lesson that runs long)
   await t.say('ep.eq.own.why');
-  const guess = await t.pick("What will the bags' side do?", [{ id: 'up', text: 'Go up' }, { id: 'down', text: 'Go down' }, { id: 'level', text: 'Stay level' }], 'ep.eq.off.ask');
   await t.say('ep.eq.try.off');
   await t.hands("Drag the 3 loose weights off the bags' side", () => w.takeOff('left'), () => w.finish());
-  t.buddy(guess === 'up' ? 'nod' : 'gasp');
-  // (whatever they said is named back to them, with what happened and why)
-  await t.say(`ep.eq.off.${guess}`);
+  t.buddy('gasp');
+  await t.say('ep.eq.off.up');
   const other = await t.num('How many come off the other side?', 'ep.eq.other.ask');
   await t.say('ep.eq.try.other', other);
   await w.takeRight(other);
@@ -189,10 +189,14 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   const ownB = await onOwn(t, w, BUDDY, 'b');
   await w.scaleOut();
   t.beat(6);
-  w.writeSteps(written(BUDDY));
-  await t.say('ep.eq.b.write');
-  await t.go('Next');
-  w.clearSteps();
+  // (written down for a child who needed the steps done together. One who solved it alone has just been told
+  // the two steps in their own numbers, and has seen them written once already)
+  if (!ownB) {
+    w.writeSteps(written(BUDDY));
+    await t.say('ep.eq.b.write');
+    await t.go('Next');
+    w.clearSteps();
+  }
   // (every child gets one right on their own before the end, even after being helped). One try at the whole
   // balance; then, said kindly, the first step is done together with their hands, and the last step is still
   // theirs: 4 bags against 12. A miss there is shown on the balance, the 12 shared into 4 piles. (More tries at

@@ -40,9 +40,9 @@ const run = async (c: Child) => { const p = pretend({ nums: [...c.nums], picks: 
 
 // right: guess 4, 3 off, 4 off, 5 on their own. All wrong: every number wrong, every pick wrong, the extra one wrong to the end
 // (a guess of 7, 1 off, 1 with the bag, 7 for the buddy's balance, then 1 and 5 for the extra one).
-const RIGHT: Child = { nums: [4, 3, 4, 5], picks: ['up', 'no'] };
-const WRONG: Child = { nums: [7, 1, 1, 7, 1, 5], picks: ['level', 'yes'] };
-const MIXED: Child = { nums: [2, 5, 8, 5], picks: ['down', 'yes'] };
+const RIGHT: Child = { nums: [4, 3, 4, 5], picks: ['no'] };
+const WRONG: Child = { nums: [7, 1, 1, 7, 1, 5], picks: ['yes'] };
+const MIXED: Child = { nums: [2, 5, 8, 5], picks: ['yes'] };
 
 describe('a balance with bags, in numbers', () => {
   it('each balance has a whole number in every bag', () => {
@@ -88,20 +88,22 @@ describe('the lesson, played by every kind of child', () => {
     expect(log.at(-1)).toMatch(/^say ep\.eq\.end/);
   });
   it('after a miss on the extra balance its first step is done together by hand, and the last step is the child\'s', async () => {
-    const { log, said } = await run({ nums: [7, 1, 1, 7, 1, 3], picks: ['level', 'yes'] });
+    const { log, said } = await run({ nums: [7, 1, 1, 7, 1, 3], picks: ['yes'] });
     expect(said).toContain('ep.eq.try.d');
     expect(said).toContain('ep.eq.d.own');
     expect(said).not.toContain('ep.eq.d.piles');
     // (one test each: the first guess, the buddy's balance, the extra balance, and its last step)
     expect(log.filter(l => l.startsWith('swapIn')).length).toBe(4);
   });
-  it('a miss is told in one line with what the bags\' side came to, and a wrong prediction is named back', async () => {
-    const { log, said } = await run(WRONG);
+  it('a miss is told in one line with what the bags\' side came to against the other side', async () => {
+    const { log } = await run(WRONG);
     // 7 in each of 2 bags and the 3 loose weights is 17, against 11
     expect(log).toContain('say ep.eq.heavy [7,17,11]');
-    expect(said).toContain('ep.eq.off.level');
-    const down = await run({ ...WRONG, picks: ['down', 'yes'] });
-    expect(down.said).toContain('ep.eq.off.down');
+  });
+  it('only a child who needed the buddy\'s balance done together sees it written down a second time', async () => {
+    expect((await run(RIGHT)).said).not.toContain('ep.eq.b.write');
+    expect((await run(WRONG)).said).toContain('ep.eq.b.write');
+    expect((await run(RIGHT)).said).toContain('ep.eq.write.read');
   });
   it('one right on their own is enough: no extra balance', async () => {
     const { said } = await run(MIXED);
@@ -132,8 +134,8 @@ describe('the lesson, played by every kind of child', () => {
 describe('the lesson rules (docs/lesson-rules.md)', () => {
   const kids: Record<string, Child> = {
     'right every time': RIGHT, 'wrong every time': WRONG, 'mixed': MIXED,
-    'silly numbers': { nums: [9999, 0, 9999, 0, 9999, 0], picks: ['down', 'yes'] },
-    'wrong until the very last step': { nums: [5, 2, 3, 7, 5, 3], picks: ['up', 'no'] },
+    'silly numbers': { nums: [9999, 0, 9999, 0, 9999, 0], picks: ['yes'] },
+    'wrong until the very last step': { nums: [5, 2, 3, 7, 5, 3], picks: ['no'] },
   };
   for (const [name, kid] of Object.entries(kids)) it(`a child who is ${name}: every try named, explained, and every answer waits`, async () => {
     const { log } = await run(kid);
@@ -149,14 +151,14 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
     const { said, log } = await run(WRONG);   // 7 = 21 shared into 3, with the 6 loose weights still on
     expect(said).toContain('ep.eq.b.seven');
     expect(log).toContain('say ep.eq.b.seven [7,27,21]');
-    const other = await run({ nums: [7, 1, 1, 9, 1, 5], picks: ['level', 'yes'] });
+    const other = await run({ nums: [7, 1, 1, 9, 1, 5], picks: ['yes'] });
     expect(other.said).not.toContain('ep.eq.b.seven');
     expect(other.log).toContain('say ep.eq.heavy [9,33,21]');
   });
   it('a child who solved nothing alone is not told "you found"; one who did the last step is', async () => {
     expect((await run(WRONG)).said).toContain('ep.eq.end.we');
     expect((await run(RIGHT)).said).toContain('ep.eq.end');
-    expect((await run({ nums: [7, 1, 1, 7, 1, 3], picks: ['level', 'yes'] })).said).toContain('ep.eq.end');
+    expect((await run({ nums: [7, 1, 1, 7, 1, 3], picks: ['yes'] })).said).toContain('ep.eq.end');
   });
   it('writes the script out for a cold read, when asked (rule 21)', async () => {
     const out = process.env.COLD_READ;

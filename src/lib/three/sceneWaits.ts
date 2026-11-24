@@ -6,14 +6,20 @@
  *  the lesson stands still with the picture while the page is hidden or paused. Call `tick(t)` from `update`. */
 export class SceneWaits {
   private last: number | null = null;
+  private lastWall = 0;
   private list: { left: number; go: () => void }[] = [];
+  /** seconds something was being waited for, by the scene's clock and by the wall's. On a computer that keeps up
+   *  they are the same; where frames are slow the wall's is longer, and a lesson timed there takes `wall - busy`
+   *  seconds less on a computer that keeps up (the play-through driver reports this) */
+  busy = 0; wall = 0;
   /** resolves after `ms` of the scene's time */
   wait(ms: number) { return new Promise<void>(r => { this.list.push({ left: ms / 1000, go: r }); }); }
   /** calls `fn` after `ms` of the scene's time (setTimeout, on the scene's clock) */
   later(ms: number, fn: () => void) { this.list.push({ left: ms / 1000, go: fn }); }
   tick(t: number) {
-    const dt = this.last == null ? 0 : Math.max(0, t - this.last);
-    this.last = t;
+    const dt = this.last == null ? 0 : Math.max(0, t - this.last), now = performance.now();
+    if (this.last != null && this.list.length) { this.busy += dt; this.wall += (now - this.lastWall) / 1000; }
+    this.last = t; this.lastWall = now;
     if (!this.list.length) return;
     const due: (() => void)[] = [];
     this.list = this.list.filter(w => { w.left -= dt; if (w.left > 0) return true; due.push(w.go); return false; });

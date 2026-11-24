@@ -56,7 +56,7 @@ type Batch = 'b4' | 'b5' | 'b6' | 'b7';
 export const COUNT_LINES = ['intro', 'need', 'try.demo', 'demo.last', 'turn', 'how', 'try.you', 'right', 'few', 'over', 'try.zero', 'zero',
   'b5.why', 'b5.show', 'try.b5', 'fit', 'mixed', 'try.pal', 'pal.find', 'pal.found', 'pal.shown', 'try.buddy', 'buddy.find', 'buddy.found', 'buddy.shown',
   'find.no.two', 'find.no.none', 'move.why', 'move', 'how2', 'b7.why', 'b7.show', 'try.b7',
-  'try.bump', 'moved', 'moved.right', 'try.recount', 'try.recount.again', 'recount.same', 'recount.why', 'try.party', 'off', 'off.extra', 'check', 'b6.why', 'b6.show', 'try.b6',
+  'try.bump', 'moved', 'moved.right', 'try.recount.again', 'recount.why', 'try.party', 'off', 'off.extra', 'check', 'b6.why', 'b6.show', 'try.b6',
   'extra', 'how.last', 'b4.why', 'b4.show', 'try.b4'].map(k => `ep.count.${k}`);
 
 /** The child's number of plates: say whose it is, act it out, say what it showed. True when it fits. */
@@ -187,13 +187,17 @@ async function play(t: Teller, w: CountWorld): Promise<Notes> {
   await t.say('ep.count.try.bump');
   await w.bump();
   const moved = await t.num('How many cookies now?', 'ep.count.moved');
-  if (moved === MIXED) { t.buddy('clap'); t.pal('happy'); await t.say('ep.count.moved.right'); }
-  else { t.myBet(String(moved)); await platesTest(t, w, moved, MIXED); t.myBet(null); await w.platesOff(); }
-  // ("to check" only for a child whose number was right: a wrong one has nothing to check)
-  await t.say(moved === MIXED ? 'ep.count.try.recount' : 'ep.count.try.recount.again');
-  await t.hands('Tap each cookie to count it', () => w.tapHere(), () => w.finish());
-  await t.say(moved === MIXED ? 'ep.count.recount.same' : 'ep.count.recount.why');
-  await t.go('Next');
+  // (a child who knew the number hadn't changed is told why they're right and goes on: counting them again was
+  // half a minute more for a five-year-old who had already shown the idea. A child who thought it had changed
+  // sees their number fail on the plates, then counts the cookies again themselves and hears why)
+  if (moved === MIXED) { t.buddy('clap'); t.pal('happy'); await t.say('ep.count.moved.right'); await t.go('Next'); }
+  else {
+    t.myBet(String(moved)); await platesTest(t, w, moved, MIXED); t.myBet(null); await w.platesOff();
+    await t.say('ep.count.try.recount.again');
+    await t.hands('Tap each cookie to count it', () => w.tapHere(), () => w.finish());
+    await t.say('ep.count.recount.why');
+    await t.go('Next');
+  }
 
   // a child who hasn't yet got one right by themselves counts a small new batch on their own (rule 12a)
   // (its question says where to look: the cookie tapped last. And its plates stay on: these cookies go to the

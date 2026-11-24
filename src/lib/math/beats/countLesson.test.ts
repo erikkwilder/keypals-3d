@@ -75,7 +75,9 @@ describe('the lesson, played by every kind of child', () => {
     expect(said).toContain('ep.count.b7.why');
     expect(said).not.toContain('ep.count.b5.show');
     expect(log.filter(l => l.startsWith('pointCount'))).toHaveLength(3); // the demo, then each of their counts
-    expect(log).toContain('tapHere()');
+    // (they knew the number hadn't changed: told why, and not made to count them again)
+    expect(log).not.toContain('tapHere()');
+    expect(said).toContain('ep.count.moved.right');
   });
   it('the counting is shown before the child is asked to do any', async () => {
     const { log } = await play({ nums: [5, 7, 7] });
@@ -137,13 +139,14 @@ describe('the lesson, played by every kind of child', () => {
     // every way, the ring goes on the cookie before the line about it
     for (const r of [found, second, missed, asked]) expect(r.log.filter(l => l === 'showSlip()')).toHaveLength(2);
   });
-  it('after the bump every child counts them again where they sit, and one who thought the number changed hears why it did not', async () => {
+  it('after the bump a child who thought the number changed counts them again where they sit and hears why it did not; one who knew is told why they are right', async () => {
     for (const moved of [7, 3, 12]) {
       const { log, said } = await play({ nums: [5, 7, moved, 4] });
-      expect(log).toContain('tapHere()');
-      expect(said).toContain(moved === 7 ? 'ep.count.recount.same' : 'ep.count.recount.why');
+      expect(log.includes('tapHere()')).toBe(moved !== 7);
+      expect(said.includes('ep.count.recount.why')).toBe(moved !== 7);
       expect(said.includes('ep.count.moved.right')).toBe(moved === 7);
     }
+    expect(BEAT_LINES.find(l => l.id === 'ep.count.moved.right')!.text).toMatch(/doesn't add any or take any away/);
     const why = BEAT_LINES.find(l => l.id === 'ep.count.recount.why')!.text;
     expect(why).toMatch(/doesn't add any or take any away/);
   });
@@ -184,7 +187,6 @@ describe('what the cold read of 23 November found', () => {
     const { said } = await play({ nums: [4, 8, 6, 3] });
     expect(BEAT_LINES.find(l => l.id === 'ep.count.b7.show')!.text).toMatch(/not 8 and not 6/);
     expect(said).toContain('ep.count.try.recount.again');
-    expect(said).not.toContain('ep.count.try.recount');
     expect(BEAT_LINES.find(l => l.id === 'ep.count.try.recount.again')!.text).toMatch(/its number shows it's been counted/);
   });
 });
