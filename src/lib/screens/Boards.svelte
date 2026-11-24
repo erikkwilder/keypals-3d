@@ -7,7 +7,7 @@
   import { cloud } from '../state/cloud.svelte';
   import { api } from '../teach/api';
   import { classesOf, loadClasses, reportWeek } from '../teach/student.svelte';
-  import { boardPrefs, ranked, trophy } from '../teach/boards';
+  import { boardPrefs, challengeOn, ranked, trophy } from '../teach/boards';
   import { weekKey } from '../teach/activity';
   import { dayKey } from '../engine/profile';
   import { ARCADE, dailyGame } from '../arcade/arcade';
@@ -72,7 +72,7 @@
             {/each}
           </ol>
         {/if}
-        {#if c.challenge && c.challenge.ends > Date.now()}
+        {#if c.challenge && challengeOn(c.challenge)}
           <h3>Class against class</h3>
           <p class="muted">Right answers per student this week. Every answer helps your class!</p>
           <ol class="board">

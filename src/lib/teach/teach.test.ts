@@ -16,7 +16,7 @@ import { activityBase, activityOf, eventsOf, noteActivity, weekKey, weekStats, a
 import { gradebookCsv, progressOf, scoreOf, statusOf, type Assignment } from './assignments';
 import { workingLevel, workingStep } from './level';
 import { classWeekReport, needsHelp, skillsGrid, standardsReport, studentReport } from './reports';
-import { ranked, setWorldBoards, trophy, worldEntry } from './boards';
+import { challengeOn, ranked, setWorldBoards, trophy, worldEntry } from './boards';
 import { classUrl, newAlias, showClassCode, cleanClassCode } from './names';
 import { isAlias } from '../../../deploy/site/class-rules.js';
 import { mergeProfile } from '../state/merge';
@@ -226,5 +226,16 @@ describe('the boards', () => {
     expect(cleanClassCode(' fox pear 42 ')).toBe('FOX-PEAR-42');
     expect(classUrl('FOX-PEAR-42', { hostname: 'fancyant.com', origin: 'https://fancyant.com', pathname: '/keypals/' })).toBe('https://keypals.org/#class=FOX-PEAR-42');
     expect(classUrl('FOX-PEAR-42', { hostname: '127.0.0.1', origin: 'http://127.0.0.1:8787', pathname: '/keypals/' })).toBe('http://127.0.0.1:8787/keypals/#class=FOX-PEAR-42');
+  });
+});
+
+describe('is a class challenge still on, for whoever is looking', () => {
+  it('goes by their own week: on all of Sunday evening, over on Monday morning', () => {
+    const ch = { week: '2026-11-02' };
+    // (their own clock: Sunday 8 November at 9 pm, then Monday at 8 am)
+    expect(challengeOn(ch, new Date(2026, 10, 8, 21, 0).getTime())).toBe(true);
+    expect(challengeOn(ch, new Date(2026, 10, 9, 8, 0).getTime())).toBe(false);
+    expect(challengeOn(ch, new Date(2026, 10, 2, 0, 30).getTime())).toBe(true);
+    expect(challengeOn(null)).toBe(false);
   });
 });
