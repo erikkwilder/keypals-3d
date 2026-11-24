@@ -65,3 +65,5 @@ These came from playing the next three lessons (How Many Cookies?, Fair Shares, 
 31. A young child hears the count: the count word is said as each thing is touched, by the narrator's count and by the child's own taps.
 32. Every label can be read at every size (the note under rule 20): none runs off a phone's screen, no choice's words are cut by its button, and a label whose thing is off the page is hidden, not pulled back to the edge.
 33. Room is kept for the number keys only in a lesson that asks for numbers. Otherwise half a phone's screen is bare table.
+34. The story never runs ahead of the picture. A lesson's kit waits on the scene's clock (`src/lib/three/sceneWaits.ts`), never with setTimeout: under 20 frames a second the scene's clock falls behind the wall's, and a wait by the wall ends before the movement it waited for. A test holds every kit to this.
+35. On a phone the number keys are two rows, and a long question wraps inside its box. A lesson that never asks for a number says so (`keys: false`), and a lesson with a short, wide picture centres it (`tallShare`).
