@@ -64,6 +64,9 @@ export interface World {
   /** where a drag runs on the screen, drawn as an arrow (null: nothing to drag) */
   dragPath(): { a: { x: number; y: number }; b: { x: number; y: number } } | null;
   tryPoint(): Vector3 | null;
+  /** the lesson is over and the card is coming, with the two friends close up: anything big left on the table
+   *  that would loom in front of them goes (a balance) */
+  clearForCard?(): void;
   dispose(): void;
 }
 

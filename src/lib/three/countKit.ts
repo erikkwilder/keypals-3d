@@ -54,7 +54,7 @@ const TALL: Layout = {
 };
 /** On a phone the things on the table are made this much bigger: the friends' heads above and the number
  *  keys below leave a short band for the picture, so at the usual size a cookie was about 24 px across */
-const TALL_ZOOM = 2.8;
+const TALL_ZOOM = 2.8, WIDE_ZOOM = 1.3;
 /** ...and seen less steeply from above, so the table's depth takes less of that band and the cookies are wider */
 const TALL_PITCH = 0.52;
 /** A number on a cookie that lies on the tray stands this far out from the middle of the batch (back ones
@@ -111,7 +111,9 @@ export class CountKit implements CountWorld {
     sc.root.add(this.root);
     // (on a wide screen the camera comes in close, like the fraction lessons', so a cookie is big enough to
     // see and tap; on a phone that would stand the friends further back and push the camera away)
-    if (this.L === WIDE) sc.closeUp(); else { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; }
+    // (and its things a quarter bigger against the friends: a cookie was 70 px across at 1440 px, in a tray that
+    // took two fifths of the screen's width over a third of a screen of bare table)
+    if (this.L === WIDE) { sc.closeUp(); sc.workZoom = WIDE_ZOOM; } else { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; sc.tallShare = 0.5; }
     // (the friends and the corner props keep clear of the cookies and plates)
     sc.extraWork = () => [...(this.tray ? [this.tray] : []), ...this.cookies.map(c => c.g), ...this.plateObjs];
   }
@@ -494,6 +496,6 @@ export class CountKit implements CountWorld {
     for (const g of Object.values(this.geo)) g?.dispose();
     for (const m of Object.values(this.mat)) for (const x of [m].flat()) (x as THREE.Material | undefined)?.dispose();
     this.sc.extraWork = () => [];
-    this.sc.workZoom = 1; this.sc.tallPitch = null;
+    this.sc.workZoom = 1; this.sc.tallPitch = null; this.sc.tallShare = null;
   }
 }

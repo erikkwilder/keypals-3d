@@ -33,6 +33,13 @@ const PILE_Y = 335, PARK_X = 42;
 const MOST = 12;
 /** on a phone: how much bigger the things on the table are, and how steeply the camera looks down at them */
 const TALL_ZOOM = 1.9, TALL_PITCH = 0.62, WIDE_PITCH = 0.58;
+/** on a wide screen the things on the table are this much bigger against the friends (a weight was about 12 px
+ *  across at 1440 px) */
+const WIDE_ZOOM = 1.35;
+/** A phone's table is only as wide as the two pans: bags taken off wait at the front, between the two piles of
+ *  weights, not out to the left of the pans. That strip at the left made everything a fifth smaller (a weight
+ *  was about 15 px across at 390 px), and the bags in it sat on the screen's edge. */
+const BOUNDS = TALL ? { x: 72, y: 90, w: 456, h: 310 } : { x: 20, y: 90, w: 560, h: 240 };
 const smooth = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
 
@@ -80,7 +87,7 @@ export class BalanceKit implements EquationWorld {
     // there instead, with the scene's workZoom, and seen less steeply from above)
     // (on a wide screen it is seen from a little higher, WIDE_PITCH: from the usual low camera the raised pans sat
     // on the table's far edge against the friends, with bare table in front)
-    if (innerWidth >= innerHeight) { sc.closeUp(); sc.widePitch = WIDE_PITCH; } else { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; }
+    if (innerWidth >= innerHeight) { sc.closeUp(); sc.widePitch = WIDE_PITCH; sc.workZoom = WIDE_ZOOM; } else { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; sc.tallShare = 0.5; }
   }
 
   async load() {
@@ -99,7 +106,9 @@ export class BalanceKit implements EquationWorld {
     };
     this.buildScale();
   }
-  bounds() { return { x: 20, y: 90, w: 560, h: 240 }; }
+  bounds() { return BOUNDS; }
+  /** (the card's shot is close on the two friends: the balance, bigger than them, filled the front of it) */
+  clearForCard() { this.root.visible = false; this.pins = []; this.changed(); }
   refit() {
     const a = this.sc.boardPoint(0, 0), b = this.sc.boardPoint(100, 0);
     this.s = a.distanceTo(b) / 100;
@@ -178,7 +187,8 @@ export class BalanceKit implements EquationWorld {
         const cx = MID + (it.where === 'pileR' ? ARM : -ARM), per = 6, cell = PCELL, k = it.slot % 18, layer = Math.floor(it.slot / 18);
         return this.at(cx + ((k % per) - 2.5) * cell, PILE_Y + Math.floor(k / per) * cell - PCELL, layer * WH);
       }
-      case 'park': return this.at(PARK_X, PAN_Y - 30 + it.i * 58, 0);
+      // (on a phone: a row at the very front, in front of both piles, so a big pile never reaches the bags)
+      case 'park': return TALL ? this.at(MID + (it.i - (this.e.p - 1) / 2) * 52, PILE_Y + 56, 0) : this.at(PARK_X, PAN_Y - 30 + it.i * 58, 0);
       case 'row': { const n = this.items.filter(o => o.where === 'row').length; return this.at(MID + (it.i - (n - 1) / 2) * 78, PILE_Y - 10, 0); }
       case 'held': return it.pos.clone();
       default: return it.from.clone().add(new THREE.Vector3(0, 120 * this.s, 0));
@@ -228,8 +238,9 @@ export class BalanceKit implements EquationWorld {
     // (the other side's count shows 0 while the bags are still there, but not on a balance that stands empty)
     const empty = !this.items.some(o => o.where === 'L' || o.where === 'swap');
     if (!this.parts) count('right', 'R', 'c', () => this.at(MID + ARM, PAN_Y + PR + 6, this.panH(1)), empty || this.filling);
-    count('pileL', 'pileL', 'ink', () => this.at(MID - ARM + 92, PILE_Y - 10, 8));
-    count('pileR', 'pileR', 'ink', () => this.at(MID + ARM + 92, PILE_Y - 10, 8));
+    // (on a phone each pile's count stands behind its outer end, inside the screen's edge)
+    count('pileL', 'pileL', 'ink', () => TALL ? this.at(MID - ARM - 60, PILE_Y - 46, 8) : this.at(MID - ARM + 92, PILE_Y - 10, 8));
+    count('pileR', 'pileR', 'ink', () => TALL ? this.at(MID + ARM + 60, PILE_Y - 46, 8) : this.at(MID + ARM + 92, PILE_Y - 10, 8));
     if (this.swapN) for (let i = 0; i < this.e.p; i++) out.push({ id: `swap${i}`, text: String(this.swapN), kind: 'tick', big: true, c: 'b', at: () => this.spot({ ...this.of('swap')[0], i, slot: 0, where: 'swap' } as Item).add(new THREE.Vector3(0, (Math.ceil(Math.min(this.swapN, MOST) / 4) * WH + 22) * this.s, 0)) });
     if (this.parts) for (let gi = 0; gi < this.parts; gi++) {
       const n = this.items.filter(o => o.where === 'R' && o.grp === gi).length;
@@ -482,7 +493,7 @@ export class BalanceKit implements EquationWorld {
 
   dispose() {
     this.waits.clear();
-    this.sc.workZoom = 1; this.sc.tallPitch = null; this.sc.widePitch = null;
+    this.sc.workZoom = 1; this.sc.tallPitch = null; this.sc.tallShare = null; this.sc.widePitch = null;
     for (const it of this.items) it.g.removeFromParent();
     this.items = [];
     this.root.removeFromParent();

@@ -12,9 +12,12 @@
   // Tap a key to type it, or drag it into an answer box (anything marked data-drop, or an answer .box):
   // it follows your finger, the box glows as you get close, and it snaps in. `ondrop` says which box
   // (a fraction's top or bottom); without it a drop types the number, like a tap.
-  type Props = { ondigit: (d: string) => void; onback: () => void; disabled?: boolean; lit?: string | null; compact?: boolean; extra?: ('.' | '-')[];
+  // `short` (with `compact`): two rows in counting order, 1 to 5 over 6 to 0, with Delete at their end. It is
+  // half as tall as the calculator block, for a page that needs the room for its picture (the Learn lessons on
+  // a phone: the block took 350 px of an 844 px screen from the picture, in every number lesson)
+  type Props = { ondigit: (d: string) => void; onback: () => void; disabled?: boolean; lit?: string | null; compact?: boolean; short?: boolean; extra?: ('.' | '-')[];
     ondrop?: (d: string, slot: string) => void };
-  let { ondigit, onback, disabled = false, lit = null, compact = false, extra = [], ondrop }: Props = $props();
+  let { ondigit, onback, disabled = false, lit = null, compact = false, short = false, extra = [], ondrop }: Props = $props();
   const ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
   const GRID = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'back', '0'];
   const keys = $derived(compact ? [...GRID, ...extra] : [...ROW, ...extra, 'back']);
@@ -76,7 +79,7 @@
   }
 </script>
 
-<div class="pad" class:compact class:ext={extra.length > 0} class:disabled role="group" aria-label="Number pad" style:--cols={11 + extra.length}>
+<div class="pad" class:compact class:short={compact && short} class:ext={extra.length > 0} class:disabled role="group" aria-label="Number pad" style:--cols={11 + extra.length}>
   {#each keys as k (k)}
     <button class="k" class:back={k === 'back'} class:lit={lit === k} class:zero={compact && k === '0'} class:x={k === '.' || k === '-'} aria-label={k === 'back' ? 'Delete' : k}
       onpointerdown={(e) => down(k, e)} onpointermove={move} onpointerup={up} onpointercancel={cancel} tabindex="-1">
@@ -99,6 +102,10 @@
   .compact .k.zero { order: 11; grid-column: span 2; }
   .compact .k.x { order: 12; }
   .compact.ext .k.zero { grid-column: auto; }
+  .compact.short { grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, .8fr); gap: 7px; width: min(460px, 100%); }
+  .compact.short .k { height: clamp(48px, 6.4vh, 56px); border-radius: 14px; order: 0; }
+  .compact.short .k.zero { grid-column: auto; order: 0; }
+  .compact.short .k.back { order: 0; grid-column: 6; grid-row: 1 / span 2; height: auto; }
   /* the tile in your finger, and the box it's about to land in */
   .ghost { position: fixed; z-index: 90; width: 64px; height: 64px; margin: -40px 0 0 -32px; border-radius: 18px; display: grid; place-items: center; pointer-events: none;
     font: 600 38px/1 var(--font-ui); color: var(--ink); background: linear-gradient(#fff, #efe9ff); border: 3px solid #a98cff;

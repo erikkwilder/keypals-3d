@@ -151,6 +151,10 @@ export class EpisodeScene implements Controller {
   widePitch: number | null = null;
   /** how steeply the work shots look down on a phone, when a lesson wants its own (flat things big across) */
   tallPitch: number | null = null;
+  /** on a phone, the share of the spare room up and down that goes above the picture, when a lesson wants its own
+   *  (the usual is about a third above: a lesson with a short, wide picture sets a half, so the picture sits in the
+   *  middle of the screen with the painted room above it, not at the top over half a screen of bare table) */
+  tallShare: number | null = null;
   private shapeGeos = new Map<string, ReturnType<typeof shapeGeo>>();
   private plank: THREE.Group | null = null;
   private lineKey = '';
@@ -1640,7 +1644,7 @@ export class EpisodeScene implements Controller {
     for (const q of corners) { const rel = q.clone().sub(wantPos), z = rel.dot(fwd), y = rel.dot(camUp) / (z * tanH); ymax = Math.max(ymax, y); ymin = Math.min(ymin, y); }
     const topSlack = rcy + rhy - ymax, botSlack = ymin - (rcy - rhy);
     // (a fraction's wide picture on a phone: the spare room split more evenly, so the work sits nearer the thumbs)
-    const topShare = tall ? (this.close ? 0.55 : 0.35) : 0.6;
+    const topShare = tall ? this.tallShare ?? (this.close ? 0.55 : 0.35) : 0.6;
     if (!lowerMiddle && topSlack > 0 && botSlack > 0) wantPos.addScaledVector(camUp, -(topSlack - (topSlack + botSlack) * topShare) * d * tanH);
     const wantAim = wantPos.clone().add(fwd);
     if (!this.ready) { this.camPos.copy(wantPos); this.camAim.copy(wantAim); this.ready = true; }

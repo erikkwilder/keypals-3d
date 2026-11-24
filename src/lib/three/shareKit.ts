@@ -69,7 +69,7 @@ export class ShareKit implements ShareWorld {
 
   constructor(private sc: EpisodeScene) {
     sc.root.add(this.root);
-    if (this.tall) { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; } else sc.workZoom = WIDE_ZOOM;
+    if (this.tall) { sc.workZoom = TALL_ZOOM; sc.tallPitch = TALL_PITCH; sc.tallShare = 0.5; } else sc.workZoom = WIDE_ZOOM;
     // (the friends and the corner props keep clear of the table's middle; on a phone not of a bar lying flat
     // to be cut: it hides nothing, and stepping aside for it sent them out to the screen's sides, which pulled the
     // camera back and made each square 33 px across instead of 40)
@@ -486,6 +486,6 @@ export class ShareKit implements ShareWorld {
     for (const m of this.mats.values()) m.dispose();
     this.knife.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); (m.material as THREE.Material).dispose(); } });
     this.sc.extraWork = () => [];
-    this.sc.workZoom = 1; this.sc.tallPitch = null; this.sc.frameBox = null;
+    this.sc.workZoom = 1; this.sc.tallPitch = null; this.sc.tallShare = null; this.sc.frameBox = null;
   }
 }

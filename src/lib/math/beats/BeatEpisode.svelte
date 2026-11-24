@@ -142,6 +142,7 @@
         await L.check(teller, wd, mathOf(game.profile!).lessonNotes?.[L.id] ?? null);
         phase = 'checked'; ask = null; bet = null;
         game.update(pp => markChecked(pp, L.id));
+        wd.clearForCard?.();
         s.gather(true); s.shot('pals'); s.dance(danceOf(game.profile!)); s.party();
         sfx.complete(); burst++;
         cardWords = L.card(mathOf(game.profile!).lessonNotes?.[L.id] ?? {});
@@ -158,6 +159,7 @@
         result = res;
         cardWords = L.card(mathOf(game.profile!).lessonNotes?.[L.id] ?? notes);
         if (!embedded) pn = pathNext(game.profile, `learn:${L.id}`);
+        wd.clearForCard?.();
         s.gather(true); s.shot('pals'); s.dance(danceOf(game.profile!)); s.party(); s.palDo('happy');
         sfx.complete(); burst++;
       }
@@ -182,7 +184,8 @@
     let bottom = 1 - (narrow ? 116 : 104) / H, right = 0.99;
     // (room for the number keys from the start, so the picture doesn't jump back when a question comes)
     // (a lesson that never asks for a number keeps room for its choices only, so its picture is bigger)
-    if (phase === 'play') bottom = 1 - (L.keys === false ? (narrow ? 204 : 196) : (narrow ? 352 : 228)) / H;
+    // (on a phone the number keys are two rows, not the calculator block: 214 px, where the block took 352)
+    if (phase === 'play') bottom = 1 - (L.keys === false ? (narrow ? 204 : 196) : (narrow ? 214 : 228)) / H;
     else if (phase === 'card' || phase === 'checked') { if (narrow) bottom = 0.5; else right = 0.5; }
     if (narrow && bottomH && phase === 'play') bottom = Math.min(bottom, 1 - (bottomH + 14) / H);
     return { top, bottom, left: 0.01, right };
@@ -338,7 +341,7 @@
     {#if ask?.kind === 'num'}
       <div class="turn">
         <div class="ask"><svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3 28 9.5v13L16 29 4 22.5v-13z" fill="#8f7bff"/><path d="M16 3 28 9.5 16 16 4 9.5z" fill="#c9bcff"/><path d="M16 16v13L4 22.5v-13z" fill="#6d5ae0"/></svg><span class="q">{ask.prompt}</span><span class="box">{typed || ' '}</span><button class="btn btn-primary gobtn" disabled={!typed} onclick={send}>Go <span class="kbd">enter</span></button></div>
-        <NumPad ondigit={typeDigit} onback={back} compact={narrow} lit={null} />
+        <NumPad ondigit={typeDigit} onback={back} compact={narrow} short={narrow} lit={null} />
       </div>
     {:else if ask?.kind === 'pick'}
       <div class="fix">
@@ -509,7 +512,10 @@
   .narrow .choices { max-width: 100%; }
   .narrow .choice.fracbtn { height: 92px; }
   .narrow .choices { gap: 10px; }
-  .narrow .ask { font-size: 21px; padding: 6px 8px 6px 12px; gap: 8px; white-space: nowrap; }
+  /* (a long question wraps inside its box: it used to push the Go button off the side of a phone) */
+  .narrow .ask { font-size: 20px; padding: 6px 8px 6px 12px; gap: 8px; max-width: 100%; }
+  .narrow .ask .q { min-width: 0; }
+  .narrow .ask .box, .narrow .ask .gobtn, .narrow .ask .ico { flex: none; }
   .narrow .tick { font-size: 15px; }
   .narrow .tick.big { font-size: 21px; padding: 2px 8px 3px; }
   /* a thought never runs off a phone's screen: it wraps */
