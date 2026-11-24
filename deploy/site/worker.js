@@ -19,7 +19,7 @@
 // Once a week (from the daily tidy-up) the players and accounts are copied to the R2 bucket bound as
 // BACKUPS, kept 90 days by the bucket's own rule (restore: deploy/site/RESTORE.md).
 
-import { classApi, classPlayerLimited, madeByClass, tidyClasses, CLASS_TABLES, noteSignIn, studentGoogleBack } from './classes.js'; // classes for teachers, and the boards
+import { classApi, classPlayerLimited, madeByClass, tidyClasses, CLASS_TABLES, noteSignIn, studentGoogleBack, hit } from './classes.js'; // classes for teachers, and the boards
 
 const WORDS = ('apple acorn anchor arrow badger bamboo banana basket beach beaver berry bird biscuit blossom boat bramble breeze brick bubble bucket bunny cactus camel candle canoe canyon carrot castle cedar cherry cloud clover coconut comet coral cotton crab crayon cricket crystal daisy desert dingo dolphin donut dragon drum duck eagle earth echo elm ember fable falcon feather fern fiddle finch flame flower forest fossil fox frog galaxy garden gecko ginger glacier globe goose grape gull hammock harbor harp hazel hedge heron hill honey hoop iceberg igloo island ivy jelly jungle kayak kettle kite kiwi koala ladder lagoon lake lantern lark leaf lemon lilac lily lime llama lotus lunar maple marble meadow melon meteor mint mitten moon moose moss mountain mouse muffin nectar nest noodle nutmeg oak oasis ocean olive orbit orchid otter owl paddle panda parrot peach peanut pear pebble pelican pepper petal piano pickle pine pixel planet plum pond poppy prairie pretzel puffin pumpkin quail quartz rabbit radish rain rainbow raven reef ribbon river robin rocket rose ruby saddle sail salmon sandal sapphire scarf seal seed shell sky sloth snail snow sparrow spruce squid star stone storm sugar summer sun swan taco tide tiger toad topaz tortoise trail tulip tuna turnip turtle tulip umbrella valley velvet violet volcano waffle walnut walrus water wave whale willow wind wombat yak yarn zebra zinnia').split(' ').filter((w, i, a) => a.indexOf(w) === i);
 const DAY = 86400000;
@@ -39,18 +39,11 @@ function newCode() {
 }
 const cleanCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-/** At most `max` calls per `minutes` from one address (only a hash of the address is kept). */
+/** At most `max` calls per `minutes` from one address (only a hash of the address is kept). Counted and
+ *  checked in one statement (classes.js hit), so calls sent all at once can't all slip in under the limit. */
 async function limited(env, request, what, max, minutes) {
   const ip = request.headers.get('cf-connecting-ip') || 'unknown';
-  const key = `${what}:${await sha256(ip + what)}`, now = Date.now();
-  const row = await env.DB.prepare('SELECT n, reset FROM limits WHERE key = ?').bind(key).first();
-  if (!row || row.reset < now) {
-    await env.DB.prepare('INSERT OR REPLACE INTO limits (key, n, reset) VALUES (?, 1, ?)').bind(key, now + minutes * 60000).run();
-    return false;
-  }
-  if (row.n >= max) return true;
-  await env.DB.prepare('UPDATE limits SET n = n + 1 WHERE key = ?').bind(key).run();
-  return false;
+  return hit(env, `${what}:${await sha256(ip + what)}`, max, minutes);
 }
 
 /** Opening or saving a player: a class player counts by its code and class (a whole class shares one
@@ -102,12 +95,27 @@ async function startSignIn(env, url, p, base, student = false) {
     client_id: P.id(env), redirect_uri: callbackUrl(url, p, base), response_type: 'code', scope: 'openid email profile',
     state, code_challenge: await sha256(verifier), code_challenge_method: 'S256', ...P.extra,
   });
-  return Response.redirect(`${P.authorize}?${q}`, 302);
+  // the state goes in a short-lived cookie too, for the sign-in's own addresses only: the return is taken only
+  // in the browser that started it (finishSignIn)
+  return new Response(null, { status: 302, headers: { location: `${P.authorize}?${q}`, 'set-cookie': cookie('kp_signin', state, 15 * 60, `${base}/api/auth`) } });
 }
 
-async function finishSignIn(env, url, p, base) {
+/** Back from the provider. Only the browser that started the sign-in can finish it (its cookie holds the
+ *  state): a return link someone made at Google and then sent on, to a parent, a teacher or a child, signs
+ *  nobody in as them. The cookie is cleared either way. */
+async function finishSignIn(env, request, url, p, base) {
+  if (!ready(env, p)) return Response.redirect(`${url.origin}${base}/#signin=unavailable`, 302);
+  const state = url.searchParams.get('state');
+  const mine = (request.headers.get('cookie') || '').match(/(?:^|;\s*)kp_signin=([^;]+)/)?.[1];
+  const r = state && mine === state ? await signInBack(env, url, p, base) : Response.redirect(`${url.origin}${base}/#signin=${state ? 'expired' : 'cancelled'}`, 302);
+  const out = new Response(null, { status: r.status, headers: { location: r.headers.get('location') } });
+  out.headers.append('set-cookie', cookie('kp_signin', '', 0, `${base}/api/auth`));
+  if (r.headers.get('set-cookie')) out.headers.append('set-cookie', r.headers.get('set-cookie'));
+  return out;
+}
+
+async function signInBack(env, url, p, base) {
   const back = (msg) => Response.redirect(`${url.origin}${base}/#signin=${msg}`, 302);
-  if (!ready(env, p)) return back('unavailable');
   const code = url.searchParams.get('code'), state = url.searchParams.get('state');
   if (!code || !state) return back('cancelled');
   const si = await env.DB.prepare('SELECT verifier, provider, created FROM sign_ins WHERE state = ?').bind(state).first();
@@ -126,11 +134,14 @@ async function finishSignIn(env, url, p, base) {
   if (student) return studentGoogleBack(env, url, base, me, { sha256, randomToken });
   if (!me || !me.sub) return back('failed');
   const now = Date.now();
+  // a Google email is kept only when Google says it checked that it's this person's: an unchecked one could
+  // be anyone's, an admin's too (isAdmin goes by the email)
+  const email = p === 'google' && me.email_verified !== true && me.email_verified !== 'true' ? null : me.email || null;
   let acct = await env.DB.prepare('SELECT id FROM accounts WHERE provider = ? AND sub = ?').bind(p, me.sub).first();
-  if (acct) await env.DB.prepare('UPDATE accounts SET email = ?, name = ?, seen = ? WHERE id = ?').bind(me.email || null, me.name || null, now, acct.id).run();
+  if (acct) await env.DB.prepare('UPDATE accounts SET email = ?, name = ?, seen = ? WHERE id = ?').bind(email, me.name || null, now, acct.id).run();
   else {
     acct = { id: randomToken(12) };
-    await env.DB.prepare('INSERT INTO accounts (id, provider, sub, email, name, created, seen) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(acct.id, p, me.sub, me.email || null, me.name || null, now, now).run();
+    await env.DB.prepare('INSERT INTO accounts (id, provider, sub, email, name, created, seen) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(acct.id, p, me.sub, email, me.name || null, now, now).run();
   }
   // the school domain Google gives a school or company account (classes.js: a teacher from a school is
   // approved straight away)
@@ -150,15 +161,32 @@ async function goneAnswer(env, code) {
   const g = await env.DB.prepare('SELECT at FROM gone WHERE code = ?').bind(code).first();
   return g ? json({ code, gone: true, at: g.at, error: 'A grown-up deleted this player.' }, 410) : null;
 }
+/** A request's JSON, or null. Its size is counted in bytes as it arrives: a body that says it's too big isn't
+ *  read at all, and reading stops as soon as one is over (a huge body is never held whole). */
 async function readBody(request, maxBytes = 400000) {
-  const text = await request.text();
-  if (text.length > maxBytes) return null;
-  try { return JSON.parse(text); } catch { return null; }
+  if (Number(request.headers.get('content-length')) > maxBytes || !request.body) return null;
+  const reader = request.body.getReader(), parts = [];
+  for (let size = 0; ;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) { await reader.cancel().catch(() => {}); return null; }
+    parts.push(value);
+  }
+  try { return JSON.parse(await new Blob(parts).text()); } catch { return null; }
 }
+/** A saved player is an object (a nickname, a buddy, progress): never null, a list or a bare value, which
+ *  would break the list of players for the whole family's account. */
+const isProfile = (p) => !!p && typeof p === 'object' && !Array.isArray(p);
 
 async function api(request, env, url, base) {
   const path = url.pathname.slice(`${base}/api`.length);
   const method = request.method;
+  // a change asked for by another site's page is refused: a browser says which site a request comes from
+  // (Origin), and the game's own come from this address (fancyant.com/keypals shares fancyant.com's). A
+  // request without one isn't from another site's page. (Asking and preflights change nothing.)
+  const from = request.headers.get('origin');
+  if (from && from !== url.origin && !['GET', 'HEAD', 'OPTIONS'].includes(method)) return fail(403, 'This can only be done from Keypals itself.');
   // classes, class work and the boards (classes.js): its own paths, null for everything else
   const cls = await classApi(request, env, url, path, { json, fail, currentAccount, limited, readBody, sha256, randomToken, cookie, cleanCode, newCode, base, isAdmin }); if (cls) return cls;
   // which sign-ins are available
@@ -168,7 +196,7 @@ async function api(request, env, url, base) {
   let m = path.match(/^\/auth\/(google|microsoft)\/(start|callback|student)$/);
   if (m && method === 'GET') {
     if (m[2] === 'student' && m[1] !== 'google') return fail(404, 'Not found.');
-    return m[2] === 'callback' ? finishSignIn(env, url, m[1], base) : startSignIn(env, url, m[1], base, m[2] === 'student');
+    return m[2] === 'callback' ? finishSignIn(env, request, url, m[1], base) : startSignIn(env, url, m[1], base, m[2] === 'student');
   }
   if (path === '/auth/logout' && method === 'POST') {
     const c = (request.headers.get('cookie') || '').match(/(?:^|;\s*)kp_session=([^;]+)/);
@@ -180,7 +208,7 @@ async function api(request, env, url, base) {
   if (path === '/players' && method === 'POST') {
     if (await limited(env, request, 'create', 30, 60)) return fail(429, 'Too many new save codes from here. Try again later.');
     const body = await readBody(request);
-    if (!body || typeof body.profile !== 'object') return fail(400, 'No player to save.');
+    if (!isProfile(body?.profile)) return fail(400, 'No player to save.');
     const now = Date.now();
     for (let tries = 0; tries < 5; tries++) {
       const code = newCode();
@@ -209,7 +237,7 @@ async function api(request, env, url, base) {
     if (method === 'PUT') {
       if (await playerLimited(env, request, 'save', 600, code)) return fail(429, 'Saving too often. It will catch up.');
       const body = await readBody(request);
-      if (!body || typeof body.profile !== 'object') return fail(400, 'No player to save.');
+      if (!isProfile(body?.profile)) return fail(400, 'No player to save.');
       const row = await env.DB.prepare('SELECT updated FROM players WHERE code = ?').bind(code).first();
       // deleted everywhere by a grown-up: an old copy can't bring it back
       if (!row) return (await goneAnswer(env, code)) ?? missingAnswer('That save code no longer exists.');
@@ -251,7 +279,8 @@ async function api(request, env, url, base) {
     const acct = await currentAccount(env, request);
     if (!acct) return fail(401, 'Not signed in.');
     const rows = await env.DB.prepare('SELECT code, data, updated FROM players WHERE account = ? ORDER BY updated DESC').bind(acct.id).all();
-    const players = rows.results.map(r => { const d = JSON.parse(r.data); return { code: r.code, name: d.name, buddy: d.buddy, updated: r.updated }; });
+    // (a broken copy is listed by its code, and never keeps the others from showing)
+    const players = rows.results.map(r => { let d = null; try { d = JSON.parse(r.data); } catch { /* no name to show */ } return { code: r.code, name: d?.name, buddy: d?.buddy, updated: r.updated }; });
     // players this grown-up deleted everywhere: every computer signed in removes its copy
     const gone = (await env.DB.prepare('SELECT code, at FROM gone WHERE account = ? ORDER BY at DESC LIMIT 500').bind(acct.id).all()).results;
     return json({ account: { name: acct.name, email: acct.email, provider: acct.provider, admin: isAdmin(env, acct) }, players, gone });
@@ -299,7 +328,22 @@ async function api(request, env, url, base) {
     const acct = await currentAccount(env, request);
     if (!acct) return fail(401, 'Not signed in.');
     const code = cleanCode(decodeURIComponent(m[1]));
-    const r = await env.DB.prepare('UPDATE players SET account = ? WHERE code = ? AND (account IS NULL OR account = ?)').bind(method === 'PUT' ? acct.id : null, code, acct.id).run();
+    if (method === 'DELETE') {
+      // out of the account: only a player that is in it
+      const r = await env.DB.prepare('UPDATE players SET account = NULL WHERE code = ? AND account = ?').bind(code, acct.id).run();
+      return r.meta.changes ? json({ ok: true }) : fail(404, 'That player was not found.');
+    }
+    // into the account: limited like opening a player (codes can't be guessed faster here), and only from a
+    // computer that has the player: it sends the time of the saved copy it has (`updated`), which a save code
+    // alone doesn't tell, so nobody can take another family's player by its code
+    if (await limited(env, request, 'open', 60, 60)) return fail(429, 'Too many tries from here. Try again later.');
+    const row = await env.DB.prepare('SELECT account, updated FROM players WHERE code = ?').bind(code).first();
+    if (row && row.account === acct.id) return json({ ok: true });
+    // a player a class made stays with the class (a teacher signed in at a classroom computer, a parent at home)
+    if (row && !row.account && await madeByClass(env, code)) return fail(409, 'This player belongs to a class, so it stays with the class.');
+    const body = await readBody(request, 2000) || {};
+    if (!row || row.account || Number(body.updated) !== row.updated) return fail(404, 'That player was not found.');
+    const r = await env.DB.prepare('UPDATE players SET account = ? WHERE code = ? AND account IS NULL AND updated = ?').bind(acct.id, code, row.updated).run();
     return r.meta.changes ? json({ ok: true }) : fail(404, 'That player was not found.');
   }
   return (await helpApi(request, env, url, path, method)) ?? fail(404, 'Not found.');

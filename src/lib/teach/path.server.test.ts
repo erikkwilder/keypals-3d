@@ -248,6 +248,8 @@ describe('students with their own school Google sign-in', () => {
     expect(rows[0].gid).toBe(await googleKey(h, me.sub));
     const t = await devTeacher('Ms. Rivera');
     const c = await classWith(t.cookie, 'Maria');
+    // (a class is kept to its teacher's own school domain until the teacher changes it; Zoe's school is lincoln.org)
+    await call('PATCH', `/teach/classes/${c.id}`, { settings: { domain: 'lincoln.org' } }, { cookie: t.cookie });
     const join = await call('POST', '/class/google/join', { ticket, code: c.code });
     const payloads = [join.json, env.DB.rows('student_google'), env.DB.rows('students'), env.DB.rows('players'), env.DB.rows('google_tickets'), env.DB.rows('accounts'), (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie: t.cookie })).json];
     for (const x of payloads) {

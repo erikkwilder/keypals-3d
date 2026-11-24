@@ -61,6 +61,7 @@
       <input bind:value={domain} placeholder="myschool.org" aria-label="School domain" />
       {#if set.domain && domain.trim() && domain.trim().toLowerCase() !== set.domain}<button class="sbtn" onclick={() => act(() => saveSettings({ domain }), 'Saved.')}>Save</button>{/if}
     </div>
+    {#if !set.domain}<p class="muted">Any Google account can ask to join with the class code: a new name waits on the Students tab until you say yes.</p>{/if}
   {/if}
 </div>
 

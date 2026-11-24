@@ -163,6 +163,18 @@ const viaAccount = (code: string) => !!cloud.account && cloud.players.some(x => 
 type Fetched = { code: string; profile: Profile; updated: number };
 const fetchPlayer = (code: string) => call<Fetched>(viaAccount(code) ? `/me/players/${encodeURIComponent(code)}` : `/players/${encodeURIComponent(code)}`);
 
+/** File a player this computer has under the signed-in grown-up. The server asks for the time of the saved
+ *  copy this computer has (`updated`): a computer with the player knows it, a save code alone doesn't, so
+ *  nobody can take another family's player by its code. Saved on another computer since? Catch up, then once more. */
+async function fileHere(code: string): Promise<boolean> {
+  const put = () => call(`/me/players/${encodeURIComponent(code)}`, { method: 'PUT', body: JSON.stringify({ updated: game.save.profiles.find(x => x.cloud?.code === code)?.cloud?.at }) });
+  try { await put(); return true; } catch (e) {
+    const p = game.save.profiles.find(x => x.cloud?.code === code);
+    if (!(e instanceof ApiError) || e.status !== 404 || e.missing || !p) return false;
+    try { await pullOne(p); await put(); return true; } catch { return false; }
+  }
+}
+
 /** Bring a saved player onto this computer by their code. If they're here already, the two copies are
  *  combined (nothing played here is lost). A grown-up signed in here keeps them in the account too. */
 export async function openCode(raw: string, activate = true) {
@@ -170,7 +182,7 @@ export async function openCode(raw: string, activate = true) {
   clearNotHere(code);
   const prof = await bring(code, activate);
   if (cloud.account && prof.cloud && !viaAccount(prof.cloud.code) && !isClassLogin(prof)) {
-    await call(`/me/players/${prof.cloud.code}`, { method: 'PUT' }).catch(() => null);
+    await fileHere(prof.cloud.code);
     await refreshAccount();
   }
   return prof;
@@ -330,7 +342,7 @@ async function doCatchUp(everyCode: boolean) {
     for (const code of plan.link) {
       if (linkTried.has(code)) continue;
       linkTried.add(code);
-      if (await call(`/me/players/${code}`, { method: 'PUT' }).then(() => true, () => false)) filed++;
+      if (await fileHere(code)) filed++;
     }
     if (filed) await refreshAccount();
   }
