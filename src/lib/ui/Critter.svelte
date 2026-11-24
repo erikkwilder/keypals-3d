@@ -25,8 +25,10 @@
   let { friend, size = 120, mood = '', pulse = null, title, still = false, round = false }: Props = $props();
   const px = $derived(typeof size === 'number' ? `${size}px` : size);
   const src = $derived(`${import.meta.env.BASE_URL}portraits/${FRIEND[friend]?.id ?? 'dino'}${round ? '-head' : ''}.png`);
-  let hop = $state(0);
-  $effect(() => { if (pulse && pulse.n > 0) hop++; });
+  // each new pulse (a tap on this buddy, a cheer) restarts the hop: the key below is the pulse's own count.
+  // (It was a counter bumped in an effect that also read it, which looped until Svelte stopped it: the
+  // "effect_update_depth_exceeded" the game reported from the new-player screen, a buddy tap on a Chromebook.)
+  const hop = $derived(pulse && pulse.n > 0 ? pulse.n : 0);
 </script>
 
 <div class="critter-host" class:round class:dance={mood === 'dance' && !still} class:sleep={mood === 'sleep'} class:run={mood === 'running' && !still} style:width={px} style:height={px} title={title ?? FRIEND[friend]?.name}>

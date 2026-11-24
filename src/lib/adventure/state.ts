@@ -73,10 +73,10 @@ export const ISLANDS: Island[] = [
     natives: ['sunsnail', 'teakettledrake', 'pebbletort', 'rollodillo'], mischief: { kind: 'zap', name: 'The cuckoo clocks are ringing' },
     blurb: 'Cuckoo-clock houses, turning gears, a great balance scale and a clock tower at the top. Every battle card is time or measuring.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
   // Shape Peaks: crystal mountains, a meadow of giant crystal shapes, a sundial ridge and a crystal palace
-  // at the top; its Grumbles shake crystals loose to fall like hail. (Its own Glimmers are on the way:
-  // adventure/shapesGlimmers.ts; until their models come, crystal-loving Glimmers from the islands live here.)
-  { id: 'peaks', world: 'peaks', tier: 1, name: 'Shape Peaks', element: 'frost', region: 'cliffs', champion: 'cometcat', area: 'shapes',
-    natives: ['prismhorn', 'frostowl', 'mittenyeti', 'frostjelly'], mischief: { kind: 'pebbles', name: 'Falling crystals are coming' },
+  // at the top; its Grumbles shake crystals loose to fall like hail. Its own Glimmers live here
+  // (adventure/shapesGlimmers.ts), and the Prism Gryphon is its Champion.
+  { id: 'peaks', world: 'peaks', tier: 1, name: 'Shape Peaks', element: 'frost', region: 'cliffs', champion: 'prismgryphon', area: 'shapes',
+    natives: ['pyramidpika', 'hexabee', 'tesselgecko'], mischief: { kind: 'pebbles', name: 'Falling crystals are coming' },
     blurb: 'Crystal mountains, a sundial ridge and a crystal palace at the top. Every battle card is about shapes and angles.', odds: { common: 46, uncommon: 30, rare: 16, epic: 7.6, mythic: 0.4 } },
   // Juice Jungle: a fruit jungle on a floating island, juice waterfalls, a smoothie hut, a juice fountain and a
   // golden mango treehouse at the top; its Grumbles shake a shower of juice from the waterfalls. Its own

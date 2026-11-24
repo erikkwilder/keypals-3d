@@ -1,7 +1,7 @@
 // Shape Peaks' own Glimmers: three natives and a Champion, in the 100-Glimmer ladder's shape (ladder.ts):
-// source 'native', world 'peaks', the Prism Gryphon the island's Champion. They're `pending` until their 3D
-// models come, so the Glimmer Book shows them "On its way" and nothing rolls, hatches or battles them yet;
-// meanwhile crystal-loving Glimmers from the islands live in Shape Peaks (adventure/state.ts). Their
+// source 'native', world 'peaks', the Prism Gryphon the island's Champion. All four have their models
+// (the Pyramid Pika came last, on 2026-11-24), so they are Shape Peaks' natives (adventure/state.ts) and the
+// Prism Gryphon is its Champion. While a Glimmer is `pending` the Glimmer Book shows it "On its way". Their
 // paintings, faces and outlines are in public/game/glimmers (made with scripts/glimmers/concepts-finish.py
 // from the concepts in keypals-round9/SHP/glimmers); `looks` is what the model is made from.
 //
@@ -17,7 +17,7 @@ export type ShapesGlimmerId = 'pyramidpika' | 'hexabee' | 'tesselgecko' | 'prism
 const pn = (base: number, lvl: number, every = 4) => base + Math.floor((Math.max(1, lvl) - 1) / every);
 
 export const SHAPE_PEAKS_GLIMMERS: (GlimmerDef & { id: ShapesGlimmerId; looks: string })[] = [
-  { id: 'pyramidpika', source: 'native', world: 'peaks', pending: true, name: 'Pyramid Pika', rarity: 'common', element: 'stone',
+  { id: 'pyramidpika', source: 'native', world: 'peaks', name: 'Pyramid Pika', rarity: 'common', element: 'stone',
     quirk: 'Stacks pebbles into perfect pyramids, then knocks them down to do it again.',
     power: { kind: 'boost', name: 'Pyramid Stack', base: 2, text: l => `Stone cards add ${pn(2, l)} more cheer.` },
     looks: 'A round fluffy sandy-grey pika with big shiny eyes and rosy cheeks, a little glowing golden crystal pyramid on its head like a hat.' },
