@@ -304,16 +304,21 @@ describe('one Worker script, two addresses (fancyant.com/keypals and keypals.org
     const real = globalThis.fetch;
     globalThis.fetch = async (u) => new Response(JSON.stringify(String(u).includes('token') ? { access_token: 'at' } : { sub: 'g-1', email: 'parent@example.com', name: 'Pat' }));
     try {
-      const back = await s.api(`/auth/google/callback?code=abc&state=${state}`);
-      return { redirectUri: to.searchParams.get('redirect_uri'), back };
+      // the same browser: it brings back the cookie the start gave it (a return without it signs nobody in)
+      const signin = (start.headers.get('set-cookie') || '').match(/^kp_signin=([^;]+)/)?.[1];
+      const back = await s.api(`/auth/google/callback?code=abc&state=${state}`, { headers: { cookie: `kp_signin=${signin}` } });
+      return { redirectUri: to.searchParams.get('redirect_uri'), back, start };
     } finally { globalThis.fetch = real; }
   }
 
   it('fancyant.com: the API, sign-in return addresses and cookie live under /keypals', async () => {
     const s = site({ ...google, BASE: '/keypals' });
     expect((await s.api('/config')).json.google).toBe(true);
-    const { redirectUri, back } = await signInThrough(s);
+    const { redirectUri, back, start } = await signInThrough(s);
     expect(redirectUri).toBe('https://fancyant.com/keypals/api/auth/google/callback');
+    // the sign-in's own cookie lives at the sign-in's addresses, and is cleared on the way back
+    expect(start.headers.get('set-cookie')).toMatch(/^kp_signin=[\w-]+; Path=\/keypals\/api\/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=900$/);
+    expect(back.headers.get('set-cookie')).toMatch(/^kp_signin=; Path=\/keypals\/api\/auth; .*Max-Age=0, kp_session=/);
     expect(back.status).toBe(302);
     expect(back.headers.get('location')).toBe('https://fancyant.com/keypals/#signin=ok');
     expect(back.headers.get('set-cookie')).toMatch(/; Path=\/keypals;/);
@@ -321,8 +326,10 @@ describe('one Worker script, two addresses (fancyant.com/keypals and keypals.org
 
   it('keypals.org: the same at the root, exactly /api/auth/google/callback', async () => {
     const s = site({ ...google, BASE: '', ORIGIN: 'https://keypals.org' });
-    const { redirectUri, back } = await signInThrough(s);
+    const { redirectUri, back, start } = await signInThrough(s);
     expect(redirectUri).toBe('https://keypals.org/api/auth/google/callback');
+    expect(start.headers.get('set-cookie')).toMatch(/^kp_signin=[\w-]+; Path=\/api\/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=900$/);
+    expect(back.headers.get('set-cookie')).toMatch(/^kp_signin=; Path=\/api\/auth; .*Max-Age=0, kp_session=/);
     expect(back.headers.get('location')).toBe('https://keypals.org/#signin=ok');
     expect(back.headers.get('set-cookie')).toMatch(/; Path=\/;/);
     // signing out clears the cookie at the same path

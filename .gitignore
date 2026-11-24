@@ -28,3 +28,7 @@ public/music
 
 # the local voice model's raw takes (scripts/voice/generate.mjs makes them again from the same words)
 scripts/voice/raw/local/
+
+# secrets for wrangler dev and any tool's .env files: never in this public repository
+.dev.vars*
+.env*

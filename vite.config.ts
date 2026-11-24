@@ -26,9 +26,10 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version) },
   clearScreen: false,
   base: './',
-  // the save API lives on fancyant.com: the dev and test servers pass /api through to it (save codes work; sign-in needs the real site)
-  server: { port: 5192, strictPort: true, host: '127.0.0.1', proxy: { '/api': { target: 'https://fancyant.com', changeOrigin: true, rewrite: (p) => '/keypals' + p } } },
-  preview: { port: 8799, strictPort: true, host: '127.0.0.1', allowedHosts: ['shmergles-mac-mini.tail88c58e.ts.net'], proxy: { '/api': { target: 'https://fancyant.com', changeOrigin: true, rewrite: (p) => '/keypals' + p } } },
+  // the save API lives on fancyant.com: the dev and test servers pass /api through to it (save codes work; sign-in needs the real site),
+  // saying it comes from fancyant.com (the API refuses changes asked for by another site's page)
+  server: { port: 5192, strictPort: true, host: '127.0.0.1', proxy: { '/api': { target: 'https://fancyant.com', changeOrigin: true, headers: { origin: 'https://fancyant.com' }, rewrite: (p) => '/keypals' + p } } },
+  preview: { port: 8799, strictPort: true, host: '127.0.0.1', allowedHosts: ['shmergles-mac-mini.tail88c58e.ts.net'], proxy: { '/api': { target: 'https://fancyant.com', changeOrigin: true, headers: { origin: 'https://fancyant.com' }, rewrite: (p) => '/keypals' + p } } },
   build: { target: 'es2022', chunkSizeWarningLimit: 2000 },
   test: { include: ['src/**/*.test.ts', 'deploy/site/**/*.test.js'], environment: 'node' },
 });

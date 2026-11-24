@@ -23,6 +23,13 @@ if [ -d "$MUSIC" ]; then
   for d in "$HERE/public/keypals/music" "$HERE/public-org/music"; do mkdir -p "$d" && cp -c "$MUSIC"/*.mp3 "$d/"; done
 else echo "warning: no music at $MUSIC (the game falls back to its own tunes)"; fi
 cp -cR "$V1/dist/." "$HERE/public/keypals1/"
+# Cloudflare would add its Web Analytics script to every page it serves to a browser (the account has it on).
+# The privacy notice and the Grown-ups screen promise no analytics trackers, so every Keypals file is marked
+# "no-transform": Cloudflare's proxy then leaves the pages exactly as built. (The caching is what Cloudflare
+# already sent: public, max-age=0, must-revalidate.) The check at the end looks for any outside script.
+for d in "$HERE/public" "$HERE/public-org"; do
+  printf '/*\n  Cache-Control: public, max-age=0, must-revalidate, no-transform\n' > "$d/_headers"
+done
 cd "$HERE"
 export CLOUDFLARE_API_KEY="$(cat ~/.cloudflare/global-api-key)"
 # the database's tables (every statement is "if not exists"), the classes' own after: only when a schema file
@@ -58,5 +65,10 @@ for site in https://keypals.org https://fancyant.com/keypals; do
     *'"missing":true'*'[404]') echo "ok: $site/api answers from the database" ;;
     *) echo "NOT RIGHT: $site/api answered: $api"; echo "  (if it says a table is missing, run: TABLES=1 deploy/site/deploy.sh)"; bad=1 ;;
   esac
+  # the page as a browser gets it (Cloudflare adds things only for browsers): no script from anywhere else
+  for page in "$site/" "$site/privacy"; do
+    ext="$(curl -s --max-time 20 -A 'Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36' -H 'Accept: text/html' "$page" | grep -o -i '<script[^>]*src="https\{0,1\}://[^"]*' | head -3)"
+    [ -z "$ext" ] && echo "ok: $page has no outside scripts" || { echo "NOT RIGHT: $page loads $ext"; bad=1; }
+  done
 done
 exit $bad

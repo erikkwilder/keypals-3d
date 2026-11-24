@@ -20,6 +20,8 @@
   let nameInput: HTMLInputElement | undefined = $state();
   const samples: { code: string; key: string }[] = [];
   let pulse = $state<{ kind: 'hop' | 'oops' | 'quirk'; n: number }>({ kind: 'hop', n: 0 });
+  // a phone: the six buddies, three to a row, are drawn smaller so the row fits the screen
+  let vw = $state(1024);
 
   onMount(() => nameInput?.focus());
 
@@ -62,7 +64,7 @@
   const look = $derived(game.settings.look);
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} bind:innerWidth={vw} />
 
 <div class="screen np">
   <Bar title="New player" plain back={() => { if (game.backTo()?.screen === 'grownups') game.back(); else game.go(game.save.profiles.length ? 'players' : 'title'); }} />
@@ -86,7 +88,7 @@
       <div class="buddies">
         {#each BUDDIES.filter(b => STARTERS.includes(b.id)) as f (f.id)}
           <button class="buddy" class:on={buddy === f.id} onclick={() => chooseBuddy(f.id)} aria-pressed={buddy === f.id}>
-            <Critter friend={f.id} {look} size={110} pulse={buddy === f.id ? pulse : null} quirkOnHover />
+            <Critter friend={f.id} {look} size={vw < 440 ? 80 : 110} pulse={buddy === f.id ? pulse : null} quirkOnHover />
             <span class="bname">{f.name}</span>
           </button>
         {/each}
@@ -143,6 +145,8 @@
   .layout { display: flex; align-items: center; gap: 10px; font: 700 16px var(--font-body); }
   select { padding: 8px 12px; border-radius: 12px; border: 2px solid var(--line); background: #fff; font: 600 16px var(--font-body); }
   @media (max-width: 760px) { .buddies { grid-template-columns: repeat(3, 1fr); } }
+  /* a phone: three buddies to a row inside the screen (they were 416 px wide on a 390 px screen) */
+  @media (max-width: 440px) { .np { padding-left: 16px; padding-right: 16px; } .buddies { gap: 8px; } .buddy { padding: 8px 4px 6px; } }
   /* the one top row: Back and the title, across the top */
   .np { padding-top: 84px; }
   .np > :global(header.bar) { position: absolute; top: 0; left: 0; right: 0; }
