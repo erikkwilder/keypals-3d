@@ -92,5 +92,13 @@
   "lesson.shores-rev": {
     "seed": 909,
     "why": "voice B, 2026-11-24: Whisper hears \"Sure review\" on every seed tried (and \"Char\" when respelled \"Shoar\"): \"shore\" and \"sure\" sound alike in this voice at the start of a line. Kept: the caption shows \"Shore review!\" while it plays"
+  },
+  "ep.eq.try.share": {
+    "speed": 0.8,
+    "why": "voice B, 2026-11-24: the take ran at 255 words a minute (median 187); slowed"
+  },
+  "ep.ms-oclock.s0": {
+    "seed": 404,
+    "why": "voice B, 2026-11-24: the take added a stray voiced sound after \"minutes\" and was heard as \"minute\""
   }
 }
