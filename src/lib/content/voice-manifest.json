@@ -1,39 +1,39 @@
 {
   "coach.home.1": {
     "voice": "coach",
-    "ms": 4804
+    "ms": 4231
   },
   "coach.home.2": {
     "voice": "coach",
-    "ms": 5443
+    "ms": 5453
   },
   "coach.home.3": {
     "voice": "coach",
-    "ms": 5193
+    "ms": 5074
   },
   "coach.home.4": {
     "voice": "coach",
-    "ms": 4774
+    "ms": 4466
   },
   "coach.home.5": {
     "voice": "coach",
-    "ms": 7563
+    "ms": 6196
   },
   "coach.home.6": {
     "voice": "coach",
-    "ms": 2285
+    "ms": 2225
   },
   "coach.home.7": {
     "voice": "coach",
-    "ms": 4586
+    "ms": 4799
   },
   "coach.home.8": {
     "voice": "coach",
-    "ms": 5817
+    "ms": 5458
   },
   "coach.home.9": {
     "voice": "coach",
-    "ms": 4031
+    "ms": 3397
   },
   "coach.home.10": {
     "voice": "coach",
@@ -41,55 +41,55 @@
   },
   "lesson.village-1": {
     "voice": "coach",
-    "ms": 6076
+    "ms": 5602
   },
   "lesson.village-2": {
     "voice": "coach",
-    "ms": 4126
+    "ms": 3846
   },
   "lesson.village-3": {
     "voice": "coach",
-    "ms": 4455
+    "ms": 4445
   },
   "lesson.village-4": {
     "voice": "coach",
-    "ms": 4655
+    "ms": 4131
   },
   "lesson.village-5": {
     "voice": "coach",
-    "ms": 3986
+    "ms": 3807
   },
   "lesson.village-6": {
     "voice": "coach",
-    "ms": 3587
+    "ms": 3358
   },
   "lesson.village-7": {
     "voice": "coach",
-    "ms": 4954
+    "ms": 4714
   },
   "lesson.village-8": {
     "voice": "coach",
-    "ms": 2760
+    "ms": 2500
   },
   "lesson.village-9": {
     "voice": "coach",
-    "ms": 3652
+    "ms": 3333
   },
   "lesson.treetops-1": {
     "voice": "coach",
-    "ms": 4964
+    "ms": 4970
   },
   "lesson.treetops-2": {
     "voice": "coach",
-    "ms": 2175
+    "ms": 2180
   },
   "lesson.treetops-3": {
     "voice": "coach",
-    "ms": 5897
+    "ms": 3941
   },
   "lesson.treetops-4": {
     "voice": "coach",
-    "ms": 2804
+    "ms": 2859
   },
   "lesson.treetops-5": {
     "voice": "coach",
@@ -97,155 +97,155 @@
   },
   "lesson.treetops-6": {
     "voice": "coach",
-    "ms": 3188
+    "ms": 3203
   },
   "lesson.treetops-7": {
     "voice": "coach",
-    "ms": 4510
+    "ms": 4645
   },
   "lesson.treetops-8": {
     "voice": "coach",
-    "ms": 3507
+    "ms": 3777
   },
   "lesson.treetops-9": {
     "voice": "coach",
-    "ms": 4166
+    "ms": 4161
   },
   "lesson.treetops-rev": {
     "voice": "coach",
-    "ms": 4056
+    "ms": 4046
   },
   "lesson.treetops-10": {
     "voice": "coach",
-    "ms": 3133
+    "ms": 2769
   },
   "lesson.burrows-1": {
     "voice": "coach",
-    "ms": 4285
+    "ms": 4031
   },
   "lesson.burrows-2": {
     "voice": "coach",
-    "ms": 2315
+    "ms": 2465
   },
   "lesson.burrows-3": {
     "voice": "coach",
-    "ms": 3652
+    "ms": 3672
   },
   "lesson.burrows-4": {
     "voice": "coach",
-    "ms": 3343
+    "ms": 2654
   },
   "lesson.burrows-5": {
     "voice": "coach",
-    "ms": 2400
+    "ms": 2554
   },
   "lesson.burrows-6": {
     "voice": "coach",
-    "ms": 3507
+    "ms": 3487
   },
   "lesson.burrows-7": {
     "voice": "coach",
-    "ms": 2350
+    "ms": 2245
   },
   "lesson.burrows-8": {
     "voice": "coach",
-    "ms": 3194
+    "ms": 2734
   },
   "lesson.burrows-9": {
     "voice": "coach",
-    "ms": 3827
+    "ms": 3861
   },
   "lesson.burrows-rev": {
     "voice": "coach",
-    "ms": 4041
+    "ms": 4051
   },
   "lesson.burrows-10": {
     "voice": "coach",
-    "ms": 2380
+    "ms": 2375
   },
   "lesson.cliffs-1": {
     "voice": "coach",
-    "ms": 5877
+    "ms": 5612
   },
   "lesson.cliffs-1b": {
     "voice": "coach",
-    "ms": 5642
+    "ms": 4415
   },
   "lesson.cliffs-2": {
     "voice": "coach",
-    "ms": 5602
+    "ms": 5597
   },
   "lesson.cliffs-2b": {
     "voice": "coach",
-    "ms": 5198
+    "ms": 5234
   },
   "lesson.cliffs-3": {
     "voice": "coach",
-    "ms": 4706
+    "ms": 4595
   },
   "lesson.cliffs-4": {
     "voice": "coach",
-    "ms": 3497
+    "ms": 3447
   },
   "lesson.cliffs-5": {
     "voice": "coach",
-    "ms": 5238
+    "ms": 4959
   },
   "lesson.cliffs-rev": {
     "voice": "coach",
-    "ms": 4226
+    "ms": 4290
   },
   "lesson.cliffs-6": {
     "voice": "coach",
-    "ms": 3103
+    "ms": 3168
   },
   "lesson.ridge-1": {
     "voice": "coach",
-    "ms": 6919
+    "ms": 5687
   },
   "lesson.ridge-2": {
     "voice": "coach",
-    "ms": 4600
+    "ms": 4176
   },
   "lesson.ridge-3": {
     "voice": "coach",
-    "ms": 4340
+    "ms": 4355
   },
   "lesson.ridge-4": {
     "voice": "coach",
-    "ms": 2505
+    "ms": 2524
   },
   "lesson.ridge-5": {
     "voice": "coach",
-    "ms": 2365
+    "ms": 2170
   },
   "lesson.ridge-6": {
     "voice": "coach",
-    "ms": 2085
+    "ms": 2095
   },
   "lesson.ridge-7": {
     "voice": "coach",
-    "ms": 4370
+    "ms": 4365
   },
   "lesson.ridge-rev": {
     "voice": "coach",
-    "ms": 3881
+    "ms": 3861
   },
   "lesson.ridge-8": {
     "voice": "coach",
-    "ms": 2834
+    "ms": 2864
   },
   "lesson.shores-1": {
     "voice": "coach",
-    "ms": 5168
+    "ms": 5203
   },
   "lesson.shores-2": {
     "voice": "coach",
-    "ms": 4485
+    "ms": 4166
   },
   "lesson.shores-3": {
     "voice": "coach",
-    "ms": 5183
+    "ms": 5178
   },
   "lesson.shores-4": {
     "voice": "coach",
@@ -253,175 +253,175 @@
   },
   "lesson.shores-5": {
     "voice": "coach",
-    "ms": 3203
+    "ms": 2839
   },
   "lesson.shores-rev": {
     "voice": "coach",
-    "ms": 3757
+    "ms": 3333
   },
   "lesson.shores-6": {
     "voice": "coach",
-    "ms": 3592
+    "ms": 3283
   },
   "lesson.shores-grad": {
     "voice": "coach",
-    "ms": 7059
+    "ms": 6602
   },
   "lesson.road-1": {
     "voice": "coach",
-    "ms": 2549
+    "ms": 2275
   },
   "lesson.road-2": {
     "voice": "coach",
-    "ms": 2285
+    "ms": 2056
   },
   "lesson.road-3": {
     "voice": "coach",
-    "ms": 4974
+    "ms": 4789
   },
   "lesson.road-4": {
     "voice": "coach",
-    "ms": 3133
+    "ms": 3194
   },
   "lesson.road-5": {
     "voice": "coach",
-    "ms": 2750
+    "ms": 2485
   },
   "finger.LP.home": {
     "voice": "coach",
-    "ms": 3213
+    "ms": 2435
   },
   "finger.LP.up": {
     "voice": "coach",
-    "ms": 3163
+    "ms": 2674
   },
   "finger.LP.down": {
     "voice": "coach",
-    "ms": 2954
+    "ms": 2779
   },
   "finger.LP.num": {
     "voice": "coach",
-    "ms": 3168
+    "ms": 3163
   },
   "finger.LR.home": {
     "voice": "coach",
-    "ms": 3383
+    "ms": 3213
   },
   "finger.LR.up": {
     "voice": "coach",
-    "ms": 3607
+    "ms": 3622
   },
   "finger.LR.down": {
     "voice": "coach",
-    "ms": 3717
+    "ms": 3702
   },
   "finger.LR.num": {
     "voice": "coach",
-    "ms": 3378
+    "ms": 3323
   },
   "finger.LM.home": {
     "voice": "coach",
-    "ms": 3537
+    "ms": 2546
   },
   "finger.LM.up": {
     "voice": "coach",
-    "ms": 3698
+    "ms": 3358
   },
   "finger.LM.down": {
     "voice": "coach",
-    "ms": 3333
+    "ms": 3318
   },
   "finger.LM.num": {
     "voice": "coach",
-    "ms": 3417
+    "ms": 2749
   },
   "finger.LI.home": {
     "voice": "coach",
-    "ms": 3218
+    "ms": 3567
   },
   "finger.LI.up": {
     "voice": "coach",
-    "ms": 3757
+    "ms": 3512
   },
   "finger.LI.down": {
     "voice": "coach",
-    "ms": 3846
+    "ms": 3412
   },
   "finger.LI.num": {
     "voice": "coach",
-    "ms": 3402
+    "ms": 3447
   },
   "finger.RI.home": {
     "voice": "coach",
-    "ms": 3692
+    "ms": 3402
   },
   "finger.RI.up": {
     "voice": "coach",
-    "ms": 3074
+    "ms": 3128
   },
   "finger.RI.down": {
     "voice": "coach",
-    "ms": 3318
+    "ms": 3906
   },
   "finger.RI.num": {
     "voice": "coach",
-    "ms": 3807
+    "ms": 3412
   },
   "finger.RM.home": {
     "voice": "coach",
-    "ms": 3916
+    "ms": 3083
   },
   "finger.RM.up": {
     "voice": "coach",
-    "ms": 3747
+    "ms": 3698
   },
   "finger.RM.down": {
     "voice": "coach",
-    "ms": 3812
+    "ms": 3517
   },
   "finger.RM.num": {
     "voice": "coach",
-    "ms": 3807
+    "ms": 3467
   },
   "finger.RR.home": {
     "voice": "coach",
-    "ms": 3392
+    "ms": 3013
   },
   "finger.RR.up": {
     "voice": "coach",
-    "ms": 3772
+    "ms": 2944
   },
   "finger.RR.down": {
     "voice": "coach",
-    "ms": 3572
+    "ms": 3632
   },
   "finger.RR.num": {
     "voice": "coach",
-    "ms": 3647
+    "ms": 3687
   },
   "finger.RP.home": {
     "voice": "coach",
-    "ms": 3458
+    "ms": 2909
   },
   "finger.RP.up": {
     "voice": "coach",
-    "ms": 3288
+    "ms": 2968
   },
   "finger.RP.down": {
     "voice": "coach",
-    "ms": 3442
+    "ms": 2724
   },
   "finger.RP.num": {
     "voice": "coach",
-    "ms": 3258
+    "ms": 3378
   },
   "finger.LI.in": {
     "voice": "coach",
-    "ms": 5104
+    "ms": 4645
   },
   "finger.RI.in": {
     "voice": "coach",
-    "ms": 5223
+    "ms": 4375
   },
   "finger.shift": {
     "voice": "coach",
@@ -433,43 +433,43 @@
   },
   "region.treetops": {
     "voice": "coach",
-    "ms": 4280
+    "ms": 4275
   },
   "region.burrows": {
     "voice": "coach",
-    "ms": 4442
+    "ms": 4315
   },
   "region.cliffs": {
     "voice": "coach",
-    "ms": 3602
+    "ms": 3818
   },
   "region.ridge": {
     "voice": "coach",
-    "ms": 3203
+    "ms": 2988
   },
   "region.shores": {
     "voice": "coach",
-    "ms": 4322
+    "ms": 4310
   },
   "region.road": {
     "voice": "coach",
-    "ms": 4151
+    "ms": 4161
   },
   "coach.nice": {
     "voice": "coach",
-    "ms": 1148
+    "ms": 524
   },
   "coach.great": {
     "voice": "coach",
-    "ms": 1197
+    "ms": 744
   },
   "coach.perfect": {
     "voice": "coach",
-    "ms": 1158
+    "ms": 818
   },
   "coach.close": {
     "voice": "coach",
-    "ms": 2629
+    "ms": 2719
   },
   "coach.passed": {
     "voice": "coach",
@@ -477,19 +477,19 @@
   },
   "coach.sticker": {
     "voice": "coach",
-    "ms": 1457
+    "ms": 1093
   },
   "coach.outfit": {
     "voice": "coach",
-    "ms": 1627
+    "ms": 1382
   },
   "coach.medal": {
     "voice": "coach",
-    "ms": 1432
+    "ms": 818
   },
   "coach.palup": {
     "voice": "coach",
-    "ms": 1851
+    "ms": 1322
   },
   "coach.clean": {
     "voice": "coach",
@@ -497,11 +497,11 @@
   },
   "coach.slow": {
     "voice": "coach",
-    "ms": 1427
+    "ms": 1163
   },
   "coach.regiondone": {
     "voice": "coach",
-    "ms": 3383
+    "ms": 3123
   },
   "ep.pv-make-ten.intro": {
     "voice": "coach",
@@ -1365,267 +1365,267 @@
   },
   "ep.crate.intro": {
     "voice": "coach",
-    "ms": 7179
+    "ms": 7603
   },
   "ep.crate.watch": {
     "voice": "coach",
-    "ms": 4141
+    "ms": 3467
   },
   "ep.crate.job": {
     "voice": "coach",
-    "ms": 2684
+    "ms": 7608
   },
   "ep.crate.guess": {
     "voice": "coach",
-    "ms": 1922
+    "ms": 3792
   },
   "ep.crate.try.you": {
     "voice": "coach",
-    "ms": 1671
+    "ms": 1682
   },
   "ep.crate.few": {
     "voice": "coach",
-    "ms": 7413
+    "ms": 7468
   },
   "ep.crate.over": {
     "voice": "coach",
-    "ms": 4939
+    "ms": 4640
   },
   "ep.crate.right": {
     "voice": "coach",
-    "ms": 5478
+    "ms": 5513
   },
   "ep.crate.lucky": {
     "voice": "coach",
-    "ms": 2100
+    "ms": 5283
   },
   "ep.crate.measure": {
     "voice": "coach",
-    "ms": 2420
+    "ms": 4774
   },
   "ep.crate.three": {
     "voice": "coach",
-    "ms": 2180
+    "ms": 8611
   },
   "ep.crate.bets": {
     "voice": "coach",
-    "ms": 4305
+    "ms": 4096
   },
   "ep.crate.try.buddy": {
     "voice": "coach",
-    "ms": 6820
+    "ms": 6825
   },
   "ep.crate.try.pal": {
     "voice": "coach",
-    "ms": 8431
+    "ms": 8157
   },
   "ep.crate.try.both.buddy": {
     "voice": "coach",
-    "ms": 3338
+    "ms": 3113
   },
   "ep.crate.try.both.pal": {
     "voice": "coach",
-    "ms": 3632
+    "ms": 3492
   },
   "ep.crate.try.last": {
     "voice": "coach",
-    "ms": 1502
+    "ms": 1362
   },
   "ep.crate.added": {
     "voice": "coach",
-    "ms": 9788
+    "ms": 9738
   },
   "ep.crate.floored": {
     "voice": "coach",
-    "ms": 6231
+    "ms": 5752
   },
   "ep.crate.build": {
     "voice": "coach",
-    "ms": 2080
+    "ms": 7378
   },
   "ep.crate.why": {
     "voice": "coach",
-    "ms": 2021
+    "ms": 4675
   },
   "ep.crate.row": {
     "voice": "coach",
-    "ms": 4665
+    "ms": 4774
   },
   "ep.crate.rows": {
     "voice": "coach",
-    "ms": 6974
+    "ms": 7074
   },
   "ep.crate.layer": {
     "voice": "coach",
-    "ms": 2075
+    "ms": 6520
   },
   "ep.crate.up": {
     "voice": "coach",
-    "ms": 4660
+    "ms": 4655
   },
   "ep.crate.name": {
     "voice": "coach",
-    "ms": 1876
+    "ms": 8820
   },
   "ep.crate.tip": {
     "voice": "coach",
-    "ms": 2071
+    "ms": 7378
   },
   "ep.crate.tip.do": {
     "voice": "coach",
-    "ms": 2095
+    "ms": 1778
   },
   "ep.crate.same": {
     "voice": "coach",
-    "ms": 1781
+    "ms": 4181
   },
   "ep.crate.same.you": {
     "voice": "coach",
-    "ms": 5223
+    "ms": 4425
   },
   "ep.crate.shut": {
     "voice": "coach",
-    "ms": 1846
+    "ms": 12018
   },
   "ep.crate.try.seen": {
     "voice": "coach",
-    "ms": 11524
+    "ms": 11225
   },
   "ep.crate.seen": {
     "voice": "coach",
-    "ms": 6895
+    "ms": 6655
   },
   "ep.crate.again": {
     "voice": "coach",
-    "ms": 6451
+    "ms": 6506
   },
   "ep.crate.together": {
     "voice": "coach",
-    "ms": 4720
+    "ms": 3822
   },
   "ep.crate.shut.row": {
     "voice": "coach",
-    "ms": 4575
+    "ms": 4280
   },
   "ep.crate.shut.floor": {
     "voice": "coach",
-    "ms": 7299
+    "ms": 6585
   },
   "ep.crate.shut.up": {
     "voice": "coach",
-    "ms": 4809
+    "ms": 4350
   },
   "ep.crate.shut.answer": {
     "voice": "coach",
-    "ms": 11504
+    "ms": 11314
   },
   "ep.crate.shut.why": {
     "voice": "coach",
-    "ms": 8197
+    "ms": 7997
   },
   "ep.crate.check.row": {
     "voice": "coach",
-    "ms": 4809
+    "ms": 4719
   },
   "ep.crate.check.floor": {
     "voice": "coach",
-    "ms": 6855
+    "ms": 6451
   },
   "ep.crate.check.up": {
     "voice": "coach",
-    "ms": 4829
+    "ms": 4490
   },
   "ep.crate.check.answer": {
     "voice": "coach",
-    "ms": 10611
+    "ms": 10017
   },
   "ep.crate.check.why": {
     "voice": "coach",
-    "ms": 7528
+    "ms": 7363
   },
   "ep.crate.help": {
     "voice": "coach",
-    "ms": 2524
+    "ms": 7967
   },
   "ep.crate.face": {
     "voice": "coach",
-    "ms": 6605
+    "ms": 5937
   },
   "ep.crate.face.yes": {
     "voice": "coach",
-    "ms": 5772
+    "ms": 5578
   },
   "ep.crate.other": {
     "voice": "coach",
-    "ms": 4226
+    "ms": 4625
   },
   "ep.crate.two": {
     "voice": "coach",
-    "ms": 8092
+    "ms": 7074
   },
   "ep.crate.two.yes": {
     "voice": "coach",
-    "ms": 4655
+    "ms": 4365
   },
   "ep.crate.buddy.done": {
     "voice": "coach",
-    "ms": 9773
+    "ms": 9758
   },
   "ep.crate.off": {
     "voice": "coach",
-    "ms": 1367
+    "ms": 6221
   },
   "ep.crate.sum": {
     "voice": "coach",
-    "ms": 13295
+    "ms": 12202
   },
   "ep.crate.few.floor": {
     "voice": "coach",
-    "ms": 7962
+    "ms": 7304
   },
   "ep.crate.again.floor": {
     "voice": "coach",
-    "ms": 9454
+    "ms": 9114
   },
   "ep.crate.layer.yes": {
     "voice": "coach",
-    "ms": 5488
+    "ms": 5368
   },
   "ep.crate.layer.no": {
     "voice": "coach",
-    "ms": 9010
+    "ms": 8780
   },
   "ep.crate.total": {
     "voice": "coach",
-    "ms": 4420
+    "ms": 3926
   },
   "ep.crate.total.no": {
     "voice": "coach",
-    "ms": 6017
+    "ms": 5767
   },
   "ep.crate.snack": {
     "voice": "coach",
-    "ms": 3856
+    "ms": 3951
   },
   "ep.crate.make": {
     "voice": "coach",
-    "ms": 7827
+    "ms": 7972
   },
   "ep.crate.help.tap": {
     "voice": "coach",
-    "ms": 5907
+    "ms": 5523
   },
   "ep.crate.roll": {
     "voice": "coach",
-    "ms": 6261
+    "ms": 6336
   },
   "ep.crate.same.why": {
     "voice": "coach",
-    "ms": 11170
+    "ms": 10726
   },
   "ep.crate.check": {
     "voice": "coach",
-    "ms": 2175
+    "ms": 9988
   },
   "ep.count.intro": {
     "voice": "coach",
