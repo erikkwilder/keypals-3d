@@ -73,6 +73,17 @@ export function say(id: string, opts: { important?: boolean; caption?: boolean }
   });
 }
 
+/** A short word still playing (a count word, said without a caption): resolves when it has ended, or after
+ *  `ms` at most. A lesson's next line waits for it, so the last number counted is never cut off. */
+export function wordDone(ms = 1000): Promise<void> {
+  const a = audio;
+  if (!a || important || a.paused || a.ended) return Promise.resolve();
+  return new Promise(r => {
+    const t = setTimeout(r, ms);
+    a.addEventListener('ended', () => { clearTimeout(t); r(); }, { once: true });
+  });
+}
+
 export function hush() {
   stopAll();
   voiceState.playing = null;

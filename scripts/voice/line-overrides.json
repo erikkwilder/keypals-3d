@@ -72,5 +72,13 @@
     "seed": 11,
     "speed": 0.9,
     "why": "the take ended while the last word was still sounding (2026-10-30)"
+  },
+  "n.19": {
+    "seed": 101,
+    "why": "voice B, 2026-11-24: the first take ran out in the middle of the word"
+  },
+  "ep.eq.b.ask": {
+    "seed": 202,
+    "why": "voice B, 2026-11-24: the first two takes paused after \"way\" and were heard as \"buddies weigh? Keep it level\""
   }
 }

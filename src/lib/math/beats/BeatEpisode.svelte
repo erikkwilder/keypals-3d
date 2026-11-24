@@ -10,7 +10,7 @@
   import { EpisodeScene, type View } from '../../three/episodeScene';
   import { game } from '../../state/game.svelte';
   import { quietForLesson, sfx } from '../../audio/sound';
-  import { hush, lineText, say } from '../../audio/voice.svelte';
+  import { hush, lineText, say, wordDone } from '../../audio/voice.svelte';
   import { separate, type Card } from './cardLayout';
   import { danceOf } from '../../engine/profile';
   import { advView } from '../../adventure/state';
@@ -77,6 +77,8 @@
       line = lineText(id).replace(/\{n\}/g, String(n ?? '')).replace(/\{m\}/g, String(m ?? '')).replace(/\{k\}/g, String(k ?? ''));
       // (for checking a lesson's pictures quickly while building it: `window.__fast = ms` holds each line that long)
       if (import.meta.env.DEV && (window as unknown as { __fast?: number }).__fast) { await live(sleep((window as unknown as { __fast: number }).__fast)); return; }
+      // a count word still being said finishes first (the last number counted is the answer)
+      await live(wordDone());
       const t0 = performance.now();
       await live(Promise.race([say(id, { important: true, caption: false }), sleep(2500 + line.length * 95)]));
       if (game.settings.voice === false) await live(sleep(Math.max(0, Math.max(1500, line.length * 55) - (performance.now() - t0))));

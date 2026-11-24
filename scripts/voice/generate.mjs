@@ -293,7 +293,7 @@ function islands(fdb) {
 
 const raisedCos = (t) => 0.5 - 0.5 * Math.cos(Math.PI * t);
 
-function processClip(id, rawPath, outPath) {
+function processClip(id, rawPath, outPath, oneWord = false) {
   const x = decode(rawPath);
   // Judge levels as they will sound after leveling: raw takes arrive anywhere from about -30 to
   // -42 LUFS, so the -62 dB "silence" line is applied on the leveled scale, not the raw one.
@@ -316,6 +316,11 @@ function processClip(id, rawPath, outPath) {
   // A blip of 80 ms or less that never gets above -50 dB (30 dB under the target loudness), cut off
   // from the words by silence: too faint to be part of a word, but it would stretch the clip.
   const isFaint = (s) => s.frames * FRAME_MS <= 80 && s.max < TARGET_LUFS - 30;
+  // A murmur or hiss of any length that never comes within 30 dB of the loudest frame, with 100 ms or
+  // more of silence between it and the words: not part of a word (a word's soft "h" or "th" is joined to
+  // its vowel), but it would hold the clip open. A lone count word kept one second of it before "twenty".
+  const STRAY_GAP = 20; // frames of 5 ms
+  const isStray = (s, gap) => s.max < peak - 30 && gap >= STRAY_GAP;
 
   // Trailing junk: a burst cut off by the end of the file (the truncated inhale), or a breath.
   while (isl.length > 1) {
@@ -324,6 +329,7 @@ function processClip(id, rawPath, outPath) {
     if (truncated) notes.push(`cut end burst ${s.frames * FRAME_MS}ms@${s.max.toFixed(0)}dB`);
     else if (isBreath(s)) notes.push(`cut end breath ${s.frames * FRAME_MS}ms@${s.max.toFixed(0)}dB`);
     else if (isFaint(s)) notes.push(`cut faint end blip ${s.frames * FRAME_MS}ms@${s.max.toFixed(0)}dB`);
+    else if (isStray(s, s.start - isl[isl.length - 2].end)) notes.push(`cut stray end ${s.frames * FRAME_MS}ms@${s.max.toFixed(0)}dB`);
     else break;
     isl.pop();
   }
@@ -360,11 +366,33 @@ function processClip(id, rawPath, outPath) {
     }
   }
   // Leading breath before the first word.
-  while (isl.length > 1 && (isBreath(isl[0], 30) || isFaint(isl[0]))) {
-    notes.push(`cut lead ${isFaint(isl[0]) ? 'blip' : 'breath'} ${isl[0].frames * FRAME_MS}ms@${isl[0].max.toFixed(0)}dB`);
+  while (isl.length > 1 && (isBreath(isl[0], 30) || isFaint(isl[0]) || isStray(isl[0], isl[1].start - isl[0].end))) {
+    notes.push(`cut lead ${isFaint(isl[0]) ? 'blip' : isBreath(isl[0], 30) ? 'breath' : 'stray'} ${isl[0].frames * FRAME_MS}ms@${isl[0].max.toFixed(0)}dB`);
     isl.shift();
   }
 
+  // A line of one word (a count word, said as a cookie is counted): the take often holds a second of
+  // murmur or near-silence before the word, joined to it by noise just over the silence line, so the word
+  // came late after a tap and the next count cut it off. Keep only the word: on levels averaged over 25 ms,
+  // out from its loudest moment over anything within 42 dB of it (a soft "th", a fading "n"), across dips
+  // of up to 80 ms (the hush before the "t" of "seventeen"), and no further.
+  if (oneWord) {
+    const sm = fdb.map((_, f) => {
+      let e = 0, n = 0;
+      for (let k = Math.max(0, f - 2); k <= Math.min(fdb.length - 1, f + 2); k++) { e += 10 ** (fdb[k] / 10); n++; }
+      return 10 * Math.log10(e / n + 1e-20);
+    });
+    const top = Math.max(...sm);
+    const near = (f) => sm[f] > top - 42;
+    let a = sm.indexOf(top), b = a;
+    for (let gap = 0, f = a - 1; f >= isl[0].start; f--) { if (near(f)) { a = f; gap = 0; } else if (++gap > 16) break; }
+    for (let gap = 0, f = b + 1; f <= isl[isl.length - 1].end; f++) { if (near(f)) { b = f; gap = 0; } else if (++gap > 16) break; }
+    if (a > isl[0].start || b < isl[isl.length - 1].end) notes.push(`one word: kept ${a * FRAME_MS}-${(b + 1) * FRAME_MS}ms`);
+    while (isl.length > 1 && isl[0].end < a) isl.shift();
+    while (isl.length > 1 && isl[isl.length - 1].start > b) isl.pop();
+    isl[0] = { ...isl[0], start: Math.max(isl[0].start, a) };
+    isl[isl.length - 1] = { ...isl[isl.length - 1], end: Math.min(isl[isl.length - 1].end, b) };
+  }
   const first = isl[0];
   const last = isl[isl.length - 1];
   const s0 = first.start * FRAME;
@@ -517,7 +545,7 @@ async function main() {
       spent += cost;
       appendFileSync(join(RAW, 'costs.log'), `${new Date().toISOString()}\t${line.id}\t${cost}\n`);
     }
-    const r = processClip(line.id, rawPath, join(OUT, `${line.id}.mp3`));
+    const r = processClip(line.id, rawPath, join(OUT, `${line.id}.mp3`), !/\s/.test(spoken(line).trim()));
     r.voice = line.voice;
     results.push(r);
     MADE[line.id] = recipe(line);
