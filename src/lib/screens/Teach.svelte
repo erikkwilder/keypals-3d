@@ -130,7 +130,7 @@
                 {#each active as c (c.id)}
                   <button class="cls" onclick={() => act(() => openClass(c.id))}>
                     <b>{c.name}</b>
-                    <span>Grade {GRADES[c.grade]} · {c.students ?? 0} student{c.students === 1 ? '' : 's'}{#if c.pending} · <em>{c.pending} waiting for you</em>{/if}</span>
+                    <span>Grade {GRADES[c.grade]} · {c.students ?? 0} student{c.students === 1 ? '' : 's'}{#if c.pending}{' · '}<em>{c.pending} waiting for you</em>{/if}</span>
                     <span class="code">Code: {showClassCode(c.code)}</span>
                   </button>
                 {/each}

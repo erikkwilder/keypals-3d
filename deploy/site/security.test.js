@@ -351,7 +351,9 @@ describe('classes: other teachers, children, outsiders', () => {
     const c = await s.classWith(t);
     const page = await s.api(`/class/${c.code}`);
     expect(page.status).toBe(200);
-    expect(Object.keys(page.json.class).sort()).toEqual(['grade', 'name', 'teacher']);
+    // (google: whether its students may sign in with Google, true or false: never the school's domain, below)
+    expect(Object.keys(page.json.class).sort()).toEqual(['google', 'grade', 'name', 'teacher']);
+    expect(typeof page.json.class.google).toBe('boolean');
     expect(page.json.students.map(x => Object.keys(x).sort().join())).toEqual(Array(3).fill('buddy,id,name'));
     for (const r of c.rows) expect(page.text).not.toContain(r.player);
     expect(page.text).not.toMatch(/@|pics|school\.test/);

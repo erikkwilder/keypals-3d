@@ -33,7 +33,7 @@
 // variable never set on the live site) AND the address is 127.0.0.1 or localhost. (&gmail=1: a plain
 // Gmail account; otherwise a school account.) Students have one too (/class/google/dev).
 
-import { CLASS_WORDS, MAX_CLASSES, MAX_STUDENTS, PICTURE_COUNT, START_BUDDIES, cleanClassName, cleanClassSettings, cleanStudentName, cleanTeacherName, cleanWeek, domainOk, googleDomain, inOrder, isAlias, isBuddyId, isDay, isWeek, splitNames, teacherStatusFor, worldScoreOk } from './class-rules.js';
+import { CLASS_WORDS, MAX_CLASSES, MAX_STUDENTS, PICTURE_COUNT, START_BUDDIES, cleanClassName, cleanClassSettings, cleanStudentName, cleanTeacherName, sameStudentName, cleanWeek, domainOk, googleDomain, inOrder, isAlias, isBuddyId, isDay, isWeek, splitNames, teacherStatusFor, worldScoreOk } from './class-rules.js';
 
 /** Tables for the weekly backup (worker.js backup): table and its key. The world boards aren't kept. */
 export const CLASS_TABLES = { teachers: 'account', classes: 'id', students: 'id', assignments: 'id', player_week: 'id', challenges: 'id', challenge_classes: 'id', teacher_status: 'account', class_settings: 'class', student_google: 'gid', account_domains: 'account' };
@@ -147,6 +147,24 @@ const playSettings = (s) => ({ keep: s.keep, goal: s.goal, limits: s.limits, pla
 /** The school domain Google gave an account at sign-in (null: a plain Gmail account, or none). */
 async function domainOf(env, account) {
   try { return (await env.DB.prepare('SELECT hd FROM account_domains WHERE account = ?').bind(account).first())?.hd ?? null; } catch { return null; }
+}
+/** Whether the class with this code takes this student's Google sign-in (`t`, its ticket): the class, its
+ *  settings and where the account is already, or `no`, the refusal to send. Joining asks it, and so does the
+ *  game, back from Google, before it shows the class's list or "I'm new" (/class/google/check). */
+async function googleClass(env, h, request, t, rawCode) {
+  const found = await h.codeTry(env, request, 'cls-code');
+  if (!found) return { no: h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.') };
+  const c = await env.DB.prepare('SELECT * FROM classes WHERE code = ?').bind(h.cleanCode(rawCode)).first();
+  if (!c) return { no: h.fail(404, "That class code wasn't found. Check the words and number.") };
+  await found();
+  if (c.archived) return { no: h.fail(410, 'This class is closed. Ask your teacher.') };
+  if (!(await classOn(env, c))) return { no: h.fail(403, NOT_ON) };
+  const set = await settingsOf(env, c.id, c.teacher);
+  if (set.google === 'off') return { no: h.fail(403, "Your teacher hasn't turned on Google sign-in for this class. Use your class code and pictures.") };
+  if (!domainOk(t.hd, set.domain)) return { no: h.fail(403, `This class is for school accounts from ${set.domain}. Sign in with your school Google account.`) };
+  const had = await env.DB.prepare('SELECT g.student, s.class FROM student_google g LEFT JOIN students s ON s.id = g.student WHERE g.gid = ?').bind(t.gid).first();
+  if (had && had.class && had.class !== c.id) return { no: h.fail(409, 'This Google account is in another class already. Ask your teacher.') };
+  return { c, set, had };
 }
 /** worker.js, after a grown-up signs in: keep the school domain Google gave (or forget an old one). */
 export async function noteSignIn(env, account, provider, me) {
@@ -424,7 +442,14 @@ export async function classApi(request, env, url, path, h) {
         const as = await DB.prepare('SELECT id, data, created, archived FROM assignments WHERE class = ? ORDER BY created').bind(c.id).all();
         let google = new Set();
         try { google = new Set(((await DB.prepare('SELECT student FROM student_google WHERE class = ?').bind(c.id).all()).results ?? []).map(x => x.student)); } catch { /* before the schema: none */ }
-        const students = (st.results ?? []).map(s => ({ id: s.id, name: s.name, pics: picsOf(s.pics), home: !!s.home, status: s.status, claims: s.claims, buddy: s.buddy, created: s.created, google: google.has(s.id) }));
+        // a family's claim to a classmate waits under the classmate's name: the home player's own nickname, as saved
+        // and cleaned as the list's names are (never an email or a last name), goes with it, so the teacher can
+        // judge it ("Mia (from home) says it's Maria")
+        const homeNames = new Map(((await DB.prepare("SELECT s.id, p.data FROM students s JOIN players p ON p.code = s.player WHERE s.class = ? AND s.status = 'pending' AND s.claims IS NOT NULL").bind(c.id).all()).results ?? []).map(x => {
+          let name = null; try { const d = JSON.parse(x.data); name = typeof d?.name === 'string' ? cleanStudentName(d.name) : null; } catch { /* no name to show */ }
+          return [x.id, name];
+        }));
+        const students = (st.results ?? []).map(s => ({ id: s.id, name: s.name, pics: picsOf(s.pics), home: !!s.home, status: s.status, claims: s.claims, buddy: s.buddy, created: s.created, google: google.has(s.id), ...(s.claims ? { homeName: homeNames.get(s.id) ?? null } : {}) }));
         const settings = await settingsOf(env, c.id, c.teacher);
         const assignments = inOrder((as.results ?? []).map(a => ({ id: a.id, ...JSON.parse(a.data), created: a.created, archived: !!a.archived })), settings.order);
         return h.json({ class: classView(c), students, assignments, week: week ? await classWeek(env, c.id, week) : [], challenge: await challengeOf(env, c.id), settings, teacher: { status: await statusOf(env, acct), domain: await domainOf(env, acct) } });
@@ -693,17 +718,36 @@ export async function classApi(request, env, url, path, h) {
     return studentGoogleBack(env, url, h.base ?? '/keypals', { sub: String(url.searchParams.get('sub') || `dev-${name}`).slice(0, 60), given_name: name, hd: url.searchParams.get('hd') || 'school.test' }, h);
   }
   if (path === '/class/google' && method === 'POST') {
-    // back from Google: straight in if this account is in a class already, else "type your class code"
+    // back from Google: straight in if this account is in a class already; "waiting" if it asked to join one
+    // and the teacher hasn't said yes yet (the sign-in isn't used up: nothing changed); else "type your class code"
     if (await h.limited(env, request, 'cls-google', 1200, 60)) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
     const body = await h.readBody(request, 2000) || {};
     const t = await ticketOf(env, h, body.ticket);
     if (!t) return h.fail(410, 'That sign-in ran out. Sign in with Google again.');
-    const s = await DB.prepare("SELECT s.id, s.name, s.player, s.class, c.archived, c.teacher FROM student_google g JOIN students s ON s.id = g.student JOIN classes c ON c.id = s.class WHERE g.gid = ? AND s.status = 'active'").bind(t.gid).first();
-    if (s && await classOn(env, { archived: s.archived, teacher: s.teacher })) {
+    const s = await DB.prepare("SELECT s.id, s.name, s.player, s.class, s.status, c.archived, c.teacher FROM student_google g JOIN students s ON s.id = g.student JOIN classes c ON c.id = s.class WHERE g.gid = ? AND s.status IN ('active', 'pending')").bind(t.gid).first();
+    if (s?.status === 'active' && await classOn(env, { archived: s.archived, teacher: s.teacher })) {
+      // the teacher's Google setting holds for a pupil who linked her account before it changed too: turned off,
+      // or kept to a school she isn't from, she logs in like everyone else, with her name and her two pictures
+      // (every pupil has them: they're on the teacher's login cards)
+      const set = await settingsOf(env, s.class, s.teacher);
+      if (set.google === 'off') return h.fail(403, 'Your teacher turned off Google sign-in for this class. Use your class code, then tap your name and your two pictures.');
+      if (!domainOk(t.hd, set.domain)) return h.fail(403, `This class is for school accounts from ${set.domain}. Use your class code, then tap your name and your two pictures.`);
       await DB.prepare('DELETE FROM google_tickets WHERE hash = ?').bind(t.hash).run();
       return playerFor(env, s, '"status":"in",');
     }
+    if (s?.status === 'pending' && !s.archived) return h.json({ status: 'waiting', name: s.name });
     return h.json({ status: 'code', first: t.name ?? null });
+  }
+  if (path === '/class/google/check' && method === 'POST') {
+    // back from Google, before the game shows a class's list or "I'm new": whether this class takes this Google
+    // account, by the checks joining makes (and joining still makes them). Nothing changes, and the sign-in
+    // isn't used up
+    if (await h.limited(env, request, 'cls-google', 1200, 60)) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
+    const body = await h.readBody(request, 2000) || {};
+    const t = await ticketOf(env, h, body.ticket);
+    if (!t) return h.fail(410, 'That sign-in ran out. Sign in with Google again.');
+    const { no } = await googleClass(env, h, request, t, body.code);
+    return no ?? h.json({ ok: true });
   }
   if (path === '/class/google/join' && method === 'POST') {
     // the class code once: as a new student (the first name Google gave), or as someone on the list already
@@ -712,19 +756,11 @@ export async function classApi(request, env, url, path, h) {
     const body = await h.readBody(request, 2000) || {};
     const t = await ticketOf(env, h, body.ticket);
     if (!t) return h.fail(410, 'That sign-in ran out. Sign in with Google again.');
-    const found = await h.codeTry(env, request, 'cls-code');
-    if (!found) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
-    const c = await DB.prepare('SELECT * FROM classes WHERE code = ?').bind(h.cleanCode(body.code)).first();
-    if (!c) return h.fail(404, "That class code wasn't found. Check the words and number.");
-    await found();
-    if (c.archived) return h.fail(410, 'This class is closed. Ask your teacher.');
-    if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
-    const set = await settingsOf(env, c.id, c.teacher);
-    if (set.google === 'off') return h.fail(403, "Your teacher hasn't turned on Google sign-in for this class. Use your class code and pictures.");
-    if (!domainOk(t.hd, set.domain)) return h.fail(403, `This class is for school accounts from ${set.domain}. Sign in with your school Google account.`);
-    const had = await DB.prepare('SELECT g.student, s.class FROM student_google g LEFT JOIN students s ON s.id = g.student WHERE g.gid = ?').bind(t.gid).first();
-    if (had && had.class && had.class !== c.id) return h.fail(409, 'This Google account is in another class already. Ask your teacher.');
-    const waiting = () => h.json({ error: 'Your teacher needs to say yes first. Then sign in with Google again.', pending: true }, 403);
+    // (every check the game asked first, back from Google, is made again here: googleClass)
+    const { no, c, set, had } = await googleClass(env, h, request, t, body.code);
+    if (no) return no;
+    // (the name it waits under goes back with it, for the game to say)
+    const waiting = (name) => h.json({ error: 'Your teacher needs to say yes first. Then sign in with Google again.', pending: true, name }, 403);
     let s = null;
     if (body.student) {
       s = await DB.prepare("SELECT id, name, player, pics FROM students WHERE id = ? AND class = ? AND status = 'active'").bind(String(body.student), c.id).first();
@@ -736,7 +772,7 @@ export async function classApi(request, env, url, path, h) {
     } else if (had?.student) {
       s = await DB.prepare('SELECT id, name, player, pics, status FROM students WHERE id = ?').bind(had.student).first();
       // asked to join already: still waiting for the teacher
-      if (s?.status === 'pending') return waiting();
+      if (s?.status === 'pending') return waiting(s.name);
       if (s?.status !== 'active') s = null;
     }
     if (!s) {
@@ -745,6 +781,11 @@ export async function classApi(request, env, url, path, h) {
       // so a stranger's Google account can't put itself on the list
       const name = t.name || cleanStudentName(body.name);
       if (!name) return h.json({ error: 'Type your first name.', needName: true }, 400);
+      // a name the class has already (on the list, or waiting for the teacher's yes) isn't added again: that's
+      // most likely her, who taps her name and her two pictures; anyone else the teacher adds. So the list
+      // never gets a second, empty copy of a child
+      const same = ((await DB.prepare("SELECT name FROM students WHERE class = ? AND status IN ('active', 'pending')").bind(c.id).all()).results ?? []).find(r => sameStudentName(r.name, name));
+      if (same) return h.json({ error: `There's already a ${same.name} in this class. If that's you, tap your name and then your two pictures. If it isn't, ask your teacher to add you.`, sameName: true }, 409);
       const status = set.domain ? 'active' : 'pending';
       const have = await DB.prepare(`SELECT COUNT(*) AS n FROM students WHERE class = ?${status === 'active' ? " AND status = 'active'" : ''}`).bind(c.id).first();
       if ((have?.n ?? 0) >= MAX_STUDENTS + (status === 'active' ? 0 : 10)) return h.fail(400, 'That class is full. Ask your teacher.');
@@ -759,11 +800,13 @@ export async function classApi(request, env, url, path, h) {
       s = { id: newId(h), name, player: code, status };
       await DB.prepare('INSERT INTO students (id, class, name, player, pics, home, status, buddy, created) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)').bind(s.id, c.id, name, code, newPics(), status, buddy, now).run();
     }
+    // on the waiting list, the sign-in isn't used up: until it runs out, tapping again says "waiting" again
+    // (above), never "ran out"; let in, it is
     await DB.batch([
       DB.prepare('INSERT OR REPLACE INTO student_google (gid, student, class, created) VALUES (?, ?, ?, ?)').bind(t.gid, s.id, c.id, Date.now()),
-      DB.prepare('DELETE FROM google_tickets WHERE hash = ?').bind(t.hash),
+      ...(s.status === 'pending' ? [] : [DB.prepare('DELETE FROM google_tickets WHERE hash = ?').bind(t.hash)]),
     ]);
-    if (s.status === 'pending') return waiting();
+    if (s.status === 'pending') return waiting(s.name);
     return playerFor(env, s, '"status":"in",');
   }
 
@@ -798,7 +841,9 @@ export async function classApi(request, env, url, path, h) {
     if (c.archived) return h.fail(410, 'This class is closed. Ask your teacher.');
     if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
     const st = await DB.prepare("SELECT id, name, buddy FROM students WHERE class = ? AND status = 'active' ORDER BY name").bind(c.id).all();
-    return h.json({ class: { name: c.name, grade: c.grade, teacher: c.display ?? 'Your teacher' }, students: (st.results ?? []).map(s => ({ id: s.id, name: s.name, buddy: s.buddy })) });
+    // and whether its students may sign in with Google, for the game to offer it here too (nothing more about how)
+    const google = (await settingsOf(env, c.id, c.teacher)).google !== 'off';
+    return h.json({ class: { name: c.name, grade: c.grade, teacher: c.display ?? 'Your teacher', google }, students: (st.results ?? []).map(s => ({ id: s.id, name: s.name, buddy: s.buddy })) });
   }
 
   // ---------------- the family board ----------------

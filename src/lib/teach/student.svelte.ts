@@ -13,6 +13,7 @@ import type { Assignment } from './assignments';
 import type { ClassSettings } from '../path/rules';
 import { notePath, startPath, pathSave, type PathProfile } from '../path/progress';
 import { unitFromAssignment } from '../path/classPath';
+import { backToWaiting, keepCodeForGoogle } from './googleTrip';
 
 export type Challenge = { code: string; week: string; ends: number; classes: { id: string; name: string; students: number; avg: number }[] };
 export type StudentClass = {
@@ -53,7 +54,7 @@ export function loadClasses(p: Profile | null, force = false): Promise<void> {
 }
 
 // ---------- logging in ----------
-export type ClassLook = { class: { name: string; grade: number; teacher: string }; students: { id: string; name: string; buddy: string | null }[] };
+export type ClassLook = { class: { name: string; grade: number; teacher: string; google?: boolean }; students: { id: string; name: string; buddy: string | null }[] };
 export const lookupClass = (code: string) => api<ClassLook>(`/class/${encodeURIComponent(code)}`);
 
 /** Players who logged in with a class code on this computer (they can go again with "Done for today"). */
@@ -90,15 +91,18 @@ export async function loginStudent(classCode: string, student: string, pics: num
 
 // ---------- students with their own school Google sign-in ----------
 type LoginReply = { code: string; name: string; updated: number; profile: Record<string, unknown> };
-/** Start "Sign in with Google" for a student (the server never keeps the email: classes.js). */
-export function studentGoogle() { location.href = 'api/auth/google/student'; }
+/** Start "Sign in with Google" for a student (the server never keeps the email: classes.js), keeping the
+ *  class code she has in this tab while she's away (googleTrip.ts), so she comes back to her class. */
+export function studentGoogle(classCode = '') { keepCodeForGoogle(classCode); location.href = 'api/auth/google/student'; }
 /** The test sign-in for a student (a test computer only: the server refuses it anywhere else). */
-export function studentGoogleDev(name: string) { location.href = `api/class/google/dev?name=${encodeURIComponent(name)}&sub=${encodeURIComponent(`test-${name.toLowerCase()}`)}`; }
-/** Back from Google: straight in if this Google account is in a class already; otherwise the server says
- *  so (`code`: type your class code once), with the first name Google gave. */
-export async function googleLogin(ticket: string): Promise<{ in: Profile } | { code: true; name: string | null }> {
-  const r = await send<LoginReply & { status: 'in' | 'code'; first?: string | null }>('/class/google', 'POST', { ticket });
+export function studentGoogleDev(name: string, classCode = '') { keepCodeForGoogle(classCode); location.href = `api/class/google/dev?name=${encodeURIComponent(name)}&sub=${encodeURIComponent(`test-${name.toLowerCase()}`)}`; }
+/** Back from Google: straight in if this Google account is in a class already; `waiting` if it asked to
+ *  join one and the teacher hasn't said yes (with the name it waits under); otherwise the server says so
+ *  (`code`: type your class code once), with the first name Google gave. */
+export async function googleLogin(ticket: string): Promise<{ in: Profile } | { code: true; name: string | null } | { waiting: true; name: string | null }> {
+  const r = await send<LoginReply & { status: 'in' | 'code' | 'waiting'; first?: string | null }>('/class/google', 'POST', { ticket });
   if (r.status === 'code') return { code: true, name: r.first ?? null };
+  if (r.status === 'waiting') return { waiting: true, name: r.name ?? null };
   return { in: arrive(r) };
 }
 /** Join a class with the Google account: as a new student (the first name Google gave), or as someone on
@@ -107,6 +111,9 @@ export async function googleJoin(ticket: string, classCode: string, student?: { 
   const r = await send<LoginReply>('/class/google/join', 'POST', { ticket, code: classCode, ...(student ? { student: student.id, pics: student.pics } : {}), ...(name ? { name } : {}) });
   return arrive(r);
 }
+/** Back from Google, before the class's list: whether this class takes this Google account (the checks
+ *  joining makes; nothing changes and the sign-in isn't used up). Throws with the server's words if not. */
+export const googleCheck = (ticket: string, classCode: string) => send<{ ok: true }>('/class/google/check', 'POST', { ticket, code: classCode });
 function arrive(r: LoginReply): Profile {
   const p = place(r.code, r.profile, r.updated);
   setShared([...sharedCodes(), r.code]);
@@ -203,6 +210,10 @@ export function startClasses() {
     else if (m) { classState.loginCode = decodeURIComponent(m[1]); history.replaceState(null, '', location.pathname + location.search); game.go('classLogin'); }
     else if (h === '#teach') { history.replaceState(null, '', location.pathname + location.search); game.go('teach'); }
   };
+  const linked = !!location.hash;
   route();
+  // a reload while the class login showed a pupil waiting for her teacher's yes: back to that class
+  const waitingClass = linked ? null : backToWaiting();
+  if (waitingClass) { classState.loginCode = waitingClass; game.go('classLogin'); }
   window.addEventListener('hashchange', route);
 }

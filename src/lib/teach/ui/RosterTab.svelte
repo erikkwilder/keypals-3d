@@ -35,13 +35,13 @@
 {#if pending.length}
   <div class="tp wait">
     <h3>Waiting for you</h3>
-    <p class="muted">Families asked to link a player from home to this class. Say yes only if you know who it is.</p>
+    <p class="muted">Families linking a player from home, and students who signed in with Google, wait here for your yes. Say yes only if you know who it is.</p>
     <table class="tt">
       <tbody>
         {#each pending as s (s.id)}
           <tr>
             <td><b>{s.name}</b></td>
-            <td>{s.claims ? `Says it's ${nameOf(s.claims)}: their progress from home and school will be put together` : s.google ? 'Signed in with Google and typed the class code' : 'A new student from home'}</td>
+            <td>{s.claims ? `${s.homeName ? `${s.homeName} (from home)` : 'A player from home'} says it's ${nameOf(s.claims)}: their progress from home and school will be put together` : s.google ? 'Signed in with Google and typed the class code' : 'A new student from home'}</td>
             <td class="r"><button class="sbtn" onclick={() => act(() => approve(s), `${s.name} is in the class now.`)}>Yes</button> <button class="sbtn warn" onclick={() => act(() => removeStudent(s.id), 'Said no.')}>No</button></td>
           </tr>
         {/each}
