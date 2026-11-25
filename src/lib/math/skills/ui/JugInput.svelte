@@ -8,6 +8,7 @@
   import MeasurePic from './MeasurePic.svelte';
   import type { CustomInputProps } from './SkillInput.svelte';
   import type { JugSpec } from '../measure';
+  import { buttonKey, press, stepKey, unitText } from '../inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   const spec = $derived((item.custom?.spec ?? { max: 1000, step: 100, label: 200, unit: 'mL', start: 0 }) as JugSpec);
   let level = $state(0);
@@ -28,25 +29,29 @@
   function up() { held = false; }
   function nudge(k: number) { if (disabled) return; onfirst(); setTo(Math.max(spec.start, Math.min(spec.max, level + k * spec.step))); }
   function done() { if (!disabled && moved) { sfx.click(); onanswer({ kind: 'number', value: level }); } }
+  // by keyboard a slider (stepKey, inputKeys.ts): Tab reaches the jug and its buttons; the arrows pour a mark
+  // more or less from anywhere on the page, as before; while the jug has focus Page Up and Page Down ten marks,
+  // Home and End to where it started and full, and Space is Done as Enter is
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); nudge(1); }
-    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); nudge(-1); }
-    else if (e.key === 'Enter') { e.preventDefault(); done(); }
+    if (disabled || buttonKey(e)) return;
+    const k = stepKey(e, level, { min: spec.start, max: spec.max, step: spec.step }, e.target === box);
+    if (k === null) return;
+    e.preventDefault();
+    if (k === 'go') done(); else if (k !== 'hold') { onfirst(); setTo(k); }
   }
 </script>
 
 <svelte:window onkeydown={key} />
 
 <div class="ji" class:compact>
-  <div class="jug" class:held bind:this={box} onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="slider" aria-label="Water in the jug" aria-valuenow={level} tabindex="-1">
+  <div class="jug" class:held bind:this={box} onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="slider" aria-label="Water in the jug" aria-valuemin={spec.start} aria-valuemax={spec.max} aria-valuenow={level} aria-valuetext={unitText(level, spec.unit)} tabindex="0">
     <MeasurePic m={{ kind: 'jug', max: spec.max, step: spec.step, label: spec.label, value: level, unit: spec.unit }} {size} />
     {#if !moved && !disabled}<span class="hint">Drag the water up</span>{/if}
   </div>
   <div class="side">
-    <button class="b" disabled={disabled || level >= spec.max} onpointerdown={(e) => { e.preventDefault(); nudge(1); }} tabindex="-1" aria-label="Pour more">+ {spec.step} {spec.unit}</button>
-    <button class="b" disabled={disabled || level <= spec.start} onpointerdown={(e) => { e.preventDefault(); nudge(-1); }} tabindex="-1" aria-label="Pour some out">− {spec.step} {spec.unit}</button>
-    <button class="ok" disabled={disabled || !moved} onpointerdown={(e) => { e.preventDefault(); done(); }} tabindex="-1"><Icon name="check" size={28} /><span>Done</span></button>
+    <button class="b" disabled={disabled || level >= spec.max} {...press(() => nudge(1))} aria-label="Pour more">+ {spec.step} {spec.unit}</button>
+    <button class="b" disabled={disabled || level <= spec.start} {...press(() => nudge(-1))} aria-label="Pour some out">− {spec.step} {spec.unit}</button>
+    <button class="ok" disabled={disabled || !moved} {...press(done)}><Icon name="check" size={28} /><span>Done</span></button>
   </div>
 </div>
 

@@ -141,15 +141,19 @@ describe('what a screen reader hears', () => {
 const src = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
 /** a tag from its < to its > (an arrow function's => inside it doesn't end it) */
 const tags = (s: string, name: string) => s.match(new RegExp(`<${name}\\b(?:=>|[^>])*>`, 'g')) ?? [];
-const INPUTS: { name: string; file: string; slider: boolean }[] = [
-  { name: 'the number line', file: './ui/NumberLineInput.svelte', slider: true },
+/** slider: it is one; text: its value is read out in words (a time, a unit, a fraction) */
+const INPUTS: { name: string; file: string; slider: boolean; text?: boolean }[] = [
+  { name: 'the number line', file: './ui/NumberLineInput.svelte', slider: true, text: true },
+  { name: 'the clock', file: './ui/ClockInput.svelte', slider: true, text: true },
+  { name: 'the ruler', file: './ui/RulerInput.svelte', slider: true, text: true },
+  { name: 'the jug', file: './ui/JugInput.svelte', slider: true, text: true },
 ];
-describe.each(INPUTS)('$name', ({ file, slider }) => {
+describe.each(INPUTS)('$name', ({ file, slider, text }) => {
   const s = src(file);
   it.runIf(slider)('Tab reaches it, and it says what it is and its value', () => {
     const el = [...tags(s, 'svg'), ...tags(s, 'div')].filter(t => t.includes('role="slider"'));
     expect(el).toHaveLength(1);
-    for (const a of ['tabindex="0"', 'aria-label=', 'aria-valuemin=', 'aria-valuemax=', 'aria-valuenow=']) expect(el[0], a).toContain(a);
+    for (const a of ['tabindex="0"', 'aria-label=', 'aria-valuemin=', 'aria-valuemax=', 'aria-valuenow=', ...(text ? ['aria-valuetext='] : [])]) expect(el[0], a).toContain(a);
   });
   it('nothing in it is kept from Tab, and every button works by keyboard', () => {
     expect(s).not.toContain('tabindex="-1"');
