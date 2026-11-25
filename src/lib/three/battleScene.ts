@@ -499,7 +499,10 @@ export class BattleScene implements Controller {
       const k = this.foePush > 0.75 ? (1 - this.foePush) / 0.25 : this.foePush / 0.75;
       this.grumble.root.position.copy(this.foeAt).addScaledVector(away, -0.45 * k);
     }
-    this.updateShield(dt, t);
+    // what moves for its own sake goes by the decorative clock: the stage's time, standing still with less motion
+    // (calm.ts), so it holds the frame it was on and goes on from it with no jump when that's turned off
+    const dT = stage.decorT;
+    this.updateShield(dt, dT);
     if (this.enterT < 1.6) {
       // its storm cloud comes down out of the sky, with a flash of lightning as it arrives
       const was = this.enterT; this.enterT += dt;
@@ -513,11 +516,12 @@ export class BattleScene implements Controller {
     const eye = this.foeCentre();
     for (const g of this.team) { if (g) { g.lookAt = eye; g.update(dt, t); } }
     if (this.revealed) this.grumble.lookAt.copy(stage.camera.position);
-    // banners wave, crystals turn and glow
-    for (const b of this.banners) { const p = b.geometry.attributes.position as THREE.BufferAttribute; for (let i = 0; i < p.count; i++) { const y = -p.getY(i); p.setZ(i, Math.sin(t * 2.6 + y * 4 + b.id) * 0.06 * y); } p.needsUpdate = true; }
-    // the fire bowls flicker
+    // banners wave (by the decorative clock: with less motion they hang still)
+    for (const b of this.banners) { const p = b.geometry.attributes.position as THREE.BufferAttribute; for (let i = 0; i < p.count; i++) { const y = -p.getY(i); p.setZ(i, Math.sin(dT * 2.6 + y * 4 + b.id) * 0.06 * y); } p.needsUpdate = true; }
+    // the fire bowls flicker (their sparks are steady ones, none with less motion; their light goes by the
+    // decorative clock, so with less motion the torches hold a steady light)
     for (const f of this.fires) this.fx.emit({ steady: true, at: f, count: Math.random() < 0.5 ? 2 : 1, shape: ['dot', 'spark'], color: [0xffd27a, 0xff9a3a], to: 0xff3d1a, dir: UP, spread: 0.25, speed: [0.5, 1.2], radius: 0.12, life: [0.35, 0.7], size: [0.18, 0.34], grow: -0.6, drag: 1 });
-    this.lights.forEach((l, i) => (l.intensity = 6 + Math.sin(t * 13 + i * 2) * 0.8 + Math.sin(t * 7.3 + i) * 0.6));
+    this.lights.forEach((l, i) => (l.intensity = 6 + Math.sin(dT * 13 + i * 2) * 0.8 + Math.sin(dT * 7.3 + i) * 0.6));
     // floating motes of light over the arena
     this.moteT -= dt;
     if (this.moteT < 0) { this.moteT = 0.12; this.fx.emit({ steady: true, at: this.C.clone().add(new THREE.Vector3(0, 0.4, 0)), count: 1, shape: 'dot', color: [0xfff2b0, 0xffffff, 0xcfe8ff], speed: [0.1, 0.3], up: 3, radius: 3.2, life: [3, 5], size: [0.05, 0.1], drag: 0.2, gravity: -0.05 }); }
@@ -525,7 +529,8 @@ export class BattleScene implements Controller {
     this.camera(dt, t);
   }
 
-  private updateShield(dt: number, t: number) {
+  /** `dT`: the decorative clock (the waiting shield's breathing goes by it, so with less motion it stands still) */
+  private updateShield(dt: number, dT: number) {
     if (!this.shieldFace || !this.shieldGlow) return;
     this.shieldAge += dt;
     const want = this.shieldMode === 'up' ? 1 : this.shieldMode === 'ready' ? 0.32 : 0;
@@ -538,7 +543,7 @@ export class BattleScene implements Controller {
     this.shieldKick = Math.max(0, this.shieldKick - dt * 4);
     const s = this.shieldSpot();
     // waiting: smaller and breathing; snapping up: a quick pop bigger than it ends up
-    const pop = this.shieldMode === 'up' ? 1 + 0.22 * Math.sin(Math.min(1, this.shieldAge / 0.28) * Math.PI) : 0.78 + 0.04 * Math.sin(t * 7);
+    const pop = this.shieldMode === 'up' ? 1 + 0.22 * Math.sin(Math.min(1, this.shieldAge / 0.28) * Math.PI) : 0.78 + 0.04 * Math.sin(dT * 7);
     this.shield.position.copy(s.at).addScaledVector(s.face, -0.18 * Math.sin(this.shieldKick * Math.PI));
     this.shield.lookAt(this.shield.position.clone().add(s.face));
     this.shield.scale.setScalar(Math.max(0.01, pop * (0.6 + 0.4 * this.shieldK)));
