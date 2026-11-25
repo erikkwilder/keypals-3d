@@ -726,6 +726,12 @@ export async function classApi(request, env, url, path, h) {
     if (!t) return h.fail(410, 'That sign-in ran out. Sign in with Google again.');
     const s = await DB.prepare("SELECT s.id, s.name, s.player, s.class, s.status, c.archived, c.teacher FROM student_google g JOIN students s ON s.id = g.student JOIN classes c ON c.id = s.class WHERE g.gid = ? AND s.status IN ('active', 'pending')").bind(t.gid).first();
     if (s?.status === 'active' && await classOn(env, { archived: s.archived, teacher: s.teacher })) {
+      // the teacher's Google setting holds for a pupil who linked her account before it changed too: turned off,
+      // or kept to a school she isn't from, she logs in like everyone else, with her name and her two pictures
+      // (every pupil has them: they're on the teacher's login cards)
+      const set = await settingsOf(env, s.class, s.teacher);
+      if (set.google === 'off') return h.fail(403, 'Your teacher turned off Google sign-in for this class. Use your class code, then tap your name and your two pictures.');
+      if (!domainOk(t.hd, set.domain)) return h.fail(403, `This class is for school accounts from ${set.domain}. Use your class code, then tap your name and your two pictures.`);
       await DB.prepare('DELETE FROM google_tickets WHERE hash = ?').bind(t.hash).run();
       return playerFor(env, s, '"status":"in",');
     }

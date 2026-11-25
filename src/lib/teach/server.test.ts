@@ -485,6 +485,32 @@ describe('pupils signing in with Google', () => {
     expect((await call('POST', '/class/google', { ticket: await google('Zoe') })).json).toEqual({ status: 'code', first: 'Zoe' });
   });
 
+  it("the teacher's Google setting holds for a pupil who linked her account before it changed: she logs in with her pictures", async () => {
+    const t = await teacher();
+    const c = await classWith(t, 'Maria');
+    const maria = c.students.find(s => s.name === 'Maria')!;
+    expect((await join(await google('Maria'), c.code, { student: maria.id, pics: maria.pics })).json.status).toBe('in');
+    expect((await call('POST', '/class/google', { ticket: await google('Maria') })).json.status).toBe('in');
+    // the teacher turns Google sign-in off: Maria's Google account doesn't take her in any more
+    expect((await call('PATCH', `/teach/classes/${c.id}`, { settings: { google: 'off' } }, { cookie: t })).status).toBe(200);
+    const off = await call('POST', '/class/google', { ticket: await google('Maria') });
+    expect([off.status, off.json.error]).toEqual([403, 'Your teacher turned off Google sign-in for this class. Use your class code, then tap your name and your two pictures.']);
+    // her name and her two pictures still do
+    expect((await login(c.code, maria.id, maria.pics)).status).toBe(200);
+    // on again, and kept to the school: an account from another school that linked while the class was open to
+    // any account is held to it too
+    await openToAnyAccount(t, c.id);
+    expect((await join(await google('Omar', 'g-omar'), c.code)).json.pending).toBe(true);
+    const omar = (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie: t })).json.students.find((s: { name: string }) => s.name === 'Omar');
+    expect((await call('POST', `/teach/students/${omar.id}/approve`, {}, { cookie: t })).status).toBe(200);
+    const elsewhere = async () => new URL((await call('GET', '/class/google/dev?name=Omar&sub=g-omar&hd=other.test')).headers.get('location')!).hash.replace('#classgoogle=', '');
+    expect((await call('POST', '/class/google', { ticket: await elsewhere() })).json.status).toBe('in');
+    expect((await call('PATCH', `/teach/classes/${c.id}`, { settings: { google: 'on', domain: 'school.test' } }, { cookie: t })).status).toBe(200);
+    const kept = await call('POST', '/class/google', { ticket: await elsewhere() });
+    expect([kept.status, kept.json.error]).toEqual([403, 'This class is for school accounts from school.test. Use your class code, then tap your name and your two pictures.']);
+    expect((await call('POST', '/class/google', { ticket: await google('Maria') })).json.status).toBe('in');
+  });
+
   it("back from Google, the game asks first whether the class takes her account: joining's own words, and nothing changes", async () => {
     const t = await teacher();
     const c = await classWith(t, 'Maria\nSam'); // kept to the teacher's school (school.test), as a school teacher's class starts
