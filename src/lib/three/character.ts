@@ -689,8 +689,13 @@ export class Character {
   sneeze(): number { this.act = { kind: 'sneeze', t: 0, len: 2.2 }; return 2.2; }
   /** a tickle or a sneeze is playing */
   get acting() { return !!this.act; }
-  /** a tickle, a sneeze or its puff is still playing (less motion holds a buddy's pose only when none is: calm.ts) */
-  get busy() { return !!this.act || this.tickers.size > 0; }
+  /** the sneeze's puffs still in the air */
+  private puffs = 0;
+  /** a tickle, a sneeze or its puff is still playing (less motion holds a buddy's pose only when none is:
+   *  calm.ts). Only these one-off moves count: worn gear and a painted coat keep a ticker of their own for
+   *  as long as they're on (a cape's sway, the paint's shimmer), and a dressed buddy that only stands there
+   *  isn't busy; with less motion they hold with it. */
+  get busy() { return !!this.act || this.puffs > 0; }
   private _pq = new THREE.Quaternion(); private _wq = new THREE.Quaternion(); private _rq = new THREE.Quaternion(); private _ax = new THREE.Vector3();
   /** Turn a bone through its joint about one of the buddy's own directions (x: to its left, y: up, z:
    *  forward), on top of its pose this frame. Parents go first. */
@@ -779,9 +784,10 @@ export class Character {
         b.sp.scale.setScalar(H * (0.08 + 0.16 * Math.min(1, k * 1.6)));
         b.sp.material.opacity = 0.9 * (1 - Math.max(0, k - 0.35) / 0.65);
       }
-      if (k >= 1) { for (const b of bits) { b.sp.removeFromParent(); b.sp.material.dispose(); } this.tickers.delete(tick); }
+      if (k >= 1) { for (const b of bits) { b.sp.removeFromParent(); b.sp.material.dispose(); } this.tickers.delete(tick); this.puffs--; }
     };
     this.tickers.add(tick);
+    this.puffs++;
   }
 
   /** Advance the moves, then lay planted feet flat (turned only about the up axis, as in the bind pose). */
