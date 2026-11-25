@@ -7,7 +7,7 @@
   import { sfx } from '../../audio/sound';
   import type { FriendId } from '../../art/cast';
   import type { PlayBuddy } from './buddy';
-  import { FirstTries, lineNumbers, linePoints, lineSpec, lineStars } from '../playground';
+  import { FirstTries, lineKey, lineNumbers, linePoints, lineSnap, lineSpec, lineStars } from '../playground';
 
   type Props = { level: number; buddy: FriendId; ondone: (r: { stars: 0 | 1 | 2 | 3; ms: number; answers: boolean[] }) => void; pal?: PlayBuddy };
   let { level, ondone, pal }: Props = $props();
@@ -19,6 +19,12 @@
   const firsts = new FirstTries();
   let placed = $state<number | null>(null);
   let got = $state<0 | 1 | 2 | 3>(0);
+  /** by keyboard the line is a slider: its marker, where Enter or Space puts the number (it stays where the
+   *  last one went, with the buddy) */
+  let at = $state(0);
+  /** the marker shows while the line has keyboard focus (a tap focuses it too, without the marker) */
+  let keyed = $state(false);
+  const askId = $props.id();
   let svg: SVGSVGElement | undefined = $state();
   let track: HTMLDivElement | undefined = $state();
   /** a value's place across the window (a fraction), for the buddy to hop to */
@@ -42,12 +48,24 @@
   onDestroy(() => timers.forEach(clearTimeout));
 
   function tap(e: PointerEvent) {
+    keyed = false;
     if (placed !== null || !svg) return;
     const r = svg.getBoundingClientRect();
     const x = ((e.clientX - r.left) / r.width) * W;
-    const snap = level === 5 ? 10 : 1;
-    const v = Math.max(0, Math.min(spec.max, Math.round((((x - PAD) / (W - 2 * PAD)) * spec.max) / snap) * snap));
-    placed = v;
+    const snap = lineSnap(level);
+    place(Math.max(0, Math.min(spec.max, Math.round((((x - PAD) / (W - 2 * PAD)) * spec.max) / snap) * snap)));
+  }
+  function key(e: KeyboardEvent) {
+    const k = lineKey(e, at, spec.max, lineSnap(level));
+    if (k === null) return;
+    e.preventDefault();
+    keyed = true;
+    if (placed !== null) return;
+    if (k === 'place') place(at); else at = k;
+  }
+  /** the number goes at v (a tap there, or Enter at the marker): the points, the buddy's hop, the sounds */
+  function place(v: number) {
+    placed = v; at = v;
     got = linePoints(target, v, spec.max);
     points += got;
     // (a close one says nothing either way: only near-exact ones and clear misses move the level)
@@ -66,10 +84,10 @@
 
 <div class="nl">
   <div class="dots">{#each nums as _, k}<i class:done={k < i || (k === i && placed !== null)} class:now={k === i}></i>{/each}</div>
-  <p class="ask">Where does <b>{target}</b> go?</p>
+  <p class="ask" id={askId}>Where does <b>{target}</b> go?</p>
   <!-- the whole strip takes the tap, not only the thin line: easier for small fingers -->
   <div class="track" bind:this={track} onpointerdown={tap} role="presentation">
-    <svg bind:this={svg} viewBox="0 0 {W} 150" class="line" class:locked={placed !== null} role="slider" aria-label="Number line from 0 to {spec.max}" aria-valuemin={0} aria-valuemax={spec.max} aria-valuenow={placed ?? 0} tabindex="-1">
+    <svg bind:this={svg} viewBox="0 0 {W} 150" class="line" class:locked={placed !== null} role="slider" aria-label="Number line from 0 to {spec.max}" aria-describedby={askId} aria-valuemin={0} aria-valuemax={spec.max} aria-valuenow={placed ?? at} aria-valuetext={placed === null ? `${at}` : `${placed}. ${word}`} tabindex="0" onkeydown={key} onfocus={() => (keyed = !!svg?.matches(':focus-visible'))} onblur={() => (keyed = false)}>
       <rect x="0" y="0" width={W} height="150" fill="transparent" />
       <!-- a solid board behind the ticks, so the grass and the island don't flicker through them;
            the buddy hops along its top edge -->
@@ -80,6 +98,10 @@
       {#each minor as v}<line x1={xOf(v)} x2={xOf(v)} y1="62" y2="78" stroke="#c9bdf0" stroke-width="3" />{/each}
       {#each ticks as v}<line x1={xOf(v)} x2={xOf(v)} y1="52" y2="88" stroke="#7c5cf5" stroke-width="4" stroke-linecap="round" />{/each}
       {#each spec.labels as v}<text x={xOf(v)} y="124" text-anchor="middle" class="lab">{v}</text>{/each}
+      {#if placed === null && keyed}
+        <!-- the keyboard's marker: Enter or Space puts the number here -->
+        <g class="mark" transform="translate({xOf(at)} 70)"><path d="M-12 -40h24l-12 16z" fill="#3b2d55" /><circle r="13" fill="rgba(255, 255, 255, .6)" stroke="#3b2d55" stroke-width="5" /></g>
+      {/if}
       {#if placed !== null}
         <g class="pin" transform="translate({xOf(placed)} 70)"><circle r="13" fill={got >= 2 ? '#4fcf98' : got === 1 ? '#f7c548' : '#ef6fa6'} stroke="#fff" stroke-width="4" /></g>
         <g class="flag" transform="translate({xOf(target)} 70)"><line y1="0" y2="-58" stroke="#3b2d55" stroke-width="4" /><path d="M0 -58h34l-9 10 9 10H0z" fill="#ef7d2b" /><text x="17" y="-66" text-anchor="middle" class="flab">{target}</text></g>
@@ -100,7 +122,7 @@
   .track { position: relative; width: 100%; padding-top: clamp(150px, 26vh, 230px); padding-bottom: 10px; touch-action: none; cursor: crosshair; }
   .line { width: 100%; height: auto; cursor: crosshair; touch-action: none; display: block; }
   .line.locked { cursor: default; }
-  .line:focus { outline: none; }
+  /* (by keyboard it gets the game's focus ring, app.css) */
   .lab { font: 600 30px var(--font-ui); fill: #3b2d55; paint-order: stroke; stroke: #fff; stroke-width: 8px; }
   .flab { font: 700 22px var(--font-ui); fill: #ef7d2b; }
   .pin { animation: drop .35s cubic-bezier(.3, .8, .4, 1.5); }

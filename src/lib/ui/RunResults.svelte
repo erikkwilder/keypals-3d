@@ -470,7 +470,7 @@
         {#if d.kind === 'medal'}
           {@const nt = MEDAL_TIERS.find(t => t.at > d.m.count)}
           <div class="dart">{@html renderMedal(d.m, d.m.tier)}</div>
-          <span class="dkind">Medal{#if d.m.tier >= 0} · <b style:color={TIER_LOOK[d.m.tier].ink === '#fff' ? 'var(--primary)' : TIER_LOOK[d.m.tier].ink}>{TIER_LOOK[d.m.tier].name}</b>{/if}</span>
+          <span class="dkind">Medal{#if d.m.tier >= 0}{' · '}<b style:color={TIER_LOOK[d.m.tier].ink === '#fff' ? 'var(--primary)' : TIER_LOOK[d.m.tier].ink}>{TIER_LOOK[d.m.tier].name}</b>{/if}</span>
           <h3>{d.m.name}</h3>
           <p class="ddesc">{d.m.desc}</p>
           <p class="dmore">You've won it {d.m.count === 1 ? 'once' : `${d.m.count} times`} with {FRIEND[buddy].name}.{' '}{#if nt}Win it {nt.at - d.m.count} more {nt.at - d.m.count === 1 ? 'time' : 'times'} for {nt.name}.{:else}That's the top tier!{/if}</p>

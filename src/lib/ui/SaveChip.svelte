@@ -27,4 +27,6 @@
   .local img { filter: grayscale(.8) opacity(.75); }
   .go { font: 800 12px var(--font-body); background: #ff9f1a; color: #fff; padding: 2px 9px; border-radius: 999px; margin-left: 2px; }
   .chip:hover { filter: brightness(1.03); transform: translateY(-1px); }
+  /* a finger needs about 44 px: on a touch screen the chip is that tall (it was 28; a mouse computer's look stays) */
+  @media (pointer: coarse) { .chip { min-height: 44px; } }
 </style>

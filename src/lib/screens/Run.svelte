@@ -479,7 +479,7 @@
         </div>
         <p class="howscore">Your score is your speed plus a bonus for clean typing. Keep a streak going to earn time back!</p>
         {#if record}
-          <div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore ?? Math.round(record.bestWpm)} · {move === 'run' ? 'ride' : 'top speed'}: {rideName(record.bestRide, move)}{#if record.platinum} · platinum!{/if}</div>
+          <div class="best muted">Your best: <Stars n={record.stars} of={3} size={16} /> · score {record.bestScore ?? Math.round(record.bestWpm)} · {move === 'run' ? 'ride' : 'top speed'}: {rideName(record.bestRide, move)}{#if record.platinum}{' · '}platinum!{/if}</div>
         {/if}
         <div class="pills">
           <label class="pill"><input type="checkbox" disabled={game.quiet} checked={game.settings.voice !== false} onchange={() => toggleVoice('voice')} /> Coach voice</label>
