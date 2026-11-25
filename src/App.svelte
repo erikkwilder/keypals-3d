@@ -25,6 +25,8 @@
   import FancyAntIntro, { introDue } from './lib/ui/FancyAntIntro.svelte';
   import { motion } from './lib/ui/motion.svelte';
   import NetNote from './lib/ui/NetNote.svelte';
+  import { keepFocus, holdFocus } from './lib/ui/focusKeeper';
+  import type { Screen } from './lib/state/game.svelte';
 
   const S = {
     players: lazy(() => import('./lib/screens/Players.svelte')),
@@ -164,6 +166,12 @@
   $effect(() => { if (game.screen !== 'title') untrack(bootGone); });
 
   let canvas: HTMLCanvasElement | undefined = $state();
+  // where the keyboard goes when the button it was on goes away with its screen or step: the new screen's heading
+  // (ui/focusKeeper.ts). Never on a screen the keys play (the typing, math and practice runs, a Learn episode,
+  // the games, the island and the garden): there focus stays on the page and every key does what it did.
+  const PLAYS = new Set<Screen>(['run', 'mathRun', 'skillRun', 'learn', 'playground', 'garden', 'island', 'battle', 'duel', 'drop', 'arcadePlay', 'pizza', 'builder', 'market', 'clockrush', 'bench', 'shifter', 'shapebuilder', 'smoothie', 'treasure', 'showdown', 'balance']);
+  let appEl: HTMLElement | undefined = $state();
+  onMount(() => (appEl ? keepFocus(appEl, () => PLAYS.has(game.screen) || game.learnOverlay !== null) : undefined));
   let no3d = $state(false);
   onMount(() => {
     if (canvas) {
@@ -197,7 +205,7 @@
 
 <SvgDefs />
 <canvas class="stage3d" bind:this={canvas} aria-hidden="true"></canvas>
-<main class="app">
+<main class="app" bind:this={appEl}>
   {#if door}{@render screen(S.door, { door })}
   {:else if game.screen === 'title'}<Title />
   {:else if game.screen === 'players'}{@render screen(S.players)}
@@ -255,7 +263,7 @@
   {/if}
   {#if game.profile}{@render layer(O.ladder)}{/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
-  {#if game.settingsOpen && game.profile}<div class="settings-layer">{@render layer(O.settings, { overlay: true })}</div>{/if}
+  {#if game.settingsOpen && game.profile}<div class="settings-layer" role="dialog" aria-modal="true" aria-label="Settings" tabindex="-1" use:holdFocus>{@render layer(O.settings, { overlay: true })}</div>{/if}
   {#if game.chartLesson && game.profile}{#key game.chartLesson}{@render layer(O.chart)}{/key}{/if}
   {#if game.sheet}{@render layer(O.sheet)}{/if}
   {#if game.musicOpen}{@render layer(O.music)}{/if}
