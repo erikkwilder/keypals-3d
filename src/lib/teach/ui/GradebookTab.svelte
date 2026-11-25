@@ -2,7 +2,7 @@
   // The gradebook: students down the side, class work across, each cell the score coloured by where it
   // stands (done, started, late, not started), with a spreadsheet download.
   import { teach } from '../teacher.svelte';
-  import { STATUS_NAME, dueText, gradebookCsv, isFor, progressOf, type Assignment, type Progress, type Status } from '../assignments';
+  import { STATUS_NAME, averageOf, dueText, gradeOf, gradebookCsv, isFor, progressOf, type Assignment, type Progress, type Status } from '../assignments';
   import type { Kid } from '../reports';
   import { saveTextFile } from '../../state/platform';
 
@@ -11,22 +11,26 @@
   const c = $derived(teach.current!);
   const work = $derived(c.assignments.filter(a => !a.archived));
   const now = Date.now();
-  const grid = $derived(kids.map(k => ({ k, cells: work.map(a => (isFor(a, k.id) ? (k.profile ? progressOf(k.profile, a, now) : null) : undefined)) })));
+  /** a cell: its progress (null: nothing saved online yet), its score for the average (null: not counted, as
+   *  work not started and not due yet) and whether it's missing (past its due date, not started: 0) */
+  type Cell = { pr: Progress | null; score: number | null; missing: boolean };
+  const grid = $derived(kids.map(k => ({ k, cells: work.map((a): Cell | undefined => { if (!isFor(a, k.id)) return undefined; const pr = k.profile ? progressOf(k.profile, a, now) : null; return { pr, ...gradeOf(pr, a, now) }; }) })));
   const COLORS: Record<Status, string> = { done: '#c9f1dd', started: '#fff0b8', late: '#ffd6cf', 'not started': '#efedf3' };
   const INK: Record<Status, string> = { done: '#0f5a3c', started: '#6a5200', late: '#9a2a1a', 'not started': '#6d6680' };
-  const avg = (cells: (Progress | null | undefined)[]) => { const xs = cells.filter((x): x is Progress => !!x).map(x => x.score); return xs.length ? Math.round(xs.reduce((t, x) => t + x, 0) / xs.length) : null; };
+  const avg = (cells: (Cell | undefined)[]) => averageOf(cells.map(x => x?.score));
+  const tone = (x: Cell): Status => (x.missing ? 'late' : x.pr && x.score !== null ? x.pr.status : 'not started');
   function download() {
-    const csv = gradebookCsv(kids, work, (sid: string, a: Assignment) => { const k = kids.find(x => x.id === sid); return k?.profile ? progressOf(k.profile, a, now) : null; });
+    const csv = gradebookCsv(kids, work, (sid: string, a: Assignment) => { const k = kids.find(x => x.id === sid); return k?.profile ? progressOf(k.profile, a, now) : null; }, now);
     void saveTextFile(`${c.class.name.replace(/[^\w]+/g, '-').toLowerCase()}-gradebook.csv`, csv);
   }
 </script>
 
 <div class="tp">
   <div class="top">
-    <div><h3>Gradebook</h3><p class="muted">Scores out of 100, by each assignment's scoring. Tap a name for that student's page.</p></div>
+    <div><h3>Gradebook</h3><p class="muted">Scores out of 100, by each assignment's scoring. The average leaves out work not started and not due yet. Missing work (past its due date, not started) counts as 0. Tap a name for that student's page.</p></div>
     <button class="btn" disabled={!work.length} onclick={download}>Download spreadsheet (CSV)</button>
   </div>
-  <div class="legend">{#each Object.keys(COLORS) as s (s)}<span style:background={COLORS[s as Status]} style:color={INK[s as Status]}>{STATUS_NAME[s as Status]}</span>{/each}<span class="na">— not assigned</span></div>
+  <div class="legend">{#each Object.keys(COLORS) as s (s)}<span style:background={COLORS[s as Status]} style:color={INK[s as Status]}>{STATUS_NAME[s as Status]}</span>{/each}<span style:background={COLORS.late} style:color={INK.late}>Missing</span><span class="na">— not assigned</span></div>
   {#if !work.length}
     <p class="muted">No class work yet: make some on the Class work tab.</p>
   {:else}
@@ -35,8 +39,8 @@
       {#each grid as row (row.k.id)}
         <div class="kid">
           <div class="kh"><button class="namebtn" onclick={() => (teach.studentId = row.k.id)}>{row.k.name}</button><b>{avg(row.cells) ?? '—'}</b></div>
-          {#each row.cells as pr, i (work[i].id)}
-            {#if pr !== undefined}<p><span>{work[i].title}</span><em style:background={COLORS[pr?.status ?? 'not started']} style:color={INK[pr?.status ?? 'not started']}>{pr?.score ?? 0}</em></p>{/if}
+          {#each row.cells as x, i (work[i].id)}
+            {#if x !== undefined}<p><span>{work[i].title}</span><em style:background={COLORS[tone(x)]} style:color={INK[tone(x)]}>{x.missing ? 'Missing' : x.score ?? 'Not started'}</em></p>{/if}
           {/each}
         </div>
       {/each}
@@ -50,10 +54,12 @@
           {#each grid as row (row.k.id)}
             <tr>
               <td class="nm"><button class="namebtn" onclick={() => (teach.studentId = row.k.id)}>{row.k.name}</button></td>
-              {#each row.cells as pr, i (work[i].id)}
-                {#if pr === undefined}<td class="cell na">—</td>
-                {:else if pr === null}<td class="cell"><span class="sc" style:background={COLORS['not started']} style:color={INK['not started']}>0</span></td>
+              {#each row.cells as x, i (work[i].id)}
+                {#if x === undefined}<td class="cell na">—</td>
+                {:else if x.missing}<td class="cell" title="Past its due date, not started: counts as 0"><span class="sc" style:background={COLORS.late} style:color={INK.late}>0<small>Missing</small></span></td>
+                {:else if !x.pr || x.score === null}<td class="cell" title="Not due yet: not in the average"><span class="sc" style:background={COLORS['not started']} style:color={INK['not started']}>—<small>Not started</small></span></td>
                 {:else}
+                  {@const pr = x.pr}
                   <td class="cell" title="{STATUS_NAME[pr.status]} · {Math.round(pr.done * 100)}% of the goal{pr.acc !== null ? ` · ${Math.round(pr.acc * 100)}% right` : ''}">
                     <span class="sc" style:background={COLORS[pr.status]} style:color={INK[pr.status]}>{pr.score}<small>{STATUS_NAME[pr.status]}</small></span>
                   </td>

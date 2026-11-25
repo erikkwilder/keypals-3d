@@ -59,6 +59,8 @@ export type Progress = {
   /** 0 to 100, by the assignment's scoring */
   score: number;
   status: Status;
+  /** anything done toward it yet (false: not started) */
+  begun: boolean;
   /** when it was finished (null: not yet) */
   finishedAt: number | null;
   /** each part: a skill, lesson, episode or area, and whether it's done */
@@ -127,6 +129,19 @@ export function statusOf(done: number, finishedAt: number | null, any: boolean, 
   if (done >= 1 && finishedAt !== null) return due !== null && finishedAt > due ? 'late' : 'done';
   if (due !== null && now > due) return 'late';
   return any ? 'started' : 'not started';
+}
+/** A gradebook cell: its score for the average (null: not counted) and whether it's missing. Work not started
+ *  and not yet due (or with no due date) isn't counted; past its due date with nothing done it's missing, and
+ *  counts as 0. Started or done work counts its score. (`pr` null: nothing saved online yet.) */
+export function gradeOf(pr: Progress | null, a: Pick<AssignmentData, 'due'>, now = Date.now()): { score: number | null; missing: boolean } {
+  if (pr && (pr.begun || pr.done > 0)) return { score: pr.score, missing: false };
+  if (a.due !== null && now > a.due) return { score: 0, missing: true };
+  return { score: null, missing: false };
+}
+/** A student's average over the cells that count (null: none yet). */
+export function averageOf(scores: (number | null | undefined)[]): number | null {
+  const xs = scores.filter((x): x is number => typeof x === 'number');
+  return xs.length ? Math.round(xs.reduce((t, x) => t + x, 0) / xs.length) : null;
 }
 
 const share = (e: ClassEvent, skills: Set<string>) => {
@@ -205,28 +220,28 @@ export function progressOf(p: Profile, a: Assignment | AssignmentData, now = Dat
   done = Math.max(0, Math.min(1, done));
   if (done < 1) finishedAt = null;
   const acc = answered ? right / answered : null;
-  return { done, right, answered, ms, acc, score: scoreOf(done, a.what === 'learn' ? null : acc, a.scoring), status: statusOf(done, finishedAt, any, a.due, now), finishedAt, parts };
+  return { done, right, answered, ms, acc, score: scoreOf(done, a.what === 'learn' ? null : acc, a.scoring), status: statusOf(done, finishedAt, any, a.due, now), begun: any || done > 0, finishedAt, parts };
 }
 
 // ---------- the gradebook as a spreadsheet ----------
 const csvCell = (v: string | number) => { const s = String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 /** Students down the side, assignments across: each cell the score, then a status and progress column
  *  per assignment. Names only (the first names the teacher typed). */
-export function gradebookCsv(students: { id: string; name: string }[], assignments: Assignment[], progress: (studentId: string, a: Assignment) => Progress | null): string {
+export function gradebookCsv(students: { id: string; name: string }[], assignments: Assignment[], progress: (studentId: string, a: Assignment) => Progress | null, now = Date.now()): string {
   const head = ['Student'];
   for (const a of assignments) head.push(`${a.title} (score)`, `${a.title} (status)`, `${a.title} (progress %)`);
   head.push('Average score');
   const rows = [head];
   for (const s of students) {
     const row: (string | number)[] = [s.name];
-    const scores: number[] = [];
+    const scores: (number | null)[] = [];
     for (const a of assignments) {
-      const pr = isFor(a, s.id) ? progress(s.id, a) : null;
-      if (!pr) { row.push('', 'not assigned', ''); continue; }
-      row.push(pr.score, STATUS_NAME[pr.status], Math.round(pr.done * 100));
-      scores.push(pr.score);
+      if (!isFor(a, s.id)) { row.push('', 'not assigned', ''); continue; }
+      const pr = progress(s.id, a), g = gradeOf(pr, a, now);
+      row.push(g.score ?? '', g.missing ? 'Missing' : STATUS_NAME[pr?.status ?? 'not started'], Math.round((pr?.done ?? 0) * 100));
+      scores.push(g.score);
     }
-    row.push(scores.length ? Math.round(scores.reduce((t, x) => t + x, 0) / scores.length) : '');
+    row.push(averageOf(scores) ?? '');
     rows.push(row.map(String));
   }
   return rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
