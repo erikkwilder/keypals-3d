@@ -10,6 +10,7 @@
   import { sfx } from '../audio/sound';
   import Critter from '../ui/Critter.svelte';
   import Bar from '../ui/Bar.svelte';
+  import { onButton } from '../ui/screenKeys';
 
   let step = $state(1);
   let name = $state('');
@@ -54,12 +55,14 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.modalOpen) return;
+    // Enter goes on, except on a button: that's the button's own ("I'm a grown-up", "That's my buddy!")
+    const enter = e.key === 'Enter' && !onButton(e);
     if (step === 2) {
       const i = STARTERS.indexOf(buddy);
       if (e.key === 'ArrowRight') chooseBuddy(STARTERS[(i + 1) % STARTERS.length]);
       if (e.key === 'ArrowLeft') chooseBuddy(STARTERS[(i - 1 + STARTERS.length) % STARTERS.length]);
-      if (e.key === 'Enter') next();
-    } else if (step === 3 && e.key === 'Enter') finish();
+      if (enter) next();
+    } else if (step === 3 && enter) finish();
   }
   const look = $derived(game.settings.look);
 </script>
