@@ -8,6 +8,7 @@
   import type { Answer } from '../types';
   import type { TableSpec } from '../ratios';
   import { FRUIT } from '../ratioPic';
+  import { buttonKey } from '../inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   const base = import.meta.env.BASE_URL;
   const spec = $derived(item.custom!.spec as TableSpec);
@@ -35,8 +36,11 @@
     if (text.length === String(want).length) check();
   }
   function back() { if (bad) { bad = false; text = ''; return; } text = text.slice(0, -1); }
+  // By keyboard it's typed, from anywhere on the page: the number keys, Backspace, and Enter to check; it has
+  // no button of its own. Enter or Space on a focused button is that button's. A screen reader hears the gap's
+  // number as it's typed (aria-live).
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+    if (disabled || e.metaKey || e.ctrlKey || e.altKey || e.repeat || buttonKey(e)) return;
     const m = /^(?:Digit|Numpad)([0-9])$/.exec(e.code);
     const d = /^[0-9]$/.test(e.key) ? e.key : m ? m[1] : null;
     if (d) { e.preventDefault(); digit(d); }
@@ -54,7 +58,7 @@
       {#each spec.cols as c, ci (ci)}
         {@const gap = spec.gap[0] === ci && spec.gap[1] === row}
         {#if gap}
-          <span class="cell gap" class:bad class:typed={!!text} data-drop="num">{text || '?'}</span>
+          <span class="cell gap" class:bad class:typed={!!text} data-drop="num" aria-live="polite">{text || '?'}</span>
         {:else}
           <span class="cell" style:background-image="url({base}learn/tag.webp)">{c[row]}</span>
         {/if}

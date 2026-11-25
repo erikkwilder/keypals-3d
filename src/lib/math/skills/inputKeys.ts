@@ -91,3 +91,47 @@ export function chanceText(x: number, den: number): string {
 const UNIT: Record<string, [string, string]> = { cm: ['centimetre', 'centimetres'], in: ['inch', 'inches'], mL: ['millilitre', 'millilitres'], L: ['litre', 'litres'] };
 /** A ruler's or a jug's value in words, for a screen reader: "1 centimetre", "3.5 inches", "300 millilitres". */
 export const unitText = (v: number, unit: string): string => `${v} ${UNIT[unit]?.[v === 1 ? 0 : 1] ?? unit}`;
+
+/** The dot grid by keyboard, while it has focus: a ring over its pegs, [across, down] from 0 at the top left.
+ *  The arrows move it a peg, never off the grid; Home and End to the row's first and last peg, Page Up and Page
+ *  Down to the top and bottom row. Enter or Space ('pick') do what a tap on that peg does; a held one picks only
+ *  once ('hold'). Other keys, and any with Ctrl, Alt or Cmd, are left to the page (null). */
+export function gridKey(e: KeyLike, at: readonly [number, number], cols: number, rows: number): [number, number] | 'pick' | 'hold' | null {
+  if (e.altKey || e.ctrlKey || e.metaKey) return null;
+  const [c, r] = at;
+  const to = (x: number, y: number): [number, number] => [Math.max(0, Math.min(cols - 1, x)), Math.max(0, Math.min(rows - 1, y))];
+  switch (e.key) {
+    case 'ArrowRight': return to(c + 1, r);
+    case 'ArrowLeft': return to(c - 1, r);
+    case 'ArrowDown': return to(c, r + 1);
+    case 'ArrowUp': return to(c, r - 1);
+    case 'Home': return to(0, r);
+    case 'End': return to(cols - 1, r);
+    case 'PageUp': return to(c, 0);
+    case 'PageDown': return to(c, rows - 1);
+    case 'Enter': case ' ': return e.repeat ? 'hold' : 'pick';
+  }
+  return null;
+}
+
+/** The line plot by keyboard, while it has focus: a ring over its marks, 0 to `last`. Left and Right move it a
+ *  mark, Home and End to the ends; Up, Enter or Space put a dot over it ('add', what a tap there does), Down
+ *  takes one back ('take'). A held Enter or Space adds only once ('hold'); a held Up adds a dot each time. */
+export function plotKey(e: KeyLike, at: number, last: number): number | 'add' | 'take' | 'hold' | null {
+  if (e.altKey || e.ctrlKey || e.metaKey) return null;
+  switch (e.key) {
+    case 'ArrowRight': return Math.min(last, at + 1);
+    case 'ArrowLeft': return Math.max(0, at - 1);
+    case 'Home': return 0;
+    case 'End': return last;
+    case 'ArrowUp': return 'add';
+    case 'ArrowDown': return 'take';
+    case 'Enter': case ' ': return e.repeat ? 'hold' : 'add';
+  }
+  return null;
+}
+
+const SWAP: Record<string, string> = { ArrowLeft: 'ArrowRight', ArrowRight: 'ArrowLeft' };
+/** The same key with Left and Right swapped, for a slider that grows to the left: the angle maker opens that way,
+ *  so Left opens it and Right closes it, as they always have. */
+export const mirror = (e: KeyLike): KeyLike => ({ key: SWAP[e.key] ?? e.key, repeat: e.repeat, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey });

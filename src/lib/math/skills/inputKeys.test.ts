@@ -2,7 +2,7 @@
 // from its source (Tab reaches it, it says what it is and its value, its buttons work by keyboard).
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buttonKey, chanceText, clockKey, press, stepKey, unitText } from './inputKeys';
+import { buttonKey, chanceText, clockKey, gridKey, mirror, plotKey, press, stepKey, unitText } from './inputKeys';
 
 const K = (key: string, more: object = {}) => ({ key, ...more });
 
@@ -90,6 +90,79 @@ describe('clockKey: the clock by keyboard', () => {
   });
 });
 
+describe('gridKey: the dot grid by keyboard', () => {
+  it('the arrows move the ring a peg (Up is up the screen), never off the grid', () => {
+    expect(gridKey(K('ArrowRight'), [1, 1], 5, 4)).toEqual([2, 1]);
+    expect(gridKey(K('ArrowLeft'), [1, 1], 5, 4)).toEqual([0, 1]);
+    expect(gridKey(K('ArrowDown'), [1, 1], 5, 4)).toEqual([1, 2]);
+    expect(gridKey(K('ArrowUp'), [1, 1], 5, 4)).toEqual([1, 0]);
+    expect(gridKey(K('ArrowRight'), [4, 3], 5, 4)).toEqual([4, 3]);
+    expect(gridKey(K('ArrowDown'), [4, 3], 5, 4)).toEqual([4, 3]);
+    expect(gridKey(K('ArrowLeft'), [0, 0], 5, 4)).toEqual([0, 0]);
+    expect(gridKey(K('ArrowUp'), [0, 0], 5, 4)).toEqual([0, 0]);
+  });
+  it('Home and End go to the row\'s ends, Page Up and Page Down to the top and bottom row', () => {
+    expect(gridKey(K('Home'), [3, 2], 5, 4)).toEqual([0, 2]);
+    expect(gridKey(K('End'), [1, 2], 5, 4)).toEqual([4, 2]);
+    expect(gridKey(K('PageUp'), [3, 2], 5, 4)).toEqual([3, 0]);
+    expect(gridKey(K('PageDown'), [3, 1], 5, 4)).toEqual([3, 3]);
+  });
+  it('every peg can be reached from the first', () => {
+    const seen = new Set<string>();
+    let at: [number, number] = [0, 0];
+    for (let r = 0; r < 4; r++) {
+      at = gridKey(K('Home'), at, 5, 4) as [number, number];
+      for (let c = 0; c < 5; c++) { seen.add(at.join()); at = gridKey(K('ArrowRight'), at, 5, 4) as [number, number]; }
+      at = gridKey(K('ArrowDown'), at, 5, 4) as [number, number];
+    }
+    expect(seen.size).toBe(20);
+  });
+  it('Enter or Space taps the peg, once for a held key; other keys and Ctrl, Alt or Cmd are the page\'s', () => {
+    expect(gridKey(K('Enter'), [0, 0], 5, 4)).toBe('pick');
+    expect(gridKey(K(' '), [0, 0], 5, 4)).toBe('pick');
+    expect(gridKey(K('Enter', { repeat: true }), [0, 0], 5, 4)).toBe('hold');
+    expect(gridKey(K(' ', { repeat: true }), [0, 0], 5, 4)).toBe('hold');
+    for (const k of ['Backspace', 'a', '3', 'Tab', 'Escape']) expect(gridKey(K(k), [0, 0], 5, 4), k).toBeNull();
+    for (const m of ['ctrlKey', 'altKey', 'metaKey']) expect(gridKey(K('ArrowRight', { [m]: true }), [0, 0], 5, 4), m).toBeNull();
+  });
+});
+
+describe('plotKey: the line plot by keyboard', () => {
+  it('Left and Right move the ring a mark, Home and End to the ends, never past them', () => {
+    expect(plotKey(K('ArrowRight'), 2, 8)).toBe(3);
+    expect(plotKey(K('ArrowLeft'), 2, 8)).toBe(1);
+    expect(plotKey(K('ArrowRight'), 8, 8)).toBe(8);
+    expect(plotKey(K('ArrowLeft'), 0, 8)).toBe(0);
+    expect(plotKey(K('Home'), 5, 8)).toBe(0);
+    expect(plotKey(K('End'), 5, 8)).toBe(8);
+  });
+  it('Up, Enter or Space put a dot there, Down takes one back; a held Enter or Space only once', () => {
+    expect(plotKey(K('ArrowUp'), 2, 8)).toBe('add');
+    expect(plotKey(K('ArrowUp', { repeat: true }), 2, 8)).toBe('add');
+    expect(plotKey(K('Enter'), 2, 8)).toBe('add');
+    expect(plotKey(K(' '), 2, 8)).toBe('add');
+    expect(plotKey(K('ArrowDown'), 2, 8)).toBe('take');
+    expect(plotKey(K('Enter', { repeat: true }), 2, 8)).toBe('hold');
+  });
+  it('leaves the number keys, Backspace and Ctrl, Alt or Cmd to the page', () => {
+    for (const k of ['3', 'Backspace', 'PageUp', 'Tab']) expect(plotKey(K(k), 2, 8), k).toBeNull();
+    for (const m of ['ctrlKey', 'altKey', 'metaKey']) expect(plotKey(K('ArrowUp', { [m]: true }), 2, 8), m).toBeNull();
+  });
+});
+
+describe('mirror: a slider that grows to the left', () => {
+  it('swaps Left and Right and keeps everything else', () => {
+    expect(mirror(K('ArrowLeft')).key).toBe('ArrowRight');
+    expect(mirror(K('ArrowRight')).key).toBe('ArrowLeft');
+    for (const k of ['ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter', ' ']) expect(mirror(K(k)).key).toBe(k);
+    expect(mirror(K('Enter', { repeat: true })).repeat).toBe(true);
+    expect(mirror(K('ArrowLeft', { metaKey: true })).metaKey).toBe(true);
+    const A = { min: 5, max: 180, step: 5 };
+    expect(stepKey(mirror(K('ArrowLeft')), 30, A, false)).toBe(35);
+    expect(stepKey(mirror(K('ArrowRight')), 30, A, false)).toBe(25);
+  });
+});
+
 describe('buttons by keyboard', () => {
   afterEach(() => { delete (globalThis as { HTMLButtonElement?: unknown }).HTMLButtonElement; });
   it('Enter or Space on a button is left to the button; other keys and other places are not', () => {
@@ -141,8 +214,9 @@ describe('what a screen reader hears', () => {
 const src = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
 /** a tag from its < to its > (an arrow function's => or a >= inside it doesn't end it) */
 const tags = (s: string, name: string) => s.match(new RegExp(`<${name}\\b(?:=>|>=|[^>])*>`, 'g')) ?? [];
-/** slider: it is one; text: its value is read out in words (a time, a unit, a fraction) */
-const INPUTS: { name: string; file: string; slider: boolean; text?: boolean }[] = [
+/** slider: it is one; text: its value is read out in words (a time, a unit, a fraction); grid: a ring over
+ *  points (the dot grid, the line plot); buttons: false when it has none of its own */
+const INPUTS: { name: string; file: string; slider: boolean; text?: boolean; grid?: boolean; buttons?: false }[] = [
   { name: 'the number line', file: './ui/NumberLineInput.svelte', slider: true, text: true },
   { name: 'the clock', file: './ui/ClockInput.svelte', slider: true, text: true },
   { name: 'the ruler', file: './ui/RulerInput.svelte', slider: true, text: true },
@@ -150,18 +224,78 @@ const INPUTS: { name: string; file: string; slider: boolean; text?: boolean }[] 
   { name: 'the coins', file: './ui/CoinTray.svelte', slider: false },
   { name: 'a bar', file: '../data/ui/BarDrag.svelte', slider: true },
   { name: 'the chance line', file: '../data/ui/ChanceLine.svelte', slider: true, text: true },
+  { name: 'the dot grid', file: '../shapes/ui/DotGrid.svelte', slider: false, grid: true },
+  { name: 'the line plot', file: '../data/ui/DotTap.svelte', slider: false, grid: true },
+  { name: 'the angle maker', file: '../shapes/ui/AngleMaker.svelte', slider: true, text: true },
+  { name: 'the thermometer', file: './ui/ThermoInput.svelte', slider: true, text: true },
+  { name: 'the percent bar', file: './ui/PercentBar.svelte', slider: true, text: true },
+  { name: 'the ray', file: './ui/RayInput.svelte', slider: true, text: true },
+  { name: 'the double number line', file: './ui/DoubleLine.svelte', slider: false },
+  { name: 'the protractor', file: '../shapes/ui/Protractor.svelte', slider: false },
+  { name: 'the shape pick', file: '../shapes/ui/ShapePick.svelte', slider: false },
+  { name: 'the ratio table', file: './ui/RatioTable.svelte', slider: false, buttons: false },
+  { name: 'the balance', file: './ui/BalanceInput.svelte', slider: false },
 ];
-describe.each(INPUTS)('$name', ({ file, slider, text }) => {
+describe('the ray, the double number line, the protractor, the shapes, the table and the balance, by keyboard', () => {
+  it('the ray keeps Space for filling the dot, and its four buttons say which is picked', () => {
+    const s = src('./ui/RayInput.svelte');
+    expect(s).toContain("if (e.key === ' ') { e.preventDefault(); if (at !== null) fill(!closed); return; }");
+    expect(tags(s, 'button').filter(b => b.includes('aria-pressed='))).toHaveLength(4);
+    expect(s).toContain("at === null ? 'No dot yet'");
+  });
+  it('the double number line is a slider only when the pin is to be placed', () => {
+    const el = tags(src('./ui/DoubleLine.svelte'), 'div').filter(t => t.includes('class="lines"'))[0];
+    for (const a of ["role={place ? 'slider' : undefined}", 'tabindex={place ? 0 : undefined}', 'aria-label={place ?', 'aria-valuemin={place ? 0 : undefined}', 'aria-valuemax={place ? spec.n : undefined}', 'aria-valuenow={place ? (at ?? undefined) : undefined}']) expect(el, a).toContain(a);
+  });
+  it('the protractor reads out when it lines up, and the number typed', () => {
+    const s = src('../shapes/ui/Protractor.svelte');
+    expect(s).toContain('<span class="hint" class:ok={lined} aria-live="polite">');
+    expect(s).toContain('<div class="box" class:bad aria-live="polite">');
+  });
+  it('a shape says what it is where it has a name, and whether it is picked', () => {
+    const s = src('../shapes/ui/ShapePick.svelte');
+    expect(s).toContain('aria-pressed={picked.has(i)} aria-label={named(f, i)}');
+    expect(s).toContain('.polys?.find(q => q.name)?.name');
+    expect(s).toContain('return n ? `Shape ${i + 1}: ${n}` : `Shape ${i + 1}`;');
+  });
+  it('the ratio table and the balance read out what is typed, and the balance\'s buttons work by keyboard', () => {
+    expect(src('./ui/RatioTable.svelte')).toContain('data-drop="num" aria-live="polite">');
+    const b = src('./ui/BalanceInput.svelte');
+    expect(b).toContain('<span class="box" aria-live="polite">{typed}</span>');
+    expect(b).toContain('<p class="say" aria-live="polite">{say}</p>');
+    for (const p of ['{...press(() => take(1))}', '{...press(share)}', '{...press(check)}']) expect(b).toContain(p);
+  });
+});
+describe('the angle maker, the thermometer and the percent bar, by keyboard', () => {
+  it('the angle opens to the left, so Left opens it, as it always has', () => {
+    expect(src('../shapes/ui/AngleMaker.svelte')).toContain('stepKey(mirror(e), open, { min: spec.step, max: 180, step: spec.step }, e.target === svg)');
+  });
+  it('the thermometer and the bar say there is no mark yet before there is one', () => {
+    expect(src('./ui/ThermoInput.svelte')).toContain("aria-valuetext={at === null ? 'No mark yet' : `${txt(at)} degrees`}");
+    expect(src('./ui/PercentBar.svelte')).toContain("aria-valuetext={pct === null ? 'No mark yet' : `${pct}%`}");
+  });
+});
+describe.each(INPUTS)('$name', ({ file, slider, text, grid, buttons: has }) => {
   const s = src(file);
   it.runIf(slider)('Tab reaches it, and it says what it is and its value', () => {
     const el = [...tags(s, 'svg'), ...tags(s, 'div')].filter(t => t.includes('role="slider"'));
     expect(el).toHaveLength(1);
     for (const a of ['tabindex="0"', 'aria-label=', 'aria-valuemin=', 'aria-valuemax=', 'aria-valuenow=', ...(text ? ['aria-valuetext='] : [])]) expect(el[0], a).toContain(a);
   });
+  it.runIf(!!grid)('Tab reaches it: a grid whose ring is its active cell, and each cell says what it is', () => {
+    const el = tags(s, 'svg').filter(t => t.includes('role="grid"'));
+    expect(el).toHaveLength(1);
+    for (const a of ['tabindex="0"', 'aria-label=', 'aria-activedescendant=', 'onfocus=', 'onblur=']) expect(el[0], a).toContain(a);
+    expect(s).toContain('<g role="row">');
+    const cells = [...tags(s, 'g'), ...tags(s, 'rect')].filter(t => t.includes('role="gridcell"'));
+    expect(cells).toHaveLength(1);
+    for (const a of ['id=', 'aria-label=', 'onpointerdown=']) expect(cells[0], a).toContain(a);
+    expect(s).toMatch(/if \(e\.target === (board|plot)\) \{/);
+  });
   it('nothing in it is kept from Tab, and every button works by keyboard', () => {
     expect(s).not.toContain('tabindex="-1"');
     const buttons = tags(s, 'button');
-    expect(buttons.length).toBeGreaterThan(0);
+    if (has !== false) expect(buttons.length).toBeGreaterThan(0);
     for (const b of buttons) expect(b).toContain('{...press(');
   });
   it('its keys leave Enter and Space on a button to the button, and the focus ring isn\'t turned off', () => {
@@ -175,5 +309,19 @@ describe('the coins, by keyboard', () => {
     expect(s).toContain('{...press(() => take(x.k), () => void takeByKey(x.k))}');
     expect(s).toMatch(/<div class="tray"[^>]*role="group" aria-label="Your tray: \{money\(total\)\}"/);
     expect(s).toContain('<span class="sum" aria-live="polite">{money(total)}</span>');
+  });
+});
+describe('the dot grid and the line plot, by keyboard', () => {
+  it('a peg says whether it is in the shape, and the count of corners is read out', () => {
+    const s = src('../shapes/ui/DotGrid.svelte');
+    expect(s).toContain('aria-selected={on >= 0}');
+    expect(s).toContain('<span class="count" aria-live="polite">');
+    expect(s).toContain("if (k === 'pick') tap([cur[0], cur[1]]);");
+  });
+  it('a mark says how many dots it has; the dots themselves are left to a tap', () => {
+    const s = src('../data/ui/DotTap.svelte');
+    expect(s).toContain('aria-label="{fracText(spec.min + t / spec.den, spec.den)}: {many(c)}"');
+    expect(s).toContain("if (k === 'add') add(cur); else if (k === 'take') take(cur);");
+    expect(tags(s, 'g').filter(t => t.includes('class="dot"'))[0]).toContain('aria-hidden="true"');
   });
 });

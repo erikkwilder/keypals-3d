@@ -3,6 +3,9 @@
   // or the arrow keys) and the juice fills to the nearest tick, its percent riding on top. When the bar
   // stands for some fruit (`whole`), the whole is written at its end, and the fruit's picture sits at the
   // start. Check (or Enter) answers with the percent.
+  // By keyboard a slider (stepKey, inputKeys.ts): Tab reaches the bar, then Check. Right and Up fill it a tick
+  // more, Left and Down a tick less, from anywhere on the page; while it has focus Page Up and Page Down move
+  // ten ticks, Home and End go to 0% and 100%, and Space is Check as Enter is. A screen reader hears the percent.
   import { onDestroy } from 'svelte';
   import { WRONG_MS } from '../../ui/NumPad.svelte';
   import Icon from '../../../ui/Icon.svelte';
@@ -10,6 +13,7 @@
   import type { Answer } from '../types';
   import type { PctBarSpec } from '../ratios';
   import { FRUIT } from '../ratioPic';
+  import { buttonKey, press, stepKey } from '../inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   const base = import.meta.env.BASE_URL;
   const spec = $derived(item.custom!.spec as PctBarSpec);
@@ -35,9 +39,11 @@
     if (send({ kind: 'point', x: pct }) === false) { bad = true; clearTimeout(timer); timer = setTimeout(() => (bad = false), WRONG_MS); }
   }
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); onfirst(); pct = Math.max(0, Math.min(100, (pct ?? 0) + (e.key === 'ArrowRight' ? spec.step : -spec.step))); }
-    else if (e.key === 'Enter') { e.preventDefault(); check(); }
+    if (disabled || buttonKey(e)) return;
+    const k = stepKey(e, pct ?? 0, { min: 0, max: 100, step: spec.step }, e.target === el);
+    if (k === null) return;
+    e.preventDefault();
+    if (k === 'go') check(); else if (k !== 'hold') { onfirst(); pct = k; }
   }
   const color = $derived(FRUIT[spec.f].color);
 </script>
@@ -47,8 +53,7 @@
 <div class="pb" class:compact>
   {#if spec.whole !== null}<img class="who" src="{base}math/ratios/fruit/{spec.f}.webp" alt="" />{/if}
   <div class="wrap">
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="bar" class:bad bind:this={el} style:--c={color}
+    <div class="bar" class:bad bind:this={el} style:--c={color} role="slider" tabindex="0" aria-label="Percent bar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct ?? undefined} aria-valuetext={pct === null ? 'No mark yet' : `${pct}%`}
       onpointerdown={(e) => { dragging = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setFromX(e.clientX); }}
       onpointermove={(e) => { if (dragging) setFromX(e.clientX); }} onpointerup={() => (dragging = false)}>
       <span class="fill" style:width="{pct ?? 0}%"><i class="shine"></i></span>
@@ -62,7 +67,7 @@
     </div>
     {#if spec.whole !== null}<div class="under"><span>0</span><span>{spec.whole} {FRUIT[spec.f].many}</span></div>{/if}
   </div>
-  <button class="ok" disabled={pct === null || disabled} onpointerdown={(e) => { e.preventDefault(); check(); }} tabindex="-1"><Icon name="check" size={28} /><span>Check</span></button>
+  <button class="ok" disabled={pct === null || disabled} {...press(check)}><Icon name="check" size={28} /><span>Check</span></button>
 </div>
 
 <style>

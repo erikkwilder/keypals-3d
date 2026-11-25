@@ -10,6 +10,7 @@
   import type { Answer } from '../types';
   import type { DnlSpec } from '../ratios';
   import { FRUIT } from '../ratioPic';
+  import { buttonKey, press, stepKey } from '../inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   const base = import.meta.env.BASE_URL;
   const spec = $derived(item.custom!.spec as DnlSpec);
@@ -53,13 +54,21 @@
     at = Math.round(k * spec.n);
   }
   function checkPlace() { if (at === null || disabled) return; if (send({ kind: 'point', x: Math.round(at * spec.bot.step * 1000) / 1000 }) === false) wrong(() => {}); }
+  // `place` by keyboard a slider (stepKey, inputKeys.ts): Tab reaches the lines, then Check, which works with
+  // Enter or Space. The arrows move the pin a tick from anywhere on the page (Up and Down too); while the lines
+  // have focus Page Up and Page Down move ten ticks, Home and End go to the ends, and Space is Check as Enter
+  // is. A screen reader hears the pin's tick, counted from 0, as a sighted child counts them. `read` is typed.
+  const place = $derived(spec.mode === 'place');
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (disabled || buttonKey(e)) return;
     if (spec.mode === 'place') {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); onfirst(); at = Math.max(0, Math.min(spec.n, (at ?? 0) + (e.key === 'ArrowRight' ? 1 : -1))); }
-      else if (e.key === 'Enter') { e.preventDefault(); checkPlace(); }
+      const k = stepKey(e, at ?? 0, { min: 0, max: spec.n, step: 1 }, e.target === el);
+      if (k === null) return;
+      e.preventDefault();
+      if (k === 'go') checkPlace(); else if (k !== 'hold') { onfirst(); at = k; }
       return;
     }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.repeat) return;
     const m = /^(?:Digit|Numpad)([0-9])$/.exec(e.code);
     const d = /^[0-9]$/.test(e.key) ? e.key : m ? m[1] : null;
@@ -73,8 +82,10 @@
 
 <div class="dl" class:compact>
   <div class="row">
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <!-- svelte-ignore a11y_no_static_element_interactions, a11y_no_noninteractive_tabindex -->
     <div class="lines" bind:this={el} class:place={spec.mode === 'place'}
+      role={place ? 'slider' : undefined} tabindex={place ? 0 : undefined} aria-label={place ? `Number line of ${word(spec.bot.f)}` : undefined}
+      aria-valuemin={place ? 0 : undefined} aria-valuemax={place ? spec.n : undefined} aria-valuenow={place ? (at ?? undefined) : undefined} aria-valuetext={place && at === null ? 'No mark yet' : undefined}
       onpointerdown={(e) => { if (spec.mode !== 'place') return; dragging = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setFromX(e.clientX); }}
       onpointermove={(e) => { if (dragging) setFromX(e.clientX); }} onpointerup={() => (dragging = false)}>
       {#each [spec.top, spec.bot] as lane, li (li)}
@@ -85,7 +96,7 @@
             {@const gap = li === 1 && spec.mode === 'read' && k === spec.at}
             {@const v = k * lane.step}
             <span class="tick" class:big={k === 0} class:hot={(li === 0 && k === spec.at && spec.mode === 'read') || (li === 1 && spec.mode === 'place' && at === k)} style:left={left(k)}>
-              {#if gap}<b class="gapbox" class:bad class:typed={!!text} data-drop="num">{text || '?'}</b>
+              {#if gap}<b class="gapbox" class:bad class:typed={!!text} data-drop="num" aria-live="polite">{text || '?'}</b>
               {:else if lane.show.includes(k)}<b>{fmt(v)}</b>{/if}
             </span>
           {/each}
@@ -95,7 +106,7 @@
       <span class="link" style:left={across(spec.at)} class:show={spec.mode === 'read'}></span>
     </div>
     {#if spec.mode === 'place'}
-      <button class="ok" disabled={at === null || disabled} onpointerdown={(e) => { e.preventDefault(); checkPlace(); }} tabindex="-1"><Icon name="check" size={28} /><span>Check</span></button>
+      <button class="ok" disabled={at === null || disabled} {...press(checkPlace)}><Icon name="check" size={28} /><span>Check</span></button>
     {/if}
   </div>
   {#if spec.mode === 'read'}<NumPad ondigit={digit} onback={back} {disabled} {compact} />{/if}
@@ -104,7 +115,7 @@
 <style>
   .dl { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
   .row { display: flex; align-items: center; gap: 14px; width: min(1000px, 100%); }
-  .lines { position: relative; flex: 1; display: flex; flex-direction: column; gap: 34px; padding: 10px 0 28px; touch-action: none; }
+  .lines { position: relative; flex: 1; display: flex; flex-direction: column; gap: 34px; padding: 10px 0 28px; touch-action: none; border-radius: 14px; }
   .lines.place { cursor: pointer; }
   .lane { position: relative; height: 34px; margin-left: 84px; }
   .who { position: absolute; left: -84px; top: 50%; transform: translateY(-50%); width: 78px; display: flex; flex-direction: column; align-items: center; }

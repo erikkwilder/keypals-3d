@@ -2,11 +2,15 @@
   // Find them all: crystal shapes on a tray, tap every one that fits ("every triangle") so it glows, tap
   // again to put it back, then Done. The answer is the shapes picked (math/shapes/skills.ts checks them).
   // Number keys pick by place, Enter is Done.
+  // By keyboard: Tab reaches every shape, then Done, and they work with Enter or Space. A screen reader hears
+  // each shape's place and what it is ("Shape 2: a triangle", from the shape's own name where it has one), and
+  // whether it's picked.
   import { sfx } from '../../../audio/sound';
   import Icon from '../../../ui/Icon.svelte';
   import type { CustomInputProps } from '../../skills/ui/SkillInput.svelte';
   import type { Fig } from '../fig';
   import ShapePic from './ShapePic.svelte';
+  import { buttonKey, press } from '../../skills/inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   const spec = $derived(item.custom?.spec as { figs: Fig[]; word: string });
   let picked = $state<Set<number>>(new Set());
@@ -20,12 +24,15 @@
   }
   function done() { if (!disabled && picked.size) onanswer({ kind: 'choice', id: [...picked].sort((a, b) => a - b).join(',') }); }
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (disabled || e.metaKey || e.ctrlKey || e.altKey || buttonKey(e)) return;
     const n = Number(e.key);
     if (n >= 1 && n <= spec.figs.length) { e.preventDefault(); flip(n - 1); }
     else if (e.key === 'Enter') { e.preventDefault(); done(); }
   }
   const cell = $derived(compact ? (spec.figs.length > 6 ? 62 : 72) : spec.figs.length > 6 ? 92 : 108);
+  /** what a screen reader calls a shape: its place, and its name where it has one */
+  // (a tray's shape keeps its name on its piece: polys[].name, "a square")
+  const named = (f: Fig, i: number) => { const n = (f as { name?: string }).name ?? (f as { polys?: { name?: string }[] }).polys?.find(q => q.name)?.name; return n ? `Shape ${i + 1}: ${n}` : `Shape ${i + 1}`; };
 </script>
 
 <svelte:window onkeydown={key} />
@@ -33,14 +40,14 @@
 <div class="pick" class:compact>
   <div class="tray" role="group" aria-label="Shapes to pick">
     {#each spec.figs as f, i (i)}
-      <button class="sh" class:on={picked.has(i)} {disabled} onpointerdown={(e) => { e.preventDefault(); flip(i); }} tabindex="-1" aria-pressed={picked.has(i)} aria-label="Shape {i + 1}">
+      <button class="sh" class:on={picked.has(i)} {disabled} {...press(() => flip(i))} aria-pressed={picked.has(i)} aria-label={named(f, i)}>
         <ShapePic fig={f} size={cell} />
         {#if !compact}<span class="k">{i + 1}</span>{/if}
         {#if picked.has(i)}<span class="tick"><Icon name="check" size={compact ? 14 : 18} /></span>{/if}
       </button>
     {/each}
   </div>
-  <button class="ok" disabled={disabled || !picked.size} onpointerdown={(e) => { e.preventDefault(); done(); }} tabindex="-1"><Icon name="check" size={26} /><span>Done{picked.size ? ` (${picked.size})` : ''}</span></button>
+  <button class="ok" disabled={disabled || !picked.size} {...press(done)}><Icon name="check" size={26} /><span>Done{picked.size ? ` (${picked.size})` : ''}</span></button>
 </div>
 
 <style>

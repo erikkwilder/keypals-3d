@@ -2,10 +2,15 @@
   // Make an angle: one side lies still along a protractor's 0; drag the glowing end of the other side round
   // (or use the arrow keys) and it clicks from mark to mark. The protractor's numbers say where you are
   // (gentle rungs show the size as you go); Check when it's the angle asked for.
+  // By keyboard a slider (stepKey, inputKeys.ts): Tab reaches the angle, then Check. Left and Up open it a mark,
+  // Right and Down close it, from anywhere on the page, as before (it opens to the left: mirror); while it has
+  // focus Page Up and Page Down move ten marks, Home and End go to the smallest angle and to a straight line,
+  // and Space is Check as Enter is. A screen reader hears its size in degrees.
   import { sfx } from '../../../audio/sound';
   import Icon from '../../../ui/Icon.svelte';
   import type { CustomInputProps } from '../../skills/ui/SkillInput.svelte';
   import ProtractorArt from './ProtractorArt.svelte';
+  import { buttonKey, mirror, press, stepKey } from '../../skills/inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   type Spec = { target: number; from: number; guide: 'full' | 'tens' | 'thirties'; step: number; live: boolean };
   const spec = $derived(item.custom?.spec as Spec);
@@ -40,10 +45,11 @@
     if (ok === false) { bad = true; setTimeout(() => (bad = false), 700); }
   }
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); onfirst(); setOpen(open + spec.step); }
-    else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); onfirst(); setOpen(open - spec.step); }
-    else if (e.key === 'Enter') { e.preventDefault(); check(); }
+    if (disabled || buttonKey(e)) return;
+    const k = stepKey(mirror(e), open, { min: spec.step, max: 180, step: spec.step }, e.target === svg);
+    if (k === null) return;
+    e.preventDefault();
+    if (k === 'go') check(); else if (k !== 'hold') { onfirst(); setOpen(k); }
   }
   const arcD = $derived.by(() => { const n = 24, rr = 34; return `M${C.x},${C.y} ` + Array.from({ length: n + 1 }, (_, j) => { const t = rad(spec.from + (open * j) / n); return `L${C.x + Math.cos(t) * rr},${C.y - Math.sin(t) * rr}`; }).join(' ') + ' Z'; });
   const every = $derived(spec.guide === 'full' ? 10 : 30), tick = $derived(spec.guide === 'thirties' ? 30 : spec.guide === 'tens' ? 10 : 5);
@@ -52,7 +58,7 @@
 <svelte:window onkeydown={key} />
 
 <div class="am" class:compact>
-  <svg bind:this={svg} viewBox="0 0 {W} {H}" class="pic" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="img" aria-label="Make an angle">
+  <svg bind:this={svg} viewBox="0 0 {W} {H}" class="pic" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="slider" tabindex="0" aria-label="Make an angle" aria-valuemin={spec.step} aria-valuemax={180} aria-valuenow={open} aria-valuetext="{open} degrees">
     <rect x="0" y="0" width={W} height={H} rx="20" fill="#fffaf0" />
     <ProtractorArt cx={C.x} cy={C.y} r={R} turn={spec.from} both={false} {every} {tick} />
     <path d={arcD} fill={bad ? '#ff8aa5' : '#b9a0ff'} fill-opacity=".45" />
@@ -65,7 +71,7 @@
   </svg>
   <div class="side">
     <span class="want">Make <b>{spec.target}°</b></span>
-    <button class="ok" disabled={disabled || !moved} onpointerdown={(e) => { e.preventDefault(); check(); }} tabindex="-1"><Icon name="check" size={24} /><span>Check</span></button>
+    <button class="ok" disabled={disabled || !moved} {...press(check)}><Icon name="check" size={24} /><span>Check</span></button>
   </div>
 </div>
 
