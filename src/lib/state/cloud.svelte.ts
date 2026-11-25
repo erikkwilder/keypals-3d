@@ -19,6 +19,7 @@ import { planSync, goneNote, missingNote, notHereCodes, markNotHere, clearNotHer
 import { movedCodes, moveUrl } from './move';
 import { count, startCounting } from './counting';
 import { cleanCode } from './codes';
+import { watchRechecks } from './recheck';
 
 export type CloudPlayer = { code: string; name: string; buddy: string; updated: number };
 export const cloud = $state({
@@ -433,10 +434,10 @@ export async function startCloud() {
   const before = new Set(game.save.profiles.map(p => p.id));
   await catchUp(true);
   // a sign-in can run out while the game is open, and other computers add and delete players: check again
-  // when the game comes back into view, and every quarter of an hour
-  const recheck = () => { if (document.visibilityState === 'visible') void catchUp(); };
-  document.addEventListener('visibilitychange', recheck);
-  setInterval(recheck, 15 * 60000);
+  // when the game comes back into view, and every quarter of an hour. And when the browser says it's back
+  // online: check again, then send what changed here while the connection was down (a catch-up sends only
+  // players whose online copy changed elsewhere too, so before this it waited for the next change)
+  watchRechecks({ inView: () => void catchUp(), backOnline: () => void catchUp().catch(() => {}).then(pushAll) });
   // players moved here from fancyant.com/keypals (move.ts): add them, then clear the address
   const moving = movedCodes(location.hash);
   if (moving.length) {
