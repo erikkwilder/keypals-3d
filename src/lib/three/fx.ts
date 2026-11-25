@@ -3,6 +3,7 @@
 // buddy to the Grumble, lightning, a shield bubble, light beams. Everything is pooled; nothing allocates
 // per frame.
 import * as THREE from 'three';
+import { calm, FEW } from './calm';
 
 export type Shape = 'dot' | 'star' | 'flake' | 'leaf' | 'drop' | 'pebble' | 'note' | 'heart' | 'ring' | 'spark' | 'petal' | 'shard';
 const SHAPES: Shape[] = ['dot', 'star', 'flake', 'leaf', 'drop', 'pebble', 'note', 'heart', 'ring', 'spark', 'petal', 'shard'];
@@ -94,24 +95,26 @@ export class Fx {
   setScale(heightPx: number, fov: number) { (this.points.material as THREE.ShaderMaterial).uniforms.scale.value = heightPx / (2 * Math.tan(THREE.MathUtils.degToRad(fov / 2))); }
 
   emit(e: Emit) {
+    // with less motion, a few sparkles that stay where they're made and fade there (calm.ts)
+    const still = calm.on, count = still ? Math.min(FEW, e.count) : e.count;
     const shapes = Array.isArray(e.shape) ? e.shape : [e.shape ?? 'dot'];
     const cols = (Array.isArray(e.color) ? e.color : [e.color ?? 0xffffff]).map(c => new THREE.Color(c));
     const to = e.to !== undefined ? new THREE.Color(e.to) : null;
     const dir = e.dir?.clone().normalize();
-    for (let i = 0; i < e.count; i++) {
+    for (let i = 0; i < count; i++) {
       const p = this.ps[this.next]; this.next = (this.next + 1) % MAX;
       const sp = rnd(e.speed ?? [0.5, 2]);
       let v: THREE.Vector3;
       if (dir) { v = dir.clone(); const spr = e.spread ?? 0.5; v.x += (Math.random() - 0.5) * spr * 2; v.y += (Math.random() - 0.5) * spr * 2; v.z += (Math.random() - 0.5) * spr * 2; v.normalize(); }
       else { v = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5 + (e.up ?? 0), Math.random() - 0.5).normalize(); }
-      v.multiplyScalar(sp);
+      v.multiplyScalar(still ? 0 : sp);
       const r0 = e.radius ?? 0;
       const c = cols[Math.floor(Math.random() * cols.length)], c2 = to ?? c;
       Object.assign(p, {
         alive: true, x: e.at.x + (Math.random() - 0.5) * r0 * 2, y: e.at.y + (Math.random() - 0.5) * r0 * 2, z: e.at.z + (Math.random() - 0.5) * r0 * 2,
-        vx: v.x, vy: v.y, vz: v.z, life: rnd(e.life ?? [0.5, 1]), age: 0, size: rnd(e.size ?? [0.1, 0.2]), grow: e.grow ?? 0,
+        vx: v.x, vy: v.y, vz: v.z, life: rnd(e.life ?? [0.5, 1]), age: 0, size: rnd(e.size ?? [0.1, 0.2]), grow: still ? 0 : e.grow ?? 0,
         r: c.r, g: c.g, b: c.b, r2: c2.r, g2: c2.g, b2: c2.b, shape: SHAPES.indexOf(shapes[Math.floor(Math.random() * shapes.length)]),
-        rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * (e.spin ?? 2), drag: e.drag ?? 1, grav: e.gravity ?? 0, flutter: e.flutter ?? 0, fade: e.fade ?? 1,
+        rot: Math.random() * 6.28, spin: still ? 0 : (Math.random() - 0.5) * (e.spin ?? 2), drag: e.drag ?? 1, grav: still ? 0 : e.gravity ?? 0, flutter: still ? 0 : e.flutter ?? 0, fade: e.fade ?? 1,
       });
     }
   }
@@ -183,6 +186,9 @@ export class Fx {
   }
 
   update(dt: number, t: number) {
+    // less motion (calm.ts): no trail behind a flying power (it still flies, and hits on time), no flicker or
+    // flash, the shield's shimmer and pop held, and sparkles already in the air stay where they are
+    const still = calm.on;
     // flying powers
     for (const f of this.flies) {
       if (f.done) continue;
@@ -191,16 +197,18 @@ export class Fx {
       const a = f.from.clone().lerp(f.mid, e), b = f.mid.clone().lerp(f.to, e);
       f.orb.position.copy(a.lerp(b, e));
       f.orb.material.rotation += dt * 4;
-      this.emit(f.trail());
+      if (!still) this.emit(f.trail());
       if (k >= 1) { f.done = true; f.orb.removeFromParent(); f.orb.material.dispose(); f.hit(); }
     }
     this.flies = this.flies.filter(f => !f.done);
     // lightning flicker
     for (const b of this.bolts) {
       b.age += dt;
-      const on = b.age < b.life && Math.sin(b.age * 70) > -0.3;
+      const on = b.age < b.life && (still || Math.sin(b.age * 70) > -0.3);
       b.mesh.visible = on;
-      ((b.mesh.material as THREE.MeshBasicMaterial).opacity) = 1 - b.age / b.life;
+      ((b.mesh.material as THREE.MeshBasicMaterial).opacity) = still ? soft(b.age / b.life) : 1 - b.age / b.life;
+      // (with less motion it comes and goes softly, at half the light, its glow with it)
+      if (still) ((b.mesh.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.35 * soft(b.age / b.life);
       if (b.age >= b.life) { b.mesh.removeFromParent(); b.mesh.geometry.dispose(); (b.mesh.children[0] as THREE.Mesh).geometry.dispose(); }
     }
     this.bolts = this.bolts.filter(b => b.age < b.life);
@@ -215,9 +223,9 @@ export class Fx {
     if (this.shield?.visible) {
       this.shieldAge += dt;
       const k = this.shieldAge / this.shieldLife, m = this.shield.material as THREE.ShaderMaterial;
-      m.uniforms.t.value = t;
+      if (!still) m.uniforms.t.value = t;
       m.uniforms.a.value = k < 0.12 ? k / 0.12 : Math.max(0, 1 - (k - 0.5) / 0.5);
-      const pop = k < 0.12 ? 0.6 + (k / 0.12) * 0.45 : 1.05 - Math.min(0.05, k * 0.05);
+      const pop = k < 0.12 && !still ? 0.6 + (k / 0.12) * 0.45 : 1.05 - Math.min(0.05, k * 0.05);
       this.shield.scale.setScalar((this.shield.userData.r ?? 1) * pop);
       if (this.shieldAge >= this.shieldLife) this.shield.visible = false;
     }
@@ -228,11 +236,13 @@ export class Fx {
       if (!p.alive) continue;
       p.age += dt;
       if (p.age >= p.life) { p.alive = false; continue; }
-      const dr = Math.exp(-p.drag * dt);
-      p.vx *= dr; p.vy = p.vy * dr - p.grav * dt; p.vz *= dr;
-      if (p.flutter) { p.vx += Math.sin(t * 5 + i) * p.flutter * dt; p.vz += Math.cos(t * 4 + i * 1.3) * p.flutter * dt; }
-      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
-      p.rot += p.spin * dt;
+      if (!still) {
+        const dr = Math.exp(-p.drag * dt);
+        p.vx *= dr; p.vy = p.vy * dr - p.grav * dt; p.vz *= dr;
+        if (p.flutter) { p.vx += Math.sin(t * 5 + i) * p.flutter * dt; p.vz += Math.cos(t * 4 + i * 1.3) * p.flutter * dt; }
+        p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+        p.rot += p.spin * dt;
+      }
       const k = p.age / p.life, a = (k < 0.1 ? k / 0.1 : 1 - Math.pow((k - 0.1) / 0.9, 1.6) * p.fade);
       this.pos[n * 3] = p.x; this.pos[n * 3 + 1] = p.y; this.pos[n * 3 + 2] = p.z;
       this.col[n * 4] = p.r + (p.r2 - p.r) * k; this.col[n * 4 + 1] = p.g + (p.g2 - p.g) * k; this.col[n * 4 + 2] = p.b + (p.b2 - p.b) * k; this.col[n * 4 + 3] = Math.max(0, a);
@@ -260,3 +270,5 @@ export class Fx {
 }
 
 const rnd = ([a, b]: [number, number]) => a + Math.random() * (b - a);
+/** a soft rise and fall, at half the light (a lightning bolt, with less motion) */
+const soft = (k: number) => 0.5 * Math.sin(Math.PI * Math.min(1, Math.max(0, k)));

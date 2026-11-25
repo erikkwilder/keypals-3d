@@ -24,6 +24,7 @@
   import { cloud, startCloud } from './lib/state/cloud.svelte';
   import FancyAntIntro, { introDue } from './lib/ui/FancyAntIntro.svelte';
   import { motion } from './lib/ui/motion.svelte';
+  import { calm } from './lib/three/calm';
   import NetNote from './lib/ui/NetNote.svelte';
   import { keepFocus, holdFocus } from './lib/ui/focusKeeper';
   import type { Screen } from './lib/state/game.svelte';
@@ -129,6 +130,8 @@
 
   // less motion (app.css stills the CSS by it): the game's own "Less motion", or the computer's setting, live
   $effect(() => { document.documentElement.dataset.motion = motion.reduced ? 'reduced' : 'full'; });
+  // and the 3D world: the stage and its scenes ask each frame (three/calm.ts)
+  calm.follow(() => motion.reduced);
 
   // the first game a player starts (a math trip, the playground, a battle, a duel) asks how things should
   // sound, once per player; a typing lesson asks for itself, before its coach starts talking

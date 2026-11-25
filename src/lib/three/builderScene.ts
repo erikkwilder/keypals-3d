@@ -6,6 +6,7 @@
 // flash, and a rod can break back into ten ones. A Geode Mole helps from behind the mat. A renderer of its
 // own over the painted workshop, like Pizza Rush's.
 import * as THREE from 'three';
+import { shakeOf } from './calm';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { loadTexture } from './assets';
 import { Fx } from './fx';
@@ -304,7 +305,7 @@ export class BuilderScene {
       b.mesh.scale.setScalar(Math.max(0.01, 1 - b.leaving));
       if (b.leaving >= 1) this.drop(b);
     }
-    if (this.shakeT > 0) { this.shakeT = Math.max(0, this.shakeT - dt); this.mat.position.x = Math.sin(this.t * 60) * this.shakeT * 0.12; } else this.mat.position.x = 0;
+    if (this.shakeT > 0) { this.shakeT = Math.max(0, this.shakeT - dt); this.mat.position.x = Math.sin(this.t * 60) * shakeOf(this.shakeT) * 0.12; } else this.mat.position.x = 0;
     this.helper?.update(dt, this.t);
     this.fx.update(dt, this.t);
     this.renderer.render(this.scene, this.camera);

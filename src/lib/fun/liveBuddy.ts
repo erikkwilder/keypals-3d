@@ -8,8 +8,11 @@ import * as THREE from 'three';
 import { Character } from '../three/character';
 import { dressUp } from '../three/dress';
 import type { FriendId } from '../art/cast';
+import { IdleHold } from '../three/calm';
 
 export class LiveBuddy {
+  /** its pose held while it only stands there, with less motion (three/calm.ts) */
+  private hold = new IdleHold();
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private cam = new THREE.PerspectiveCamera(24, 1, 0.05, 50);
@@ -97,7 +100,8 @@ export class LiveBuddy {
     if (this.canvas.width !== Math.round(W * px) || this.canvas.height !== Math.round(Hh * px)) this.renderer.setSize(W, Hh, false);
     this.cam.setViewOffset(r.width, r.height, -padX, -padT, W, Hh);
     if (this.stay) this.ambient(dt);
-    this.c.update(dt);
+    // standing there, it breathes; with less motion it holds still (a tickle's giggle and sneeze play as ever)
+    this.c.update(this.hold.step(dt, this.c.busy || !!this.move, this.quiet()));
     this.renderer.render(this.scene, this.cam);
     this.idleFor += dt;
     // a while after the last tickle, back to the picture (not Home's buddy: it stays)
@@ -119,7 +123,8 @@ export class LiveBuddy {
     // mostly a glance (toward you, or a little to the side); sometimes a hop or a fist pump
     const moves = this.quiet() ? [] : ['jump', 'fistpump'].filter(n => c.has(n));
     if (moves.length && Math.random() < 0.35) { const n = moves[Math.floor(Math.random() * moves.length)]; if (c.play(n, 0.3)) { c.actions[n]?.reset(); this.move = n; } }
-    else this.turn.goal = [-0.38, -0.1, -0.62][Math.floor(Math.random() * 3)];
+    // (with less motion, no glances either: it keeps facing the way it was)
+    else if (!this.quiet()) this.turn.goal = [-0.38, -0.1, -0.62][Math.floor(Math.random() * 3)];
   }
 
   private end() { if (this.gone) return; this.dispose(); this.onEnd?.(); }
