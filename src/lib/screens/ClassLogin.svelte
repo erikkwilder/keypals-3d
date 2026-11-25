@@ -10,9 +10,10 @@
   import { classState, googleJoin, googleLogin, lookupClass, loginStudent, studentGoogle, studentGoogleDev, type ClassLook } from '../teach/student.svelte';
   import { cloud } from '../state/cloud.svelte';
   import { api } from '../teach/api';
-  import { PICTURES, cleanClassCode, pictureSrc, showClassCode } from '../teach/names';
+  import { cleanClassCode, showClassCode } from '../teach/names';
   import Critter from '../ui/Critter.svelte';
   import Bar from '../ui/Bar.svelte';
+  import PicturePick from '../ui/PicturePick.svelte';
   import type { FriendId } from '../art/cast';
 
   let step = $state<'code' | 'name' | 'pics' | 'going' | 'google'>(classState.googleTicket ? 'google' : 'code');
@@ -30,8 +31,6 @@
   let msg = $state<string | null>(null);
   let shake = $state(0);
   let busy = $state(false);
-  // the pictures in a fixed, mixed-up order (the same every time, so a child learns where theirs are)
-  const order = [5, 12, 0, 9, 14, 3, 7, 10, 1, 15, 6, 13, 2, 8, 11, 4].filter(i => i < PICTURES.length);
 
   async function find() {
     msg = null; busy = true;
@@ -131,18 +130,7 @@
     {:else if step === 'pics' && who}
       <h1>Hi {who.name}!</h1>
       <p class="lead">Tap your two pictures, in order.</p>
-      <div class="slots">
-        {#each [0, 1] as k (k)}
-          <div class="slot" class:full={picked[k] !== undefined}><b>{k + 1}</b>{#if picked[k] !== undefined}<img src={pictureSrc(picked[k])} alt={PICTURES[picked[k]].name} />{/if}</div>
-        {/each}
-      </div>
-      {#key shake}
-        <div class="pics" class:shake={shake > 0}>
-          {#each order as i (i)}
-            <button class="pic" class:on={picked.includes(i)} onclick={() => tap(i)} aria-label={PICTURES[i].name}><img src={pictureSrc(i)} alt="" /><span>{PICTURES[i].name}</span></button>
-          {/each}
-        </div>
-      {/key}
+      <PicturePick {picked} {shake} ontap={tap} />
     {:else if step === 'going'}
       <h1>Welcome, {who?.name}!</h1>
       <p class="lead">Getting your things ready…</p>
@@ -163,18 +151,6 @@
   .names { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; width: min(960px, 100%); }
   .nm { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px; cursor: pointer; font: 600 22px var(--font-ui); color: var(--ink); }
   .nm:hover { transform: translateY(-3px); }
-  .slots { display: flex; gap: 18px; margin-bottom: 18px; }
-  .slot { width: 92px; height: 92px; border-radius: 22px; border: 3px dashed #cfc3ef; display: grid; place-items: center; position: relative; background: rgba(255, 255, 255, .7); }
-  .slot b { position: absolute; top: -12px; left: -12px; width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: #fff; font: 800 16px/30px var(--font-body); }
-  .slot.full { border-style: solid; border-color: var(--primary-hi); background: #fff; }
-  .slot img { width: 78px; height: 78px; object-fit: contain; animation: pop .25s ease; }
-  .pics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; width: min(620px, 100%); }
-  .pic { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 20px; border: 3px solid #ece4fb; background: #fff; cursor: pointer; box-shadow: var(--shadow-sm); }
-  .pic img { width: min(96px, 100%); aspect-ratio: 1; object-fit: contain; }
-  .pic span { font: 700 15px var(--font-body); color: var(--ink2); }
-  .pic:hover { border-color: var(--primary-hi); transform: translateY(-2px); }
-  .pic.on { border-color: var(--primary); background: #f3eeff; opacity: .6; }
-  .shake { animation: shake .45s ease; }
   .org { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(520px, 100%); }
   .or { font: 700 16px var(--font-body); color: var(--muted); }
   .gbtn { display: inline-flex; align-items: center; gap: 10px; }
@@ -183,18 +159,11 @@
   .drow input, .newme input { font: 600 18px var(--font-body); padding: 8px 12px; border-radius: 12px; border: 2px solid #d9cdf7; }
   .newme { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 18px; }
   .msg { margin-top: 18px; font: 700 20px var(--font-body); color: #b4541b; background: #fff4e8; padding: 10px 18px; border-radius: 16px; }
-  @keyframes shake { 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
-  @keyframes pop { from { transform: scale(.6); } to { transform: scale(1); } }
   @media (max-width: 600px) {
     h1 { font-size: 32px; }
     .lead { font-size: 17px; margin-bottom: 14px; }
     .codef input { font-size: 26px; padding: 12px; }
     .names { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .nm { font-size: 19px; }
-    .pics { gap: 8px; }
-    .pic { padding: 6px 2px; border-radius: 16px; }
-    .pic span { font-size: 12.5px; }
-    .slot { width: 76px; height: 76px; }
-    .slot img { width: 64px; height: 64px; }
   }
 </style>

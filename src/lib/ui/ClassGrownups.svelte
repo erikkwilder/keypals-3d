@@ -1,14 +1,16 @@
 <script lang="ts">
-  // On Grown-ups › Players: linking this player to a class (the teacher says yes first) or unlinking it, and
+  // On Grown-ups › Players: linking this player to a class (the teacher says yes first; saying it's a child on
+  // the class list already takes that child's two pictures, from their login card) or unlinking it, and
   // the world boards for the Arcade's daily challenge (off unless turned on; a made-up name, never the
   // player's own).
   import { game } from '../state/game.svelte';
   import { cloud } from '../state/cloud.svelte';
   import type { Profile } from '../engine/profile';
-  import { send } from '../teach/api';
+  import { send, type ApiError } from '../teach/api';
   import { classesOf, loadClasses, lookupClass, mineOf, type ClassLook } from '../teach/student.svelte';
   import { boardPrefs, setWorldBoards } from '../teach/boards';
   import { cleanClassCode } from '../teach/names';
+  import PicturePick from './PicturePick.svelte';
 
   type Props = { p: Profile };
   let { p }: Props = $props();
@@ -17,6 +19,11 @@
   let code = $state('');
   let look = $state<ClassLook | null>(null);
   let claims = $state<string>('new');
+  /** the classmate the family says this player is (null: joining as a new student) */
+  const classmate = $derived(claims === 'new' ? null : look?.students.find(s => s.id === claims) ?? null);
+  /** that classmate's two pictures, tapped in order: the class takes them as proof it really is that child */
+  let picked = $state<number[]>([]);
+  let shake = $state(0);
   let name = $state('');
   let msg = $state<string | null>(null);
   let busy = $state(false);
@@ -30,9 +37,24 @@
     busy = true; msg = null;
     try { await fn(); msg = done; } catch (e) { msg = (e as Error).message; } finally { busy = false; }
   }
-  const find = () => run(async () => { look = await lookupClass(cleanClassCode(code)); claims = 'new'; }, '');
+  const find = () => run(async () => { look = await lookupClass(cleanClassCode(code)); claims = 'new'; picked = []; }, '');
+  /** tap a picture: two, in order; tapping one again takes it back */
+  function tap(i: number) {
+    if (busy) return;
+    msg = null;
+    picked = picked.includes(i) ? picked.filter(x => x !== i) : picked.length < 2 ? [...picked, i] : picked;
+  }
   const link = () => run(async () => {
-    await send('/class/link', 'POST', { code: cleanClassCode(code), player: p.cloud!.code, ...(claims === 'new' ? { name } : { claims }) });
+    const who = classmate;
+    try {
+      await send('/class/link', 'POST', { code: cleanClassCode(code), player: p.cloud!.code, ...(who ? { claims: who.id, pics: picked } : { name }) });
+    } catch (e) {
+      // the server answers as at the class login (wrong pictures, or a rest after too many): said to a grown-up
+      const err = e as ApiError;
+      if (!who || !(err.body?.wrong || err.status === 429)) throw e;
+      picked = []; shake++;
+      throw new Error(err.body?.wrong ? `Those aren't ${who.name}'s two pictures. Check ${who.name}'s login card and tap them in order.` : `That's a lot of tries. Try again later, or ask the teacher to check ${who.name}'s pictures.`);
+    }
     look = null; code = '';
     await loadClasses(p, true);
   }, `Asked to join. ${p.name} joins the class when the teacher says yes.`);
@@ -78,12 +100,18 @@
     {:else}
       <p class="small"><b>{look.class.name}</b>, {look.class.teacher}'s class. Is {p.name} already on the class list?</p>
       <div class="row">
-        <select bind:value={claims} aria-label="Who is it">
+        <select bind:value={claims} onchange={() => { picked = []; msg = null; }} aria-label="Who is it">
           <option value="new">No: join as a new student</option>
           {#each look.students as s (s.id)}<option value={s.id}>Yes: {s.name}</option>{/each}
         </select>
         {#if claims === 'new'}<input bind:value={name} maxlength="16" aria-label="First name for the class" placeholder="First name" />{/if}
-        <button class="btn btn-primary" disabled={busy || (claims === 'new' && !name.trim())} onclick={link}>Ask the teacher</button>
+      </div>
+      {#if classmate}
+        <p class="small">To show it's {classmate.name}, tap {classmate.name}'s two pictures in order. They're on {classmate.name}'s login card from the teacher.</p>
+        <PicturePick {picked} {shake} ontap={tap} small />
+      {/if}
+      <div class="row acts">
+        <button class="btn btn-primary" disabled={busy || (classmate ? picked.length < 2 : !name.trim())} onclick={link}>Ask the teacher</button>
         <button class="btn" onclick={() => (look = null)}>Cancel</button>
       </div>
       <p class="muted small">{claims === 'new' ? 'Only a first name, no last name.' : `School and home progress are put together, and ${p.name} plays as one player everywhere.`}</p>
@@ -102,6 +130,7 @@
   h4 { margin: 16px 0 4px; font-size: 16px; }
   .small { font-size: 13.5px; margin: 4px 0 8px; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .acts { margin-top: 10px; }
   input, select { font: 600 15px var(--font-body); padding: 8px 12px; border-radius: 12px; border: 2px solid #e6dff5; }
   .lnk { background: none; border: 0; color: var(--primary); font: 700 13.5px var(--font-body); text-decoration: underline; cursor: pointer; }
   .sw { display: flex; gap: 8px; align-items: center; font: 700 14.5px var(--font-body); color: var(--ink2); cursor: pointer; }

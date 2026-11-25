@@ -29,6 +29,8 @@
     const me = game.profile;
     if (!me || !cloud.online) return;
     if (me.cloud) { await reportWeek(me).catch(() => null); await loadClasses(me, true); }
+    // (the family board answers only the grown-up whose account holds this player, signed in on this computer:
+    // anywhere else it fails, and isn't shown)
     if (me.cloud) api<{ players: NonNullable<typeof family> }>(`/family/${encodeURIComponent(me.cloud.code)}?week=${weekKey(Date.now())}`).then(r => (family = r.players)).catch(() => (family = []));
     api<{ rows: NonNullable<typeof world> }>(`/world/${today}?day=${dayKey(Date.now())}`).then(r => (world = r.rows)).catch(() => (world = []));
   });

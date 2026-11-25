@@ -268,17 +268,20 @@ describe('class work and the boards', () => {
       expect([back.status, back.json.error]).toEqual([400, 'This class is in a challenge this week already.']);
     } finally { Date.now = real; }
   });
-  it('the family board: players in one grown-up account, this week', async () => {
+  it('the family board: players in one grown-up account, this week, for that grown-up signed in', async () => {
     const mk = async (name: string) => (await call('POST', '/players', { profile: { name, buddy: 'dino' } })).json.code as string;
     const a = await mk('Lulu'), b = await mk('Max'), c = await mk('Stranger');
-    const acct = env.DB.rows('accounts')[0]; void acct;
-    env.DB.db.exec(`INSERT INTO accounts (id, provider, sub, email, name, created, seen) VALUES ('fam', 'google', 's1', 'parent@example.com', 'Pat Parent', 1, 1)`);
-    env.DB.db.prepare(`UPDATE players SET account = 'fam' WHERE code IN (?, ?)`).run(a, b);
+    // the family's grown-up signs in on this computer (the test sign-in) and their two players are in the account
+    const cookie = (await call('GET', '/auth/dev?name=Pat%20Parent')).headers.get('set-cookie')!.split(';')[0];
+    const acct = String(env.DB.rows('accounts')[0].id);
+    env.DB.db.prepare(`UPDATE players SET account = ? WHERE code IN (?, ?)`).run(acct, a, b);
     for (const [code, stars] of [[a, 9], [b, 14], [c, 99]] as const) await call('PUT', `/class/week/${code}`, { week, right: 10, ms: 60000, stars, name: code === a ? 'Lulu' : code === b ? 'Max' : 'Stranger', buddy: 'koala' });
-    const fam = (await call('GET', `/family/${a}?week=${week}`)).json;
+    const fam = (await call('GET', `/family/${a}?week=${week}`, undefined, { cookie })).json;
     expect(fam.players.map((p: { name: string; stars: number; me: boolean }) => [p.name, p.stars, p.me])).toEqual([['Max', 14, false], ['Lulu', 9, true]]);
     expect(JSON.stringify(fam)).not.toMatch(/@|Pat|Stranger/);
-    expect((await call('GET', `/family/${c}?week=${week}`)).json).toEqual({ players: [], account: false });
+    // not signed in, or a code that isn't in the account: nothing
+    expect((await call('GET', `/family/${a}?week=${week}`)).status).toBe(401);
+    expect((await call('GET', `/family/${c}?week=${week}`, undefined, { cookie })).status).toBe(404);
   });
   it('the world board: made-up names only, believable scores, top 20', async () => {
     const day = new Date().toISOString().slice(0, 10);
@@ -320,7 +323,8 @@ describe('families linking a player from home', () => {
     const maria = c.students[0];
     const schoolCode = (await login(c.code, maria.id, maria.pics)).json.code;
     const home = (await call('POST', '/players', { profile: { name: 'Mimi', buddy: 'koala' } })).json.code;
-    await call('POST', '/class/link', { code: c.code, player: home, claims: maria.id });
+    // (Maria's two pictures, from her login card, say the family really is Maria)
+    expect((await call('POST', '/class/link', { code: c.code, player: home, claims: maria.id, pics: maria.pics })).json.status).toBe('pending');
     const pending = (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie })).json.students.find((s: { status: string }) => s.status === 'pending');
     expect(pending.name).toBe('Maria');
     await call('POST', `/teach/students/${pending.id}/approve`, { profile: { name: 'Mimi', buddy: 'koala', combined: true } }, { cookie });

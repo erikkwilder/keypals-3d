@@ -12,7 +12,8 @@
 //
 // Students: a class player is a save code the class made. Logging in (class code, tap your name, tap
 // your two pictures) hands the game that player; "Done for today" takes it off a shared computer again.
-// A family can link a player from home to a class (the teacher says yes first), and unlink it later.
+// A family can link a player from home to a class (the teacher says yes first), and unlink it later. To say
+// it's a child on the list already, the family taps that child's two pictures, as the child does to log in.
 //
 // Becoming a teacher takes a Google sign-in. A Google account from a school or company (Google Workspace:
 // Google tells us its domain, `hd`) is approved straight away; a plain Gmail account can set up classes,
@@ -607,8 +608,13 @@ export async function classApi(request, env, url, path, h) {
     if (dup) return h.json({ ok: true, status: dup.status });
     let claims = null, name = cleanStudentName(body.name);
     if (body.claims) {
-      const was = await DB.prepare("SELECT id, name FROM students WHERE id = ? AND class = ? AND status = 'active'").bind(String(body.claims), c.id).first();
+      const was = await DB.prepare("SELECT id, name, pics FROM students WHERE id = ? AND class = ? AND status = 'active'").bind(String(body.claims), c.id).first();
       if (!was) return h.fail(404, 'That classmate was not found.');
+      // once the teacher says yes, that classmate plays as this player, so the family shows it really is the
+      // child: their two pictures from the login card, counted and rested with the class login's tries (a
+      // class code and a name off the list aren't enough)
+      const wrong = await picturesWrong(env, h, request, was, body.pics);
+      if (wrong) return wrong;
       claims = was.id; name = was.name;
     }
     if (!name) return h.fail(400, 'Type a first name or nickname (no last names or emails).');
@@ -799,17 +805,23 @@ export async function classApi(request, env, url, path, h) {
   m = path.match(/^\/family\/([^/]+)$/);
   if (m && method === 'GET') {
     if (await h.limited(env, request, 'family', 600, 60)) return h.fail(429, 'Too many tries from here. Try again later.');
+    // it shows every player in a grown-up's account (names, buddies, stars, minutes), so it answers only that
+    // grown-up, signed in: on the family's own computer. One child's save code, which anyone with it could
+    // send, isn't enough
+    const acct = await h.currentAccount(env, request);
+    if (!acct) return h.fail(401, 'Please sign in first.');
     const code = h.cleanCode(decodeURIComponent(m[1]));
     const week = url.searchParams.get('week');
     if (!isWeek(week)) return h.fail(400, 'Which week?');
     const found = await h.codeTry(env, request);
     if (!found) return h.fail(429, 'Too many tries from here. Try again later.');
-    const p = await DB.prepare('SELECT account FROM players WHERE code = ?').bind(code).first();
+    // a code in someone else's account, or in none, gets the answer a code that doesn't exist gets (and uses
+    // up a try like one), so trying codes can't tell them apart
+    const p = await DB.prepare('SELECT account FROM players WHERE code = ? AND account = ?').bind(code, acct.id).first();
     if (!p) return h.fail(404, 'That save code no longer exists.');
     await found();
-    if (!p.account) return h.json({ players: [], account: false });
     const r = await DB.prepare(`SELECT p.code, w.name, w.buddy, w.correct, w.ms, w.stars FROM players p JOIN player_week w ON w.id = p.code || ':' || ?
-      WHERE p.account = ? ORDER BY w.stars DESC, w.correct DESC`).bind(week, p.account).all();
+      WHERE p.account = ? ORDER BY w.stars DESC, w.correct DESC`).bind(week, acct.id).all();
     return h.json({ account: true, players: (r.results ?? []).map(x => ({ name: x.name ?? 'Player', buddy: x.buddy, stars: x.stars, right: x.correct, ms: x.ms, me: x.code === code })) });
   }
 
