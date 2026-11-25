@@ -3,7 +3,7 @@
   // inside the class; on or off), the weekly class goal and its trophy, and class against class. Fetched
   // fresh each time the tab opens, and by the tab row's Refresh (ClassPage.svelte): there's no other.
   import { teach, act, patchClass, makeChallenge, joinChallenge, leaveChallenge } from '../teacher.svelte';
-  import { ranked, suggestGoal, challengeOn } from '../boards';
+  import { ranked, suggestGoal, challengeOn, minText } from '../boards';
   import { showClassCode } from '../names';
   import Trophy from './Trophy.svelte';
   import Critter from '../../ui/Critter.svelte';
@@ -31,7 +31,7 @@
     {#if !rows.length}<p class="muted">No students yet.</p>{:else}
       <ol class="board">
         {#each rows as r (r.id)}
-          <li><span class="pl">{r.place}</span><Critter friend={(r.buddy ?? 'dino') as FriendId} size={34} round still /><b>{r.name}</b><span class="n">{r.right} right</span><span class="m">{Math.round(r.ms / 60000)} min</span></li>
+          <li><span class="pl">{r.place}</span><Critter friend={(r.buddy ?? 'dino') as FriendId} size={34} round still /><b>{r.name}</b><span class="n">{r.right} right</span><span class="m">{minText(r.ms)}</span></li>
         {/each}
       </ol>
     {/if}

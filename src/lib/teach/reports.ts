@@ -23,6 +23,7 @@ export function classWeekReport(kids: Kid[], week: string) {
   return {
     rows: rows.sort((a, b) => b.ms - a.ms || a.name.localeCompare(b.name)),
     minutes: Math.round(rows.reduce((t, r) => t + r.ms, 0) / 60000),
+    ms: rows.reduce((t, r) => t + r.ms, 0),
     right: rows.reduce((t, r) => t + r.right, 0),
     played: played.length, total: rows.length,
     notPlayed: rows.filter(r => !r.played && !r.never).map(r => r.name),
@@ -80,7 +81,7 @@ export function studentReport(kid: Kid, assignments: Assignment[], weeks = 8, no
   const p = kid.profile;
   const ws = lastWeeks(weeks, now).map(w => {
     const s = p ? weekStats(p, w) : { right: 0, n: 0, ms: 0, stars: 0 };
-    return { week: w, minutes: Math.round(s.ms / 60000), right: s.right, answered: s.n, acc: s.n ? s.right / s.n : null };
+    return { week: w, minutes: Math.round(s.ms / 60000), ms: s.ms, right: s.right, answered: s.n, acc: s.n ? s.right / s.n : null };
   });
   const skills = p ? LIVE_SKILLS.map(s => ({ id: s.id, name: s.name, area: AREA[s.area].name, standard: s.standard, level: workingLevel(p, s.id) })).filter(s => s.level !== 'not started') : [];
   const work: { a: Assignment; pr: Progress }[] = p ? assignments.filter(a => isFor(a, kid.id)).map(a => ({ a, pr: progressOf(p, a, now) })) : [];
@@ -91,3 +92,5 @@ export function studentReport(kid: Kid, assignments: Assignment[], weeks = 8, no
 
 /** When the numbers on screen were fetched, as people say it: "Updated 3:42 pm". */
 export const updatedText = (at: number) => `Updated ${new Date(at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\s*([AP])M$/i, (_, x: string) => ` ${x.toLowerCase()}m`)}`;
+/** A week (its Monday, "2026-11-23") as the teacher's pages write dates: "Mon, Nov 23". */
+export const weekText = (week: string) => new Date(`${week}T12:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });

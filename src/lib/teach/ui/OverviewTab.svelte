@@ -4,6 +4,7 @@
   import { teach } from '../teacher.svelte';
   import { classWeekReport, needsHelp, type Kid } from '../reports';
   import { weekKey } from '../activity';
+  import { minutesOf } from '../boards';
   import Trophy from './Trophy.svelte';
 
   type Props = { kids: Kid[] };
@@ -13,7 +14,8 @@
   const wk = $derived(classWeekReport(kids, week));
   const help = $derived(needsHelp(kids, c.assignments));
   const goalRight = $derived(c.week.reduce((t, r) => t + r.right, 0));
-  const mins = (ms: number) => Math.round(ms / 60000);
+  /** this week's minutes: never 0 for time played */
+  const m = $derived(minutesOf(wk.ms));
   const pct = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)}%`);
   const weekName = new Date(`${week}T12:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 </script>
@@ -24,7 +26,7 @@
     <p class="muted">Add students on the Students tab, then print their login cards.</p>
   {:else}
     <div class="stats">
-      <div class="stat"><b>{wk.minutes}</b><span>minutes practised</span></div>
+      <div class="stat"><b>{m}</b><span>{m === 1 || m === 'under 1' ? 'minute' : 'minutes'} practised</span></div>
       <div class="stat"><b>{wk.right.toLocaleString('en-US')}</b><span>right answers</span></div>
       <div class="stat"><b>{wk.played} of {wk.total}</b><span>students played</span></div>
       {#if c.class.goal}
@@ -37,7 +39,7 @@
       <thead><tr><th>Student</th><th>Minutes</th><th>Right answers</th><th>Accuracy</th></tr></thead>
       <tbody>
         {#each wk.rows as r (r.id)}
-          <tr><td><button class="namebtn" onclick={() => (teach.studentId = r.id)}>{r.name}</button>{#if r.never}<small class="nl">Hasn't logged in yet</small>{/if}</td><td>{mins(r.ms)}</td><td>{r.right}</td><td>{pct(r.acc)}</td></tr>
+          <tr><td><button class="namebtn" onclick={() => (teach.studentId = r.id)}>{r.name}</button>{#if r.never}<small class="nl">Hasn't logged in yet</small>{/if}</td><td>{minutesOf(r.ms)}</td><td>{r.right}</td><td>{pct(r.acc)}</td></tr>
         {/each}
       </tbody>
     </table>
