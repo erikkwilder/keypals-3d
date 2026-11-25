@@ -11,6 +11,7 @@
   import { sfx } from '../audio/sound';
   import GrownupGate from '../ui/GrownupGate.svelte';
   import { teach, act, loadMe, devSignIn, becomeTeacher, createClass, openClass } from '../teach/teacher.svelte';
+  import { classesOnNote, markNoteSeen, seenNote } from '../teach/approval';
   import { showClassCode } from '../teach/names';
   import Bar from '../ui/Bar.svelte';
   import ClassPage from '../teach/ui/ClassPage.svelte';
@@ -26,6 +27,9 @@
   const active = $derived(teach.classes.filter(c => !c.archived));
   const archived = $derived(teach.classes.filter(c => c.archived));
   const status = $derived(teach.me?.teacher?.status ?? 'approved');
+  /** "Your classes are on", once: the first time this page opens after an admin's yes (teach/approval.ts) */
+  let classesOn = $state(false);
+  $effect(() => { const t = teach.me?.teacher; if (t?.approvedAt && classesOnNote(t, seenNote())) { classesOn = true; markNoteSeen(t.approvedAt); } });
 
   onMount(() => { if (!teach.loaded || !teach.me?.signedIn) void loadMe(); });
   async function out() { await signOut(); teach.me = { signedIn: false }; teach.classes = []; teach.current = null; }
@@ -40,6 +44,9 @@
   <button class="btn" onclick={parent}>I'm a parent, take me to my players</button>
 {/snippet}
 
+{#snippet onNote()}
+  <section class="panel on" role="status"><p><b>Your classes are on.</b> Your students can log in now.</p></section>
+{/snippet}
 {#snippet waiting()}
   <section class="panel wait" class:no={status === 'declined'}>
     {#if status === 'declined'}
@@ -119,10 +126,13 @@
             <div class="row"><button class="btn btn-primary" disabled={!display.trim() || !agree || teach.busy} onclick={() => act(() => becomeTeacher(display, agree))}>Continue</button>{@render parentWay()}</div>
           </section>
         {:else if teach.current}
+          {#if classesOn}{@render onNote()}{/if}
           {#if status !== 'approved'}{@render waiting()}{/if}
           <ClassPage />
         {:else}
+          {#if classesOn}{@render onNote()}{/if}
           {#if status !== 'approved'}{@render waiting()}{/if}
+          {#if status !== 'declined' || teach.classes.length}
           <section class="panel">
             <div class="h2row"><h2>Your classes</h2></div>
             {#if active.length}
@@ -135,15 +145,17 @@
                   </button>
                 {/each}
               </div>
-            {:else}
+            {:else if status !== 'declined'}
               <p class="muted">No classes yet. Make your first one below.</p>
             {/if}
+            {#if status !== 'declined'}
             <form class="newc" onsubmit={(e) => { e.preventDefault(); if (newName.trim()) act(() => createClass(newName, newGrade)); }}>
               <b>New class</b>
               <label class="field">Name<input bind:value={newName} placeholder="Room 12 Math" maxlength="40" /></label>
               <label class="field">Grade<select bind:value={newGrade}>{#each GRADES as g, i (i)}<option value={i}>{g === 'K' ? 'Kindergarten' : `Grade ${g}`}</option>{/each}</select></label>
               <button class="btn btn-primary" disabled={!newName.trim() || teach.busy}>Make the class</button>
             </form>
+            {/if}
             {#if archived.length}
               <button class="link" onclick={() => (showArchived = !showArchived)}>{showArchived ? 'Hide' : 'Show'} archived classes ({archived.length})</button>
               {#if showArchived}
@@ -153,6 +165,7 @@
               {/if}
             {/if}
           </section>
+          {/if}
         {/if}
         {#if teach.msg && !teach.current}<p class="msg" role="status">{teach.msg}</p>{/if}
       </div>
@@ -173,6 +186,8 @@
   .who { font: 700 14px var(--font-body); color: #4a4061; }
   .tbody { flex: 1; min-height: 0; }
   .wrap { max-width: 1240px; margin: 0 auto; padding: 22px 24px 60px; }
+  .panel.on { background: #e9f9f0; border-color: #a6e3c4; }
+  .panel.on p { margin: 0; }
   .panel { background: #fff; border: 1px solid #e8e2f3; border-radius: 16px; padding: 20px 24px; margin-bottom: 18px; }
   .panel h2 { margin: 0 0 8px; font: 600 26px var(--font-ui); }
   .panel p { font: 600 15.5px/1.5 var(--font-body); color: #4a4061; margin: 0 0 10px; max-width: 75ch; }

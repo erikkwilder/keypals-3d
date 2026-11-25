@@ -1,9 +1,9 @@
 <script lang="ts">
   // One class: its code and login cards up top, then tabs: this week, students, class work, the
   // gradebook, skills, standards, the class's boards, and class rules. A student's own page opens over it.
-  import { teach, act, loadProfiles, type Tab } from '../teacher.svelte';
+  import { teach, act, loadProfiles, refreshClass, type Tab } from '../teacher.svelte';
   import { showClassCode } from '../names';
-  import type { Kid } from '../reports';
+  import { updatedText, type Kid } from '../reports';
   import OverviewTab from './OverviewTab.svelte';
   import RosterTab from './RosterTab.svelte';
   import WorkTab from './WorkTab.svelte';
@@ -19,12 +19,22 @@
   const GRADES = ['K', '1', '2', '3', '4', '5', '6', '7', '8'];
   const active = $derived(c.students.filter(s => s.status === 'active'));
   const waiting = $derived(c.students.filter(s => s.status === 'pending').length);
-  const kids = $derived<Kid[]>(active.map(s => ({ id: s.id, name: s.name, profile: teach.profiles[s.id] ?? null })));
+  const kids = $derived<Kid[]>(active.map(s => ({ id: s.id, name: s.name, profile: teach.profiles[s.id] ?? null, loggedIn: teach.loggedIn[s.id] })));
   const TABS: { id: Tab; name: string }[] = [
     { id: 'overview', name: 'This week' }, { id: 'students', name: 'Students' }, { id: 'work', name: 'Class work' }, { id: 'gradebook', name: 'Gradebook' },
     { id: 'skills', name: 'Skills' }, { id: 'standards', name: 'Standards' }, { id: 'boards', name: 'Boards' }, { id: 'settings', name: 'Class rules' },
   ];
-  function go(t: Tab) { teach.tab = t; teach.studentId = null; teach.msg = null; }
+  /** Refresh: everyone's latest progress, and the boards and class against class (another class may have joined) */
+  const refresh = () => act(() => Promise.all([loadProfiles(true), refreshClass()]));
+  function go(t: Tab) {
+    teach.tab = t; teach.studentId = null; teach.msg = null;
+    // the boards change while the class plays, and another class may have joined the challenge: fetched fresh
+    if (t === 'boards') void refreshClass().catch(() => null);
+    // and the Class work numbers: someone may have just finished a piece
+    if (t === 'work') void loadProfiles(true).catch(() => null);
+  }
+  /** the time of the last fetch of what this tab shows: the board and challenge on Boards, everyone's progress elsewhere */
+  const at = $derived(teach.tab === 'boards' && !teach.studentId ? teach.classAt : teach.profilesAt);
 </script>
 
 <div class="teachui">
@@ -42,7 +52,7 @@
       <button class:on={teach.tab === t.id && !teach.studentId} onclick={() => go(t.id)}>{t.name}{#if t.id === 'students' && waiting}<i>{waiting}</i>{/if}</button>
     {/each}
     <span class="sp"></span>
-    {#if teach.profilesBusy}<span class="loading">Loading progress…</span>{:else}<button class="refresh" onclick={() => act(() => loadProfiles(true))} title="Fetch everyone's latest progress">Refresh</button>{/if}
+    {#if teach.profilesBusy}<span class="loading">Loading progress…</span>{:else}{#if at}<span class="upd">{updatedText(at)}</span>{/if}<button class="refresh" onclick={refresh} title="Fetch everyone's latest progress, the boards and class against class">Refresh</button>{/if}
   </nav>
   {#if teach.msg}<p class="msg" role="status">{teach.msg}</p>{/if}
 
@@ -76,6 +86,7 @@
   .tabs i { font-style: normal; background: #f08a3c; color: #fff; border-radius: 99px; padding: 0 7px; font-size: 12px; }
   .tabs .sp { flex: 1; }
   .loading { font: 700 13px var(--font-body); color: #7a7092; }
+  .upd { font: 700 13px var(--font-body); color: #7a7092; }
   .refresh { font-weight: 700 !important; color: #6a4fe0 !important; }
   .msg { font: 700 14.5px var(--font-body); color: #6a4fe0; margin: 0 0 10px; }
   /* shared by every tab */

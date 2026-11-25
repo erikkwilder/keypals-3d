@@ -50,3 +50,10 @@ export function worldEntry(p: Profile, game: string, day: string, score: number)
   if (!b.world || !b.alias || !b.id) return null;
   return { game, day, score, who: b.id, alias: b.alias, buddy: p.buddy };
 }
+
+/** Minutes, rounded, but never 0 for time that was played: a few seconds' play is "under 1". */
+export const minutesOf = (ms: number): number | 'under 1' => (ms > 0 && ms < 30000 ? 'under 1' : Math.round(ms / 60000));
+/** A board's minutes: "12 min", or "under 1 min" (never "0 min" beside right answers). */
+export const minText = (ms: number) => `${minutesOf(ms)} min`;
+/** Class against class for children, a whole number: "about 11 right each" (the teacher's page has the exact average). */
+export const eachText = (avg: number) => (Number.isInteger(avg) ? `${avg} right each` : `about ${Math.max(1, Math.round(avg))} right each`);

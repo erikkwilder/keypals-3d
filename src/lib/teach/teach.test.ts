@@ -173,11 +173,15 @@ describe('the gradebook and reports', () => {
   it('a spreadsheet: students down, assignments across', () => {
     const a = asg({ title: 'Fractions, part 1' }), b = asg({ id: 'a2', title: 'Typing', what: 'typing', skills: [], lessons: ['village-1'], goal: { type: 'finish', n: 1 }, students: ['s1'] });
     const profiles: Record<string, Profile> = { s1: kidA(), s2: kidB() };
-    const csv = gradebookCsv([{ id: 's1', name: 'Maria' }, { id: 's2', name: 'Sam "Sammy"' }], [a, b], (sid, x) => progressOf(profiles[sid], x, MON + 2 * H));
+    const csv = gradebookCsv([{ id: 's1', name: 'Maria' }, { id: 's2', name: 'Sam "Sammy"' }], [a, b], (sid, x) => progressOf(profiles[sid], x, MON + 2 * H), MON + 2 * H);
     const lines = csv.trim().split('\r\n');
     expect(lines[0]).toBe('Student,"Fractions, part 1 (score)","Fractions, part 1 (status)","Fractions, part 1 (progress %)",Typing (score),Typing (status),Typing (progress %),Average score');
-    expect(lines[1]).toBe('Maria,100,Done,100,0,Not started,0,50');
+    // the typing isn't due yet and isn't started: no score, and not in her average (it was 50)
+    expect(lines[1]).toBe('Maria,100,Done,100,,Not started,0,100');
     expect(lines[2]).toBe('"Sam ""Sammy""",25,Started,25,,not assigned,,25');
+    // a week on, past its due date with nothing done: missing, and in the average as 0
+    const later = gradebookCsv([{ id: 's1', name: 'Maria' }], [a, b], (sid, x) => progressOf(profiles[sid], x, MON + 7 * DAY), MON + 7 * DAY).trim().split('\r\n');
+    expect(later[1]).toBe('Maria,100,Done,100,0,Missing,0,50');
   });
   it('the week, the skills grid, standards, needs help and a student page', () => {
     const kids = [{ id: 's1', name: 'Maria', profile: kidA() }, { id: 's2', name: 'Sam', profile: kidB() }, { id: 's3', name: 'Ava', profile: null }];

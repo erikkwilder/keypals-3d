@@ -15,6 +15,8 @@
   let tab = $state<'ideas' | 'problems' | 'numbers' | 'teachers'>('ideas');
   let teachers = $state<AdminTeacher[]>([]);
   let showDecided = $state(false);
+  /** the teacher about to be turned down: asked first */
+  let declining = $state<string | null>(null);
   async function loadTeachers() { try { teachers = (await call<{ teachers: AdminTeacher[] }>('/admin/teachers')).teachers; } catch (e) { msg = (e as Error).message; } }
   $effect(() => { void loadTeachers(); });
   const setTeacher = (account: string, status: AdminTeacher['status']) => act(async () => { await call(`/admin/teachers/${account}`, { method: 'POST', body: JSON.stringify({ status }) }); await loadTeachers(); });
@@ -77,8 +79,14 @@
           <div class="head"><span class="st">{t.status === 'pending' ? 'Waiting' : t.status === 'approved' ? 'Approved' : 'Turned down'}</span><b>{t.display}</b><span class="muted">{t.name ?? ''}{t.email ? ` · ${t.email}` : ''}{t.hd ? ` · school: ${t.hd}` : ' · personal Gmail'} · since {when(t.created)}</span></div>
           <p class="text">{t.classes} class{t.classes === 1 ? '' : 'es'}, {t.students} student{t.students === 1 ? '' : 's'}</p>
           <div class="btns">
-            {#if t.status !== 'approved'}<button class="btn btn-primary" onclick={() => setTeacher(t.account, 'approved')}>Approve</button>{/if}
-            {#if t.status !== 'declined'}<button class="btn" onclick={() => setTeacher(t.account, 'declined')}>Turn down</button>{/if}
+            {#if declining === t.account}
+              <span class="confirm">Turn down {t.display}? Their classes stay off.</span>
+              <button class="btn" onclick={() => { declining = null; void setTeacher(t.account, 'declined'); }}>Turn down</button>
+              <button class="btn" onclick={() => (declining = null)}>Cancel</button>
+            {:else}
+              {#if t.status !== 'approved'}<button class="btn btn-primary" onclick={() => setTeacher(t.account, 'approved')}>Approve</button>{/if}
+              {#if t.status !== 'declined'}<button class="btn" onclick={() => (declining = t.account)}>Turn down</button>{/if}
+            {/if}
           </div>
         </li>
       {/each}
@@ -163,4 +171,5 @@
   pre { margin: 6px 0 0; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f5fb; padding: 8px; border-radius: 8px; }
   .msg { color: #c0396f; font-weight: 700; margin: 0; }
   .small { font-size: 13px; margin: 0; }
+  .confirm { align-self: center; font-weight: 800; color: #2b2140; }
 </style>

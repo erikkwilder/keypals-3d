@@ -7,7 +7,7 @@
   import { cloud } from '../state/cloud.svelte';
   import { api } from '../teach/api';
   import { classesOf, loadClasses, reportWeek } from '../teach/student.svelte';
-  import { boardPrefs, challengeOn, ranked, trophy } from '../teach/boards';
+  import { boardPrefs, challengeOn, ranked, trophy, eachText, minText } from '../teach/boards';
   import { weekKey } from '../teach/activity';
   import { dayKey } from '../engine/profile';
   import { ARCADE, dailyGame } from '../arcade/arcade';
@@ -70,7 +70,7 @@
           <div class="seg"><button class:on={by === 'right'} onclick={() => (by = 'right')}>Right answers</button><button class:on={by === 'ms'} onclick={() => (by = 'ms')}>Minutes</button></div>
           <ol class="board">
             {#each ranked(c.rows, by) as r, i (i)}
-              <li class:me={r.me}><span class="pl">{r.place}</span><Critter friend={(r.buddy ?? 'dino') as FriendId} size={40} round still /><b>{r.name}{r.me ? ' (you)' : ''}</b><span class="n">{by === 'right' ? `${r.right} right` : `${mins(r.ms)} min`}</span></li>
+              <li class:me={r.me}><span class="pl">{r.place}</span><Critter friend={(r.buddy ?? 'dino') as FriendId} size={40} round still /><b>{r.name}{r.me ? ' (you)' : ''}</b><span class="n">{by === 'right' ? `${r.right} right` : minText(r.ms)}</span></li>
             {/each}
           </ol>
         {/if}
@@ -78,7 +78,7 @@
           <h3>Class against class</h3>
           <p class="muted">Right answers per student this week. Every answer helps your class!</p>
           <ol class="board">
-            {#each c.challenge.classes as x, i (x.id)}<li class:me={x.id === c.id}><span class="pl">{i + 1}</span><b>{x.name}</b><span class="n">{x.avg} each</span></li>{/each}
+            {#each c.challenge.classes as x, i (x.id)}<li class:me={x.id === c.id}><span class="pl">{i + 1}</span><b>{x.name}</b><span class="n">{eachText(x.avg)}</span></li>{/each}
           </ol>
         {/if}
       </section>

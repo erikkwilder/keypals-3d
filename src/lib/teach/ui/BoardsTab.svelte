@@ -1,8 +1,9 @@
 <script lang="ts">
   // The class's boards: the class board (this week's right answers and minutes, first names, only
-  // inside the class; on or off), the weekly class goal and its trophy, and class against class.
-  import { teach, act, patchClass, makeChallenge, joinChallenge, leaveChallenge, refreshClass } from '../teacher.svelte';
-  import { ranked, suggestGoal, challengeOn } from '../boards';
+  // inside the class; on or off), the weekly class goal and its trophy, and class against class. Fetched
+  // fresh each time the tab opens, and by the tab row's Refresh (ClassPage.svelte): there's no other.
+  import { teach, act, patchClass, makeChallenge, joinChallenge, leaveChallenge } from '../teacher.svelte';
+  import { ranked, suggestGoal, challengeOn, minText } from '../boards';
   import { showClassCode } from '../names';
   import Trophy from './Trophy.svelte';
   import Critter from '../../ui/Critter.svelte';
@@ -30,11 +31,10 @@
     {#if !rows.length}<p class="muted">No students yet.</p>{:else}
       <ol class="board">
         {#each rows as r (r.id)}
-          <li><span class="pl">{r.place}</span><Critter friend={(r.buddy ?? 'dino') as FriendId} size={34} round still /><b>{r.name}</b><span class="n">{r.right} right</span><span class="m">{Math.round(r.ms / 60000)} min</span></li>
+          <li><span class="pl">{r.place}</span><Critter friend={(r.buddy ?? 'dino') as FriendId} size={34} round still /><b>{r.name}</b><span class="n">{r.right} right</span><span class="m">{minText(r.ms)}</span></li>
         {/each}
       </ol>
     {/if}
-    <button class="sbtn" onclick={() => act(refreshClass)}>Refresh</button>
   </div>
 
   <div class="tp">
@@ -59,7 +59,7 @@
     <ol class="board">
       {#each ch.classes as x, i (x.id)}<li class:me={x.id === mine}><span class="pl">{i + 1}</span><b>{x.name}</b><span class="n">{x.avg} a student</span><span class="m">{x.students} students</span></li>{/each}
     </ol>
-    {#if ch.classes.length < 2}<p class="muted">Waiting for another class to join with the code.</p>{/if}
+    {#if ch.classes.length < 2}<p class="muted">Waiting for another class to join with the code. Tap Refresh to check.</p>{/if}
     {#if leaving}
       <p class="muted">Leave the challenge? Your class drops off its board this week. You can join again with the code.</p>
       <div class="row"><button class="sbtn" onclick={() => (leaving = false)}>Stay in it</button><button class="sbtn warn" onclick={() => { leaving = false; void act(leaveChallenge, 'Left the challenge.'); }}>Leave the challenge</button></div>

@@ -9,21 +9,26 @@ import { eventsOf, lastWeeks, weekKey, weekStats } from './activity';
 import { LEVELS, atLeast, workingLevel, workingStep, type WorkingLevel } from './level';
 import { LIVE_SKILLS, STANDARDS, isFor, progressOf, type Assignment, type Progress } from './assignments';
 
-export type Kid = { id: string; name: string; profile: Profile | null };
+export type Kid = { id: string; name: string; profile: Profile | null;
+  /** false: hasn't logged in yet (her class player was never opened); missing: not known */
+  loggedIn?: boolean };
 
 /** This week (or any week) for the whole class. */
 export function classWeekReport(kids: Kid[], week: string) {
   const rows = kids.map(k => {
     const w = k.profile ? weekStats(k.profile, week) : { right: 0, n: 0, ms: 0, stars: 0 };
-    return { id: k.id, name: k.name, ms: w.ms, right: w.right, answered: w.n, acc: w.n ? w.right / w.n : null, played: w.ms > 0 || w.n > 0 };
+    return { id: k.id, name: k.name, ms: w.ms, right: w.right, answered: w.n, acc: w.n ? w.right / w.n : null, played: w.ms > 0 || w.n > 0, never: k.loggedIn === false && !(w.ms > 0 || w.n > 0) };
   });
   const played = rows.filter(r => r.played);
   return {
     rows: rows.sort((a, b) => b.ms - a.ms || a.name.localeCompare(b.name)),
     minutes: Math.round(rows.reduce((t, r) => t + r.ms, 0) / 60000),
+    ms: rows.reduce((t, r) => t + r.ms, 0),
     right: rows.reduce((t, r) => t + r.right, 0),
     played: played.length, total: rows.length,
-    notPlayed: rows.filter(r => !r.played).map(r => r.name),
+    notPlayed: rows.filter(r => !r.played && !r.never).map(r => r.name),
+    /** never logged in, as far as the server knows */
+    notLoggedIn: rows.filter(r => r.never).map(r => r.name),
   };
 }
 
@@ -76,7 +81,7 @@ export function studentReport(kid: Kid, assignments: Assignment[], weeks = 8, no
   const p = kid.profile;
   const ws = lastWeeks(weeks, now).map(w => {
     const s = p ? weekStats(p, w) : { right: 0, n: 0, ms: 0, stars: 0 };
-    return { week: w, minutes: Math.round(s.ms / 60000), right: s.right, answered: s.n, acc: s.n ? s.right / s.n : null };
+    return { week: w, minutes: Math.round(s.ms / 60000), ms: s.ms, right: s.right, answered: s.n, acc: s.n ? s.right / s.n : null };
   });
   const skills = p ? LIVE_SKILLS.map(s => ({ id: s.id, name: s.name, area: AREA[s.area].name, standard: s.standard, level: workingLevel(p, s.id) })).filter(s => s.level !== 'not started') : [];
   const work: { a: Assignment; pr: Progress }[] = p ? assignments.filter(a => isFor(a, kid.id)).map(a => ({ a, pr: progressOf(p, a, now) })) : [];
@@ -84,3 +89,8 @@ export function studentReport(kid: Kid, assignments: Assignment[], weeks = 8, no
   const recent = p ? eventsOf(p).slice(-12).reverse() : [];
   return { weeks: ws, skills, work, learned: m?.learned?.length ?? 0, recent, thisWeek: weekKey(now) };
 }
+
+/** When the numbers on screen were fetched, as people say it: "Updated 3:42 pm". */
+export const updatedText = (at: number) => `Updated ${new Date(at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\s*([AP])M$/i, (_, x: string) => ` ${x.toLowerCase()}m`)}`;
+/** A week (its Monday, "2026-11-23") as the teacher's pages write dates: "Mon, Nov 23". */
+export const weekText = (week: string) => new Date(`${week}T12:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });

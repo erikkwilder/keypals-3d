@@ -52,7 +52,6 @@
           </div>
         {/if}
         <button class="btn ghost sm" onclick={() => { sfx.click(); game.visit('boards'); }}>Boards</button>
-        {#if shared}<button class="btn ghost sm" onclick={() => (leaving = 'ask')}>Done for today</button>{/if}
       </header>
       {#if !work.length}
         <p class="none">No class work right now. Practise anything you like!</p>
@@ -71,6 +70,8 @@
         </div>
         {#if !open.length}<p class="none yay">All your class work is done. Amazing!</p>{/if}
       {/if}
+      <!-- at the bottom, below the work: it takes her player off this computer, it doesn't mean the work is done -->
+      {#if shared}<div class="leave"><button class="btn ghost sm" onclick={() => (leaving = 'ask')}>Done for today</button></div>{/if}
     </section>
   {/each}
   {#if leaving}
@@ -138,4 +139,6 @@
     .tt b { font-size: 20px; }
     .ic { width: 34px; height: 34px; }
   }
+  .leave { display: flex; justify-content: flex-end; margin-top: 10px; }
+  @media (pointer: coarse), (max-width: 700px) { .leave .btn { min-height: 44px; padding-inline: 18px; } }
 </style>

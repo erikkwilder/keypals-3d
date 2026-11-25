@@ -2,7 +2,8 @@
   // One student's page: time and accuracy week by week, their skills, every piece of class work, and
   // what they played lately.
   import { teach } from '../teacher.svelte';
-  import { studentReport, type Kid } from '../reports';
+  import { studentReport, weekText, type Kid } from '../reports';
+  import { minutesOf } from '../boards';
   import { LEVEL_COLOR } from '../level';
   import { STATUS_NAME, dueText, goalText, partName, type Status } from '../assignments';
   import { MATH_LESSON } from '../../math/course';
@@ -28,7 +29,7 @@
     <button class="sbtn" onclick={() => (teach.studentId = null)}>← Back to the class</button>
     <div class="who">
       <Critter friend={(kid.profile?.buddy ?? s.buddy ?? 'dino') as import('../../art/cast').FriendId} size={64} round still />
-      <div><h3>{s.name}</h3><span class="muted">{s.home ? 'Player linked from home' : 'Class player'}{kid.profile ? ` · ${r.learned} Learn episodes watched` : ' · hasn\'t logged in yet'}</span></div>
+      <div><h3>{s.name}</h3><span class="muted">{s.home ? 'Player linked from home' : 'Class player'}{kid.loggedIn === false ? " · hasn't logged in yet" : kid.profile ? ` · ${r.learned} Learn episodes watched` : ''}</span></div>
       <div class="pw"><span class="muted">Pictures</span><PicturePass pics={s.pics} size={38} /></div>
     </div>
   </div>
@@ -48,7 +49,7 @@
       <p class="muted small">Bars: minutes practised each week (from Monday). Above them: accuracy.</p>
       <table class="tt">
         <thead><tr><th>Week of</th><th>Minutes</th><th>Right answers</th><th>Accuracy</th></tr></thead>
-        <tbody>{#each [...r.weeks].reverse().slice(0, 4) as w (w.week)}<tr><td>{w.week}</td><td>{w.minutes}</td><td>{w.right}</td><td>{w.acc === null ? '—' : `${Math.round(w.acc * 100)}%`}</td></tr>{/each}</tbody>
+        <tbody>{#each [...r.weeks].reverse().slice(0, 4) as w (w.week)}<tr><td>{weekText(w.week)}</td><td>{minutesOf(w.ms)}</td><td>{w.right}</td><td>{w.acc === null ? '—' : `${Math.round(w.acc * 100)}%`}</td></tr>{/each}</tbody>
       </table>
     </div>
     <div class="tp">
