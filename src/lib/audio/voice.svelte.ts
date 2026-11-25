@@ -7,6 +7,7 @@ import { ALL_LINES, BUDDY_VOICE, type Line } from '../content/voice';
 import { game } from '../state/game.svelte';
 import { onPageAway, pageAway } from './away';
 import { keepClips, keptUrl, lessonClips } from './keep';
+import { requestAnswered, requestFailed } from '../state/net.svelte';
 
 const BY_ID = new Map(ALL_LINES.map(l => [l.id, l]));
 export const voiceState = $state<{ caption: string | null; speaker: string | null; playing: string | null }>({ caption: null, speaker: null, playing: null });
@@ -86,7 +87,7 @@ const offline = () => typeof navigator !== 'undefined' && navigator.onLine === f
 export function keepLesson(o: { keys: string[]; buddy?: string; shared?: boolean }): () => void {
   if (game.settings.voice === false) return () => {};
   const voice = o.buddy ? BUDDY_VOICE[o.buddy] ?? 'kid-a' : undefined;
-  return keepClips(lessonClips(ALL_LINES, { keys: o.keys, voice, shared: o.shared })).release;
+  return keepClips(lessonClips(ALL_LINES, { keys: o.keys, voice, shared: o.shared }), { answered: requestAnswered, failed: requestFailed }).release;
 }
 
 export function hush() {

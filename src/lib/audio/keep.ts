@@ -49,6 +49,9 @@ export type KeepOpts = {
   base: string;
   /** how many at once */
   at: number;
+  /** told of each answer, and each fetch that failed on the way (the connection: state/net.svelte.ts) */
+  answered?: () => void;
+  failed?: (e: unknown) => void;
 };
 export type Kept = { release(): void; readonly settled: Promise<void> };
 
@@ -66,13 +69,14 @@ export function keepClips(ids: readonly string[], opts: Partial<KeepOpts> = {}):
   async function one(id: string) {
     try {
       const r = await o.fetch(`${o.base}${id}.mp3`, { signal: stop.signal });
+      o.answered?.();
       // not there (a 404): say() finds that out for itself, as before
       if (!r.ok) return;
       const b = await r.blob();
       if (!stop.signal.aborted) urls.set(id, o.toUrl(b));
-    } catch {
+    } catch (e) {
       // the connection is gone (or the lesson ended): tried again when it's back
-      if (!stop.signal.aborted) failed.push(id);
+      if (!stop.signal.aborted) { failed.push(id); o.failed?.(e); }
     }
   }
   function fetchAll(list: string[]) {
