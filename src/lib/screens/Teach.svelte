@@ -123,6 +123,7 @@
           <ClassPage />
         {:else}
           {#if status !== 'approved'}{@render waiting()}{/if}
+          {#if status !== 'declined' || teach.classes.length}
           <section class="panel">
             <div class="h2row"><h2>Your classes</h2></div>
             {#if active.length}
@@ -135,15 +136,17 @@
                   </button>
                 {/each}
               </div>
-            {:else}
+            {:else if status !== 'declined'}
               <p class="muted">No classes yet. Make your first one below.</p>
             {/if}
+            {#if status !== 'declined'}
             <form class="newc" onsubmit={(e) => { e.preventDefault(); if (newName.trim()) act(() => createClass(newName, newGrade)); }}>
               <b>New class</b>
               <label class="field">Name<input bind:value={newName} placeholder="Room 12 Math" maxlength="40" /></label>
               <label class="field">Grade<select bind:value={newGrade}>{#each GRADES as g, i (i)}<option value={i}>{g === 'K' ? 'Kindergarten' : `Grade ${g}`}</option>{/each}</select></label>
               <button class="btn btn-primary" disabled={!newName.trim() || teach.busy}>Make the class</button>
             </form>
+            {/if}
             {#if archived.length}
               <button class="link" onclick={() => (showArchived = !showArchived)}>{showArchived ? 'Hide' : 'Show'} archived classes ({archived.length})</button>
               {#if showArchived}
@@ -153,6 +156,7 @@
               {/if}
             {/if}
           </section>
+          {/if}
         {/if}
         {#if teach.msg && !teach.current}<p class="msg" role="status">{teach.msg}</p>{/if}
       </div>

@@ -130,6 +130,8 @@ async function statusOf(env, account) {
 /** A class students can use: not archived, and its teacher's classes are on. */
 const classOn = async (env, c) => !c.archived && (await statusOf(env, c.teacher)) === 'approved';
 const NOT_ON = "This class isn't open yet. Your teacher will hear from us soon.";
+/** A turned-down teacher trying to make a class: their screen's own words (src/lib/screens/Teach.svelte). */
+const DECLINED = "We couldn't turn on classes for this account. If you're a teacher, sign in with your school Google account and your classes are on straight away, or write to us from Ideas and help.";
 /** A class's settings (cleaned, with the usual for anything not set). Students' Google sign-in, until the
  *  teacher sets it: kept to the teacher's own school domain (the `hd` Google gave), or off when the teacher's
  *  account has none, so a stranger's Google account can't join a class nobody opened to it. (`teacher`: given
@@ -416,6 +418,8 @@ export async function classApi(request, env, url, path, h) {
       return h.json({ classes: (r.results ?? []).map(c => classView(c, { students: c.n, pending: c.pending })) });
     }
     if (path === '/teach/classes' && method === 'POST') {
+      // a turned-down teacher's classes would be ones no student can enter (approved and waiting teachers make them)
+      if ((await statusOf(env, acct)) === 'declined') return h.fail(403, DECLINED);
       const body = await h.readBody(request) || {};
       const name = cleanClassName(body.name), grade = Math.round(Number(body.grade));
       if (!name) return h.fail(400, 'Give the class a name.');

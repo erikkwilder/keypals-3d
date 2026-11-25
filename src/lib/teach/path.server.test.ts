@@ -94,6 +94,24 @@ describe('who may teach, and when classes turn on', () => {
     await call('POST', `/admin/teachers/${list[0].account}`, { status: 'declined' }, { cookie: erik.cookie });
     expect((await call('GET', `/class/${c.code}`)).status).toBe(403);
   });
+  it("a turned-down teacher can't make a class, told in their screen's own words; waiting and approved teachers make them as before", async () => {
+    const lee = await devTeacher('Mr. Lee', true);
+    expect(lee.status).toBe('pending');
+    expect((await call('POST', '/teach/classes', { name: 'Room 1', grade: 2 }, { cookie: lee.cookie })).status).toBe(200);
+    const erik = await account('google', 'erik@example.org');
+    const id = (await call('GET', '/admin/teachers', undefined, { cookie: erik.cookie })).json.teachers[0].account;
+    await call('POST', `/admin/teachers/${id}`, { status: 'declined' }, { cookie: erik.cookie });
+    const no = await call('POST', '/teach/classes', { name: 'Room 2', grade: 2 }, { cookie: lee.cookie });
+    expect(no.status).toBe(403);
+    expect(no.json.error).toBe("We couldn't turn on classes for this account. If you're a teacher, sign in with your school Google account and your classes are on straight away, or write to us from Ideas and help.");
+    expect((await call('GET', '/teach/classes', undefined, { cookie: lee.cookie })).json.classes).toHaveLength(1);
+    // approved after all: classes again
+    await call('POST', `/admin/teachers/${id}`, { status: 'approved' }, { cookie: erik.cookie });
+    expect((await call('POST', '/teach/classes', { name: 'Room 2', grade: 2 }, { cookie: lee.cookie })).status).toBe(200);
+    const rivera = await devTeacher('Ms. Rivera');
+    expect(rivera.status).toBe('approved');
+    expect((await call('POST', '/teach/classes', { name: 'Room 12', grade: 3 }, { cookie: rivera.cookie })).status).toBe(200);
+  });
   it('Erik\'s own account is approved; a Microsoft account can\'t become a new teacher; teachers from before stay working', async () => {
     const erik = await account('google', 'erik@example.org');
     expect((await call('POST', '/teach/me', { display: 'Mr. Wilder', agree: true }, { cookie: erik.cookie })).json.teacher.status).toBe('approved');
