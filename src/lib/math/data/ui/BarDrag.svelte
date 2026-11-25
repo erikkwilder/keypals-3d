@@ -5,6 +5,7 @@
   import { sfx } from '../../../audio/sound';
   import Icon from '../../../ui/Icon.svelte';
   import type { CustomInputProps } from '../../skills/ui/SkillInput.svelte';
+  import { buttonKey, press, stepKey } from '../../skills/inputKeys';
   import { COLOR, barLayout, type DataPic } from '../pics';
   import DataPic_ from './DataPic.svelte';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
@@ -39,12 +40,15 @@
   function move(e: PointerEvent) { if (dragging && !disabled) toValue(e); }
   function up() { dragging = false; }
   function check() { if (!disabled && v > 0) onanswer({ kind: 'number', value: v }); }
+  // by keyboard a slider (stepKey, inputKeys.ts): Tab reaches the bar and Check; Up and Right make it a step
+  // longer, Down and Left a step shorter, from anywhere on the page; while it has focus Page Up and Page Down
+  // ten steps, Home and End to 0 and the top, and Space checks as Enter does
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey) return;
-    const more = L.flip ? 'ArrowRight' : 'ArrowUp', less = L.flip ? 'ArrowLeft' : 'ArrowDown';
-    if (e.key === more) { e.preventDefault(); onfirst(); v = Math.min(g.max, v + spec.snap); sfx.click(); }
-    else if (e.key === less) { e.preventDefault(); v = Math.max(0, v - spec.snap); sfx.click(); }
-    else if (e.key === 'Enter') { e.preventDefault(); check(); }
+    if (disabled || buttonKey(e)) return;
+    const k = stepKey(e, v, { min: 0, max: g.max, step: spec.snap }, e.target === svg);
+    if (k === null) return;
+    e.preventDefault();
+    if (k === 'go') check(); else if (k !== 'hold') { onfirst(); if (k !== v) { v = k; sfx.click(); } }
   }
 </script>
 
@@ -53,7 +57,7 @@
 <div class="bd" class:compact>
   <div class="wrap" style:width="{wpx}px" style:height="{hpx}px">
     <DataPic_ d={g} size={hpx / 1.2} />
-    <svg bind:this={svg} class="over" class:dragging viewBox="0 0 {L.W} {L.H}" role="slider" aria-label="Drag the {g.cats[hide]?.name} bar" aria-valuenow={v} aria-valuemin={0} aria-valuemax={g.max} tabindex="-1"
+    <svg bind:this={svg} class="over" class:dragging viewBox="0 0 {L.W} {L.H}" role="slider" aria-label="The {g.cats[hide]?.name} bar" aria-valuenow={v} aria-valuemin={0} aria-valuemax={g.max} tabindex="0"
       onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up}>
       {#if L.flip}
         <rect x={L.left} y={L.at(hide) - L.bar / 2} width={Math.max(4, L.size(v))} height={L.bar} rx="6" fill={col.hex} stroke={col.deep} stroke-width="2" class="live" />
@@ -69,7 +73,7 @@
       <rect x="0" y="0" width={L.W} height={L.H} fill="transparent" />
     </svg>
   </div>
-  <button class="ok" disabled={disabled || v === 0} onpointerdown={(e) => { e.preventDefault(); check(); }} tabindex="-1"><Icon name="check" size={26} /><span>Check</span></button>
+  <button class="ok" disabled={disabled || v === 0} {...press(check)}><Icon name="check" size={26} /><span>Check</span></button>
 </div>
 
 <style>

@@ -7,6 +7,7 @@
   import Icon from '../../../ui/Icon.svelte';
   import type { CustomInputProps } from './SkillInput.svelte';
   import type { RulerSpec } from '../measure';
+  import { buttonKey, press, stepKey, unitText } from '../inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   const base = import.meta.env.BASE_URL;
   const spec = $derived((item.custom?.spec ?? { unit: 'cm', len: 10, start: 0, snap: 1, thing: 'pencil' }) as RulerSpec);
@@ -31,20 +32,23 @@
   function move(e: PointerEvent) { if (!held || disabled) return; const v = at(e); if (v !== end) { end = v; moved = true; mSfx.tick(); } }
   function up() { held = false; }
   function done() { if (!disabled && moved) { sfx.click(); onanswer({ kind: 'number', value: end }); } }
+  // by keyboard a slider (stepKey, inputKeys.ts): Tab reaches it and Done; the arrows move the end a step from
+  // anywhere on the page, as before; while it has focus Page Up and Page Down ten steps, Home and End to the
+  // shortest ribbon and the whole ruler, and Space is Done as Enter is
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-      e.preventDefault(); onfirst();
-      const v = Math.max(spec.start + spec.snap, Math.min(spec.len, end + (e.key === 'ArrowRight' ? spec.snap : -spec.snap)));
-      if (v !== end) { end = v; moved = true; mSfx.tick(); }
-    } else if (e.key === 'Enter') { e.preventDefault(); done(); }
+    if (disabled || buttonKey(e)) return;
+    const k = stepKey(e, end, { min: spec.start + spec.snap, max: spec.len, step: spec.snap }, e.target === svg);
+    if (k === null) return;
+    e.preventDefault();
+    if (k === 'go') done();
+    else if (k !== 'hold') { onfirst(); if (k !== end) { end = k; moved = true; mSfx.tick(); } }
   }
 </script>
 
 <svelte:window onkeydown={key} />
 
 <div class="ri" class:compact bind:clientWidth={w}>
-  <svg bind:this={svg} viewBox="0 0 {W} {top + RH + 6}" width={W} height={top + RH + 6} role="slider" aria-label="Ribbon end" aria-valuenow={end} tabindex="-1" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} class:held>
+  <svg bind:this={svg} viewBox="0 0 {W} {top + RH + 6}" width={W} height={top + RH + 6} role="slider" aria-label="Ribbon end" aria-valuemin={spec.start + spec.snap} aria-valuemax={spec.len} aria-valuenow={end} aria-valuetext={unitText(end, spec.unit)} tabindex="0" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} class:held>
     <defs>
       <pattern id="rw" patternUnits="userSpaceOnUse" width="700" height="69"><image href="{base}learn/plank.webp" width="1400" height="137" x="-300" y="-30" /></pattern>
       <linearGradient id="rb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9cc2" /><stop offset=".45" stop-color="#ff5d98" /><stop offset="1" stop-color="#d6336f" /></linearGradient>
@@ -68,7 +72,7 @@
     {/each}
     <text x={W - 10} y={top + RH - 10} text-anchor="end" class="ru">{spec.unit === 'cm' ? 'cm' : 'in'}</text>
   </svg>
-  <button class="ok" disabled={disabled || !moved} onpointerdown={(e) => { e.preventDefault(); done(); }} tabindex="-1"><Icon name="check" size={28} /><span>Done</span></button>
+  <button class="ok" disabled={disabled || !moved} {...press(done)}><Icon name="check" size={28} /><span>Done</span></button>
 </div>
 
 <style>

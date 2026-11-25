@@ -1,10 +1,14 @@
 <script lang="ts">
   // Make an amount: tap coins from the bank to drop them in the tray (tap a coin in the tray to take it
-  // back), then Pay. The tray's total shows as you go, so counting on is easy to see.
+  // back), then Pay. The tray's total shows as you go, so counting on is easy to see. By keyboard Tab reaches
+  // every coin and Pay, which work with Enter or Space; and from anywhere on the page, as before, the number
+  // keys add the bank's coins, Backspace takes the last one back and Enter pays.
+  import { tick } from 'svelte';
   import { sfx } from '../../../audio/sound';
   import Icon from '../../../ui/Icon.svelte';
   import type { CustomInputProps } from './SkillInput.svelte';
   import { COIN_ART as ART, COIN_REL as REL } from '../decimals';
+  import { buttonKey, press } from '../inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   const base = import.meta.env.BASE_URL;
   const NAME: Record<number, string> = { 1: '1¢', 5: '5¢', 10: '10¢', 25: '25¢', 100: '$1' };
@@ -17,8 +21,18 @@
   function add(c: number) { if (disabled || tray.length >= 14) return; onfirst(); tray = [...tray, { c, k: k++ }]; sfx.coin(c); }
   function take(kk: number) { if (disabled) return; tray = tray.filter(x => x.k !== kk); sfx.click(); }
   function pay() { if (!disabled && tray.length) onanswer({ kind: 'number', value: total }); }
+  let trayEl: HTMLDivElement | undefined = $state(), bankEl: HTMLDivElement | undefined = $state();
+  /** A coin taken back by keyboard hands the focus to the coin now in its place (or the one before it), or to
+   *  the bank's first coin once the tray is empty, so the next Tab doesn't start again from the top. */
+  async function takeByKey(kk: number) {
+    const i = tray.findIndex(x => x.k === kk);
+    take(kk);
+    await tick();
+    const left = trayEl?.querySelectorAll<HTMLButtonElement>('button.in') ?? [];
+    (left[Math.min(i, left.length - 1)] ?? bankEl?.querySelector<HTMLButtonElement>('button.coin'))?.focus();
+  }
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey) return;
+    if (disabled || e.metaKey || e.ctrlKey || buttonKey(e)) return;
     const i = Number(e.key);
     if (i >= 1 && i <= spec.coins.length) { e.preventDefault(); add(spec.coins[i - 1]); }
     else if (e.key === 'Backspace' && tray.length) { e.preventDefault(); take(tray[tray.length - 1].k); }
@@ -29,21 +43,21 @@
 <svelte:window onkeydown={key} />
 
 <div class="ct" class:compact>
-  <div class="tray" aria-label="Your tray: {money(total)}">
+  <div class="tray" bind:this={trayEl} role="group" aria-label="Your tray: {money(total)}">
     {#each tray as x (x.k)}
-      <button class="in" onpointerdown={(e) => { e.preventDefault(); take(x.k); }} tabindex="-1" aria-label="Take back {NAME[x.c]}"><img src="{base}math/money/{ART[x.c]}.webp" alt="" style:width="{Math.round((compact ? 40 : 52) * REL[x.c])}px" /></button>
+      <button class="in" {...press(() => take(x.k), () => void takeByKey(x.k))} aria-label="Take back {NAME[x.c]}"><img src="{base}math/money/{ART[x.c]}.webp" alt="" style:width="{Math.round((compact ? 40 : 52) * REL[x.c])}px" /></button>
     {:else}<span class="empty">Tap coins to put them here</span>{/each}
-    <span class="sum">{money(total)}</span>
+    <span class="sum" aria-live="polite">{money(total)}</span>
   </div>
-  <div class="bank">
+  <div class="bank" bind:this={bankEl}>
     {#each spec.coins as c, i (c)}
-      <button class="coin" {disabled} onpointerdown={(e) => { e.preventDefault(); add(c); }} tabindex="-1" aria-label="Add {NAME[c]}">
+      <button class="coin" {disabled} {...press(() => add(c))} aria-label="Add {NAME[c]}">
         <img src="{base}math/money/{ART[c]}.webp" alt="" style:width="{Math.round((compact ? 54 : 70) * REL[c])}px" draggable="false" />
         <b>{NAME[c]}</b>
         {#if !compact}<span class="k">{i + 1}</span>{/if}
       </button>
     {/each}
-    <button class="pay" disabled={disabled || !tray.length} onpointerdown={(e) => { e.preventDefault(); pay(); }} tabindex="-1"><Icon name="check" size={28} /><span>Pay</span></button>
+    <button class="pay" disabled={disabled || !tray.length} {...press(pay)}><Icon name="check" size={28} /><span>Pay</span></button>
   </div>
 </div>
 

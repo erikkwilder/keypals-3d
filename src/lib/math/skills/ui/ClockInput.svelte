@@ -9,6 +9,7 @@
   import Icon from '../../../ui/Icon.svelte';
   import type { CustomInputProps } from './SkillInput.svelte';
   import { timeText, type ClockSpec } from '../measure';
+  import { buttonKey, clockKey, press } from '../inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   const base = import.meta.env.BASE_URL;
   const spec = $derived((item.custom?.spec ?? { face: 'all', snap: 5, start: 0, show: true }) as ClockSpec);
@@ -69,21 +70,22 @@
   function set(v: number) { t = ((v % 720) + 720) % 720; moved = true; mSfx.tick(); }
   function up() { held = null; }
   function done() { if (!disabled) { sfx.click(); onanswer({ kind: 'number', value: t }); } }
+  // by keyboard (clockKey, inputKeys.ts): Tab reaches the clock and Done; Right and Left turn the long hand a
+  // step and Up and Down the short hand an hour, from anywhere on the page as before; while the clock has focus
+  // Page Up and Page Down an hour too, Home 12:00, and Space is Done as Enter is
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey || e.altKey) return;
-    const st = spec.lock === 'minute' ? 60 : spec.snap;
-    if (e.key === 'ArrowRight') { e.preventDefault(); onfirst(); set(t + st); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); onfirst(); set(t - st); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); onfirst(); set(t + 60); }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); onfirst(); set(t - 60); }
-    else if (e.key === 'Enter') { e.preventDefault(); done(); }
+    if (disabled || buttonKey(e)) return;
+    const k = clockKey(e, t, spec.lock === 'minute' ? 60 : spec.snap, e.target === svg);
+    if (k === null) return;
+    e.preventDefault();
+    if (k === 'go') done(); else if (k !== 'hold') { onfirst(); set(k); }
   }
 </script>
 
 <svelte:window onkeydown={key} />
 
 <div class="ci" class:compact>
-  <svg bind:this={svg} viewBox="0 0 512 508" width={S} height={S * 508 / 512} role="slider" aria-label="Clock hands" aria-valuenow={t} aria-valuetext={timeText(h || 12, mm)} tabindex="-1"
+  <svg bind:this={svg} viewBox="0 0 512 508" width={S} height={S * 508 / 512} role="slider" aria-label="Clock hands" aria-valuemin={0} aria-valuemax={719} aria-valuenow={t} aria-valuetext={timeText(h || 12, mm)} tabindex="0"
     onpointerdown={down} onpointermove={drag} onpointerup={up} onpointercancel={up} class:held>
     <image href="{base}math/measure/clockface.webp" x="0" y="0" width="512" height="508" />
     {#each Array(60) as _, i (i)}
@@ -108,7 +110,7 @@
   <div class="side">
     {#if spec.show}<span class="read" class:on={moved}>{timeText(h || 12, mm)}</span>{/if}
     <span class="tip">{spec.lock === 'minute' ? 'Drag the short hand' : 'Drag the hands'}</span>
-    <button class="ok" disabled={disabled || !moved} onpointerdown={(e) => { e.preventDefault(); done(); }} tabindex="-1"><Icon name="check" size={28} /><span>Done</span></button>
+    <button class="ok" disabled={disabled || !moved} {...press(done)}><Icon name="check" size={28} /><span>Done</span></button>
   </div>
 </div>
 

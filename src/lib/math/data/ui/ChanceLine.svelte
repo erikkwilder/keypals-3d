@@ -1,10 +1,11 @@
 <script lang="ts">
   // The chance line: from Impossible on the left to Certain on the right, with Even chance in the middle and
   // small marks for each equal step. Drag the star (or tap the line) to where the chance is, then Check: it
-  // counts when it's close enough (the item says how close). Arrow keys nudge it a step; Enter checks.
+  // counts when it's close enough (the item says how close). Arrow keys move it to the next mark; Enter checks.
   import { sfx } from '../../../audio/sound';
   import Icon from '../../../ui/Icon.svelte';
   import type { CustomInputProps } from '../../skills/ui/SkillInput.svelte';
+  import { buttonKey, chanceText, press, stepKey } from '../../skills/inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   const spec = $derived(item.custom?.spec as { den: number; tol: number });
   const W = 520, H = 120, L0 = 40, L1 = W - 40, Y = 56;
@@ -26,19 +27,22 @@
   function move(e: PointerEvent) { if (dragging && !disabled) at(e); }
   function up() { dragging = false; }
   function check() { if (!disabled && moved) onanswer({ kind: 'point', x }); }
+  // by keyboard a slider (stepKey, inputKeys.ts): Tab reaches the star and Check; the arrows move it a mark
+  // (from between two marks, to the next one that way), from anywhere on the page; while it has focus Page Up
+  // and Page Down ten marks, Home and End to Impossible and Certain, and Space checks as Enter does
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey) return;
-    const s = 1 / (spec.den || 10);
-    if (e.key === 'ArrowRight') { e.preventDefault(); onfirst(); x = Math.min(1, x + s); moved = true; sfx.click(); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); onfirst(); x = Math.max(0, x - s); moved = true; sfx.click(); }
-    else if (e.key === 'Enter') { e.preventDefault(); check(); }
+    if (disabled || buttonKey(e)) return;
+    const k = stepKey(e, x, { min: 0, max: 1, step: 1 / (spec.den || 10) }, e.target === svg);
+    if (k === null) return;
+    e.preventDefault();
+    if (k === 'go') check(); else if (k !== 'hold') { onfirst(); x = k; moved = true; sfx.click(); }
   }
 </script>
 
 <svelte:window onkeydown={key} />
 
 <div class="cl" class:compact>
-  <svg bind:this={svg} viewBox="0 0 {W} {H}" class:dragging role="slider" aria-label="How likely" aria-valuenow={Math.round(x * 100)} aria-valuemin={0} aria-valuemax={100} tabindex="-1"
+  <svg bind:this={svg} viewBox="0 0 {W} {H}" class:dragging role="slider" aria-label="How likely" aria-valuenow={Math.round(x * 100)} aria-valuemin={0} aria-valuemax={100} aria-valuetext={chanceText(x, spec.den || 10)} tabindex="0"
     onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up}>
     <defs>
       <linearGradient id="clg" x1="0" x2="1"><stop offset="0" stop-color="#9aa8c2" /><stop offset=".5" stop-color="#ffd36b" /><stop offset="1" stop-color="#5cc96a" /></linearGradient>
@@ -57,7 +61,7 @@
     </g>
     <rect x="0" y="0" width={W} height={H} fill="transparent" />
   </svg>
-  <button class="ok" disabled={disabled || !moved} onpointerdown={(e) => { e.preventDefault(); check(); }} tabindex="-1"><Icon name="check" size={26} /><span>Check</span></button>
+  <button class="ok" disabled={disabled || !moved} {...press(check)}><Icon name="check" size={26} /><span>Check</span></button>
 </div>
 
 <style>

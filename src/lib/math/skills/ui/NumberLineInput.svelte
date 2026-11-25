@@ -1,8 +1,11 @@
 <script lang="ts">
-  // A number line on a painted wooden plank: drag the marker (or tap the line, or use the arrow keys) and
-  // it snaps to the nearest tick; Check (or Enter) answers. Ticks can be labelled as fractions.
+  // A number line on a painted wooden plank: drag the marker (or tap the line) and it snaps to the nearest
+  // tick; Check (or Enter) answers. Ticks can be labelled as fractions. By keyboard it's a slider (inputKeys.ts):
+  // Tab reaches it and its Check; the arrows move the pin a tick from anywhere on the page, as they always
+  // have; while it has focus Page Up and Page Down go ten ticks, Home and End to the ends, and Space answers.
   import Icon from '../../../ui/Icon.svelte';
   import type { LineSpec } from '../types';
+  import { buttonKey, press, stepKey } from '../inputKeys';
   type Props = { line: LineSpec; disabled?: boolean; compact?: boolean; onanswer: (x: number) => void; onfirst?: () => void };
   let { line, disabled = false, compact = false, onanswer, onfirst }: Props = $props();
   const base = import.meta.env.BASE_URL;
@@ -24,17 +27,20 @@
   }
   let dragging = false;
   function key(e: KeyboardEvent) {
-    if (disabled) return;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); onfirst?.(); const v = at ?? line.min; at = Math.max(line.min, Math.min(line.max, v + (e.key === 'ArrowRight' ? 1 : -1) * line.step)); }
-    if (e.key === 'Enter' && at !== null) { e.preventDefault(); onanswer(at); }
+    if (disabled || buttonKey(e)) return;
+    const k = stepKey(e, at ?? line.min, line, e.target === el);
+    if (k === null) return;
+    e.preventDefault();
+    if (k === 'go') { if (at !== null) onanswer(at); }
+    else if (k !== 'hold') { onfirst?.(); at = k; }
   }
 </script>
 
 <svelte:window onkeydown={key} />
 
 <div class="nl" class:compact>
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="track" bind:this={el} style:background-image="url({base}learn/plank.webp)"
+  <div class="track" bind:this={el} style:background-image="url({base}learn/plank.webp)" role="slider" tabindex="0"
+    aria-label="Number line from {label(line.min)} to {label(line.max)}" aria-valuemin={line.min} aria-valuemax={line.max} aria-valuenow={at ?? line.min} aria-valuetext={at === null ? 'No mark yet' : label(at)}
     onpointerdown={(e) => { dragging = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setFromX(e.clientX); }}
     onpointermove={(e) => { if (dragging) setFromX(e.clientX); }} onpointerup={() => (dragging = false)}>
     {#each Array(ticks + 1) as _, i}
@@ -45,7 +51,7 @@
     {/each}
     {#if at !== null}<span class="pin" style:left="calc(24px + (100% - 48px) * {frac(at)})"><span class="flag">{label(at)}</span></span>{/if}
   </div>
-  <button class="ok" disabled={at === null || disabled} onpointerdown={(e) => { e.preventDefault(); if (at !== null && !disabled) onanswer(at); }} tabindex="-1"><Icon name="check" size={28} /><span>Check</span></button>
+  <button class="ok" disabled={at === null || disabled} {...press(() => { if (at !== null && !disabled) onanswer(at); })}><Icon name="check" size={28} /><span>Check</span></button>
 </div>
 
 <style>
