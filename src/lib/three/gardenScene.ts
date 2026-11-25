@@ -783,7 +783,7 @@ export class GardenScene implements Controller {
           if (open) { sfx.golden(); say('A golden flower! It only opens for gardeners with 10 flowers in bloom. That\'s you!'); this.fx.emit({ at: V(2.6, 1.1, -34.4), count: 40, shape: ['star', 'spark'], color: [0xffe066, 0xffffff, 0xffb02e], speed: [1, 3], up: 1.5, life: [0.6, 1.2], size: [0.08, 0.18], drag: 1.5 }); }
           else { sfx.sparkle(); say(`A golden bud... it opens when you have 10 flowers in bloom. You have ${k.blooms} so far!`); this.fx.emit({ at: V(2.6, 1.3, -34.4), count: 14, shape: 'spark', color: [0xffe066, 0xffffff], speed: [0.4, 1.2], up: 1, life: [0.5, 0.9], size: [0.05, 0.1], drag: 1.5 }); }
         },
-        tick: (dt, t) => { top.rotation.y = Math.sin(t * 0.8) * 0.15; if (Math.random() < dt * (open ? 2.5 : 0.8)) this.fx.emit({ at: V(2.6 + (Math.random() - 0.5) * 0.8, 1.2 + Math.random() * 0.7, -34.4 + (Math.random() - 0.5) * 0.8), count: 1, shape: 'spark', color: [0xffe066, 0xffffff], speed: [0.1, 0.3], up: 0.6, life: [0.6, 1], size: [0.06, 0.11] }); },
+        tick: (dt) => { top.rotation.y = Math.sin(stage.decorT * 0.8) * 0.15; if (Math.random() < dt * (open ? 2.5 : 0.8)) this.fx.emit({ at: V(2.6 + (Math.random() - 0.5) * 0.8, 1.2 + Math.random() * 0.7, -34.4 + (Math.random() - 0.5) * 0.8), count: 1, shape: 'spark', color: [0xffe066, 0xffffff], speed: [0.1, 0.3], up: 0.6, life: [0.6, 1], size: [0.06, 0.11] }); },
       });
     }
   }
@@ -964,7 +964,9 @@ export class GardenScene implements Controller {
   update(dt: number, t: number) {
     this.now = t;
     if (this.started < 0) this.started = t;
-    this.u.uT.value = t;
+    // the plants' sway, the drops' bob and the butterflies go by the decorative clock (the stage's time,
+    // standing still with less motion: calm.ts); the picked bed's glow and the ring show what's picked, as ever
+    this.u.uT.value = stage.decorT;
     // growth since the last visit pops in, one plant after another, each with a little burst
     for (const g of this.growing) {
       if (g.done) continue;
@@ -981,13 +983,13 @@ export class GardenScene implements Controller {
     // water drops bob over the plants that are due a check-up, always facing the camera
     if (this.drops && this.drops.at.length) {
       const m = new THREE.Matrix4(), cq = stage.camera.quaternion;
-      this.drops.at.forEach((p, i) => { m.compose(p.clone().setY(p.y + Math.sin(t * 2.4 + i) * 0.035), cq, new THREE.Vector3(1, 1, 1)); this.drops!.mesh.setMatrixAt(i, m); });
+      this.drops.at.forEach((p, i) => { m.compose(p.clone().setY(p.y + Math.sin(stage.decorT * 2.4 + i) * 0.035), cq, new THREE.Vector3(1, 1, 1)); this.drops!.mesh.setMatrixAt(i, m); });
       this.drops.mesh.instanceMatrix.needsUpdate = true;
     }
     this.bedGlow.visible = this.bed !== null;
     if (this.bed !== null) { this.bedGlow.position.set(this.px(this.plot), BED_H + 0.02, this.pz(this.plot) + bedZ(this.bed)); (this.bedGlow.material as THREE.MeshBasicMaterial).opacity = 0.55 + Math.sin(t * 3) * 0.3; }
     if (this.ring.visible) { this.ring.position.y = SOIL_Y + 0.03 + Math.sin(t * 3) * 0.015; this.ring.rotation.z = t * 0.8; }
-    this.butterflyFly(t);
+    this.butterflyFly(stage.decorT);
     this.buddy(dt, t);
     for (const s of this.secrets) s.tick?.(dt, t);
     this.fx.setScale(innerHeight * Math.min(2, devicePixelRatio || 1), stage.camera.fov);

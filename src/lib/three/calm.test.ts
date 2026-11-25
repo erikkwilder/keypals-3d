@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import { DecorClock, IdleHold, LAND, SETTLE, calm, easeTo, moveOver, shakeOf } from './calm';
@@ -157,5 +158,30 @@ describe('shakes (the camera on a hit, the mat, the beam, the tray, the crate on
     calm.follow(() => true);
     for (const k of [0, 0.1, 0.35, 1]) expect(shakeOf(k)).toBe(0);
     calm.follow(() => false);
+  });
+});
+
+// (these scenes need a page and its 3D to run, so this reads them: each idle loop is set from the clock)
+describe("the Sky Island's and the garden's idle loops go by the decorative clock (still with less motion)", () => {
+  const scene = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8').split('\n');
+  const line = (lines: string[], has: string) => {
+    const found = lines.filter(x => x.includes(has));
+    expect(found.length, has).toBe(1);
+    return found[0];
+  };
+
+  it('the Sky Island: the floating things, the butterflies, the heart and the wish, the present, the whole-island sway', () => {
+    const s = scene('./islandScene.ts');
+    for (const has of ['for (const f of this.floaters) f.o.position.y', 'b.sp + b.ph, p = new THREE.Vector3(Math.cos(tt * 0.6) * b.rad', 'b.l.rotation.z = -flap',
+      'p.heart.position.copy', 'p.wish.position.copy', 'v.present.rotation.y', 'c.yaw = Math.sin']) expect(line(s, has), has).toContain('stage.decorT');
+    // the marker and the ghost show where a thing goes: they pulse as ever
+    expect(line(s, 'if (this.ghost) { this.ghost.obj.position.y')).not.toContain('decorT');
+  });
+
+  it("the garden: the plants in the wind, the drops, the butterflies, the golden flower's sway", () => {
+    const s = scene('./gardenScene.ts');
+    for (const has of ['this.u.uT.value =', 'this.drops!.mesh.setMatrixAt', 'this.butterflyFly(', 'top.rotation.y = Math.sin']) expect(line(s, has), has).toContain('stage.decorT');
+    // the ring round what's picked shows it: it turns as ever
+    expect(line(s, 'if (this.ring.visible)')).not.toContain('decorT');
   });
 });

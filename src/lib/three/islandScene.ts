@@ -888,9 +888,10 @@ export class IslandScene implements Controller {
       p.heartT = (p.heartT ?? 0) + dt;
       const k = p.heartT, show = k < 2.4, s = show ? Math.min(1, easeOutBack(Math.min(1, k / 0.35))) * 0.42 : Math.max(0, 0.42 - (k - 2.4) * 2);
       p.heart.visible = s > 0.01 && !p.wish; p.heart.scale.setScalar(Math.max(0.001, s * 1.3));
-      p.heart.position.copy(m.root.position).add(new THREE.Vector3(0.18, m.height * (m.floats ? 1.75 : 1.4) + Math.sin(t * 3) * 0.03, 0));
+      p.heart.position.copy(m.root.position).add(new THREE.Vector3(0.18, m.height * (m.floats ? 1.75 : 1.4) + Math.sin(stage.decorT * 3) * 0.03, 0));
     }
-    if (p.wish) { p.wish.position.copy(m.root.position).add(new THREE.Vector3(0.2, m.height * (m.floats ? 1.9 : 1.55) + Math.sin(t * 2.4) * 0.05, 0)); p.wish.scale.setScalar(0.62 + Math.sin(t * 3) * 0.02); }
+    // (the heart's and the wish's bob go by the decorative clock: still with less motion, calm.ts)
+    if (p.wish) { p.wish.position.copy(m.root.position).add(new THREE.Vector3(0.2, m.height * (m.floats ? 1.9 : 1.55) + Math.sin(stage.decorT * 2.4) * 0.05, 0)); p.wish.scale.setScalar(0.62 + Math.sin(stage.decorT * 3) * 0.02); }
     // in the air
     if (p.hop) {
       const h = p.hop, k = Math.min(1, (t - h.t0) / h.dur);
@@ -1231,7 +1232,8 @@ export class IslandScene implements Controller {
     }
     // it stays near where it landed, looking round, hopping about
     this.palMove(v.pal, dt, t);
-    if (v.present && !v.opened) { v.present.rotation.y = Math.sin(t * 2) * 0.15; v.present.position.y = Math.abs(Math.sin(t * 3)) * 0.04; }
+    // (the present's wiggle goes by the decorative clock: with less motion it waits, still, to be opened)
+    if (v.present && !v.opened) { v.present.rotation.y = Math.sin(stage.decorT * 2) * 0.15; v.present.position.y = Math.abs(Math.sin(stage.decorT * 3)) * 0.04; }
   }
 
   // ---------- picking things on the screen ----------
@@ -1343,13 +1345,15 @@ export class IslandScene implements Controller {
     }
     if (this.ghost) { this.ghost.obj.position.y = 0.12 + Math.sin(t * 4) * 0.05; (this.marker.material as THREE.MeshBasicMaterial).opacity = 0.35 + Math.sin(t * 5) * 0.12; }
     else if (this.marker.visible) (this.marker.material as THREE.MeshBasicMaterial).opacity = 0.3 + Math.sin(t * 4) * 0.12;
-    for (const f of this.floaters) f.o.position.y = f.y + Math.sin(t * 0.5 + f.ph) * 0.25;
+    // the floating things' bob and the butterflies go by the decorative clock (the stage's time, standing still
+    // with less motion: calm.ts); the marker and the ghost above show where a thing goes, so they pulse as ever
+    for (const f of this.floaters) f.o.position.y = f.y + Math.sin(stage.decorT * 0.5 + f.ph) * 0.25;
     // a little while after the island opens, one butterfly turns golden (a secret: tap it)
     if (!this.golden.on && this.goldWing && (this.golden.t += dt) > 14) { this.golden.on = true; const b = this.flies[0]; if (b) { (b.l as THREE.Mesh).material = this.goldWing; (b.r as THREE.Mesh).material = this.goldWing; b.g.scale.setScalar(1.9); b.y = 1.0; b.rad = 2.4; } }
     this.flies.forEach((b, i) => {
-      const tt = t * b.sp + b.ph, p = new THREE.Vector3(Math.cos(tt * 0.6) * b.rad + Math.sin(tt * 2.1) * 0.3, b.y + Math.sin(tt * 1.3) * 0.3, Math.sin(tt * 0.6 + i) * b.rad * 0.8 + Math.cos(tt * 1.7) * 0.3);
+      const tt = stage.decorT * b.sp + b.ph, p = new THREE.Vector3(Math.cos(tt * 0.6) * b.rad + Math.sin(tt * 2.1) * 0.3, b.y + Math.sin(tt * 1.3) * 0.3, Math.sin(tt * 0.6 + i) * b.rad * 0.8 + Math.cos(tt * 1.7) * 0.3);
       const v = p.clone().sub(b.g.position); b.g.position.copy(p); if (v.lengthSq() > 1e-6) b.g.rotation.y = Math.atan2(v.x, v.z);
-      const flap = Math.sin(t * 16 + b.ph) * 0.9; b.l.rotation.z = -flap; b.r.rotation.z = flap;
+      const flap = Math.sin(stage.decorT * 16 + b.ph) * 0.9; b.l.rotation.z = -flap; b.r.rotation.z = flap;
       if (i === 0 && this.golden.on && Math.random() < dt * 12) this.fx.emit({ at: p.clone(), count: 1, shape: ['spark', 'star'], color: [0xffd34d, 0xffffff], speed: [0.05, 0.2], life: [0.4, 0.7], size: [0.04, 0.08], drag: 1 });
     });
     this.blk.update(t, dt);
@@ -1786,7 +1790,8 @@ export class IslandScene implements Controller {
     // up a tree or the lookout, on the swing: the camera (when it's yours, not the whole island) keeps the buddy in view
     else if ((this.doing || this.air) && this.me && !this.framed) c.target.lerp(this.me.root.position.clone().add(new THREE.Vector3(0, 0.6, 0)), 1 - Math.exp(-dt * 2.5));
     else if (this.walk.mode === 'drive' && this.me && (this.drive.x || this.drive.z || this.goto) && !this.framed) c.target.lerp(this.me.root.position.clone().setY(this.meShow + 0.55), 1 - Math.exp(-dt * 3));
-    if (this.framed) { this.frame(); c.yaw = Math.sin(_t * 0.07) * 0.14; }
+    // the whole island's slow sway goes by the decorative clock: with less motion the camera holds where it is
+    if (this.framed) { this.frame(); c.yaw = Math.sin(stage.decorT * 0.07) * 0.14; }
     const pos = c.target.clone().add(new THREE.Vector3(Math.sin(c.yaw) * Math.cos(c.pitch), Math.sin(c.pitch), Math.cos(c.yaw) * Math.cos(c.pitch)).multiplyScalar(c.dist));
     // the view band isn't the middle of the screen (the bars cover some): shift so the island sits in it
     const v = this.view, tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
