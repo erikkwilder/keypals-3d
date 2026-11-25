@@ -11,8 +11,17 @@ describe('the focus ring', () => {
     const rule = css.match(/^:where\(([^)]*\([^)]*\)[^)]*)\):where\(:focus-visible\) \{([^}]*)\}/m);
     expect(rule).not.toBeNull();
     for (const s of ['button', 'a[href]', 'input', 'select', 'textarea', 'summary', "[tabindex]:not([tabindex='-1'])"]) expect(rule![1], s).toContain(s);
-    expect(rule![2]).toContain('outline: 3px solid var(--primary-hi); outline-offset: 3px;');
-    expect(css).toContain('.btn:focus-visible { outline: 3px solid var(--primary-hi); outline-offset: 3px; }');
+    expect(rule![2]).toContain('outline: 3px solid var(--primary-edge); outline-offset: 3px;');
+    expect(css).toContain('.btn:focus-visible { outline: 3px solid var(--primary-edge); outline-offset: 3px; }');
+  });
+  it('stands out at least 3 to 1 from a white page in every look (the guidelines ask that of a focus ring)', () => {
+    const lum = (hex: string) => {
+      const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(x => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const edges = [...css.matchAll(/--primary-edge: (#[0-9a-f]{6})/gi)].map(m => m[1]);
+    expect(edges.length).toBe(4); // the default look, ink, paper and geo
+    for (const e of edges) expect(1.05 / (lum(e) + 0.05), e).toBeGreaterThanOrEqual(3);
   });
   it('counts for nothing (all of it inside :where), so a component\'s own focus style still wins', () => {
     const line = css.split('\n').find(l => l.includes(':where(:focus-visible)'))!;
