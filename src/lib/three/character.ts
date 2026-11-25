@@ -1,9 +1,11 @@
-// A 3D buddy: the model (weights redone in Blender so raised arms stay round), its moves, a colour
+// A 3D buddy: the model (weights redone in Blender so raised arms stay round, and for the buddies
+// listed in buddyHead.ts the neck and head let go of the arms when it loads), its moves, a colour
 // lift for the scanned textures, and two fixes applied every frame: planted feet are turned flat on
 // the ground, and the character never casts shadows on itself (that's what flickered on faces).
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGltf } from './assets';
+import { partWeights, STEADY_HEADS, steadyHead } from './buddyHead';
 import { FRIEND, type FriendId } from '../art/cast';
 
 import { CLIP_NAMES as MOVE } from './clipNames';
@@ -18,7 +20,12 @@ function source(id: FriendId) {
   if (!p) {
     p = loadGltf(`models/${id}.glb`).then(g => {
       if (!g) return null;
-      g.scene.traverse(o => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) liftColours(o as THREE.SkinnedMesh); });
+      const fade = STEADY_HEADS[id];
+      g.scene.traverse(o => {
+        if (!(o as THREE.SkinnedMesh).isSkinnedMesh) return;
+        liftColours(o as THREE.SkinnedMesh);
+        if (fade) steadyHead(o as THREE.SkinnedMesh, fade);
+      });
       return { scene: g.scene, clips: g.animations };
     });
     sources.set(id, p);
@@ -99,7 +106,7 @@ function bodyHue(id: FriendId, model: THREE.Object3D): Band {
       // the head's own surface (triangles the Head bone moves), each spot weighted by its area, so the
       // skin or fur counts for more than the eyes and teeth, which have lots of little triangles
       const hi = m.skeleton.bones.findIndex(b => b.name === 'Head');
-      const uv = m.geometry.attributes.uv, pos = m.geometry.attributes.position, si = m.geometry.attributes.skinIndex, sw = m.geometry.attributes.skinWeight;
+      const uv = m.geometry.attributes.uv, pos = m.geometry.attributes.position, { si, sw } = partWeights(m.geometry);
       const ix = m.geometry.index, tris = ix ? ix.count / 3 : pos.count / 3;
       const onHead = new Uint8Array(pos.count);
       for (let i = 0; i < pos.count; i++) { let w = 0; for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === hi) w += sw.getComponent(i, k); onHead[i] = w >= 0.6 ? 1 : 0; }
@@ -197,7 +204,7 @@ function paintPlan(id: FriendId, model: THREE.Object3D): Plan | null {
 }
 function headRef(m: THREE.SkinnedMesh, px: Uint8ClampedArray, N: number, band: Band) {
   const hi = m.skeleton.bones.findIndex(b => b.name === 'Head');
-  const g = m.geometry, uv = g.attributes.uv, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+  const g = m.geometry, uv = g.attributes.uv, { si, sw } = partWeights(g);
   const pts: [number, number, number][] = [];
   for (let i = 0; i < uv.count; i += 1) {
     let w = 0;
@@ -225,7 +232,7 @@ function buildPlan(id: FriendId, model: THREE.Object3D): Plan | null {
   const cx = cv.getContext('2d', { willReadFrequently: true })!;
   cx.drawImage(img, 0, 0, N, N);
   const px = cx.getImageData(0, 0, N, N).data;
-  const g = m.geometry, uv = g.attributes.uv, pos = g.attributes.position, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, ix = g.index;
+  const g = m.geometry, uv = g.attributes.uv, pos = g.attributes.position, { si, sw } = partWeights(g), ix = g.index;
   const tris = ix ? ix.count / 3 : pos.count / 3;
   const vid = (t: number, k: number) => (ix ? ix.getX(t * 3 + k) : t * 3 + k);
   // each vertex: its part of the body (the bone that moves it most), and the same spot on the mesh
@@ -835,7 +842,7 @@ export class Character {
     if (!head || !mesh) return null;
     const m = mesh as THREE.SkinnedMesh;
     const hi = m.skeleton.bones.indexOf(head);
-    const pos = m.geometry.attributes.position, si = m.geometry.attributes.skinIndex, sw = m.geometry.attributes.skinWeight;
+    const pos = m.geometry.attributes.position, { si, sw } = partWeights(m.geometry);
     // everything in the head bone's own space as it was when the skin was bound: bone space doesn't
     // change as the head moves, so a hat placed there rides along
     const toBone = m.skeleton.boneInverses[hi];

@@ -3,6 +3,7 @@
 // buddy sits down it is measured from its own skin: how far the hips sit above its bottom, and the
 // ankles above its heels. Then nothing passes through the slats.
 import * as THREE from 'three';
+import { partWeights } from './buddyHead';
 import type { Character } from './character';
 import { reach } from './ik';
 
@@ -85,7 +86,8 @@ function lowest(me: Character, sled: THREE.Object3D): [number | null, number | n
   me.model.traverse(o => {
     const m = o as THREE.SkinnedMesh;
     if (!m.isSkinnedMesh || !m.visible) return;
-    const pos = m.geometry.attributes.position, si = m.geometry.attributes.skinIndex, sw = m.geometry.attributes.skinWeight;
+    // the weights the model came with: which part of the body a vertex is (buddyHead.ts)
+    const pos = m.geometry.attributes.position, { si, sw } = partWeights(m.geometry);
     if (!si || !sw) return;
     const bones = m.skeleton.bones, mw = m.matrixWorld;
     for (let i = 0; i < pos.count; i++) {

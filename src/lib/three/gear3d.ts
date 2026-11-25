@@ -8,6 +8,7 @@
 // so a nudge can change live without building the piece again. Things that move (the cape's sway,
 // flapping wings, bubbles, music notes, flames) run from the buddy's own update.
 import * as THREE from 'three';
+import { partWeights } from './buddyHead';
 import type { Character } from './character';
 import { loadTexture } from './assets';
 import { stage } from './stage';
@@ -49,7 +50,8 @@ export function skinned(c: Character): THREE.SkinnedMesh[] {
 }
 /** how much of a vertex the named bones move */
 function weightOn(m: THREE.SkinnedMesh, i: number, idx: Set<number>) {
-  const si = m.geometry.attributes.skinIndex, sw = m.geometry.attributes.skinWeight;
+  // the weights the model came with: which part of the body a vertex is (buddyHead.ts)
+  const { si, sw } = partWeights(m.geometry);
   let w = 0;
   for (let k = 0; k < 4; k++) if (idx.has(si.getComponent(i, k))) w += sw.getComponent(i, k);
   return w;
