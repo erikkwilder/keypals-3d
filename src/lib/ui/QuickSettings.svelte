@@ -10,6 +10,7 @@
   import TileArt, { type ArtKind } from './TileArt.svelte';
   import Critter from './Critter.svelte';
   import NavTile from './NavTile.svelte';
+  import { holdFocus } from './focusKeeper';
   import { engineLabel } from '../polyfills';
   import { STATION } from '../audio/stations';
 
@@ -51,7 +52,7 @@
   onDestroy(() => window.removeEventListener('keydown', onKey, true));
 </script>
 
-<div class="wrap" role="dialog" aria-label={mode === 'setup' ? 'Sound setup' : 'Settings'}>
+<div class="wrap" role="dialog" aria-modal="true" aria-label={mode === 'setup' ? 'Sound setup' : 'Settings'} tabindex="-1" use:holdFocus>
   <div class="sheet card">
     <div class="head">
       <TileArt kind={mode === 'setup' ? 'sfx' : 'settings'} size={52} />

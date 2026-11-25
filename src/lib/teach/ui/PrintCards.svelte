@@ -3,6 +3,7 @@
   // it's a sheet over the class page; printing shows only the cards.
   import { teach } from '../teacher.svelte';
   import LoginCard from './LoginCard.svelte';
+  import { holdFocus } from '../../ui/focusKeeper';
 
   const c = $derived(teach.current!);
   const who = $derived(c.students.filter(s => s.status === 'active'));
@@ -13,7 +14,7 @@
 <svelte:window onkeydown={(e) => { if (e.key === 'Escape') close(); }} />
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="pbg" onclick={close}>
+<div class="pbg" onclick={close} use:holdFocus>
   <div class="sheet" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Login cards" tabindex="-1">
     <div class="bar">
       <div><b>Login cards: {c.class.name}</b><span>{who.length} cards, two across. Cut along the dashed lines.</span></div>

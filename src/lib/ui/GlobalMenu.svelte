@@ -13,6 +13,7 @@
   import { menuMore, menuPlaces, type MenuItem } from '../nav';
   import CloseButton from './CloseButton.svelte';
   import QuickToggles from './QuickToggles.svelte';
+  import { holdFocus } from './focusKeeper';
   import MusicNow from './MusicNow.svelte';
 
   const base = import.meta.env.BASE_URL;
@@ -29,7 +30,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="gm" transition:fade={{ duration: 140 }} onclick={close}>
+<div class="gm" transition:fade={{ duration: 140 }} onclick={close} use:holdFocus>
   <div class="panel" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Menu" tabindex="-1">
     <header class="top">
       <img class="cmp" src="{base}icons/hamburger.svg" alt="" />

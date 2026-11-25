@@ -9,6 +9,7 @@
   import { AUTO, STATIONS, STATION, type StationChoice } from '../audio/stations';
   import TileArt from './TileArt.svelte';
   import CloseButton from './CloseButton.svelte';
+  import { holdFocus } from './focusKeeper';
 
   const base = import.meta.env.BASE_URL;
   const art = (id: string) => `${base}icons/music/${id}.webp`;
@@ -40,7 +41,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="wrap" role="dialog" aria-label="Pick your music" onclick={close}>
+<div class="wrap" role="dialog" aria-modal="true" aria-label="Pick your music" tabindex="-1" onclick={close} use:holdFocus>
   <div class="sheet card" onclick={(e) => e.stopPropagation()}>
     <div class="head">
       <TileArt kind="music" size={56} />

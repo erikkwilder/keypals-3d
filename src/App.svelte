@@ -25,7 +25,7 @@
   import FancyAntIntro, { introDue } from './lib/ui/FancyAntIntro.svelte';
   import { motion } from './lib/ui/motion.svelte';
   import NetNote from './lib/ui/NetNote.svelte';
-  import { keepFocus } from './lib/ui/focusKeeper';
+  import { keepFocus, holdFocus } from './lib/ui/focusKeeper';
   import type { Screen } from './lib/state/game.svelte';
 
   const S = {
@@ -263,7 +263,7 @@
   {/if}
   {#if game.profile}{@render layer(O.ladder)}{/if}
   {#if intro}<FancyAntIntro onDone={() => (intro = false)} />{/if}
-  {#if game.settingsOpen && game.profile}<div class="settings-layer">{@render layer(O.settings, { overlay: true })}</div>{/if}
+  {#if game.settingsOpen && game.profile}<div class="settings-layer" role="dialog" aria-modal="true" aria-label="Settings" tabindex="-1" use:holdFocus>{@render layer(O.settings, { overlay: true })}</div>{/if}
   {#if game.chartLesson && game.profile}{#key game.chartLesson}{@render layer(O.chart)}{/key}{/if}
   {#if game.sheet}{@render layer(O.sheet)}{/if}
   {#if game.musicOpen}{@render layer(O.music)}{/if}

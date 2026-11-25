@@ -6,6 +6,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { sfx } from '../audio/sound';
   import CloseButton from './CloseButton.svelte';
+  import { holdFocus } from './focusKeeper';
 
   type Props = { anchor: HTMLElement | null; label: string; onclose: () => void; children: Snippet; width?: number };
   let { anchor, label, onclose, children, width = 380 }: Props = $props();
@@ -29,7 +30,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="pbg" class:phone onclick={close}>
+<div class="pbg" class:phone onclick={close} use:holdFocus>
   <div class="pop" class:phone class:up={at?.up} role="dialog" aria-modal="true" aria-label={label} tabindex="-1"
     style:left={at ? `${at.x}px` : null} style:top={at && !at.up ? `${at.y}px` : null} style:bottom={at?.up ? `${at.y}px` : null} style:width={at ? `${Math.min(width, innerWidth - 24)}px` : null} style:--ax={at ? `${at.arrow}px` : '50%'}
     onclick={(e) => e.stopPropagation()}>

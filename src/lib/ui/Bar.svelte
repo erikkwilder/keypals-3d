@@ -90,7 +90,7 @@
           <img src="{base}icons/note.webp" alt="" draggable="false" />
         </button>
       {/if}
-      <button class="round menu" title="Menu" aria-label="Menu" onclick={(e) => { (e.currentTarget as HTMLElement).blur(); sfx.click(); game.openMenu(); }}>
+      <button class="round menu" title="Menu" aria-label="Menu" onclick={() => { sfx.click(); game.openMenu(); }}>
         <img src="{base}icons/hamburger.svg" alt="" draggable="false" />
       </button>
     </nav>

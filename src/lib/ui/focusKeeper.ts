@@ -106,3 +106,37 @@ export function keepFocus(root: HTMLElement, playsNow: Plays): () => void {
   };
 }
 
+/** Everything but `node` and what holds it made inert (each of its ancestors' other children, up to <body>).
+ *  Returns what it marked, to be let go. */
+export function inertOthers(node: Element): Element[] {
+  const marked: Element[] = [];
+  for (let el: Element = node; el.parentElement; el = el.parentElement) {
+    for (const s of el.parentElement.children) if (s !== el && !s.hasAttribute('inert')) { s.setAttribute('inert', ''); marked.push(s); }
+    if (el.parentElement.tagName === 'BODY') break;
+  }
+  return marked;
+}
+
+/** `use:holdFocus` on a dialog over the screen (the login cards, the menu, the music, the settings sheet): while
+ *  it's open everything behind it is inert, so Tab can't wander into the page behind and a screen reader stays
+ *  in it; the keyboard goes into it; and when it closes the keyboard goes back to the button that opened it
+ *  ("Print login cards"). Not on a screen the keys play: there that button would take the next Space or Enter. */
+export function holdFocus(node: HTMLElement) {
+  const doc = node.ownerDocument;
+  const a = doc.activeElement;
+  const opener = a && !lost(doc) && !node.contains(a) ? (a as HTMLElement) : null;
+  const marked = inertOthers(node);
+  const box = (node.matches('[role="dialog"]') ? node : node.querySelector<HTMLElement>('[role="dialog"]')) ?? node;
+  if (!box.hasAttribute('tabindex')) box.setAttribute('tabindex', '-1');
+  box.setAttribute('data-holds', ''); // (no ring round the whole dialog: app.css)
+  if (!node.contains(doc.activeElement)) box.focus({ preventScroll: true });
+  return {
+    destroy() {
+      for (const el of marked) el.removeAttribute('inert');
+      const back = () => { if (opener && lost(doc) && !gone(opener) && !plays()) opener.focus({ preventScroll: true }); };
+      // (the dialog may still be on the page, with focus in it: back once it's gone)
+      if (node.contains(doc.activeElement)) queueMicrotask(back);
+      else back();
+    },
+  };
+}

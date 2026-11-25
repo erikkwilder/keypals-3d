@@ -10,6 +10,7 @@
   import TileArt from './TileArt.svelte';
   import Stars from './Stars.svelte';
   import Icon from './Icon.svelte';
+  import { holdFocus } from './focusKeeper';
 
   const p = game.profile!;
   const id = game.chartLesson!;
@@ -44,7 +45,7 @@
   onDestroy(() => window.removeEventListener('keydown', onKey, true));
 </script>
 
-<div class="wrap" role="dialog" aria-label="Progress chart for {lesson.title}">
+<div class="wrap" role="dialog" aria-modal="true" aria-label="Progress chart for {lesson.title}" tabindex="-1" use:holdFocus>
   <div class="sheet card">
     <div class="head">
       <TileArt kind="chart" size={48} />

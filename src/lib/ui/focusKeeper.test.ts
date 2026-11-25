@@ -1,7 +1,8 @@
-// Where the keyboard goes when the button it was on goes away with its screen or its step (ui/focusKeeper.ts).
+// Where the keyboard goes when the button it was on goes away with its screen or its step, and dialogs that keep
+// the keyboard while they're open and give it back when they close (ui/focusKeeper.ts).
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GIVE_UP, WAIT, gone, keepFocus, landingSpot, lost } from './focusKeeper';
+import { GIVE_UP, WAIT, gone, holdFocus, keepFocus, landingSpot, lost } from './focusKeeper';
 
 // a small page: elements in a tree, focus, events, and display: none (rects 0)
 type Listener = (e: { target: El }) => void;
@@ -268,6 +269,67 @@ describe('keeping the keyboard', () => {
   });
 });
 
+/** the class page with "Print login cards" focused, then the login cards opened over it */
+function cards(plays = () => false) {
+  const open = d.el('button'), tabs = d.el('nav', {}, d.el('button')), sheet = d.el('div', { role: 'dialog', tabindex: '-1' }, d.el('button'));
+  const pbg = d.el('div', {}, sheet), cls = d.el('div', {}, open, tabs), main = d.el('main', {}, d.el('div', {}, cls)), canvas = d.el('canvas');
+  d.body.append(canvas, main);
+  open.focus();
+  keepFocus(asHtml(main), plays);
+  cls.append(pbg);
+  const held = holdFocus(asHtml(pbg));
+  return { open, tabs, sheet, pbg, cls, canvas, held };
+}
+
+describe('dialogs', () => {
+  it('while the login cards are open, the page behind them is inert and the keyboard is in them', () => {
+    const c = cards();
+    expect(d.activeElement).toBe(c.sheet);
+    expect(c.sheet.hasAttribute('data-holds')).toBe(true);
+    expect(gone(asEl(c.tabs.children[0]))).toBe(true); // Tab can't reach the class tabs
+    expect(c.open.hasAttribute('inert')).toBe(true);
+    expect(c.canvas.hasAttribute('inert')).toBe(true);
+    expect(c.pbg.hasAttribute('inert')).toBe(false);
+  });
+  it('when they close, the page is back and so is focus, on "Print login cards"', () => {
+    const c = cards();
+    c.pbg.remove();
+    c.held.destroy();
+    expect(c.open.hasAttribute('inert')).toBe(false);
+    expect(c.tabs.hasAttribute('inert')).toBe(false);
+    expect(c.canvas.hasAttribute('inert')).toBe(false);
+    expect(d.activeElement).toBe(c.open);
+  });
+  it('also when the dialog is still on the page as it closes (focus goes back once it is gone)', async () => {
+    const c = cards();
+    c.held.destroy();
+    c.pbg.remove();
+    await Promise.resolve();
+    expect(d.activeElement).toBe(c.open);
+  });
+  it('not when what opened it has gone too (a card that went to another page)', () => {
+    const c = cards();
+    c.open.remove();
+    c.pbg.remove();
+    c.held.destroy();
+    expect(d.activeElement).toBe(d.body);
+  });
+  it('not on a screen the keys play: the button would take the next Space or Enter', () => {
+    const c = cards(() => true);
+    c.pbg.remove();
+    c.held.destroy();
+    expect(d.activeElement).toBe(d.body);
+  });
+  it('a dialog with no focusable box of its own gets one to take the keyboard', () => {
+    const btn = d.el('button'), wrap = d.el('div', { role: 'dialog' }, d.el('button'));
+    d.body.append(d.el('main', {}, btn, wrap));
+    btn.focus();
+    holdFocus(asHtml(wrap));
+    expect(d.activeElement).toBe(wrap);
+    expect(wrap.getAttribute('tabindex')).toBe('-1');
+  });
+});
+
 describe('the markup', () => {
   const src = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
   it('the game keeps focus on its <main>, and moves nothing while a run, a Learn episode or a game plays', () => {
@@ -278,9 +340,17 @@ describe('the markup', () => {
     for (const s of ['run', 'mathRun', 'skillRun', 'learn', 'playground', 'battle', 'duel', 'arcadePlay', 'pizza', 'balance']) expect(plays, s).toContain(`'${s}'`);
     for (const s of ['hub', 'newPlayer', 'grownups', 'teach', 'players', 'classLogin']) expect(plays, s).not.toContain(`'${s}'`);
   });
-  it('a landed heading shows the ring only when a key brought it', () => {
+  it('a landed heading shows the ring only when a key brought it, and a dialog box none', () => {
     const css = src('../../app.css');
-    expect(css).toContain('[data-landed]:focus { outline: none; }');
+    expect(css).toContain('[data-landed]:focus, [data-holds]:focus { outline: none; }');
     expect(css).toContain("[data-landed='key']:focus { outline: 3px solid var(--primary-edge);");
+  });
+  it('the dialogs opened from a button hold focus and give it back', () => {
+    for (const f of ['../teach/ui/PrintCards.svelte', './GlobalMenu.svelte', './MusicPicker.svelte', './LessonChart.svelte', './QuickSettings.svelte', './Popover.svelte']) expect(src(f), f).toMatch(/use:holdFocus/);
+    expect(src('../../App.svelte')).toMatch(/<div class="settings-layer"[^>]*use:holdFocus>/);
+    // (the Pause card goes back to the lesson's keys: no button may take them)
+    expect(src('./PauseCard.svelte')).not.toMatch(/holdFocus/);
+    // (the Menu button keeps focus, so it gets it back when the menu closes)
+    expect(src('./Bar.svelte')).not.toMatch(/blur\(\); sfx\.click\(\); game\.openMenu/);
   });
 });
