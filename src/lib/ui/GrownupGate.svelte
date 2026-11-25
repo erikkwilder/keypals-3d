@@ -2,9 +2,13 @@
   // The grown-up check, everywhere grown-up things live (the Grown-ups screen, signing in): press and hold,
   // then type a number written in words ("sixty-three"). A grown-up does it in a few seconds; a young
   // child can't read it yet. Once passed it stays open for ten minutes.
+  // A finger, a mouse, or Enter or Space held down does the hold. A screen reader or a switch can't hold:
+  // its press (a click with no pointer behind it) goes straight on to the number, which is the real check
+  // (hold.svelte.ts).
   import { onMount } from 'svelte';
   import { grownupOpen, passGrownupCheck } from '../state/cloud.svelte';
   import { sfx } from '../audio/sound';
+  import { HoldButton } from './hold.svelte';
 
   type Props = { onpass: () => void; title?: string; note?: string };
   let { onpass, title = 'For parents and teachers', note = 'A quick check that you’re a grown-up.' }: Props = $props();
@@ -15,33 +19,23 @@
   const words = n % 10 ? `${TENS[Math.floor(n / 10)]}-${ONES[n % 10]}` : TENS[n / 10];
 
   let step = $state<'hold' | 'type'>('hold');
-  let holding = $state(0);
   let typed = $state('');
   let wrong = $state(false);
   let input: HTMLInputElement | undefined = $state();
-  let holdTimer: ReturnType<typeof setInterval> | undefined;
-  function startHold() {
-    clearInterval(holdTimer);
-    holding = 0;
-    holdTimer = setInterval(() => {
-      holding += 0.05;
-      if (holding >= 1) { clearInterval(holdTimer); step = 'type'; sfx.click(); setTimeout(() => input?.focus(), 50); }
-    }, 75);
-  }
-  function stopHold() { clearInterval(holdTimer); if (step === 'hold') holding = 0; }
+  const hold = new HoldButton(() => { step = 'type'; sfx.click(); setTimeout(() => input?.focus(), 50); });
   function check() {
     if (Number(typed.trim()) === n) { passGrownupCheck(); sfx.complete(); onpass(); }
     else { wrong = true; typed = ''; sfx.nope(); }
   }
-  onMount(() => { if (grownupOpen()) onpass(); return () => clearInterval(holdTimer); });
+  onMount(() => { if (grownupOpen()) onpass(); return hold.dispose; });
 </script>
 
 <div class="gate">
   <h2>{title}</h2>
   <p class="muted">{note}</p>
   {#if step === 'hold'}
-    <button class="btn btn-primary btn-big hold" onpointerdown={startHold} onpointerup={stopHold} onpointerleave={stopHold} onkeydown={(e) => e.key === 'Enter' && startHold()} onkeyup={stopHold}>
-      <span class="fill" style:width="{holding * 100}%"></span><span class="lbl">Press and hold</span>
+    <button class="btn btn-primary btn-big hold" onpointerdown={hold.start} onpointerup={hold.stop} onpointerleave={hold.stop} onkeydown={hold.keydown} onkeyup={hold.keyup} onblur={hold.blur} onclick={hold.click}>
+      <span class="fill" style:width="{hold.fill * 100}%"></span><span class="lbl">Press and hold</span>
     </button>
   {:else}
     <form class="ask card" onsubmit={(e) => { e.preventDefault(); check(); }}>
