@@ -139,8 +139,8 @@ describe('what a screen reader hears', () => {
 
 // each fixed input, read from its source
 const src = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
-/** a tag from its < to its > (an arrow function's => inside it doesn't end it) */
-const tags = (s: string, name: string) => s.match(new RegExp(`<${name}\\b(?:=>|[^>])*>`, 'g')) ?? [];
+/** a tag from its < to its > (an arrow function's => or a >= inside it doesn't end it) */
+const tags = (s: string, name: string) => s.match(new RegExp(`<${name}\\b(?:=>|>=|[^>])*>`, 'g')) ?? [];
 /** slider: it is one; text: its value is read out in words (a time, a unit, a fraction) */
 const INPUTS: { name: string; file: string; slider: boolean; text?: boolean }[] = [
   { name: 'the number line', file: './ui/NumberLineInput.svelte', slider: true, text: true },
