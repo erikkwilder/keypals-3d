@@ -8,6 +8,7 @@ import { THEMES } from './themes';
 import type { RegionId } from '../engine/course';
 import { Character, charLook } from './character';
 import type { FriendId } from '../art/cast';
+import { calm, DecorClock } from './calm';
 
 export interface Controller {
   /** frames a second this scene needs (menus can settle for 30); 60 if not given */
@@ -59,6 +60,11 @@ class Stage {
   private raf = 0;
   private timer = new THREE.Timer();
   private t = 0;
+  /** the decorative loops' clock: the stage's time, standing still with less motion (calm.ts) */
+  private decor = new DecorClock();
+  /** what the decorative loops go by (the island's, the title's camera sway); the scenes' and lessons' own
+   *  clock (the `t` a controller is handed) never stops */
+  get decorT() { return this.decor.t; }
   /** frames a second, measured, for the quality switch */
   fps = 60;
   ready = false;
@@ -243,8 +249,12 @@ class Stage {
     this.timer.update();
     const dt = Math.min(0.05, this.timer.getDelta());
     this.t += dt;
+    // less motion stills the island's idle loops (the grass, the sea, the clouds, the floating rocks, the
+    // balloons, the waterfalls, the trail's surprises): they go by the decorative clock, which stands still
+    // then; the scene goes by the stage's own clock as ever, so its moves and a lesson's waits don't change
+    const ddt = this.decor.step(dt, calm.on);
     this.ctrl.update(dt, this.t);
-    this.island?.update(dt, this.t, this.ctrl.focus());
+    this.island?.update(ddt, this.decor.t, this.ctrl.focus());
     this.renderer.render(this.scene, this.camera);
     this.fpsN++; this.fpsT += dt;
     if (this.fpsT > 1) { this.fps = this.fpsN / this.fpsT; this.fpsN = 0; this.fpsT = 0; }

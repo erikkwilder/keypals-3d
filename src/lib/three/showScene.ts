@@ -4,6 +4,7 @@
 // the same place, the same camera and the same turntable, so all three are one page in one world.
 import * as THREE from 'three';
 import { stage, type Controller } from './stage';
+import { calm, IdleHold } from './calm';
 import { Character } from './character';
 import { makeOutfit } from './outfits3d';
 import { wearGear, wearKit } from './gear3d';
@@ -46,6 +47,8 @@ export class ShowScene implements Controller {
   /** the extra moves (the one-hand wave, dances), loaded after the buddy appears */
   private movesReady: Promise<unknown> = Promise.resolve();
   private shown = new Set<Character>();
+  /** each buddy's pose held while it only stands there, with less motion (calm.ts) */
+  private holds: IdleHold[] = [];
   /** a thing on show (a buddy-less scene: the Shop's Island and Glimmers sections) */
   private thing: OnShow | null = null;
 
@@ -60,6 +63,7 @@ export class ShowScene implements Controller {
       c.play('idle', 0);
       this.next.push(2 + Math.random() * 4 + i);
       this.dancing.push(null);
+      this.holds.push(new IdleHold());
       c.mixer.setTime(Math.random() * 3);
     });
     this.place(0);
@@ -177,12 +181,14 @@ export class ShowScene implements Controller {
         d.until ??= t + d.len;
         if (t > d.until) { this.dancing[i] = null; c.play('idle', 0.45); }
       } else if (this.chars.length > 1 && t > this.next[i]) {
-        // now and then someone waves or does a little dance
+        // now and then someone waves or does a little dance (with less motion, nobody does)
         const pick = ['wave1', 'fistpump', 'dance_hiphop', 'jump', 'dance_hiphop2'][Math.floor(Math.random() * 5)];
-        if (c.has(pick)) this.start(i, pick);
+        if (c.has(pick) && !calm.on) this.start(i, pick);
         this.next[i] = t + 5 + Math.random() * 6;
       }
-      c.update(dt);
+      // standing there, a buddy breathes; with less motion it holds still, and a move that shows something
+      // (the wave when it's picked, a dance asked for in the Wardrobe, a tickle) plays as ever
+      c.update(this.holds[i].step(dt, !!this.dancing[i] || c.busy, calm.on));
       if (!this.shown.has(c)) { this.shown.add(c); c.root.visible = true; }
     });
     this.camera(dt, t);
@@ -200,7 +206,9 @@ export class ShowScene implements Controller {
     // one buddy: room above for a hat; a group: everyone fits across, and the back rows show over the front
     const dH = (n > 1 ? 1.45 + (rows - 1) * 0.45 : 2.0) / (bandH * 2 * tanH), dW = groupW / (bandW * 2 * tanH * cam.aspect);
     const d = Math.max(n > 1 ? 2.4 : 3.0, n > 1 ? Math.max(dH, dW) : Math.max(dH, 1.3 / (bandW * 2 * tanH * cam.aspect)));
-    const sway = this.opts.orbit ? Math.sin(t * 0.15) * 0.18 : 0;
+    // the title's slow sway round the buddies goes by the decorative clock (the stage's time, standing still
+    // with less motion), so with less motion the camera holds where it is
+    const sway = this.opts.orbit ? Math.sin(stage.decorT * 0.15) * 0.18 : 0;
     const dir = this.n.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), sway);
     const wantPos = this.base.clone().addScaledVector(dir, d).add(new THREE.Vector3(0, 0.75 + d * 0.12 + (rows - 1) * 0.55, 0));
     if (this.selected && n > 1) wantPos.addScaledVector(this.t, focus.clone().sub(this.base).dot(this.t) * 0.5);

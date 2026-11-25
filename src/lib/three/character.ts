@@ -689,6 +689,8 @@ export class Character {
   sneeze(): number { this.act = { kind: 'sneeze', t: 0, len: 2.2 }; return 2.2; }
   /** a tickle or a sneeze is playing */
   get acting() { return !!this.act; }
+  /** a tickle, a sneeze or its puff is still playing (less motion holds a buddy's pose only when none is: calm.ts) */
+  get busy() { return !!this.act || this.tickers.size > 0; }
   private _pq = new THREE.Quaternion(); private _wq = new THREE.Quaternion(); private _rq = new THREE.Quaternion(); private _ax = new THREE.Vector3();
   /** Turn a bone through its joint about one of the buddy's own directions (x: to its left, y: up, z:
    *  forward), on top of its pose this frame. Parents go first. */
