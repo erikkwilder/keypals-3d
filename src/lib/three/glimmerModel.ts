@@ -127,6 +127,8 @@ export class GlimmerModel {
 
   /** Has a skeleton (moves its body). */
   get rigged() { return !!this.anim; }
+  /** A move is playing (its own, or its skeleton's): less motion holds its pose only when none is (calm.ts). */
+  get busy() { return this.move !== 'idle' || !!this.anim?.acting; }
   /** Walks on legs (a walking loop instead of hops when it moves about). */
   get walks() { return !!this.anim && !this.floats && this.anim.rig.bones.some(b => b.role === 'leg'); }
   /** What it keeps doing: idle, walk, sit, sleep or swim (a Glimmer with no skeleton only shows it in

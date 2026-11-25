@@ -39,3 +39,40 @@ describe('a battle with less motion: the arena', () => {
     expect(update).toContain('this.moteT = 0.12; this.fx.emit({ steady: true, ');
   });
 });
+
+describe('a battle with less motion: the buddy, the Grumble and the team hold their pose while they only stand there', () => {
+  it("the buddy's pose holds while it only stands there, as on the title; its moves keep it going", () => {
+    expect(battle).toContain('private meHold = new IdleHold();');
+    expect(update).toContain('me.update(this.meHold.step(dt, this.now <= this.busyUntil || me.busy, calm.on));');
+    // each of its moves (a cast, a stumble, a cheer, the Finale's dance) keeps it busy for as long as it lasts
+    expect(battle).toContain('const a = this.me.play(n, 0.2); a?.reset();\n    this.busyUntil = this.now + secs;');
+  });
+
+  it('each of the team goes by its own clock, held while it only stands there', () => {
+    expect(battle).toContain('private teamClocks = [new HeldClock(), new HeldClock()];');
+    expect(update).toContain('g.update(c.step(dt, t, g.busy, calm.on), c.t);');
+  });
+
+  it("the Grumble's cloud, its rain and its sulky sway go by its own clock; a hit, its stomp, its laugh and the cheer-up keep it going", () => {
+    const up = body(src('./grumpyGlimmer.ts'), '  update(dt: number, t: number) {');
+    expect(up).toContain('this.clock.step(dt, t, this.glimmer.busy || (this.bursting >= 0 && this.bursting < 1) || this.laughT > 0, calm.on), st = this.clock.t;');
+    // every sway on the battle's own clock is gone but the anger mark's, which shows a hit
+    const onT = up.split('\n').filter(l => /Math\.sin\(t \*/.test(l));
+    expect(onT).toHaveLength(1);
+    expect(onT[0]).toContain('this.markT > 0');
+    // (the puffs breathing and drifting, three; the cloud bobbing, two)
+    expect(up.match(/Math\.sin\(st \* /g)?.length).toBe(5);
+    expect(up).toContain('const y = this.rainPos[i * 6 + 1] - sd * 3.4;');
+    expect(up).toContain('this.glimmer.update(sd, st);');
+    // now and then lightning for its own sake: none with less motion
+    expect(up).toMatch(/if \(!calm\.on\) this\.fx\.lightning\(/);
+    // what shows something stays on the battle's clock: its mood lifting, the cheer-up's burst, the anger mark
+    expect(up).toContain('this.shown += (this.mood - this.shown) * Math.min(1, dt * 2.5);');
+    expect(up).toContain('this.bursting = Math.min(1, this.bursting + dt * 1.6);');
+    expect(up).toContain('this.markT = Math.max(0, this.markT - dt);');
+  });
+
+  it("a Glimmer is busy while a move plays, its own or its skeleton's", () => {
+    expect(src('./glimmerModel.ts')).toContain("get busy() { return this.move !== 'idle' || !!this.anim?.acting; }");
+  });
+});

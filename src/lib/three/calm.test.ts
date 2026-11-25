@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
-import { DecorClock, IdleHold, LAND, SETTLE, calm, easeTo, moveOver, shakeOf } from './calm';
+import { DecorClock, HeldClock, IdleHold, LAND, SETTLE, calm, easeTo, moveOver, shakeOf } from './calm';
 
 const dt = 1 / 30;
 
@@ -15,6 +15,57 @@ describe('less motion in the 3D world: where it asks', () => {
     reduced = false;
     expect(calm.on).toBe(false);
     calm.follow(() => false);
+  });
+});
+
+describe("a Glimmer's own clock (the Grumble's, its cloud's and the team's in a battle)", () => {
+  it("without less motion it is the stage's time, frame for frame, standing there or moving", () => {
+    const c = new HeldClock();
+    let t = 3.21;
+    for (const [d, busy] of [[1 / 60, false], [1 / 30, true], [0.05, false], [0.0123, false]] as const) {
+      t += d;
+      expect(c.step(d, t, busy, false)).toBe(d);
+      expect(c.t).toBe(t);
+    }
+  });
+
+  it('with less motion, while it only stands there, it stands still (from its first frame, at the stage\'s time)', () => {
+    const c = new HeldClock();
+    let t = 10;
+    expect(c.step(dt, (t += dt), false, true)).toBe(0);
+    expect(c.t).toBe(t);
+    const held = c.t;
+    for (let i = 0; i < 90; i++) expect(c.step(dt, (t += dt), false, true)).toBe(0);
+    expect(c.t).toBe(held);
+  });
+
+  it('a move runs on it as ever; back to standing, it runs on while the fade finishes, then holds', () => {
+    const c = new HeldClock();
+    let t = 0;
+    c.step(dt, (t += dt), false, true);
+    const before = c.t;
+    for (let i = 0; i < 10; i++) expect(c.step(dt, (t += dt), true, true)).toBe(dt);
+    expect(c.t).toBeCloseTo(before + 10 * dt, 9);
+    let ran = 0;
+    for (let i = 0; i < 60; i++) ran += c.step(dt, (t += dt), false, true);
+    expect(ran).toBeGreaterThanOrEqual(SETTLE - 1e-9);
+    expect(ran).toBeLessThanOrEqual(SETTLE + dt + 1e-9);
+    const held = c.t;
+    expect(c.step(dt, (t += dt), false, true)).toBe(0);
+    expect(c.t).toBe(held);
+  });
+
+  it('turned off, it goes on from where it held, with no jump', () => {
+    const c = new HeldClock();
+    let t = 100;
+    for (let i = 0; i < 40; i++) c.step(dt, (t += dt), false, true);
+    const held = c.t;
+    // (the stage went on for over a second meanwhile)
+    expect(t - held).toBeGreaterThan(1);
+    expect(c.step(dt, (t += dt), false, false)).toBe(dt);
+    expect(c.t).toBeCloseTo(held + dt, 9);
+    c.step(dt, (t += dt), false, false);
+    expect(c.t).toBeCloseTo(held + 2 * dt, 9);
   });
 });
 

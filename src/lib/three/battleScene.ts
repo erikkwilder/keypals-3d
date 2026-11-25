@@ -6,7 +6,7 @@
 // buddy, faint while the quick question is up, solid when it's answered; the counterattack bangs into it
 // and gets knocked back at the Grumble. Missed, it flies straight at the buddy, who gets knocked back.
 import * as THREE from 'three';
-import { calm, shakeOf } from './calm';
+import { calm, HeldClock, IdleHold, shakeOf } from './calm';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
 import { dressUp } from './dress';
@@ -61,6 +61,9 @@ export class BattleScene implements Controller {
   private shieldMode: 'off' | 'ready' | 'up' = 'off'; private shieldK = 0; private shieldAge = 0; private shieldFlash = 0; private shieldKick = 0;
   /** the Grumble knocked back by its own counterattack (eases back), the buddy knocked back by one that lands */
   private foePush = 0; private flinch = 0;
+  /** with less motion (calm.ts): the buddy's pose held while it only stands there, and each of the team's own clock */
+  private meHold = new IdleHold();
+  private teamClocks = [new HeldClock(), new HeldClock()];
 
   private constructor(island: Island, me: Character, grumble: GrumpyGlimmer, team: (GlimmerModel | null)[], opts: Opts) {
     this.island = island; this.me = me; this.grumble = grumble; this.team = team; this.opts = opts; this.view = opts.view;
@@ -486,7 +489,9 @@ export class BattleScene implements Controller {
     me.root.rotation.set(0, Math.atan2(look.x, look.z), 0);
     if (lean) me.root.rotateX(-lean);
     if (this.now > this.busyUntil && me.currentName !== 'idle') me.play('idle', 0.4);
-    me.update(dt);
+    // standing there, the buddy breathes; with less motion its pose holds, as on the title, and its moves (a cast,
+    // a stumble, a cheer, the Finale's dance) play as ever, the fade back to standing first
+    me.update(this.meHold.step(dt, this.now <= this.busyUntil || me.busy, calm.on));
     if (!me.root.visible) me.root.visible = true;
     // the grumpy Glimmer: turned between you and the buddy
     const toCamG = stage.camera.position.clone().sub(this.foeAt); toCamG.y = 0;
@@ -514,7 +519,8 @@ export class BattleScene implements Controller {
     // the team and the newcomer
     // the team keeps its eyes on the Grumble (and on the newcomer once it's cheered up)
     const eye = this.foeCentre();
-    for (const g of this.team) { if (g) { g.lookAt = eye; g.update(dt, t); } }
+    // (with less motion each goes by its own clock, which holds while it only stands there: calm.ts)
+    this.team.forEach((g, i) => { if (!g) return; g.lookAt = eye; const c = this.teamClocks[i]; g.update(c.step(dt, t, g.busy, calm.on), c.t); });
     if (this.revealed) this.grumble.lookAt.copy(stage.camera.position);
     // banners wave (by the decorative clock: with less motion they hang still)
     for (const b of this.banners) { const p = b.geometry.attributes.position as THREE.BufferAttribute; for (let i = 0; i < p.count; i++) { const y = -p.getY(i); p.setZ(i, Math.sin(dT * 2.6 + y * 4 + b.id) * 0.06 * y); } p.needsUpdate = true; }
