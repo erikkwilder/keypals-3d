@@ -11,7 +11,7 @@
   import { game } from '../../state/game.svelte';
   import { quietForLesson, sfx } from '../../audio/sound';
   import { hush, keepLesson, keepWords, lineText, say, wordDone } from '../../audio/voice.svelte';
-  import { separate, type Card } from './cardLayout';
+  import { settleCards, type Card, type Free } from './cardLayout';
   import { danceOf } from '../../engine/profile';
   import { advView } from '../../adventure/state';
   import { finishLesson, markChecked, type Board } from '../learn';
@@ -236,19 +236,19 @@
       if (!shown) { delete el.dataset.nx; delete el.dataset.ny; el.style.translate = ''; }
       return shown;
     });
-    const nudged = free.map(el => ({ x: parseFloat(el.dataset.nx ?? '0'), y: parseFloat(el.dataset.ny ?? '0') }));
+    // (where each card was put last frame, as shown: its own place is where it is less that)
+    const shownAt = free.map(el => ({ x: Math.round(parseFloat(el.dataset.nx ?? '0')), y: Math.round(parseFloat(el.dataset.ny ?? '0')) }));
     // (a card's full size round its middle, not its size this frame: a card pops in from half size, and
     // spaced by that it overlapped its neighbours until it had grown)
     const box = (el: Element, give: number, n = { x: 0, y: 0 }): Card => {
       const r = el.getBoundingClientRect(), h = el as HTMLElement, w = Math.max(r.width, h.offsetWidth || 0), t = Math.max(r.height, h.offsetHeight || 0);
       return { x: r.x + r.width / 2 - w / 2 - n.x, y: r.y + r.height / 2 - t / 2 - n.y, w, h: t, give };
     };
-    const cards = [...fixed.map(el => box(el, 0)), ...free.map((el, i) => box(el, giveOf(el), nudged[i]))];
-    const moves = separate(cards, { w: innerWidth, h: innerHeight }).slice(fixed.length);
+    // (each starts from where it was and is pushed apart from there, so it settles and stays still: cardLayout.ts)
+    const homes: Free[] = free.map((el, i) => ({ ...box(el, giveOf(el), shownAt[i]), ...(el.dataset.nx === undefined ? {} : { nx: parseFloat(el.dataset.nx), ny: parseFloat(el.dataset.ny ?? '0') }) }));
+    const next = settleCards(fixed.map(el => box(el, 0)), homes, { w: innerWidth, h: innerHeight });
     free.forEach((el, i) => {
-      // (a new card starts in the clear; after that it eases, so nothing jumps)
-      const ease = el.dataset.nx === undefined ? 1 : 0.35;
-      const x = nudged[i].x + (moves[i].dx - nudged[i].x) * ease, y = nudged[i].y + (moves[i].dy - nudged[i].y) * ease;
+      const { nx: x, ny: y } = next[i];
       el.dataset.nx = String(x); el.dataset.ny = String(y);
       el.style.translate = `${Math.round(x)}px ${Math.round(y)}px`;
     });
