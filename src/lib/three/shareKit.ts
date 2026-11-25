@@ -17,6 +17,7 @@ import type { EpisodeScene } from './episodeScene';
 import type { Pin } from '../math/beats/types';
 import type { ShareWorld } from '../math/beats/shareLesson';
 import { fairCuts, piecesOf } from '../math/beats/share';
+import { ROUND, squareSize } from './shareBar';
 import { bSfx } from '../math/beats/sounds';
 
 /** where things sit on the board: the bar's row, the first plate's row, the gap between plates, the parting at a cut */
@@ -78,7 +79,8 @@ export class ShareKit implements ShareWorld {
 
   async load() {
     this.tex = await loadTexture('learn/frac/choc-top.webp');
-    this.geo = new RoundedBoxGeometry(1, 1, 1, 2, 0.14);
+    // (a little rounding: squares side by side meet in a thin scored line, as on a real bar, not in a gap)
+    this.geo = new RoundedBoxGeometry(1, 1, 1, 2, ROUND);
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.11, 0.004), new THREE.MeshStandardMaterial({ color: 0xdfe4ea, metalness: 0.85, roughness: 0.2 }));
     const handle = new THREE.Mesh(new RoundedBoxGeometry(0.02, 0.07, 0.02, 2, 0.006), new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: 0.7 }));
     blade.position.y = 0.055; handle.position.y = 0.145;
@@ -136,7 +138,8 @@ export class ShareKit implements ShareWorld {
     }
     const g = b.mode === 'rows' && b.given?.from === p ? b.given : null;
     const c = b.mode === 'column' ? this.colAt(p) : { x: this.plateX + (g ? g.to : p) * PLATE_GAP, y: ROW0 };
-    const on = g ? this.starts(b).ps[g.to] * b.sq * this.s * 0.94 + 0.002 : 0;
+    // (a piece given to another plate stands on top of the piece there: its squares are full height now)
+    const on = g ? this.starts(b).ps[g.to] * b.sq * this.s + 0.002 : 0;
     return { x: c.x + (b.out ? 520 : 0), y: c.y, up: tall + on + (b.mode === 'rows' && p < this.trays.length ? this.trayTop() : 0), st: 1 };
   }
   /** every square of the bar to its place, each piece a moment after the one before (`stagger` ms) */
@@ -443,8 +446,8 @@ export class ShareKit implements ShareWorld {
       const a = this.at(q);
       q.m.visible = t >= q.t0 - 0.001 || q.from.x === q.to.x;
       q.m.position.copy(this.world(a));
-      const st = a.st ?? 0, flat = b!.sq * 0.34 * s, full = b!.sq * s * 0.94;
-      q.m.scale.set(full, flat + (full - flat) * st, full + (flat - full) * st);
+      // (the squares of a piece touch: one bar with lines on it until the knife cuts it: shareBar.ts)
+      q.m.scale.set(...squareSize(b!.sq * s, a.st ?? 0));
     }
     // the plates pop in, one after another, each under its row
     for (const tr of this.trays) {
