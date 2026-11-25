@@ -11,12 +11,13 @@
   import { cloud } from '../state/cloud.svelte';
   import { api } from '../teach/api';
   import { cleanClassCode, sameName, showClassCode } from '../teach/names';
+  import { forgetWaiting, noteWaiting, showingWaiting, waitingIn, type Waiting } from '../teach/googleTrip';
   import Critter from '../ui/Critter.svelte';
   import Bar from '../ui/Bar.svelte';
   import PicturePick from '../ui/PicturePick.svelte';
   import type { FriendId } from '../art/cast';
 
-  let step = $state<'code' | 'name' | 'pics' | 'going' | 'google'>(classState.googleTicket ? 'google' : 'code');
+  let step = $state<'code' | 'name' | 'pics' | 'going' | 'google' | 'waiting'>(classState.googleTicket ? 'google' : 'code');
   /** back from Google: the one-time ticket, and the first name Google gave */
   let ticket = $state<string | null>(classState.googleTicket);
   let gname = $state<string | null>(null);
@@ -31,13 +32,21 @@
   let msg = $state<string | null>(null);
   let shake = $state(0);
   let busy = $state(false);
+  /** waiting for the teacher's yes: the name the server said, and those this computer knows wait in this class */
+  let waitName = $state<string | null>(null);
+  let waits = $state<Waiting[]>([]);
   /** back from Google with a first name the list has already: most likely her, so her name comes first
    *  ("Is this you?") and "I'm new" waits below the list (the server won't add a second copy either) */
   const mine = $derived(ticket && gname && look ? look.students.find(s => sameName(s.name, gname!)) ?? null : null);
 
   async function find() {
     msg = null; busy = true;
-    try { look = await lookupClass(cleanClassCode(code)); step = 'name'; sfx.pop(); }
+    try {
+      look = await lookupClass(cleanClassCode(code)); step = 'name'; sfx.pop();
+      // someone this computer knows is waiting in this class: say so (and a reload comes back here)
+      waits = ticket ? [] : waitingIn(code);
+      showingWaiting(waits.length ? code : null);
+    }
     catch (e) { msg = (e as Error).message; }
     finally { busy = false; }
   }
@@ -51,18 +60,34 @@
     busy = true; msg = null;
     try {
       const r = await googleLogin(ticket);
-      if ('in' in r) { who = { id: '', name: r.in.name, buddy: null }; arrived(); return; }
-      gname = r.name; step = 'code';
+      if ('in' in r) { forgetWaiting([r.in.name]); who = { id: '', name: r.in.name, buddy: null }; arrived(); return; }
+      if ('waiting' in r) { toWaiting(r.name); return; }
+      // not waiting anywhere (any more): this computer forgets she was
+      gname = r.name; forgetWaiting([gname]); step = 'code';
     } catch (e) { msg = (e as Error).message; ticket = null; step = 'code'; }
     finally { busy = false; }
   }
-  function arrived() { step = 'going'; sfx.pop(); setTimeout(() => game.go('hub'), 700); }
+  function arrived() { showingWaiting(null); step = 'going'; sfx.pop(); setTimeout(() => game.go('hub'), 700); }
+  /** the server says she's waiting for her teacher's yes: say so where the buttons were (the used sign-in
+   *  isn't sent again), and keep that on this computer for this class: the class code and her first name only */
+  function toWaiting(name: string | null) {
+    ticket = null; msg = null;
+    waitName = name ?? gname;
+    if (look && waitName) noteWaiting(code, waitName);
+    showingWaiting(waitingIn(code).length ? code : null);
+    step = 'waiting'; sfx.pop();
+  }
   /** join with Google as someone new in the class */
   async function joinNew() {
     if (!ticket || busy) return;
     busy = true; msg = null;
-    try { const pl = await googleJoin(ticket, cleanClassCode(code), undefined, needName ? newName : undefined); who = { id: '', name: pl.name, buddy: null }; arrived(); }
-    catch (e) { const err = e as Error & { body?: { needName?: boolean } }; if (err.body?.needName) needName = true; msg = err.message; }
+    try { const pl = await googleJoin(ticket, cleanClassCode(code), undefined, needName ? newName : undefined); forgetWaiting([pl.name, gname]); who = { id: '', name: pl.name, buddy: null }; arrived(); }
+    catch (e) {
+      const err = e as Error & { body?: { needName?: boolean; pending?: boolean; name?: unknown } };
+      if (err.body?.pending) { toWaiting(typeof err.body.name === 'string' ? err.body.name : null); return; }
+      if (err.body?.needName) needName = true;
+      msg = err.message;
+    }
     finally { busy = false; }
   }
   function pickName(s: ClassLook['students'][number]) { sfx.click(); who = s; picked = []; msg = null; step = 'pics'; }
@@ -75,8 +100,8 @@
     try {
       if (ticket) await googleJoin(ticket, cleanClassCode(code), { id: who!.id, pics: picked });
       else await loginStudent(cleanClassCode(code), who!.id, picked);
-      step = 'going'; sfx.pop();
-      setTimeout(() => game.go('hub'), 700);
+      forgetWaiting([who!.name, gname], ticket ? null : code);
+      arrived();
     } catch (e) {
       const err = e as Error & { status?: number };
       msg = err.status === 403 ? `Not quite! Try your two pictures again, ${who!.name}.` : err.message;
@@ -88,7 +113,7 @@
     msg = null;
     if (step === 'pics') { step = 'name'; picked = []; }
     else if (step === 'name') step = 'code';
-    else game.go('players');
+    else { showingWaiting(null); game.go('players'); }
   }
 </script>
 
@@ -124,6 +149,13 @@
           <button class="btn {first ? 'btn-primary btn-big' : ''}" disabled={busy || (needName && !newName.trim())} onclick={joinNew}>I'm new{gname ? `: ${gname}` : ''}</button>
         </div>
       {/snippet}
+      {#if !ticket && waits.length}
+        <div class="waits">
+          {#each waits as w (w.name)}<p class="lead isyou">{w.name}, you're waiting for your teacher's yes.</p>{/each}
+          {#if cloud.google}<button class="btn btn-big gbtn" onclick={() => { sfx.click(); studentGoogle(); }}>Sign in with Google</button>
+          {:else if dev}{#each waits as w (w.name)}<button class="btn" onclick={() => studentGoogleDev(w.name)}>Sign in as a test student</button>{/each}{/if}
+        </div>
+      {/if}
       {#if mine}
         <p class="lead isyou">Is this you? Tap {mine.name}, then your two pictures.</p>
       {:else if ticket}
@@ -140,6 +172,9 @@
       <h1>Hi {who.name}!</h1>
       <p class="lead">Tap your two pictures, in order.</p>
       <PicturePick {picked} {shake} ontap={tap} />
+    {:else if step === 'waiting'}
+      {#if look}<h1>{look.class.name}</h1><p class="lead">{look.class.teacher}'s class.</p>{:else}<h1>Hi{waitName ? ` ${waitName}` : ''}!</h1>{/if}
+      <p class="lead isyou" role="status">You're on the list. Your teacher needs to say yes first.</p>
     {:else if step === 'going'}
       <h1>Welcome, {who?.name}!</h1>
       <p class="lead">Getting your things ready…</p>
@@ -169,6 +204,8 @@
   .newme { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 18px; }
   .newme.below { margin: 22px 0 0; }
   .isyou { color: var(--ink); }
+  .waits { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .waits .lead { margin: 0; }
   .msg { margin-top: 18px; font: 700 20px var(--font-body); color: #b4541b; background: #fff4e8; padding: 10px 18px; border-radius: 16px; }
   @media (max-width: 600px) {
     h1 { font-size: 32px; }

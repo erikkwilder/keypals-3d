@@ -13,6 +13,7 @@ import type { Assignment } from './assignments';
 import type { ClassSettings } from '../path/rules';
 import { notePath, startPath, pathSave, type PathProfile } from '../path/progress';
 import { unitFromAssignment } from '../path/classPath';
+import { backToWaiting } from './googleTrip';
 
 export type Challenge = { code: string; week: string; ends: number; classes: { id: string; name: string; students: number; avg: number }[] };
 export type StudentClass = {
@@ -94,11 +95,13 @@ type LoginReply = { code: string; name: string; updated: number; profile: Record
 export function studentGoogle() { location.href = 'api/auth/google/student'; }
 /** The test sign-in for a student (a test computer only: the server refuses it anywhere else). */
 export function studentGoogleDev(name: string) { location.href = `api/class/google/dev?name=${encodeURIComponent(name)}&sub=${encodeURIComponent(`test-${name.toLowerCase()}`)}`; }
-/** Back from Google: straight in if this Google account is in a class already; otherwise the server says
- *  so (`code`: type your class code once), with the first name Google gave. */
-export async function googleLogin(ticket: string): Promise<{ in: Profile } | { code: true; name: string | null }> {
-  const r = await send<LoginReply & { status: 'in' | 'code'; first?: string | null }>('/class/google', 'POST', { ticket });
+/** Back from Google: straight in if this Google account is in a class already; `waiting` if it asked to
+ *  join one and the teacher hasn't said yes (with the name it waits under); otherwise the server says so
+ *  (`code`: type your class code once), with the first name Google gave. */
+export async function googleLogin(ticket: string): Promise<{ in: Profile } | { code: true; name: string | null } | { waiting: true; name: string | null }> {
+  const r = await send<LoginReply & { status: 'in' | 'code' | 'waiting'; first?: string | null }>('/class/google', 'POST', { ticket });
   if (r.status === 'code') return { code: true, name: r.first ?? null };
+  if (r.status === 'waiting') return { waiting: true, name: r.name ?? null };
   return { in: arrive(r) };
 }
 /** Join a class with the Google account: as a new student (the first name Google gave), or as someone on
@@ -203,6 +206,10 @@ export function startClasses() {
     else if (m) { classState.loginCode = decodeURIComponent(m[1]); history.replaceState(null, '', location.pathname + location.search); game.go('classLogin'); }
     else if (h === '#teach') { history.replaceState(null, '', location.pathname + location.search); game.go('teach'); }
   };
+  const linked = !!location.hash;
   route();
+  // a reload while the class login showed a pupil waiting for her teacher's yes: back to that class
+  const waitingClass = linked ? null : backToWaiting();
+  if (waitingClass) { classState.loginCode = waitingClass; game.go('classLogin'); }
   window.addEventListener('hashchange', route);
 }

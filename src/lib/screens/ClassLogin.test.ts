@@ -1,6 +1,6 @@
 // The class login's steps with a school Google account, read from the screen's source (it needs the whole
 // game to run): a first name the class list has already comes first as "Is this you?", with "I'm new" below
-// the list.
+// the list; a pupil waiting for her teacher's yes is told so, then and on a reload or a later visit.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { sameName } from '../teach/names';
@@ -25,5 +25,31 @@ describe('back from Google with a first name the list has already', () => {
     expect(bottom).toMatch(/\{#if mine\}\{@render newMe\(false\)\}\{\/if\}/);
     // the server's answer to "I'm new" shows under it
     expect(src.indexOf('{#if msg}')).toBeGreaterThan(src.indexOf('{@render newMe(false)}'));
+  });
+});
+
+describe("waiting for the teacher's yes", () => {
+  it('says so where the buttons were, and the used sign-in is not sent again', () => {
+    const fn = between('function toWaiting(', '/** join with Google');
+    expect(fn).toMatch(/ticket = null/);
+    expect(fn).toMatch(/if \(look && waitName\) noteWaiting\(code, waitName\)/);
+    const step = between("{:else if step === 'waiting'}", "{:else if step === 'going'}");
+    expect(step).toContain("You're on the list. Your teacher needs to say yes first.");
+    expect(step).not.toMatch(/<button/);
+    // both answers lead there: "I'm new" in a class open to any account, and Google again
+    expect(between('async function joinNew', 'function pickName')).toMatch(/if \(err\.body\?\.pending\) \{ toWaiting\(/);
+    expect(between('async function fromGoogle', 'function arrived')).toMatch(/if \('waiting' in r\) \{ toWaiting\(r\.name\)/);
+  });
+  it('on a later visit to the class, or a reload, she reads that she waits, with Google to check again', () => {
+    const step = between("{:else if step === 'name'", "{:else if step === 'pics'");
+    expect(step).toMatch(/\{#if !ticket && waits\.length\}[\s\S]*\{w\.name\}, you're waiting for your teacher's yes\.[\s\S]*Sign in with Google/);
+    expect(between('async function find', 'onMount(() =>')).toMatch(/waits = ticket \? \[\] : waitingIn\(code\);\s*showingWaiting\(waits\.length \? code : null\)/);
+    const boot = readFileSync(new URL('../teach/student.svelte.ts', import.meta.url), 'utf8');
+    expect(boot).toMatch(/const waitingClass = linked \? null : backToWaiting\(\);\s*if \(waitingClass\) \{ classState\.loginCode = waitingClass; game\.go\('classLogin'\); \}/);
+  });
+  it('forgets her when she gets in, or when Google says she is not waiting', () => {
+    expect(between('async function fromGoogle', 'function arrived')).toMatch(/forgetWaiting\(\[r\.in\.name\]\)[\s\S]*forgetWaiting\(\[gname\]\)/);
+    expect(between('async function joinNew', 'function pickName')).toMatch(/forgetWaiting\(\[pl\.name, gname\]\)/);
+    expect(between('async function tap', 'function back')).toMatch(/forgetWaiting\(\[who!\.name, gname\], ticket \? null : code\);\s*arrived\(\)/);
   });
 });

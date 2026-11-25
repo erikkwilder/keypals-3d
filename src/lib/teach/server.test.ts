@@ -450,4 +450,36 @@ describe('pupils signing in with Google', () => {
     const zoes = (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie: t })).json.students.filter((s: { name: string }) => s.name === 'Zoe');
     expect(zoes.length).toBe(1);
   });
+
+  it("a pupil waiting for the teacher's yes hears so whenever she signs in to the class again: never 'ran out', never 'type your class code'", async () => {
+    const t = await teacher();
+    const c = await classWith(t, 'Maria');
+    await openToAnyAccount(t, c.id);
+    const first = await google('Zoe');
+    const asked = await join(first, c.code);
+    expect([asked.status, asked.json.pending, asked.json.name, asked.json.code]).toEqual([403, true, 'Zoe', undefined]);
+    // "I'm new" tapped again with the same sign-in: still waiting (the sign-in wasn't used up)
+    expect([(await join(first, c.code)).json.pending, (await call('POST', '/class/google', { ticket: first })).json]).toEqual([true, { status: 'waiting', name: 'Zoe' }]);
+    // signing in with Google again later: waiting at once, not "type your class code"
+    const later = await google('Zoe');
+    expect((await call('POST', '/class/google', { ticket: later })).json).toEqual({ status: 'waiting', name: 'Zoe' });
+    expect((await join(later, c.code)).json).toMatchObject({ pending: true, name: 'Zoe' });
+    const waiting = (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie: t })).json.students.filter((s: { status: string }) => s.status === 'pending');
+    expect(waiting.map((s: { name: string }) => s.name)).toEqual(['Zoe']); // still one request on the Students tab
+    // the teacher says yes: Google alone takes her in, and that sign-in is used up
+    expect((await call('POST', `/teach/students/${waiting[0].id}/approve`, {}, { cookie: t })).status).toBe(200);
+    const yes = await google('Zoe');
+    expect((await call('POST', '/class/google', { ticket: yes })).json).toMatchObject({ status: 'in', name: 'Zoe' });
+    expect((await call('POST', '/class/google', { ticket: yes })).status).toBe(410);
+  });
+
+  it("a pupil the teacher said no to isn't waiting any more: Google asks for the class code again", async () => {
+    const t = await teacher();
+    const c = await classWith(t, 'Maria');
+    await openToAnyAccount(t, c.id);
+    expect((await join(await google('Zoe'), c.code)).json.pending).toBe(true);
+    const row = (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie: t })).json.students.find((s: { status: string }) => s.status === 'pending');
+    expect((await call('DELETE', `/teach/students/${row.id}`, undefined, { cookie: t })).status).toBe(200);
+    expect((await call('POST', '/class/google', { ticket: await google('Zoe') })).json).toEqual({ status: 'code', first: 'Zoe' });
+  });
 });

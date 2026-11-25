@@ -693,16 +693,18 @@ export async function classApi(request, env, url, path, h) {
     return studentGoogleBack(env, url, h.base ?? '/keypals', { sub: String(url.searchParams.get('sub') || `dev-${name}`).slice(0, 60), given_name: name, hd: url.searchParams.get('hd') || 'school.test' }, h);
   }
   if (path === '/class/google' && method === 'POST') {
-    // back from Google: straight in if this account is in a class already, else "type your class code"
+    // back from Google: straight in if this account is in a class already; "waiting" if it asked to join one
+    // and the teacher hasn't said yes yet (the sign-in isn't used up: nothing changed); else "type your class code"
     if (await h.limited(env, request, 'cls-google', 1200, 60)) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
     const body = await h.readBody(request, 2000) || {};
     const t = await ticketOf(env, h, body.ticket);
     if (!t) return h.fail(410, 'That sign-in ran out. Sign in with Google again.');
-    const s = await DB.prepare("SELECT s.id, s.name, s.player, s.class, c.archived, c.teacher FROM student_google g JOIN students s ON s.id = g.student JOIN classes c ON c.id = s.class WHERE g.gid = ? AND s.status = 'active'").bind(t.gid).first();
-    if (s && await classOn(env, { archived: s.archived, teacher: s.teacher })) {
+    const s = await DB.prepare("SELECT s.id, s.name, s.player, s.class, s.status, c.archived, c.teacher FROM student_google g JOIN students s ON s.id = g.student JOIN classes c ON c.id = s.class WHERE g.gid = ? AND s.status IN ('active', 'pending')").bind(t.gid).first();
+    if (s?.status === 'active' && await classOn(env, { archived: s.archived, teacher: s.teacher })) {
       await DB.prepare('DELETE FROM google_tickets WHERE hash = ?').bind(t.hash).run();
       return playerFor(env, s, '"status":"in",');
     }
+    if (s?.status === 'pending' && !s.archived) return h.json({ status: 'waiting', name: s.name });
     return h.json({ status: 'code', first: t.name ?? null });
   }
   if (path === '/class/google/join' && method === 'POST') {
@@ -724,7 +726,8 @@ export async function classApi(request, env, url, path, h) {
     if (!domainOk(t.hd, set.domain)) return h.fail(403, `This class is for school accounts from ${set.domain}. Sign in with your school Google account.`);
     const had = await DB.prepare('SELECT g.student, s.class FROM student_google g LEFT JOIN students s ON s.id = g.student WHERE g.gid = ?').bind(t.gid).first();
     if (had && had.class && had.class !== c.id) return h.fail(409, 'This Google account is in another class already. Ask your teacher.');
-    const waiting = () => h.json({ error: 'Your teacher needs to say yes first. Then sign in with Google again.', pending: true }, 403);
+    // (the name it waits under goes back with it, for the game to say)
+    const waiting = (name) => h.json({ error: 'Your teacher needs to say yes first. Then sign in with Google again.', pending: true, name }, 403);
     let s = null;
     if (body.student) {
       s = await DB.prepare("SELECT id, name, player, pics FROM students WHERE id = ? AND class = ? AND status = 'active'").bind(String(body.student), c.id).first();
@@ -736,7 +739,7 @@ export async function classApi(request, env, url, path, h) {
     } else if (had?.student) {
       s = await DB.prepare('SELECT id, name, player, pics, status FROM students WHERE id = ?').bind(had.student).first();
       // asked to join already: still waiting for the teacher
-      if (s?.status === 'pending') return waiting();
+      if (s?.status === 'pending') return waiting(s.name);
       if (s?.status !== 'active') s = null;
     }
     if (!s) {
@@ -764,11 +767,13 @@ export async function classApi(request, env, url, path, h) {
       s = { id: newId(h), name, player: code, status };
       await DB.prepare('INSERT INTO students (id, class, name, player, pics, home, status, buddy, created) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)').bind(s.id, c.id, name, code, newPics(), status, buddy, now).run();
     }
+    // on the waiting list, the sign-in isn't used up: until it runs out, tapping again says "waiting" again
+    // (above), never "ran out"; let in, it is
     await DB.batch([
       DB.prepare('INSERT OR REPLACE INTO student_google (gid, student, class, created) VALUES (?, ?, ?, ?)').bind(t.gid, s.id, c.id, Date.now()),
-      DB.prepare('DELETE FROM google_tickets WHERE hash = ?').bind(t.hash),
+      ...(s.status === 'pending' ? [] : [DB.prepare('DELETE FROM google_tickets WHERE hash = ?').bind(t.hash)]),
     ]);
-    if (s.status === 'pending') return waiting();
+    if (s.status === 'pending') return waiting(s.name);
     return playerFor(env, s, '"status":"in",');
   }
 
