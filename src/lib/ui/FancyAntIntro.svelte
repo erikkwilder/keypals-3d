@@ -14,7 +14,7 @@
   // instead. The film fills the whole screen at every size (cropped a little where the screen is a
   // different shape from the film), kept centred on the ant, so there are no bands at the edges.
   import { onDestroy, onMount } from 'svelte';
-  import { game } from '../state/game.svelte';
+  import { motion } from './motion.svelte';
   type Props = { onDone: () => void };
   let { onDone }: Props = $props();
   const base = import.meta.env.BASE_URL;
@@ -37,8 +37,7 @@
     // it counts as seen once it has started: a reload part-way through goes straight to the game
     markSeen();
     window.addEventListener('keydown', onKey, true);
-    const reduced = game.settings.reducedMotion || matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) { showStill(1800); return; }
+    if (motion.reduced) { showStill(1800); return; }
     video?.play().catch(() => showStill(1800));
     // nothing moving after a second and a half: show the last frame and move on
     later(() => { if (!still && (!video || video.currentTime < 0.05)) showStill(1600); }, 1500);
