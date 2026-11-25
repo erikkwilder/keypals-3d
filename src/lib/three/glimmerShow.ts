@@ -113,7 +113,7 @@ export class GlimmerShow implements Controller {
         const a = Math.random() * Math.PI * 2, rr = 1.1 + Math.random() * 0.5;
         const from = this.g.root.position.clone().add(new THREE.Vector3(Math.cos(a) * rr, 0.2 + Math.random() * 1.2, Math.sin(a) * rr));
         const dir = this.g.root.position.clone().add(new THREE.Vector3(0, 0.6, 0)).sub(from).normalize();
-        this.fx.emit({ at: from, count: 1, shape: ['star', 'spark', 'dot'], color: [0xffffff, ELEMENT[el].color], speed: [1.2, 2.2], dir, spread: 0.1, life: [0.5, 0.8], size: [0.08, 0.16], drag: 0.2 });
+        this.fx.emit({ steady: true, at: from, count: 1, shape: ['star', 'spark', 'dot'], color: [0xffffff, ELEMENT[el].color], speed: [1.2, 2.2], dir, spread: 0.1, life: [0.5, 0.8], size: [0.08, 0.16], drag: 0.2 });
       }
       this.g.update(dt, t);
     } else if (this.g) {
@@ -125,7 +125,7 @@ export class GlimmerShow implements Controller {
       this.g.lookAt = stage.camera.position;
       this.g.update(dt, t);
     }
-    if (Math.random() < dt * 6) this.fx.emit({ at: this.stone.position.clone().add(new THREE.Vector3(0, 0.3, 0)), count: 1, shape: 'dot', color: [0xfff2b0, 0xffffff], speed: [0.1, 0.3], up: 3, radius: 1.2, life: [2, 3.5], size: [0.04, 0.08], gravity: -0.05 });
+    if (Math.random() < dt * 6) this.fx.emit({ steady: true, at: this.stone.position.clone().add(new THREE.Vector3(0, 0.3, 0)), count: 1, shape: 'dot', color: [0xfff2b0, 0xffffff], speed: [0.1, 0.3], up: 3, radius: 1.2, life: [2, 3.5], size: [0.04, 0.08], gravity: -0.05 });
     this.fx.update(dt, t);
     // the camera: in front, a little above, fitting the Glimmer into the view
     const cam = stage.camera, v = this.view, tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));

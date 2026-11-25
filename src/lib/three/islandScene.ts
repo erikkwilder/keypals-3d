@@ -897,7 +897,7 @@ export class IslandScene implements Controller {
       const h = p.hop, k = Math.min(1, (t - h.t0) / h.dur);
       m.root.position.lerpVectors(h.from, h.to, k); m.root.position.y += Math.sin(k * Math.PI) * h.h;
       m.face = h.to.clone().setY(m.root.position.y);
-      if (h.to.y - h.from.y > 1.2 && Math.random() < dt * 25) this.fx.emit({ at: m.root.position.clone(), count: 1, shape: ['star', 'spark'], color: [0xffffff, 0xfff2a8], speed: [0.1, 0.4], life: [0.4, 0.7], size: [0.05, 0.1], drag: 1 });
+      if (h.to.y - h.from.y > 1.2 && Math.random() < dt * 25) this.fx.emit({ steady: true, at: m.root.position.clone(), count: 1, shape: ['star', 'spark'], color: [0xffffff, 0xfff2a8], speed: [0.1, 0.4], life: [0.4, 0.7], size: [0.05, 0.1], drag: 1 });
       if (k >= 1) {
         P.x = h.to.x; P.y = h.to.y; P.z = h.to.z; p.vy = 0;
         p.hop = null; p.mood = h.then; p.until = h.until;
@@ -953,19 +953,19 @@ export class IslandScene implements Controller {
       m.face = sp.at.clone().add(new THREE.Vector3(Math.cos(a + 0.6) * rr, 0, Math.sin(a + 0.6) * rr));
       swimY = -m.height * 0.32 + Math.sin(t * 2.2) * 0.03;
       p.zzz -= dt;
-      if (p.zzz <= 0) { p.zzz = 0.5; this.fx.emit({ at: new THREE.Vector3(P.x, sp.at.y + 0.03, P.z), count: 1, shape: 'ring', color: 0xe6f8ff, speed: [0.02, 0.06], life: [0.8, 1.1], size: [0.3, 0.5], grow: 1.5, drag: 2 }); }
+      if (p.zzz <= 0) { p.zzz = 0.5; this.fx.emit({ steady: true, at: new THREE.Vector3(P.x, sp.at.y + 0.03, P.z), count: 1, shape: 'ring', color: 0xe6f8ff, speed: [0.02, 0.06], life: [0.8, 1.1], size: [0.3, 0.5], grow: 1.5, drag: 2 }); }
     } else if (p.mood === 'sit' || p.mood === 'nap') {
       // (one with a skeleton sits up or curls up instead of slumping)
       if (!m.rigged) m.droop = Math.min(0.9, m.droop + dt * 0.8);
       p.zzz -= dt;
-      if (p.zzz <= 0) { p.zzz = 0.9; this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0.1, m.height * 0.9, 0)), count: 1, shape: 'dot', color: 0xffffff, speed: [0.15, 0.3], up: 0.6, life: [1.2, 1.6], size: [0.05, 0.09], drag: 0.5, fade: 1 }); }
+      if (p.zzz <= 0) { p.zzz = 0.9; this.fx.emit({ steady: true, at: m.root.position.clone().add(new THREE.Vector3(0.1, m.height * 0.9, 0)), count: 1, shape: 'dot', color: 0xffffff, speed: [0.15, 0.3], up: 0.6, life: [1.2, 1.6], size: [0.05, 0.09], drag: 0.5, fade: 1 }); }
     } else if (p.mood === 'warm') {
       m.face = this.sun.position.clone();
-      if (Math.random() < dt * 4) this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0, m.height * 0.6, 0)), count: 1, shape: ['spark', 'star'], color: [0xffd34d, 0xffb52e, 0xffffff], speed: [0.1, 0.4], up: 0.8, life: [0.5, 0.9], size: [0.05, 0.1], drag: 1 });
+      if (Math.random() < dt * 4) this.fx.emit({ steady: true, at: m.root.position.clone().add(new THREE.Vector3(0, m.height * 0.6, 0)), count: 1, shape: ['spark', 'star'], color: [0xffd34d, 0xffb52e, 0xffffff], speed: [0.1, 0.4], up: 0.8, life: [0.5, 0.9], size: [0.05, 0.1], drag: 1 });
     } else if (p.mood === 'perch') {
       if (t > p.hopAt) { p.hopAt = t + 2 + Math.random() * 2; m.face = new THREE.Vector3(P.x + Math.cos(t) * 3, P.y, P.z + Math.sin(t) * 3); if (Math.random() < 0.4) m.play('happy'); }
     } else if (p.mood === 'play') {
-      if (t > p.hopAt) { const r = Math.random(); m.play(r < 0.35 ? 'happy' : r < 0.55 && m.rigged ? 'cheer' : 'hop'); p.hopAt = t + (m.rigged ? 1.4 : 0.9) + Math.random() * 0.6; if (Math.random() < 0.5) this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0, 0.5, 0)), count: 6, shape: ['star', 'dot'], color: [0xffffff, 0xfff2a8], speed: [0.3, 0.9], up: 0.8, life: [0.4, 0.7], size: [0.05, 0.1], drag: 2 }); }
+      if (t > p.hopAt) { const r = Math.random(); m.play(r < 0.35 ? 'happy' : r < 0.55 && m.rigged ? 'cheer' : 'hop'); p.hopAt = t + (m.rigged ? 1.4 : 0.9) + Math.random() * 0.6; if (Math.random() < 0.5) this.fx.emit({ steady: true, at: m.root.position.clone().add(new THREE.Vector3(0, 0.5, 0)), count: 6, shape: ['star', 'dot'], color: [0xffffff, 0xfff2a8], speed: [0.3, 0.9], up: 0.8, life: [0.4, 0.7], size: [0.05, 0.1], drag: 2 }); }
     }
     // a treat: munch, munch, munch
     if (p.munch && t < p.munch) { if (t > p.hopAt) { m.play('eat'); p.hopAt = t + (m.rigged ? 0.8 : 0.34); this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0, m.height * 0.5, 0)), count: 3, shape: 'dot', color: [0xe8a050, 0xffd9a0], speed: [0.3, 0.8], up: 0.6, life: [0.3, 0.5], size: [0.03, 0.05], gravity: 4 }); } }
@@ -1219,7 +1219,7 @@ export class IslandScene implements Controller {
       m.root.position.lerpVectors(v.from, v.at, e);
       m.root.position.x += Math.sin(t * 2) * 0.15 * (1 - k);
       if (v.cloud) { v.cloud.position.copy(m.root.position).add(new THREE.Vector3(0, -0.05, 0)); (v.cloud.material as THREE.SpriteMaterial).opacity = 1 - Math.max(0, (k - 0.85) / 0.15); }
-      if (Math.random() < dt * 20) this.fx.emit({ at: m.root.position.clone().add(new THREE.Vector3(0, 0.3, 0)), count: 1, shape: ['star', 'spark'], color: [0xffffff, 0xfff2a8], speed: [0.1, 0.4], life: [0.5, 0.9], size: [0.05, 0.1], drag: 1 });
+      if (Math.random() < dt * 20) this.fx.emit({ steady: true, at: m.root.position.clone().add(new THREE.Vector3(0, 0.3, 0)), count: 1, shape: ['star', 'spark'], color: [0xffffff, 0xfff2a8], speed: [0.1, 0.4], life: [0.5, 0.9], size: [0.05, 0.1], drag: 1 });
       m.update(dt, t);
       if (k >= 1) {
         v.arrive = -99; v.cloud?.removeFromParent(); v.cloud = null;
@@ -1337,7 +1337,7 @@ export class IslandScene implements Controller {
     this.busyT = Math.max(0, this.busyT - dt);
     this.kit.water.uT.value = t; this.fall.uT.value = t;
     // the island grows (after the child met more Glimmers)
-    if (this.growK < 1) { this.growK = Math.min(1, this.growK + dt / 1.8); const s = this.growFrom + (1 - this.growFrom) * easeOutBack(this.growK); this.land.scale.set(s, 1, s); if (Math.random() < dt * 30) this.fx.emit({ at: new THREE.Vector3((Math.random() - 0.5) * this.rimR * 2, 0.2, (Math.random() - 0.5) * this.rimR * 2), count: 2, shape: ['star', 'leaf'], color: [0xffffff, 0xb8ffcf, 0xfff2a8], speed: [0.4, 1.2], up: 1, life: [0.5, 1], size: [0.08, 0.16], drag: 1 }); }
+    if (this.growK < 1) { this.growK = Math.min(1, this.growK + dt / 1.8); const s = this.growFrom + (1 - this.growFrom) * easeOutBack(this.growK); this.land.scale.set(s, 1, s); if (Math.random() < dt * 30) this.fx.emit({ steady: true, at: new THREE.Vector3((Math.random() - 0.5) * this.rimR * 2, 0.2, (Math.random() - 0.5) * this.rimR * 2), count: 2, shape: ['star', 'leaf'], color: [0xffffff, 0xb8ffcf, 0xfff2a8], speed: [0.4, 1.2], up: 1, life: [0.5, 1], size: [0.08, 0.16], drag: 1 }); }
     for (const th of this.things.values()) {
       if (th.pop < 1) { th.pop = Math.min(1, th.pop + dt / 0.5); th.obj.scale.setScalar(Math.max(0.001, easeOutBack(th.pop))); }
       // (one thing that can't move must never stop the whole island drawing)
@@ -1354,7 +1354,7 @@ export class IslandScene implements Controller {
       const tt = stage.decorT * b.sp + b.ph, p = new THREE.Vector3(Math.cos(tt * 0.6) * b.rad + Math.sin(tt * 2.1) * 0.3, b.y + Math.sin(tt * 1.3) * 0.3, Math.sin(tt * 0.6 + i) * b.rad * 0.8 + Math.cos(tt * 1.7) * 0.3);
       const v = p.clone().sub(b.g.position); b.g.position.copy(p); if (v.lengthSq() > 1e-6) b.g.rotation.y = Math.atan2(v.x, v.z);
       const flap = Math.sin(stage.decorT * 16 + b.ph) * 0.9; b.l.rotation.z = -flap; b.r.rotation.z = flap;
-      if (i === 0 && this.golden.on && Math.random() < dt * 12) this.fx.emit({ at: p.clone(), count: 1, shape: ['spark', 'star'], color: [0xffd34d, 0xffffff], speed: [0.05, 0.2], life: [0.4, 0.7], size: [0.04, 0.08], drag: 1 });
+      if (i === 0 && this.golden.on && Math.random() < dt * 12) this.fx.emit({ steady: true, at: p.clone(), count: 1, shape: ['spark', 'star'], color: [0xffd34d, 0xffffff], speed: [0.05, 0.2], life: [0.4, 0.7], size: [0.04, 0.08], drag: 1 });
     });
     this.blk.update(t, dt);
     this.ballMove(t);

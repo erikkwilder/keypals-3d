@@ -291,7 +291,7 @@ export class GlimmerModel {
         this.auraT = 0.08;
         const el = GLIMMER[this.id].element, w = this.root.getWorldPosition(new THREE.Vector3()), s = this.root.getWorldScale(new THREE.Vector3()).y;
         const lift = this.floats ? 0.35 * this.height : 0;
-        this.fx.emit({ at: w.add(new THREE.Vector3(0, (lift + this.height * (0.15 + Math.random() * 0.7)) * s, 0)), count: 1, shape: AURA[el], color: [ELEMENT[el].color, 0xffffff, ELEMENT[el].color],
+        this.fx.emit({ steady: true, at: w.add(new THREE.Vector3(0, (lift + this.height * (0.15 + Math.random() * 0.7)) * s, 0)), count: 1, shape: AURA[el], color: [ELEMENT[el].color, 0xffffff, ELEMENT[el].color],
           speed: [0.1, 0.3], up: 0.7, radius: this.height * 0.6 * s, life: [1.2, 2.2], size: [0.06 * s, 0.13 * s], drag: 0.6, spin: 2, flutter: el === 'leaf' ? 1.2 : 0.3 });
       }
     }

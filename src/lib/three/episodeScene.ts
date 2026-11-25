@@ -1297,7 +1297,7 @@ export class EpisodeScene implements Controller {
     this.moteT -= dt;
     if (this.moteT <= 0) {
       this.moteT = stage.smooth ? 0.5 : 0.18;
-      this.fx.emit({ at: new THREE.Vector3((Math.random() - 0.5) * 4, TY + 0.3 + Math.random() * 1.6, -0.9 + Math.random() * 1.6), count: 1, shape: 'dot', color: [0xfff4d6, 0xffe6b0], speed: [0.02, 0.08], life: [4, 7], size: [0.012, 0.026], drag: 0.2, flutter: 0.4, fade: 1 });
+      this.fx.emit({ steady: true, at: new THREE.Vector3((Math.random() - 0.5) * 4, TY + 0.3 + Math.random() * 1.6, -0.9 + Math.random() * 1.6), count: 1, shape: 'dot', color: [0xfff4d6, 0xffe6b0], speed: [0.02, 0.08], life: [4, 7], size: [0.012, 0.026], drag: 0.2, flutter: 0.4, fade: 1 });
     }
     for (const [i, b] of this.beams.entries()) (b.material as THREE.MeshBasicMaterial).opacity = 0.13 + Math.sin(t * 0.4 + i) * 0.03;
     this.fx.update(dt, t);
