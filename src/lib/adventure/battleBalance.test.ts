@@ -79,7 +79,9 @@ const everyone = (c: Case, levels = LEVELS) => ROLES.flatMap(role => levels.map(
 const PLAYGROUND: KitKind[] = ['bubble', 'cape', 'spring', 'playset'];
 const pct = (x: number) => `${Math.round(x * 100)}%`.padStart(4);
 
-describe('battle risk (500 seeded battles a case)', () => {
+// (thousands of simulated battles each: a few seconds alone, more while the whole suite runs at once on a
+// busy computer, so these get 30 s rather than vitest's 5)
+describe('battle risk (500 seeded battles a case)', { timeout: 30_000 }, () => {
   it('blocking every counterattack never loses a battle', () => {
     // (nothing lands when every one is blocked, so one friendship level is enough to show it)
     for (const pool of Object.values(POOLS)) for (const champion of [false, true]) expect(Math.max(...everyone({ pool, champion, blocks: 1 }, [26]))).toBe(0);
