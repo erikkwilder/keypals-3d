@@ -148,6 +148,24 @@ const playSettings = (s) => ({ keep: s.keep, goal: s.goal, limits: s.limits, pla
 async function domainOf(env, account) {
   try { return (await env.DB.prepare('SELECT hd FROM account_domains WHERE account = ?').bind(account).first())?.hd ?? null; } catch { return null; }
 }
+/** Whether the class with this code takes this student's Google sign-in (`t`, its ticket): the class, its
+ *  settings and where the account is already, or `no`, the refusal to send. Joining asks it, and so does the
+ *  game, back from Google, before it shows the class's list or "I'm new" (/class/google/check). */
+async function googleClass(env, h, request, t, rawCode) {
+  const found = await h.codeTry(env, request, 'cls-code');
+  if (!found) return { no: h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.') };
+  const c = await env.DB.prepare('SELECT * FROM classes WHERE code = ?').bind(h.cleanCode(rawCode)).first();
+  if (!c) return { no: h.fail(404, "That class code wasn't found. Check the words and number.") };
+  await found();
+  if (c.archived) return { no: h.fail(410, 'This class is closed. Ask your teacher.') };
+  if (!(await classOn(env, c))) return { no: h.fail(403, NOT_ON) };
+  const set = await settingsOf(env, c.id, c.teacher);
+  if (set.google === 'off') return { no: h.fail(403, "Your teacher hasn't turned on Google sign-in for this class. Use your class code and pictures.") };
+  if (!domainOk(t.hd, set.domain)) return { no: h.fail(403, `This class is for school accounts from ${set.domain}. Sign in with your school Google account.`) };
+  const had = await env.DB.prepare('SELECT g.student, s.class FROM student_google g LEFT JOIN students s ON s.id = g.student WHERE g.gid = ?').bind(t.gid).first();
+  if (had && had.class && had.class !== c.id) return { no: h.fail(409, 'This Google account is in another class already. Ask your teacher.') };
+  return { c, set, had };
+}
 /** worker.js, after a grown-up signs in: keep the school domain Google gave (or forget an old one). */
 export async function noteSignIn(env, account, provider, me) {
   const hd = provider === 'google' || provider === 'dev' ? googleDomain(me) : null;
@@ -707,6 +725,17 @@ export async function classApi(request, env, url, path, h) {
     if (s?.status === 'pending' && !s.archived) return h.json({ status: 'waiting', name: s.name });
     return h.json({ status: 'code', first: t.name ?? null });
   }
+  if (path === '/class/google/check' && method === 'POST') {
+    // back from Google, before the game shows a class's list or "I'm new": whether this class takes this Google
+    // account, by the checks joining makes (and joining still makes them). Nothing changes, and the sign-in
+    // isn't used up
+    if (await h.limited(env, request, 'cls-google', 1200, 60)) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
+    const body = await h.readBody(request, 2000) || {};
+    const t = await ticketOf(env, h, body.ticket);
+    if (!t) return h.fail(410, 'That sign-in ran out. Sign in with Google again.');
+    const { no } = await googleClass(env, h, request, t, body.code);
+    return no ?? h.json({ ok: true });
+  }
   if (path === '/class/google/join' && method === 'POST') {
     // the class code once: as a new student (the first name Google gave), or as someone on the list already
     // (their two pictures say so); from then on, Google alone
@@ -714,18 +743,9 @@ export async function classApi(request, env, url, path, h) {
     const body = await h.readBody(request, 2000) || {};
     const t = await ticketOf(env, h, body.ticket);
     if (!t) return h.fail(410, 'That sign-in ran out. Sign in with Google again.');
-    const found = await h.codeTry(env, request, 'cls-code');
-    if (!found) return h.fail(429, 'Lots of tries from this school right now. Wait a minute and try again.');
-    const c = await DB.prepare('SELECT * FROM classes WHERE code = ?').bind(h.cleanCode(body.code)).first();
-    if (!c) return h.fail(404, "That class code wasn't found. Check the words and number.");
-    await found();
-    if (c.archived) return h.fail(410, 'This class is closed. Ask your teacher.');
-    if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
-    const set = await settingsOf(env, c.id, c.teacher);
-    if (set.google === 'off') return h.fail(403, "Your teacher hasn't turned on Google sign-in for this class. Use your class code and pictures.");
-    if (!domainOk(t.hd, set.domain)) return h.fail(403, `This class is for school accounts from ${set.domain}. Sign in with your school Google account.`);
-    const had = await DB.prepare('SELECT g.student, s.class FROM student_google g LEFT JOIN students s ON s.id = g.student WHERE g.gid = ?').bind(t.gid).first();
-    if (had && had.class && had.class !== c.id) return h.fail(409, 'This Google account is in another class already. Ask your teacher.');
+    // (every check the game asked first, back from Google, is made again here: googleClass)
+    const { no, c, set, had } = await googleClass(env, h, request, t, body.code);
+    if (no) return no;
     // (the name it waits under goes back with it, for the game to say)
     const waiting = (name) => h.json({ error: 'Your teacher needs to say yes first. Then sign in with Google again.', pending: true, name }, 403);
     let s = null;

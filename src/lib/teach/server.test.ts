@@ -482,4 +482,32 @@ describe('pupils signing in with Google', () => {
     expect((await call('DELETE', `/teach/students/${row.id}`, undefined, { cookie: t })).status).toBe(200);
     expect((await call('POST', '/class/google', { ticket: await google('Zoe') })).json).toEqual({ status: 'code', first: 'Zoe' });
   });
+
+  it("back from Google, the game asks first whether the class takes her account: joining's own words, and nothing changes", async () => {
+    const t = await teacher();
+    const c = await classWith(t, 'Maria\nSam'); // kept to the teacher's school (school.test), as a school teacher's class starts
+    const check = (ticket: string, code = c.code) => call('POST', '/class/google/check', { ticket, code });
+    const signIn = async (name: string, hd: string) => new URL((await call('GET', `/class/google/dev?name=${name}&sub=g-${name}&hd=${hd}`)).headers.get('location')!).hash.replace('#classgoogle=', '');
+    const school = 'This class is for school accounts from school.test. Sign in with your school Google account.';
+    // Omar (another school's account) and Gia (plain Gmail): told at once, in joining's words; joining still refuses
+    for (const ticket of [await signIn('Omar', 'other.test'), await signIn('Gia', 'nohd')]) {
+      const asked = await check(ticket);
+      expect([asked.status, asked.json.error]).toEqual([403, school]);
+      const joined = await join(ticket, c.code);
+      expect([joined.status, joined.json.error]).toEqual([403, school]);
+    }
+    // a pupil the class takes hears yes, and nothing changes: nobody added, the sign-in not used up
+    const leo = await google('Leo');
+    const yes = await check(leo);
+    expect([yes.status, yes.json]).toEqual([200, { ok: true }]);
+    expect(await listed(c.code)).toEqual(['Maria', 'Sam']);
+    expect((await join(leo, c.code)).json.name).toBe('Leo');
+    // a Google account in another class already, and a class with Google sign-in off: joining's words too
+    const room14 = await classWith(t, 'Ana', 'Room 14');
+    expect((await check(await google('Leo'), room14.code)).json.error).toBe('This Google account is in another class already. Ask your teacher.');
+    expect((await call('PATCH', `/teach/classes/${room14.id}`, { settings: { google: 'off' } }, { cookie: t })).status).toBe(200);
+    const off = await check(await google('Nia'), room14.code);
+    expect([off.status, off.json.error]).toEqual([403, "Your teacher hasn't turned on Google sign-in for this class. Use your class code and pictures."]);
+    expect((await check('not-a-ticket')).status).toBe(410);
+  });
 });

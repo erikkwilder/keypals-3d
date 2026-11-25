@@ -111,6 +111,9 @@ export async function googleJoin(ticket: string, classCode: string, student?: { 
   const r = await send<LoginReply>('/class/google/join', 'POST', { ticket, code: classCode, ...(student ? { student: student.id, pics: student.pics } : {}), ...(name ? { name } : {}) });
   return arrive(r);
 }
+/** Back from Google, before the class's list: whether this class takes this Google account (the checks
+ *  joining makes; nothing changes and the sign-in isn't used up). Throws with the server's words if not. */
+export const googleCheck = (ticket: string, classCode: string) => send<{ ok: true }>('/class/google/check', 'POST', { ticket, code: classCode });
 function arrive(r: LoginReply): Profile {
   const p = place(r.code, r.profile, r.updated);
   setShared([...sharedCodes(), r.code]);

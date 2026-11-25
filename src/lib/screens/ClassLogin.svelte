@@ -7,9 +7,9 @@
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
-  import { classState, googleJoin, googleLogin, lookupClass, loginStudent, studentGoogle, studentGoogleDev, type ClassLook } from '../teach/student.svelte';
+  import { classState, googleCheck, googleJoin, googleLogin, lookupClass, loginStudent, studentGoogle, studentGoogleDev, type ClassLook } from '../teach/student.svelte';
   import { cloud } from '../state/cloud.svelte';
-  import { api } from '../teach/api';
+  import { api, type ApiError } from '../teach/api';
   import { cleanClassCode, sameName, showClassCode } from '../teach/names';
   import { codeBackFromGoogle, forgetWaiting, noteWaiting, showingWaiting, waitingIn, type Waiting } from '../teach/googleTrip';
   import Critter from '../ui/Critter.svelte';
@@ -17,7 +17,7 @@
   import PicturePick from '../ui/PicturePick.svelte';
   import type { FriendId } from '../art/cast';
 
-  let step = $state<'code' | 'name' | 'pics' | 'going' | 'google' | 'waiting'>(classState.googleTicket ? 'google' : 'code');
+  let step = $state<'code' | 'name' | 'pics' | 'going' | 'google' | 'waiting' | 'refused'>(classState.googleTicket ? 'google' : 'code');
   /** back from Google: the one-time ticket, and the first name Google gave */
   let ticket = $state<string | null>(classState.googleTicket);
   let gname = $state<string | null>(null);
@@ -34,6 +34,8 @@
   let msg = $state<string | null>(null);
   let shake = $state(0);
   let busy = $state(false);
+  /** back from Google to a class that won't take this account: the server's words (no list, and a way back) */
+  let refused = $state<string | null>(null);
   /** waiting for the teacher's yes: the name the server said, and those this computer knows wait in this class */
   let waitName = $state<string | null>(null);
   let waits = $state<Waiting[]>([]);
@@ -44,13 +46,25 @@
   async function find() {
     msg = null; busy = true;
     try {
-      look = await lookupClass(cleanClassCode(code)); step = 'name'; sfx.pop();
+      const l = await lookupClass(cleanClassCode(code));
+      // back from Google: first, whether this class takes her Google account (the checks joining makes, and
+      // joining still makes them), so a class that won't never shows her its list or "I'm new"
+      const no = ticket ? await refusal(ticket) : null;
+      look = l;
+      if (no) { refused = no; step = 'refused'; return; }
+      step = 'name'; sfx.pop();
       // someone this computer knows is waiting in this class: say so (and a reload comes back here)
       waits = ticket ? [] : waitingIn(code);
       showingWaiting(waits.length ? code : null);
     }
     catch (e) { msg = (e as Error).message; }
     finally { busy = false; }
+  }
+  /** the server's words if this class won't take this Google account; null if it will, or if it couldn't be
+   *  asked (no internet, too many tries: then "I'm new" hears the answer, as before) */
+  async function refusal(t: string): Promise<string | null> {
+    try { await googleCheck(t, cleanClassCode(code)); return null; }
+    catch (e) { const err = e as ApiError; return [403, 409, 410].includes(err.status) ? err.message : null; }
   }
   onMount(() => {
     void api<{ dev: boolean }>('/teach/config').then(c => (dev = c.dev)).catch(() => null);
@@ -113,10 +127,14 @@
       setTimeout(() => { picked = []; }, 650);
     } finally { busy = false; }
   }
+  /** from a class that won't take this Google account: back to the class code (still in the box), without
+   *  this sign-in, to sign in with another account or log in with the pictures */
+  function backToCode() { refused = null; msg = null; ticket = null; gname = null; needName = false; step = 'code'; }
   function back() {
     msg = null;
     if (step === 'pics') { step = 'name'; picked = []; }
     else if (step === 'name') step = 'code';
+    else if (step === 'refused') backToCode();
     else { showingWaiting(null); game.go('players'); }
   }
 </script>
@@ -176,6 +194,11 @@
       <h1>Hi {who.name}!</h1>
       <p class="lead">Tap your two pictures, in order.</p>
       <PicturePick {picked} {shake} ontap={tap} />
+    {:else if step === 'refused' && look}
+      <h1>{look.class.name}</h1>
+      <p class="lead">{look.class.teacher}'s class.</p>
+      <p class="msg" role="alert">{refused}</p>
+      <button class="btn btn-primary btn-big again" onclick={() => { sfx.click(); backToCode(); }}>Go back</button>
     {:else if step === 'waiting'}
       {#if look}<h1>{look.class.name}</h1><p class="lead">{look.class.teacher}'s class.</p>{:else}<h1>Hi{waitName ? ` ${waitName}` : ''}!</h1>{/if}
       <p class="lead isyou" role="status">You're on the list. Your teacher needs to say yes first.</p>
@@ -211,6 +234,7 @@
   .waits { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 18px; }
   .waits .lead { margin: 0; }
   .msg { margin-top: 18px; font: 700 20px var(--font-body); color: #b4541b; background: #fff4e8; padding: 10px 18px; border-radius: 16px; }
+  .again { margin-top: 22px; }
   @media (max-width: 600px) {
     h1 { font-size: 32px; }
     .lead { font-size: 17px; margin-bottom: 14px; }

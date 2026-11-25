@@ -69,3 +69,20 @@ describe('the class code on the way through Google', () => {
     expect(student).toMatch(/export function studentGoogleDev\(name: string, classCode = ''\) \{ keepCodeForGoogle\(classCode\);/);
   });
 });
+
+describe("a class that won't take her Google account", () => {
+  it('is asked before the list or "I\'m new" shows; its own words show with a way back, and no list', () => {
+    expect(between('async function find', 'onMount(() =>')).toMatch(/const no = ticket \? await refusal\(ticket\) : null;\s*look = l;\s*if \(no\) \{ refused = no; step = 'refused'; return; \}\s*step = 'name'/);
+    // only a refusal counts (403, 409, 410: the server's words); not asked (no internet, too many tries), the list shows as before
+    expect(between('async function refusal', 'onMount(() =>')).toMatch(/await googleCheck\(t, cleanClassCode\(code\)\); return null;[\s\S]*\[403, 409, 410\]\.includes\(err\.status\) \? err\.message : null/);
+    const step = between("{:else if step === 'refused'", "{:else if step === 'waiting'}");
+    expect(step).toMatch(/<p class="msg" role="alert">\{refused\}<\/p>/);
+    expect(step).toMatch(/backToCode\(\); \}\}>Go back<\/button>/);
+    expect(step).not.toMatch(/class="names"|newMe|I'm new|pickName/);
+    // the way back leaves this sign-in behind; the class code stays, to sign in with another account or use the pictures
+    expect(between('function backToCode', 'function back()')).toMatch(/ticket = null; gname = null;[^\n]*step = 'code'; \}/);
+    expect(between('function back()', '</script>')).toMatch(/else if \(step === 'refused'\) backToCode\(\);/);
+    const student = readFileSync(new URL('../teach/student.svelte.ts', import.meta.url), 'utf8');
+    expect(student).toMatch(/export const googleCheck = \(ticket: string, classCode: string\) => send<\{ ok: true \}>\('\/class\/google\/check', 'POST', \{ ticket, code: classCode \}\);/);
+  });
+});
