@@ -11,6 +11,7 @@
   import Critter from '../ui/Critter.svelte';
   import Bar from '../ui/Bar.svelte';
   import { onButton } from '../ui/screenKeys';
+  import { buddyFit } from './buddyFit';
 
   let step = $state(1);
   let name = $state('');
@@ -21,8 +22,9 @@
   let nameInput: HTMLInputElement | undefined = $state();
   const samples: { code: string; key: string }[] = [];
   let pulse = $state<{ kind: 'hop' | 'oops' | 'quirk'; n: number }>({ kind: 'hop', n: 0 });
-  // a phone: the six buddies, three to a row, are drawn smaller so the row fits the screen
-  let vw = $state(1024);
+  // the six buddies are sized to the screen's width, so their row fits it (buddyFit.ts)
+  let vw = $state(1024), npW = $state(0);
+  const fit = $derived(buddyFit(npW || vw, vw <= 440));
 
   onMount(() => nameInput?.focus());
 
@@ -69,7 +71,7 @@
 
 <svelte:window onkeydown={onKey} bind:innerWidth={vw} />
 
-<div class="screen np">
+<div class="screen np" bind:clientWidth={npW}>
   <Bar title="New player" plain back={() => { if (game.backTo()?.screen === 'grownups') game.back(); else game.go(game.save.profiles.length ? 'players' : 'title'); }} />
   <div class="dots">{#each [1, 2, 3] as s}<i class:on={s <= step}></i>{/each}</div>
 
@@ -88,10 +90,10 @@
     <div class="step">
       <h1>Pick your buddy, {name.trim()}!</h1>
       <p class="muted">Your buddy rides along with you on every trail. Fifteen more Keypals join your team as you play. Each buddy earns their own friendship, outfits, stickers and medals.</p>
-      <div class="buddies">
+      <div class="buddies" style:--cols={fit.cols} style:--gap="{fit.gap}px" style:--bx="{fit.padX}px">
         {#each BUDDIES.filter(b => STARTERS.includes(b.id)) as f (f.id)}
           <button class="buddy" class:on={buddy === f.id} onclick={() => chooseBuddy(f.id)} aria-pressed={buddy === f.id}>
-            <Critter friend={f.id} {look} size={vw < 440 ? 80 : 110} pulse={buddy === f.id ? pulse : null} quirkOnHover decorative />
+            <Critter friend={f.id} {look} size={fit.size} pulse={buddy === f.id ? pulse : null} quirkOnHover decorative />
             <span class="bname">{f.name}</span>
           </button>
         {/each}
@@ -133,8 +135,8 @@
   h1 { font-size: clamp(30px, 4.6vh, 44px); }
   .name { font: 600 40px/1 var(--font-type); text-align: center; padding: 14px 20px; width: min(420px, 90vw); border-radius: 22px; border: 3px solid var(--line); background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
   .name:focus { border-color: var(--primary-hi); }
-  .buddies { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
-  .buddy { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, .7); border: 3px solid transparent; border-radius: 22px; padding: 10px 8px 8px; cursor: pointer; transition: transform .15s, border-color .15s, background .15s; }
+  .buddies { display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: var(--gap); }
+  .buddy { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, .7); border: 3px solid transparent; border-radius: 22px; padding: 10px var(--bx) 8px; cursor: pointer; transition: transform .15s, border-color .15s, background .15s; }
   .buddy:hover { transform: translateY(-3px); }
   .buddy.on { border-color: var(--primary-hi); background: #fff; box-shadow: var(--shadow); }
   .bname { font: 600 18px var(--font-ui); }
@@ -147,9 +149,8 @@
   .choice span { font-size: 15px; color: var(--muted); }
   .layout { display: flex; align-items: center; gap: 10px; font: 700 16px var(--font-body); }
   select { padding: 8px 12px; border-radius: 12px; border: 2px solid var(--line); background: #fff; font: 600 16px var(--font-body); }
-  @media (max-width: 760px) { .buddies { grid-template-columns: repeat(3, 1fr); } }
-  /* a phone: three buddies to a row inside the screen (they were 416 px wide on a 390 px screen) */
-  @media (max-width: 440px) { .np { padding-left: 16px; padding-right: 16px; } .buddies { gap: 8px; } .buddy { padding: 8px 4px 6px; } }
+  /* a phone: less padding (the buddies' size, gap and padding at the sides come from buddyFit.ts) */
+  @media (max-width: 440px) { .np { padding-left: 16px; padding-right: 16px; } .buddy { padding-top: 8px; padding-bottom: 6px; } }
   /* the one top row: Back and the title, across the top */
   .np { padding-top: 84px; }
   .np > :global(header.bar) { position: absolute; top: 0; left: 0; right: 0; }
