@@ -13,7 +13,7 @@ import type { Assignment } from './assignments';
 import type { ClassSettings } from '../path/rules';
 import { notePath, startPath, pathSave, type PathProfile } from '../path/progress';
 import { unitFromAssignment } from '../path/classPath';
-import { backToWaiting } from './googleTrip';
+import { backToWaiting, keepCodeForGoogle } from './googleTrip';
 
 export type Challenge = { code: string; week: string; ends: number; classes: { id: string; name: string; students: number; avg: number }[] };
 export type StudentClass = {
@@ -91,10 +91,11 @@ export async function loginStudent(classCode: string, student: string, pics: num
 
 // ---------- students with their own school Google sign-in ----------
 type LoginReply = { code: string; name: string; updated: number; profile: Record<string, unknown> };
-/** Start "Sign in with Google" for a student (the server never keeps the email: classes.js). */
-export function studentGoogle() { location.href = 'api/auth/google/student'; }
+/** Start "Sign in with Google" for a student (the server never keeps the email: classes.js), keeping the
+ *  class code she has in this tab while she's away (googleTrip.ts), so she comes back to her class. */
+export function studentGoogle(classCode = '') { keepCodeForGoogle(classCode); location.href = 'api/auth/google/student'; }
 /** The test sign-in for a student (a test computer only: the server refuses it anywhere else). */
-export function studentGoogleDev(name: string) { location.href = `api/class/google/dev?name=${encodeURIComponent(name)}&sub=${encodeURIComponent(`test-${name.toLowerCase()}`)}`; }
+export function studentGoogleDev(name: string, classCode = '') { keepCodeForGoogle(classCode); location.href = `api/class/google/dev?name=${encodeURIComponent(name)}&sub=${encodeURIComponent(`test-${name.toLowerCase()}`)}`; }
 /** Back from Google: straight in if this Google account is in a class already; `waiting` if it asked to
  *  join one and the teacher hasn't said yes (with the name it waits under); otherwise the server says so
  *  (`code`: type your class code once), with the first name Google gave. */

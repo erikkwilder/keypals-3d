@@ -1,6 +1,7 @@
-// What a browser keeps of a pupil's sign-in with Google (googleTrip.ts), with a stand-in for its storage.
+// What a browser keeps of a pupil's sign-in with Google (googleTrip.ts), with a stand-in for its storage:
+// the class code while she's at Google, and that she's waiting for her teacher's yes.
 import { describe, expect, it } from 'vitest';
-import { backToWaiting, forgetWaiting, noteWaiting, showingWaiting, waitingHere, waitingIn, type Store } from './googleTrip';
+import { backToWaiting, codeBackFromGoogle, forgetWaiting, keepCodeForGoogle, noteWaiting, showingWaiting, waitingHere, waitingIn, type Store } from './googleTrip';
 
 function store(): Store & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -45,5 +46,27 @@ describe("waiting for the teacher's yes, on this computer", () => {
   it('a browser that keeps nothing (a private window) is no trouble', () => {
     expect(() => { noteWaiting('snow dot 95', 'Zoe', broken); forgetWaiting(['Zoe'], null, broken); showingWaiting('snow dot 95', broken); }).not.toThrow();
     expect([waitingHere(broken), backToWaiting(broken, broken)]).toEqual([[], null]);
+  });
+});
+
+describe("the class code, while she's at Google", () => {
+  const t0 = 1_800_000_000_000;
+  it('is kept in this tab for the trip and given back once', () => {
+    const s = store();
+    keepCodeForGoogle('snow dot 95', s, t0);
+    expect(codeBackFromGoogle(s, t0 + 60000)).toBe('SNOW-DOT-95');
+    expect(codeBackFromGoogle(s, t0 + 61000)).toBeNull();
+    expect([...s.data.keys()]).toEqual([]);
+  });
+  it('not once a sign-in could have run out, and nothing when the box was empty', () => {
+    const s = store();
+    keepCodeForGoogle('snow dot 95', s, t0);
+    expect(codeBackFromGoogle(s, t0 + 15 * 60000)).toBeNull();
+    keepCodeForGoogle('snow dot 95', s, t0); keepCodeForGoogle('  ', s, t0); // the box emptied: the old code goes too
+    expect(codeBackFromGoogle(s, t0 + 1000)).toBeNull();
+  });
+  it('a browser that keeps nothing (a private window) is no trouble', () => {
+    expect(() => keepCodeForGoogle('snow dot 95', broken, t0)).not.toThrow();
+    expect(codeBackFromGoogle(broken, t0)).toBeNull();
   });
 });

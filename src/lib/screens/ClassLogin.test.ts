@@ -1,6 +1,7 @@
 // The class login's steps with a school Google account, read from the screen's source (it needs the whole
 // game to run): a first name the class list has already comes first as "Is this you?", with "I'm new" below
-// the list; a pupil waiting for her teacher's yes is told so, then and on a reload or a later visit.
+// the list; a pupil waiting for her teacher's yes is told so, then and on a reload or a later visit; the class
+// code goes with her through Google, so she lands back on her class.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { sameName } from '../teach/names';
@@ -51,5 +52,20 @@ describe("waiting for the teacher's yes", () => {
     expect(between('async function fromGoogle', 'function arrived')).toMatch(/forgetWaiting\(\[r\.in\.name\]\)[\s\S]*forgetWaiting\(\[gname\]\)/);
     expect(between('async function joinNew', 'function pickName')).toMatch(/forgetWaiting\(\[pl\.name, gname\]\)/);
     expect(between('async function tap', 'function back')).toMatch(/forgetWaiting\(\[who!\.name, gname\], ticket \? null : code\);\s*arrived\(\)/);
+  });
+});
+
+describe('the class code on the way through Google', () => {
+  it('goes with her, and brings her back to her class', () => {
+    expect(src).toMatch(/const kept = classState\.loginCode \? null : codeBackFromGoogle\(\);/);
+    expect(src).toMatch(/let code = \$state\(classState\.loginCode \? [^;]* : kept \? showClassCode\(kept\) : ''\);/);
+    expect(between('async function fromGoogle', 'function arrived')).toMatch(/step = 'code';\s*\/\/[^\n]*\n\s*if \(kept\) await find\(\);/);
+    // every way to Google from this screen takes the code along
+    expect(src.match(/studentGoogle\(code\)/g)?.length).toBe(2);
+    expect(src.match(/studentGoogleDev\((devName|w\.name), code\)/g)?.length).toBe(2);
+    expect(src).not.toMatch(/studentGoogle(Dev)?\((devName|w\.name)?\)/);
+    const student = readFileSync(new URL('../teach/student.svelte.ts', import.meta.url), 'utf8');
+    expect(student).toMatch(/export function studentGoogle\(classCode = ''\) \{ keepCodeForGoogle\(classCode\); location\.href = 'api\/auth\/google\/student'; \}/);
+    expect(student).toMatch(/export function studentGoogleDev\(name: string, classCode = ''\) \{ keepCodeForGoogle\(classCode\);/);
   });
 });

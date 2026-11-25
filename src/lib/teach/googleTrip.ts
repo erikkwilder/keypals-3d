@@ -1,8 +1,12 @@
 // What this browser keeps of a pupil's "Sign in with Google" from the class login (screens/ClassLogin.svelte),
-// so nothing she was told is lost: that she's waiting for her teacher's yes, by class, with the class code and
-// her first name only (on this computer), so a reload or a later visit to that class says so; and which class
-// this tab's class login showed her waiting in, so a reload goes back there. Forgotten when she gets in, or
-// when the server says she isn't waiting any more. (Nothing else: no Google id, no email, no ticket.)
+// so nothing is lost on the way:
+// - the class code she had, in this tab while she's at Google (the server's way back carries only the
+//   one-time ticket), so she lands back on her class;
+// - that she's waiting for her teacher's yes, by class, with the class code and her first name only (on this
+//   computer), so a reload or a later visit to that class says so; forgotten when she gets in, or when the
+//   server says she isn't waiting any more;
+// - which class this tab's class login showed her waiting in, so a reload goes back there.
+// Nothing else: no Google id, no email, no ticket.
 import { cleanClassCode } from './names';
 
 export type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -15,6 +19,21 @@ function write(s: Store | null, key: string, v: unknown) {
   try { if (v === null) s?.removeItem(key); else s?.setItem(key, JSON.stringify(v)); } catch { /* a private window: not kept */ }
 }
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+// ---------- the class code, while she's at Google ----------
+const TRIP = 'kp-class-google', TRIP_MS = 15 * 60000; // as long as a sign-in may take (worker.js)
+/** Just before leaving for Google: the class code in the box or from the class link (none: nothing kept). */
+export function keepCodeForGoogle(code: string, s = session(), now = Date.now()) {
+  const c = cleanClassCode(code);
+  write(s, TRIP, c ? { code: c, at: now } : null);
+}
+/** Back from Google (or back without signing in): the class code kept for the trip, once; null when there
+ *  was none, or it's older than a sign-in can take. */
+export function codeBackFromGoogle(s = session(), now = Date.now()): string | null {
+  const v = read(s, TRIP) as { code?: unknown; at?: unknown } | null;
+  write(s, TRIP, null);
+  return v && typeof v.code === 'string' && typeof v.at === 'number' && v.at <= now && now - v.at < TRIP_MS ? v.code : null;
+}
 
 // ---------- waiting for the teacher's yes ----------
 const WAITING = 'kp-class-waiting';

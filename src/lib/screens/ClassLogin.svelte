@@ -11,7 +11,7 @@
   import { cloud } from '../state/cloud.svelte';
   import { api } from '../teach/api';
   import { cleanClassCode, sameName, showClassCode } from '../teach/names';
-  import { forgetWaiting, noteWaiting, showingWaiting, waitingIn, type Waiting } from '../teach/googleTrip';
+  import { codeBackFromGoogle, forgetWaiting, noteWaiting, showingWaiting, waitingIn, type Waiting } from '../teach/googleTrip';
   import Critter from '../ui/Critter.svelte';
   import Bar from '../ui/Bar.svelte';
   import PicturePick from '../ui/PicturePick.svelte';
@@ -25,7 +25,9 @@
   let needName = $state(false);
   let dev = $state(false);
   let devName = $state('Sam');
-  let code = $state(classState.loginCode ? showClassCode(cleanClassCode(classState.loginCode)) : '');
+  /** the class code: from the class link, or the one she had before Google, kept in this tab (googleTrip.ts) */
+  const kept = classState.loginCode ? null : codeBackFromGoogle();
+  let code = $state(classState.loginCode ? showClassCode(cleanClassCode(classState.loginCode)) : kept ? showClassCode(kept) : '');
   let look = $state<ClassLook | null>(null);
   let who = $state<ClassLook['students'][number] | null>(null);
   let picked = $state<number[]>([]);
@@ -64,6 +66,8 @@
       if ('waiting' in r) { toWaiting(r.name); return; }
       // not waiting anywhere (any more): this computer forgets she was
       gname = r.name; forgetWaiting([gname]); step = 'code';
+      // she had her class code before Google: back to her class
+      if (kept) await find();
     } catch (e) { msg = (e as Error).message; ticket = null; step = 'code'; }
     finally { busy = false; }
   }
@@ -134,9 +138,9 @@
       {#if !ticket && (cloud.google || dev)}
         <div class="org">
           <span class="or">or, with a school Google account</span>
-          {#if cloud.google}<button class="btn btn-big gbtn" onclick={() => { sfx.click(); studentGoogle(); }}>Sign in with Google</button>{/if}
+          {#if cloud.google}<button class="btn btn-big gbtn" onclick={() => { sfx.click(); studentGoogle(code); }}>Sign in with Google</button>{/if}
           {#if dev}
-            <div class="dev"><b>Test Google sign-in (this computer only)</b><div class="drow"><input bind:value={devName} aria-label="Test student's first name" /><button class="btn" onclick={() => studentGoogleDev(devName)}>Sign in as a test student</button></div></div>
+            <div class="dev"><b>Test Google sign-in (this computer only)</b><div class="drow"><input bind:value={devName} aria-label="Test student's first name" /><button class="btn" onclick={() => studentGoogleDev(devName, code)}>Sign in as a test student</button></div></div>
           {/if}
         </div>
       {/if}
@@ -152,8 +156,8 @@
       {#if !ticket && waits.length}
         <div class="waits">
           {#each waits as w (w.name)}<p class="lead isyou">{w.name}, you're waiting for your teacher's yes.</p>{/each}
-          {#if cloud.google}<button class="btn btn-big gbtn" onclick={() => { sfx.click(); studentGoogle(); }}>Sign in with Google</button>
-          {:else if dev}{#each waits as w (w.name)}<button class="btn" onclick={() => studentGoogleDev(w.name)}>Sign in as a test student</button>{/each}{/if}
+          {#if cloud.google}<button class="btn btn-big gbtn" onclick={() => { sfx.click(); studentGoogle(code); }}>Sign in with Google</button>
+          {:else if dev}{#each waits as w (w.name)}<button class="btn" onclick={() => studentGoogleDev(w.name, code)}>Sign in as a test student</button>{/each}{/if}
         </div>
       {/if}
       {#if mine}
