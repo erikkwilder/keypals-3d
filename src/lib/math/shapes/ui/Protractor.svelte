@@ -3,11 +3,15 @@
   // use the turn buttons, or the arrow keys) to turn the protractor until its flat edge lies along one side
   // of the angle; it clicks into place and glows. Then read the number where the other side crosses, on the
   // row that starts at 0, and type it.
+  // By keyboard: Tab reaches the two turn buttons, then Check, and they work with Enter or Space; Left and
+  // Right still turn it from anywhere (Shift for a small turn), and the number keys, Backspace and Enter type
+  // and check. A screen reader hears "Lined up! Read the number" and the number typed.
   import { sfx } from '../../../audio/sound';
   import Icon from '../../../ui/Icon.svelte';
   import NumPad from '../../ui/NumPad.svelte';
   import type { CustomInputProps } from '../../skills/ui/SkillInput.svelte';
   import ProtractorArt from './ProtractorArt.svelte';
+  import { buttonKey, press } from '../../skills/inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   type Spec = { deg: number; from: number; aligned: boolean; left: boolean; step: number };
   const spec = $derived(item.custom?.spec as Spec);
@@ -47,7 +51,7 @@
     if (ok === false) { bad = true; setTimeout(() => { if (bad) { bad = false; text = ''; } }, 700); }
   }
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (disabled || e.metaKey || e.ctrlKey || e.altKey || buttonKey(e)) return;
     if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
     else if (e.key === 'Backspace') { e.preventDefault(); back(); }
     else if (e.key === 'Enter') { e.preventDefault(); check(); }
@@ -71,15 +75,15 @@
       <ProtractorArt cx={C.x} cy={C.y} r={R} {turn} both={!spec.aligned || spec.left} {every} tick={spec.step >= 30 ? 10 : 5} glow={lined} />
     </svg>
     <div class="turns">
-      <button class="tb" {disabled} onpointerdown={(e) => { e.preventDefault(); nudge(5); }} tabindex="-1" aria-label="Turn the protractor left"><Icon name="turnleft" size={22} /></button>
-      <span class="hint" class:ok={lined}>{lined ? 'Lined up! Read the number' : 'Drag to turn it'}</span>
-      <button class="tb" {disabled} onpointerdown={(e) => { e.preventDefault(); nudge(-5); }} tabindex="-1" aria-label="Turn the protractor right"><Icon name="turnright" size={22} /></button>
+      <button class="tb" {disabled} {...press(() => nudge(5))} aria-label="Turn the protractor left"><Icon name="turnleft" size={22} /></button>
+      <span class="hint" class:ok={lined} aria-live="polite">{lined ? 'Lined up! Read the number' : 'Drag to turn it'}</span>
+      <button class="tb" {disabled} {...press(() => nudge(-5))} aria-label="Turn the protractor right"><Icon name="turnright" size={22} /></button>
     </div>
   </div>
   <div class="type">
-    <div class="box" class:bad>{text || ' '}<small>°</small></div>
+    <div class="box" class:bad aria-live="polite">{text || ' '}<small>°</small></div>
     <NumPad ondigit={digit} onback={back} {disabled} compact={true} />
-    <button class="ok" disabled={!text || disabled} onpointerdown={(e) => { e.preventDefault(); check(); }} tabindex="-1"><Icon name="check" size={24} /><span>Check</span></button>
+    <button class="ok" disabled={!text || disabled} {...press(check)}><Icon name="check" size={24} /><span>Check</span></button>
   </div>
 </div>
 

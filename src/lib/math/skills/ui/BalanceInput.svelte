@@ -3,13 +3,15 @@
   // "Take 1 off both sides") and the same comes off BOTH sides, so it stays level; once the boxes are on
   // their own, two or more boxes can share out the other side into equal piles; then type what one box
   // weighs and Check. A child who already knows can type the answer straight away. Keys: digits,
-  // Backspace, Enter; minus takes 1 off both sides.
+  // Backspace, Enter; minus takes 1 off both sides. Tab reaches its buttons, which work with Enter or Space; a
+  // screen reader hears the words under the balance as they change, and the number typed.
   import { sfx } from '../../../audio/sound';
   import Icon from '../../../ui/Icon.svelte';
   import NumPad from '../../ui/NumPad.svelte';
   import BalanceView from '../../algebra/BalanceView.svelte';
   import type { BalanceSpec } from '../algebra';
   import type { CustomInputProps } from './SkillInput.svelte';
+  import { buttonKey, press } from '../inputKeys';
   let { item, disabled, compact, onanswer, onfirst }: CustomInputProps = $props();
   const spec = $derived((item.custom?.spec ?? { boxes: 1, left: 0, right: 1 }) as BalanceSpec);
   let l = $state(0), r = $state(0), shared = $state(false), typed = $state(''), bad = $state(false);
@@ -44,7 +46,7 @@
     if (ok === false) { bad = true; setTimeout(() => { if (bad) { typed = ''; bad = false; } }, 700); }
   }
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+    if (disabled || e.metaKey || e.ctrlKey || e.altKey || e.repeat || buttonKey(e)) return;
     if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
     else if (e.key === 'Backspace') { e.preventDefault(); back(); }
     else if (e.key === 'Enter') { e.preventDefault(); check(); }
@@ -62,13 +64,13 @@
       <BalanceView boxes={spec.boxes} left={l} right={r} letter={spec.letter ?? '?'} groups={shared ? spec.boxes : 0} w={bw}
         glowWeights={!alone && !disabled} glowBoxes={alone && (spec.boxes === 1 || shared)} ontap={(_s, kind, v) => { if (kind === 'weight') take(v); }} />
     </div>{/key}
-    <p class="say">{say}</p>
+    <p class="say" aria-live="polite">{say}</p>
   </div>
   <div class="acts">
-    {#if !alone}<button class="btn act" {disabled} onpointerdown={(e) => { e.preventDefault(); take(1); }} tabindex="-1">Take 1 off both sides</button>
-    {:else if spec.boxes > 1 && !shared}<button class="btn act" {disabled} onpointerdown={(e) => { e.preventDefault(); share(); }} tabindex="-1">Share into {spec.boxes}</button>{/if}
-    <span class="ans" class:bad><span class="who">{#if spec.letter}<i>{spec.letter}</i>{:else}<b class="bx"></b>{/if} =</span><span class="box">{typed}</span></span>
-    <button class="ok" disabled={disabled || !typed || bad} onpointerdown={(e) => { e.preventDefault(); check(); }} tabindex="-1" aria-label="Check {name}"><Icon name="check" size={26} /><span>Check</span></button>
+    {#if !alone}<button class="btn act" {disabled} {...press(() => take(1))}>Take 1 off both sides</button>
+    {:else if spec.boxes > 1 && !shared}<button class="btn act" {disabled} {...press(share)}>Share into {spec.boxes}</button>{/if}
+    <span class="ans" class:bad><span class="who">{#if spec.letter}<i>{spec.letter}</i>{:else}<b class="bx"></b>{/if} =</span><span class="box" aria-live="polite">{typed}</span></span>
+    <button class="ok" disabled={disabled || !typed || bad} {...press(check)} aria-label="Check {name}"><Icon name="check" size={26} /><span>Check</span></button>
   </div>
   <NumPad ondigit={digit} onback={back} {disabled} {compact} />
 </div>

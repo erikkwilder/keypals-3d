@@ -229,7 +229,42 @@ const INPUTS: { name: string; file: string; slider: boolean; text?: boolean; gri
   { name: 'the angle maker', file: '../shapes/ui/AngleMaker.svelte', slider: true, text: true },
   { name: 'the thermometer', file: './ui/ThermoInput.svelte', slider: true, text: true },
   { name: 'the percent bar', file: './ui/PercentBar.svelte', slider: true, text: true },
+  { name: 'the ray', file: './ui/RayInput.svelte', slider: true, text: true },
+  { name: 'the double number line', file: './ui/DoubleLine.svelte', slider: false },
+  { name: 'the protractor', file: '../shapes/ui/Protractor.svelte', slider: false },
+  { name: 'the shape pick', file: '../shapes/ui/ShapePick.svelte', slider: false },
+  { name: 'the ratio table', file: './ui/RatioTable.svelte', slider: false, buttons: false },
+  { name: 'the balance', file: './ui/BalanceInput.svelte', slider: false },
 ];
+describe('the ray, the double number line, the protractor, the shapes, the table and the balance, by keyboard', () => {
+  it('the ray keeps Space for filling the dot, and its four buttons say which is picked', () => {
+    const s = src('./ui/RayInput.svelte');
+    expect(s).toContain("if (e.key === ' ') { e.preventDefault(); if (at !== null) fill(!closed); return; }");
+    expect(tags(s, 'button').filter(b => b.includes('aria-pressed='))).toHaveLength(4);
+    expect(s).toContain("at === null ? 'No dot yet'");
+  });
+  it('the double number line is a slider only when the pin is to be placed', () => {
+    const el = tags(src('./ui/DoubleLine.svelte'), 'div').filter(t => t.includes('class="lines"'))[0];
+    for (const a of ["role={place ? 'slider' : undefined}", 'tabindex={place ? 0 : undefined}', 'aria-label={place ?', 'aria-valuemin={place ? 0 : undefined}', 'aria-valuemax={place ? spec.n : undefined}', 'aria-valuenow={place ? (at ?? undefined) : undefined}']) expect(el, a).toContain(a);
+  });
+  it('the protractor reads out when it lines up, and the number typed', () => {
+    const s = src('../shapes/ui/Protractor.svelte');
+    expect(s).toContain('<span class="hint" class:ok={lined} aria-live="polite">');
+    expect(s).toContain('<div class="box" class:bad aria-live="polite">');
+  });
+  it('a shape says what it is where it has a name, and whether it is picked', () => {
+    const s = src('../shapes/ui/ShapePick.svelte');
+    expect(s).toContain('aria-pressed={picked.has(i)} aria-label={named(f, i)}');
+    expect(s).toContain('return n ? `Shape ${i + 1}: ${n}` : `Shape ${i + 1}`;');
+  });
+  it('the ratio table and the balance read out what is typed, and the balance\'s buttons work by keyboard', () => {
+    expect(src('./ui/RatioTable.svelte')).toContain('data-drop="num" aria-live="polite">');
+    const b = src('./ui/BalanceInput.svelte');
+    expect(b).toContain('<span class="box" aria-live="polite">{typed}</span>');
+    expect(b).toContain('<p class="say" aria-live="polite">{say}</p>');
+    for (const p of ['{...press(() => take(1))}', '{...press(share)}', '{...press(check)}']) expect(b).toContain(p);
+  });
+});
 describe('the angle maker, the thermometer and the percent bar, by keyboard', () => {
   it('the angle opens to the left, so Left opens it, as it always has', () => {
     expect(src('../shapes/ui/AngleMaker.svelte')).toContain('stepKey(mirror(e), open, { min: spec.step, max: 180, step: spec.step }, e.target === svg)');
