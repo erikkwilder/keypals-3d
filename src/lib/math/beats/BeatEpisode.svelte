@@ -10,7 +10,7 @@
   import { EpisodeScene, type View } from '../../three/episodeScene';
   import { game } from '../../state/game.svelte';
   import { quietForLesson, sfx } from '../../audio/sound';
-  import { hush, lineText, say } from '../../audio/voice.svelte';
+  import { hush, keepLesson, lineText, say } from '../../audio/voice.svelte';
   import { separate, type Card } from './cardLayout';
   import { danceOf } from '../../engine/profile';
   import { advView } from '../../adventure/state';
@@ -225,10 +225,12 @@
     });
   }
 
-  let unquiet = () => {};
+  let unquiet = () => {}, letGo = () => {};
   onMount(() => {
     settling = requestAnimationFrame(settle);
     unquiet = quietForLesson();
+    // its spoken lines, kept on this computer while it plays: the narrator carries on if the connection drops
+    letGo = keepLesson({ keys: [L.voice ?? L.id] });
     addEventListener('keydown', onKey, true);
     const own = advView(game.profile!).glimmers[L.star];
     void EpisodeScene.create({ setId: L.set, buddy, star: L.star, evolved: !!own?.evolved }).then(async s => {
@@ -257,7 +259,7 @@
   onDestroy(() => {
     cancelAnimationFrame(settling);
     gone = true;
-    hush(); unquiet();
+    hush(); unquiet(); letGo();
     removeEventListener('keydown', onKey, true);
     if (sc) { const s = sc; sc = null; world?.dispose(); world = null; if (stage.current() === ctl) stage.swap(before); s.dispose(); }
   });

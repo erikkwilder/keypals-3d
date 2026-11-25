@@ -25,7 +25,7 @@
   import { MeasureKit } from '../../three/measureKit';
   import { game } from '../../state/game.svelte';
   import { quietForLesson, sfx } from '../../audio/sound';
-  import { hush, lineText, say } from '../../audio/voice.svelte';
+  import { hush, keepLesson, lineText, say } from '../../audio/voice.svelte';
   import { buddyLine } from '../../content/voice';
   import { danceOf } from '../../engine/profile';
   import { advView } from '../../adventure/state';
@@ -350,9 +350,11 @@
   }
   $effect(() => { void phase; void tsub; void w; void h; void narrow; void k; void bottomH; sc?.setView(viewFor()); });
 
-  let unquiet = () => {};
+  let unquiet = () => {}, letGo = () => {};
   onMount(() => {
     unquiet = quietForLesson();
+    // its spoken lines, kept on this computer while it plays: the narrator carries on if the connection drops
+    letGo = keepLesson({ keys: [L.id], buddy, shared: true });
     addEventListener('keydown', onKey, true);
     const own = advView(game.profile!).glimmers[L.star];
     void EpisodeScene.create({ setId: 'clockshop', buddy, star: L.star, evolved: !!own?.evolved }).then(async s => {
@@ -375,7 +377,7 @@
   });
   onDestroy(() => {
     gone = true; run++;
-    hush(); unquiet();
+    hush(); unquiet(); letGo();
     removeEventListener('keydown', onKey, true);
     if (sc) { const s = sc; sc = null; kit?.dispose(); kit = null; if (stage.current() === ctl) stage.swap(before); s.dispose(); }
   });
