@@ -20,6 +20,7 @@ import { movedCodes, moveUrl } from './move';
 import { count, startCounting } from './counting';
 import { cleanCode } from './codes';
 import { watchRechecks } from './recheck';
+import { net, requestAnswered, requestFailed } from './net.svelte';
 
 export type CloudPlayer = { code: string; name: string; buddy: string; updated: number };
 export const cloud = $state({
@@ -49,6 +50,11 @@ export function staySignedOut() { forgetSignIn(); cloud.signedOut = null; }
 /** Where a player's progress is kept, in words for the save chip: online in the grown-up's account, online
  *  with a save code, only on this computer, or here because saving online isn't available here. */
 export function saveStatus(p: Profile | null): { kind: 'account' | 'code' | 'class' | 'local' | 'here'; text: string; short: string } {
+  const st = savedWhere(p);
+  // the connection is gone (net.svelte.ts): what's new is kept here, and goes online when it's back
+  return net.down && p?.cloud && cloud.online ? { ...st, text: 'No internet: saved on this computer for now', short: 'Saved here for now' } : st;
+}
+function savedWhere(p: Profile | null): ReturnType<typeof saveStatus> {
   if (!cloud.online) return { kind: 'here', text: 'Saved on this computer', short: 'Saved here' };
   // logged in with a class code and pictures: saved with the class, whoever is signed in here
   if (p?.cloud && isClassLogin(p)) return { kind: 'class', text: 'Saved with your class', short: 'Saved with your class' };
@@ -71,7 +77,10 @@ export class ApiError extends Error {
 const isGone = (e: unknown) => e instanceof ApiError && e.status === 410;
 const isMissing = (e: unknown) => e instanceof ApiError && e.status === 404 && e.missing;
 export async function call<T = Record<string, unknown>>(path: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(`api${path}`, { credentials: 'same-origin', ...init, headers: { 'content-type': 'application/json', ...(init.headers ?? {}) } });
+  // failing on the way says the connection is gone, and any answer that it's there (net.svelte.ts)
+  const r = await fetch(`api${path}`, { credentials: 'same-origin', ...init, headers: { 'content-type': 'application/json', ...(init.headers ?? {}) } })
+    .catch((e: unknown) => { requestFailed(e); throw e; });
+  requestAnswered();
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new ApiError((body as { error?: string }).error || 'Saving online is not available right now.', r.status, !!(body as { missing?: boolean }).missing);
   return body as T;

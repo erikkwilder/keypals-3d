@@ -77,6 +77,8 @@ export type BeatLesson<W extends World = World> = {
   id: string; title: string; blurb: string; set: SetId; star: GlimmerId; color: string;
   /** the card's painted picture */
   art: string;
+  /** its spoken lines are ep.<voice>.… (its id when not given) */
+  voice?: string;
   /** how many stars across the top */
   beats: number;
   /** false: the lesson never asks for a number, so the page keeps no room for the number keys */

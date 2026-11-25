@@ -12,7 +12,7 @@
   import { EpisodeScene, type View } from '../../three/episodeScene';
   import { game } from '../../state/game.svelte';
   import { quietForLesson, sfx } from '../../audio/sound';
-  import { hush, lineText, say } from '../../audio/voice.svelte';
+  import { hush, keepLesson, lineText, say } from '../../audio/voice.svelte';
   import { buddyLine } from '../../content/voice';
   import { danceOf } from '../../engine/profile';
   import { advView, teamOf } from '../../adventure/state';
@@ -378,9 +378,11 @@
   $effect(() => { void phase; void tsub; void w; void h; void narrow; void bottomH; sc?.setView(viewFor()); });
 
   // the music hushes while the lesson plays (the coach's voice and the sounds carry on)
-  let unquiet = () => {};
+  let unquiet = () => {}, letGo = () => {};
   onMount(() => {
     unquiet = quietForLesson();
+    // its spoken lines, kept on this computer while it plays: the narrator carries on if the connection drops
+    letGo = keepLesson({ keys: [voiceId, id], buddy, shared: true });
     addEventListener('keydown', onKey, true);
     const own = advView(game.profile!).glimmers[starId];
     void EpisodeScene.create({ setId: lesson.set, buddy, star: starId, evolved: !!own?.evolved, frac: !lesson.cover }).then(async s => {
@@ -398,7 +400,7 @@
   });
   onDestroy(() => {
     gone = true; run++;
-    hush(); unquiet();
+    hush(); unquiet(); letGo();
     removeEventListener('keydown', onKey, true);
     if (sc) { const s = sc; sc = null; if (stage.current() === s) stage.swap(before); s.dispose(); }
   });

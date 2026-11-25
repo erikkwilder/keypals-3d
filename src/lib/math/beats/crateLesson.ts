@@ -293,7 +293,7 @@ async function check(t: Teller, w: CrateWorld, notes: Notes | null) {
 
 export const CRATE_LESSON: BeatLesson<CrateWorld> = {
   id: 'sh-boxes', title: 'Layers of Cubes', blurb: 'Fill one layer, then count the layers: length × width × height.', set: 'peaks', star: 'prismhorn', color: '#2fb3a0',
-  art: 'learn/shapes/card-boxes.webp', beats: 10,
+  art: 'learn/shapes/card-boxes.webp', voice: 'crate', beats: 10,
   world: async (sc: EpisodeScene) => { const { CrateKit } = await import('../../three/crateKit'); return new CrateKit(sc); },
   play, check,
   card: n => [`Your first guess: ${n.first ?? '?'}`, 'Cubes on the floor, times the number of layers, gives the volume.'],
