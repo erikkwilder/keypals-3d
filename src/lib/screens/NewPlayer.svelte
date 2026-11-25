@@ -12,6 +12,7 @@
   import Bar from '../ui/Bar.svelte';
   import { onButton } from '../ui/screenKeys';
   import { buddyFit } from './buddyFit';
+  import { cloud } from '../state/cloud.svelte';
 
   let step = $state(1);
   let name = $state('');
@@ -67,6 +68,8 @@
     } else if (step === 3 && enter) finish();
   }
   const look = $derived(game.settings.look);
+  // Google sign-in shows (GoogleSignIn.svelte): the other ways in sit side by side where they fit
+  const pair = $derived(cloud.online && cloud.google && !cloud.account);
 </script>
 
 <svelte:window onkeydown={onKey} bind:innerWidth={vw} />
@@ -82,9 +85,11 @@
       <p class="muted">Type it in. That's your very first typing!</p>
       <input class="name" bind:this={nameInput} bind:value={name} maxlength="16" onkeydown={onNameKey} placeholder="Your name" aria-label="Your name" autocomplete="off" spellcheck="false" />
       <button class="btn btn-primary btn-big" disabled={!name.trim()} onclick={next}>Next</button>
-      <GoogleSignIn /><!-- a family on a new phone: their players are one sign-in away -->
-      <SaveCodeForm />
-      <ClassEntry /><!-- classes: a fresh school computer starts here -->
+      <div class="ways" class:pair>
+        <GoogleSignIn /><!-- a family on a new phone: their players are one sign-in away -->
+        <SaveCodeForm />
+        <ClassEntry /><!-- classes: a fresh school computer starts here -->
+      </div>
     </div>
   {:else if step === 2}
     <div class="step">
@@ -135,6 +140,12 @@
   h1 { font-size: clamp(30px, 4.6vh, 44px); }
   .name { font: 600 40px/1 var(--font-type); text-align: center; padding: 14px 20px; width: min(420px, 90vw); border-radius: 22px; border: 3px solid var(--line); background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
   .name:focus { border-color: var(--primary-hi); }
+  /* the other ways in (Google sign-in, the save code, the class login): side by side where they fit, so the
+     first screen fits a 1366x768 laptop (it was 43 px too tall with Google sign-in on), one above the other
+     where they don't. With Google sign-in off, laid out as before. */
+  .ways { display: contents; }
+  .ways.pair { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 18px 24px; }
+  .ways.pair :global(.codebtn), .ways.pair :global(.elsewhere), .ways.pair :global(.ce) { margin-top: 0; }
   .buddies { display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: var(--gap); }
   .buddy { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, .7); border: 3px solid transparent; border-radius: 22px; padding: 10px var(--bx) 8px; cursor: pointer; transition: transform .15s, border-color .15s, background .15s; }
   .buddy:hover { transform: translateY(-3px); }
