@@ -103,7 +103,7 @@
 </script>
 
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
-<div class="bench" class:narrow style:--bg="url({base}learn/ep/set-clockshop.webp)">
+<div class="bench" class:narrow style:--bg="url({new URL(`${base}learn/ep/set-clockshop.webp`, document.baseURI).href})">
   <div class="hit" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="presentation"></div>
   <div class="vignette"></div>
   {#if !sc}<div class="loading"><div class="lcard"><small>The Clockmaker's Workshop</small><b>The Measuring Bench</b></div></div>{/if}

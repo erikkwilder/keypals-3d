@@ -95,7 +95,7 @@
   <div class="row">
     <div class="main">
       <div class="eq"><Expr s="{lhs} = {phase === 'weigh' ? (sum || '?') : L}" /></div>
-      <div class="lab" style:--bg="url({base}learn/ep/set-lab-soft.webp)">
+      <div class="lab" style:--bg="url({new URL(`${base}learn/ep/set-lab-soft.webp`, document.baseURI).href})">
         <BalanceView boxes={z.boxes} left={z.left} right={sum} rightW={right} {tilt} w={bw} reveal={phase === 'done' ? z.w : null} glowBoxes={phase !== 'weigh'}
           ontap={(side, kind, _v, k) => { if (side === 'right' && kind === 'weight') take(k); }} />
         {#if phase === 'weigh'}<span class="lean" class:l={tilt > 0.05} class:r={tilt < -0.05}>{tilt > 0.05 ? 'The box side is heavier' : tilt < -0.05 ? 'Your side is heavier' : 'Put weights on this side'}</span>{/if}

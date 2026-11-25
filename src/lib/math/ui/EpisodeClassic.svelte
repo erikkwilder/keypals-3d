@@ -414,7 +414,7 @@
 {#snippet wrongEq()}<div class="eq wrong" class:docked={narrow} class:long={lesson.teach.q.text.length > 10 && !asks(lesson.teach.q)} class:isq={asks(lesson.teach.q)} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}>{#if asks(lesson.teach.q)}<small class="qt"><FracText text={lesson.teach.q.text} size={narrow ? 14 : 18} /></small>{:else}<FracText text={lesson.teach.q.text} size={narrow ? 22 : 30} /> = {/if}<span class="ans">{#if tsub === 'fixed'}<span class="lit"><FracText text={minusSign(right)} size={narrow ? 26 : 34} /></span>{:else}<s><FracText text={minusSign(lesson.teach.wrong)} size={narrow ? 22 : 30} /></s>?{/if}</span></div>{/snippet}
 
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
-<div class="ep" class:narrow class:frac={!lesson.cover} style:--sc={lesson.color} style:--bg="url({base}{place.backdrop})">
+<div class="ep" class:narrow class:frac={!lesson.cover} style:--sc={lesson.color} style:--bg="url({new URL(`${base}${place.backdrop}`, document.baseURI).href})">
   <!-- the 3D place is the stage behind the page; this layer passes the kid's touches to it -->
   <div class="hit" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="presentation"></div>
   <div class="vignette"></div>
@@ -513,7 +513,7 @@
   <!-- the trick card -->
   {#if phase === 'card' || phase === 'checked'}
     <div class="cardside">
-      <div class="card" style:--frame="url({base}learn/ep/card-frame.webp)">
+      <div class="card" style:--frame="url({new URL(`${base}learn/ep/card-frame.webp`, document.baseURI).href})">
         <div class="cin">
           <small>{phase === 'checked' ? 'Remembered!' : 'Trick card'}</small>
           <h2>{lesson.title}</h2>

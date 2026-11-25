@@ -386,7 +386,7 @@
 {#snippet wrongEq()}<div class="eq wrong isq" class:docked={narrow} class:fixed={tsub === 'fixed'} class:shake={shake > 0 && tsub === 'fix'}><small class="qt">{L.teach.q.text}</small><span class="ans">{#if tsub === 'fixed'}<span class="lit">{right}</span>{:else}<s>{L.teach.wrong}</s>?{/if}</span></div>{/snippet}
 
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
-<div class="ep" class:narrow style:--sc="#8a6bd6" style:--bg="url({base}{place.backdrop})">
+<div class="ep" class:narrow style:--sc="#8a6bd6" style:--bg="url({new URL(`${base}${place.backdrop}`, document.baseURI).href})">
   <div class="hit" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="presentation"></div>
   <div class="vignette"></div>
 
@@ -475,7 +475,7 @@
 
   {#if phase === 'card' || phase === 'checked'}
     <div class="cardside">
-      <div class="card" style:--frame="url({base}learn/ep/card-frame.webp)">
+      <div class="card" style:--frame="url({new URL(`${base}learn/ep/card-frame.webp`, document.baseURI).href})">
         <div class="cin">
           <small>{phase === 'checked' ? 'Remembered!' : 'Trick card'}</small>
           <h2>{L.title}</h2>

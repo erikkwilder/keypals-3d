@@ -267,7 +267,7 @@
 </script>
 
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
-<div class="ep" bind:this={root} class:narrow style:--sc={L.color} style:--bg="url({base}{place.backdrop})">
+<div class="ep" bind:this={root} class:narrow style:--sc={L.color} style:--bg="url({new URL(`${base}${place.backdrop}`, document.baseURI).href})">
   <div class="hit" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="presentation"></div>
   <div class="vignette"></div>
 
@@ -331,7 +331,7 @@
 
   {#if phase === 'card' || phase === 'checked'}
     <div class="cardside">
-      <div class="card" style:--frame="url({base}learn/ep/card-frame.webp)">
+      <div class="card" style:--frame="url({new URL(`${base}learn/ep/card-frame.webp`, document.baseURI).href})">
         <div class="cin">
           <small>{phase === 'checked' ? 'Remembered!' : 'Trick card'}</small>
           <h2>{L.title}</h2>
