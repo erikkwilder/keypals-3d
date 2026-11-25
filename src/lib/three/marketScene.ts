@@ -4,6 +4,7 @@
 // Glimmer shoppers behind it. Paid coins slide across to the shopper, who cheers. The coins are painted US
 // coins: heads on top, the back underneath (it shows as a coin flips on its way into the tray).
 import * as THREE from 'three';
+import { shakeOf } from './calm';
 import { loadTexture } from './assets';
 import { Fx } from './fx';
 import { GlimmerModel } from './glimmerModel';
@@ -234,7 +235,7 @@ export class MarketScene {
     const dt = Math.min(0.05, this.last ? (now - this.last) / 1000 : 0.016);
     this.last = now; this.t += dt;
     this.shakeT = Math.max(0, this.shakeT - dt);
-    this.tray.rotation.z = Math.sin(this.shakeT * 50) * 0.03 * (this.shakeT / 0.45);
+    this.tray.rotation.z = Math.sin(this.shakeT * 50) * 0.03 * (shakeOf(this.shakeT) / 0.45);
     for (const k of this.coins) {
       if (k.t < 1) {
         const was = k.t;

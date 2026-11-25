@@ -5,6 +5,7 @@
 // glow, see-through, with its own textures showing. The winner gets the Glimmer: its cloud bursts and it
 // hops over to them while the other side waves "good game".
 import * as THREE from 'three';
+import { shakeOf } from './calm';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
 import { loadTexture } from './assets';
@@ -387,7 +388,7 @@ export class DuelScene implements Controller {
     const k = 1 - Math.exp(-dt * (this.shot === 'wide' ? 2.5 : 3.2));
     this.camPos.lerp(wantPos, k); this.camAim.lerp(aim, k);
     cam.position.copy(this.camPos);
-    if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 1.4); cam.position.x += (Math.random() - 0.5) * this.shake * 0.25; cam.position.y += (Math.random() - 0.5) * this.shake * 0.2; }
+    if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 1.4); cam.position.x += (Math.random() - 0.5) * shakeOf(this.shake) * 0.25; cam.position.y += (Math.random() - 0.5) * shakeOf(this.shake) * 0.2; }
     cam.lookAt(this.camAim);
   }
 

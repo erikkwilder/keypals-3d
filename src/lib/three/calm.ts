@@ -63,3 +63,11 @@ export function easeTo(at: Vector3, want: Vector3, k: number, still: boolean) {
   if (still && at.distanceTo(want) < LAND) at.copy(want);
   else at.lerp(want, k);
 }
+
+/** How big a shake is (the camera's on a hit in a battle or a duel; the mat's, the beam's, the tray's, the
+ *  crate's on a wrong answer): none with less motion. Its timer runs as ever, so whatever waits on it (a
+ *  lesson, a game) waits just as long, and the helper's face and the sound still say it. */
+export function shakeOf(size: number) { return calm.on ? 0 : size; }
+
+/** how many sparkles a burst makes with less motion: a few, that stay where they're made and fade there */
+export const FEW = 3;

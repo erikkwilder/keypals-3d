@@ -5,6 +5,7 @@
 // on the crate. Everything inside the crate is a child of it, so when it tips over, the lines, numbers and
 // cubes all go with it. It sits on the shared episode table like the measuring things do (three/measureKit.ts).
 import * as THREE from 'three';
+import { shakeOf } from './calm';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { stage } from './stage';
 import { loadTexture } from './assets';
@@ -714,7 +715,7 @@ export class CrateKit implements CrateWorld {
         this.rope.visible = this.hookY < 2.6 || this.hookCarry;
       }
       // shaken
-      const sk = this.shakeUntil > t ? clamp01((this.shakeUntil - t) * 3) * this.shakeK : 0;
+      const sk = this.shakeUntil > t ? shakeOf(clamp01((this.shakeUntil - t) * 3) * this.shakeK) : 0;
       this.body.position.x = sk ? Math.sin(t * 61) * 0.012 * sk : 0;
       c.rotation.z = sk ? Math.sin(t * 47) * 0.018 * sk : 0;
       // tipping over its near right edge, then sliding back to the middle
@@ -729,7 +730,7 @@ export class CrateKit implements CrateWorld {
     // the cubes
     this.liftTo += 0;
     this.lifted += (this.liftTo - this.lifted) * Math.min(1, dt * 5);
-    const sk = this.shakeUntil > t ? this.shakeK : 0;
+    const sk = this.shakeUntil > t ? shakeOf(this.shakeK) : 0;
     const topY = this.d.h - 1;
     for (let i = this.cubes.length - 1; i >= 0; i--) {
       const q = this.cubes[i], m = q.m;

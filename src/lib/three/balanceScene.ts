@@ -6,6 +6,7 @@
 // beside it (it grows with every right answer in a row and tumbles on a miss). The Comet Cat watches from
 // a cushion and cheers. Star dust everywhere.
 import * as THREE from 'three';
+import { shakeOf } from './calm';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { Fx } from './fx';
 import { GlimmerModel } from './glimmerModel';
@@ -326,7 +327,7 @@ export class BalanceScene {
     this.vel += ((this.target - this.angle) * 38 - this.vel * 6.5) * dt;
     this.angle += this.vel * dt;
     this.shakeT = Math.max(0, this.shakeT - dt);
-    this.beam.rotation.z = -this.angle + Math.sin(this.shakeT * 55) * 0.035 * (this.shakeT / 0.45);
+    this.beam.rotation.z = -this.angle + Math.sin(this.shakeT * 55) * 0.035 * (shakeOf(this.shakeT) / 0.45);
     this.glowT = Math.max(0, this.glowT - dt * 0.8);
     this.star.rotation.y = Math.sin(this.t * 1.3) * 0.35;
     (this.star.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.7 + this.glowT * 1.5 + Math.sin(this.t * 3) * 0.1;

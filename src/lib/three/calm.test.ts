@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
-import { DecorClock, IdleHold, LAND, SETTLE, calm, easeTo, moveOver } from './calm';
+import { DecorClock, IdleHold, LAND, SETTLE, calm, easeTo, moveOver, shakeOf } from './calm';
 
 const dt = 1 / 30;
 
@@ -145,5 +145,17 @@ describe('turned on while the title plays, it counts at once', () => {
     }
     easeTo(at, want, k, true);
     expect(at.equals(want)).toBe(true);
+  });
+});
+
+describe('shakes (the camera on a hit, the mat, the beam, the tray, the crate on a wrong answer)', () => {
+  it('without less motion a shake is as big as ever', () => {
+    for (const k of [0, 0.1, 0.35, 1]) expect(shakeOf(k)).toBe(k);
+  });
+
+  it("with less motion there's no shake, whatever its size (its timer, and what waits on it, run as ever)", () => {
+    calm.follow(() => true);
+    for (const k of [0, 0.1, 0.35, 1]) expect(shakeOf(k)).toBe(0);
+    calm.follow(() => false);
   });
 });

@@ -5,6 +5,7 @@
 // the host beside the wheel, cheering or sighing; and golden tickets that burst out of the wheel and fly
 // up to the ticket count when a challenge is won.
 import * as THREE from 'three';
+import { calm, shakeOf } from './calm';
 import { Fx } from './fx';
 import { GlimmerModel } from './glimmerModel';
 import { die } from './episodeProps';
@@ -283,11 +284,12 @@ export class ShowdownScene {
     // bulbs: chase while spinning, a soft twinkle while still
     this.bulbs.forEach((b, i) => {
       const m = b.material as THREE.MeshStandardMaterial;
-      m.emissiveIntensity = sp ? ((Math.floor(this.t * 14) + i) % 3 === 0 ? 2.2 : 0.3) : 0.7 + Math.sin(this.t * 3 + i * 0.8) * 0.35;
+      // (with less motion the lights don't chase or pulse: steady, a little brighter while it spins)
+      m.emissiveIntensity = calm.on ? (sp ? 1 : 0.7) : sp ? ((Math.floor(this.t * 14) + i) % 3 === 0 ? 2.2 : 0.3) : 0.7 + Math.sin(this.t * 3 + i * 0.8) * 0.35;
     });
     // a little settle wobble after a stop or a miss
     this.wobble = Math.max(0, this.wobble - dt);
-    this.stand.rotation.z = Math.sin(this.t * 30) * 0.01 * this.wobble;
+    this.stand.rotation.z = Math.sin(this.t * 30) * 0.01 * shakeOf(this.wobble);
     // the dice
     for (const r of this.rolls) {
       r.t += dt / 1.1;

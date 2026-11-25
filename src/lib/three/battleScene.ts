@@ -6,6 +6,7 @@
 // buddy, faint while the quick question is up, solid when it's answered; the counterattack bangs into it
 // and gets knocked back at the Grumble. Missed, it flies straight at the buddy, who gets knocked back.
 import * as THREE from 'three';
+import { calm, shakeOf } from './calm';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
 import { dressUp } from './dress';
@@ -543,8 +544,10 @@ export class BattleScene implements Controller {
     this.shield.scale.setScalar(Math.max(0.01, pop * (0.6 + 0.4 * this.shieldK)));
     // waiting, it's mostly its gold ring (an outline to fill); up, it's solid
     this.shieldFace.opacity = 0.92 * this.shieldK * this.shieldK;
-    this.shieldFace.emissiveIntensity = 0.55 + 0.4 * this.shieldK + this.shieldFlash * 2.2;
-    this.shieldGlow.opacity = 0.25 * this.shieldK + this.shieldFlash * 0.55;
+    // (with less motion, no flash: the shield going up and a hit on it show without it)
+    const flash = calm.on ? 0 : this.shieldFlash;
+    this.shieldFace.emissiveIntensity = 0.55 + 0.4 * this.shieldK + flash * 2.2;
+    this.shieldGlow.opacity = 0.25 * this.shieldK + flash * 0.55;
     this.shield.traverse(o => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m && m !== this.shieldFace && m !== this.shieldGlow) { m.transparent = true; m.opacity = Math.min(1, this.shieldK * 1.6); } });
   }
 
@@ -575,7 +578,7 @@ export class BattleScene implements Controller {
     const k = 1 - Math.exp(-dt * (this.shot === 'wide' ? 2.5 : 3.5));
     this.camPos.lerp(wantPos, k); this.camAim.lerp(aim, k);
     cam.position.copy(this.camPos);
-    if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 1.4); cam.position.x += (Math.random() - 0.5) * this.shake * 0.25; cam.position.y += (Math.random() - 0.5) * this.shake * 0.2; }
+    if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 1.4); cam.position.x += (Math.random() - 0.5) * shakeOf(this.shake) * 0.25; cam.position.y += (Math.random() - 0.5) * shakeOf(this.shake) * 0.2; }
     cam.lookAt(this.camAim);
   }
 
