@@ -69,7 +69,7 @@
 
 
     {#if !cloud.online}
-      <div class="card pane"><p>Ideas and help need the internet. You can also write to <b>hello@fancyant.com</b>.</p></div>
+      <div class="card pane"><p>Ideas and help need the internet. You can also write to <b>hello@keypals.org</b>.</p></div>
     {:else if tab === 'board'}
       <div class="lead">
         <p>Ideas for Keypals from families and teachers. <b>Tap the heart</b> on the ones you'd like most!</p>
