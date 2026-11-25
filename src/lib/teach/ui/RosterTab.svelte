@@ -35,7 +35,7 @@
 {#if pending.length}
   <div class="tp wait">
     <h3>Waiting for you</h3>
-    <p class="muted">Families asked to link a player from home to this class. Say yes only if you know who it is.</p>
+    <p class="muted">Families linking a player from home, and students who signed in with Google, wait here for your yes. Say yes only if you know who it is.</p>
     <table class="tt">
       <tbody>
         {#each pending as s (s.id)}
