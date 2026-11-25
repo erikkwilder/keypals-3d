@@ -139,6 +139,20 @@
   }
 </script>
 
+<!-- "Sign in with Google", the class code going along: under the code box, and on a class's own page when the
+     class allows it -->
+{#snippet googleBox()}
+  {#if cloud.google || dev}
+      <div class="org">
+        <span class="or">or, with a school Google account</span>
+        {#if cloud.google}<button class="btn btn-big gbtn" onclick={() => { sfx.click(); studentGoogle(code); }}>Sign in with Google</button>{/if}
+        {#if dev}
+          <div class="dev"><b>Test Google sign-in (this computer only)</b><div class="drow"><input bind:value={devName} aria-label="Test student's first name" /><button class="btn" onclick={() => studentGoogleDev(devName, code)}>Sign in as a test student</button></div></div>
+        {/if}
+      </div>
+  {/if}
+{/snippet}
+
 <div class="screen clogin">
   <Bar title="I'm in a class" plain {back} />
   <div class="body scroll">
@@ -153,15 +167,7 @@
         <input bind:value={code} placeholder="fox pear 42" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus aria-label="Class code" />
         <button class="btn btn-primary btn-big" disabled={!code.trim() || busy}>Next</button>
       </form>
-      {#if !ticket && (cloud.google || dev)}
-        <div class="org">
-          <span class="or">or, with a school Google account</span>
-          {#if cloud.google}<button class="btn btn-big gbtn" onclick={() => { sfx.click(); studentGoogle(code); }}>Sign in with Google</button>{/if}
-          {#if dev}
-            <div class="dev"><b>Test Google sign-in (this computer only)</b><div class="drow"><input bind:value={devName} aria-label="Test student's first name" /><button class="btn" onclick={() => studentGoogleDev(devName, code)}>Sign in as a test student</button></div></div>
-          {/if}
-        </div>
-      {/if}
+      {#if !ticket}{@render googleBox()}{/if}
     {:else if step === 'name' && look}
       <h1>{look.class.name}</h1>
       <p class="lead">{look.class.teacher}'s class.{mine ? '' : ticket ? ' Is your name here? Tap it. New to the class? Tap "I\'m new".' : ' Tap your name.'}</p>
@@ -190,6 +196,7 @@
       </div>
       {#if !look.students.length}<p class="lead">Nobody is in this class yet. Ask your teacher.</p>{/if}
       {#if mine}{@render newMe(false)}{/if}
+      {#if !ticket && !waits.length && look.class.google}{@render googleBox()}{/if}
     {:else if step === 'pics' && who}
       <h1>Hi {who.name}!</h1>
       <p class="lead">Tap your two pictures, in order.</p>

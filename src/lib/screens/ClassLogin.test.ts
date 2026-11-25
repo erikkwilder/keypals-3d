@@ -86,3 +86,18 @@ describe("a class that won't take her Google account", () => {
     expect(student).toMatch(/export const googleCheck = \(ticket: string, classCode: string\) => send<\{ ok: true \}>\('\/class\/google\/check', 'POST', \{ ticket, code: classCode \}\);/);
   });
 });
+
+describe("Google sign-in on the class's own page", () => {
+  it('shows when the class allows it, the class code going along, as under the code box', () => {
+    const box = between('{#snippet googleBox()}', '{/snippet}');
+    expect(box).toMatch(/\{#if cloud\.google \|\| dev\}/);
+    expect(box).toMatch(/\{#if cloud\.google\}<button class="btn btn-big gbtn" onclick=\{\(\) => \{ sfx\.click\(\); studentGoogle\(code\); \}\}>Sign in with Google<\/button>/);
+    expect(between("{:else if step === 'code'}", "{:else if step === 'name'")).toMatch(/\{#if !ticket\}\{@render googleBox\(\)\}\{\/if\}/);
+    // on the list, below the names: not back from Google already, nobody here waiting (that has its own button), and the class allows it
+    const step = between("{:else if step === 'name'", "{:else if step === 'pics'");
+    expect(step.indexOf('{@render googleBox()}')).toBeGreaterThan(step.indexOf('<div class="names">'));
+    expect(step).toMatch(/\{#if !ticket && !waits\.length && look\.class\.google\}\{@render googleBox\(\)\}\{\/if\}/);
+    const student = readFileSync(new URL('../teach/student.svelte.ts', import.meta.url), 'utf8');
+    expect(student).toMatch(/export type ClassLook = \{ class: \{ name: string; grade: number; teacher: string; google\?: boolean \}/);
+  });
+});

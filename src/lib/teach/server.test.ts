@@ -140,7 +140,7 @@ describe('students logging in', () => {
     const cookie = await teacher();
     const c = await classWith(cookie, 'Maria\nSam');
     const look = await call('GET', `/class/${c.code.toLowerCase().replaceAll('-', ' ')}`);
-    expect(look.json.class).toEqual({ name: 'Room 12', grade: 3, teacher: 'Ms. Rivera' });
+    expect(look.json.class).toEqual({ name: 'Room 12', grade: 3, teacher: 'Ms. Rivera', google: true });
     expect(look.json.students.map((s: { name: string }) => s.name)).toEqual(['Maria', 'Sam']);
     const maria = c.students[0];
     const ok = await login(c.code, maria.id, maria.pics);
@@ -509,5 +509,13 @@ describe('pupils signing in with Google', () => {
     const off = await check(await google('Nia'), room14.code);
     expect([off.status, off.json.error]).toEqual([403, "Your teacher hasn't turned on Google sign-in for this class. Use your class code and pictures."]);
     expect((await check('not-a-ticket')).status).toBe(410);
+  });
+
+  it("the class's page says whether its pupils may sign in with Google, and nothing more about it", async () => {
+    const t = await teacher();
+    const c = await classWith(t, 'Maria');
+    expect((await call('GET', `/class/${c.code}`)).json.class).toEqual({ name: 'Room 12', grade: 3, teacher: 'Ms. Rivera', google: true });
+    expect((await call('PATCH', `/teach/classes/${c.id}`, { settings: { google: 'off' } }, { cookie: t })).status).toBe(200);
+    expect((await call('GET', `/class/${c.code}`)).json.class).toEqual({ name: 'Room 12', grade: 3, teacher: 'Ms. Rivera', google: false });
   });
 });

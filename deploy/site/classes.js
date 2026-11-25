@@ -828,7 +828,9 @@ export async function classApi(request, env, url, path, h) {
     if (c.archived) return h.fail(410, 'This class is closed. Ask your teacher.');
     if (!(await classOn(env, c))) return h.fail(403, NOT_ON);
     const st = await DB.prepare("SELECT id, name, buddy FROM students WHERE class = ? AND status = 'active' ORDER BY name").bind(c.id).all();
-    return h.json({ class: { name: c.name, grade: c.grade, teacher: c.display ?? 'Your teacher' }, students: (st.results ?? []).map(s => ({ id: s.id, name: s.name, buddy: s.buddy })) });
+    // and whether its students may sign in with Google, for the game to offer it here too (nothing more about how)
+    const google = (await settingsOf(env, c.id, c.teacher)).google !== 'off';
+    return h.json({ class: { name: c.name, grade: c.grade, teacher: c.display ?? 'Your teacher', google }, students: (st.results ?? []).map(s => ({ id: s.id, name: s.name, buddy: s.buddy })) });
   }
 
   // ---------------- the family board ----------------

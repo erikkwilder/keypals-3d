@@ -54,7 +54,7 @@ export function loadClasses(p: Profile | null, force = false): Promise<void> {
 }
 
 // ---------- logging in ----------
-export type ClassLook = { class: { name: string; grade: number; teacher: string }; students: { id: string; name: string; buddy: string | null }[] };
+export type ClassLook = { class: { name: string; grade: number; teacher: string; google?: boolean }; students: { id: string; name: string; buddy: string | null }[] };
 export const lookupClass = (code: string) => api<ClassLook>(`/class/${encodeURIComponent(code)}`);
 
 /** Players who logged in with a class code on this computer (they can go again with "Done for today"). */
