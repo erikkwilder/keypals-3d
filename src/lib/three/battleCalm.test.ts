@@ -55,7 +55,7 @@ describe('a battle with less motion: the buddy, the Grumble and the team hold th
 
   it("the Grumble's cloud, its rain and its sulky sway go by its own clock; a hit, its stomp, its laugh and the cheer-up keep it going", () => {
     const up = body(src('./grumpyGlimmer.ts'), '  update(dt: number, t: number) {');
-    expect(up).toContain('this.clock.step(dt, t, this.glimmer.busy || (this.bursting >= 0 && this.bursting < 1) || this.laughT > 0, calm.on), st = this.clock.t;');
+    expect(up).toContain('this.clock.step(dt, t, !this.holdIdle || this.glimmer.busy || (this.bursting >= 0 && this.bursting < 1) || this.laughT > 0, calm.on), st = this.clock.t;');
     // every sway on the battle's own clock is gone but the anger mark's, which shows a hit
     const onT = up.split('\n').filter(l => /Math\.sin\(t \*/.test(l));
     expect(onT).toHaveLength(1);
@@ -65,11 +65,18 @@ describe('a battle with less motion: the buddy, the Grumble and the team hold th
     expect(up).toContain('const y = this.rainPos[i * 6 + 1] - sd * 3.4;');
     expect(up).toContain('this.glimmer.update(sd, st);');
     // now and then lightning for its own sake: none with less motion
-    expect(up).toMatch(/if \(!calm\.on\) this\.fx\.lightning\(/);
+    expect(up).toMatch(/if \(!\(this\.holdIdle && calm\.on\)\) this\.fx\.lightning\(/);
     // what shows something stays on the battle's clock: its mood lifting, the cheer-up's burst, the anger mark
     expect(up).toContain('this.shown += (this.mood - this.shown) * Math.min(1, dt * 2.5);');
     expect(up).toContain('this.bursting = Math.min(1, this.bursting + dt * 1.6);');
     expect(up).toContain('this.markT = Math.max(0, this.markT - dt);');
+  });
+
+  it("that hold is the battle's only: the duel walks its Glimmer about and turns it to watch, so its Grumble goes as before", () => {
+    const g = src('./grumpyGlimmer.ts');
+    expect(g).toContain('  holdIdle = false;');
+    expect(battle).toContain('grumble.holdIdle = true;');
+    expect(src('./duelScene.ts')).not.toContain('holdIdle');
   });
 
   it("a Glimmer is busy while a move plays, its own or its skeleton's", () => {

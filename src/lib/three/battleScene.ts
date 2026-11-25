@@ -82,6 +82,8 @@ export class BattleScene implements Controller {
     this.foeAt.y = island.height(this.foeAt.x, this.foeAt.z);
     this.foeFloat = 0;
     grumble.fx = this.fx;
+    // (with less motion its cloud, its rain and its sulky sway hold while it only sulks there: calm.ts)
+    grumble.holdIdle = true;
     stage.scene.add(this.arena, this.fx.root, me.root, grumble.root);
     me.root.visible = false;
     me.play('idle', 0);

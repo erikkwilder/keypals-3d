@@ -115,12 +115,15 @@ export class GrumpyGlimmer {
 
   /** its own clock with less motion: it stands still while the Grumble only sulks there (calm.ts) */
   private clock = new HeldClock();
+  /** hold what it does for its own sake with less motion: the battle's does. The duel's doesn't: the duel walks
+   *  its Glimmer to the winner and turns it to watch whose turn it is, and those turns go by its clock. */
+  holdIdle = false;
 
   update(dt: number, t: number) {
     // with less motion, what it does for its own sake while it only sulks there (its cloud's puffs breathing and
     // drifting, the cloud bobbing, the rain, its sulky sway and breathing) holds, on its own clock; a hit, its
     // stomp, its laugh and the cheer-up play as ever, and its mood lifting still shows
-    const sd = this.clock.step(dt, t, this.glimmer.busy || (this.bursting >= 0 && this.bursting < 1) || this.laughT > 0, calm.on), st = this.clock.t;
+    const sd = this.clock.step(dt, t, !this.holdIdle || this.glimmer.busy || (this.bursting >= 0 && this.bursting < 1) || this.laughT > 0, calm.on), st = this.clock.t;
     this.shown += (this.mood - this.shown) * Math.min(1, dt * 2.5);
     const m = this.shown;
     if (this.bursting < 0) { this.glimmer.setGrey(Math.min(1, m * 1.05)); this.glimmer.droop = Math.min(1, m * 1.4); }
@@ -151,7 +154,7 @@ export class GrumpyGlimmer {
       this.zapT = 2.5 + Math.random() * 3;
       const c = this.root.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * this.cloudW * 0.5, this.cloudY - 0.1, 0.1));
       // (a flash for its own sake: none with less motion)
-      if (!calm.on) this.fx.lightning(c, c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, -0.45, 0)), 0xfff1a0, 0.025);
+      if (!(this.holdIdle && calm.on)) this.fx.lightning(c, c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, -0.45, 0)), 0xfff1a0, 0.025);
     }
     // the anger mark pops up by its head, then shrinks away
     this.markT = Math.max(0, this.markT - dt);
