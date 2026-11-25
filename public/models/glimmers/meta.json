@@ -9,6 +9,8 @@
     "tier": "meshy-t2.5",
     "rig": {
       "plan": "quad",
+      "earsFused": true,
+      "earsOnHead": true,
       "head": [0, 0.7, 0.2],
       "chest": [0, 0.36, 0.15],
       "hips": [0, 0.33, -0.2],
@@ -154,6 +156,7 @@
     "tier": "meshy-t2.5",
     "rig": {
       "plan": "flyer",
+      "earsFused": true,
       "head": [0, 0.58, 0.2],
       "chest": [-0.002, 0.41, 0.019],
       "hips": [-0.012, 0.196, 0.062],
@@ -221,6 +224,8 @@
     "tier": "meshy-6-lite",
     "rig": {
       "plan": "quad",
+      "earsFused": true,
+      "earsOnHead": true,
       "head": [0, 0.68, 0.7],
       "chest": [0, 0.45, 0.5],
       "hips": [0.004, 0.425, -0.076],
@@ -312,6 +317,8 @@
     "tier": "hunyuan3d-2.1",
     "rig": {
       "plan": "serpent",
+      "earsFused": true,
+      "earsOnHead": true,
       "head": [0, 0.68, 0.43],
       "chest": [0, 0.4, 0.3],
       "hips": [0, 0.25, -0.1],
@@ -535,6 +542,8 @@
     "tier": "hunyuan3d-2.1",
     "rig": {
       "plan": "biped",
+      "earsFused": true,
+      "earsOnHead": true,
       "head": [0, 0.48, 0.05],
       "chest": [0, 0.3, 0.02],
       "hips": [0, 0.18, 0],
@@ -556,6 +565,8 @@
     "tier": "hunyuan3d-2.1",
     "rig": {
       "plan": "quad",
+      "earsFused": true,
+      "earsOnHead": true,
       "head": [-0.03, 0.68, 0.2],
       "chest": [0, 0.45, 0.1],
       "hips": [0, 0.42, -0.15],
@@ -896,6 +907,8 @@
     "tier": "hy3d-global",
     "rig": {
       "plan": "blob",
+      "earsFused": true,
+      "earsOnHead": true,
       "head": [0, 0.55, 0.05],
       "chest": [0.106, 0.388, 0.123],
       "hips": [0.106, 0.217, 0.123],
@@ -1036,6 +1049,7 @@
     "tier": "hy3d-global",
     "rig": {
       "plan": "biped",
+      "earsOnBody": true,
       "head": [0.02, 0.78, 0.2],
       "chest": [-0.001, 0.575, 0.232],
       "hips": [-0.028, 0.274, 0.126],

@@ -62,6 +62,17 @@ export type Landmarks = {
   /** its ears stand clear of its head (Sproutbun's leaves): past their roots they move as one piece, the
    *  head keeping no share of them (EAR_OWN). Not for ears that lie on the head: those it pulled off it. */
   earsFree?: boolean;
+  /** its ears lie along its head, their skin tied to the head most of their length (Moonbeambat's,
+   *  Hydrahatchling's): the head doesn't count as part of them when how freely they move is found
+   *  (fitFreedom), so they move only as far as that skin can follow. Moved fully, they tore it. */
+  earsFused?: boolean;
+  /** its ears' skin is tied to other parts (a wing, the spine, the body: Moonbeambat's, Hydrahatchling's):
+   *  the ear's own skin, the points nearer its bones than any other, rides the ear and the head alone
+   *  (EARS_ON_HEAD), so the ear doesn't stretch between the head and a wing that moves another way. */
+  earsOnHead?: boolean;
+  /** what was taken for its ears grows from its body, not its head (Hydrahatchling's chest): those bones hang
+   *  from the spine and keep still, so the skin tied to them goes with the body when the head turns. */
+  earsOnBody?: boolean;
   /** a jelly's tentacles: root ... tip each */
   tentacles?: V3[][];
   /** the middle of each eye, on its skin (-x first): the face round them rides the head bone alone, so
@@ -387,7 +398,7 @@ export function buildRig(lmIn: Landmarks, c: Cloud): Rig {
     const s = lm.ears!.length === 2 ? (i === 0 ? -1 : 1) : 0;
     const cuts = s ? [sideCut(s, (lm.ears![0][0][0] + lm.ears![1][0][0]) / 2)] : [];
     const q = resample([a, b], n);
-    let parent = headB;
+    let parent = lm.earsOnBody ? spine : headB;
     for (let k = 0; k < n; k++) parent = add(`ear${i}${'ab'[k]}`, 'ear', parent, q[k], q[k + 1], { side: s, chain: i, link: k, links: n, cuts });
   });
   // tentacles: two or three bones each, from the body
@@ -485,7 +496,7 @@ export function skinWeights(rig: Rig, pos: Float32Array): { index: Uint16Array; 
     return [f, j];
   };
   // each ear (horn, antenna): its bones, where it starts and which way it goes out
-  const earParts = !rig.lm.earsFree ? [] : [...new Set(bones.filter(b => b.role === 'ear').map(b => b.chain))].map(ch => {
+  const earParts = !(rig.lm.earsFree || rig.lm.earsOnHead) ? [] : [...new Set(bones.filter(b => b.role === 'ear').map(b => b.chain))].map(ch => {
     const chain = bones.map((b, j) => (b.role === 'ear' && b.chain === ch ? j : -1)).filter(j => j >= 0);
     const root = bones[chain[0]], out = bones[chain[chain.length - 1]].end.clone().sub(root.at);
     return { chain, root, out, L2: Math.max(1e-10, out.lengthSq()) };
@@ -510,8 +521,15 @@ export function skinWeights(rig: Rig, pos: Float32Array): { index: Uint16Array; 
     let s = weight[i * 4] + weight[i * 4 + 1] + weight[i * 4 + 2] + weight[i * 4 + 3];
     if (!(s > 0)) { weight[i * 4] = 1; weight[i * 4 + 1] = weight[i * 4 + 2] = weight[i * 4 + 3] = 0; index[i * 4] = 0; s = 1; }
     for (let k = 0; k < 4; k++) weight[i * 4 + k] /= s;
+    // an ear's own skin rides the ear and the head alone (EARS_ON_HEAD), eased in by how much nearer its bones it is
+    if (rig.lm.earsOnHead) for (const e of earParts) {
+      let dE = Infinity, dO = Infinity, to = e.chain[0];
+      for (let j = 0; j < B; j++) { if (!e.chain.includes(j)) dO = Math.min(dO, pd[j]); else if (pd[j] < dE) { dE = pd[j]; to = j; } }
+      const f = sstep(EAR_NEARER[0], EAR_NEARER[1], dE / Math.max(1e-9, dO));
+      if (f > 0) give(index, weight, i, e.root.parent >= 0 ? [...e.chain, e.root.parent] : e.chain, to, f);
+    }
     // an ear owns its skin past its root (EAR_OWN)
-    for (const e of earParts) {
+    if (rig.lm.earsFree) for (const e of earParts) {
       const a = e.root.at, t = ((p.x - a.x) * e.out.x + (p.y - a.y) * e.out.y + (p.z - a.z) * e.out.z) / e.L2;
       if (t <= EAR_OWN[0]) continue;
       let dE = Infinity, dO = Infinity, to = e.chain[0];
@@ -581,7 +599,9 @@ export function fitFreedom(rig: Rig, pos: Float32Array, wts: { index: Uint16Arra
   for (const [name, chain] of chains) {
     const r = bones[chain[0]], own = new Uint8Array(bones.length);
     chain.forEach(i => { own[i] = 1; });
-    if (r.parent >= 0) own[r.parent] = 1;
+    // (the bone it grows from is its own, the joint at its root shared as it should be; but an ear that lies
+    // along the head, its skin tied to it most of its length, is fused to the head like a hand on a belly)
+    if (r.parent >= 0 && !(r.role === 'ear' && rig.lm.earsFused)) own[r.parent] = 1;
     // tentacles brush each other and wave together: that's fine
     if (r.role === 'tentacle') bones.forEach((b, i) => { if (b.role === 'tentacle') own[i] = 1; });
     const tip = bones[chain[chain.length - 1]].end, along = tip.clone().sub(r.at), L2 = Math.max(1e-8, along.lengthSq());
@@ -596,7 +616,8 @@ export function fitFreedom(rig: Rig, pos: Float32Array, wts: { index: Uint16Arra
     }
     const f = all ? fused / all : 0;
     seen[name] = +f.toFixed(3);
-    const free = Math.min(1, Math.max(0.25, 1 - (f - 0.04) * 4));
+    // (an ear that grows from the body keeps still: it moves with the body, EARS_ON_BODY)
+    const free = r.role === 'ear' && rig.lm.earsOnBody ? 0 : Math.min(1, Math.max(0.25, 1 - (f - 0.04) * 4));
     chain.forEach(i => { bones[i].free = free; });
   }
   return seen;
