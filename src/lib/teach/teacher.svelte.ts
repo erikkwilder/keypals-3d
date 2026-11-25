@@ -35,6 +35,9 @@ export const teach = $state({
   profiles: {} as Record<string, Profile | null>,
   profilesFor: '' as string,
   profilesBusy: false,
+  /** when everyone's progress, and the class (its board and challenge), were last fetched (0: not yet) */
+  profilesAt: 0,
+  classAt: 0,
   tab: 'overview' as Tab,
   /** a student's own page, open over the class */
   studentId: null as string | null,
@@ -78,14 +81,16 @@ export async function createClass(name: string, grade: number) {
 }
 export async function openClass(id: string, tab: Tab = 'overview') {
   teach.current = await api<ClassDetail>(`/teach/classes/${id}?week=${weekKey(Date.now())}`);
+  teach.classAt = Date.now();
   teach.tab = tab; teach.studentId = null;
-  if (teach.profilesFor !== id) { teach.profiles = {}; teach.profilesFor = ''; }
+  if (teach.profilesFor !== id) { teach.profiles = {}; teach.profilesFor = ''; teach.profilesAt = 0; }
   // everyone's latest progress each time the class opens
   void loadProfiles(true);
 }
 export async function refreshClass() {
   if (!teach.current) return;
   teach.current = await api<ClassDetail>(`/teach/classes/${teach.current.class.id}?week=${weekKey(Date.now())}`);
+  teach.classAt = Date.now();
 }
 export function closeClass() { teach.current = null; teach.studentId = null; teach.msg = null; void loadClasses().catch(() => null); }
 
@@ -98,7 +103,7 @@ export async function loadProfiles(force = false) {
     const r = await api<{ students: { id: string; updated: number; profile: Record<string, unknown> }[] }>(`/teach/classes/${c.class.id}/profiles`);
     const out: Record<string, Profile | null> = {};
     for (const s of r.students) out[s.id] = migrate({ version: 1, activeId: null, profiles: [{ ...s.profile, id: s.id }] }).profiles[0] ?? null;
-    teach.profiles = out; teach.profilesFor = c.class.id;
+    teach.profiles = out; teach.profilesFor = c.class.id; teach.profilesAt = Date.now();
   } finally { teach.profilesBusy = false; }
 }
 

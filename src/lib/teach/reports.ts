@@ -84,3 +84,6 @@ export function studentReport(kid: Kid, assignments: Assignment[], weeks = 8, no
   const recent = p ? eventsOf(p).slice(-12).reverse() : [];
   return { weeks: ws, skills, work, learned: m?.learned?.length ?? 0, recent, thisWeek: weekKey(now) };
 }
+
+/** When the numbers on screen were fetched, as people say it: "Updated 3:42 pm". */
+export const updatedText = (at: number) => `Updated ${new Date(at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\s*([AP])M$/i, (_, x: string) => ` ${x.toLowerCase()}m`)}`;
