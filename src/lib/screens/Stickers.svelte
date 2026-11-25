@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdFocus } from '../ui/focusKeeper';
   import { onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { FRIEND, type FriendId } from '../art/cast';
@@ -47,6 +48,9 @@
     if (seenNow.size) game.update(x => { bookOf(x).fresh = []; });
   });
   function view(s: StickerDef) { open = s; sfx.pop(); }
+  // Escape closes the sticker (before the top bar's Escape, which leaves the page)
+  function escOut(e: KeyboardEvent) { if (open && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); open = null; } }
+  onMount(() => { addEventListener('keydown', escOut, true); return () => removeEventListener('keydown', escOut, true); });
   function onTilt(e: PointerEvent) {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     tilt = { x: ((e.clientY - r.top) / r.height - 0.5) * -24, y: ((e.clientX - r.left) / r.width - 0.5) * 24 };
@@ -117,7 +121,7 @@
     {@const who = won?.by ?? p.buddy}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="modal" onclick={() => (open = null)}>
+    <div class="modal" role="dialog" aria-modal="true" aria-label={won ? open.name : 'Still to find'} tabindex="-1" onclick={() => (open = null)} use:holdFocus>
       <div class="big" onpointermove={onTilt} onpointerleave={() => (tilt = { x: 0, y: 0 })} style:transform="perspective(700px) rotateX({tilt.x}deg) rotateY({tilt.y}deg)" onclick={(e) => e.stopPropagation()}>
         {@html renderSticker(open, who, look, { locked: !won, outfit: outfitOf(who) })}
         <div class="glare" style:background="radial-gradient(circle at {50 + tilt.y * 2}% {50 - tilt.x * 2}%, rgba(255,255,255,.45), transparent 50%)"></div>

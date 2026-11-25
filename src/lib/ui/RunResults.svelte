@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import { holdFocus } from './focusKeeper';
   import type { MedalWin, XpInfo } from '../engine/profile';
   import type { StickerDef } from '../engine/stickers';
   import type { Reward } from '../engine/rewards';
@@ -465,8 +466,8 @@
     {@const d = detail}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="dmodal" onclick={() => (detail = null)}>
-      <div class="dcard card" onclick={(ev) => ev.stopPropagation()}>
+    <div class="dmodal" onclick={() => (detail = null)} use:holdFocus>
+      <div class="dcard card" role="dialog" aria-modal="true" aria-label={d.kind === 'medal' ? d.m.name : d.kind === 'sticker' ? d.def.name : ''} tabindex="-1" onclick={(ev) => ev.stopPropagation()}>
         {#if d.kind === 'medal'}
           {@const nt = MEDAL_TIERS.find(t => t.at > d.m.count)}
           <div class="dart">{@html renderMedal(d.m, d.m.tier)}</div>
@@ -489,8 +490,8 @@
     {@const d = peek}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="dmodal" onclick={() => (peek = null)}>
-      <div class="dcard card" onclick={(ev) => ev.stopPropagation()}>
+    <div class="dmodal" onclick={() => (peek = null)} use:holdFocus>
+      <div class="dcard card" role="dialog" aria-modal="true" aria-label={d.kind === 'buddy' ? FRIEND[d.id].name : d.kind === 'outfit' || d.kind === 'dance' ? d.name : ''} tabindex="-1" onclick={(ev) => ev.stopPropagation()}>
         {#if d.kind === 'outfit'}
           <div class="dart"><img class="obig" src="{import.meta.env.BASE_URL}outfits/{d.id}.webp" alt="" /></div>
           <span class="dkind">Outfit · <b class="rar-{d.rarity}">{d.rarity}</b></span>
@@ -518,8 +519,8 @@
     {@const i = tdetail}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="dmodal" onclick={() => (tdetail = null)}>
-      <div class="dcard card" onclick={(ev) => ev.stopPropagation()}>
+    <div class="dmodal" onclick={() => (tdetail = null)} use:holdFocus>
+      <div class="dcard card" role="dialog" aria-modal="true" aria-label={TREASURES[i].name} tabindex="-1" onclick={(ev) => ev.stopPropagation()}>
         <div class="dart tart"><img src={tsrc(i)} alt="" /></div>
         <span class="dkind">Treasure · {i + 1} of {TREASURES.length}</span>
         <h3>{TREASURES[i].name}</h3>

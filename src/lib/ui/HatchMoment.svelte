@@ -8,6 +8,7 @@
   // drawn on.) In the incubator (which lends its 3D scene,
   // `scene`) the Glimmer also pops up on its stone in a beam of light, its card beside it; anywhere else
   // the card comes in the middle, over the screen.
+  import { holdFocus } from './focusKeeper';
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { preloadSfx, sfx } from '../audio/sound';
@@ -219,7 +220,8 @@
 
   // opened over a results screen, the moment has the keyboard to itself (Enter there means Next)
   function onKey(e: KeyboardEvent) {
-    if (!see) return;
+    // (on the Eggs page the card says "Tap to close"; it holds the keyboard, so Escape or Enter close it too)
+    if (!see) { if (got && (e.key === 'Escape' || e.key === 'Enter')) { e.preventDefault(); e.stopImmediatePropagation(); close(); } return; }
     e.stopImmediatePropagation();
     if (got && (e.key === 'Escape' || e.key === 'Enter')) { e.preventDefault(); close(); }
   }
@@ -266,7 +268,7 @@
   {#if got}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="hatched r-{got.rarity}" class:mid={!scene} onclick={see ? undefined : close}>
+    <div class="hatched r-{got.rarity}" class:mid={!scene} role="dialog" aria-modal="true" aria-label={GLIMMER[got.id].name} tabindex="-1" onclick={see ? undefined : close} use:holdFocus>
       <div class="hcol">
         <div class="rt"><small>{got.special ? 'Something special hatched!' : 'It hatched!'}</small><b>{RARITY[got.rarity].name}</b></div>
         <div class="flip"><GlimmerCard id={got.id} width={innerWidth < 760 ? 120 : 190} level={got.level} shine /></div>
