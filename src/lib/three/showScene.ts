@@ -4,7 +4,7 @@
 // the same place, the same camera and the same turntable, so all three are one page in one world.
 import * as THREE from 'three';
 import { stage, type Controller } from './stage';
-import { calm, IdleHold } from './calm';
+import { calm, easeTo, IdleHold, moveOver } from './calm';
 import { Character } from './character';
 import { makeOutfit } from './outfits3d';
 import { wearGear, wearKit } from './gear3d';
@@ -31,8 +31,9 @@ export class ShowScene implements Controller {
   private n: THREE.Vector3; private t: THREE.Vector3;
   private camPos = new THREE.Vector3(); private camAim = new THREE.Vector3(); private ready = false;
   private next: number[] = [];
-  /** what each buddy is doing, and until when (seconds on the stage clock) */
-  private dancing: ({ name: string; len: number; until?: number } | null)[] = [];
+  /** what each buddy is doing, and until when (seconds on the stage clock); `forFun`: a move it plays now and
+   *  then for its own sake (less motion ends it at once: calm.ts) */
+  private dancing: ({ name: string; len: number; until?: number; forFun?: boolean } | null)[] = [];
   /** a little hop when a buddy is picked (seconds on the stage clock it started; -1: on the next frame) */
   private hopAt: number | null = null;
   private now = 0;
@@ -156,14 +157,15 @@ export class ShowScene implements Controller {
     if (i < 0) return;
     this.start(i, this.chars[i].has(dance) ? dance : 'fistpump');
   }
-  /** Play a move; dances play for up to eight seconds, then back to standing. */
-  private start(i: number, name: string) {
+  /** Play a move; dances play for up to eight seconds, then back to standing (`forFun`: one played now and
+   *  then, for its own sake, not one that shows something). */
+  private start(i: number, name: string, forFun = false) {
     const c = this.chars[i], a = c.play(name, 0.3);
     if (!a) return;
     a.reset();
     const len = a.getClip().duration;
     // timed from the next frame: a move started before the scene's first frame used to end at once
-    this.dancing[i] = { name, len: a.loop === THREE.LoopOnce ? len : Math.min(8, Math.max(len, 4)) };
+    this.dancing[i] = { name, len: a.loop === THREE.LoopOnce ? len : Math.min(8, Math.max(len, 4)), forFun };
   }
 
   update(dt: number, t: number) {
@@ -179,11 +181,12 @@ export class ShowScene implements Controller {
       const d = this.dancing[i];
       if (d) {
         d.until ??= t + d.len;
-        if (t > d.until) { this.dancing[i] = null; c.play('idle', 0.45); }
+        // (one played for its own sake ends at once when less motion comes on: back to standing, then it holds)
+        if (moveOver(t, d.until, !!d.forFun, calm.on)) { this.dancing[i] = null; c.play('idle', 0.45); }
       } else if (this.chars.length > 1 && t > this.next[i]) {
         // now and then someone waves or does a little dance (with less motion, nobody does)
         const pick = ['wave1', 'fistpump', 'dance_hiphop', 'jump', 'dance_hiphop2'][Math.floor(Math.random() * 5)];
-        if (c.has(pick) && !calm.on) this.start(i, pick);
+        if (c.has(pick) && !calm.on) this.start(i, pick, true);
         this.next[i] = t + 5 + Math.random() * 6;
       }
       // standing there, a buddy breathes; with less motion it holds still, and a move that shows something
@@ -218,7 +221,8 @@ export class ShowScene implements Controller {
     aim.addScaledVector(right, -ndcX * d * tanH * cam.aspect).y -= ndcY * d * tanH;
     if (!this.ready) { this.camPos.copy(wantPos); this.camAim.copy(aim); this.ready = true; }
     const k = 1 - Math.exp(-dt * 3);
-    this.camPos.lerp(wantPos, k); this.camAim.lerp(aim, k);
+    // (with less motion, the last of an ease lands, so when the sway stops the camera stands still at once)
+    easeTo(this.camPos, wantPos, k, calm.on); easeTo(this.camAim, aim, k, calm.on);
     cam.position.copy(this.camPos); cam.lookAt(this.camAim);
   }
 

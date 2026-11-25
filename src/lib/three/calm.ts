@@ -8,6 +8,8 @@
 // picked, a giggle when it's tickled) and whatever a lesson waits on move as before: the stage's own clock,
 // which the scenes and the lessons go by, never stops.
 
+import type { Vector3 } from 'three';
+
 let ask: () => boolean = () => false;
 
 export const calm = {
@@ -40,4 +42,24 @@ export class IdleHold {
     if (this.settle > 0) { this.settle -= dt; return dt; }
     return 0;
   }
+}
+
+/** Is a buddy's move (a wave, a dance) over? One that shows something (the wave when a buddy is picked, a
+ *  dance asked for in the Wardrobe) runs to its end (`until`, on the stage clock); one played now and then
+ *  for its own sake (the title's) ends at once when less motion comes on, so the buddy goes back to
+ *  standing and its pose holds. */
+export function moveOver(t: number, until: number, forFun: boolean, still: boolean) {
+  return t > until || (forFun && still);
+}
+
+/** how near (metres) a camera's ease must be for less motion to land it: the last of an ease, a pixel or two */
+export const LAND = 0.02;
+
+/** Ease a camera toward where it wants to be, `k` of the way this frame. With less motion, once it's that
+ *  near, it lands, so it stands still at once instead of creeping on for a second or two (the title's camera,
+ *  when its sway stops); a longer move (to the buddy just picked) eases as ever until its last couple of
+ *  centimetres. Without less motion it eases as ever. */
+export function easeTo(at: Vector3, want: Vector3, k: number, still: boolean) {
+  if (still && at.distanceTo(want) < LAND) at.copy(want);
+  else at.lerp(want, k);
 }

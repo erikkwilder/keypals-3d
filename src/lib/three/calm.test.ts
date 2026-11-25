@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DecorClock, IdleHold, SETTLE, calm } from './calm';
+import { Vector3 } from 'three';
+import { DecorClock, IdleHold, LAND, SETTLE, calm, easeTo, moveOver } from './calm';
 
 const dt = 1 / 30;
 
@@ -83,5 +84,66 @@ describe("a buddy's moves (the title, the Shop, the Wardrobe, Home's buddy)", ()
     expect(after).toBeLessThan(SETTLE + 2 * dt);
     expect(h.step(dt, false, true)).toBe(0);
     expect(h.step(dt, false, false)).toBe(dt);
+  });
+});
+
+describe('turned on while the title plays, it counts at once', () => {
+  it("a dance played now and then for its own sake ends at once; one that shows something plays to its end", () => {
+    // (a dance until 8 s, at 3 s)
+    expect(moveOver(3, 8, true, true)).toBe(true);
+    expect(moveOver(3, 8, false, true)).toBe(false);
+    expect(moveOver(8.01, 8, false, true)).toBe(true);
+  });
+
+  it('without less motion every dance plays to its end, as ever', () => {
+    for (const forFun of [true, false]) {
+      expect(moveOver(3, 8, forFun, false)).toBe(false);
+      expect(moveOver(8, 8, forFun, false)).toBe(false);
+      expect(moveOver(8.01, 8, forFun, false)).toBe(true);
+    }
+  });
+
+  it('a title buddy mid-dance stands still within a second of less motion coming on', () => {
+    const h = new IdleHold();
+    let t = 0, dancing = true, after = 0;
+    for (let i = 0; i < 300; i++) {
+      t += dt;
+      const on = t >= 2;
+      if (dancing && moveOver(t, 8, true, on)) dancing = false;
+      const d = h.step(dt, dancing, on);
+      if (on) after += d;
+    }
+    // the fade back to standing, then it holds: not the 6 s left of the dance
+    expect(after).toBeLessThan(SETTLE + 2 * dt);
+  });
+
+  const k = 1 - Math.exp(-dt * 3);
+
+  it("without less motion the camera eases exactly as before, frame for frame", () => {
+    const a = new Vector3(0.4, 1.2, 3), b = a.clone(), want = new Vector3(1, 0.5, -2);
+    for (let i = 0; i < 120; i++) {
+      easeTo(a, want, k, false); b.lerp(want, k);
+      expect(a.equals(b)).toBe(true);
+    }
+  });
+
+  it("with less motion, when the title's sway stops, the camera stands still within a fraction of a second", () => {
+    // it trails its sway by about 3.6 cm; the sway stops where it is
+    const at = new Vector3(0.036, 0, 0), want = new Vector3(0, 0, 0);
+    let frames = 0;
+    while (!at.equals(want) && frames < 300) { easeTo(at, want, k, true); frames++; }
+    expect(frames * dt).toBeLessThan(0.3);
+    easeTo(at, want, k, true);
+    expect(at.equals(want)).toBe(true);
+  });
+
+  it('with less motion, a move that shows something (to the buddy just picked) eases as before, but for its last bit', () => {
+    const at = new Vector3(), as = new Vector3(), want = new Vector3(1.2, 0, 0.3);
+    for (let i = 0; i < 200 && as.distanceTo(want) >= LAND; i++) {
+      easeTo(at, want, k, true); as.lerp(want, k);
+      if (as.distanceTo(want) >= LAND) expect(at.equals(as)).toBe(true);
+    }
+    easeTo(at, want, k, true);
+    expect(at.equals(want)).toBe(true);
   });
 });
