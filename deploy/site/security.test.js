@@ -277,6 +277,26 @@ describe('one family and another', () => {
     const list = await s.api('/me', { cookie: a.token });
     expect({ put: put.status, familyList: list.status }).toEqual({ put: 400, familyList: 200 });
   });
+
+  it("[L5] the family board answers only the family's own grown-up, signed in: one child's code alone, another family's sign-in or a code in no account get nothing", async () => {
+    const s = site();
+    const pat = await s.grownup('pat@example.com'), other = await s.grownup('other@example.com');
+    const save = async (name, who) => (await s.api('/players', { method: 'POST', body: { profile: { name, buddy: 'dino' } }, cookie: who?.token, ip: FAMILY })).json.code;
+    const mia = await save('Mia', pat), leo = await save('Leo', pat), ivy = await save('Ivy'); // Ivy: saved with a code, in no account
+    for (const code of [mia, leo, ivy]) expect((await s.api(`/class/week/${code}`, { method: 'PUT', body: { week: WEEK, right: 10, ms: 60000, stars: 3 }, ip: FAMILY })).status).toBe(200);
+    const board = (code, who, ip) => s.api(`/family/${code}?week=${WEEK}`, { cookie: who?.token, ip });
+    // the family's own computer, where Pat signed in: Pat's players
+    const own = await board(mia, pat, FAMILY);
+    expect([own.status, own.json.players.map(x => [x.name, x.me]).sort()]).toEqual([200, [['Leo', false], ['Mia', true]]]);
+    // anyone else with Mia's code
+    const nobody = await board(mia, null, ATTACKER);
+    expect([nobody.status, nobody.text]).toEqual([401, JSON.stringify({ error: 'Please sign in first.' })]);
+    const missing = await board('NOPE-NOPE-NOPE-1', other, ATTACKER), answer = [missing.status, missing.text];
+    expect(answer).toEqual([404, JSON.stringify({ error: 'That save code no longer exists.' })]);
+    const stranger = await board(mia, other, ATTACKER), noAccount = await board(ivy, other, ATTACKER), notPats = await board(ivy, pat, FAMILY);
+    expect({ stranger: [stranger.status, stranger.text], noAccount: [noAccount.status, noAccount.text], notPats: [notPats.status, notPats.text] })
+      .toEqual({ stranger: answer, noAccount: answer, notPats: answer });
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------
@@ -453,7 +473,7 @@ describe('classes: other teachers, children, outsiders', () => {
     expect(n).toBe(20);
   });
 
-  gap("[L7] a family must show it really is a classmate (the child's two pictures) before that classmate's player is swapped for theirs", async () => {
+  it("[L7] a family must show it really is a classmate (the child's two pictures) before that classmate's player is swapped for theirs", async () => {
     const s = site();
     const t = await s.teacher();
     const c = await s.classWith(t);
@@ -468,6 +488,31 @@ describe('classes: other teachers, children, outsiders', () => {
     const requester = (await s.api(`/class/student/${theirs}?week=${WEEK}`, { ip: ATTACKER })).json.classes.map(x => x.name);
     expect({ link: link.status, teacherSaw: ask?.name ?? null, mariaPlaysAs: login.json?.code === theirs ? "the requester's player" : 'her own', requesterSeesClass: requester })
       .toEqual({ link: 403, teacherSaw: null, mariaPlaysAs: 'her own', requesterSeesClass: [] });
+  });
+
+  it("[L7] with the classmate's two pictures a family's link asks the teacher as before; a wrong pair is refused like a wrong login and counts with the login's tries", async () => {
+    const s = site();
+    const t = await s.teacher();
+    const c = await s.classWith(t);
+    const maria = c.rows.find(r => r.name === 'Maria'), backwards = [maria.pair[1], maria.pair[0]];
+    const save = async (name, ip) => (await s.api('/players', { method: 'POST', body: { profile: { name, buddy: 'dino' } }, ip })).json.code;
+    const home = await save('Mimi', FAMILY), theirs = await save('Not Maria', ATTACKER);
+    const link = (player, pics, ip) => s.api('/class/link', { method: 'POST', body: { player, code: c.code, claims: maria.id, pics }, ip });
+    // her two pictures the wrong way round: the class login's answer, and a try counted for Maria
+    const wrong = await link(home, backwards, FAMILY);
+    expect([wrong.status, wrong.json]).toEqual([403, { error: 'Not quite! Try your two pictures again.', wrong: true }]);
+    expect(s.count('SELECT n FROM limits WHERE key = ?', `pics:${maria.id}`)).toBe(1);
+    // the right pair: a request from home, waiting for the teacher's yes
+    expect((await link(home, maria.pair, FAMILY)).json).toEqual({ ok: true, status: 'pending', class: { name: 'Room 12' } });
+    const asks = (await s.api(`/teach/classes/${c.id}`, { cookie: t.token })).json.students.filter(x => x.status === 'pending');
+    expect(asks.map(x => [x.name, x.claims])).toEqual([['Maria', maria.id]]);
+    // someone guessing: after five wrong pairs that address rests, for the link and for Maria's login alike
+    for (let i = 0; i < 5; i++) expect((await link(theirs, backwards, ATTACKER)).status).toBe(403);
+    expect((await link(theirs, maria.pair, ATTACKER)).status).toBe(429);
+    expect((await s.api(`/class/${c.code}/login`, { method: 'POST', body: { student: maria.id, pics: maria.pair }, ip: ATTACKER })).status).toBe(429);
+    // Maria herself still logs in at school, and nobody else's request is waiting
+    expect((await s.api(`/class/${c.code}/login`, { method: 'POST', body: { student: maria.id, pics: maria.pair } })).json.code).toBe(maria.player);
+    expect(s.count("SELECT count(*) AS n FROM students WHERE status = 'pending'")).toBe(1);
   });
 });
 
@@ -497,12 +542,14 @@ describe('rate limits and code guessing', () => {
   it('[M1] once an address has used its 60 save-code tries for the hour, no other route will check a save code for it', async () => {
     const s = site();
     const nope = (i) => `NOPE-NOPE-NOPE-${i}`;
+    // (the family board looks a code up only for a signed-in grown-up)
+    const signedIn = await s.grownup('someone@example.com');
     let n = 0;
     while ((await s.api(`/players/${nope(n)}`, { ip: ATTACKER })).status !== 429) n++;
     const other = {
       savePlayer: (await s.api(`/players/${nope(n + 1)}`, { method: 'PUT', body: { profile: {}, base: 1 }, ip: ATTACKER })).status,
       saveWeek: (await s.api(`/class/week/${nope(n + 2)}`, { method: 'PUT', body: { week: WEEK, right: 1 }, ip: ATTACKER })).status,
-      familyBoard: (await s.api(`/family/${nope(n + 3)}?week=${WEEK}`, { ip: ATTACKER })).status,
+      familyBoard: (await s.api(`/family/${nope(n + 3)}?week=${WEEK}`, { cookie: signedIn.token, ip: ATTACKER })).status,
       stopSaving: (await s.api(`/players/${nope(n + 4)}`, { method: 'DELETE', ip: ATTACKER })).status,
     };
     expect({ opensBefore429: n, ...other }).toEqual({ opensBefore429: 60, savePlayer: 429, saveWeek: 429, familyBoard: 429, stopSaving: 429 });
