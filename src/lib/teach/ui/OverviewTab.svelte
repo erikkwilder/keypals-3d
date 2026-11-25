@@ -31,12 +31,13 @@
         <div class="tgoal"><Trophy right={goalRight} goal={c.class.goal} size={56} /><div><b>{Math.min(100, Math.round((goalRight / c.class.goal) * 100))}%</b><span>of the class goal ({c.class.goal.toLocaleString('en-US')})</span></div></div>
       {/if}
     </div>
+    {#if wk.notLoggedIn.length}<p class="np"><b>{wk.notLoggedIn.length === 1 ? "Hasn't" : "Haven't"} logged in yet:</b> {wk.notLoggedIn.join(', ')}</p>{/if}
     {#if wk.notPlayed.length}<p class="np"><b>Not played yet this week:</b> {wk.notPlayed.join(', ')}</p>{/if}
     <table class="tt">
       <thead><tr><th>Student</th><th>Minutes</th><th>Right answers</th><th>Accuracy</th></tr></thead>
       <tbody>
         {#each wk.rows as r (r.id)}
-          <tr><td><button class="namebtn" onclick={() => (teach.studentId = r.id)}>{r.name}</button></td><td>{mins(r.ms)}</td><td>{r.right}</td><td>{pct(r.acc)}</td></tr>
+          <tr><td><button class="namebtn" onclick={() => (teach.studentId = r.id)}>{r.name}</button>{#if r.never}<small class="nl">Hasn't logged in yet</small>{/if}</td><td>{mins(r.ms)}</td><td>{r.right}</td><td>{pct(r.acc)}</td></tr>
         {/each}
       </tbody>
     </table>
@@ -82,4 +83,5 @@
   .bar i { display: block; height: 100%; background: #4fcf9f; }
   .grow { background: #fff0b8; color: #6a5200; }
   .ns { background: #efedf3; color: #6d6680; }
+  .nl { display: block; font: 700 12px var(--font-body); color: #7a7092; }
 </style>

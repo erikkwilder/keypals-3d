@@ -33,6 +33,8 @@ export const teach = $state({
   current: null as ClassDetail | null,
   /** students' progress, by student id (null: not saved online yet) */
   profiles: {} as Record<string, Profile | null>,
+  /** whether each student has ever logged in (false: her class player was never opened; missing: not known) */
+  loggedIn: {} as Record<string, boolean>,
   profilesFor: '' as string,
   profilesBusy: false,
   /** when everyone's progress, and the class (its board and challenge), were last fetched (0: not yet) */
@@ -83,7 +85,7 @@ export async function openClass(id: string, tab: Tab = 'overview') {
   teach.current = await api<ClassDetail>(`/teach/classes/${id}?week=${weekKey(Date.now())}`);
   teach.classAt = Date.now();
   teach.tab = tab; teach.studentId = null;
-  if (teach.profilesFor !== id) { teach.profiles = {}; teach.profilesFor = ''; teach.profilesAt = 0; }
+  if (teach.profilesFor !== id) { teach.profiles = {}; teach.loggedIn = {}; teach.profilesFor = ''; teach.profilesAt = 0; }
   // everyone's latest progress each time the class opens
   void loadProfiles(true);
 }
@@ -100,10 +102,10 @@ export async function loadProfiles(force = false) {
   if (!c || teach.profilesBusy || (!force && teach.profilesFor === c.class.id)) return;
   teach.profilesBusy = true;
   try {
-    const r = await api<{ students: { id: string; updated: number; profile: Record<string, unknown> }[] }>(`/teach/classes/${c.class.id}/profiles`);
+    const r = await api<{ students: { id: string; updated: number; loggedIn?: boolean; profile: Record<string, unknown> }[] }>(`/teach/classes/${c.class.id}/profiles`);
     const out: Record<string, Profile | null> = {};
     for (const s of r.students) out[s.id] = migrate({ version: 1, activeId: null, profiles: [{ ...s.profile, id: s.id }] }).profiles[0] ?? null;
-    teach.profiles = out; teach.profilesFor = c.class.id; teach.profilesAt = Date.now();
+    teach.profiles = out; teach.loggedIn = Object.fromEntries(r.students.map(s => [s.id, s.loggedIn !== false])); teach.profilesFor = c.class.id; teach.profilesAt = Date.now();
   } finally { teach.profilesBusy = false; }
 }
 

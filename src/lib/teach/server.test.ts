@@ -168,6 +168,16 @@ describe('students logging in', () => {
     const reset = await call('POST', `/teach/students/${maria.id}/pics`, {}, { cookie });
     expect((await login(c.code, maria.id, reset.json.student.pics)).status).toBe(200);
   });
+  it("the teacher's reports know who has never logged in: a new class player isn't opened until its child logs in", async () => {
+    const cookie = await teacher();
+    const c = await classWith(cookie, 'Maria\nAna');
+    env.DB.db.prepare('UPDATE players SET created = created - 60000, opened = opened - 60000').run(); // made a minute ago
+    const seen = async () => Object.fromEntries((await call('GET', `/teach/classes/${c.id}/profiles`, undefined, { cookie })).json.students.map((s: { id: string; loggedIn: boolean }) => [s.id, s.loggedIn]));
+    const [maria, ana] = c.students;
+    expect(await seen()).toEqual({ [maria.id]: false, [ana.id]: false });
+    expect((await login(c.code, maria.id, maria.pics)).status).toBe(200);
+    expect(await seen()).toEqual({ [maria.id]: true, [ana.id]: false });
+  });
   it('a player that was tidied away comes back fresh at login', async () => {
     const cookie = await teacher();
     const c = await classWith(cookie, 'Maria');

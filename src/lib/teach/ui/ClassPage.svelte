@@ -19,7 +19,7 @@
   const GRADES = ['K', '1', '2', '3', '4', '5', '6', '7', '8'];
   const active = $derived(c.students.filter(s => s.status === 'active'));
   const waiting = $derived(c.students.filter(s => s.status === 'pending').length);
-  const kids = $derived<Kid[]>(active.map(s => ({ id: s.id, name: s.name, profile: teach.profiles[s.id] ?? null })));
+  const kids = $derived<Kid[]>(active.map(s => ({ id: s.id, name: s.name, profile: teach.profiles[s.id] ?? null, loggedIn: teach.loggedIn[s.id] })));
   const TABS: { id: Tab; name: string }[] = [
     { id: 'overview', name: 'This week' }, { id: 'students', name: 'Students' }, { id: 'work', name: 'Class work' }, { id: 'gradebook', name: 'Gradebook' },
     { id: 'skills', name: 'Skills' }, { id: 'standards', name: 'Standards' }, { id: 'boards', name: 'Boards' }, { id: 'settings', name: 'Class rules' },

@@ -9,13 +9,15 @@ import { eventsOf, lastWeeks, weekKey, weekStats } from './activity';
 import { LEVELS, atLeast, workingLevel, workingStep, type WorkingLevel } from './level';
 import { LIVE_SKILLS, STANDARDS, isFor, progressOf, type Assignment, type Progress } from './assignments';
 
-export type Kid = { id: string; name: string; profile: Profile | null };
+export type Kid = { id: string; name: string; profile: Profile | null;
+  /** false: hasn't logged in yet (her class player was never opened); missing: not known */
+  loggedIn?: boolean };
 
 /** This week (or any week) for the whole class. */
 export function classWeekReport(kids: Kid[], week: string) {
   const rows = kids.map(k => {
     const w = k.profile ? weekStats(k.profile, week) : { right: 0, n: 0, ms: 0, stars: 0 };
-    return { id: k.id, name: k.name, ms: w.ms, right: w.right, answered: w.n, acc: w.n ? w.right / w.n : null, played: w.ms > 0 || w.n > 0 };
+    return { id: k.id, name: k.name, ms: w.ms, right: w.right, answered: w.n, acc: w.n ? w.right / w.n : null, played: w.ms > 0 || w.n > 0, never: k.loggedIn === false && !(w.ms > 0 || w.n > 0) };
   });
   const played = rows.filter(r => r.played);
   return {
@@ -23,7 +25,9 @@ export function classWeekReport(kids: Kid[], week: string) {
     minutes: Math.round(rows.reduce((t, r) => t + r.ms, 0) / 60000),
     right: rows.reduce((t, r) => t + r.right, 0),
     played: played.length, total: rows.length,
-    notPlayed: rows.filter(r => !r.played).map(r => r.name),
+    notPlayed: rows.filter(r => !r.played && !r.never).map(r => r.name),
+    /** never logged in, as far as the server knows */
+    notLoggedIn: rows.filter(r => r.never).map(r => r.name),
   };
 }
 

@@ -28,7 +28,7 @@
     <button class="sbtn" onclick={() => (teach.studentId = null)}>← Back to the class</button>
     <div class="who">
       <Critter friend={(kid.profile?.buddy ?? s.buddy ?? 'dino') as import('../../art/cast').FriendId} size={64} round still />
-      <div><h3>{s.name}</h3><span class="muted">{s.home ? 'Player linked from home' : 'Class player'}{kid.profile ? ` · ${r.learned} Learn episodes watched` : ' · hasn\'t logged in yet'}</span></div>
+      <div><h3>{s.name}</h3><span class="muted">{s.home ? 'Player linked from home' : 'Class player'}{kid.loggedIn === false ? " · hasn't logged in yet" : kid.profile ? ` · ${r.learned} Learn episodes watched` : ''}</span></div>
       <div class="pw"><span class="muted">Pictures</span><PicturePass pics={s.pics} size={38} /></div>
     </div>
   </div>

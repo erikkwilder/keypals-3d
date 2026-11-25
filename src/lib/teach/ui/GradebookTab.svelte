@@ -38,7 +38,7 @@
     <div class="bykid">
       {#each grid as row (row.k.id)}
         <div class="kid">
-          <div class="kh"><button class="namebtn" onclick={() => (teach.studentId = row.k.id)}>{row.k.name}</button><b>{avg(row.cells) ?? '—'}</b></div>
+          <div class="kh"><span><button class="namebtn" onclick={() => (teach.studentId = row.k.id)}>{row.k.name}</button>{#if row.k.loggedIn === false}<small class="nl">Hasn't logged in yet</small>{/if}</span><b>{avg(row.cells) ?? '—'}</b></div>
           {#each row.cells as x, i (work[i].id)}
             {#if x !== undefined}<p><span>{work[i].title}</span><em style:background={COLORS[tone(x)]} style:color={INK[tone(x)]}>{x.missing ? 'Missing' : x.score ?? 'Not started'}</em></p>{/if}
           {/each}
@@ -53,7 +53,7 @@
         <tbody>
           {#each grid as row (row.k.id)}
             <tr>
-              <td class="nm"><button class="namebtn" onclick={() => (teach.studentId = row.k.id)}>{row.k.name}</button></td>
+              <td class="nm"><button class="namebtn" onclick={() => (teach.studentId = row.k.id)}>{row.k.name}</button>{#if row.k.loggedIn === false}<small class="nl">Hasn't logged in yet</small>{/if}</td>
               {#each row.cells as x, i (work[i].id)}
                 {#if x === undefined}<td class="cell na">—</td>
                 {:else if x.missing}<td class="cell" title="Past its due date, not started: counts as 0"><span class="sc" style:background={COLORS.late} style:color={INK.late}>0<small>Missing</small></span></td>
@@ -88,6 +88,7 @@
   .sc { display: inline-flex; flex-direction: column; align-items: center; min-width: 74px; padding: 4px 8px; border-radius: 10px; font: 600 18px var(--font-ui); line-height: 1.1; }
   .sc small { font: 800 10.5px var(--font-body); }
   .na { color: #b8b0c8; }
+  .nl { display: block; font: 700 12px var(--font-body); color: #7a7092; }
   .bykid { display: none; }
   @media (max-width: 760px) {
     .scrollx { display: none; }

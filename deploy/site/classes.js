@@ -509,9 +509,11 @@ export async function classApi(request, env, url, path, h) {
         return h.json({ students: added });
       }
       if (rest === '/profiles' && method === 'GET') {
-        // every student's progress for the reports, as saved (sent on as it is: not read here)
-        const r = await DB.prepare('SELECT s.id, p.data, p.updated FROM students s JOIN players p ON p.code = s.player WHERE s.class = ?').bind(c.id).all();
-        const parts = (r.results ?? []).map(x => `{"id":${JSON.stringify(x.id)},"updated":${Number(x.updated)},"profile":${x.data}}`);
+        // every student's progress for the reports, as saved (sent on as it is: not read here), and whether she
+        // has ever logged in: a class player the roster made isn't opened until its child logs in (a player
+        // linked from home has been played)
+        const r = await DB.prepare('SELECT s.id, s.home, p.data, p.updated, p.created, p.opened FROM students s JOIN players p ON p.code = s.player WHERE s.class = ?').bind(c.id).all();
+        const parts = (r.results ?? []).map(x => `{"id":${JSON.stringify(x.id)},"updated":${Number(x.updated)},"loggedIn":${!!x.home || Number(x.opened) > Number(x.created)},"profile":${x.data}}`);
         return new Response(`{"students":[${parts.join(',')}]}`, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
       }
       if (rest === '/assignments' && method === 'POST') {
