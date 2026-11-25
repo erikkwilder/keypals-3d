@@ -515,7 +515,7 @@ export class BattleScene implements Controller {
       const was = this.enterT; this.enterT += dt;
       const k = Math.min(1, this.enterT / 1.3), e = 1 - Math.pow(1 - k, 3);
       this.grumble.cloudLift = (1 - e) * 5;
-      if (was < 1.2 && this.enterT >= 1.2) { const c = this.grumble.root.position.clone().add(new THREE.Vector3(0, this.grumble.height * 1.2, 0)); this.fx.lightning(c, this.foeAt.clone().add(new THREE.Vector3(0.35, 0.05, 0.2)), 0xfff1a0, 0.05); this.grumble.hit(0.4); this.shake = 0.22; }
+      if (was < 1.2 && this.enterT >= 1.2) { const c = this.grumble.root.position.clone().add(new THREE.Vector3(0, this.grumble.height * 1.2, 0)); if (!calm.on) this.fx.lightning(c, this.foeAt.clone().add(new THREE.Vector3(0.35, 0.05, 0.2)), 0xfff1a0, 0.05); this.grumble.hit(0.4); this.shake = 0.22; }
     }
     this.grumble.update(dt, t);
     // the team and the newcomer
