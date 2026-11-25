@@ -4,6 +4,7 @@
   // skills you've met, or words for a typist). Every right answer drops a coin into the chest; at the end
   // the chest opens: stars like a practice round (paid the same way, engine/settle.ts) and the chest's own
   // prize (adventure/finds.ts).
+  import { holdFocus } from './focusKeeper';
   import { onMount, untrack } from 'svelte';
   import { game } from '../state/game.svelte';
   import { sfx } from '../audio/sound';
@@ -123,7 +124,7 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="bonus" class:narrow role="dialog" aria-label="Bonus Round" style:background-image="url({base}game/bonus-room.webp)">
+<div class="bonus" class:narrow role="dialog" aria-modal="true" aria-label="Bonus Round" tabindex="-1" style:background-image="url({base}game/bonus-room.webp)" use:holdFocus>
   <div class="top">
     <div class="tt"><small>{isl.name}</small><h2>Bonus Round</h2></div>
     <div class="coins" aria-label="Your answers">{#each marks as m, i (i)}<span class:ok={m === true} class:miss={m === false} class:now={phase === 'play' && i === n}><img src="{base}treasures/gold.webp" alt="" /></span>{/each}</div>

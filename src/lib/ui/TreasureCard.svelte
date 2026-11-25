@@ -1,6 +1,7 @@
 <script lang="ts">
   // A treasure, shown big with what it is (tapped on a results screen): its picture, its name and story,
   // what it's worth in shells, and the arrows to look at the other nine.
+  import { holdFocus } from './focusKeeper';
   import { onDestroy, onMount } from 'svelte';
   import { sfx } from '../audio/sound';
   import { TREASURES } from '../engine/rewards';
@@ -21,7 +22,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="tm" onclick={onclose}>
+<div class="tm" onclick={onclose} use:holdFocus>
   <div class="tc card" role="dialog" aria-modal="true" tabindex="-1" aria-label={TREASURES[i].name} onclick={(e) => e.stopPropagation()}>
     <img class="pic" src={src(i)} alt="" />
     <span class="kind">Treasure · {i + 1} of {TREASURES.length}</span>

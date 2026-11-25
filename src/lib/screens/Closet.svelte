@@ -14,6 +14,7 @@
   // Moving and sizing is the Wardrobe's (one place for it): the Shop's "Move and size it" opens the Wardrobe
   // with Move it on that thing. Buddies not on the team yet show in shadowy grey with what brings them in.
   // In the Wardrobe, tapping a thing on the buddy itself picks it up to move, too.
+  import { holdFocus } from '../ui/focusKeeper';
   import { onDestroy, onMount, tick } from 'svelte';
   import { Raycaster, Vector2 } from 'three';
   import { game } from '../state/game.svelte';
@@ -347,6 +348,9 @@
 
   onMount(() => { shortQ?.addEventListener('change', onShort); show(who); addEventListener('resize', onResize); addEventListener('pointerup', release); stageEl?.addEventListener('pointerdown', stageDown); stageEl?.addEventListener('pointerup', stageUp); });
   onDestroy(() => { shortQ?.removeEventListener('change', onShort); disposed = true; clearInterval(holdTimer); removeEventListener('resize', onResize); removeEventListener('pointerup', release); stageEl?.removeEventListener('pointerdown', stageDown); stageEl?.removeEventListener('pointerup', stageUp); /* (going to another of the Shop's sections this scene runs on until the next one takes over: no flash of white) */ if (scene && stage.current() === scene && !(embedded && game.screen === 'shop')) stage.use(null); });
+  // Escape closes a card (before the top bar's Escape, which leaves the page), as a tap outside it does
+  function escOut(e: KeyboardEvent) { if ((setPeek || asking) && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); setPeek = null; asking = null; } }
+  onMount(() => { addEventListener('keydown', escOut, true); return () => removeEventListener('keydown', escOut, true); });
 </script>
 
 <div class="closet" class:screen={!embedded} class:embedded class:shopside={side === 'shop'}>
@@ -598,8 +602,8 @@
     {@const sid = setPeek}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="gbg" onclick={() => (setPeek = null)}>
-      <div class="gcard card setcard" onclick={(e) => e.stopPropagation()}>
+    <div class="gbg" onclick={() => (setPeek = null)} use:holdFocus>
+      <div class="gcard card setcard" role="dialog" aria-modal="true" aria-label={SETS[sid].name} tabindex="-1" onclick={(e) => e.stopPropagation()}>
         <div class="setpics">{#each setItems(sid) as it}<img class:off={look.on[it.slot] !== it.id} src="{base}gear/{it.id}.webp" alt="" />{/each}</div>
         <div class="gtext">
           <h3>{SETS[sid].name}</h3>
@@ -616,8 +620,8 @@
     <!-- leaving Move it with changes: keep them, or put the thing back -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="gbg" onclick={() => (asking = null)}>
-      <div class="gcard card askcard" onclick={(e) => e.stopPropagation()}>
+    <div class="gbg" onclick={() => (asking = null)} use:holdFocus>
+      <div class="gcard card askcard" role="dialog" aria-modal="true" aria-label="Keep your changes?" tabindex="-1" onclick={(e) => e.stopPropagation()}>
         <img class="gbig" src="{base}{c?.icon}" alt="" />
         <div class="gtext">
           <h3>Keep your changes?</h3>

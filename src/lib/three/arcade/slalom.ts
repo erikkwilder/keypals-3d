@@ -399,9 +399,9 @@ export class SlalomScene implements Controller {
     this.spray(22, dir);
   }
   /** Snow kicked up behind the runners (thrown back toward the camera, as the slope rushes past). */
-  private spray(n: number, side = 0) {
+  private spray(n: number, side = 0, steady = false) {
     const w = this.rig.localToWorld(new THREE.Vector3(side * 0.35, 0.12, 0.6));
-    this.fx.emit({ at: w, count: n, shape: ['dot', 'flake'], color: [0xffffff, 0xeef6ff], speed: [2.5, 4 + this.speed * 0.3], dir: new THREE.Vector3(-side * 0.9, 0.8, 1), spread: 0.5, radius: 0.25, life: [0.4, 0.9], size: [0.1, 0.28], gravity: 4, drag: 1.1 });
+    this.fx.emit({ at: w, count: n, steady, shape: ['dot', 'flake'], color: [0xffffff, 0xeef6ff], speed: [2.5, 4 + this.speed * 0.3], dir: new THREE.Vector3(-side * 0.9, 0.8, 1), spread: 0.5, radius: 0.25, life: [0.4, 0.9], size: [0.1, 0.28], gravity: 4, drag: 1.1 });
   }
 
   /** A crash (the wrong arch): the sled spins out in a burst of snow, slows, and carries on. */
@@ -512,10 +512,10 @@ export class SlalomScene implements Controller {
     // the boost rings turn and shimmer
     for (const r of this.rings) { const h = r.group.userData.hoop as THREE.Mesh; h.rotation.z = t * 1.6 + r.d; r.group.position.y = ground(LANES[r.lane], r.d) + Math.sin(t * 3 + r.d) * 0.06; }
     // runner spray while moving fast (more of it the faster you go); a streak of turbo sparks behind
-    if (this.speed > 5 && Math.random() < dt * this.speed * 1.6) this.spray(3 + Math.floor(this.speed / 12));
+    if (this.speed > 5 && Math.random() < dt * this.speed * 1.6) this.spray(3 + Math.floor(this.speed / 12), 0, true);
     if ((this.turbo > 0 || this.burst > 0) && !this.paused) {
       const w = this.rig.localToWorld(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0.35, 0.9));
-      this.fx.emit({ at: w, count: 3, shape: ['spark', 'dot'], color: this.turbo > 0 ? [0x7fe0ff, 0xffffff, 0x4fa8ff] : [0xffe066, 0xffffff], speed: [1, 3], dir: new THREE.Vector3(0, 0.2, 1), spread: 0.4, radius: 0.15, life: [0.3, 0.6], size: [0.1, 0.22], drag: 1 });
+      this.fx.emit({ steady: true, at: w, count: 3, shape: ['spark', 'dot'], color: this.turbo > 0 ? [0x7fe0ff, 0xffffff, 0x4fa8ff] : [0xffe066, 0xffffff], speed: [1, 3], dir: new THREE.Vector3(0, 0.2, 1), spread: 0.4, radius: 0.15, life: [0.3, 0.6], size: [0.1, 0.22], drag: 1 });
     }
     // falling snow drifts toward the camera with the speed
     const sp = this.snow.geometry.attributes.position as THREE.BufferAttribute;

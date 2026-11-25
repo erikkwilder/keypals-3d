@@ -10,6 +10,7 @@
   import Title from './lib/screens/Title.svelte';
   import Loading from './lib/ui/Loading.svelte';
   import { lazy, preloadWhenIdle, type Lazy } from './lib/ui/lazy.svelte';
+  import { PAD, buddyPics, warmWhenIdle } from './lib/ui/warm';
   // the 100-Glimmer ladder's special eggs' moments (looked for on the calm screens)
   import { CALM_SCREENS, lookForEggs } from './lib/adventure/ladderMoment.svelte';
   import { installProblemReports } from './lib/state/reports';
@@ -155,6 +156,11 @@
   // the next screens a player is likely to open come down while the title is up (one at a time, when the
   // computer is quiet); from Home, the pages it leads to
   preloadWhenIdle([S.players, S.newPlayer, S.hub, O.pause]);
+  // the few pictures a lesson or a practice shows that aren't on screen before it (the number pad's erase key,
+  // the buddy's portrait and head) come down once the game is quiet, and again for a new buddy, so they show
+  // with no connection too (ui/warm.ts)
+  const buddyNow = $derived(game.profile?.buddy);
+  $effect(() => { const b = buddyNow; untrack(() => warmWhenIdle([...PAD, ...(b ? buddyPics(b) : [])])); });
   let homeSeen = false;
   $effect(() => { if (game.screen === 'hub' && !homeSeen) { homeSeen = true; untrack(() => preloadWhenIdle([S.subject, S.topic, S.way, S.path, S.mystuff, O.menu, O.music, O.ladder, O.fun], 2500)); } });
 

@@ -334,7 +334,7 @@ export class DuelScene implements Controller {
       if (!s.me.root.visible) s.me.root.visible = true;
       for (const g of s.team) { if (g) { g.face = this.grumble.root.position.clone(); g.lookAt = this.grumble.centre; g.update(dt, t); } }
       // a ghost leaves a soft trail of blue light
-      if (s.ghost && Math.random() < dt * 14) this.fx.emit({ at: s.at.clone().add(new THREE.Vector3(0, 0.3 + Math.random() * 0.9, 0)), count: 1, shape: 'dot', color: [0x9fd8ff, 0xd6ecff], speed: [0.05, 0.25], up: 0.6, radius: 0.35, life: [0.8, 1.4], size: [0.05, 0.1], drag: 0.6, gravity: -0.2 });
+      if (s.ghost && Math.random() < dt * 14) this.fx.emit({ steady: true, at: s.at.clone().add(new THREE.Vector3(0, 0.3 + Math.random() * 0.9, 0)), count: 1, shape: 'dot', color: [0x9fd8ff, 0xd6ecff], speed: [0.05, 0.25], up: 0.6, radius: 0.35, life: [0.8, 1.4], size: [0.05, 0.1], drag: 0.6, gravity: -0.2 });
     });
     // the ring under whoever's turn it is
     const rs = this.sides[this.turn].at;
@@ -361,9 +361,9 @@ export class DuelScene implements Controller {
     this.grumble.update(dt, t);
     if (this.arena) animateArena(this.arena, this.fx, t);
     this.moteT -= dt;
-    if (this.moteT < 0) { this.moteT = 0.12; this.fx.emit({ at: this.C.clone().add(new THREE.Vector3(0, 0.4, 0)), count: 1, shape: 'dot', color: [0xfff2b0, 0xffffff, 0xcfe8ff], speed: [0.1, 0.3], up: 3, radius: 3.4, life: [3, 5], size: [0.05, 0.1], drag: 0.2, gravity: -0.05 }); }
+    if (this.moteT < 0) { this.moteT = 0.12; this.fx.emit({ steady: true, at: this.C.clone().add(new THREE.Vector3(0, 0.4, 0)), count: 1, shape: 'dot', color: [0xfff2b0, 0xffffff, 0xcfe8ff], speed: [0.1, 0.3], up: 3, radius: 3.4, life: [3, 5], size: [0.05, 0.1], drag: 0.2, gravity: -0.05 }); }
     // rain clouds bob and drip while they wait
-    for (const g of this.rainClouds) if (g) { g.position.y += Math.sin(t * 2) * 0.002; if (Math.random() < dt * 8) this.fx.emit({ at: g.position.clone().add(new THREE.Vector3(0, -0.15, 0)), count: 1, shape: 'drop', color: 0xb8dcff, dir: new THREE.Vector3(0, -1, 0), spread: 0.1, speed: [2, 3], radius: 0.3, life: [0.3, 0.5], size: [0.06, 0.1], gravity: 5 }); }
+    for (const g of this.rainClouds) if (g) { g.position.y += Math.sin(t * 2) * 0.002; if (Math.random() < dt * 8) this.fx.emit({ steady: true, at: g.position.clone().add(new THREE.Vector3(0, -0.15, 0)), count: 1, shape: 'drop', color: 0xb8dcff, dir: new THREE.Vector3(0, -1, 0), spread: 0.1, speed: [2, 3], radius: 0.3, life: [0.3, 0.5], size: [0.06, 0.1], gravity: 5 }); }
     this.fx.update(dt, t);
     this.camera(dt, t);
   }

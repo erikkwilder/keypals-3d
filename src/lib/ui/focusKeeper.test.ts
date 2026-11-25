@@ -320,6 +320,42 @@ describe('dialogs', () => {
     c.held.destroy();
     expect(d.activeElement).toBe(d.body);
   });
+  it('a card moved to the end of the page as it opens (a treasure on a results screen) holds from where it ends up', async () => {
+    const chip = d.el('button'), card = d.el('div', { role: 'dialog' }, d.el('button')), tm = d.el('div', {}, card), layer = d.el('div', {}, tm);
+    const results = d.el('div', {}, chip, layer), main = d.el('main', {}, results);
+    d.body.append(main);
+    chip.focus();
+    keepFocus(asHtml(main), () => false);
+    const held = holdFocus(asHtml(tm));
+    // (ui/portal.ts moves the layer after the card's own hold has run, and the move takes focus off it)
+    layer.remove(); d.body.append(layer);
+    expect(d.activeElement).toBe(d.body);
+    await Promise.resolve();
+    expect(d.activeElement).toBe(card);
+    expect(main.hasAttribute('inert')).toBe(true);
+    expect(layer.hasAttribute('inert')).toBe(false);
+    expect(chip.hasAttribute('inert')).toBe(false); // (let go of where it was: the whole page behind is inert now)
+    tm.remove(); held.destroy();
+    expect(main.hasAttribute('inert')).toBe(false);
+    expect(d.activeElement).toBe(chip);
+  });
+  it('a card opened from a dialog (a prize in the bonus round) lets go only of what it made inert', () => {
+    const map = d.el('div', {}, d.el('button')), prize = d.el('button'), bonus = d.el('div', { role: 'dialog' }, prize), main = d.el('main', {}, map, bonus);
+    d.body.append(main);
+    keepFocus(asHtml(main), () => false);
+    holdFocus(asHtml(bonus));
+    expect(map.hasAttribute('inert')).toBe(true);
+    prize.focus();
+    const card = d.el('div', { role: 'dialog' }), layer = d.el('div', {}, card);
+    d.body.append(layer);
+    const held = holdFocus(asHtml(card));
+    expect(main.hasAttribute('inert')).toBe(true);
+    expect(d.activeElement).toBe(card);
+    layer.remove(); held.destroy();
+    expect(main.hasAttribute('inert')).toBe(false);
+    expect(map.hasAttribute('inert')).toBe(true); // (still behind the bonus round)
+    expect(d.activeElement).toBe(prize);
+  });
   it('a dialog with no focusable box of its own gets one to take the keyboard', () => {
     const btn = d.el('button'), wrap = d.el('div', { role: 'dialog' }, d.el('button'));
     d.body.append(d.el('main', {}, btn, wrap));
@@ -352,5 +388,13 @@ describe('the markup', () => {
     expect(src('./PauseCard.svelte')).not.toMatch(/holdFocus/);
     // (the Menu button keeps focus, so it gets it back when the menu closes)
     expect(src('./Bar.svelte')).not.toMatch(/blur\(\); sfx\.click\(\); game\.openMenu/);
+  });
+  it('the cards over a results screen, a hatched egg, the bonus round, the stickers and the wardrobe hold focus too', () => {
+    for (const [f, n] of [['./RunResults.svelte', 3], ['./HatchMoment.svelte', 1], ['./BonusRound.svelte', 1], ['./TreasureCard.svelte', 1], ['../screens/Stickers.svelte', 1], ['../screens/Closet.svelte', 2]] as const) expect(src(f).match(/use:holdFocus/g)?.length, f).toBe(n);
+    // (the shells card is a Popover, which holds already)
+    expect(src('./ShellsCard.svelte')).toContain('<Popover ');
+    // with the page behind inert, each closes from the keyboard: Escape (and Enter on the egg's card, as over a results screen)
+    expect(src('./HatchMoment.svelte')).toContain("if (!see) { if (got && (e.key === 'Escape' || e.key === 'Enter'))");
+    for (const f of ['../screens/Stickers.svelte', '../screens/Closet.svelte']) expect(src(f), f).toContain("addEventListener('keydown', escOut, true)");
   });
 });

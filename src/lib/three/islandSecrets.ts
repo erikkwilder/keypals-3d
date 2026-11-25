@@ -328,27 +328,27 @@ export class IslandSecrets {
       c.left.userData.base ??= c.left.position.clone(); c.right.userData.base ??= c.right.position.clone();
       c.left.position.copy(c.left.userData.base).addScaledVector(c.side, -e * 0.32); c.right.position.copy(c.right.userData.base).addScaledVector(c.side, e * 0.32);
       (c.shine.material as THREE.SpriteMaterial).opacity = e * (0.55 + Math.sin(t * 2.4) * 0.2);
-      if (Math.random() < dt * (0.6 + e * 3)) this.fx.emit({ at: c.mouth.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.4, 0)), count: 1, shape: ['star', 'spark'], color: [0xe6b8ff, 0x9fe0ff, 0xffffff], speed: [0.1, 0.4], life: [0.5, 0.9], size: [0.05, 0.11], drag: 1 });
+      if (Math.random() < dt * (0.6 + e * 3)) this.fx.emit({ steady: true, at: c.mouth.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.4, 0)), count: 1, shape: ['star', 'spark'], color: [0xe6b8ff, 0x9fe0ff, 0xffffff], speed: [0.1, 0.4], life: [0.5, 0.9], size: [0.05, 0.11], drag: 1 });
     }
     if (this.star) {
       this.star.gem.rotation.y = t * 1.3; this.star.gem.position.y = this.star.at.y + Math.sin(t * 1.8) * 0.06;
-      if (Math.random() < dt * 2.5) this.fx.emit({ at: this.star.at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 0, (Math.random() - 0.5) * 0.4)), count: 1, shape: 'star', color: [0xffe27a, 0xffffff], speed: [0.1, 0.4], up: 0.5, life: [0.6, 1], size: [0.05, 0.1], drag: 1 });
+      if (Math.random() < dt * 2.5) this.fx.emit({ steady: true, at: this.star.at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 0, (Math.random() - 0.5) * 0.4)), count: 1, shape: 'star', color: [0xffe27a, 0xffffff], speed: [0.1, 0.4], up: 0.5, life: [0.6, 1], size: [0.05, 0.1], drag: 1 });
     }
     if (this.sparkle) {
       this.sparkle.children.forEach(ch => { const i = ch.userData.i; if (i === undefined) return; const a = t * 1.6 + i * 1.256; ch.position.set(Math.cos(a) * 0.26, 0.12 + Math.abs(Math.sin(t * 3 + i)) * 0.18, Math.sin(a) * 0.26); ch.scale.setScalar(0.12 + Math.abs(Math.sin(t * 4 + i * 2)) * 0.16); });
       const pool = this.sparkle.getObjectByName('pool') as THREE.Mesh | undefined;
       if (pool) (pool.material as THREE.MeshBasicMaterial).opacity = 0.45 + Math.sin(t * 2.5) * 0.25;
-      if (Math.random() < dt * 5) this.fx.emit({ at: this.sparkle.position.clone().add(new THREE.Vector3(0, 0.15, 0)), count: 1, shape: ['star', 'spark'], color: [0xffe066, 0xffffff], speed: [0.2, 0.6], up: 1, life: [0.5, 0.8], size: [0.05, 0.1], drag: 1 });
+      if (Math.random() < dt * 5) this.fx.emit({ steady: true, at: this.sparkle.position.clone().add(new THREE.Vector3(0, 0.15, 0)), count: 1, shape: ['star', 'spark'], color: [0xffe066, 0xffffff], speed: [0.2, 0.6], up: 1, life: [0.5, 0.8], size: [0.05, 0.1], drag: 1 });
     }
     const d = this.dug;
     if (d) {
       const k = t - d.t0;
-      if (k < 1.0 && Math.random() < dt * 30) this.fx.emit({ at: d.g.position.clone().add(new THREE.Vector3(0, 0.05, 0)), count: 2, shape: ['pebble', 'dot'], color: [0x8a5a34, 0xb08050, 0x6a4a2a], speed: [1, 2.4], up: 2.2, life: [0.4, 0.7], size: [0.05, 0.1], gravity: 7 });
+      if (k < 1.0 && Math.random() < dt * 30) this.fx.emit({ steady: true, at: d.g.position.clone().add(new THREE.Vector3(0, 0.05, 0)), count: 2, shape: ['pebble', 'dot'], color: [0x8a5a34, 0xb08050, 0x6a4a2a], speed: [1, 2.4], up: 2.2, life: [0.4, 0.7], size: [0.05, 0.1], gravity: 7 });
       const up = Math.min(1, Math.max(0, (k - 0.8) / 0.5));
       d.g.scale.setScalar(Math.max(0.001, easeOutBack(up)));
       d.g.position.y = d.first ? 0 : up * 0.25;
       if (d.lid) d.lid.rotation.x = -Math.min(1.9, Math.max(0, (k - 1.4) / 0.5) * 1.9);
-      if (d.first && k > 1.5 && k < 2.6 && Math.random() < dt * 25) this.fx.emit({ at: d.g.position.clone().add(new THREE.Vector3(0, 0.35, 0)), count: 2, shape: ['star', 'dot'], color: [0xffd34d, 0xfff2a8, 0xffffff], speed: [0.6, 1.8], up: 2.2, life: [0.6, 1.0], size: [0.07, 0.13], gravity: 2 });
+      if (d.first && k > 1.5 && k < 2.6 && Math.random() < dt * 25) this.fx.emit({ steady: true, at: d.g.position.clone().add(new THREE.Vector3(0, 0.35, 0)), count: 2, shape: ['star', 'dot'], color: [0xffd34d, 0xfff2a8, 0xffffff], speed: [0.6, 1.8], up: 2.2, life: [0.6, 1.0], size: [0.07, 0.13], gravity: 2 });
       if (k > 1.4 && d.done) { const f = d.done; d.done = null; f(); }
       if (k > 3.6) { const s = Math.max(0.001, 1 - (k - 3.6) / 0.4); d.g.scale.setScalar(s); if (k > 4) { d.g.removeFromParent(); this.dug = null; } }
     }
@@ -364,7 +364,7 @@ export class IslandSecrets {
         const p = r.pos;
         for (let i = 0; i < p.length; i += 6) { p[i + 1] -= dt * 13; p[i + 4] -= dt * 13; if (p[i + 1] < -3) { p[i + 1] += 15; p[i + 4] += 15; } }
         (r.lines.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
-        if (Math.random() < dt * 30 * r.k) { const a = Math.random() * Math.PI * 2, dd = Math.sqrt(Math.random()) * (this.rimR - 0.8); this.fx.emit({ at: new THREE.Vector3(Math.cos(a) * dd, 0.03, Math.sin(a) * dd), count: 3, shape: 'drop', color: 0xcfe8ff, speed: [0.3, 0.8], up: 1.4, life: [0.25, 0.4], size: [0.03, 0.05], gravity: 6 }); }
+        if (Math.random() < dt * 30 * r.k) { const a = Math.random() * Math.PI * 2, dd = Math.sqrt(Math.random()) * (this.rimR - 0.8); this.fx.emit({ steady: true, at: new THREE.Vector3(Math.cos(a) * dd, 0.03, Math.sin(a) * dd), count: 3, shape: 'drop', color: 0xcfe8ff, speed: [0.3, 0.8], up: 1.4, life: [0.25, 0.4], size: [0.03, 0.05], gravity: 6 }); }
       }
     }
     const b = this.bow;
@@ -395,7 +395,7 @@ export class IslandSecrets {
       const k = (t - w.t0) / 18;
       w.m.root.position.lerpVectors(w.from, w.to, k); w.m.root.position.y += Math.sin(k * Math.PI * 3) * 0.5;
       w.m.update(dt, t);
-      if (Math.random() < dt * 6) this.fx.emit({ at: w.m.root.position.clone().add(new THREE.Vector3(-3, 1, 0)), count: 2, shape: 'dot', color: [0xffffff, 0xeaf4ff], speed: [0.2, 0.6], life: [1, 1.6], size: [0.6, 1.2], drag: 1 });
+      if (Math.random() < dt * 6) this.fx.emit({ steady: true, at: w.m.root.position.clone().add(new THREE.Vector3(-3, 1, 0)), count: 2, shape: 'dot', color: [0xffffff, 0xeaf4ff], speed: [0.2, 0.6], life: [1, 1.6], size: [0.6, 1.2], drag: 1 });
       if (k >= 1) { w.m.dispose(); this.whaleM = null; w.done(); }
     }
     void camPos;

@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { Fx, type Emit } from './fx';
@@ -97,5 +98,65 @@ describe('a power flying to the Grumble, with less motion', () => {
     expect(still.hitAt).toBe(full.hitAt);
     expect(full.trail).toBeGreaterThan(0);
     expect(still.trail).toBe(0);
+  });
+});
+
+describe('sparkles that come all the time, with less motion (a torch, the motes, rain from a cloud)', () => {
+  const torch = (): Emit => ({ at: new THREE.Vector3(0, 1, 0), count: 2, shape: ['dot', 'spark'], dir: new THREE.Vector3(0, 1, 0), spread: 0.25, speed: [0.5, 1.2], life: [0.6, 0.6], steady: true });
+  it('without less motion they come as ever, frame after frame, as any sparkle does', () => {
+    const a = new Fx(), b = new Fx();
+    for (let i = 0; i < 30; i++) { a.emit(torch()); b.emit({ ...torch(), steady: undefined }); a.update(dt, i * dt); b.update(dt, i * dt); }
+    expect(inAir(a).length).toBe(60);
+    expect(inAir(b).length).toBe(60);
+  });
+  it('with less motion none come, so nothing pops in and out where they would be', () => calmly(true, () => {
+    const fx = new Fx();
+    for (let i = 0; i < 60; i++) { fx.emit(torch()); fx.update(dt, i * dt); }
+    expect(inAir(fx).length).toBe(0);
+  }));
+  it('turned on, the ones in the air fade on time and no new ones come; turned off, they come again', () => {
+    const fx = new Fx();
+    for (let i = 0; i < 10; i++) { fx.emit(torch()); fx.update(dt, i * dt); }
+    expect(inAir(fx).length).toBe(20);
+    calmly(true, () => {
+      fx.emit(torch());
+      expect(inAir(fx).length).toBe(20);
+      for (let i = 0; i < 40; i++) { fx.emit(torch()); fx.update(dt, i * dt); }
+      expect(inAir(fx).length).toBe(0);
+    });
+    fx.emit(torch());
+    expect(inAir(fx).length).toBe(2);
+  });
+  it('a burst made once still makes its few (a hit, a find, a cheer)', () => calmly(true, () => {
+    const fx = new Fx();
+    fx.emit(burst());
+    expect(inAir(fx).length).toBe(FEW);
+  }));
+  it('every place that makes them again and again says so', () => {
+    const dir = new URL('.', import.meta.url);
+    const files = (readdirSync(dir, { recursive: true }) as string[]).filter(f => f.endsWith('.ts') && !f.endsWith('.test.ts'));
+    const src = (f: string) => readFileSync(new URL(f, dir), 'utf8');
+    // (a chance each frame: the duel's ghosts and rain, the golden flower, the garden's watering, the Sky Island's pals,
+    // visitors and golden butterfly, the island growing, its secrets, the Glimmer show)
+    let rolled = 0;
+    for (const f of files) for (const line of src(f).split('\n')) if (/Math\.random\(\) < dt/.test(line) && line.includes('.emit({')) { rolled++; const rest = line.slice(line.indexOf('Math.random() < dt')); expect(rest.slice(rest.indexOf('.emit({')), f).toMatch(/^\.emit\(\{ steady: true, /); }
+    expect(rolled).toBeGreaterThanOrEqual(17);
+    // (by a timer or every frame: torches, motes, a Glimmer's aura, the dust in a lesson's sunbeams, a pal's ripples, zzz and hops, the sled's spray and turbo)
+    const timed: [string, string][] = [
+      ['arena.ts', 'for (const f of a.fires) fx.emit({ steady: true, '],
+      ['battleScene.ts', 'for (const f of this.fires) this.fx.emit({ steady: true, '],
+      ['battleScene.ts', 'this.moteT = 0.12; this.fx.emit({ steady: true, '],
+      ['duelScene.ts', 'this.moteT = 0.12; this.fx.emit({ steady: true, '],
+      ['glimmerModel.ts', 'this.fx.emit({ steady: true, at: w.add('],
+      ['glimmerShow.ts', "this.fx.emit({ steady: true, at: from, count: 1, shape: ['star', 'spark', 'dot']"],
+      ['episodeScene.ts', 'this.fx.emit({ steady: true, at: new THREE.Vector3((Math.random() - 0.5) * 4, TY + 0.3'],
+      ['islandScene.ts', 'p.zzz = 0.5; this.fx.emit({ steady: true, '],
+      ['islandScene.ts', 'p.zzz = 0.9; this.fx.emit({ steady: true, '],
+      ['islandScene.ts', 'if (Math.random() < 0.5) this.fx.emit({ steady: true, '],
+      ['arcade/slalom.ts', 'this.spray(3 + Math.floor(this.speed / 12), 0, true)'],
+      ['arcade/slalom.ts', "this.fx.emit({ at: w, count: n, steady, shape: ['dot', 'flake']"],
+      ['arcade/slalom.ts', 'this.fx.emit({ steady: true, at: w, count: 3, '],
+    ];
+    for (const [f, bit] of timed) expect(src(f), f).toContain(bit);
   });
 });

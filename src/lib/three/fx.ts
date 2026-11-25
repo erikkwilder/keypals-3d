@@ -45,6 +45,9 @@ export type Emit = {
   at: THREE.Vector3; count: number; shape?: Shape | Shape[]; color?: THREE.ColorRepresentation | THREE.ColorRepresentation[]; to?: THREE.ColorRepresentation;
   speed?: [number, number]; dir?: THREE.Vector3; spread?: number; life?: [number, number]; size?: [number, number]; grow?: number;
   gravity?: number; drag?: number; spin?: number; flutter?: number; radius?: number; up?: number; fade?: number;
+  /** they come again and again, frame after frame (a torch's flame, the motes, rain from a cloud, a sleeping
+   *  pal's zzz): with less motion, none */
+  steady?: boolean;
 };
 
 const MAX = 2400;
@@ -95,8 +98,11 @@ export class Fx {
   setScale(heightPx: number, fov: number) { (this.points.material as THREE.ShaderMaterial).uniforms.scale.value = heightPx / (2 * Math.tan(THREE.MathUtils.degToRad(fov / 2))); }
 
   emit(e: Emit) {
-    // with less motion, a few sparkles that stay where they're made and fade there (calm.ts)
-    const still = calm.on, count = still ? Math.min(FEW, e.count) : e.count;
+    // with less motion (calm.ts), a burst makes a few sparkles that stay where they're made and fade there, and
+    // sparkles that come all the time make none: new ones popping in and out, even standing still, twinkle
+    const still = calm.on;
+    if (still && e.steady) return;
+    const count = still ? Math.min(FEW, e.count) : e.count;
     const shapes = Array.isArray(e.shape) ? e.shape : [e.shape ?? 'dot'];
     const cols = (Array.isArray(e.color) ? e.color : [e.color ?? 0xffffff]).map(c => new THREE.Color(c));
     const to = e.to !== undefined ? new THREE.Color(e.to) : null;

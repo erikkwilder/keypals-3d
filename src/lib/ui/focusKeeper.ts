@@ -117,6 +117,9 @@ export function inertOthers(node: Element): Element[] {
   return marked;
 }
 
+/** the elements that hold `n`, nearest first */
+const chainOf = (n: Element) => { const c: Element[] = []; for (let e = n.parentElement; e; e = e.parentElement) c.push(e); return c; };
+
 /** `use:holdFocus` on a dialog over the screen (the login cards, the menu, the music, the settings sheet): while
  *  it's open everything behind it is inert, so Tab can't wander into the page behind and a screen reader stays
  *  in it; the keyboard goes into it; and when it closes the keyboard goes back to the button that opened it
@@ -125,13 +128,24 @@ export function holdFocus(node: HTMLElement) {
   const doc = node.ownerDocument;
   const a = doc.activeElement;
   const opener = a && !lost(doc) && !node.contains(a) ? (a as HTMLElement) : null;
-  const marked = inertOthers(node);
   const box = (node.matches('[role="dialog"]') ? node : node.querySelector<HTMLElement>('[role="dialog"]')) ?? node;
   if (!box.hasAttribute('tabindex')) box.setAttribute('tabindex', '-1');
   box.setAttribute('data-holds', ''); // (no ring round the whole dialog: app.css)
-  if (!node.contains(doc.activeElement)) box.focus({ preventScroll: true });
+  let marked: Element[] = [], open = true;
+  const hold = () => {
+    for (const el of marked) el.removeAttribute('inert');
+    marked = inertOthers(node);
+    if (!node.contains(doc.activeElement)) box.focus({ preventScroll: true });
+  };
+  hold();
+  // A card opened from a button on a results screen (the treasure, the egg, the shells: ui/RewardTap.svelte) is
+  // moved to the end of the page (ui/portal.ts) just after this runs, and the move takes focus off it: once it's
+  // where it stays, hold again from there.
+  const was = chainOf(node);
+  queueMicrotask(() => { const now = chainOf(node); if (open && node.isConnected && (now.length !== was.length || now.some((e, i) => e !== was[i]))) hold(); });
   return {
     destroy() {
+      open = false;
       for (const el of marked) el.removeAttribute('inert');
       const back = () => { if (opener && lost(doc) && !gone(opener) && !plays()) opener.focus({ preventScroll: true }); };
       // (the dialog may still be on the page, with focus in it: back once it's gone)

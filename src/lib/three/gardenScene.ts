@@ -783,7 +783,7 @@ export class GardenScene implements Controller {
           if (open) { sfx.golden(); say('A golden flower! It only opens for gardeners with 10 flowers in bloom. That\'s you!'); this.fx.emit({ at: V(2.6, 1.1, -34.4), count: 40, shape: ['star', 'spark'], color: [0xffe066, 0xffffff, 0xffb02e], speed: [1, 3], up: 1.5, life: [0.6, 1.2], size: [0.08, 0.18], drag: 1.5 }); }
           else { sfx.sparkle(); say(`A golden bud... it opens when you have 10 flowers in bloom. You have ${k.blooms} so far!`); this.fx.emit({ at: V(2.6, 1.3, -34.4), count: 14, shape: 'spark', color: [0xffe066, 0xffffff], speed: [0.4, 1.2], up: 1, life: [0.5, 0.9], size: [0.05, 0.1], drag: 1.5 }); }
         },
-        tick: (dt) => { top.rotation.y = Math.sin(stage.decorT * 0.8) * 0.15; if (Math.random() < dt * (open ? 2.5 : 0.8)) this.fx.emit({ at: V(2.6 + (Math.random() - 0.5) * 0.8, 1.2 + Math.random() * 0.7, -34.4 + (Math.random() - 0.5) * 0.8), count: 1, shape: 'spark', color: [0xffe066, 0xffffff], speed: [0.1, 0.3], up: 0.6, life: [0.6, 1], size: [0.06, 0.11] }); },
+        tick: (dt) => { top.rotation.y = Math.sin(stage.decorT * 0.8) * 0.15; if (Math.random() < dt * (open ? 2.5 : 0.8)) this.fx.emit({ steady: true, at: V(2.6 + (Math.random() - 0.5) * 0.8, 1.2 + Math.random() * 0.7, -34.4 + (Math.random() - 0.5) * 0.8), count: 1, shape: 'spark', color: [0xffe066, 0xffffff], speed: [0.1, 0.3], up: 0.6, life: [0.6, 1], size: [0.06, 0.11] }); },
       });
     }
   }
@@ -1118,7 +1118,7 @@ export class GardenScene implements Controller {
       turnTo(w.face, 4);
       me.play('idle', 0.4);
       const wa = w.waterAt ?? new THREE.Vector3(me.root.position.x, 0, Z0 + bedZ(0));
-      if (Math.random() < dt * 12) this.fx.emit({ at: new THREE.Vector3(wa.x + (Math.random() - 0.5) * 0.9, 1.1, wa.z + (Math.random() - 0.5) * 0.4), count: 2, shape: 'dot', color: [0x9fdcff, 0xd8f2ff], speed: [0.2, 0.6], dir: new THREE.Vector3(0, -1, 0), spread: 0.4, life: [0.5, 0.8], size: [0.04, 0.07], gravity: 2.5 });
+      if (Math.random() < dt * 12) this.fx.emit({ steady: true, at: new THREE.Vector3(wa.x + (Math.random() - 0.5) * 0.9, 1.1, wa.z + (Math.random() - 0.5) * 0.4), count: 2, shape: 'dot', color: [0x9fdcff, 0xd8f2ff], speed: [0.2, 0.6], dir: new THREE.Vector3(0, -1, 0), spread: 0.4, life: [0.5, 0.8], size: [0.04, 0.07], gravity: 2.5 });
       if (t > w.until) { w.mode = 'idle'; w.wait = 2 + Math.random() * 4; }
     }
     // boing: up off the mushroom and down again
