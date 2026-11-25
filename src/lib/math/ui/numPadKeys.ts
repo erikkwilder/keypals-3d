@@ -20,8 +20,9 @@ export const keyName = (k: string): string => (k === 'back' ? 'Erase' : k === '-
 export const padKey = (e: Pick<KeyboardEvent, 'key' | 'target'>): boolean =>
   (e.key === 'Enter' || e.key === ' ') && onButton(e) && !!(e.target as Element).closest?.('[data-pad]');
 
-/** The fraction pad's Tab, from the top box to the bottom one: while the child is typing (no button has the
- *  focus) and the top box is the one being filled. From the bottom box, or on a button, Tab is the browser's and
- *  moves on, so Tab can reach the pad's keys. */
-export const tabsToBottom = (e: Pick<KeyboardEvent, 'key' | 'target'>, focus: 'n' | 'd'): boolean =>
-  e.key === 'Tab' && focus === 'n' && !onButton(e);
+/** The fraction pad's own Tab, while a child is typing (no button has the focus): from a top box with a number in
+ *  it Tab goes to the bottom box, and on a bottom box not typed yet (the top may have moved on to it by itself) Tab
+ *  stays there, as they always have. Any other Tab is the browser's and moves on: a first Tab before anything is
+ *  typed, a Tab on a typed bottom box, or a Tab on a button, so Tab can reach the pad's keys. */
+export const tabsToBottom = (e: Pick<KeyboardEvent, 'key' | 'target'>, box: 'n' | 'd', top: string, bottom: string): boolean =>
+  e.key === 'Tab' && !onButton(e) && (box === 'n' ? top !== '' : bottom === '');

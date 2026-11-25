@@ -65,7 +65,7 @@
     if (disabled || e.metaKey || e.ctrlKey || e.altKey || padKey(e)) return;
     if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
     else if (e.key === 'Backspace') { e.preventDefault(); back(); }
-    else if (e.key === '/' || e.key === 'ArrowDown' || tabsToBottom(e, focus)) { e.preventDefault(); go('d'); }
+    else if (e.key === '/' || e.key === 'ArrowDown' || tabsToBottom(e, focus, n, d)) { e.preventDefault(); go('d'); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); go('n'); }
     else if (e.key === 'Enter') { e.preventDefault(); clear(); if (ready) onsubmit(); else if (n && focus === 'n') go('d'); }
   }

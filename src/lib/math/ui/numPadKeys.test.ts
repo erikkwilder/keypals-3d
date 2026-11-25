@@ -50,15 +50,18 @@ describe("Enter or Space on a key of a pad is the key's own", () => {
 });
 
 describe("the fraction pad's Tab", () => {
-  it('goes from the top box to the bottom one while the child types', () => {
-    expect(tabsToBottom(key('Tab'), 'n')).toBe(true);
+  it('goes from the top box to the bottom one once the top is typed, and stays on a bottom box not typed yet, as before', () => {
+    expect(tabsToBottom(key('Tab'), 'n', '3', '')).toBe(true);
+    expect(tabsToBottom(key('Tab'), 'd', '3', '')).toBe(true);
   });
-  it("from the bottom box, or on a button, Tab is the browser's and moves on (so it reaches the pad's keys)", () => {
-    expect(tabsToBottom(key('Tab'), 'd')).toBe(false);
-    expect(tabsToBottom(key('Tab', new FakeButton()), 'n')).toBe(false);
+  it("a first Tab before anything is typed, a Tab on a typed bottom box, or a Tab on a button is the browser's: it moves on to the pad's keys", () => {
+    expect(tabsToBottom(key('Tab'), 'n', '', '')).toBe(false);
+    expect(tabsToBottom(key('Tab'), 'd', '3', '4')).toBe(false);
+    expect(tabsToBottom(key('Tab', new FakeButton()), 'n', '3', '')).toBe(false);
+    expect(tabsToBottom(key('Tab', new FakeButton()), 'd', '3', '')).toBe(false);
   });
   it("other keys aren't its Tab", () => {
-    expect(tabsToBottom(key('Enter'), 'n')).toBe(false);
+    expect(tabsToBottom(key('Enter'), 'n', '3', '')).toBe(false);
   });
 });
 
@@ -129,7 +132,7 @@ describe('the answer keys next to the pad are reached by Tab and pressed by keyb
     expect(fp).toMatch(/aria-pressed=\{focus === 'n'\} \{\.\.\.press\(\(\) => go\('n'\)\)\}/);
     expect(fp).toMatch(/aria-pressed=\{focus === 'd'\} \{\.\.\.press\(\(\) => go\('d'\)\)\}/);
     expect(fp).toMatch(/<button class="ok" class:ready disabled=\{!ready \|\| disabled\} \{\.\.\.press\(/);
-    expect(fp).toMatch(/tabsToBottom\(e, focus\)\) \{ e\.preventDefault\(\); go\('d'\); \}/);
+    expect(fp).toMatch(/tabsToBottom\(e, focus, n, d\)\) \{ e\.preventDefault\(\); go\('d'\); \}/);
   });
   it("the battle's Check for an answer below zero", () => {
     expect(src('../../screens/Battle.svelte')).toMatch(/<button class="okbtn" disabled=\{[^}]*\} \{\.\.\.press\(checkBlock\)\}>/);
