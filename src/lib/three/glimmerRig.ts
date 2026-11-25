@@ -59,6 +59,9 @@ export type Landmarks = {
   fins?: [V3, V3][];
   /** ears, horns, antennae, eye stalks: [base, tip] */
   ears?: [V3, V3][];
+  /** its ears stand clear of its head (Sproutbun's leaves): past their roots they move as one piece, the
+   *  head keeping no share of them (EAR_OWN). Not for ears that lie on the head: those it pulled off it. */
+  earsFree?: boolean;
   /** a jelly's tentacles: root ... tip each */
   tentacles?: V3[][];
   /** the middle of each eye, on its skin (-x first): the face round them rides the head bone alone, so
@@ -461,7 +464,7 @@ export function skinWeights(rig: Rig, pos: Float32Array): { index: Uint16Array; 
   const index = new Uint16Array(n * 4), weight = new Float32Array(n * 4);
   const ab = bones.map(b => b.end.clone().sub(b.at)), l2 = ab.map(x => x.lengthSq());
   const near = bones.map((b, i) => bones.map((c, j) => i === j || b.parent === j || c.parent === i));
-  const sd = new Float64Array(B), ck = new Float64Array(B), w = new Float64Array(B), p = new THREE.Vector3(), band = 0.03 * H;
+  const sd = new Float64Array(B), pd = new Float64Array(B), ck = new Float64Array(B), w = new Float64Array(B), p = new THREE.Vector3(), band = 0.03 * H;
   // the eyes: each rides the head, or the part of it it's on (a snail's eye on its stalk); eyes on the head
   // get a stiff zone round the line from one to the other, eyes on stalks a ball each
   const hi = bones.findIndex(b => b.role === 'head'), eyes = (rig.lm.eyes ?? []).map(v);
@@ -481,13 +484,20 @@ export function skinWeights(rig: Rig, pos: Float32Array): { index: Uint16Array; 
     eyes.forEach((e, k) => { const g = sstep(EYE_BALL[1] * H, EYE_BALL[0] * H, q.distanceTo(e)); if (g > f) { f = g; j = eyeBone[k]; } });
     return [f, j];
   };
+  // each ear (horn, antenna): its bones, where it starts and which way it goes out
+  const earParts = !rig.lm.earsFree ? [] : [...new Set(bones.filter(b => b.role === 'ear').map(b => b.chain))].map(ch => {
+    const chain = bones.map((b, j) => (b.role === 'ear' && b.chain === ch ? j : -1)).filter(j => j >= 0);
+    const root = bones[chain[0]], out = bones[chain[chain.length - 1]].end.clone().sub(root.at);
+    return { chain, root, out, L2: Math.max(1e-10, out.lengthSq()) };
+  });
   for (let i = 0; i < n; i++) {
     p.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
     let best = 0, bs = Infinity;
     for (let j = 0; j < B; j++) {
       const b = bones[j];
       ck[j] = b.cuts.length ? cutK(b, p, band) : 1;
-      sd[j] = Math.max(0.02, segD(p, b.at, b.end, ab[j], l2[j]) / b.r);
+      pd[j] = segD(p, b.at, b.end, ab[j], l2[j]);
+      sd[j] = Math.max(0.02, pd[j] / b.r);
       if (ck[j] > 0.5 && sd[j] < bs) { bs = sd[j]; best = j; }
     }
     for (let j = 0; j < B; j++) w[j] = ck[j] <= 0 ? 0 : ck[j] * Math.pow(bs / sd[j], near[best][j] ? 5 : 14);
@@ -500,11 +510,47 @@ export function skinWeights(rig: Rig, pos: Float32Array): { index: Uint16Array; 
     let s = weight[i * 4] + weight[i * 4 + 1] + weight[i * 4 + 2] + weight[i * 4 + 3];
     if (!(s > 0)) { weight[i * 4] = 1; weight[i * 4 + 1] = weight[i * 4 + 2] = weight[i * 4 + 3] = 0; index[i * 4] = 0; s = 1; }
     for (let k = 0; k < 4; k++) weight[i * 4 + k] /= s;
+    // an ear owns its skin past its root (EAR_OWN)
+    for (const e of earParts) {
+      const a = e.root.at, t = ((p.x - a.x) * e.out.x + (p.y - a.y) * e.out.y + (p.z - a.z) * e.out.z) / e.L2;
+      if (t <= EAR_OWN[0]) continue;
+      let dE = Infinity, dO = Infinity, to = e.chain[0];
+      for (let j = 0; j < B; j++) { if (!e.chain.includes(j)) dO = Math.min(dO, pd[j]); else if (pd[j] < dE) { dE = pd[j]; to = j; } }
+      const pj = e.root.parent, outside = pj >= 0 ? pd[pj] / bones[pj].r : Infinity;
+      const f = sstep(EAR_OWN[0], EAR_OWN[1], t) * sstep(EAR_OUT[0], EAR_OUT[1], outside) * sstep(EAR_NEARER[0], EAR_NEARER[1], dE / Math.max(1e-9, dO)) * (e.root.cuts.length ? cutK(e.root, p, band) : 1);
+      if (f > 0) give(index, weight, i, e.chain, to, f);
+    }
     // the eyes and the face between and round them ride the head and nothing else (an owl's eyes sit
     // right where its head meets its body, beside its wings' roots: they bent as it moved)
     if (eyeA) { const [f, j] = eyeOf(p); if (f > 0) pin(index, weight, i, j, f); }
   }
   return { index, weight };
+}
+
+/** Past its root, where it stands clear of the head, an ear (a horn, an antenna, an eye stalk) owns its
+ *  skin. Weights come from each bone's distance over its reach, and the head's reach is wide (its round
+ *  middle) while an ear's is narrow, so the head took a share of an ear's far end, well outside the head
+ *  itself; when the ear turned, that share stayed with the head and the ear stretched between the two
+ *  instead of moving (Sproutbun's right ear: in the cheer, 11% of its edges went past 1.5 times their
+ *  length, some to 6 times). So a point out along an ear (EAR_OWN: shares of the way from its root to its
+ *  tip), outside the head's own reach (EAR_OUT: times the head's reach from its bone) and nearer, by plain
+ *  distance, to the ear's bones than to any other (EAR_NEARER: that distance over the nearest other's)
+ *  moves with the ear alone, each fully from the second number. Where an ear lies on the head, or near
+ *  its root, they still share it, so it bends where it joins the head. Only for a Glimmer whose ears
+ *  stand clear of its head (`earsFree` in meta.json): measured over every move of the 16 Glimmers with
+ *  ears, it took Sproutbun's right ear from 11.1% to 4.7% and its left from 6.7% to 1.0%, but pulled
+ *  ears that lie on the head off it (bloomdrake's from 10.8% to 20.1%), so the others keep their weights. */
+export const EAR_OWN: [number, number] = [0.25, 0.55];
+export const EAR_OUT: [number, number] = [1.1, 1.35];
+export const EAR_NEARER: [number, number] = [0.95, 0.7];
+/** Hand share f of point i's ties to bones outside `chain` over to the chain: to the chain's bones it's
+ *  already tied to, as they share it, or to bone `to` when it's tied to none of them. */
+function give(index: Uint16Array, weight: Float32Array, i: number, chain: number[], to: number, f: number) {
+  let inC = 0;
+  for (let k = 0; k < 4; k++) if (chain.includes(index[i * 4 + k])) inC += weight[i * 4 + k];
+  if (inC < 1e-6) { pin(index, weight, i, to, f); return; }
+  const gain = (inC + f * (1 - inC)) / inC;
+  for (let k = 0; k < 4; k++) weight[i * 4 + k] *= chain.includes(index[i * 4 + k]) ? gain : 1 - f;
 }
 
 /** round the eyes: all of it rides the head this close (a share of the Glimmer's height), none past this */

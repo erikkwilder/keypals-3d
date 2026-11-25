@@ -48,6 +48,7 @@
     "tier": "meshy-t2.5",
     "rig": {
       "plan": "quad",
+      "earsFree": true,
       "head": [-0.03, 0.53, 0.08],
       "chest": [-0.02, 0.3, 0.04],
       "hips": [0.03, 0.17, -0.12],

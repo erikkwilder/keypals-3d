@@ -221,6 +221,66 @@ describe('every Glimmer with a model', () => {
   }, 120_000);
 });
 
+// Erik (2026-11-25, in "How Many Cookies?"): Sprout Bunny's right ear "stretches instead of moving". The
+// head's wide reach had a share of the far end of each ear, which stayed with the head as the ear turned
+// (glimmerRig.ts, EAR_OWN). Every move, skinned as the game does it: each ear's edges (the part of the mesh
+// nearer its bones than any other bone, by plain distance) keep their length. Before the fix, in the cheer,
+// 11% of the right ear's edges and 7% of the left's went past 1.5 times their length, some to 6 times.
+describe("Sprout Bunny's ears", () => {
+  it('move as one piece instead of stretching', () => {
+    const { pos, index } = glbPoints('public/models/glimmers/sproutbun.glb');
+    const c = cloudOf(pos), rig = buildRig(meta.sproutbun.rig!, c), n = pos.length / 3;
+    const { index: si, weight: sw } = skinWeights(rig, pos);
+    fitFreedom(rig, pos, { index: si, weight: sw });
+    const ab = rig.bones.map(b => b.end.clone().sub(b.at)), p = new THREE.Vector3(), q = new THREE.Vector3();
+    const plain = (j: number) => { const b = rig.bones[j], l2 = ab[j].lengthSq(), t = l2 > 0 ? Math.min(1, Math.max(0, q.subVectors(p, b.at).dot(ab[j]) / l2)) : 0; return p.distanceTo(q.copy(b.at).addScaledVector(ab[j], t)); };
+    const nearest = new Int16Array(n);
+    for (let i = 0; i < n; i++) { p.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]); let bd = Infinity; rig.bones.forEach((_, j) => { const d = plain(j); if (d < bd) { bd = d; nearest[i] = j; } }); }
+    // the right ear (-x) is chain 0, the left chain 1
+    const ears = [0, 1].map(ch => rig.bones.flatMap((b, j) => (b.role === 'ear' && b.chain === ch ? [j] : [])));
+    expect(ears.map(e => e.length)).toEqual([2, 2]);
+    const edges = ears.map(chain => {
+      const out: number[] = [];
+      for (let t = 0; t < index.length; t += 3) for (const [a, b] of [[index[t], index[t + 1]], [index[t + 1], index[t + 2]], [index[t + 2], index[t]]])
+        if ((chain.includes(nearest[a]) || chain.includes(nearest[b])) && dist(pos, a, pos, b) > c.height * 0.002) out.push(a, b);
+      return out;
+    });
+    const used = [...new Set(edges.flat())];
+    const { bones, inverses } = makeBones(rig), mats = bones.map(() => new THREE.Matrix4()), out = new Float32Array(pos.length), v = new THREE.Vector3(), acc = new THREE.Vector3(), tmp = new THREE.Vector3();
+    const worst = ears.map(() => ({ share: 0, at: '' }));
+    const moves = [...BASES.map(b => ({ b, a: null as null | (typeof ACTS)[number] })), ...ACTS.map(a => ({ b: 'idle' as const, a }))];
+    for (const mv of moves) {
+      const an = new Animator(rig, bones, 3, false);
+      an.setBase(mv.b);
+      let t = 0;
+      for (let i = 0; i < 40; i++) an.update(1 / 60, (t += 1 / 60));
+      if (mv.a) an.play(mv.a);
+      const frames = Math.round((mv.a ? ACT_LEN[mv.a] : 2.4) * 60);
+      for (let f = 0; f < frames; f++) {
+        an.update(1 / 60, (t += 1 / 60));
+        if (f % 4) continue;
+        bones[0].updateMatrixWorld(true);
+        bones.forEach((b, i) => mats[i].multiplyMatrices(b.matrixWorld, inverses[i]));
+        for (const i of used) {
+          v.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]); acc.set(0, 0, 0);
+          for (let k = 0; k < 4; k++) { const w = sw[i * 4 + k]; if (w) acc.addScaledVector(tmp.copy(v).applyMatrix4(mats[si[i * 4 + k]]), w); }
+          out[i * 3] = acc.x; out[i * 3 + 1] = acc.y; out[i * 3 + 2] = acc.z;
+        }
+        edges.forEach((E, k) => {
+          let over = 0;
+          for (let e = 0; e < E.length; e += 2) if (dist(out, E[e], out, E[e + 1]) > 1.5 * dist(pos, E[e], pos, E[e + 1])) over++;
+          const share = over / (E.length / 2);
+          if (share > worst[k].share) worst[k] = { share, at: `${mv.a ?? mv.b}, frame ${f}` };
+        });
+      }
+    }
+    expect(worst[0].share, `the right ear stretches (${worst[0].at})`).toBeLessThan(EAR_STRETCH);
+    expect(worst[1].share, `the left ear stretches (${worst[1].at})`).toBeLessThan(EAR_STRETCH);
+  }, 60_000);
+});
+/** the most of an ear's edges that may stretch past 1.5 times their length in any frame of any move */
+const EAR_STRETCH = 0.06;
+
 function dist(a: Float32Array, i: number, b: Float32Array, j: number) {
   const dx = a[i * 3] - b[j * 3], dy = a[i * 3 + 1] - b[j * 3 + 1], dz = a[i * 3 + 2] - b[j * 3 + 2];
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
