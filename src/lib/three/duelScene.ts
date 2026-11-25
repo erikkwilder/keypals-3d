@@ -359,7 +359,8 @@ export class DuelScene implements Controller {
       if (this.walkT >= 1) this.grumble.glimmer.play('happy');
     }
     this.grumble.update(dt, t);
-    if (this.arena) animateArena(this.arena, this.fx, t);
+    // (banners and the torches' light go by the decorative clock: with less motion they hold still, calm.ts)
+    if (this.arena) animateArena(this.arena, this.fx, stage.decorT);
     this.moteT -= dt;
     if (this.moteT < 0) { this.moteT = 0.12; this.fx.emit({ steady: true, at: this.C.clone().add(new THREE.Vector3(0, 0.4, 0)), count: 1, shape: 'dot', color: [0xfff2b0, 0xffffff, 0xcfe8ff], speed: [0.1, 0.3], up: 3, radius: 3.4, life: [3, 5], size: [0.05, 0.1], drag: 0.2, gravity: -0.05 }); }
     // rain clouds bob and drip while they wait
