@@ -226,7 +226,19 @@ const INPUTS: { name: string; file: string; slider: boolean; text?: boolean; gri
   { name: 'the chance line', file: '../data/ui/ChanceLine.svelte', slider: true, text: true },
   { name: 'the dot grid', file: '../shapes/ui/DotGrid.svelte', slider: false, grid: true },
   { name: 'the line plot', file: '../data/ui/DotTap.svelte', slider: false, grid: true },
+  { name: 'the angle maker', file: '../shapes/ui/AngleMaker.svelte', slider: true, text: true },
+  { name: 'the thermometer', file: './ui/ThermoInput.svelte', slider: true, text: true },
+  { name: 'the percent bar', file: './ui/PercentBar.svelte', slider: true, text: true },
 ];
+describe('the angle maker, the thermometer and the percent bar, by keyboard', () => {
+  it('the angle opens to the left, so Left opens it, as it always has', () => {
+    expect(src('../shapes/ui/AngleMaker.svelte')).toContain('stepKey(mirror(e), open, { min: spec.step, max: 180, step: spec.step }, e.target === svg)');
+  });
+  it('the thermometer and the bar say there is no mark yet before there is one', () => {
+    expect(src('./ui/ThermoInput.svelte')).toContain("aria-valuetext={at === null ? 'No mark yet' : `${txt(at)} degrees`}");
+    expect(src('./ui/PercentBar.svelte')).toContain("aria-valuetext={pct === null ? 'No mark yet' : `${pct}%`}");
+  });
+});
 describe.each(INPUTS)('$name', ({ file, slider, text, grid, buttons: has }) => {
   const s = src(file);
   it.runIf(slider)('Tab reaches it, and it says what it is and its value', () => {
