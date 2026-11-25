@@ -123,7 +123,7 @@
       {/if}
       <div class="names">
         {#each look.students as s (s.id)}
-          <button class="nm card" onclick={() => pickName(s)}><Critter friend={(s.buddy ?? 'dino') as FriendId} size={58} round still /><span>{s.name}</span></button>
+          <button class="nm card" onclick={() => pickName(s)}><Critter friend={(s.buddy ?? 'dino') as FriendId} size={58} round still decorative /><span>{s.name}</span></button>
         {/each}
       </div>
       {#if !look.students.length}<p class="lead">Nobody is in this class yet. Ask your teacher.</p>{/if}

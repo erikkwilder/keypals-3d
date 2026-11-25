@@ -78,7 +78,7 @@
       <Critter friend="dino" {look} size={150} mood="dance" />
       <h1>Hi there! What's your name?</h1>
       <p class="muted">Type it in. That's your very first typing!</p>
-      <input class="name" bind:this={nameInput} bind:value={name} maxlength="16" onkeydown={onNameKey} placeholder="Your name" autocomplete="off" spellcheck="false" />
+      <input class="name" bind:this={nameInput} bind:value={name} maxlength="16" onkeydown={onNameKey} placeholder="Your name" aria-label="Your name" autocomplete="off" spellcheck="false" />
       <button class="btn btn-primary btn-big" disabled={!name.trim()} onclick={next}>Next</button>
       <GoogleSignIn /><!-- a family on a new phone: their players are one sign-in away -->
       <SaveCodeForm />
@@ -91,7 +91,7 @@
       <div class="buddies">
         {#each BUDDIES.filter(b => STARTERS.includes(b.id)) as f (f.id)}
           <button class="buddy" class:on={buddy === f.id} onclick={() => chooseBuddy(f.id)} aria-pressed={buddy === f.id}>
-            <Critter friend={f.id} {look} size={vw < 440 ? 80 : 110} pulse={buddy === f.id ? pulse : null} quirkOnHover />
+            <Critter friend={f.id} {look} size={vw < 440 ? 80 : 110} pulse={buddy === f.id ? pulse : null} quirkOnHover decorative />
             <span class="bname">{f.name}</span>
           </button>
         {/each}
@@ -103,12 +103,12 @@
     <div class="step">
       <h1>Almost ready!</h1>
       <div class="choices">
-        <button class="choice card" class:on={!grown} onclick={() => (grown = false)}>
-          <Critter friend={buddy} {look} size={100} mood="dance" />
+        <button class="choice card" class:on={!grown} onclick={() => (grown = false)} aria-pressed={!grown}>
+          <Critter friend={buddy} {look} size={100} mood="dance" decorative />
           <b>I'm a kid</b><span>Bright, bouncy and just right for ages 7 to 12.</span>
         </button>
-        <button class="choice card" class:on={grown} onclick={() => (grown = true)}>
-          <Critter friend={buddy} {look} size={100} accessory="detective" />
+        <button class="choice card" class:on={grown} onclick={() => (grown = true)} aria-pressed={grown}>
+          <Critter friend={buddy} {look} size={100} accessory="detective" decorative />
           <b>I'm a grown-up</b><span>Faster goals and longer reading, same fun crew.</span>
         </button>
       </div>

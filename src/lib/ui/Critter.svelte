@@ -21,8 +21,11 @@
     sleepAfter?: number;
     feet?: boolean;
     round?: boolean;
+    /** inside a button that already says the name (a buddy to pick, a name on the class list): no alt or
+     *  tooltip, so a screen reader doesn't read the name twice */
+    decorative?: boolean;
   };
-  let { friend, size = 120, mood = '', pulse = null, title, still = false, round = false }: Props = $props();
+  let { friend, size = 120, mood = '', pulse = null, title, still = false, round = false, decorative = false }: Props = $props();
   const px = $derived(typeof size === 'number' ? `${size}px` : size);
   const src = $derived(`${import.meta.env.BASE_URL}portraits/${FRIEND[friend]?.id ?? 'dino'}${round ? '-head' : ''}.png`);
   // each new pulse (a tap on this buddy, a cheer) restarts the hop: the key below is the pulse's own count.
@@ -31,8 +34,8 @@
   const hop = $derived(pulse && pulse.n > 0 ? pulse.n : 0);
 </script>
 
-<div class="critter-host" class:round class:dance={mood === 'dance' && !still} class:sleep={mood === 'sleep'} class:run={mood === 'running' && !still} style:width={px} style:height={px} title={title ?? FRIEND[friend]?.name}>
-  {#key hop}<img {src} alt={FRIEND[friend]?.name ?? ''} class:hop={hop > 0} draggable="false" />{/key}
+<div class="critter-host" class:round class:dance={mood === 'dance' && !still} class:sleep={mood === 'sleep'} class:run={mood === 'running' && !still} style:width={px} style:height={px} title={decorative ? undefined : title ?? FRIEND[friend]?.name}>
+  {#key hop}<img {src} alt={decorative ? '' : FRIEND[friend]?.name ?? ''} class:hop={hop > 0} draggable="false" />{/key}
 </div>
 
 <style>

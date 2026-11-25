@@ -28,7 +28,7 @@
         <!-- svelte-ignore a11y_autofocus -->
         <input id="savecode" class="txt" bind:value={code} placeholder="tiger moon rain 42" autocomplete="off" spellcheck="false" autofocus />
         <button class="btn btn-primary" disabled={busy || code.trim().length < 6}>Bring my player</button>
-        {#if msg}<p class="err">{msg}</p>{/if}
+        {#if msg}<p class="err" role="alert">{msg}</p>{/if}
       </form>
       {#if cloud.google || cloud.microsoft}
         <div class="or"><span>or</span></div>
