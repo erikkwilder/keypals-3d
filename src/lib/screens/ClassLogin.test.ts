@@ -101,3 +101,9 @@ describe("Google sign-in on the class's own page", () => {
     expect(student).toMatch(/export type ClassLook = \{ class: \{ name: string; grade: number; teacher: string; google\?: boolean \}/);
   });
 });
+
+describe('a list where someone this computer knows is waiting', () => {
+  it('doesn\'t say "Tap your name." just above "{name}, you\'re waiting for your teacher\'s yes."', () => {
+    expect(src).toContain(`<p class="lead">{look.class.teacher}'s class.{mine || (!ticket && waits.length) ? '' : ticket ? ' Is your name here? Tap it. New to the class? Tap "I\\'m new".' : ' Tap your name.'}</p>`);
+  });
+});

@@ -170,7 +170,7 @@
       {#if !ticket}{@render googleBox()}{/if}
     {:else if step === 'name' && look}
       <h1>{look.class.name}</h1>
-      <p class="lead">{look.class.teacher}'s class.{mine ? '' : ticket ? ' Is your name here? Tap it. New to the class? Tap "I\'m new".' : ' Tap your name.'}</p>
+      <p class="lead">{look.class.teacher}'s class.{mine || (!ticket && waits.length) ? '' : ticket ? ' Is your name here? Tap it. New to the class? Tap "I\'m new".' : ' Tap your name.'}</p>
       {#snippet newMe(first: boolean)}
         <div class="newme" class:below={!first}>
           {#if needName}<input bind:value={newName} maxlength="16" placeholder="Your first name" aria-label="Your first name" />{/if}
