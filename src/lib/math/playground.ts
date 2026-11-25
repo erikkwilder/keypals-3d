@@ -110,6 +110,25 @@ export function linePoints(target: number, placed: number, max: number): 0 | 1 |
   const e = Math.abs(target - placed) / max;
   return e <= 0.02 ? 3 : e <= 0.05 ? 2 : e <= 0.1 ? 1 : 0;
 }
+/** Where a tap or the keyboard can put a number: on whole numbers, or on tens at level 5 (0 to 1000). */
+export const lineSnap = (level: number) => (level === 5 ? 10 : 1);
+/** Number Line Hop by keyboard, as a slider: where a key moves the marker (Left/Down and Right/Up one step,
+ *  Page Down and Page Up ten, Home and End to the ends), 'place' for Enter or Space (once, for a held key),
+ *  or null for a key the line leaves to the browser (others, and any with Ctrl, Alt or Cmd). */
+export function lineKey(e: { key: string; repeat?: boolean; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean }, at: number, max: number, snap: number): number | 'place' | null {
+  if (e.altKey || e.ctrlKey || e.metaKey) return null;
+  const to = (v: number) => Math.max(0, Math.min(max, v));
+  switch (e.key) {
+    case 'ArrowLeft': case 'ArrowDown': return to(at - snap);
+    case 'ArrowRight': case 'ArrowUp': return to(at + snap);
+    case 'PageDown': return to(at - 10 * snap);
+    case 'PageUp': return to(at + 10 * snap);
+    case 'Home': return 0;
+    case 'End': return max;
+    case 'Enter': case ' ': return e.repeat ? at : 'place';
+  }
+  return null;
+}
 
 /** Make Ten Bubbles: the number to make, and a fresh pair that makes it. */
 export const bondTarget = (level: number) => [5, 10, 20, 100, 100][Math.max(0, Math.min(4, level - 1))];
