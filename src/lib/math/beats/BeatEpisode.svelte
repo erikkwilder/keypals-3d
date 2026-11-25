@@ -21,6 +21,7 @@
   import { padKey } from '../ui/numPadKeys';
   import SpeechDock from '../ui/SpeechDock.svelte';
   import PauseButton from '../../ui/PauseButton.svelte';
+  import { lessonPause } from '../ui/lessonPause';
   import { placeName } from '../../nav';
   import Confetti from '../../ui/Confetti.svelte';
   import Icon from '../../ui/Icon.svelte';
@@ -38,7 +39,9 @@
   const L = lesson, place = SETS[L.set], buddy = game.profile!.buddy;
   const CLEAR: Board = { cell: 48, dots: [], frames: [], plates: [], line: null, tags: [] };
   const DOCK_H = { wide: 92, narrow: 74 };
-  const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+  /** Pause stops the lesson right then, and Keep going carries it on from there (ui/lessonPause.ts) */
+  const P = lessonPause();
+  const sleep = (ms: number) => P.sleep(ms);
 
   let sc = $state<EpisodeScene | null>(null);
   let world = $state<World | null>(null);
@@ -96,9 +99,10 @@
     },
     async hands(words, job, me) {
       ask = { kind: 'hands', words }; stuck = false; showMe = me; line = '';
-      const late = setTimeout(() => { stuck = true; }, 12000);
+      let late = true;
+      void sleep(12000).then(() => { if (late) stuck = true; });
       await live(job());
-      clearTimeout(late);
+      late = false;
       ask = null; stuck = false; showMe = null;
     },
     go(label) {
@@ -137,7 +141,7 @@
     if (e.key === 'Escape') return mine(pauseHere);
   }
   const backLabel = embedded ? 'my trip' : game.screen === 'learn' ? (game.from ? placeName(game.from) : 'Home') : placeName(game.here());
-  function pauseHere() { if (!game.pause) game.openPause(() => {}, { name: backLabel, go: leave }); }
+  function pauseHere() { if (!game.pause) { P.hold(); game.openPause(P.carryOn, { name: backLabel, go: leave }); } }
   function leave() { sfx.click(); onclose(); }
   function home() { sfx.click(); game.learnId = null; game.learnOverlay = null; game.go('hub'); }
 
@@ -265,7 +269,7 @@
       letGoWords = keepWords(wd.words ?? []);
       await wd.load();
       if (gone) { s.dispose(); return; }
-      ctl = { fps: 60, update: (dt, t) => { s.update(dt, t); wd.update(dt, t); }, focus: () => s.focus(), dispose: () => {} };
+      ctl = { fps: 60, update: (dt, t) => { const [d, lt] = P.clock(dt, t); s.update(d, lt); wd.update(d, lt); }, focus: () => s.focus(), dispose: () => {} };
       before = stage.swap(ctl); s.enter();
       if (import.meta.env.DEV) (window as unknown as { __beat: object }).__beat = { sc: s, world: wd, ask: () => ask, phase: () => phase, typed: (v: string) => { typed = v; send(); }, tap, primary, line: () => line, thoughts: () => thoughts, showMe: () => showMe?.() };
       if (import.meta.env.DEV) void import('../../../dev/labelOverlap').then(m => { (window as unknown as { __labels: unknown }).__labels = m.labelOverlaps; });
@@ -289,7 +293,7 @@
   onDestroy(() => {
     cancelAnimationFrame(settling);
     gone = true;
-    hush(); unquiet(); letGo(); letGoWords();
+    P.end(); hush(); unquiet(); letGo(); letGoWords();
     removeEventListener('keydown', onKey, true);
     if (sc) { const s = sc; sc = null; world?.dispose(); world = null; if (stage.current() === ctl) stage.swap(before); s.dispose(); }
   });
@@ -333,7 +337,7 @@
   {/if}
 
   <div class="top">
-    <PauseButton esc={false} back={{ name: backLabel, go: leave }} />
+    <PauseButton esc={false} onpause={P.hold} onresume={P.carryOn} back={{ name: backLabel, go: leave }} />
     {#if check}
       <div class="prog checkhead"><Icon name="bulb" size={22} /> Quick check: {L.title}</div>
     {:else}

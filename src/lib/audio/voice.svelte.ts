@@ -20,6 +20,9 @@ const missing = new Set<string>();
  *  so a Learn that is waiting for the line just waits */
 let startLine: (() => void) | null = null;
 let held: (() => void) | null = null;
+/** a lesson is paused (holdVoice): the line stands still where it is, and nothing new speaks until Keep going */
+let still = false;
+let stilled: (() => void) | null = null;
 onPageAway({
   away() { if (audio && !audio.paused && !audio.ended) { audio.pause(); held = startLine; } },
   back() { const go = held; held = null; go?.(); },
@@ -33,13 +36,15 @@ function allowed(line: Line) {
 
 function stopAll() {
   if (audio) { audio.onended = null; audio.pause(); audio = null; }
-  held = null;
+  held = null; stilled = null;
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
 }
 
 /** No clip: leave the caption up long enough to read it, then carry on. */
 function readInstead(line: Line, onEnd: () => void) {
-  setTimeout(onEnd, Math.max(1800, line.text.length * 60));
+  // (it doesn't run out while a lesson is paused)
+  const go = () => { if (still) setTimeout(go, 250); else onEnd(); };
+  setTimeout(go, Math.max(1800, line.text.length * 60));
 }
 
 /** Speak a line by id. Returns a promise that resolves when it finishes (or is skipped). */
@@ -74,7 +79,7 @@ export function say(id: string, opts: { important?: boolean; caption?: boolean }
     // play() also fails when a newer line cuts this one off before it starts (clicking quickly), or
     // before the page has been tapped: neither means the clip is missing, so nothing else speaks
     startLine = () => { a.play().catch(() => { if (audio === a) readInstead(line, done); else resolve(); }); };
-    if (pageAway()) held = startLine; else startLine();
+    if (still) stilled = startLine; else if (pageAway()) held = startLine; else startLine();
   });
 }
 
@@ -82,11 +87,32 @@ export function say(id: string, opts: { important?: boolean; caption?: boolean }
  *  `ms` at most. A lesson's next line waits for it, so the last number counted is never cut off. */
 export function wordDone(ms = 1000): Promise<void> {
   const a = audio;
-  if (!a || important || a.paused || a.ended) return Promise.resolve();
+  if (!a || important || a.ended || (a.paused && !still)) return Promise.resolve();
   return new Promise(r => {
-    const t = setTimeout(r, ms);
+    // (while a lesson is paused the word waits with it, and is heard out after Keep going)
+    const arm = (): ReturnType<typeof setTimeout> => setTimeout(() => { if (still) t = arm(); else r(); }, ms);
+    let t = arm();
     a.addEventListener('ended', () => { clearTimeout(t); r(); }, { once: true });
   });
+}
+
+/** A lesson's Pause (math/ui/lessonPause.ts): the line playing stops where it is, mid-word, and nothing new speaks
+ *  until resumeVoice, which carries it on from that point. Erik, 2026-11-25: "If I pause the lesson, I want it to
+ *  actually pause right then. And then when I say keep going, to have it start talking again where it left off." */
+export function holdVoice() {
+  if (still) return;
+  still = true;
+  if (audio && !audio.paused && !audio.ended) { audio.pause(); stilled = startLine; }
+  // (put away at the same moment: it carries on at Keep going, not when the page comes back)
+  else if (held) { stilled = held; held = null; }
+}
+/** Keep going: the held line carries on from where it stopped (or, `carryOn` false, as the lesson is left, it's
+ *  let go without a sound) */
+export function resumeVoice(carryOn = true) {
+  if (!still) return;
+  still = false;
+  const go = stilled; stilled = null;
+  if (go && carryOn) { if (pageAway()) held = go; else go(); }
 }
 
 const offline = () => typeof navigator !== 'undefined' && navigator.onLine === false;

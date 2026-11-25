@@ -29,6 +29,7 @@
   import Frac from '../skills/ui/Frac.svelte';
   import FractionPad from '../skills/ui/FractionPad.svelte';
   import PauseButton from '../../ui/PauseButton.svelte';
+  import { lessonPause } from './lessonPause';
   import { placeName } from '../../nav';
   import SpeechDock from './SpeechDock.svelte';
   import Confetti from '../../ui/Confetti.svelte';
@@ -55,13 +56,17 @@
   const starId = !named && team[0] ? team[0].id : placeStar;
   const pal = GLIMMER[starId];
   const cardWords = lineText(`ep.${voiceId}.card`).replace(/^You won the .*? card! /, '');
-  const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+  /** Pause stops the lesson right then, and Keep going carries it on from there (ui/lessonPause.ts) */
+  const P = lessonPause();
+  const sleep = (ms: number) => P.sleep(ms);
   const CLEAR: Board = { cell: 48, dots: [], frames: [], plates: [], line: null, tags: [] };
   /** room kept for the speech band (SpeechDock) under the top bar */
   const DOCK_H = { wide: 92, narrow: 74 };
 
   let sc = $state<EpisodeScene | null>(null);
   let before: Controller | null = null;
+  /** the scene, on the lesson's clock (it stands still while the lesson is paused) */
+  let ctl: Controller | null = null;
   let gone = false;
   /** every new part of the story bumps this; anything still waiting from an older part stops */
   let run = 0;
@@ -163,13 +168,14 @@
       if (r !== run) return;
     } else {
       s.shot('board');
-      const late = setTimeout(() => { if (r === run) stuck = true; }, 12000);
+      let late = true;
+      void sleep(12000).then(() => { if (late && r === run) stuck = true; });
       const done = s.arm(t, next);
       left = s.left;
       void speak(`ep.${voiceId}.s${n}`);
       s.present();
       await done;
-      clearTimeout(late); stuck = false;
+      late = false; stuck = false;
       if (r !== run) return;
       s.show(next); shown = next;
       s.shot('wide');
@@ -321,7 +327,7 @@
   function home() { sfx.click(); game.learnId = null; game.learnOverlay = null; game.go('hub'); }
   // the one Pause button (its card: Keep going, Back to where this was opened, Home); Esc opens it too
   const backLabel = embedded ? 'my trip' : game.screen === 'learn' ? (game.from ? placeName(game.from) : 'Home') : placeName(game.here());
-  function pauseHere() { if (!game.pause) game.openPause(() => {}, { name: backLabel, go: leave }); }
+  function pauseHere() { if (!game.pause) { P.hold(); game.openPause(P.carryOn, { name: backLabel, go: leave }); } }
 
   /** Enter does the obvious next thing. */
   function primary() {
@@ -390,7 +396,8 @@
     const own = advView(game.profile!).glimmers[starId];
     void EpisodeScene.create({ setId: lesson.set, buddy, star: starId, evolved: !!own?.evolved, frac: !lesson.cover }).then(async s => {
       if (gone) { s.dispose(); return; }
-      before = stage.swap(s); s.enter();
+      ctl = { fps: s.fps, update: (dt, t) => { const [d, lt] = P.clock(dt, t); s.update(d, lt); }, focus: () => s.focus(), dispose: () => {} };
+      before = stage.swap(ctl); s.enter();
       if (import.meta.env.DEV) (window as unknown as { __ep: EpisodeScene }).__ep = s;
       // for checking the episodes: where the story is, the answers, and its own Enter and fix
       if (import.meta.env.DEV) (window as unknown as { __epUi: object }).__epUi = { phase: () => phase, sub: () => tsub, done: () => stepDone, step: () => i, primary, fix: () => pickFix(right), solve: () => { if (!locked) { typed = ans; answer(); } } };
@@ -403,9 +410,9 @@
   });
   onDestroy(() => {
     gone = true; run++;
-    hush(); unquiet(); letGo();
+    P.end(); hush(); unquiet(); letGo();
     removeEventListener('keydown', onKey, true);
-    if (sc) { const s = sc; sc = null; if (stage.current() === s) stage.swap(before); s.dispose(); }
+    if (sc) { const s = sc; sc = null; if (stage.current() === ctl) stage.swap(before); s.dispose(); }
   });
 
   /** the words on the table: while a label task waits, only the ones tapped open so far */
@@ -457,7 +464,7 @@
 
   <!-- the top: close, progress, and the coach telling the story -->
   <div class="top">
-    <PauseButton esc={false} back={{ name: backLabel, go: leave }} />
+    <PauseButton esc={false} onpause={P.hold} onresume={P.carryOn} back={{ name: backLabel, go: leave }} />
     {#if check}
       <div class="prog checkhead"><Icon name="bulb" size={22} /> Quick check: {lesson.title}</div>
     {:else}

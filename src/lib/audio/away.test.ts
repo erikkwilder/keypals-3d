@@ -178,3 +178,57 @@ describe('put away, the game goes quiet', () => {
     expect(music().paused).toBe(false);
   });
 });
+
+// A lesson's Pause (math/ui/lessonPause.ts): the narrator stops right then, mid-word, and Keep going carries the same
+// clip on from where it stopped. Erik, 2026-11-25: "If I pause the lesson, I want it to actually pause right then."
+describe("a lesson's Pause stills the narrator", () => {
+  it('the line stops at once, waits as long as the card is up, and carries on from the same point', async () => {
+    let done = false;
+    void voice.say(line).then(() => (done = true));
+    const a = els.at(-1)!;
+    a.currentTime = 1.7;
+    expect(a.paused).toBe(false);
+    voice.holdVoice();
+    expect(a.paused).toBe(true);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(done).toBe(false);
+    voice.resumeVoice();
+    expect(els.at(-1)).toBe(a); // the same clip, not a new one from the start
+    expect([a.paused, a.currentTime]).toEqual([false, 1.7]);
+    a.onended?.();
+    await settle();
+    expect(done).toBe(true);
+  });
+  it('nothing new speaks while it is paused: a line asked for then starts at Keep going', async () => {
+    voice.holdVoice();
+    void voice.say(line);
+    const a = els.at(-1)!;
+    expect(a.paused).toBe(true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(a.paused).toBe(true);
+    voice.resumeVoice();
+    expect(a.paused).toBe(false);
+    voice.hush();
+  });
+  it('put away while paused: coming back keeps it paused, Keep going carries it on', async () => {
+    void voice.say(line);
+    const a = els.at(-1)!;
+    voice.holdVoice();
+    hide(); show();
+    expect(a.paused).toBe(true);
+    voice.resumeVoice();
+    expect(a.paused).toBe(false);
+    voice.hush();
+  });
+  it('a lesson left from the Pause card lets its line go without a sound', async () => {
+    void voice.say(line);
+    const a = els.at(-1)!;
+    voice.holdVoice();
+    voice.resumeVoice(false);
+    expect(a.paused).toBe(true);
+    // and the next thing said is heard again
+    void voice.say(line);
+    expect(els.at(-1)!.paused).toBe(false);
+    voice.hush();
+  });
+});

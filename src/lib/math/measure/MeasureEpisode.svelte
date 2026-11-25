@@ -37,6 +37,7 @@
   import NumPad from '../ui/NumPad.svelte';
   import { padKey } from '../ui/numPadKeys';
   import PauseButton from '../../ui/PauseButton.svelte';
+  import { lessonPause } from '../ui/lessonPause';
   import { placeName } from '../../nav';
   import SpeechDock from '../ui/SpeechDock.svelte';
   import Confetti from '../../ui/Confetti.svelte';
@@ -57,7 +58,9 @@
   const buddy = game.profile!.buddy;
   const pal = GLIMMER[L.star];
   const cardWords = L.card.replace(/^You won the .*? card! /, '');
-  const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+  /** Pause stops the lesson right then, and Keep going carries it on from there (ui/lessonPause.ts) */
+  const P = lessonPause();
+  const sleep = (ms: number) => P.sleep(ms);
   const CLEAR: Board = { cell: 48, dots: [], frames: [], plates: [], line: null, tags: [] };
 
   let sc = $state<EpisodeScene | null>(null);
@@ -151,13 +154,14 @@
       if (r !== run) return;
     } else {
       s.shot('board');
-      const late = setTimeout(() => { if (r === run) stuck = true; }, 12000);
+      let late = true;
+      void sleep(12000).then(() => { if (late && r === run) stuck = true; });
       const done = kt.arm(st.do);
       left = kt.left;
       void speak(`ep.${L.id}.s${n}`);
       s.present();
       await done;
-      clearTimeout(late); stuck = false;
+      late = false; stuck = false;
       if (r !== run) return;
       s.shot('wide');
       s.cheer(); s.palDo('happy'); s.burst(kt.overPoint(), 0.7);
@@ -300,7 +304,7 @@
   function home() { sfx.click(); game.learnOverlay = null; game.learnCheck = false; game.go('hub'); }
   // the one Pause button (its card: Keep going, Back to the page under it, Home); Esc opens it too
   const backLabel = game.screen === 'learn' ? (game.from ? placeName(game.from) : 'Home') : placeName(game.here());
-  function pauseHere() { if (!game.pause) game.openPause(() => {}, { name: backLabel, go: leave }); }
+  function pauseHere() { if (!game.pause) { P.hold(); game.openPause(P.carryOn, { name: backLabel, go: leave }); } }
 
   function primary() {
     if (phase === 'intro') { ++run; playStep(0); }
@@ -365,7 +369,7 @@
       const kt = new MeasureKit(s);
       await kt.load();
       if (gone) { s.dispose(); return; }
-      ctl = { fps: 60, update: (dt, t) => { s.update(dt, t); kt.update(dt, t); }, focus: () => s.focus(), dispose: () => {} };
+      ctl = { fps: 60, update: (dt, t) => { const [d, lt] = P.clock(dt, t); s.update(d, lt); kt.update(d, lt); }, focus: () => s.focus(), dispose: () => {} };
       before = stage.swap(ctl); s.enter();
       if (import.meta.env.DEV) (window as unknown as { __mep: { sc: EpisodeScene; kit: MeasureKit } }).__mep = { sc: s, kit: kt };
       // for checking the episodes: where the story is, its own Enter, the fix and the answer
@@ -380,7 +384,7 @@
   });
   onDestroy(() => {
     gone = true; run++;
-    hush(); unquiet(); letGo();
+    P.end(); hush(); unquiet(); letGo();
     removeEventListener('keydown', onKey, true);
     if (sc) { const s = sc; sc = null; kit?.dispose(); kit = null; if (stage.current() === ctl) stage.swap(before); s.dispose(); }
   });
@@ -419,7 +423,7 @@
   {/if}
 
   <div class="top">
-    <PauseButton esc={false} back={{ name: backLabel, go: leave }} />
+    <PauseButton esc={false} onpause={P.hold} onresume={P.carryOn} back={{ name: backLabel, go: leave }} />
     {#if check}
       <div class="prog checkhead"><Icon name="bulb" size={22} /> Quick check: {L.title}</div>
     {:else}
