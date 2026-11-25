@@ -255,6 +255,7 @@ describe('the ray, the double number line, the protractor, the shapes, the table
   it('a shape says what it is where it has a name, and whether it is picked', () => {
     const s = src('../shapes/ui/ShapePick.svelte');
     expect(s).toContain('aria-pressed={picked.has(i)} aria-label={named(f, i)}');
+    expect(s).toContain('.polys?.find(q => q.name)?.name');
     expect(s).toContain('return n ? `Shape ${i + 1}: ${n}` : `Shape ${i + 1}`;');
   });
   it('the ratio table and the balance read out what is typed, and the balance\'s buttons work by keyboard', () => {

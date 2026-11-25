@@ -31,7 +31,8 @@
   }
   const cell = $derived(compact ? (spec.figs.length > 6 ? 62 : 72) : spec.figs.length > 6 ? 92 : 108);
   /** what a screen reader calls a shape: its place, and its name where it has one */
-  const named = (f: Fig, i: number) => { const n = (f as { name?: string }).name; return n ? `Shape ${i + 1}: ${n}` : `Shape ${i + 1}`; };
+  // (a tray's shape keeps its name on its piece: polys[].name, "a square")
+  const named = (f: Fig, i: number) => { const n = (f as { name?: string }).name ?? (f as { polys?: { name?: string }[] }).polys?.find(q => q.name)?.name; return n ? `Shape ${i + 1}: ${n}` : `Shape ${i + 1}`; };
 </script>
 
 <svelte:window onkeydown={key} />
