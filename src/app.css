@@ -96,6 +96,10 @@ input, textarea, select { font: inherit; user-select: text; -webkit-user-select:
 /* the same ring on everything else the keyboard reaches (Chrome's own is 1 px, thin on the pastel backgrounds).
    Inside :where(), so it counts for nothing and a component's own focus style still wins. */
 :where(button, a[href], input, select, textarea, summary, [tabindex]:not([tabindex='-1'])):where(:focus-visible) { outline: 3px solid var(--primary-edge); outline-offset: 3px; }
+/* a heading focus was put on when what had it went away (a screen or a step changed, ui/focusKeeper.ts): the ring
+   only when a key brought it there, never after a tap or a click */
+[data-landed]:focus { outline: none; }
+[data-landed='key']:focus { outline: 3px solid var(--primary-edge); outline-offset: 4px; border-radius: 6px; }
 .btn-primary { background: linear-gradient(var(--primary-hi), var(--primary)); color: #fff; box-shadow: 0 5px 0 var(--primary-edge), var(--shadow-sm); }
 :root[data-look='ink'] .btn-primary { color: #2a1b3d; }
 .btn-primary:active { box-shadow: 0 1px 0 var(--primary-edge); }
