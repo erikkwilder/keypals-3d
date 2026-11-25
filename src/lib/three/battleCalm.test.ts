@@ -76,3 +76,26 @@ describe('a battle with less motion: the buddy, the Grumble and the team hold th
     expect(src('./glimmerModel.ts')).toContain("get busy() { return this.move !== 'idle' || !!this.anim?.acting; }");
   });
 });
+
+describe('a battle with less motion: the camera', () => {
+  const cam = body(battle, '  private camera(dt: number) {');
+  it("its slow sway round the arena goes by the decorative clock, as the title's does, so with less motion it holds", () => {
+    expect(cam).toContain('const sway = Math.sin(stage.decorT * 0.25) * 0.12;');
+    expect(update).toContain('this.camera(dt);');
+  });
+
+  it('with less motion the last of its ease lands, so it stands still at once; its moves for something ease as ever', () => {
+    expect(cam).toContain('easeTo(this.camPos, wantPos, k, calm.on); easeTo(this.camAim, aim, k, calm.on);');
+    expect(cam).not.toContain('.lerp(wantPos, k)');
+    // the push in on a cast, close on the buddy for the Finale, onto the new Glimmer: as before
+    expect(battle).toContain("this.shot = 'push'; this.shotUntil = this.now + 1.1;");
+    expect(battle).toContain("this.shot = 'buddy'; this.shotUntil = this.now + 3.2;");
+    expect(battle).toContain("this.shot = 'reveal'; this.shotUntil = this.now + 99;");
+    // (and no shake with less motion, from before)
+    expect(cam).toContain('shakeOf(this.shake)');
+  });
+
+  it('nothing in the battle sways by its own clock any more: every sway goes by the decorative clock', () => {
+    expect(battle).not.toMatch(/Math\.sin\(t \*/);
+  });
+});

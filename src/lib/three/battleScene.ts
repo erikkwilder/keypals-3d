@@ -6,7 +6,7 @@
 // buddy, faint while the quick question is up, solid when it's answered; the counterattack bangs into it
 // and gets knocked back at the Grumble. Missed, it flies straight at the buddy, who gets knocked back.
 import * as THREE from 'three';
-import { calm, HeldClock, IdleHold, shakeOf } from './calm';
+import { calm, easeTo, HeldClock, IdleHold, shakeOf } from './calm';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
 import { dressUp } from './dress';
@@ -532,7 +532,7 @@ export class BattleScene implements Controller {
     this.moteT -= dt;
     if (this.moteT < 0) { this.moteT = 0.12; this.fx.emit({ steady: true, at: this.C.clone().add(new THREE.Vector3(0, 0.4, 0)), count: 1, shape: 'dot', color: [0xfff2b0, 0xffffff, 0xcfe8ff], speed: [0.1, 0.3], up: 3, radius: 3.2, life: [3, 5], size: [0.05, 0.1], drag: 0.2, gravity: -0.05 }); }
     this.fx.update(dt, t);
-    this.camera(dt, t);
+    this.camera(dt);
   }
 
   /** `dT`: the decorative clock (the waiting shield's breathing goes by it, so with less motion it stands still) */
@@ -562,7 +562,7 @@ export class BattleScene implements Controller {
     this.shield.traverse(o => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m && m !== this.shieldFace && m !== this.shieldGlow) { m.transparent = true; m.opacity = Math.min(1, this.shieldK * 1.6); } });
   }
 
-  private camera(dt: number, t: number) {
+  private camera(dt: number) {
     const cam = stage.camera, v = this.view, tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
     const bandW = Math.max(0.2, v.right - v.left), bandH = Math.max(0.2, v.bottom - v.top);
     if (this.shot !== 'wide' && this.shot !== 'reveal' && this.now > this.shotUntil) this.shot = 'wide';
@@ -577,7 +577,9 @@ export class BattleScene implements Controller {
     else if (this.compact && this.shot !== 'buddy') span *= 0.7;
     // fit the span across the band's width, and the height (about span/2.4) into its height
     const d = Math.max(span / (bandW * 2 * tanH * cam.aspect), (span / 2.2) / (bandH * 2 * tanH));
-    const sway = Math.sin(t * 0.25) * 0.12;
+    // a slow sway round the arena, for its own sake: it goes by the decorative clock (the stage's time, standing
+    // still with less motion), as the title's does, so with less motion the camera holds where it is
+    const sway = Math.sin(stage.decorT * 0.25) * 0.12;
     const dir = this.n.clone().applyAxisAngle(UP, sway - 0.08);
     const wantPos = focus.clone().addScaledVector(dir, d).add(new THREE.Vector3(0, d * 0.2 + 0.25, 0));
     const aim = focus.clone();
@@ -587,7 +589,9 @@ export class BattleScene implements Controller {
     void high;
     if (!this.camReady) { this.camPos.copy(wantPos); this.camAim.copy(aim); this.camReady = true; }
     const k = 1 - Math.exp(-dt * (this.shot === 'wide' ? 2.5 : 3.5));
-    this.camPos.lerp(wantPos, k); this.camAim.lerp(aim, k);
+    // (with less motion the last of an ease lands, so it stands still at once; its moves for something, the push
+    // in on a cast, close on the buddy for the Finale, onto the new Glimmer, ease as ever)
+    easeTo(this.camPos, wantPos, k, calm.on); easeTo(this.camAim, aim, k, calm.on);
     cam.position.copy(this.camPos);
     if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 1.4); cam.position.x += (Math.random() - 0.5) * shakeOf(this.shake) * 0.25; cam.position.y += (Math.random() - 0.5) * shakeOf(this.shake) * 0.2; }
     cam.lookAt(this.camAim);
