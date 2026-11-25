@@ -60,7 +60,8 @@
   }
   function back() { if (!busy && !unlocked) typed = typed.slice(0, -1); }
   function check() {
-    if (!fact || !scene || unlocked) return;
+    // (busy: a wrong answer is still showing; an Enter then mustn't check the same digits again)
+    if (!fact || !scene || unlocked || busy) return;
     const ans = answerOf(fact), ok = Number(typed) === ans, think = performance.now() - shownAt;
     hud.answer(fact, ok, think);
     feedback = ok ? 'right' : 'wrong';

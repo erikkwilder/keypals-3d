@@ -132,7 +132,8 @@
   }
   function back() { if (!solved) { bad = false; typed = typed.slice(0, -1); } }
   function submit() {
-    if (phase !== 'play' || !z || solved || !typed) return;
+    // (bad: a wrong answer is still showing; an Enter then mustn't count it as a second try)
+    if (phase !== 'play' || !z || solved || !typed || bad) return;
     const ok = Number(typed) === z.ans, ms = performance.now() - zAt;
     if (!tries) answers.push({ key: z.key, ok, thinkMs: ms, rung: z.rung });
     if (ok) {
