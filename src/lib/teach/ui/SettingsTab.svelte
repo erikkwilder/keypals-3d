@@ -53,7 +53,11 @@
 
 <div class="tp">
   <h3>How students sign in</h3>
-  <p class="muted">Every student can log in with the class code and their two pictures. Students with a school Google account can also tap "Sign in with Google", type the class code once, and from then on Google takes them straight in, on any computer. We keep only a coded copy of their Google account's id and their first name: never their email.{#if googleOnes} {googleOnes} student{googleOnes === 1 ? ' signs' : 's sign'} in with Google now.{/if}</p>
+  {#if set.google === 'off'}
+    <p class="muted">Students log in with the class code, then tap their name and their two pictures. Google sign-in is off for this class.</p>
+  {:else}
+  <p class="muted">Every student can log in with the class code and their two pictures. Students with a school Google account can also tap "Sign in with Google", type the class code once, and from then on Google takes them straight in, on any computer. We keep only a coded copy of their Google account's id and their first name: never their email.{#if googleOnes}{' '}{googleOnes} student{googleOnes === 1 ? ' signs' : 's sign'} in with Google now.{/if}</p>
+  {/if}
   <label class="chk"><input type="checkbox" checked={set.google !== 'off'} onchange={(e) => act(() => saveSettings({ google: e.currentTarget.checked ? 'on' : 'off' }), 'Saved.')} /> Students can sign in with Google</label>
   {#if set.google !== 'off'}
     <div class="row dom">
