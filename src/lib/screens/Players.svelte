@@ -70,7 +70,7 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; width: min(1000px, 100%); }
   .pcard { display: flex; flex-direction: column; align-items: center; padding: 18px 14px 16px; cursor: pointer; transition: transform .15s; animation: fade-up .35s ease both; font: inherit; color: inherit; }
   .pcard:hover { transform: translateY(-4px) rotate(-1deg); }
-  .pcard:focus-visible { outline: 3px solid var(--primary-hi); outline-offset: 3px; }
+  .pcard:focus-visible { outline: 3px solid var(--primary-edge); outline-offset: 3px; }
   .name { font: 600 24px/1.1 var(--font-ui); margin-top: 6px; }
   .meta { display: flex; gap: 10px; align-items: center; margin-top: 8px; font: 700 14px var(--font-body); color: var(--muted); flex-wrap: wrap; justify-content: center; }
   .star { color: var(--star-edge); }

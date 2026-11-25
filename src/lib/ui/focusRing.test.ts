@@ -23,6 +23,14 @@ describe('the focus ring', () => {
     expect(edges.length).toBe(4); // the default look, ink, paper and geo
     for (const e of edges) expect(1.05 / (lum(e) + 0.05), e).toBeGreaterThanOrEqual(3);
   });
+  it('no component draws its own ring in the light colour (the home tiles, Google sign-in and others did)', async () => {
+    const { readdirSync } = await import('node:fs');
+    const root = new URL('../../', import.meta.url);
+    const files = (readdirSync(root, { recursive: true }) as string[]).filter(f => f.endsWith('.svelte'));
+    expect(files.length).toBeGreaterThan(100);
+    const light = files.filter(f => /focus-visible[^}]*--primary-hi/.test(readFileSync(new URL(f, root), 'utf8')));
+    expect(light).toEqual([]);
+  });
   it('counts for nothing (all of it inside :where), so a component\'s own focus style still wins', () => {
     const line = css.split('\n').find(l => l.includes(':where(:focus-visible)'))!;
     const selector = line.slice(0, line.indexOf(' {'));
