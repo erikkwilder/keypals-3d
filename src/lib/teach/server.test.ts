@@ -408,3 +408,46 @@ describe('privacy: what is kept and sent about a child', () => {
     expect(Object.keys(JSON.parse(String(env.DB.rows('players')[0].data))).sort()).toEqual(['buddy', 'createdAt', 'name', 'settings']);
   });
 });
+
+// ---------- pupils signing in with a school Google account (the test sign-in stands in for Google) ----------
+describe('pupils signing in with Google', () => {
+  /** back from Google as `name`: the one-time ticket the server sends the browser back with */
+  async function google(name: string, sub = `g-${name.trim().toLowerCase()}`): Promise<string> {
+    const r = await call('GET', `/class/google/dev?name=${encodeURIComponent(name)}&sub=${encodeURIComponent(sub)}`);
+    expect(r.status).toBe(302);
+    return new URL(r.headers.get('location')!).hash.replace('#classgoogle=', '');
+  }
+  const join = (ticket: string, code: string, more: Record<string, unknown> = {}) => call('POST', '/class/google/join', { ticket, code, ...more });
+  const listed = async (code: string) => (await call('GET', `/class/${code}`)).json.students.map((s: { name: string }) => s.name).sort();
+  const already = (name: string) => `There's already a ${name} in this class. If that's you, tap your name and then your two pictures. If it isn't, ask your teacher to add you.`;
+  const openToAnyAccount = async (t: string, id: string) => expect((await call('PATCH', `/teach/classes/${id}`, { settings: { google: 'on', domain: '' } }, { cookie: t })).status).toBe(200);
+
+  it("a first name the list has already isn't added again: she's told to tap her name and pictures, and that works", async () => {
+    const t = await teacher();
+    const c = await classWith(t, 'Maria\nSam');
+    const maria = c.students.find(s => s.name === 'Maria')!;
+    const ticket = await google('maria'); // Google's "maria" is the list's Maria: case doesn't matter
+    const r = await join(ticket, c.code);
+    expect([r.status, r.json.error, r.json.code]).toEqual([409, already('Maria'), undefined]);
+    expect((await join(await google('SAM', 'g-sam-2'), c.code)).json.error).toBe(already('Sam'));
+    expect(await listed(c.code)).toEqual(['Maria', 'Sam']);
+    // the same sign-in, then her name and her two pictures: she is the list's Maria
+    const linked = await join(ticket, c.code, { student: maria.id, pics: maria.pics });
+    expect([linked.status, linked.json.status, linked.json.name]).toEqual([200, 'in', 'Maria']);
+    // a name the class hasn't got joins as before
+    const leo = await join(await google('Leo'), c.code);
+    expect([leo.status, leo.json.name]).toEqual([200, 'Leo']);
+    expect(await listed(c.code)).toEqual(['Leo', 'Maria', 'Sam']);
+  });
+
+  it("a name waiting for the teacher's yes counts too (a class open to any Google account)", async () => {
+    const t = await teacher();
+    const c = await classWith(t, 'Maria');
+    await openToAnyAccount(t, c.id);
+    expect((await join(await google('Zoe'), c.code)).json.pending).toBe(true);
+    const other = await join(await google('zoe ', 'g-another-zoe'), c.code);
+    expect([other.status, other.json.error]).toEqual([409, already('Zoe')]);
+    const zoes = (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie: t })).json.students.filter((s: { name: string }) => s.name === 'Zoe');
+    expect(zoes.length).toBe(1);
+  });
+});

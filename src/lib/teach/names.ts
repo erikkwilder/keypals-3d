@@ -2,7 +2,7 @@
 // game, each with a one-word name a child can say), class codes as they're shown and printed, and
 // the made-up names on the world boards. The rules themselves (what a student's name may be, the lists
 // of words) are shared with the server: deploy/site/class-rules.js.
-import { ALIAS_ADJ, ALIAS_ANIMALS, PICTURE_COUNT } from '../../../deploy/site/class-rules.js';
+import { ALIAS_ADJ, ALIAS_ANIMALS, PICTURE_COUNT, sameStudentName } from '../../../deploy/site/class-rules.js';
 import { cleanCode } from '../state/codes';
 
 /** The picture password's pictures, by number. The numbers are saved with every student: never reorder
@@ -14,6 +14,10 @@ export const PICTURES: { id: string; name: string }[] = [
   { id: 'mushmouse', name: 'Mouse' }, { id: 'rainbootfrog', name: 'Frog' }, { id: 'cactuskit', name: 'Kitten' }, { id: 'stormlamb', name: 'Lamb' },
 ].slice(0, PICTURE_COUNT);
 export const pictureSrc = (i: number) => `${import.meta.env.BASE_URL}game/glimmers/face/${PICTURES[i]?.id ?? 'puddlepup'}.webp`;
+
+/** Two students' first names the same, as the server counts them (class-rules.js): any case, spaces at the
+ *  ends don't matter. */
+export const sameName = (a: string, b: string): boolean => sameStudentName(a, b);
 
 /** A class or challenge code to show: "fox pear 42". */
 export const showClassCode = (c: string) => c.toLowerCase().replaceAll('-', ' ');

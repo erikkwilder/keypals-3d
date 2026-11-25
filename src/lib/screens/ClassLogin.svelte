@@ -10,7 +10,7 @@
   import { classState, googleJoin, googleLogin, lookupClass, loginStudent, studentGoogle, studentGoogleDev, type ClassLook } from '../teach/student.svelte';
   import { cloud } from '../state/cloud.svelte';
   import { api } from '../teach/api';
-  import { cleanClassCode, showClassCode } from '../teach/names';
+  import { cleanClassCode, sameName, showClassCode } from '../teach/names';
   import Critter from '../ui/Critter.svelte';
   import Bar from '../ui/Bar.svelte';
   import PicturePick from '../ui/PicturePick.svelte';
@@ -31,6 +31,9 @@
   let msg = $state<string | null>(null);
   let shake = $state(0);
   let busy = $state(false);
+  /** back from Google with a first name the list has already: most likely her, so her name comes first
+   *  ("Is this you?") and "I'm new" waits below the list (the server won't add a second copy either) */
+  const mine = $derived(ticket && gname && look ? look.students.find(s => sameName(s.name, gname!)) ?? null : null);
 
   async function find() {
     msg = null; busy = true;
@@ -114,12 +117,17 @@
       {/if}
     {:else if step === 'name' && look}
       <h1>{look.class.name}</h1>
-      <p class="lead">{look.class.teacher}'s class. {ticket ? 'Is your name here? Tap it. New to the class? Tap "I\'m new".' : 'Tap your name.'}</p>
-      {#if ticket}
-        <div class="newme">
+      <p class="lead">{look.class.teacher}'s class.{mine ? '' : ticket ? ' Is your name here? Tap it. New to the class? Tap "I\'m new".' : ' Tap your name.'}</p>
+      {#snippet newMe(first: boolean)}
+        <div class="newme" class:below={!first}>
           {#if needName}<input bind:value={newName} maxlength="16" placeholder="Your first name" aria-label="Your first name" />{/if}
-          <button class="btn btn-primary btn-big" disabled={busy || (needName && !newName.trim())} onclick={joinNew}>I'm new{gname ? `: ${gname}` : ''}</button>
+          <button class="btn {first ? 'btn-primary btn-big' : ''}" disabled={busy || (needName && !newName.trim())} onclick={joinNew}>I'm new{gname ? `: ${gname}` : ''}</button>
         </div>
+      {/snippet}
+      {#if mine}
+        <p class="lead isyou">Is this you? Tap {mine.name}, then your two pictures.</p>
+      {:else if ticket}
+        {@render newMe(true)}
       {/if}
       <div class="names">
         {#each look.students as s (s.id)}
@@ -127,6 +135,7 @@
         {/each}
       </div>
       {#if !look.students.length}<p class="lead">Nobody is in this class yet. Ask your teacher.</p>{/if}
+      {#if mine}{@render newMe(false)}{/if}
     {:else if step === 'pics' && who}
       <h1>Hi {who.name}!</h1>
       <p class="lead">Tap your two pictures, in order.</p>
@@ -158,6 +167,8 @@
   .drow { display: flex; gap: 8px; margin-top: 6px; justify-content: center; flex-wrap: wrap; }
   .drow input, .newme input { font: 600 18px var(--font-body); padding: 8px 12px; border-radius: 12px; border: 2px solid #d9cdf7; }
   .newme { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 18px; }
+  .newme.below { margin: 22px 0 0; }
+  .isyou { color: var(--ink); }
   .msg { margin-top: 18px; font: 700 20px var(--font-body); color: #b4541b; background: #fff4e8; padding: 10px 18px; border-radius: 16px; }
   @media (max-width: 600px) {
     h1 { font-size: 32px; }

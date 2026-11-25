@@ -55,6 +55,12 @@ export function cleanStudentName(raw) {
   name = name.slice(0, 16);
   return name[0].toLocaleUpperCase() + name.slice(1);
 }
+/** Two students' names the same, as a class list counts them: after the cleaning above, in any case and
+ *  with any spaces at the ends ("maria " is Maria; "Maria L." isn't). The server and the game both ask this. */
+export function sameStudentName(a, b) {
+  const k = (x) => (cleanStudentName(x) ?? String(x ?? '')).trim().toLowerCase();
+  return !!k(a) && k(a) === k(b);
+}
 
 /** A pasted list of names (one a line, or separated by commas), cleaned, without repeats. */
 export function splitNames(text) {

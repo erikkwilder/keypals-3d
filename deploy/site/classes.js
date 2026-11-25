@@ -33,7 +33,7 @@
 // variable never set on the live site) AND the address is 127.0.0.1 or localhost. (&gmail=1: a plain
 // Gmail account; otherwise a school account.) Students have one too (/class/google/dev).
 
-import { CLASS_WORDS, MAX_CLASSES, MAX_STUDENTS, PICTURE_COUNT, START_BUDDIES, cleanClassName, cleanClassSettings, cleanStudentName, cleanTeacherName, cleanWeek, domainOk, googleDomain, inOrder, isAlias, isBuddyId, isDay, isWeek, splitNames, teacherStatusFor, worldScoreOk } from './class-rules.js';
+import { CLASS_WORDS, MAX_CLASSES, MAX_STUDENTS, PICTURE_COUNT, START_BUDDIES, cleanClassName, cleanClassSettings, cleanStudentName, cleanTeacherName, sameStudentName, cleanWeek, domainOk, googleDomain, inOrder, isAlias, isBuddyId, isDay, isWeek, splitNames, teacherStatusFor, worldScoreOk } from './class-rules.js';
 
 /** Tables for the weekly backup (worker.js backup): table and its key. The world boards aren't kept. */
 export const CLASS_TABLES = { teachers: 'account', classes: 'id', students: 'id', assignments: 'id', player_week: 'id', challenges: 'id', challenge_classes: 'id', teacher_status: 'account', class_settings: 'class', student_google: 'gid', account_domains: 'account' };
@@ -745,6 +745,11 @@ export async function classApi(request, env, url, path, h) {
       // so a stranger's Google account can't put itself on the list
       const name = t.name || cleanStudentName(body.name);
       if (!name) return h.json({ error: 'Type your first name.', needName: true }, 400);
+      // a name the class has already (on the list, or waiting for the teacher's yes) isn't added again: that's
+      // most likely her, who taps her name and her two pictures; anyone else the teacher adds. So the list
+      // never gets a second, empty copy of a child
+      const same = ((await DB.prepare("SELECT name FROM students WHERE class = ? AND status IN ('active', 'pending')").bind(c.id).all()).results ?? []).find(r => sameStudentName(r.name, name));
+      if (same) return h.json({ error: `There's already a ${same.name} in this class. If that's you, tap your name and then your two pictures. If it isn't, ask your teacher to add you.`, sameName: true }, 409);
       const status = set.domain ? 'active' : 'pending';
       const have = await DB.prepare(`SELECT COUNT(*) AS n FROM students WHERE class = ?${status === 'active' ? " AND status = 'active'" : ''}`).bind(c.id).first();
       if ((have?.n ?? 0) >= MAX_STUDENTS + (status === 'active' ? 0 : 10)) return h.fail(400, 'That class is full. Ask your teacher.');
