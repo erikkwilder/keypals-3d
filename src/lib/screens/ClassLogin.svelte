@@ -147,7 +147,7 @@
   .lead { font: 600 21px/1.35 var(--font-body); color: var(--ink2); margin: 0 0 22px; }
   .codef { display: flex; flex-direction: column; gap: 16px; align-items: center; width: min(520px, 100%); }
   .codef input { width: 100%; font: 600 34px var(--font-ui); text-align: center; padding: 16px; border-radius: 22px; border: 3px solid #d9cdf7; background: #fff; color: var(--ink); letter-spacing: .02em; }
-  .codef input:focus { outline: none; border-color: var(--primary-hi); box-shadow: 0 0 0 5px #ece4ff; }
+  .codef input:focus { border-color: var(--primary-hi); box-shadow: 0 0 0 5px #ece4ff; }
   .names { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; width: min(960px, 100%); }
   .nm { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px; cursor: pointer; font: 600 22px var(--font-ui); color: var(--ink); }
   .nm:hover { transform: translateY(-3px); }
