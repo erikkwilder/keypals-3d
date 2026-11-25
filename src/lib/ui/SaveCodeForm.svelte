@@ -39,7 +39,8 @@
       {/if}
     </div>
   {:else}
-    <button class="btn btn-ghost codebtn" onclick={() => (open = true)}>Already play on another computer?</button>
+    <!-- (a plain .btn, so it looks like a button: as btn-ghost it read as a line of text under the name box) -->
+    <button class="btn codebtn" onclick={() => (open = true)}>Already play on another computer?</button>
   {/if}
   {#if gate}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
