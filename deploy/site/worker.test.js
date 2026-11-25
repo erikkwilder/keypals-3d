@@ -99,6 +99,15 @@ describe('players follow the grown-up: the server side', () => {
     const late = await api(`/players/${made.json.code}`, { method: 'PUT', body: { profile: profile('Sam', { x: 2 }), updated: Date.now(), base: saved.json.updated } });
     expect([late.status, late.json.missing]).toEqual([404, true]);
   });
+
+  it('a save code typed with its number straight after the last word opens the player; nothing looser does', async () => {
+    const { api } = site();
+    const made = await api('/players', { method: 'POST', body: { profile: profile('Sam') } });
+    const [a, b, c, n] = made.json.code.toLowerCase().split('-');
+    const got = await api(`/players/${encodeURIComponent(`${a} ${b} ${c}${n}`)}`);
+    expect([got.status, got.json.code, got.json.profile?.name]).toEqual([200, made.json.code, 'Sam']);
+    expect((await api(`/players/${encodeURIComponent(`${a}${b}${c}${n}`)}`)).status).toBe(404);
+  });
 });
 
 describe('ideas and help', () => {

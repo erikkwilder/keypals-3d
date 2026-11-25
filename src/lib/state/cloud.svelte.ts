@@ -18,6 +18,7 @@ import { isClassLogin } from './classHere';
 import { planSync, goneNote, missingNote, notHereCodes, markNotHere, clearNotHere, localOnlyIds, markLocalOnly, clearLocalOnly, type Tombstone } from './sync';
 import { movedCodes, moveUrl } from './move';
 import { count, startCounting } from './counting';
+import { cleanCode } from './codes';
 
 export type CloudPlayer = { code: string; name: string; buddy: string; updated: number };
 export const cloud = $state({
@@ -75,8 +76,8 @@ export async function call<T = Record<string, unknown>>(path: string, init: Requ
   return body as T;
 }
 
-/** A save code as people might type it ("tiger moon rain 42") in the server's form. */
-export const cleanCode = (c: string) => c.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+/** A save code as people might type it ("tiger moon rain 42", "tiger moon rain42") in the server's form (codes.ts). */
+export { cleanCode };
 /** A save code to show or print: "tiger moon rain 42". */
 export const showCode = (c: string) => c.toLowerCase().replaceAll('-', ' ');
 const payload = (p: Profile) => { const { cloud: _c, ...rest } = $state.snapshot(p) as Profile; return rest; };
