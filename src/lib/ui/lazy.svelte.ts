@@ -2,6 +2,7 @@
 // title comes up after a small download, and each screen's code (its 3D scene, its games, its data)
 // follows when it opens. A piece that has loaded once is kept, so opening it again is instant.
 import type { Component } from 'svelte';
+import { reloadForUpdate } from './reloadOnce';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyComponent = Component<any>;
@@ -23,7 +24,9 @@ export function lazy(loader: Loader): Lazy {
   const load = () =>
     (p ??= loader().then(
       m => (c = m.default),
-      () => { failed = true; p = null; return null; },
+      // (most often the game was updated while this page was open: a fresh page gets the new code, so it
+      // reloads by itself when it can; reloadOnce.ts)
+      () => { failed = true; p = null; reloadForUpdate(); return null; },
     ));
   return {
     get c() { if (!c && !p && !failed) void load(); return c; },
