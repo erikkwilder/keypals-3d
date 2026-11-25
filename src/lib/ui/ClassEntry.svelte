@@ -20,4 +20,6 @@
   .cls img { width: 34px; height: 34px; object-fit: contain; margin: -6px 0; }
   .tlink { background: none; border: 0; font: 700 14px var(--font-body); color: var(--muted); text-decoration: underline; cursor: pointer; padding: 4px; }
   .tlink:hover { color: var(--primary); }
+  /* on a touch screen, tall enough for a finger (44 px; it was 27) */
+  @media (pointer: coarse) { .tlink { min-height: 44px; } }
 </style>

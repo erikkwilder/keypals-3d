@@ -62,6 +62,8 @@
   .tx p { margin: 0; font: 700 15.5px/1.35 var(--font-body); color: var(--ink2); }
   .mins { display: inline-block; border: 0; cursor: pointer; padding: 2px 10px; margin: 1px 0; border-radius: 999px; background: #fff3d6; box-shadow: inset 0 0 0 2px #ffd98f; font: inherit; color: #8a5a00; text-decoration: underline; text-underline-offset: 2px; transition: box-shadow .14s; }
   .mins:hover, .mins:focus-visible { box-shadow: inset 0 0 0 2px #f0a92e; }
+  /* on a touch screen, tall enough for a finger (44 px; it was 25): the pill grows, its words stay on the line */
+  @media (pointer: coarse) { .mins { min-height: 44px; } }
   .dots { display: flex; gap: 6px; margin-top: 2px; }
   .dots i { width: 16px; height: 16px; border-radius: 50%; background: #f1ecf8; box-shadow: inset 0 0 0 2px #e2d9f1; }
   .dots i.on { background: linear-gradient(#7fe0a8, #2fb36e); box-shadow: 0 2px 0 #23905a; }
