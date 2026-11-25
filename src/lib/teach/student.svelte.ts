@@ -150,19 +150,38 @@ export async function doneForToday(p: Profile, anyway = false): Promise<boolean>
 // ---------- this week's effort, for the boards ----------
 const sentAt: Record<string, number> = {};
 let timer: ReturnType<typeof setTimeout> | undefined;
-/** Send this week's right answers, minutes and stars (with the nickname and buddy, for the family board). */
-export async function reportWeek(p: Profile): Promise<void> {
+/** Send this week's right answers, minutes and stars (with the nickname and buddy, for the family board).
+ *  `keep`: the page is going away, so the request is made to outlive it (keepalive). */
+export async function reportWeek(p: Profile, keep = false): Promise<void> {
   if (!p.cloud || !cloud.online) return;
   const week = weekKey(Date.now()), w = weekStats(p, week);
   sentAt[p.cloud.code] = Date.now();
-  await send(`/class/week/${encodeURIComponent(p.cloud.code)}`, 'PUT', { week, right: w.right, ms: w.ms, stars: w.stars, name: p.name, buddy: p.buddy });
+  await api(`/class/week/${encodeURIComponent(p.cloud.code)}`, { method: 'PUT', body: JSON.stringify({ week, right: w.right, ms: w.ms, stars: w.stars, name: p.name, buddy: p.buddy }), keepalive: keep });
 }
+/** the player whose week is waiting to be sent (in the 8 s after an activity) */
+let waiting: string | null = null;
 function soon(id: string) {
   clearTimeout(timer);
+  waiting = id;
   timer = setTimeout(() => {
+    waiting = null;
     const p = game.save.profiles.find(x => x.id === id);
     if (p?.cloud && Date.now() - (sentAt[p.cloud.code] ?? 0) > 20000) void reportWeek(p).then(() => loadClasses(p, true)).catch(() => null);
   }, 8000);
+}
+/** The page is going away (closed, or hidden: a phone's home button, another tab) with a week still waiting: send
+ *  it now, with a request that outlives the page. A child who closes the game right after finishing used to show
+ *  on the boards only after her next activity. */
+export function sendWaitingWeek() {
+  if (!waiting) return;
+  const id = waiting;
+  waiting = null; clearTimeout(timer);
+  const p = game.save.profiles.find(x => x.id === id);
+  if (p?.cloud && cloud.online) void reportWeek(p, true).catch(() => null);
+}
+if (typeof window !== 'undefined') {
+  addEventListener('pagehide', sendWaitingWeek);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sendWaitingWeek(); });
 }
 
 /** The world board: a new best in today's Arcade challenge, for a player whose grown-up turned it on. */
