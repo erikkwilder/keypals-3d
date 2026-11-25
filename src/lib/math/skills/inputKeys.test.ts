@@ -147,6 +147,9 @@ const INPUTS: { name: string; file: string; slider: boolean; text?: boolean }[] 
   { name: 'the clock', file: './ui/ClockInput.svelte', slider: true, text: true },
   { name: 'the ruler', file: './ui/RulerInput.svelte', slider: true, text: true },
   { name: 'the jug', file: './ui/JugInput.svelte', slider: true, text: true },
+  { name: 'the coins', file: './ui/CoinTray.svelte', slider: false },
+  { name: 'a bar', file: '../data/ui/BarDrag.svelte', slider: true },
+  { name: 'the chance line', file: '../data/ui/ChanceLine.svelte', slider: true, text: true },
 ];
 describe.each(INPUTS)('$name', ({ file, slider, text }) => {
   const s = src(file);
@@ -162,7 +165,15 @@ describe.each(INPUTS)('$name', ({ file, slider, text }) => {
     for (const b of buttons) expect(b).toContain('{...press(');
   });
   it('its keys leave Enter and Space on a button to the button, and the focus ring isn\'t turned off', () => {
-    expect(s).toMatch(/if \(disabled \|\| buttonKey\(e\)\) return;|buttonKey\(e\)\) return;/);
+    expect(s).toMatch(/\|\| buttonKey\(e\)\) return;/);
     expect(s).not.toMatch(/outline:\s*(none|0)/);
+  });
+});
+describe('the coins, by keyboard', () => {
+  const s = src('./ui/CoinTray.svelte');
+  it('a coin taken back hands the focus on, and a screen reader hears the tray and its new total', () => {
+    expect(s).toContain('{...press(() => take(x.k), () => void takeByKey(x.k))}');
+    expect(s).toMatch(/<div class="tray"[^>]*role="group" aria-label="Your tray: \{money\(total\)\}"/);
+    expect(s).toContain('<span class="sum" aria-live="polite">{money(total)}</span>');
   });
 });
