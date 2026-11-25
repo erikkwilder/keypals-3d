@@ -14,7 +14,7 @@
   import { factText } from '../arcade';
   import { preloadSfx, sfx, unlockAudio } from '../../audio/sound';
   import NumPad from '../../math/ui/NumPad.svelte';
-  import { padKey } from '../../math/ui/numPadKeys';
+  import { buttonKey } from '../../math/skills/inputKeys';
   import { mult, type GameProps } from './hud';
 
   let { deck, buddy, fastMs, phase, compact, hud, onready }: GameProps = $props();
@@ -119,10 +119,15 @@
     const m = /^(?:Digit|Numpad)([0-9])$/.exec(e.code);
     return m ? m[1] : null;
   }
+  /** a button that can't act now: turned off, or a key of the number pad while the pad is off (aria-disabled, so it
+   *  keeps the focus) */
+  const off = (t: EventTarget | null) => !!t && ((t as HTMLButtonElement).disabled === true || (t as Element).getAttribute?.('aria-disabled') === 'true');
   function onKey(e: KeyboardEvent) {
     if (e.metaKey || e.ctrlKey || e.altKey || game.modalOpen || phase !== 'play' || e.repeat) return;
-    // (Enter or Space on a key of the number pad, or the fraction pad's, is the key's own: it types through its click)
-    if (padKey(e)) return;
+    // (Enter or Space on a button that's on is the button's own, through its click: a key of the number pad types,
+    // Pause pauses, Drop! drops. On a key that went off when the answer was right, they drop the block, as they do
+    // with nothing focused: a child who answered by Tab and one switch can drop it straight away)
+    if (buttonKey(e) && !off(e.target)) return;
     if (e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); drop(); return; }
     if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); back(); return; }
     if (e.key === 'Enter') { e.preventDefault(); if (unlocked) drop(); else if (typed) check(); return; }
@@ -198,7 +203,7 @@
   </div>
 
   <div class="padwrap" bind:this={padEl}>
-    <button class="dropbtn" class:on={unlocked} disabled={!unlocked || phase !== 'play'} onpointerdown={(e) => { e.stopPropagation(); unlockAudio(); drop(); }}>
+    <button class="dropbtn" class:on={unlocked} disabled={!unlocked || phase !== 'play'} onpointerdown={(e) => { e.stopPropagation(); unlockAudio(); drop(); }} onclick={(e) => { if (e.detail === 0) { unlockAudio(); drop(); } }}>
       {unlocked ? 'Drop!' : 'Answer to light up the block'}{#if unlocked && !compact}<span class="kbd">space</span>{/if}
     </button>
     <NumPad ondigit={digit} onback={back} disabled={phase !== 'play' || unlocked} {lit} {compact} />

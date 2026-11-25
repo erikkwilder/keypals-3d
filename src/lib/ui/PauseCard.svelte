@@ -3,6 +3,10 @@
   // the activity was started from ("Back to Fractions", "Back to the Arcade"), and Home. Esc keeps going.
   // Under them, the music: what's playing, the next song, the station picker (ui/MusicPicker.svelte, over
   // this card), and music and sounds on or off.
+  // While it's open it has the keyboard (use:holdFocus, ui/focusKeeper.ts): the paused game behind it is inert, so
+  // Tab goes round the card's own buttons, and a child who moves by Tab and one switch reaches Keep going with one
+  // Tab (it went through every key of the game's number pad first). When it closes, focus goes back to no button
+  // (the activity is played with the keys), so the game's keys work again as they did.
   import { onDestroy, onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { game } from '../state/game.svelte';
@@ -10,6 +14,7 @@
   import { placeName } from '../nav';
   import MusicNow from './MusicNow.svelte';
   import QuickToggles from './QuickToggles.svelte';
+  import { holdFocus } from './focusKeeper';
 
   const base = import.meta.env.BASE_URL;
   const from = $derived(game.from);
@@ -25,7 +30,7 @@
   onDestroy(() => { window.removeEventListener('keydown', onKey, true); });
 </script>
 
-<div class="pc" transition:fade={{ duration: 140 }}>
+<div class="pc" transition:fade={{ duration: 140 }} use:holdFocus>
   <div class="card" role="dialog" aria-modal="true" aria-label="Paused">
     <img class="pi" src="{base}icons/pause.webp" alt="" />
     <h2>Paused</h2>

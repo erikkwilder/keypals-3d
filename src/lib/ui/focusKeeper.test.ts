@@ -384,8 +384,10 @@ describe('the markup', () => {
   it('the dialogs opened from a button hold focus and give it back', () => {
     for (const f of ['../teach/ui/PrintCards.svelte', './GlobalMenu.svelte', './MusicPicker.svelte', './LessonChart.svelte', './QuickSettings.svelte', './Popover.svelte']) expect(src(f), f).toMatch(/use:holdFocus/);
     expect(src('../../App.svelte')).toMatch(/<div class="settings-layer"[^>]*use:holdFocus>/);
-    // (the Pause card goes back to the lesson's keys: no button may take them)
-    expect(src('./PauseCard.svelte')).not.toMatch(/holdFocus/);
+    // (the Pause card holds the keyboard too, so Tab can't wander into the paused game behind it. It opens over a
+    // screen the keys play, so when it closes focus goes back to no button and the game's keys work again: "not on
+    // a screen the keys play" above)
+    expect(src('./PauseCard.svelte')).toMatch(/<div class="pc"[^>]*use:holdFocus>/);
     // (the Menu button keeps focus, so it gets it back when the menu closes)
     expect(src('./Bar.svelte')).not.toMatch(/blur\(\); sfx\.click\(\); game\.openMenu/);
   });

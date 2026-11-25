@@ -6,6 +6,7 @@
   // new kind of question comes with its trick first, a miss shows in red for a moment, then the answer and
   // its trick, and comes back a few questions later. No clock.
   import PauseButton from '../ui/PauseButton.svelte';
+  import { cycleTab } from '../ui/focusKeeper';
   import { placeName } from '../nav';
   import EggBadge from '../ui/EggBadge.svelte';
   import { onDestroy, onMount } from 'svelte';
@@ -101,6 +102,7 @@
   let w = $state(1280), h = $state(800);
   const compact = $derived(w < 700);
   let qEl: HTMLDivElement | undefined = $state();
+  let runEl: HTMLDivElement | undefined = $state();
   let padEl: HTMLDivElement | undefined = $state();
   let helpEl: HTMLDivElement | undefined = $state();
   let scene: RunScene | null = null;
@@ -215,6 +217,8 @@
     if (game.modalOpen) return;
     if (phase === 'intro') { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); begin(); } return; }
     if (phase === 'paused') return;
+    // (Tab goes round the trip's own controls: past the last it would leave the page, and that pauses the trip)
+    if (phase === 'play' && runEl) cycleTab(runEl, e);
   }
   function onBlur() { if (phase === 'play' && !game.pause) { pauseNow(); game.openPause(resumeNow); } }
   function leave() { phase = 'done'; game.leaveActivity(); }
@@ -274,7 +278,7 @@
   });
 </script>
 
-<div class="mrun" class:compact class:learning={!!game.learnOverlay} bind:clientWidth={w} bind:clientHeight={h}>
+<div class="mrun" class:compact class:learning={!!game.learnOverlay} bind:clientWidth={w} bind:clientHeight={h} bind:this={runEl}>
   <div class="stage">
     {#if bubble && phase === 'play' && !showHelp}<div class="bubble" style:left="{bubbleXY.x * innerWidth}px" style:top="{bubbleXY.y * innerHeight}px">{bubble}</div>{/if}
     {#if loading}<div class="loading">Getting the island ready…</div>{/if}

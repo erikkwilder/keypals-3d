@@ -154,3 +154,24 @@ export function holdFocus(node: HTMLElement) {
     },
   };
 }
+
+const CONTROLS = 'button, a[href], input, select, textarea, summary, [tabindex]';
+/** Tab stops on it now: in Tab's order (not tabindex -1), not turned off, shown, and not behind a dialog */
+const tabStop = (el: HTMLElement) => el.tabIndex >= 0 && !el.matches(':disabled') && el.getClientRects().length > 0 && !el.closest('[inert]')
+  && (el.checkVisibility?.({ visibilityProperty: true, checkVisibilityCSS: true } as CheckVisibilityOptions) ?? true);
+/** Keep Tab going round `root`'s own controls while a game plays (the math and skill trips, the Arcade): from its
+ *  last control Tab goes back to its first, and Shift-Tab from its first to its last, so focus doesn't leave the
+ *  page. Leaving the page pauses a game (a window that loses focus pauses), and a child who moves by Tab and
+ *  presses one switch went past the number pad's Erase, out of the page, and paused it. Every control of the
+ *  game, Pause included, stays in the round, so nothing is shut away; any other Tab is the browser's own (and a
+ *  Tab a screen already used, as the fraction pad's from the top box to the bottom one, is left alone).
+ *  Returns true when it moved the focus. */
+export function cycleTab(root: Element, e: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'defaultPrevented' | 'preventDefault'>, doc: Pick<Document, 'activeElement'> = document): boolean {
+  if (e.key !== 'Tab' || e.defaultPrevented) return false;
+  const all = [...root.querySelectorAll<HTMLElement>(CONTROLS)].filter(tabStop);
+  if (!all.length) return false;
+  const first = all[0], last = all[all.length - 1], at = doc.activeElement;
+  if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); return true; }
+  if (e.shiftKey && at === first) { e.preventDefault(); last.focus(); return true; }
+  return false;
+}

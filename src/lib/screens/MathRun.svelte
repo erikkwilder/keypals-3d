@@ -26,6 +26,7 @@
   import { applyMathRun, mathOf } from '../math/progress';
   import NumPad, { WRONG_MS } from '../math/ui/NumPad.svelte';
   import { padKey } from '../math/ui/numPadKeys';
+  import { cycleTab } from '../ui/focusKeeper';
   import DotPicture from '../math/ui/DotPicture.svelte';
   import Episode from '../math/ui/Episode.svelte';
   import { isLearned, isLearnStop, lessonForFact, lessonForStop } from '../math/learn';
@@ -90,6 +91,7 @@
   const compact = $derived(w < 700);
   let qEl: HTMLDivElement | undefined = $state();
   let padEl: HTMLDivElement | undefined = $state();
+  let runEl: HTMLDivElement | undefined = $state();
   let helpEl: HTMLDivElement | undefined = $state();
   let scene: RunScene | null = null;
   let raf = 0;
@@ -280,6 +282,8 @@
     }
     if (phase === 'paused') return;
     if (phase !== 'play') return;
+    // (Tab goes round the run's own controls: past the last it would leave the page, and that pauses the run)
+    if (runEl && cycleTab(runEl, e)) return;
     if (e.repeat || e.isComposing) return;
     // (Enter or Space on a key of the number pad, or the fraction pad's, is the key's own: it types through its click)
     if (padKey(e)) return;
@@ -363,7 +367,7 @@
   });
 </script>
 
-<div class="mrun" class:compact class:learning={!!game.learnOverlay} bind:clientWidth={w} bind:clientHeight={h}>
+<div class="mrun" class:compact class:learning={!!game.learnOverlay} bind:clientWidth={w} bind:clientHeight={h} bind:this={runEl}>
   <div class="stage">
     {#if bubble && phase === 'play' && !showHelp}
       <div class="bubble" style:left="{bubbleXY.x * innerWidth}px" style:top="{bubbleXY.y * innerHeight}px">{bubble}</div>

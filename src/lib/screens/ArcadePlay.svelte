@@ -23,6 +23,7 @@
   import ArcadeResults from '../arcade/ui/ArcadeResults.svelte';
   import { exitsOf } from '../arcade/exits';
   import PauseButton from '../ui/PauseButton.svelte';
+  import { cycleTab } from '../ui/focusKeeper';
   import NavTile from '../ui/NavTile.svelte';
   import Stars from '../ui/Stars.svelte';
   import Icon from '../ui/Icon.svelte';
@@ -53,6 +54,7 @@
   let popN = 0;
   let outcome = $state<ArcadeOutcome | null>(null);
   let w = $state(1280);
+  let rootEl: HTMLDivElement | undefined = $state();
   const compact = $derived(w < 700);
   const progress = $derived(Math.max(0, Math.min(1, elapsed / G.secs)));
   const answered: Answered[] = [];
@@ -126,8 +128,12 @@
     if (e.metaKey || e.ctrlKey || e.altKey || game.modalOpen) return;
     unlockAudio();
     if (phase === 'intro') { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); begin(); } return; }
+    // (Tab goes round the round's own controls: past the last it would leave the page, and that pauses the round)
+    if (phase === 'play' && rootEl) cycleTab(rootEl, e);
   }
-  function onBlur() { pause(); }
+  // a window that loses focus pauses, with the Pause card, as the trips do (it only stopped the round, with nothing on
+  // screen to say so or to go on: the game took no answers until Pause and Keep going were pressed)
+  function onBlur() { if (phase === 'play' && !game.pause) { pause(); game.openPause(resume); } }
 
   onMount(() => {
     // for checking the results quickly: __arcade.finish() ends the round now
@@ -148,7 +154,7 @@
   const fmt = (n: number) => n.toLocaleString('en-US');
 </script>
 
-<div class="aplay g-{id}" class:compact bind:clientWidth={w}>
+<div class="aplay g-{id}" class:compact bind:clientWidth={w} bind:this={rootEl}>
   {#if id === 'slalom'}<SkySlalom {deck} {rng} buddy={p0.buddy} {fastMs} {phase} {progress} {elapsed} {compact} {hud} onready={ready} />
   {:else if id === 'catch'}<GlimmerCatch {deck} {rng} buddy={p0.buddy} {fastMs} {phase} {progress} {elapsed} {compact} {hud} onready={ready} />
   {:else}<TowerStack {deck} {rng} buddy={p0.buddy} {fastMs} {phase} {progress} {elapsed} {compact} {hud} onready={ready} />{/if}

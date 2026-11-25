@@ -103,7 +103,6 @@ describe('the screens that show the pad leave Enter and Space on its keys to the
     ['../measure/MeasureEpisode.svelte', "if (e.key === 'Enter' || e.key === ' ') return mine(primary);"],
     ['../skills/ui/SkillInput.svelte', "else if (e.key === 'Enter') { e.preventDefault(); submitNumber(); }"],
     ['../skills/ui/FractionPad.svelte', "else if (e.key === 'Enter') { e.preventDefault(); clear();"],
-    ['../../arcade/ui/TowerStack.svelte', "if (e.key === ' ' || e.key === 'ArrowDown')"],
     ['../../screens/MathRun.svelte', "if (e.key === 'Enter' && typed && !bad)"],
     ['../../screens/BalanceBeam.svelte', "else if (e.key === 'Enter') { e.preventDefault(); submit(); }"],
     ['../../screens/Battle.svelte', "else if (ui === 'block' && blkSigned && e.key === 'Enter')"],
@@ -118,6 +117,18 @@ describe('the screens that show the pad leave Enter and Space on its keys to the
   it('the inputs that already leave Enter and Space on any button to it (Round F and G) still do', () => {
     for (const f of ['../shapes/ui/Protractor.svelte', '../skills/ui/BalanceInput.svelte', '../skills/ui/DoubleLine.svelte', '../skills/ui/RatioTable.svelte', '../skills/ui/PercentBar.svelte'])
       expect(src(f), f).toMatch(/\|\| buttonKey\(e\)\) return;/);
+  });
+  it("Tower Stack leaves Enter and Space on any button that's on to it (a key, Pause, Drop!), and drops on a key that went off", () => {
+    const s = src('../../arcade/ui/TowerStack.svelte');
+    const at = s.indexOf('if (buttonKey(e) && !off(e.target)) return;');
+    // (the pad's keys go off by aria-disabled and keep the focus, so that counts as off too)
+    expect(s).toContain("(t as HTMLButtonElement).disabled === true || (t as Element).getAttribute?.('aria-disabled') === 'true'");
+    expect(at).toBeGreaterThan(0);
+    expect(s.indexOf("if (e.key === ' ' || e.key === 'ArrowDown')")).toBeGreaterThan(at);
+    // Drop! drops by keyboard or switch too: a click with no pointer (a finger or the mouse drop it as they go down)
+    const drop = s.split('\n').find(l => l.includes('class="dropbtn"'))!;
+    expect(drop).toContain('onclick={(e) => { if (e.detail === 0) { unlockAudio(); drop(); } }}');
+    expect(drop).toContain('onpointerdown={(e) => { e.stopPropagation(); unlockAudio(); drop(); }}');
   });
 });
 
