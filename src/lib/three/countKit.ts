@@ -16,7 +16,7 @@ import type { Pin } from '../math/beats/types';
 import type { CountWorld } from '../math/beats/countLesson';
 import { countPath, slipped, type Slip } from '../math/beats/count';
 import { bSfx } from '../math/beats/sounds';
-import { countWord } from '../content/voice';
+import { COUNT_WORDS, countWord } from '../content/voice';
 
 const TY = 0.48;
 const MID_X = 300;
@@ -78,6 +78,8 @@ type Cookie = { g: THREE.Group; num: number; shakeUntil: number; plate: THREE.Ob
 
 export class CountKit implements CountWorld {
   readonly root = new THREE.Group();
+  /** the count words it says as each cookie is counted (one to twenty, about 85 KB): kept with the lesson */
+  readonly words = COUNT_WORDS.map(l => l.id);
   pins: Pin[] = [];
   onChange: (() => void) | null = null;
   /** a count word to be heard as a cookie is counted (the page sets it) */

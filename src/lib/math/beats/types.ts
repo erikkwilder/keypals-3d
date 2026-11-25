@@ -52,6 +52,9 @@ export interface World {
   /** a short word to be heard right now, by its voice line's id (a count word as a cookie is touched); the
    *  player sets it. It doesn't change the words on screen */
   onWord?: ((id: string) => void) | null;
+  /** the short words it may say through onWord (the count words), by their voice lines' ids: the player keeps
+   *  them on this computer with the lesson's lines, so they're heard if the connection drops (audio/keep.ts) */
+  words?: readonly string[];
   /** the table's part for the work, in board units */
   bounds(): { x: number; y: number; w: number; h: number };
   /** call after the scene fits the bounds */

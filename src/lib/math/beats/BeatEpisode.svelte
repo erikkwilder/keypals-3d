@@ -10,7 +10,7 @@
   import { EpisodeScene, type View } from '../../three/episodeScene';
   import { game } from '../../state/game.svelte';
   import { quietForLesson, sfx } from '../../audio/sound';
-  import { hush, keepLesson, lineText, say, wordDone } from '../../audio/voice.svelte';
+  import { hush, keepLesson, keepWords, lineText, say, wordDone } from '../../audio/voice.svelte';
   import { separate, type Card } from './cardLayout';
   import { danceOf } from '../../engine/profile';
   import { advView } from '../../adventure/state';
@@ -247,7 +247,7 @@
     });
   }
 
-  let unquiet = () => {}, letGo = () => {};
+  let unquiet = () => {}, letGo = () => {}, letGoWords = () => {};
   onMount(() => {
     settling = requestAnimationFrame(settle);
     unquiet = quietForLesson();
@@ -258,6 +258,8 @@
     void EpisodeScene.create({ setId: L.set, buddy, star: L.star, evolved: !!own?.evolved }).then(async s => {
       if (gone) { s.dispose(); return; }
       const wd = await L.world(s);
+      // and the short words it says (the count words), kept the same way
+      letGoWords = keepWords(wd.words ?? []);
       await wd.load();
       if (gone) { s.dispose(); return; }
       ctl = { fps: 60, update: (dt, t) => { s.update(dt, t); wd.update(dt, t); }, focus: () => s.focus(), dispose: () => {} };
@@ -284,7 +286,7 @@
   onDestroy(() => {
     cancelAnimationFrame(settling);
     gone = true;
-    hush(); unquiet(); letGo();
+    hush(); unquiet(); letGo(); letGoWords();
     removeEventListener('keydown', onKey, true);
     if (sc) { const s = sc; sc = null; world?.dispose(); world = null; if (stage.current() === ctl) stage.swap(before); s.dispose(); }
   });

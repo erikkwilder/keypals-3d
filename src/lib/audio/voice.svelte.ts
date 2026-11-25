@@ -101,6 +101,13 @@ export function keepLesson(o: { keys: string[]; buddy?: string; shared?: boolean
   return keepClips(lessonClips(ALL_LINES, { keys: o.keys, voice, shared: o.shared }), { answered: requestAnswered, failed: requestFailed }).release;
 }
 
+/** Keep a few more clips while a lesson plays: the short words its world says (the count words), which aren't
+ *  lesson lines. Returns what lets them go. With the voice off nothing is fetched. */
+export function keepWords(ids: readonly string[]): () => void {
+  if (game.settings.voice === false || !ids.length) return () => {};
+  return keepClips(ids, { answered: requestAnswered, failed: requestFailed }).release;
+}
+
 export function hush() {
   stopAll();
   voiceState.playing = null;
