@@ -6,8 +6,11 @@
 <script lang="ts">
   import Icon from '../../ui/Icon.svelte';
   import { sfx } from '../../audio/sound';
+  import { keyName, padKeys } from './numPadKeys';
   // The on-screen number pad: one row on a wide screen, a calculator block on a phone. The keyboard's
   // number row and number pad work too; this is for touch and for anyone who'd rather tap.
+  // Tab reaches each key (the digits, the extra keys, then Erase), and Enter, Space or a switch press it,
+  // exactly as a tap does (numPadKeys.ts).
   // `extra`: a decimal point and a minus key, for decimals and negative numbers (they type '.' and '-')
   // Tap a key to type it, or drag it into an answer box (anything marked data-drop, or an answer .box):
   // it follows your finger, the box glows as you get close, and it snaps in. `ondrop` says which box
@@ -15,9 +18,17 @@
   type Props = { ondigit: (d: string) => void; onback: () => void; disabled?: boolean; lit?: string | null; compact?: boolean; extra?: ('.' | '-')[];
     ondrop?: (d: string, slot: string) => void };
   let { ondigit, onback, disabled = false, lit = null, compact = false, extra = [], ondrop }: Props = $props();
-  const ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
-  const GRID = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'back', '0'];
-  const keys = $derived(compact ? [...GRID, ...extra] : [...ROW, ...extra, 'back']);
+  // (the same order on a phone: its calculator block puts Erase beside the 0 by CSS order)
+  const keys = $derived(padKeys(extra));
+
+  // ---- by keyboard or switch: a click with no pointer behind it (count 0). A tap's own click counts 1 and is
+  // left alone, so a tap never counts twice (the same idea as press() in skills/inputKeys.ts) ----
+  function keyed(k: string, e: MouseEvent) {
+    if (e.detail !== 0 || disabled) return;
+    if (k === 'back') onback(); else ondigit(k);
+  }
+  // a held Enter clicks again and again: it presses the key once, as a held finger does
+  function held(e: KeyboardEvent) { if (e.repeat && e.key === 'Enter') e.preventDefault(); }
 
   // ---- tap or drag (each finger on its own, so quick two-thumb typing works) ----
   type Press = { k: string; x: number; y: number; moved: boolean };
@@ -76,10 +87,10 @@
   }
 </script>
 
-<div class="pad" class:compact class:ext={extra.length > 0} class:disabled role="group" aria-label="Number pad" style:--cols={11 + extra.length}>
+<div class="pad" class:compact class:ext={extra.length > 0} class:disabled role="group" aria-label="Number pad" style:--cols={11 + extra.length} data-pad>
   {#each keys as k (k)}
-    <button class="k" class:back={k === 'back'} class:lit={lit === k} class:zero={compact && k === '0'} class:x={k === '.' || k === '-'} aria-label={k === 'back' ? 'Delete' : k}
-      onpointerdown={(e) => down(k, e)} onpointermove={move} onpointerup={up} onpointercancel={cancel} tabindex="-1">
+    <button class="k" class:back={k === 'back'} class:lit={lit === k} class:zero={compact && k === '0'} class:x={k === '.' || k === '-'} aria-label={keyName(k)} aria-disabled={disabled || undefined}
+      onpointerdown={(e) => down(k, e)} onpointermove={move} onpointerup={up} onpointercancel={cancel} onclick={(e) => keyed(k, e)} onkeydown={held}>
       {#if k === 'back'}<Icon name="erase" size={40} />{:else if k === '-'}−{:else}{k}{/if}
     </button>
   {/each}

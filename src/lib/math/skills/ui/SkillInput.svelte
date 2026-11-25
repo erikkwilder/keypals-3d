@@ -56,6 +56,8 @@
   // Choices that are all numbers (or all fractions) keep the pad under them: type one and it's picked.
   import { onDestroy } from 'svelte';
   import NumPad, { WRONG_MS } from '../../ui/NumPad.svelte';
+  import { padKey } from '../../ui/numPadKeys';
+  import { press } from '../inputKeys';
   import Icon from '../../../ui/Icon.svelte';
   import FractionPad from './FractionPad.svelte';
   import ChoiceInput from './ChoiceInput.svelte';
@@ -120,7 +122,8 @@
     send(id ? { kind: 'choice', id } : { kind: 'number', value: Number(text) });
   }
   function key(e: KeyboardEvent) {
-    if (pad !== 'number' || disabled || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+    // (Enter or Space on a key of the pad is the key's own: it types through its click)
+    if (pad !== 'number' || disabled || e.metaKey || e.ctrlKey || e.altKey || e.repeat || padKey(e)) return;
     const m = /^(?:Digit|Numpad)([0-9])$/.exec(e.code);
     const d = /^[0-9]$/.test(e.key) ? e.key : m ? m[1] : null;
     if (d) { e.preventDefault(); digit(d); }
@@ -166,7 +169,7 @@
 {:else if item.input === 'number'}
   <div class="num">
     <NumPad ondigit={digit} onback={back} {disabled} {compact} extra={whole ? [] : item.signed === true ? ['-'] : ['.', '-']} />
-    {#if !whole}<button class="ok" disabled={!text || bad || disabled} onpointerdown={(e) => { e.preventDefault(); submitNumber(); }} tabindex="-1"><Icon name="check" size={28} /><span>Check</span></button>{/if}
+    {#if !whole}<button class="ok" disabled={!text || bad || disabled} {...press(submitNumber)}><Icon name="check" size={28} /><span>Check</span></button>{/if}
   </div>
 {:else if item.input === 'fraction'}
   <!-- typing over a wrong answer starts a new one: the pad sees empty boxes while it's red -->

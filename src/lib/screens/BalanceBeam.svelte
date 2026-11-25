@@ -21,6 +21,7 @@
   import { JOLT, ROUND_MS, STACK_EVERY, STAR_AT, applyBeam, beamOf, comboMult, dailyBestOf, dailySeed, kindsFor, levelsFor, puzzleHow, puzzleMaker, puzzleScore, puzzleText, starsFor, type BeamOutcome, type Puzzle } from '../math/algebra/beam';
   import Expr from '../math/skills/ui/Expr.svelte';
   import NumPad from '../math/ui/NumPad.svelte';
+  import { padKey } from '../math/ui/numPadKeys';
   import Stars from '../ui/Stars.svelte';
   import Confetti from '../ui/Confetti.svelte';
   import Icon from '../ui/Icon.svelte';
@@ -182,6 +183,8 @@
     if (game.modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
     if (phase === 'done' && e.key === 'Enter' && endEnter(game.profile, 'game:balance')) { e.preventDefault(); return; }
     if (phase === 'play') {
+      // (Enter or Space on a key of the number pad, or the fraction pad's, is the key's own: it types through its click)
+      if (padKey(e)) return;
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
       else if (e.key === 'Backspace') { e.preventDefault(); back(); }
       else if (e.key === 'Enter') { e.preventDefault(); submit(); }

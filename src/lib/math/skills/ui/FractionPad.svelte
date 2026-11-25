@@ -8,6 +8,8 @@
   // straight away.
   import { onDestroy } from 'svelte';
   import NumPad from '../../ui/NumPad.svelte';
+  import { padKey, tabsToBottom } from '../../ui/numPadKeys';
+  import { press } from '../inputKeys';
   import Icon from '../../../ui/Icon.svelte';
   import { bottomDone, topDone, type Frac } from '../fracPad';
   type Props = { n: string; d: string; focus: 'n' | 'd'; disabled?: boolean; compact?: boolean;
@@ -59,10 +61,11 @@
   function go(f: 'n' | 'd') { clear(); onchange({ n, d, focus: f }); }
   const ready = $derived(!!n && !!d && d !== '0');
   function key(e: KeyboardEvent) {
-    if (disabled || e.metaKey || e.ctrlKey || e.altKey) return;
+    // (Enter or Space on Top, Bottom, Check or a key of the pad is that button's own: it works through its click)
+    if (disabled || e.metaKey || e.ctrlKey || e.altKey || padKey(e)) return;
     if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
     else if (e.key === 'Backspace') { e.preventDefault(); back(); }
-    else if (e.key === '/' || e.key === 'ArrowDown' || e.key === 'Tab') { e.preventDefault(); go('d'); }
+    else if (e.key === '/' || e.key === 'ArrowDown' || tabsToBottom(e, focus)) { e.preventDefault(); go('d'); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); go('n'); }
     else if (e.key === 'Enter') { e.preventDefault(); clear(); if (ready) onsubmit(); else if (n && focus === 'n') go('d'); }
   }
@@ -72,14 +75,14 @@
 
 <svelte:window onkeydown={key} />
 
-<div class="fpad" class:compact>
+<div class="fpad" class:compact data-pad>
   {#if hint}
     <p class="hint"><Icon name="bulb" size={20} /><span>Type the top, then the bottom. {compact ? 'Or drag a number into a box.' : 'Arrow keys and Enter work too, or drag a number into a box.'}</span></p>
   {/if}
   <div class="row">
-    <button class="mv" class:on={focus === 'n'} onpointerdown={(e) => { e.preventDefault(); go('n'); }} tabindex="-1"><Icon name="up" size={28} /><span>Top</span>{#if !compact}<kbd>↑</kbd>{/if}</button>
-    <button class="mv" class:on={focus === 'd'} onpointerdown={(e) => { e.preventDefault(); go('d'); }} tabindex="-1"><Icon name="down" size={28} /><span>Bottom</span>{#if !compact}<kbd>↓</kbd>{/if}</button>
-    <button class="ok" class:ready disabled={!ready || disabled} onpointerdown={(e) => { e.preventDefault(); clear(); if (ready && !disabled) onsubmit(); }} tabindex="-1"><Icon name="check" size={28} /><span>Check</span>{#if !compact}<kbd>enter</kbd>{/if}</button>
+    <button class="mv" class:on={focus === 'n'} aria-pressed={focus === 'n'} {...press(() => go('n'))}><Icon name="up" size={28} /><span>Top</span>{#if !compact}<kbd>↑</kbd>{/if}</button>
+    <button class="mv" class:on={focus === 'd'} aria-pressed={focus === 'd'} {...press(() => go('d'))}><Icon name="down" size={28} /><span>Bottom</span>{#if !compact}<kbd>↓</kbd>{/if}</button>
+    <button class="ok" class:ready disabled={!ready || disabled} {...press(() => { clear(); if (ready && !disabled) onsubmit(); })}><Icon name="check" size={28} /><span>Check</span>{#if !compact}<kbd>enter</kbd>{/if}</button>
   </div>
   <NumPad ondigit={(x) => digit(x)} onback={back} ondrop={drop} {disabled} {compact} />
 </div>

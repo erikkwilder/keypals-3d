@@ -24,6 +24,7 @@
   import { fracRight } from '../fracEpisodes';
   import LearnBoard from './LearnBoard.svelte';
   import NumPad from './NumPad.svelte';
+  import { padKey } from './numPadKeys';
   import FracText from './FracText.svelte';
   import Frac from '../skills/ui/Frac.svelte';
   import FractionPad from '../skills/ui/FractionPad.svelte';
@@ -332,6 +333,8 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.sheet || game.settingsOpen) return;
+    // (Enter or Space on a key of the number pad, or the fraction pad's, is the key's own: it types through its click)
+    if (padKey(e)) return;
     const mine = (fn: () => void) => { e.preventDefault(); e.stopPropagation(); fn(); };
     if ((phase === 'turn' || phase === 'check') && q.input === 'frac') {
       // (the fraction pad takes the keys itself)

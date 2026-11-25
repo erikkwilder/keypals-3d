@@ -38,6 +38,8 @@
   import SkillInput from '../math/skills/ui/SkillInput.svelte';
   import Coach from '../ui/Coach.svelte';
   import NumPad from '../math/ui/NumPad.svelte';
+  import { padKey } from '../math/ui/numPadKeys';
+  import { press } from '../math/skills/inputKeys';
   import Critter from '../ui/Critter.svelte';
   import GlimmerCard from '../ui/GlimmerCard.svelte';
   import Confetti from '../ui/Confetti.svelte';
@@ -272,6 +274,8 @@
     if (subject === 'math') {
       // a skill card's own input takes the keys
       if (ui === 'answer' && sel?.item) { if (e.key === 'Escape') escape(); return; }
+      // (Enter or Space on a key of the number pad, or the fraction pad's, is the key's own: it types through its click)
+      if (padKey(e)) return;
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); digit(e.key); }
       else if (e.key === 'Backspace') { e.preventDefault(); backspace(); }
       else if (ui === 'block' && blkSigned && (e.key === '-' || e.key === '−')) { e.preventDefault(); digit('-'); }
@@ -578,7 +582,7 @@
           <!-- below zero: the minus key, and Check to send it -->
           <div class="signpad">
             <NumPad ondigit={digit} onback={backspace} compact={narrow} extra={['-']} />
-            <button class="okbtn" disabled={!blockTyped || blockTyped === '-'} onpointerdown={(e) => { e.preventDefault(); checkBlock(); }} tabindex="-1"><Icon name="check" size={28} /><span>Check</span></button>
+            <button class="okbtn" disabled={!blockTyped || blockTyped === '-'} {...press(checkBlock)}><Icon name="check" size={28} /><span>Check</span></button>
           </div>
         {:else if subject === 'math'}<NumPad ondigit={digit} onback={backspace} compact={narrow} />{/if}
       </div>

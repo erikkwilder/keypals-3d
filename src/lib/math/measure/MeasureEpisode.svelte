@@ -35,6 +35,7 @@
   import { SETS } from '../episodes';
   import { fixChoices, parseTime, type MeasureLesson, type MQ, type MTask } from './episodes';
   import NumPad from '../ui/NumPad.svelte';
+  import { padKey } from '../ui/numPadKeys';
   import PauseButton from '../../ui/PauseButton.svelte';
   import { placeName } from '../../nav';
   import SpeechDock from '../ui/SpeechDock.svelte';
@@ -311,6 +312,8 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.sheet || game.settingsOpen) return;
+    // (Enter or Space on a key of the number pad, or the fraction pad's, is the key's own: it types through its click)
+    if (padKey(e)) return;
     const mine = (fn: () => void) => { e.preventDefault(); e.stopPropagation(); fn(); };
     if ((phase === 'turn' || phase === 'check') && q.input === 'num') {
       if (/^[0-9]$/.test(e.key)) return mine(() => digit(e.key));

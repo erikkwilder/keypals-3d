@@ -18,6 +18,7 @@
   import { mathOf } from '../progress';
   import { SETS } from '../episodes';
   import NumPad from '../ui/NumPad.svelte';
+  import { padKey } from '../ui/numPadKeys';
   import SpeechDock from '../ui/SpeechDock.svelte';
   import PauseButton from '../../ui/PauseButton.svelte';
   import { placeName } from '../../nav';
@@ -120,6 +121,8 @@
   }
   function onKey(e: KeyboardEvent) {
     if (game.sheet || game.settingsOpen) return;
+    // (Enter or Space on a key of the number pad, or the fraction pad's, is the key's own: it types through its click)
+    if (padKey(e)) return;
     const mine = (fn: () => void) => { e.preventDefault(); e.stopPropagation(); fn(); };
     if (begin) { if (e.key === 'Enter' || e.key === ' ') mine(() => begin?.()); return; }
     if (ask?.kind === 'num') {

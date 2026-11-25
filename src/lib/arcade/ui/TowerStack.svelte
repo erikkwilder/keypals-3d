@@ -14,6 +14,7 @@
   import { factText } from '../arcade';
   import { preloadSfx, sfx, unlockAudio } from '../../audio/sound';
   import NumPad from '../../math/ui/NumPad.svelte';
+  import { padKey } from '../../math/ui/numPadKeys';
   import { mult, type GameProps } from './hud';
 
   let { deck, buddy, fastMs, phase, compact, hud, onready }: GameProps = $props();
@@ -119,6 +120,8 @@
   }
   function onKey(e: KeyboardEvent) {
     if (e.metaKey || e.ctrlKey || e.altKey || game.modalOpen || phase !== 'play' || e.repeat) return;
+    // (Enter or Space on a key of the number pad, or the fraction pad's, is the key's own: it types through its click)
+    if (padKey(e)) return;
     if (e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); drop(); return; }
     if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); back(); return; }
     if (e.key === 'Enter') { e.preventDefault(); if (unlocked) drop(); else if (typed) check(); return; }

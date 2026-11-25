@@ -25,6 +25,7 @@
   import { FactMeter, mathGoal, mathStars, tripStats, type FactResult } from '../math/meter';
   import { applyMathRun, mathOf } from '../math/progress';
   import NumPad, { WRONG_MS } from '../math/ui/NumPad.svelte';
+  import { padKey } from '../math/ui/numPadKeys';
   import DotPicture from '../math/ui/DotPicture.svelte';
   import Episode from '../math/ui/Episode.svelte';
   import { isLearned, isLearnStop, lessonForFact, lessonForStop } from '../math/learn';
@@ -280,6 +281,8 @@
     if (phase === 'paused') return;
     if (phase !== 'play') return;
     if (e.repeat || e.isComposing) return;
+    // (Enter or Space on a key of the number pad, or the fraction pad's, is the key's own: it types through its click)
+    if (padKey(e)) return;
     if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); back(); return; }
     if (e.key === 'Enter' && typed && !bad) { e.preventDefault(); check(performance.now()); return; }
     const d = keyDigit(e);
