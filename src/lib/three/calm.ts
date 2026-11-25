@@ -44,6 +44,29 @@ export class IdleHold {
   }
 }
 
+/** A Glimmer's own clock with less motion (the Grumble's, its storm cloud's and the team's in a battle): the
+ *  stage's time, held while it only stands there (IdleHold), so its idle loops (breathing, bobbing, a sulky
+ *  sway, the cloud's puffs and its rain) hold the frame they were on and go on from it with no jump; a move
+ *  runs on it as ever, and the fade back to standing finishes before it holds. Without less motion it is the
+ *  stage's time, frame for frame. */
+export class HeldClock {
+  private hold = new IdleHold();
+  /** how long it has stood still, all told */
+  private lag = 0;
+  private ran = false;
+  /** this frame's time on it */
+  t = 0;
+  /** Advance by a frame (`t`: the stage's time; `busy`: a move is playing); returns how far it moved (0 while
+   *  it holds). */
+  step(dt: number, t: number, busy: boolean, still: boolean) {
+    const d = this.hold.step(dt, busy, still);
+    if (this.ran && d === 0) this.lag += dt;
+    else this.t = t - this.lag;
+    this.ran = true;
+    return d;
+  }
+}
+
 /** Is a buddy's move (a wave, a dance) over? One that shows something (the wave when a buddy is picked, a
  *  dance asked for in the Wardrobe) runs to its end (`until`, on the stage clock); one played now and then
  *  for its own sake (the title's) ends at once when less motion comes on, so the buddy goes back to

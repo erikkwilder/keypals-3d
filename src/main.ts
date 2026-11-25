@@ -24,17 +24,11 @@ import '@fontsource/opendyslexic/latin-700.css';
 import './app.css';
 import { mount } from 'svelte';
 import App from './App.svelte';
+import { reloadForUpdate } from './lib/ui/reloadOnce';
 
 // a screen's code that won't download after the game was updated (this page still asks for the old
-// files): load the page again, once, to get the new ones
-window.addEventListener('vite:preloadError', (e) => {
-  try {
-    if (sessionStorage.getItem('keypals-reloaded')) return;
-    sessionStorage.setItem('keypals-reloaded', '1');
-  } catch { return; }
-  e.preventDefault();
-  location.reload();
-});
+// files): load the page again, once, to get the new ones (ui/reloadOnce.ts)
+window.addEventListener('vite:preloadError', (e) => { if (reloadForUpdate()) e.preventDefault(); });
 
 mount(App, { target: document.getElementById('app')! });
 // the loading screen's words give way to the first screen's own (its picture stays until the 3D is up)

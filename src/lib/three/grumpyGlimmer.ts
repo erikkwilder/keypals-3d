@@ -2,6 +2,7 @@
 // its own little painted storm cloud raining on it. Every bit of cheer brings some colour back and shrinks
 // the cloud; at zero the cloud bursts, its colours come back all at once, and it's happy again.
 import * as THREE from 'three';
+import { calm, HeldClock } from './calm';
 import { GlimmerModel } from './glimmerModel';
 import { loadTexture } from './assets';
 import type { Fx } from './fx';
@@ -112,7 +113,17 @@ export class GrumpyGlimmer {
   }
   get burstDone() { return this.bursting >= 1; }
 
+  /** its own clock with less motion: it stands still while the Grumble only sulks there (calm.ts) */
+  private clock = new HeldClock();
+  /** hold what it does for its own sake with less motion: the battle's does. The duel's doesn't: the duel walks
+   *  its Glimmer to the winner and turns it to watch whose turn it is, and those turns go by its clock. */
+  holdIdle = false;
+
   update(dt: number, t: number) {
+    // with less motion, what it does for its own sake while it only sulks there (its cloud's puffs breathing and
+    // drifting, the cloud bobbing, the rain, its sulky sway and breathing) holds, on its own clock; a hit, its
+    // stomp, its laugh and the cheer-up play as ever, and its mood lifting still shows
+    const sd = this.clock.step(dt, t, !this.holdIdle || this.glimmer.busy || (this.bursting >= 0 && this.bursting < 1) || this.laughT > 0, calm.on), st = this.clock.t;
     this.shown += (this.mood - this.shown) * Math.min(1, dt * 2.5);
     const m = this.shown;
     if (this.bursting < 0) { this.glimmer.setGrey(Math.min(1, m * 1.05)); this.glimmer.droop = Math.min(1, m * 1.4); }
@@ -124,15 +135,15 @@ export class GrumpyGlimmer {
       const mat = p.s.material as THREE.SpriteMaterial;
       mat.color.copy(dark);
       mat.opacity = this.bursting >= 0 ? Math.max(0, 1 - this.bursting * 1.3) : 1;
-      const b = 1 + Math.sin(t * 1.3 + p.ph) * 0.04;
+      const b = 1 + Math.sin(st * 1.3 + p.ph) * 0.04;
       p.s.scale.set(p.w * size * b, p.w * 0.48 * size * b, 1);
-      p.s.position.set(p.base.x * size + Math.sin(t * 0.6 + p.ph) * 0.04, p.base.y * size + Math.sin(t * 1.1 + p.ph) * 0.03, p.base.z);
+      p.s.position.set(p.base.x * size + Math.sin(st * 0.6 + p.ph) * 0.04, p.base.y * size + Math.sin(st * 1.1 + p.ph) * 0.03, p.base.z);
     }
-    this.cloud.position.y = this.cloudY + this.cloudLift + Math.sin(t * 1.4) * 0.05 + (this.glimmer.floats ? Math.sin(t * 2) * 0.03 : 0);
+    this.cloud.position.y = this.cloudY + this.cloudLift + Math.sin(st * 1.4) * 0.05 + (this.glimmer.floats ? Math.sin(st * 2) * 0.03 : 0);
     // rain, heavy when grumpy
     const n = this.bursting >= 0 ? 0 : Math.round(this.rainN * Math.max(0, (m - 0.15) / 0.85));
     for (let i = 0; i < this.rainN; i++) {
-      const y = this.rainPos[i * 6 + 1] - dt * 3.4;
+      const y = this.rainPos[i * 6 + 1] - sd * 3.4;
       if (y < 0.02) this.drop(i); else { this.rainPos[i * 6 + 1] = y; this.rainPos[i * 6 + 4] = y - 0.14; }
     }
     this.rain.geometry.setDrawRange(0, n * 2);
@@ -142,7 +153,8 @@ export class GrumpyGlimmer {
     if (this.zapT < 0 && this.fx && m > 0.55 && this.bursting < 0) {
       this.zapT = 2.5 + Math.random() * 3;
       const c = this.root.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * this.cloudW * 0.5, this.cloudY - 0.1, 0.1));
-      this.fx.lightning(c, c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, -0.45, 0)), 0xfff1a0, 0.025);
+      // (a flash for its own sake: none with less motion)
+      if (!(this.holdIdle && calm.on)) this.fx.lightning(c, c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, -0.45, 0)), 0xfff1a0, 0.025);
     }
     // the anger mark pops up by its head, then shrinks away
     this.markT = Math.max(0, this.markT - dt);
@@ -152,7 +164,7 @@ export class GrumpyGlimmer {
     // laughing: hop, hop, hop
     if (this.laughT > 0) { this.laughT -= dt; if (Math.floor(this.laughT / 0.45) !== Math.floor((this.laughT + dt) / 0.45)) this.glimmer.play('hop'); }
     this.glimmer.face = this.lookAt;
-    this.glimmer.update(dt, t);
+    this.glimmer.update(sd, st);
   }
 
   dispose() {

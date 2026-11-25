@@ -6,7 +6,7 @@
 // buddy, faint while the quick question is up, solid when it's answered; the counterattack bangs into it
 // and gets knocked back at the Grumble. Missed, it flies straight at the buddy, who gets knocked back.
 import * as THREE from 'three';
-import { calm, shakeOf } from './calm';
+import { calm, easeTo, HeldClock, IdleHold, shakeOf } from './calm';
 import { stage, type Controller } from './stage';
 import { Character } from './character';
 import { dressUp } from './dress';
@@ -61,6 +61,9 @@ export class BattleScene implements Controller {
   private shieldMode: 'off' | 'ready' | 'up' = 'off'; private shieldK = 0; private shieldAge = 0; private shieldFlash = 0; private shieldKick = 0;
   /** the Grumble knocked back by its own counterattack (eases back), the buddy knocked back by one that lands */
   private foePush = 0; private flinch = 0;
+  /** with less motion (calm.ts): the buddy's pose held while it only stands there, and each of the team's own clock */
+  private meHold = new IdleHold();
+  private teamClocks = [new HeldClock(), new HeldClock()];
 
   private constructor(island: Island, me: Character, grumble: GrumpyGlimmer, team: (GlimmerModel | null)[], opts: Opts) {
     this.island = island; this.me = me; this.grumble = grumble; this.team = team; this.opts = opts; this.view = opts.view;
@@ -79,6 +82,8 @@ export class BattleScene implements Controller {
     this.foeAt.y = island.height(this.foeAt.x, this.foeAt.z);
     this.foeFloat = 0;
     grumble.fx = this.fx;
+    // (with less motion its cloud, its rain and its sulky sway hold while it only sulks there: calm.ts)
+    grumble.holdIdle = true;
     stage.scene.add(this.arena, this.fx.root, me.root, grumble.root);
     me.root.visible = false;
     me.play('idle', 0);
@@ -486,7 +491,9 @@ export class BattleScene implements Controller {
     me.root.rotation.set(0, Math.atan2(look.x, look.z), 0);
     if (lean) me.root.rotateX(-lean);
     if (this.now > this.busyUntil && me.currentName !== 'idle') me.play('idle', 0.4);
-    me.update(dt);
+    // standing there, the buddy breathes; with less motion its pose holds, as on the title, and its moves (a cast,
+    // a stumble, a cheer, the Finale's dance) play as ever, the fade back to standing first
+    me.update(this.meHold.step(dt, this.now <= this.busyUntil || me.busy, calm.on));
     if (!me.root.visible) me.root.visible = true;
     // the grumpy Glimmer: turned between you and the buddy
     const toCamG = stage.camera.position.clone().sub(this.foeAt); toCamG.y = 0;
@@ -499,7 +506,10 @@ export class BattleScene implements Controller {
       const k = this.foePush > 0.75 ? (1 - this.foePush) / 0.25 : this.foePush / 0.75;
       this.grumble.root.position.copy(this.foeAt).addScaledVector(away, -0.45 * k);
     }
-    this.updateShield(dt, t);
+    // what moves for its own sake goes by the decorative clock: the stage's time, standing still with less motion
+    // (calm.ts), so it holds the frame it was on and goes on from it with no jump when that's turned off
+    const dT = stage.decorT;
+    this.updateShield(dt, dT);
     if (this.enterT < 1.6) {
       // its storm cloud comes down out of the sky, with a flash of lightning as it arrives
       const was = this.enterT; this.enterT += dt;
@@ -511,21 +521,24 @@ export class BattleScene implements Controller {
     // the team and the newcomer
     // the team keeps its eyes on the Grumble (and on the newcomer once it's cheered up)
     const eye = this.foeCentre();
-    for (const g of this.team) { if (g) { g.lookAt = eye; g.update(dt, t); } }
+    // (with less motion each goes by its own clock, which holds while it only stands there: calm.ts)
+    this.team.forEach((g, i) => { if (!g) return; g.lookAt = eye; const c = this.teamClocks[i]; g.update(c.step(dt, t, g.busy, calm.on), c.t); });
     if (this.revealed) this.grumble.lookAt.copy(stage.camera.position);
-    // banners wave, crystals turn and glow
-    for (const b of this.banners) { const p = b.geometry.attributes.position as THREE.BufferAttribute; for (let i = 0; i < p.count; i++) { const y = -p.getY(i); p.setZ(i, Math.sin(t * 2.6 + y * 4 + b.id) * 0.06 * y); } p.needsUpdate = true; }
-    // the fire bowls flicker
+    // banners wave (by the decorative clock: with less motion they hang still)
+    for (const b of this.banners) { const p = b.geometry.attributes.position as THREE.BufferAttribute; for (let i = 0; i < p.count; i++) { const y = -p.getY(i); p.setZ(i, Math.sin(dT * 2.6 + y * 4 + b.id) * 0.06 * y); } p.needsUpdate = true; }
+    // the fire bowls flicker (their sparks are steady ones, none with less motion; their light goes by the
+    // decorative clock, so with less motion the torches hold a steady light)
     for (const f of this.fires) this.fx.emit({ steady: true, at: f, count: Math.random() < 0.5 ? 2 : 1, shape: ['dot', 'spark'], color: [0xffd27a, 0xff9a3a], to: 0xff3d1a, dir: UP, spread: 0.25, speed: [0.5, 1.2], radius: 0.12, life: [0.35, 0.7], size: [0.18, 0.34], grow: -0.6, drag: 1 });
-    this.lights.forEach((l, i) => (l.intensity = 6 + Math.sin(t * 13 + i * 2) * 0.8 + Math.sin(t * 7.3 + i) * 0.6));
+    this.lights.forEach((l, i) => (l.intensity = 6 + Math.sin(dT * 13 + i * 2) * 0.8 + Math.sin(dT * 7.3 + i) * 0.6));
     // floating motes of light over the arena
     this.moteT -= dt;
     if (this.moteT < 0) { this.moteT = 0.12; this.fx.emit({ steady: true, at: this.C.clone().add(new THREE.Vector3(0, 0.4, 0)), count: 1, shape: 'dot', color: [0xfff2b0, 0xffffff, 0xcfe8ff], speed: [0.1, 0.3], up: 3, radius: 3.2, life: [3, 5], size: [0.05, 0.1], drag: 0.2, gravity: -0.05 }); }
     this.fx.update(dt, t);
-    this.camera(dt, t);
+    this.camera(dt);
   }
 
-  private updateShield(dt: number, t: number) {
+  /** `dT`: the decorative clock (the waiting shield's breathing goes by it, so with less motion it stands still) */
+  private updateShield(dt: number, dT: number) {
     if (!this.shieldFace || !this.shieldGlow) return;
     this.shieldAge += dt;
     const want = this.shieldMode === 'up' ? 1 : this.shieldMode === 'ready' ? 0.32 : 0;
@@ -538,7 +551,7 @@ export class BattleScene implements Controller {
     this.shieldKick = Math.max(0, this.shieldKick - dt * 4);
     const s = this.shieldSpot();
     // waiting: smaller and breathing; snapping up: a quick pop bigger than it ends up
-    const pop = this.shieldMode === 'up' ? 1 + 0.22 * Math.sin(Math.min(1, this.shieldAge / 0.28) * Math.PI) : 0.78 + 0.04 * Math.sin(t * 7);
+    const pop = this.shieldMode === 'up' ? 1 + 0.22 * Math.sin(Math.min(1, this.shieldAge / 0.28) * Math.PI) : 0.78 + 0.04 * Math.sin(dT * 7);
     this.shield.position.copy(s.at).addScaledVector(s.face, -0.18 * Math.sin(this.shieldKick * Math.PI));
     this.shield.lookAt(this.shield.position.clone().add(s.face));
     this.shield.scale.setScalar(Math.max(0.01, pop * (0.6 + 0.4 * this.shieldK)));
@@ -551,7 +564,7 @@ export class BattleScene implements Controller {
     this.shield.traverse(o => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m && m !== this.shieldFace && m !== this.shieldGlow) { m.transparent = true; m.opacity = Math.min(1, this.shieldK * 1.6); } });
   }
 
-  private camera(dt: number, t: number) {
+  private camera(dt: number) {
     const cam = stage.camera, v = this.view, tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
     const bandW = Math.max(0.2, v.right - v.left), bandH = Math.max(0.2, v.bottom - v.top);
     if (this.shot !== 'wide' && this.shot !== 'reveal' && this.now > this.shotUntil) this.shot = 'wide';
@@ -566,7 +579,9 @@ export class BattleScene implements Controller {
     else if (this.compact && this.shot !== 'buddy') span *= 0.7;
     // fit the span across the band's width, and the height (about span/2.4) into its height
     const d = Math.max(span / (bandW * 2 * tanH * cam.aspect), (span / 2.2) / (bandH * 2 * tanH));
-    const sway = Math.sin(t * 0.25) * 0.12;
+    // a slow sway round the arena, for its own sake: it goes by the decorative clock (the stage's time, standing
+    // still with less motion), as the title's does, so with less motion the camera holds where it is
+    const sway = Math.sin(stage.decorT * 0.25) * 0.12;
     const dir = this.n.clone().applyAxisAngle(UP, sway - 0.08);
     const wantPos = focus.clone().addScaledVector(dir, d).add(new THREE.Vector3(0, d * 0.2 + 0.25, 0));
     const aim = focus.clone();
@@ -576,7 +591,9 @@ export class BattleScene implements Controller {
     void high;
     if (!this.camReady) { this.camPos.copy(wantPos); this.camAim.copy(aim); this.camReady = true; }
     const k = 1 - Math.exp(-dt * (this.shot === 'wide' ? 2.5 : 3.5));
-    this.camPos.lerp(wantPos, k); this.camAim.lerp(aim, k);
+    // (with less motion the last of an ease lands, so it stands still at once; its moves for something, the push
+    // in on a cast, close on the buddy for the Finale, onto the new Glimmer, ease as ever)
+    easeTo(this.camPos, wantPos, k, calm.on); easeTo(this.camAim, aim, k, calm.on);
     cam.position.copy(this.camPos);
     if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 1.4); cam.position.x += (Math.random() - 0.5) * shakeOf(this.shake) * 0.25; cam.position.y += (Math.random() - 0.5) * shakeOf(this.shake) * 0.2; }
     cam.lookAt(this.camAim);
