@@ -522,7 +522,7 @@
                   <span class="grar">{RARITY[c.rarity].name}</span>
                   <img src="{base}{c.icon}" alt="" />
                   <b>{c.name}</b>
-                  <span class="gpow">{#if c.power}<Icon name="shield" size={14} /> {/if}{c.text}</span>
+                  <span class="gpow">{#if c.power}<Icon name="shield" size={14} />{' '}{/if}{c.text}</span>
                   {#if wearing}<em class="gst on"><Icon name="check" size={14} /> Wearing</em>{:else}<em class="gst">Tap to wear</em>{/if}
                 </button>
               {/each}
@@ -575,7 +575,7 @@
                 <span class="rar">{RARITY[c.rarity].name}</span>
                 <img src="{base}{c.icon}" alt="" loading="lazy" />
                 <b>{c.name}</b>
-                <span class="where">{SLOT_NAME[c.slot]}{#if c.power} · <Icon name="shield" size={12} />{/if}</span>
+                <span class="where">{SLOT_NAME[c.slot]}{#if c.power}{' · '}<Icon name="shield" size={12} />{/if}</span>
                 {#if on}<em class="have"><Icon name="check" size={13} /> Wearing</em>
                 {:else if mine}<em class="have">Yours</em>
                 {:else if c.how === 'shop'}<em class="price"><img src="{base}game/icon-shell.webp" alt="" />{c.price}</em>

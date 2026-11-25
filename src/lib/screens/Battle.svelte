@@ -665,7 +665,7 @@
           <div class="hr"><div class="mini"><span class="mstars">{#each Array(5) as _}<img src="{base}game/icon-star.webp" alt="" />{/each}</span></div><p><b>5 right in a row</b> = your buddy's Finale.</p></div>
           <div class="hr"><div class="mini"><span class="mcard el-tide"><img src="{base}game/icon-tide.webp" alt="" />6 + 2<em><Icon name="bolt" size={11} /> Strong</em></span></div><p><b>Strong cards</b> also calm its next rain.</p></div>
         </div>
-        {#if team.length}<div class="hteam">{#each team as m}<span><img src={myArt(m.id)} alt="" /><p><b>{myName(m.id)}:</b> {GLIMMER[m.id].power.text(m.level + (m.evolved ? EVOLVE_BOOST : 0))}{#if m.evolved} {EVOLVED[m.id].perk}{/if}</p></span>{/each}</div>{/if}
+        {#if team.length}<div class="hteam">{#each team as m}<span><img src={myArt(m.id)} alt="" /><p><b>{myName(m.id)}:</b> {GLIMMER[m.id].power.text(m.level + (m.evolved ? EVOLVE_BOOST : 0))}{#if m.evolved}{' '}{EVOLVED[m.id].perk}{/if}</p></span>{/each}</div>{/if}
         <button class="btn btn-primary" onclick={() => (help = false)}>Got it</button>
       </div>
     </div>

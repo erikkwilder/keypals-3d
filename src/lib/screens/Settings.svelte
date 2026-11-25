@@ -134,7 +134,7 @@
             <button class:on={gpref === 'smooth'} onclick={() => setGraphics('smooth')}>Smooth</button>
           </div>
         </div>
-        <p class="hint">Smooth mode keeps the game running well on older computers: fewer details and a steadier picture. Auto switches to it by itself when this computer needs it. This changes it for every player on this computer.{#if gpref === 'auto'} (Now: {smoothNow ? 'smooth' : 'full'}.){/if}</p>
+        <p class="hint">Smooth mode keeps the game running well on older computers: fewer details and a steadier picture. Auto switches to it by itself when this computer needs it. This changes it for every player on this computer.{#if gpref === 'auto'}{' '}(Now: {smoothNow ? 'smooth' : 'full'}.){/if}</p>
       </div>
     </section>
 

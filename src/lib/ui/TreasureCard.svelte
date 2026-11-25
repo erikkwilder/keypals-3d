@@ -27,7 +27,7 @@
     <span class="kind">Treasure · {i + 1} of {TREASURES.length}</span>
     <h3>{TREASURES[i].name}</h3>
     <p class="desc">{TREASURES[i].desc}</p>
-    <p class="more">{#if at?.[i] !== undefined}Score {at[i]} or more{where ? ` ${where}` : ''} to find one. {/if}It's worth {treasureWorth(i)} shells.{#if i === found} You found one this time!{/if}</p>
+    <p class="more">{#if at?.[i] !== undefined}Score {at[i]} or more{where ? ` ${where}` : ''} to find one.{' '}{/if}It's worth {treasureWorth(i)} shells.{#if i === found}{' '}You found one this time!{/if}</p>
     <div class="nav">
       <button class="btn" disabled={i === 0} onclick={() => go(i - 1)} aria-label="Previous treasure"><Icon name="back" size={26} /></button>
       <button class="btn btn-primary" onclick={onclose}>OK</button>

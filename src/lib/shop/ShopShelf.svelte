@@ -195,7 +195,7 @@
             <small>{GROUP_NAME[e.group]}{e.dream ? ' · worth saving up for' : ''}</small>
             <b>{e.name}</b>
             <span>{e.section === 'care' ? careText(e, firstGlimmer).line : e.blurb}</span>
-            <i class="keepline" class:yes={n > 0}>{#if n > 0}<Icon name="check" size={14} /> {/if}{haveLine(e)}</i>
+            <i class="keepline" class:yes={n > 0}>{#if n > 0}<Icon name="check" size={14} />{' '}{/if}{haveLine(e)}</i>
           </div>
           <div class="act">
             {#if owned(e)}<em class="have"><Icon name="check" size={14} /> Yours</em>
