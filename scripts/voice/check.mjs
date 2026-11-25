@@ -122,6 +122,23 @@ for f in sys.argv[1:]:
   }
   console.log(`\nword check: ${lines.length - flagged.length}/${lines.length} clips match their text (90% letter match or better)`);
   for (const id of flagged) console.log(`  ${id}  [${results[id].match}]\n    text:  ${results[id].text}\n    heard: ${results[id].heard}`);
+  // A 90% match can still pass a clip that lost a short first or last word ("So", "Now") at a cut edge, or a
+  // word heard as another ("won" as "want"): the first and last word heard are compared too. (A number may be
+  // heard as digits, "forty two" as "42", and "colour" as "color": those count as the same.)
+  const wordsOf = (s) => s.toLowerCase().replace(/[’']/g, '').replace(/\d+/g, (d) => ` ${words(+d)} `).replace(/(\w)-(\w)/g, '$1$2').split(/[^a-z]+/).filter(Boolean);
+  const endOk = (s, h, last) => {
+    const a = last ? s.at(-1) : s[0], b = last ? h.at(-1) : h[0];
+    const two = (x) => (last ? x.slice(-2) : x.slice(0, 2)).join('');
+    return a === b || two(s) === b || two(h) === a || (!!a && !!b && a.replace(/u/g, '') === b.replace(/u/g, ''));
+  };
+  const ends = lines.filter((l) => !flagged.includes(l.id)).filter((l) => {
+    const s = wordsOf(l.said ?? l.text), h = wordsOf(heard[l.id] ?? '');
+    return !endOk(s, h, false) || !endOk(s, h, true);
+  });
+  if (ends.length) {
+    console.log(`first or last word heard differently (a word cut at an edge, or two words that sound alike): ${ends.length}`);
+    for (const l of ends) console.log(`  ${l.id}\n    text:  ${l.said ?? l.text}\n    heard: ${heard[l.id]}`);
+  }
 }
 
 mkdirSync(join(HERE, 'raw'), { recursive: true });

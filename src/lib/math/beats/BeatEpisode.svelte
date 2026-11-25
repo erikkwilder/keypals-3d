@@ -10,7 +10,7 @@
   import { EpisodeScene, type View } from '../../three/episodeScene';
   import { game } from '../../state/game.svelte';
   import { quietForLesson, sfx } from '../../audio/sound';
-  import { hush, keepLesson, lineText, say } from '../../audio/voice.svelte';
+  import { hush, keepLesson, keepWords, lineText, say, wordDone } from '../../audio/voice.svelte';
   import { separate, type Card } from './cardLayout';
   import { danceOf } from '../../engine/profile';
   import { advView } from '../../adventure/state';
@@ -74,8 +74,12 @@
   const live = async <T,>(p: Promise<T>): Promise<T> => { const v = await p; if (gone) throw new Left(); return v; };
 
   const teller: Teller = {
-    async say(id, n) {
-      line = lineText(id).replace('{n}', String(n ?? ''));
+    async say(id, n, m, k) {
+      line = lineText(id).replace(/\{n\}/g, String(n ?? '')).replace(/\{m\}/g, String(m ?? '')).replace(/\{k\}/g, String(k ?? ''));
+      // (for checking a lesson's pictures quickly while building it: `window.__fast = ms` holds each line that long)
+      if (import.meta.env.DEV && (window as unknown as { __fast?: number }).__fast) { await live(sleep((window as unknown as { __fast: number }).__fast)); return; }
+      // a count word still being said finishes first (the last number counted is the answer)
+      await live(wordDone());
       const t0 = performance.now();
       await live(Promise.race([say(id, { important: true, caption: false }), sleep(2500 + line.length * 95)]));
       if (game.settings.voice === false) await live(sleep(Math.max(0, Math.max(1500, line.length * 55) - (performance.now() - t0))));
@@ -143,6 +147,7 @@
         await L.check(teller, wd, mathOf(game.profile!).lessonNotes?.[L.id] ?? null);
         phase = 'checked'; ask = null; bet = null;
         game.update(pp => markChecked(pp, L.id));
+        wd.clearForCard?.();
         s.gather(true); s.shot('pals'); s.dance(danceOf(game.profile!)); s.party();
         sfx.complete(); burst++;
         cardWords = L.card(mathOf(game.profile!).lessonNotes?.[L.id] ?? {});
@@ -159,6 +164,7 @@
         result = res;
         cardWords = L.card(mathOf(game.profile!).lessonNotes?.[L.id] ?? notes);
         if (!embedded) pn = pathNext(game.profile, `learn:${L.id}`);
+        wd.clearForCard?.();
         s.gather(true); s.shot('pals'); s.dance(danceOf(game.profile!)); s.party(); s.palDo('happy');
         sfx.complete(); burst++;
       }
@@ -170,6 +176,8 @@
   function move(e: PointerEvent) { if (world?.pointer('move', e.clientX, e.clientY)) e.preventDefault(); }
   function up(e: PointerEvent) { world?.pointer('up', e.clientX, e.clientY); }
   function pin(node: HTMLElement, at: () => Vector3 | null) {
+    // (hidden until the scene has put it on its point: the scene shows it on its next frame)
+    node.style.visibility = 'hidden';
     sc?.pin(node, at);
     return { update(n: () => Vector3 | null) { sc?.pin(node, n); }, destroy() { sc?.unpin(node); } };
   }
@@ -180,7 +188,9 @@
     const top = (narrow ? 58 + DOCK_H.narrow : 72 + DOCK_H.wide) / H;
     let bottom = 1 - (narrow ? 116 : 104) / H, right = 0.99;
     // (room for the number keys from the start, so the picture doesn't jump back when a question comes)
-    if (phase === 'play') bottom = 1 - (narrow ? 352 : 228) / H;
+    // (a lesson that never asks for a number keeps room for its choices only, so its picture is bigger)
+    // (on a phone the number keys are two rows, not the calculator block: 214 px, where the block took 352)
+    if (phase === 'play') bottom = 1 - (L.keys === false ? (narrow ? 204 : 196) : (narrow ? 214 : 228)) / H;
     else if (phase === 'card' || phase === 'checked') { if (narrow) bottom = 0.5; else right = 0.5; }
     if (narrow && bottomH && phase === 'play') bottom = Math.min(bottom, 1 - (bottomH + 14) / H);
     return { top, bottom, left: 0.01, right };
@@ -214,9 +224,21 @@
     settling = requestAnimationFrame(settle);
     if (!root || phase === 'load') return;
     drawRoute();
-    const fixed = [...root.querySelectorAll(fixedCards())], free = [...root.querySelectorAll<HTMLElement>(freeCards())];
+    const fixed = [...root.querySelectorAll(fixedCards())];
+    // (a card whose thing is off the page, or that the scene hasn't put on its point yet, takes no part: when
+    // it comes back it starts in the clear again, as a new card does)
+    const free = [...root.querySelectorAll<HTMLElement>(freeCards())].filter(el => {
+      const shown = (el.closest<HTMLElement>('.pin')?.style.visibility ?? '') !== 'hidden';
+      if (!shown) { delete el.dataset.nx; delete el.dataset.ny; el.style.translate = ''; }
+      return shown;
+    });
     const nudged = free.map(el => ({ x: parseFloat(el.dataset.nx ?? '0'), y: parseFloat(el.dataset.ny ?? '0') }));
-    const box = (el: Element, give: number, n = { x: 0, y: 0 }): Card => { const r = el.getBoundingClientRect(); return { x: r.x - n.x, y: r.y - n.y, w: r.width, h: r.height, give }; };
+    // (a card's full size round its middle, not its size this frame: a card pops in from half size, and
+    // spaced by that it overlapped its neighbours until it had grown)
+    const box = (el: Element, give: number, n = { x: 0, y: 0 }): Card => {
+      const r = el.getBoundingClientRect(), h = el as HTMLElement, w = Math.max(r.width, h.offsetWidth || 0), t = Math.max(r.height, h.offsetHeight || 0);
+      return { x: r.x + r.width / 2 - w / 2 - n.x, y: r.y + r.height / 2 - t / 2 - n.y, w, h: t, give };
+    };
     const cards = [...fixed.map(el => box(el, 0)), ...free.map((el, i) => box(el, giveOf(el), nudged[i]))];
     const moves = separate(cards, { w: innerWidth, h: innerHeight }).slice(fixed.length);
     free.forEach((el, i) => {
@@ -228,7 +250,7 @@
     });
   }
 
-  let unquiet = () => {}, letGo = () => {};
+  let unquiet = () => {}, letGo = () => {}, letGoWords = () => {};
   onMount(() => {
     settling = requestAnimationFrame(settle);
     unquiet = quietForLesson();
@@ -239,6 +261,8 @@
     void EpisodeScene.create({ setId: L.set, buddy, star: L.star, evolved: !!own?.evolved }).then(async s => {
       if (gone) { s.dispose(); return; }
       const wd = await L.world(s);
+      // and the short words it says (the count words), kept the same way
+      letGoWords = keepWords(wd.words ?? []);
       await wd.load();
       if (gone) { s.dispose(); return; }
       ctl = { fps: 60, update: (dt, t) => { s.update(dt, t); wd.update(dt, t); }, focus: () => s.focus(), dispose: () => {} };
@@ -247,6 +271,9 @@
       if (import.meta.env.DEV) void import('../../../dev/labelOverlap').then(m => { (window as unknown as { __labels: unknown }).__labels = m.labelOverlaps; });
       s.show(CLEAR, true); s.fit(wd.bounds()); wd.refit();
       wd.onChange = () => { pins = wd.pins; };
+      // (a short word the world wants heard as something happens: a count word as a cookie is touched. It never
+      // changes the words on screen, and never cuts into a line the narrator is saying)
+      wd.onWord = id => { void say(id, { caption: false }); };
       s.setView(viewFor());
       sc = s; world = wd;
       s.shot('wide');
@@ -262,10 +289,12 @@
   onDestroy(() => {
     cancelAnimationFrame(settling);
     gone = true;
-    hush(); unquiet(); letGo();
+    hush(); unquiet(); letGo(); letGoWords();
     removeEventListener('keydown', onKey, true);
     if (sc) { const s = sc; sc = null; world?.dispose(); world = null; if (stage.current() === ctl) stage.swap(before); s.dispose(); }
   });
+  /** a fraction written on its own ("1/4") is shown the way it's written by hand: one number over the other */
+  const fracOf = (t: string): [string, string] | null => { const m = /^(\d+)\/(\d+)$/.exec(t.trim()); return m ? [m[1], m[2]] : null; };
   const pinOf = (id: string) => () => world?.pins.find(p => p.id === id)?.at() ?? null;
   // (a running count stays out of a number question: it can be the answer)
   const showing = $derived(pins.filter(p => (phase === 'play' || p.kind === 'sum') && !(p.kind === 'count' && ask?.kind === 'num')));
@@ -286,9 +315,10 @@
     {#each showing as p (p.id)}
       <div class="pin" use:pin={pinOf(p.id)}>
         {#if p.kind === 'edge'}<span class="edge t-{p.c}">{p.text}</span>
-        {:else if p.kind === 'tick'}<span class="tick t-{p.c}">{p.text}</span>
+        {:else if p.kind === 'tick'}<span class="tick t-{p.c}" class:big={p.big}>{p.text}</span>
         {:else if p.kind === 'count'}<span class="count">{p.text}</span>
         {:else if p.kind === 'sum'}<div class="sum"><div class="row1">{#each p.parts ?? [] as q, i}<b class="t-{q.c ?? 'ink'}" style:animation-delay="{i * 0.12}s">{q.t}</b>{/each}</div>{#if p.under}<div class="row2">{#each p.under as u, i}{#if i}<i>{i === p.under.length - 1 ? '=' : '×'}</i>{/if}<span class="u{i}">{u}</span>{/each}</div>{/if}</div>
+        {:else if fracOf(p.text)}{@const f = fracOf(p.text)!}<span class="word frac" aria-label={p.text}><b>{f[0]}</b><i></i><b>{f[1]}</b></span>
         {:else}<span class="word">{p.text}</span>{/if}
       </div>
     {/each}
@@ -320,12 +350,12 @@
     {#if ask?.kind === 'num'}
       <div class="turn">
         <div class="ask"><svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3 28 9.5v13L16 29 4 22.5v-13z" fill="#8f7bff"/><path d="M16 3 28 9.5 16 16 4 9.5z" fill="#c9bcff"/><path d="M16 16v13L4 22.5v-13z" fill="#6d5ae0"/></svg><span class="q">{ask.prompt}</span><span class="box">{typed || ' '}</span><button class="btn btn-primary gobtn" disabled={!typed} onclick={send}>Go <span class="kbd">enter</span></button></div>
-        <NumPad ondigit={typeDigit} onback={back} compact={narrow} lit={null} />
+        <NumPad ondigit={typeDigit} onback={back} compact={narrow} short={narrow} lit={null} />
       </div>
     {:else if ask?.kind === 'pick'}
       <div class="fix">
         <span class="pill task">{ask.prompt}</span>
-        <div class="choices">{#each ask.choices as c}<button class="choice" onclick={() => tap(c.id)}>{c.text}</button>{/each}</div>
+        <div class="choices">{#each ask.choices as c}{@const f = fracOf(c.text)}<button class="choice" class:fracbtn={!!f} onclick={() => tap(c.id)} aria-label={c.text}>{#if f}<span class="frac"><b>{f[0]}</b><i></i><b>{f[1]}</b></span>{:else}{c.text}{/if}</button>{/each}</div>
       </div>
     {:else if ask?.kind === 'hands'}
       <div class="row"><span class="pill task">{ask.words}</span>{#if stuck}<button class="btn ghostbtn" onclick={() => { sfx.click(); stuck = false; showMe?.(); }}>Show me</button>{/if}</div>
@@ -392,7 +422,12 @@
   .t-a { color: #1f6fd1; } .t-b { color: #d63c7c; } .t-c { color: #c47c00; } .t-ink { color: #2a1f45; }
   .edge { font: 700 clamp(28px, 4.2vh, 40px)/1 var(--font-ui); background: #fff; min-width: 1.2em; text-align: center; padding: 3px 9px 4px; border-radius: 14px; box-shadow: 0 0 0 3px currentColor, 0 6px 14px rgba(60, 30, 10, .4); animation: pop .35s cubic-bezier(.3, 1.6, .5, 1) both; }
   .tick { font: 700 20px/1 var(--font-ui); background: #fff; padding: 2px 8px; border-radius: 10px; box-shadow: 0 3px 8px rgba(80, 40, 10, .3); animation: pop .25s cubic-bezier(.3, 1.6, .5, 1) both; }
+  .tick.big { font-size: 27px; padding: 3px 10px 4px; border-radius: 13px; min-width: 1.15em; text-align: center; }
   .count { font: 700 clamp(34px, 5.4vh, 54px)/1 var(--font-ui); color: #3a2400; background: linear-gradient(#fffaf0, #fff0c8); padding: 4px 18px; border-radius: 18px; box-shadow: 0 0 0 3px #ffd75e, 0 10px 20px rgba(90, 50, 0, .3); }
+  .frac { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; }
+  .frac i { display: block; align-self: stretch; height: 3px; margin: 3px -2px; border-radius: 2px; background: currentColor; }
+  .word.frac { padding: 5px 11px 6px; font-size: 21px; }
+  .choice.fracbtn { height: 104px; }
   .word { font: 700 19px/1 var(--font-ui); color: #5a3a14; background: rgba(255, 250, 235, .95); padding: 6px 12px; border-radius: 12px; box-shadow: 0 4px 10px rgba(80, 40, 10, .3); animation: pop .3s both; }
   .thought { transform: translate(-50%, -100%); font: 700 clamp(22px, 3.4vh, 32px)/1 var(--font-ui); color: #2a1f45; background: #fff; padding: 8px 16px; border-radius: 20px; box-shadow: 0 0 0 3px #d9cff0, 0 10px 18px rgba(60, 30, 90, .3); animation: pop .35s cubic-bezier(.3, 1.6, .5, 1) both; }
   .thought::after { content: ''; position: absolute; left: 50%; bottom: -14px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #d9cff0; }
@@ -442,7 +477,7 @@
   .kbd { background: rgba(255, 255, 255, .25); border-color: rgba(255, 255, 255, .4); color: inherit; font-size: 11px; height: 22px; }
   .fix { display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .choices { display: flex; gap: 14px; }
-  .choice { min-width: 130px; height: 84px; padding: 0 18px; border: 0; border-radius: 24px; cursor: pointer; font: 600 28px var(--font-ui); color: var(--ink); background: linear-gradient(#fff, #fff4dc); box-shadow: 0 0 0 4px #ffd75e, 0 7px 0 #e0a51c, 0 14px 24px -8px rgba(90, 50, 0, .5); transition: transform .1s; }
+  .choice { min-width: 130px; min-height: 84px; padding: 6px 18px; line-height: 1.12; border: 0; border-radius: 24px; cursor: pointer; font: 600 28px var(--font-ui); color: var(--ink); background: linear-gradient(#fff, #fff4dc); box-shadow: 0 0 0 4px #ffd75e, 0 7px 0 #e0a51c, 0 14px 24px -8px rgba(90, 50, 0, .5); transition: transform .1s; }
   .choice:hover { transform: translateY(-3px); }
   .choice:active { transform: translateY(3px); }
   .turn { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(1000px, 100%); }
@@ -482,10 +517,18 @@
   .narrow .pill { font-size: 15px; padding: 10px 16px; text-align: center; white-space: normal; }
   .narrow .go { font-size: 18px; padding: 12px 20px; }
   .narrow .kbd { display: none; }
-  .narrow .choice { min-width: 92px; height: 70px; font-size: 22px; }
+  .narrow .choice { min-width: 92px; min-height: 70px; padding: 8px 12px; font-size: 21px; flex: 0 1 auto; }
+  .narrow .choices { max-width: 100%; }
+  .narrow .choice.fracbtn { height: 92px; }
   .narrow .choices { gap: 10px; }
-  .narrow .ask { font-size: 21px; padding: 6px 8px 6px 12px; gap: 8px; white-space: nowrap; }
+  /* (a long question wraps inside its box: it used to push the Go button off the side of a phone) */
+  .narrow .ask { font-size: 20px; padding: 6px 8px 6px 12px; gap: 8px; max-width: 100%; }
+  .narrow .ask .q { min-width: 0; }
+  .narrow .ask .box, .narrow .ask .gobtn, .narrow .ask .ico { flex: none; }
   .narrow .tick { font-size: 15px; }
+  .narrow .tick.big { font-size: 21px; padding: 2px 8px 3px; }
+  /* a thought never runs off a phone's screen: it wraps */
+  .narrow .thought { white-space: normal; width: max-content; max-width: 64vw; text-align: center; font-size: 19px; line-height: 1.15; padding: 7px 13px; }
   .narrow .word { font-size: 15px; }
   .narrow .row1 { font-size: 30px; }
   .narrow .mybet { left: 8px; top: 124px; translate: none; padding: 4px 12px 6px; }

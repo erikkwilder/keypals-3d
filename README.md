@@ -66,3 +66,9 @@ Keypals is free to play and **source-available**: read the code, run it for any 
 and send improvements (see [CONTRIBUTING.md](CONTRIBUTING.md)). The code is under
 [PolyForm Strict 1.0.0](LICENSE), which doesn't allow publishing changed copies or your own version;
 art, characters, voices and music are all rights reserved ([LICENSE-ART.md](LICENSE-ART.md)).
+
+The voices are made on our own computer with OmniVoice, an open voice model. Built with Higgs
+Materials licensed from Boson AI USA, Inc., Copyright Boson AI USA, Inc., All Rights Reserved, and
+Meta Llama 3 licensed under the Meta Llama 3 Community License, Copyright Meta Platforms, Inc., All
+Rights Reserved (part of OmniVoice, used to make the voices). The same credit is on the game's About
+screen.

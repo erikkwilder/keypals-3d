@@ -78,6 +78,17 @@ export function say(id: string, opts: { important?: boolean; caption?: boolean }
   });
 }
 
+/** A short word still playing (a count word, said without a caption): resolves when it has ended, or after
+ *  `ms` at most. A lesson's next line waits for it, so the last number counted is never cut off. */
+export function wordDone(ms = 1000): Promise<void> {
+  const a = audio;
+  if (!a || important || a.paused || a.ended) return Promise.resolve();
+  return new Promise(r => {
+    const t = setTimeout(r, ms);
+    a.addEventListener('ended', () => { clearTimeout(t); r(); }, { once: true });
+  });
+}
+
 const offline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
 
 /** Keep a Learn lesson's clips on this computer while it plays (keep.ts), so the narrator carries on if the
@@ -88,6 +99,13 @@ export function keepLesson(o: { keys: string[]; buddy?: string; shared?: boolean
   if (game.settings.voice === false) return () => {};
   const voice = o.buddy ? BUDDY_VOICE[o.buddy] ?? 'kid-a' : undefined;
   return keepClips(lessonClips(ALL_LINES, { keys: o.keys, voice, shared: o.shared }), { answered: requestAnswered, failed: requestFailed }).release;
+}
+
+/** Keep a few more clips while a lesson plays: the short words its world says (the count words), which aren't
+ *  lesson lines. Returns what lets them go. With the voice off nothing is fetched. */
+export function keepWords(ids: readonly string[]): () => void {
+  if (game.settings.voice === false || !ids.length) return () => {};
+  return keepClips(ids, { answered: requestAnswered, failed: requestFailed }).release;
 }
 
 export function hush() {

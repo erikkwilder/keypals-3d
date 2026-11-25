@@ -15,8 +15,9 @@ export type Choice<T extends string = string> = { id: T; text: string };
 
 /** What a script can ask of the player. */
 export interface Teller {
-  /** the coach says one line (its words stay up); done when it's said. `n` fills {n} in the words on screen */
-  say(id: string, n?: number): Promise<void>;
+  /** the coach says one line (its words stay up); done when it's said. `n`, `m` and `k` fill {n}, {m} and {k}
+   *  in the words on screen (the voice says the line's spoken form, which has none of them) */
+  say(id: string, n?: number, m?: number, k?: number): Promise<void>;
   /** wait for a number from the child (it's what the world then acts out); `line` is said as it opens */
   num(prompt: string, line?: string, n?: number): Promise<number>;
   /** wait for a tap on one of these */
@@ -39,6 +40,7 @@ export interface Teller {
 
 /** Words pinned to a point in the 3D world. */
 export type Pin = { id: string; text: string; at: () => Vector3; kind: 'edge' | 'tick' | 'count' | 'word' | 'sum';
+  /** a tick written large: a numeral a young child has to read off a thing */ big?: boolean;
   /** which line's colour */ c?: 'a' | 'b' | 'c' | 'ink';
   /** a sum's numbers, each in its line's colour, and the words under them */
   parts?: { t: string; c?: 'a' | 'b' | 'c' }[]; under?: string[] };
@@ -47,6 +49,12 @@ export type Pin = { id: string; text: string; at: () => Vector3; kind: 'edge' | 
 export interface World {
   pins: Pin[];
   onChange: (() => void) | null;
+  /** a short word to be heard right now, by its voice line's id (a count word as a cookie is touched); the
+   *  player sets it. It doesn't change the words on screen */
+  onWord?: ((id: string) => void) | null;
+  /** the short words it may say through onWord (the count words), by their voice lines' ids: the player keeps
+   *  them on this computer with the lesson's lines, so they're heard if the connection drops (audio/keep.ts) */
+  words?: readonly string[];
   /** the table's part for the work, in board units */
   bounds(): { x: number; y: number; w: number; h: number };
   /** call after the scene fits the bounds */
@@ -59,6 +67,9 @@ export interface World {
   /** where a drag runs on the screen, drawn as an arrow (null: nothing to drag) */
   dragPath(): { a: { x: number; y: number }; b: { x: number; y: number } } | null;
   tryPoint(): Vector3 | null;
+  /** the lesson is over and the card is coming, with the two friends close up: anything big left on the table
+   *  that would loom in front of them goes (a balance) */
+  clearForCard?(): void;
   dispose(): void;
 }
 
@@ -73,6 +84,8 @@ export type BeatLesson<W extends World = World> = {
   voice?: string;
   /** how many stars across the top */
   beats: number;
+  /** false: the lesson never asks for a number, so the page keeps no room for the number keys */
+  keys?: boolean;
   world(sc: EpisodeScene): Promise<W>;
   /** the lesson; what it returns is kept with the child, and shapes the card */
   play(t: Teller, w: W): Promise<Notes>;

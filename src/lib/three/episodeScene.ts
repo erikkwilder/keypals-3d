@@ -141,6 +141,20 @@ export class EpisodeScene implements Controller {
   private fracTex: FracTex = { pie: null, pizza: null, choc: null };
   /** the fraction episodes: one pie or bar big on a bare wooden table, the camera in close */
   private close = false;
+  /** the same close camera for another lesson whose things must look big (the counting lesson's cookies) */
+  closeUp() { this.close = true; }
+  /** how much bigger than usual a lesson's things are on the table (the counting lesson's cookies on a phone,
+   *  where the friends' heads and the number keys leave little room) */
+  workZoom = 1;
+  /** how steeply the camera looks down at the work on a wide screen (null: the usual): a lesson with tall things on
+   *  the table sets it to see them in front of the friends (three/balanceKit.ts) */
+  widePitch: number | null = null;
+  /** how steeply the work shots look down on a phone, when a lesson wants its own (flat things big across) */
+  tallPitch: number | null = null;
+  /** on a phone, the share of the spare room up and down that goes above the picture, when a lesson wants its own
+   *  (the usual is about a third above: a lesson with a short, wide picture sets a half, so the picture sits in the
+   *  middle of the screen with the painted room above it, not at the top over half a screen of bare table) */
+  tallShare: number | null = null;
   private shapeGeos = new Map<string, ReturnType<typeof shapeGeo>>();
   private plank: THREE.Group | null = null;
   private lineKey = '';
@@ -408,6 +422,9 @@ export class EpisodeScene implements Controller {
   /** other things on the table (the measuring things: three/measureKit.ts), for the friends and the corner
    *  props to keep clear of */
   extraWork: () => THREE.Object3D[] = () => [];
+  /** a part of the board for the camera to frame instead of the whole table (null: the whole table): a lesson
+   *  sets it to have one thing big, on a phone the bar a child is cutting (three/shareKit.ts) */
+  frameBox: { x: number; y: number; w: number; h: number } | null = null;
   private workT = 0;
   /** the corner props' half widths */
   private propHalf: [number, number] = [0.15, 0.15];
@@ -452,7 +469,9 @@ export class EpisodeScene implements Controller {
     this.clearOf(this.me.root, this.buddyAt, back, -1);
     this.clearOf(this.pal.root, this.palHome, back, 1);
     this.backZ += (back - this.backZ) * 0.08;
-    this.table.position.z = this.backZ + 1.6; this.pool.position.z = this.backZ + 1.6;
+    // (a lesson that makes its things bigger makes the table deeper too, so its front edge stays out of the shot)
+    this.table.scale.z = this.pool.scale.z = this.workZoom;
+    this.table.position.z = this.backZ + 1.6 * this.workZoom; this.pool.position.z = this.backZ + 1.6 * this.workZoom;
     // the cloth under the work
     this.cloth.position.set((a.x0 + a.x1) / 2, TY + 0.002, (a.z0 + a.z1) / 2 + 0.02);
     this.cloth.visible = !this.close;
@@ -543,7 +562,7 @@ export class EpisodeScene implements Controller {
   /** Fit these board bounds onto the table (call when the picture's zoom changes). */
   fit(b: { x: number; y: number; w: number; h: number }) {
     // (stacked on a phone: narrower and deeper, seen from higher up)
-    const k = this.close ? 1.45 : 1;
+    const k = (this.close ? 1.45 : 1) * this.workZoom;
     const s = this.stack ? Math.min(1.05 * k / b.w, 1.3 * k / (b.h * DEPTH)) : Math.min(TW * k / b.w, TD * k / (b.h * DEPTH));
     const m = { cx: b.x + b.w / 2, cy: b.y + b.h / 2, s };
     // a new zoom: the tins, plates and plank are made again at the new size (the counters glide over)
@@ -1307,7 +1326,9 @@ export class EpisodeScene implements Controller {
     for (const [el, at] of this.pins) {
       const p = at();
       const s = p ? this.toScreen(p) : null;
-      if (!s) { el.style.visibility = 'hidden'; continue; }
+      // (a word whose thing is off the page isn't shown: while the camera moves to a new picture, the page's
+      // card layout would pull every such card back onto the page, where they pile up at its edge)
+      if (!s || s.x < -8 || s.x > innerWidth + 8 || s.y > innerHeight + 8 || s.y < -160) { el.style.visibility = 'hidden'; continue; }
       el.style.visibility = '';
       // (kept below the top bar, so a bubble by a tall friend never hides under it)
       el.style.transform = `translate(${s.x.toFixed(1)}px, ${Math.min(innerHeight - 30, Math.max(110, s.y)).toFixed(1)}px)`;
@@ -1539,6 +1560,10 @@ export class EpisodeScene implements Controller {
       content.min.set(Math.max(a.x0, p0.x) - 0.05, TY, Math.max(a.z0, p0.z) - 0.05);
       content.max.set(Math.min(a.x1, p1.x) + 0.05, TY + 0.12, Math.min(a.z1, p1.z) + 0.05);
     }
+    if (this.frameBox) {
+      const f = this.frameBox, p0 = this.boardPoint(f.x, f.y), p1 = this.boardPoint(f.x + f.w, f.y + f.h);
+      content.min.set(p0.x - 0.02, TY, p0.z - 0.02); content.max.set(p1.x + 0.02, TY + 0.12, p1.z + 0.02);
+    }
     if (this.armed && this.armed.t.kind === 'place') content.expandByPoint(new THREE.Vector3(0, TY, this.pileZ + this.r * 2.4 * Math.ceil(this.armed.t.ids.length / 10)));
     const head = this.buddyAt.clone().add(new THREE.Vector3(0, this.H * 1.02, 0));
     const buddy = new THREE.Box3(new THREE.Vector3(head.x - 0.3, TY - 0.05, head.z - 0.2), new THREE.Vector3(head.x + 0.3, head.y, head.z + 0.2));
@@ -1562,7 +1587,7 @@ export class EpisodeScene implements Controller {
       pts.push(new THREE.Vector3(head.x - 0.05, head.y + 0.06, head.z), new THREE.Vector3(head.x + 0.18, head.y - 0.3, head.z),
         new THREE.Vector3(this.palAt.x + 0.05, pt, this.palAt.z), new THREE.Vector3(this.palAt.x - 0.18, pt - 0.3, this.palAt.z));
       for (const q of pts.slice(8)) box.expandByPoint(q);
-      pitch = tall ? (s === 'board' ? 0.98 : 0.9) : s === 'board' ? 0.36 : 0.32;
+      pitch = tall ? (this.tallPitch ?? (s === 'board' ? 0.98 : 0.9)) : this.widePitch ?? (s === 'board' ? 0.36 : 0.32);
     }
     // the buddy close, turned toward it, with all of its picture in front (so nothing looms at the camera)
     else if (s === 'buddy') { box.copy(buddy).union(content); pitch = tall ? 0.5 : 0.2; yaw = -0.08; }
@@ -1619,7 +1644,7 @@ export class EpisodeScene implements Controller {
     for (const q of corners) { const rel = q.clone().sub(wantPos), z = rel.dot(fwd), y = rel.dot(camUp) / (z * tanH); ymax = Math.max(ymax, y); ymin = Math.min(ymin, y); }
     const topSlack = rcy + rhy - ymax, botSlack = ymin - (rcy - rhy);
     // (a fraction's wide picture on a phone: the spare room split more evenly, so the work sits nearer the thumbs)
-    const topShare = tall ? (this.close ? 0.55 : 0.35) : 0.6;
+    const topShare = tall ? this.tallShare ?? (this.close ? 0.55 : 0.35) : 0.6;
     if (!lowerMiddle && topSlack > 0 && botSlack > 0) wantPos.addScaledVector(camUp, -(topSlack - (topSlack + botSlack) * topShare) * d * tanH);
     const wantAim = wantPos.clone().add(fwd);
     if (!this.ready) { this.camPos.copy(wantPos); this.camAim.copy(wantAim); this.ready = true; }

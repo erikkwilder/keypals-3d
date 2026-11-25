@@ -1,7 +1,7 @@
 {
   "coach": {
-    "local": "coach",
-    "local_why": "Designed warm alto teacher (OmniVoice, \"female, middle-aged\"), cloned from scripts/voice/refs/coach.wav so every line is the same voice. Alto pitch and lively intonation like Matilda, made on this Mac at no cost. Runners-up in local_tts.py: coach-omni, coach-sarah (Kokoro).",
+    "local": "coach-exclaim",
+    "local_why": "Erik's pick of 2026-11-24 from six narrator voices (\"B from October\"): the designed warm alto teacher (OmniVoice, \"female, middle-aged\"), cloned from scripts/voice/refs/coach.wav so every line is the same voice, with each sentence said as an exclamation (for the model only: the words on screen don't change), which keeps her from sounding flat at the ends of sentences. Made on this Mac at no cost. The plain take is \"coach\" in local_tts.py; runners-up there: coach-happy, coach-omni, coach-sarah (Kokoro).",
     "voice_id": "XrExE9yKIg1WjnnlVkGX",
     "name": "Matilda - Knowledgable, Professional",
     "source": "ElevenLabs premade voice",

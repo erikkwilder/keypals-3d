@@ -51,3 +51,19 @@ The root problem they guard against: a writer who already knows the idea writes 
 22. Run the checks in `rules.ts`.
 23. Play every wrong path, with a child who is wrong all the way through.
 24. Check it from a direct link with a real tap, with sound, and on an old browser.
+
+## F. Found in review, 23 November 2026
+
+These came from playing the next three lessons (How Many Cookies?, Fair Shares, Mystery Bags) through as a child, not from a correction. Each is one of the rules above seen from a new side.
+
+25. The picture must be able to answer the question (rule 13). Nothing the child is asked about may be hidden behind something else, and anything named by its colour or its place must really have it. The buddy's bar lay behind the child's standing pieces while the child was asked about its pieces.
+26. A reason belongs to every child, most of all the one who was wrong (rule 2). Check each wrong path for a reason that only the right path says.
+27. What a result showed is said with the child's own numbers (rule 8): "the smallest piece has 1 and the biggest has 4", not "the shortest has fewer than the longest". A line can carry two numbers, `{n}` and `{m}`.
+28. Watching someone else go wrong is still watching (rule 16). When a friend makes a mistake, the child finds it: a tap that can be wrong.
+29. If the only true reason for the set-up is that it's a puzzle, call it a puzzle (rule 3). A story that says a balance is "the only way" makes a child ask why nobody weighs one bag.
+30. A line over 40 words is split into two lines, never shaved to fit (rule 4). One ceiling, in one place; shaving words to fit a cap is how explanations turn into slogans.
+31. A young child hears the count: the count word is said as each thing is touched, by the narrator's count and by the child's own taps.
+32. Every label can be read at every size (the note under rule 20): none runs off a phone's screen, no choice's words are cut by its button, and a label whose thing is off the page is hidden, not pulled back to the edge.
+33. Room is kept for the number keys only in a lesson that asks for numbers. Otherwise half a phone's screen is bare table.
+34. The story never runs ahead of the picture. A lesson's kit waits on the scene's clock (`src/lib/three/sceneWaits.ts`), never with setTimeout: under 20 frames a second the scene's clock falls behind the wall's, and a wait by the wall ends before the movement it waited for. A test holds every kit to this.
+35. On a phone the number keys are two rows, and a long question wraps inside its box. A lesson that never asks for a number says so (`keys: false`), and a lesson with a short, wide picture centres it (`tallShare`).
