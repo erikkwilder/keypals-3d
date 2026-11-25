@@ -309,6 +309,7 @@ describe('families linking a player from home', () => {
     expect((await call('GET', `/class/${c.code}`)).json.students).toHaveLength(2);
     const pending = (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie })).json.students.find((s: { status: string }) => s.status === 'pending');
     expect(pending.name).toBe('Lulu');
+    expect(pending.homeName).toBeUndefined(); // not a claim to a classmate: its own name is the row's
     await call('POST', `/teach/students/${pending.id}/approve`, {}, { cookie });
     const mine = (await call('GET', `/class/student/${home}?week=2026-10-26`)).json;
     expect(mine.classes[0].student.name).toBe('Lulu');
@@ -327,6 +328,7 @@ describe('families linking a player from home', () => {
     expect((await call('POST', '/class/link', { code: c.code, player: home, claims: maria.id, pics: maria.pics })).json.status).toBe('pending');
     const pending = (await call('GET', `/teach/classes/${c.id}`, undefined, { cookie })).json.students.find((s: { status: string }) => s.status === 'pending');
     expect(pending.name).toBe('Maria');
+    expect(pending.homeName).toBe('Mimi'); // the home player's own nickname, for the teacher to judge the claim
     await call('POST', `/teach/students/${pending.id}/approve`, { profile: { name: 'Mimi', buddy: 'koala', combined: true } }, { cookie });
     expect(env.DB.rows('players').some(p => p.code === schoolCode)).toBe(false);
     const again = await login(c.code, maria.id, maria.pics);

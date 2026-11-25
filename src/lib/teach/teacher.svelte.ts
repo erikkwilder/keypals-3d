@@ -13,7 +13,9 @@ import { classUrl } from './names';
 
 export type ClassSummary = { id: string; name: string; grade: number; code: string; board: boolean; goal: number; archived: boolean; created: number; students?: number; pending?: number };
 /** `google`: the student signs in with their school Google account too */
-export type Student = { id: string; name: string; pics: number[]; home: boolean; status: 'active' | 'pending'; claims: string | null; buddy: string | null; created: number; google?: boolean };
+export type Student = { id: string; name: string; pics: number[]; home: boolean; status: 'active' | 'pending'; claims: string | null; buddy: string | null; created: number; google?: boolean;
+  /** a family's claim to a classmate: the home player's own nickname, as saved (cleaned as the list's names are) */
+  homeName?: string | null };
 export type WeekRow = { id: string; name: string; buddy: string | null; right: number; ms: number; stars: number };
 /** a teacher's status: approved (classes on), pending (a plain Gmail account, waiting for us) or declined */
 export type TeacherStatus = 'approved' | 'pending' | 'declined';

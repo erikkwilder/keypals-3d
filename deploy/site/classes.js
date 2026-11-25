@@ -442,7 +442,14 @@ export async function classApi(request, env, url, path, h) {
         const as = await DB.prepare('SELECT id, data, created, archived FROM assignments WHERE class = ? ORDER BY created').bind(c.id).all();
         let google = new Set();
         try { google = new Set(((await DB.prepare('SELECT student FROM student_google WHERE class = ?').bind(c.id).all()).results ?? []).map(x => x.student)); } catch { /* before the schema: none */ }
-        const students = (st.results ?? []).map(s => ({ id: s.id, name: s.name, pics: picsOf(s.pics), home: !!s.home, status: s.status, claims: s.claims, buddy: s.buddy, created: s.created, google: google.has(s.id) }));
+        // a family's claim to a classmate waits under the classmate's name: the home player's own nickname, as saved
+        // and cleaned as the list's names are (never an email or a last name), goes with it, so the teacher can
+        // judge it ("Mia (from home) says it's Maria")
+        const homeNames = new Map(((await DB.prepare("SELECT s.id, p.data FROM students s JOIN players p ON p.code = s.player WHERE s.class = ? AND s.status = 'pending' AND s.claims IS NOT NULL").bind(c.id).all()).results ?? []).map(x => {
+          let name = null; try { const d = JSON.parse(x.data); name = typeof d?.name === 'string' ? cleanStudentName(d.name) : null; } catch { /* no name to show */ }
+          return [x.id, name];
+        }));
+        const students = (st.results ?? []).map(s => ({ id: s.id, name: s.name, pics: picsOf(s.pics), home: !!s.home, status: s.status, claims: s.claims, buddy: s.buddy, created: s.created, google: google.has(s.id), ...(s.claims ? { homeName: homeNames.get(s.id) ?? null } : {}) }));
         const settings = await settingsOf(env, c.id, c.teacher);
         const assignments = inOrder((as.results ?? []).map(a => ({ id: a.id, ...JSON.parse(a.data), created: a.created, archived: !!a.archived })), settings.order);
         return h.json({ class: classView(c), students, assignments, week: week ? await classWeek(env, c.id, week) : [], challenge: await challengeOf(env, c.id), settings, teacher: { status: await statusOf(env, acct), domain: await domainOf(env, acct) } });

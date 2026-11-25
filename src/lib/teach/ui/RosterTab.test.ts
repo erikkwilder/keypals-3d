@@ -11,3 +11,9 @@ describe('waiting for you', () => {
     expect(waiting).toContain('<p class="muted">Families linking a player from home, and students who signed in with Google, wait here for your yes. Say yes only if you know who it is.</p>');
   });
 });
+
+describe("a family's claim to a classmate", () => {
+  it('shows the home player\'s own name too, so the teacher can judge it: "Mia (from home) says it\'s Maria"', () => {
+    expect(waiting).toContain("{s.claims ? `${s.homeName ? `${s.homeName} (from home)` : 'A player from home'} says it's ${nameOf(s.claims)}: their progress from home and school will be put together`");
+  });
+});

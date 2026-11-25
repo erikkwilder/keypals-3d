@@ -41,7 +41,7 @@
         {#each pending as s (s.id)}
           <tr>
             <td><b>{s.name}</b></td>
-            <td>{s.claims ? `Says it's ${nameOf(s.claims)}: their progress from home and school will be put together` : s.google ? 'Signed in with Google and typed the class code' : 'A new student from home'}</td>
+            <td>{s.claims ? `${s.homeName ? `${s.homeName} (from home)` : 'A player from home'} says it's ${nameOf(s.claims)}: their progress from home and school will be put together` : s.google ? 'Signed in with Google and typed the class code' : 'A new student from home'}</td>
             <td class="r"><button class="sbtn" onclick={() => act(() => approve(s), `${s.name} is in the class now.`)}>Yes</button> <button class="sbtn warn" onclick={() => act(() => removeStudent(s.id), 'Said no.')}>No</button></td>
           </tr>
         {/each}
