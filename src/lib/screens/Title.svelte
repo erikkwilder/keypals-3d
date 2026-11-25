@@ -9,6 +9,7 @@
   import Logo from '../ui/Logo.svelte';
   import GoogleSignIn from '../ui/GoogleSignIn.svelte';
   import { STARTERS } from '../engine/team';
+  import { startsTheGame } from '../ui/screenKeys';
 
   let h = $state(800);
   let w = $state(1280);
@@ -22,11 +23,8 @@
     game.go(game.save.profiles.length ? 'players' : 'newPlayer');
   }
   function onKey(e: KeyboardEvent) {
-    if (game.modalOpen) return;
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'Tab') return;
-    // (Enter or space on a button is that button's own)
-    if ((e.key === 'Enter' || e.key === ' ') && e.target instanceof HTMLButtonElement) return;
+    // (not Tab, Shift on its way to Shift-Tab, a shortcut, or Enter or Space on a button)
+    if (game.modalOpen || !startsTheGame(e)) return;
     e.preventDefault();
     go();
   }

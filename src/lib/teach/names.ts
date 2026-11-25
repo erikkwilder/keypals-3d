@@ -3,6 +3,7 @@
 // the made-up names on the world boards. The rules themselves (what a student's name may be, the lists
 // of words) are shared with the server: deploy/site/class-rules.js.
 import { ALIAS_ADJ, ALIAS_ANIMALS, PICTURE_COUNT } from '../../../deploy/site/class-rules.js';
+import { cleanCode } from '../state/codes';
 
 /** The picture password's pictures, by number. The numbers are saved with every student: never reorder
  *  this list or take one out (add at the end only, and raise PICTURE_COUNT on both sides). */
@@ -17,7 +18,7 @@ export const pictureSrc = (i: number) => `${import.meta.env.BASE_URL}game/glimme
 /** A class or challenge code to show: "fox pear 42". */
 export const showClassCode = (c: string) => c.toLowerCase().replaceAll('-', ' ');
 /** A code as people type it ("Fox pear 42") in the server's form: FOX-PEAR-42. */
-export const cleanClassCode = (c: string) => c.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+export const cleanClassCode = (c: string) => cleanCode(c); // as save codes are (state/codes.ts): the server has one rule for both
 
 /** Where a printed QR code and the "go to" line send students: the class login with the code filled in.
  *  On the live site that's keypals.org; anywhere else (a test server) this same page. */

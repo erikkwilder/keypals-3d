@@ -24,7 +24,8 @@ export class LiveBuddy {
   private move: string | null = null;
   private turn = { now: -0.38, goal: -0.38 };
   /** no little moves (Settings: less motion) */
-  quiet = false;
+  /** less motion: asked at each move, so a change counts at once */
+  quiet: () => boolean = () => false;
   /** called when it hands back to the picture by itself */
   onEnd: (() => void) | null = null;
 
@@ -55,7 +56,7 @@ export class LiveBuddy {
   }
 
   /** The 3D buddy over the picture in `el` (null if it can't be drawn here). */
-  static async create(id: FriendId, el: HTMLElement, o: { stay?: boolean; quiet?: boolean } = {}): Promise<LiveBuddy | null> {
+  static async create(id: FriendId, el: HTMLElement, o: { stay?: boolean; quiet?: () => boolean } = {}): Promise<LiveBuddy | null> {
     try {
       const c = await Character.create(id);
       if (!c) return null;
@@ -70,7 +71,7 @@ export class LiveBuddy {
       // inside the page (not over the whole app): the top bar and any card opened over Home stay on top of it
       (el.closest('.screen') ?? document.body).appendChild(canvas);
       const lb = new LiveBuddy(c, el, canvas);
-      lb.stay = !!o.stay; lb.quiet = !!o.quiet;
+      lb.stay = !!o.stay; if (o.quiet) lb.quiet = o.quiet;
       el.classList.add('fun-live');
       return lb;
     } catch { return null; }
@@ -116,7 +117,7 @@ export class LiveBuddy {
     this.calm = 0;
     this.nextMove = 5 + Math.random() * 6;
     // mostly a glance (toward you, or a little to the side); sometimes a hop or a fist pump
-    const moves = this.quiet ? [] : ['jump', 'fistpump'].filter(n => c.has(n));
+    const moves = this.quiet() ? [] : ['jump', 'fistpump'].filter(n => c.has(n));
     if (moves.length && Math.random() < 0.35) { const n = moves[Math.floor(Math.random() * moves.length)]; if (c.play(n, 0.3)) { c.actions[n]?.reset(); this.move = n; } }
     else this.turn.goal = [-0.38, -0.1, -0.62][Math.floor(Math.random() * 3)];
   }

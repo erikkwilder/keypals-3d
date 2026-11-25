@@ -206,7 +206,7 @@
   .cd { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 5px; border: 0; cursor: pointer; text-align: left; padding: 8px 8px 10px; border-radius: 22px;
     background: linear-gradient(#fff, #fbf8ff); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rc, #cfc6e6) 30%, transparent), 0 10px 22px -14px rgba(60, 40, 110, .45); transition: transform .15s, box-shadow .15s; }
   .cd:hover { transform: translateY(-3px); }
-  .cd:focus-visible { outline: 3px solid var(--primary-hi); outline-offset: 3px; }
+  .cd:focus-visible { outline: 3px solid var(--primary-edge); outline-offset: 3px; }
   .cd.met { box-shadow: 0 0 0 3px var(--rc), 0 0 18px -4px var(--rc), 0 10px 22px -14px rgba(60, 40, 110, .45); }
   .cd.hot { animation: hot 1.6s ease-in-out infinite; }
   @keyframes hot { 50% { box-shadow: 0 0 0 3px #ffd36b, 0 0 22px #ffd36b, 0 10px 22px -14px rgba(60, 40, 110, .45); } }

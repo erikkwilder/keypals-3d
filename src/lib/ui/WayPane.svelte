@@ -100,7 +100,7 @@
                 {#if chip === 'all' && way === 'adventure'}<span class="parts">{chipNames(subject, t)}</span>{/if}
                 <div class="row">
                   {#if st.tag}<span class="tag" class:ok={st.done}>{#if st.done}<Icon name="check" size={14} />{/if}{st.tag}</span>{/if}
-                  <button class="btn small" onclick={() => openThing(subject, way, t)}>{verb(t, st.done, st.locked)}</button>
+                  <button class="btn small" onclick={() => openThing(subject, way, t)} aria-label="{verb(t, st.done, st.locked)}: {t.name}">{verb(t, st.done, st.locked)}</button>
                 </div>
               </div>
             </article>

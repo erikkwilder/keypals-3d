@@ -19,7 +19,7 @@
 {#key shake}
   <div class="pics" class:shake={shake > 0} class:small>
     {#each order as i (i)}
-      <button class="pic" class:on={picked.includes(i)} onclick={() => ontap(i)} aria-label={PICTURES[i].name}><img src={pictureSrc(i)} alt="" /><span>{PICTURES[i].name}</span></button>
+      <button class="pic" class:on={picked.includes(i)} onclick={() => ontap(i)} aria-label={PICTURES[i].name} aria-pressed={picked.includes(i)}><img src={pictureSrc(i)} alt="" /><span>{PICTURES[i].name}</span></button>
     {/each}
   </div>
 {/key}

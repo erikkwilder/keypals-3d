@@ -23,6 +23,7 @@
   import { loadClasses, startClasses } from './lib/teach/student.svelte';
   import { cloud, startCloud } from './lib/state/cloud.svelte';
   import FancyAntIntro, { introDue } from './lib/ui/FancyAntIntro.svelte';
+  import { motion } from './lib/ui/motion.svelte';
 
   const S = {
     players: lazy(() => import('./lib/screens/Players.svelte')),
@@ -118,11 +119,13 @@
     const root = document.documentElement;
     root.dataset.look = s.look;
     root.dataset.font = s.font;
-    root.dataset.motion = s.reducedMotion ? 'reduced' : 'full';
     configureSound({ sound: s.sound, music: s.music, volume: s.volume });
     setMusicStyle(s.musicStyle ?? 'sunny');
     setMusicStation(s.musicStation ?? 'auto');
   });
+
+  // less motion (app.css stills the CSS by it): the game's own "Less motion", or the computer's setting, live
+  $effect(() => { document.documentElement.dataset.motion = motion.reduced ? 'reduced' : 'full'; });
 
   // the first game a player starts (a math trip, the playground, a battle, a duel) asks how things should
   // sound, once per player; a typing lesson asks for itself, before its coach starts talking

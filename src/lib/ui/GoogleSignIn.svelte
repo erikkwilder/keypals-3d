@@ -46,7 +46,7 @@
   .gs { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .gbtn { display: inline-flex; align-items: center; gap: 10px; min-height: 46px; padding: 8px 18px 8px 14px; border-radius: 999px; border: 1.5px solid #dadce0; background: #fff; color: #3c4043; font: 700 16px var(--font-body); cursor: pointer; box-shadow: 0 2px 6px rgba(60, 64, 67, .18); }
   .gbtn:hover { background: #f8f9fa; }
-  .gbtn:focus-visible { outline: 3px solid var(--primary-hi); outline-offset: 3px; }
+  .gbtn:focus-visible { outline: 3px solid var(--primary-edge); outline-offset: 3px; }
   .gs small { max-width: 300px; padding: 2px 10px; border-radius: 999px; background: rgba(255, 255, 255, .75); font: 700 12.5px/1.25 var(--font-body); color: var(--ink2); text-align: center; }
   .gbg { position: fixed; inset: 0; z-index: 90; background: rgba(40, 28, 70, .45); display: grid; place-items: center; padding: 16px; }
   .gcard { display: flex; flex-direction: column; align-items: center; padding: 8px 16px 16px; width: min(520px, 100%); }

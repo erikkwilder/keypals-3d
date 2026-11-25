@@ -17,6 +17,7 @@
   //   who each one is and that it came to say hi.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
+  import { motion } from '../ui/motion.svelte';
   import { sfx } from '../audio/sound';
   import { FRIEND, type FriendId } from '../art/cast';
   import { teamBuddies } from '../engine/team';
@@ -64,7 +65,7 @@
     if (making) return null;
     making = true;
     endLive();
-    const lb = await LiveBuddy.create(id, bud, { stay: true, quiet: !!game.profile?.settings.reducedMotion });
+    const lb = await LiveBuddy.create(id, bud, { stay: true, quiet: () => motion.reduced });
     making = false;
     if (!lb) return null;
     if (game.screen !== 'hub' || game.profile?.buddy !== id || game.modalOpen) { lb.dispose(); return null; }

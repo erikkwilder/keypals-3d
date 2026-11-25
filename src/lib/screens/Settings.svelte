@@ -17,6 +17,7 @@
   import { LAYOUTS } from '../engine/layouts';
   import { homeDemo } from '../engine/demos';
   import { stage, graphicsPref, type GraphicsPref } from '../three/stage';
+  import { motion } from '../ui/motion.svelte';
 
   let { overlay = false }: { overlay?: boolean } = $props();
   const p = $derived(game.profile!);
@@ -123,7 +124,9 @@
             <button class="font" class:on={s.font === f.id} style:font-family={f.family} onclick={() => set('font', f.id)}><b>Aa</b><span>{f.name}</span></button>
           {/each}
         </div>
-        <label class="row">Less motion <input type="checkbox" checked={s.reducedMotion} onchange={(e) => set('reducedMotion', e.currentTarget.checked)} /></label>
+        <!-- the computer asks for less motion: ticked, and not changeable here -->
+        <label class="row" class:grey={motion.computer}>Less motion <input type="checkbox" disabled={motion.computer} checked={s.reducedMotion || motion.computer} onchange={(e) => set('reducedMotion', e.currentTarget.checked)} /></label>
+        {#if motion.computer}<p class="hint">Your computer asks for less motion.</p>{/if}
         <div class="row">Graphics
           <div class="seg">
             <button class:on={gpref === 'auto'} onclick={() => setGraphics('auto')}>Auto</button>

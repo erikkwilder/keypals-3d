@@ -79,7 +79,7 @@
 <div class="sk">
   <div class="top"><span class="dots">{#each pictures as _, k}<i class:done={k < pi || (k === pi && finished)} class:now={k === pi}></i>{/each}</span></div>
   <div class="row">
-    <div class="boardwrap" style:--paper="url({base}math/integers/paper.webp)">
+    <div class="boardwrap" style:--paper="url({new URL(`${base}math/integers/paper.webp`, document.baseURI).href})">
       <svg bind:this={svg} viewBox="0 0 {W} {H}" class="board" onpointerdown={tap} role="img" aria-label="A drawing grid">
         <defs>
           <radialGradient id="skStar" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#fffbe0" /><stop offset=".35" stop-color="#ffd84d" /><stop offset="1" stop-color="#d9900f" /></radialGradient>

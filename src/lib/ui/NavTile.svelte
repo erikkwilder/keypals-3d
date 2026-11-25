@@ -43,7 +43,7 @@
   .tile:hover { transform: translateY(-3px); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .95), inset 0 -10px 18px -12px var(--edge-d), 0 9px 0 var(--edge-d), 0 20px 30px -14px rgba(70, 40, 130, .5); }
   .tile:hover .pic :global(.art) { transform: scale(1.1) rotate(-5deg); }
   .tile:active { transform: translateY(4px); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .95), 0 2px 0 var(--edge-d), 0 6px 12px -8px rgba(70, 40, 130, .35); }
-  .tile:focus-visible { outline: 4px solid var(--primary-hi); outline-offset: 3px; }
+  .tile:focus-visible { outline: 4px solid var(--primary-edge); outline-offset: 3px; }
   .pic { position: relative; display: grid; place-items: center; filter: drop-shadow(0 4px 3px rgba(60, 30, 110, .2)); }
   /* big buttons breathe a little so they feel alive */
   .lg .pic { animation: tile-bob 2.8s ease-in-out infinite; }

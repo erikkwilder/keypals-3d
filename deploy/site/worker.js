@@ -37,7 +37,11 @@ function newCode() {
   const w = (i) => WORDS[r[i] % WORDS.length].toUpperCase();
   return `${w(0)}-${w(1)}-${w(2)}-${10 + (r[3] % 90)}`;
 }
-const cleanCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+// A code as people type it (save codes and class codes), in its stored form: capitals, spaces, dashes and
+// full stops don't matter, and a number typed straight after a word ("sun99") is split from it. Nothing
+// looser: every loose match makes codes easier to guess. The game cleans codes the same way
+// (src/lib/state/codes.ts; its test holds the two together).
+const cleanCode = (c) => String(c || '').toUpperCase().replace(/([A-Z])([0-9])/g, '$1-$2').replace(/([0-9])([A-Z])/g, '$1-$2').replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 /** The address a limit goes by. An IPv6 address goes by its first 64 bits: a home, a phone or a rented server
  *  is given a whole /64, and each of its 2^64 addresses would otherwise get a limit of its own. */
