@@ -28,7 +28,7 @@ export type Tab = 'overview' | 'students' | 'work' | 'gradebook' | 'skills' | 's
 export const teach = $state({
   loaded: false,
   dev: false,
-  me: null as null | { signedIn: boolean; account?: { name: string | null; provider?: string; domain?: string | null }; canTeach?: boolean; teacher?: { display: string; agreed: number; status?: TeacherStatus } | null },
+  me: null as null | { signedIn: boolean; account?: { name: string | null; provider?: string; domain?: string | null }; canTeach?: boolean; teacher?: { display: string; agreed: number; status?: TeacherStatus; approvedAt?: number } | null },
   classes: [] as ClassSummary[],
   current: null as ClassDetail | null,
   /** students' progress, by student id (null: not saved online yet) */
