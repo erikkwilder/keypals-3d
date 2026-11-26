@@ -178,8 +178,8 @@ describe('every Glimmer with a model', () => {
     for (const g of GLIMMERS) {
       const lm = meta[g.id].rig!;
       expect(lm.eyes?.length, `${g.id} has its eyes marked`).toBeGreaterThan(0);
-      const { pos } = glbPoints(`public/models/glimmers/${g.id}.glb`);
-      const c = cloudOf(pos), rig = buildRig(lm, c), H = c.height, wts = skinWeights(rig, pos);
+      const { pos, index } = glbPoints(`public/models/glimmers/${g.id}.glb`);
+      const c = cloudOf(pos), rig = buildRig(lm, c), H = c.height, wts = skinWeights(rig, pos, index);
       fitFreedom(rig, pos, wts);
       const { bones, inverses } = makeBones(rig), n = pos.length / 3;
       const eyes = lm.eyes!.map(e => {
@@ -236,24 +236,24 @@ describe("Sprout Bunny's ears", () => {
 });
 
 // The other Glimmers' ears (2026-11-25): each fix is marked on the Glimmer in meta.json, and was kept only where
-// its ears got better and no other part of it got worse, over every move. Moonbeambat isn't fixed: its right ear
-// and its wing are one piece of skin, so tying the ear to the head moved the tear into the wing.
+// its ears got better and no other part of it got worse, over every move. Moonbeambat's right ear and its wing are
+// one piece of skin, so tying the ear to the head moved the tear into the wing: it has its own fix, earsOnWings.
 describe("the other Glimmers' ears", () => {
   const FIXED: Record<string, string[]> = {
-    sproutbun: ['earsFree'], hydrahatchling: ['earsOnBody'], sparkmoth: ['earsFused'],
+    sproutbun: ['earsFree'], hydrahatchling: ['earsOnBody'], sparkmoth: ['earsFused'], moonbeambat: ['earsOnWings'],
     dicebun: ['earsFused', 'earsOnHead'], lanternfox: ['earsFused', 'earsOnHead'], potgolem: ['earsFused', 'earsOnHead'],
     puddlepup: ['earsFused', 'earsOnHead'], stormlamb: ['earsFused', 'earsOnHead'], sunsnail: ['earsFused', 'earsOnHead'],
   };
   it('the Glimmers whose ears were fixed say so in meta.json, and only they', () => {
     const got = Object.fromEntries(Object.entries(meta).flatMap(([id, m]) => {
-      const f = Object.entries((m.rig ?? {}) as Record<string, unknown>).filter(([k, v]) => /^ears[A-Z]/.test(k) && v === true).map(([k]) => k).sort();
+      const f = Object.entries((m.rig ?? {}) as Record<string, unknown>).filter(([k, v]) => /^ears[A-Z]/.test(k) && (v === true || (Array.isArray(v) && v.length > 0))).map(([k]) => k).sort();
       return f.length ? [[id, f]] : [];
     }));
     expect(got).toEqual(Object.fromEntries(Object.entries(FIXED).map(([k, v]) => [k, [...v].sort()])));
   });
   const rigOf = (id: string, over: Partial<Landmarks> = {}) => {
-    const { pos } = glbPoints(`public/models/glimmers/${id}.glb`), rig = buildRig({ ...meta[id].rig!, ...over } as Landmarks, cloudOf(pos));
-    fitFreedom(rig, pos, skinWeights(rig, pos));
+    const { pos, index } = glbPoints(`public/models/glimmers/${id}.glb`), rig = buildRig({ ...meta[id].rig!, ...over } as Landmarks, cloudOf(pos));
+    fitFreedom(rig, pos, skinWeights(rig, pos, index));
     return rig;
   };
   it("Hydrahatchling's 'ears' grow from its chest: they hang from its spine and keep still", () => {
@@ -273,6 +273,78 @@ describe("the other Glimmers' ears", () => {
     expect(d[0].share, d[0].at).toBeLessThan(0.01); expect(d[1].share, d[1].at).toBeLessThan(0.015);
   }, 120_000);
 });
+// Moonbeambat (2026-11-26): its right ear droops down the side of its head and runs along the top of its wing, one
+// piece of skin with both. The ear's bone stands in the air above it, so the ear rode the wing and hung off the head
+// as a sheet when the head turned (the attack). earsOnWings shares that skin out along the skin between the head and
+// the wing (glimmerRig.ts, EAR_SEAM). Every move, skinned as the game does it: before, 9.0% of the real ear's edges
+// went past 1.5 times their length, and 10.4% of the right wing's; after, about 4% and 8%. No other part's share
+// rises by more than 0.09 points, and the right wing beats as far as it did.
+describe("Moonbeambat's right ear", () => {
+  it('stays on its head and its wing as both move, and the wing beats as far as before', () => {
+    const before = partShares('moonbeambat', { earsOnWings: undefined }), after = partShares('moonbeambat');
+    expect(before.ear, 'the real ear before').toBeGreaterThan(0.08);
+    expect(after.ear, 'the real ear').toBeLessThan(0.05);
+    expect(after.parts.wing1, 'the right wing').toBeLessThan(before.parts.wing1 - 0.015);
+    for (const k of Object.keys(before.parts)) expect(after.parts[k], k).toBeLessThanOrEqual(before.parts[k] + 0.0009);
+    expect(after.free).toEqual(before.free);
+  }, 120_000);
+});
+
+/** For a Glimmer with an ear that runs into its wing: the most of each part's edges (each point's part by its nearest
+ *  bone) that stretch past 1.5 times their length in any frame of any move, skinned as the game does it; the same for
+ *  the real ear (the skin nearer that ear's line than any other bone); and how freely each bone moves. */
+function partShares(id: string, over: Partial<Landmarks> = {}) {
+  const { pos, index } = glbPoints(`public/models/glimmers/${id}.glb`);
+  const c = cloudOf(pos), rig = buildRig({ ...meta[id].rig!, ...over } as Landmarks, c), n = pos.length / 3;
+  const { index: si, weight: sw } = skinWeights(rig, pos, index);
+  fitFreedom(rig, pos, { index: si, weight: sw });
+  const p = new THREE.Vector3(), ab = new THREE.Vector3(), q = new THREE.Vector3();
+  const seg = (a: THREE.Vector3, b: THREE.Vector3) => { ab.subVectors(b, a); const l2 = ab.lengthSq(), t = l2 > 0 ? Math.min(1, Math.max(0, q.subVectors(p, a).dot(ab) / l2)) : 0; return p.distanceTo(q.copy(a).addScaledVector(ab, t)); };
+  const [la, lb] = meta[id].rig!.earsOnWings![0].map(v => new THREE.Vector3(...v)), side = Math.sign(la.x - rig.bones.find(b => b.role === 'head')!.at.x);
+  const key = (j: number) => { const b = rig.bones[j]; return b.role === 'head' ? 'head' : ['root', 'spine', 'neck'].includes(b.role) ? 'body' : `${b.role}${b.chain}`; };
+  const part: string[] = [], onEar: boolean[] = [];
+  for (let i = 0; i < n; i++) {
+    p.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
+    let bd = Infinity, bo = Infinity;
+    rig.bones.forEach((b, j) => { const d = seg(b.at, b.end); if (d < bd) { bd = d; part[i] = key(j); } if (!(b.role === 'ear' && b.side === side) && d < bo) bo = d; });
+    onEar[i] = seg(la, lb) < bo;
+  }
+  const edges = new Map<string, number[]>(), add = (k: string, a: number, b: number) => (edges.get(k) ?? edges.set(k, []).get(k)!).push(a, b);
+  for (let t = 0; t < index.length; t += 3) for (const [a, b] of [[index[t], index[t + 1]], [index[t + 1], index[t + 2]], [index[t + 2], index[t]]]) {
+    if (dist(pos, a, pos, b) <= c.height * 0.002) continue;
+    add(part[a], a, b); if (part[b] !== part[a]) add(part[b], a, b);
+    if (onEar[a] || onEar[b]) add('ear', a, b);
+  }
+  const { bones, inverses } = makeBones(rig), mats = bones.map(() => new THREE.Matrix4()), out = new Float32Array(pos.length), v = new THREE.Vector3(), acc = new THREE.Vector3(), tmp = new THREE.Vector3();
+  const worst: Record<string, number> = Object.fromEntries([...edges.keys()].map(k => [k, 0]));
+  for (const mv of [...BASES.map(b => ({ b, a: null as null | (typeof ACTS)[number] })), ...ACTS.map(a => ({ b: 'idle' as const, a }))]) {
+    const an = new Animator(rig, bones, 3, false);
+    an.setBase(mv.b);
+    let t = 0;
+    for (let i = 0; i < 40; i++) an.update(1 / 60, (t += 1 / 60));
+    if (mv.a) an.play(mv.a);
+    const frames = Math.round((mv.a ? ACT_LEN[mv.a] : 2.4) * 60);
+    for (let f = 0; f < frames; f++) {
+      an.update(1 / 60, (t += 1 / 60));
+      if (f % 4) continue;
+      bones[0].updateMatrixWorld(true);
+      bones.forEach((b, i) => mats[i].multiplyMatrices(b.matrixWorld, inverses[i]));
+      for (let i = 0; i < n; i++) {
+        v.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]); acc.set(0, 0, 0);
+        for (let k = 0; k < 4; k++) { const w = sw[i * 4 + k]; if (w) acc.addScaledVector(tmp.copy(v).applyMatrix4(mats[si[i * 4 + k]]), w); }
+        out[i * 3] = acc.x; out[i * 3 + 1] = acc.y; out[i * 3 + 2] = acc.z;
+      }
+      for (const [k, E] of edges) {
+        let over15 = 0;
+        for (let e = 0; e < E.length; e += 2) if (dist(out, E[e], out, E[e + 1]) > 1.5 * dist(pos, E[e], pos, E[e + 1])) over15++;
+        worst[k] = Math.max(worst[k], over15 / (E.length / 2));
+      }
+    }
+  }
+  const { ear, ...parts } = worst;
+  return { ear, parts, free: rig.bones.map(b => +b.free.toFixed(3)) };
+}
+
 /** the most of an ear's edges that may stretch past 1.5 times their length in any frame of any move */
 const EAR_STRETCH = 0.06;
 
@@ -281,7 +353,7 @@ const EAR_STRETCH = 0.06;
 function earShares(id: string): { share: number; at: string; bones: number }[] {
   const { pos, index } = glbPoints(`public/models/glimmers/${id}.glb`);
   const c = cloudOf(pos), rig = buildRig(meta[id].rig!, c), n = pos.length / 3;
-  const { index: si, weight: sw } = skinWeights(rig, pos);
+  const { index: si, weight: sw } = skinWeights(rig, pos, index);
   fitFreedom(rig, pos, { index: si, weight: sw });
   const ab = rig.bones.map(b => b.end.clone().sub(b.at)), p = new THREE.Vector3(), q = new THREE.Vector3();
   const plain = (j: number) => { const b = rig.bones[j], l2 = ab[j].lengthSq(), t = l2 > 0 ? Math.min(1, Math.max(0, q.subVectors(p, b.at).dot(ab[j]) / l2)) : 0; return p.distanceTo(q.copy(b.at).addScaledVector(ab[j], t)); };

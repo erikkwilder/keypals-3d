@@ -73,6 +73,13 @@ export type Landmarks = {
   /** what was taken for its ears grows from its body, not its head (Hydrahatchling's chest): those bones hang
    *  from the spine and keep still, so the skin tied to them goes with the body when the head turns. */
   earsOnBody?: boolean;
+  /** an ear that runs down into its wing, one piece of skin with it (Moonbeambat's right ear, which droops down
+   *  the side of its head to the wing's root and along its top edge): the ear's skin is shared out along the
+   *  skin itself, riding the ear and the head where it joins the head and the wing where it joins the wing,
+   *  smoothly between (EAR_SEAM), so neither a turn of the head nor a beat of the wing tears it. Each such ear's
+   *  line, [where it leaves the head, its tip]: it marks the ear's skin only, so the bones and their reach stay as
+   *  they were, and so does every weight away from the ear. */
+  earsOnWings?: [V3, V3][];
   /** a jelly's tentacles: root ... tip each */
   tentacles?: V3[][];
   /** the middle of each eye, on its skin (-x first): the face round them rides the head bone alone, so
@@ -470,7 +477,7 @@ function fitRadii(bones: BoneSpec[], c: Cloud) {
  *  bone's reach), normalised. Bones that meet at a joint (a bone, its parent, its children) share the
  *  mesh round the joint softly so it bends smoothly; bones that don't (a tail and a foot, a hand and the
  *  belly) share it only where they truly touch, so one moving doesn't drag the other's skin along. */
-export function skinWeights(rig: Rig, pos: Float32Array): { index: Uint16Array; weight: Float32Array } {
+export function skinWeights(rig: Rig, pos: Float32Array, tris?: ArrayLike<number> | null): { index: Uint16Array; weight: Float32Array } {
   const n = pos.length / 3, bones = rig.bones, B = bones.length, H = rig.height;
   const index = new Uint16Array(n * 4), weight = new Float32Array(n * 4);
   const ab = bones.map(b => b.end.clone().sub(b.at)), l2 = ab.map(x => x.lengthSq());
@@ -542,7 +549,107 @@ export function skinWeights(rig: Rig, pos: Float32Array): { index: Uint16Array; 
     // right where its head meets its body, beside its wings' roots: they bent as it moved)
     if (eyeA) { const [f, j] = eyeOf(p); if (f > 0) pin(index, weight, i, j, f); }
   }
+  // an ear whose skin runs into its wing's is shared out along the skin between them (EAR_SEAM); the eyes and
+  // the face round them then ride the head again
+  if (rig.lm.earsOnWings?.length && tris) for (const i of earSeams(rig, pos, tris, index, weight)) {
+    if (!eyeA) break;
+    p.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]); const [f, j] = eyeOf(p); if (f > 0) pin(index, weight, i, j, f);
+  }
   return { index, weight };
+}
+
+/** Moonbeambat's right ear droops down the side of its head and runs along the top edge of its wing, one piece
+ *  of skin with both (2026-11-26). Tied to the wing (as its nearest bone made it), it stretched off the head
+ *  whenever the head turned; tied to the head (earsOnHead), it tore along the wing's edge whenever the wing beat.
+ *  So its skin is shared out by where it lies along the skin: each point of it rides the head and the wing's
+ *  own bones in the measure of how far it is, along the skin, from where it joins the head and from
+ *  the wing a little way (`wing`, a share of the height) past where it joins the wing; that strip of the wing
+ *  takes its part too, and points where the ear meets the body keep the body's; round where it joins the head
+ *  (`round`), the head's skin lets go of the wing by degrees. The stretch of a turn or a beat is spread over the
+ *  whole ear instead of one seam, and the wing beats as far as it did (fitFreedom). Only for an ear that touches
+ *  the wing on its side (the ears meta.json names in earsOnWings). */
+export const EAR_SEAM = { wing: 0.1, round: 0.05 };
+function earSeams(rig: Rig, pos: Float32Array, tris: ArrayLike<number>, index: Uint16Array, weight: Float32Array): number[] {
+  const bones = rig.bones, n = pos.length / 3, H = rig.height, changed: number[] = [];
+  // the skin's spots (a model's points are split along its texture's seams; welded here) and the edges between them
+  const spot = new Int32Array(n), first: number[] = [], key = new Map<string, number>();
+  for (let i = 0; i < n; i++) {
+    const k = `${Math.round(pos[i * 3] * 1e5)},${Math.round(pos[i * 3 + 1] * 1e5)},${Math.round(pos[i * 3 + 2] * 1e5)}`;
+    let s = key.get(k); if (s === undefined) { s = first.length; key.set(k, s); first.push(i); } spot[i] = s;
+  }
+  const S = first.length, adj: Map<number, number>[] = Array.from({ length: S }, () => new Map());
+  for (let t = 0; t + 2 < tris.length; t += 3) for (let e = 0; e < 3; e++) {
+    const a = tris[t + e], b = tris[t + ((e + 1) % 3)], sa = spot[a], sb = spot[b];
+    if (sa === sb) continue;
+    const L = Math.hypot(pos[a * 3] - pos[b * 3], pos[a * 3 + 1] - pos[b * 3 + 1], pos[a * 3 + 2] - pos[b * 3 + 2]);
+    adj[sa].set(sb, L); adj[sb].set(sa, L);
+  }
+  const ab = bones.map(b => b.end.clone().sub(b.at)), l2 = ab.map(x => x.lengthSq()), p = new THREE.Vector3();
+  const head = bones.findIndex(b => b.role === 'head');
+  if (head < 0) return changed;
+  for (const [a3, b3] of rig.lm.earsOnWings ?? []) {
+    const la = new THREE.Vector3(...a3), lb = new THREE.Vector3(...b3), lab_ = lb.clone().sub(la), ll2 = lab_.lengthSq();
+    const side = Math.sign(la.x - bones[head].at.x) || 1;
+    const ear = bones.flatMap((b, j) => (b.role === 'ear' && b.side === side ? [j] : [])), wing = bones.flatMap((b, j) => (b.role === 'wing' && b.side === side ? [j] : []));
+    if (!wing.length) continue;
+    // 1 the ear: the skin nearer its line than to any other bone (its own bone may stand off it: Moonbeambat's
+    // stands in the air above the ear, and its skin took in the back of the head beside the other ear); the rest
+    // by its nearest bone but the ear's, 2 its wing, 3 the head, 0 the rest
+    const lab = new Int8Array(S);
+    for (let s = 0; s < S; s++) {
+      const i = first[s]; p.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
+      let j = -1, dj = Infinity;
+      for (let q = 0; q < bones.length; q++) if (!ear.includes(q)) { const d = segD(p, bones[q].at, bones[q].end, ab[q], l2[q]); if (d < dj) { dj = d; j = q; } }
+      lab[s] = segD(p, la, lb, lab_, ll2) < dj ? 1 : wing.includes(j) ? 2 : j === head ? 3 : 0;
+    }
+    const touches = (s: number, l: number) => { for (const t of adj[s].keys()) if (lab[t] === l) return true; return false; };
+    const atWing: number[] = [], atHead: number[] = [], atBody: number[] = [];
+    for (let s = 0; s < S; s++) { if (lab[s] === 2 && touches(s, 1)) atWing.push(s); if (lab[s] === 1 && touches(s, 3)) atHead.push(s); if (lab[s] === 1 && touches(s, 0)) atBody.push(s); }
+    if (!atWing.length || !atHead.length) continue;
+    const intoWing = paths(adj, atWing, t => lab[t] === 2), reach = EAR_SEAM.wing * H;
+    const far = [...atBody]; for (let s = 0; s < S; s++) if (lab[s] === 2 && intoWing[s] >= reach) far.push(s);
+    const inside = (t: number) => lab[t] === 1 || lab[t] === 2, fromHead = paths(adj, atHead, inside), fromWing = paths(adj, far, inside);
+    const own = [...ear, ...wing], drop = [...ear, head];
+    for (let i = 0; i < n; i++) {
+      const s = spot[i];
+      if (!(lab[s] === 1 || (lab[s] === 2 && intoWing[s] < reach))) continue;
+      const sum = fromHead[s] + fromWing[s], t = sum < Infinity ? fromHead[s] / Math.max(1e-9, sum) : lab[s] === 1 ? 0 : 1;
+      blend(index, weight, i, own, head, drop, wing[0], t);
+      changed.push(i);
+    }
+    // round where it joins the head, the head's skin lets go of the wing and the ear's bone too, less and less
+    // over `round` of the height (their reach took in the back of its head, and the ear's root, the head's now,
+    // tore from the skin beside it as the wing beat)
+    const inSeam = (s: number) => lab[s] === 1 || (lab[s] === 2 && intoWing[s] < reach), R = EAR_SEAM.round * H;
+    const round = paths(adj, atHead, t => !inSeam(t) && (lab[t] === 0 || lab[t] === 3));
+    for (let i = 0; i < n; i++) { const s = spot[i]; if (inSeam(s) || !(round[s] < R)) continue; blend(index, weight, i, [], head, own, head, 1 - round[s] / R); changed.push(i); }
+  }
+  return changed;
+}
+/** Point i tied by a share 1 - t to the bones it is tied to outside `skip` (the head and body: or to `to` when
+ *  it has none), and by t to those outside `drop` (the wing and body: or to `toRest`), the four strongest kept. */
+function blend(index: Uint16Array, weight: Float32Array, i: number, skip: number[], to: number, drop: number[], toRest: number, t: number) {
+  let sa = 0, sb = 0;
+  for (let k = 0; k < 4; k++) { const j = index[i * 4 + k], w = weight[i * 4 + k]; if (w > 0) { if (!skip.includes(j)) sa += w; if (!drop.includes(j)) sb += w; } }
+  const m = new Map<number, number>(), add = (j: number, w: number) => m.set(j, (m.get(j) ?? 0) + w);
+  for (let k = 0; k < 4; k++) { const j = index[i * 4 + k], w = weight[i * 4 + k]; if (!(w > 0)) continue; if (sa > 0 && !skip.includes(j)) add(j, (w * (1 - t)) / sa); if (sb > 0 && !drop.includes(j)) add(j, (w * t) / sb); }
+  if (sa <= 0) add(to, 1 - t);
+  if (sb <= 0) add(toRest, t);
+  const top = [...m].filter(([, w]) => w > 0).sort((a, b) => b[1] - a[1]).slice(0, 4), s = top.reduce((a, [, w]) => a + w, 0) || 1;
+  for (let k = 0; k < 4; k++) { index[i * 4 + k] = top[k]?.[0] ?? 0; weight[i * 4 + k] = top[k] ? top[k][1] / s : 0; }
+}
+/** Shortest distances along the skin from `from` to every spot, through spots that pass `ok`. */
+function paths(adj: Map<number, number>[], from: number[], ok: (s: number) => boolean): Float64Array {
+  const d = new Float64Array(adj.length).fill(Infinity), heap: [number, number][] = [];
+  const push = (x: [number, number]) => { heap.push(x); let i = heap.length - 1; while (i > 0) { const q = (i - 1) >> 1; if (heap[q][0] <= heap[i][0]) break; [heap[q], heap[i]] = [heap[i], heap[q]]; i = q; } };
+  const pop = () => {
+    const top = heap[0], last = heap.pop()!;
+    if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } }
+    return top;
+  };
+  for (const s of from) { d[s] = 0; push([0, s]); }
+  while (heap.length) { const [ds, s] = pop(); if (ds > d[s]) continue; for (const [t, L] of adj[s]) { if (!ok(t)) continue; const nd = ds + L; if (nd < d[t]) { d[t] = nd; push([nd, t]); } } }
+  return d;
 }
 
 /** Past its root, where it stands clear of the head, an ear (a horn, an antenna, an eye stalk) owns its
@@ -602,6 +709,10 @@ export function fitFreedom(rig: Rig, pos: Float32Array, wts: { index: Uint16Arra
     // (the bone it grows from is its own, the joint at its root shared as it should be; but an ear that lies
     // along the head, its skin tied to it most of its length, is fused to the head like a hand on a belly)
     if (r.parent >= 0 && !(r.role === 'ear' && rig.lm.earsFused)) own[r.parent] = 1;
+    const hb = bones.findIndex(b => b.role === 'head'), seamSides = hb < 0 ? [] : (rig.lm.earsOnWings ?? []).map(([a]) => Math.sign(a[0] - bones[hb].at.x) || 1);
+    // (a wing whose ear runs into it shares that skin with the head and body on purpose, EAR_SEAM: it beats as far
+    // as it did, and the ear spreads the stretch)
+    if (r.role === 'wing' && seamSides.includes(r.side)) bones.forEach((b, i) => { if (['head', 'neck', 'spine', 'root'].includes(b.role)) own[i] = 1; });
     // tentacles brush each other and wave together: that's fine
     if (r.role === 'tentacle') bones.forEach((b, i) => { if (b.role === 'tentacle') own[i] = 1; });
     const tip = bones[chain[chain.length - 1]].end, along = tip.clone().sub(r.at), L2 = Math.max(1e-8, along.lengthSq());
@@ -617,7 +728,10 @@ export function fitFreedom(rig: Rig, pos: Float32Array, wts: { index: Uint16Arra
     const f = all ? fused / all : 0;
     seen[name] = +f.toFixed(3);
     // (an ear that grows from the body keeps still: it moves with the body, EARS_ON_BODY)
-    const free = r.role === 'ear' && rig.lm.earsOnBody ? 0 : Math.min(1, Math.max(0.25, 1 - (f - 0.04) * 4));
+    // (the bone of an ear that runs into its wing moves as little as a limb may: its skin is the head's and the
+    // wing's now, EAR_SEAM, and what little it still holds moved so before)
+    const onWing = r.role === 'ear' && seamSides.includes(r.side);
+    const free = r.role === 'ear' && rig.lm.earsOnBody ? 0 : onWing ? 0.25 : Math.min(1, Math.max(0.25, 1 - (f - 0.04) * 4));
     chain.forEach(i => { bones[i].free = free; });
   }
   return seen;
@@ -648,7 +762,7 @@ export function skinFor(key: string, geo: THREE.BufferGeometry, lm: Landmarks): 
   let s = skins.get(key);
   if (!s) {
     const pos = positionsOf(geo);
-    const c = cloudOf(pos), rig = buildRig(lm, c), wts = skinWeights(rig, pos);
+    const c = cloudOf(pos), rig = buildRig(lm, c), wts = skinWeights(rig, pos, geo.index?.array);
     fitFreedom(rig, pos, wts);
     const g = new THREE.BufferGeometry();
     for (const [k, a] of Object.entries(geo.attributes)) g.setAttribute(k, a);
