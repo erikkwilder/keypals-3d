@@ -229,7 +229,7 @@ export class CountKit implements CountWorld {
   private inOrder() { return [...this.cookies].sort((a, b) => (a.num || 99) - (b.num || 99) || this.cookies.indexOf(a) - this.cookies.indexOf(b)); }
 
   // ---------- the film ----------
-  async trayIn(n: number, o: { mixed?: boolean } = {}) {
+  async trayIn(n: number, o: { mixed?: boolean; over?: number } = {}) {
     if (!this.tray) {
       const L = this.L, w = this.P(MID_X + L.trayW / 2, L.trayY).distanceTo(this.P(MID_X - L.trayW / 2, L.trayY)), d = this.P(MID_X, L.trayY + L.trayD / 2).distanceTo(this.P(MID_X, L.trayY - L.trayD / 2));
       this.tray = new THREE.Mesh(new RoundedBoxGeometry(w, 0.014, d, 2, 0.006), this.mat.tray);
@@ -240,16 +240,19 @@ export class CountKit implements CountWorld {
     const [step, back] = this.L.tidy;
     const spots = o.mixed ? this.L.mixed.slice(0, n) : Array.from({ length: n }, (_, i): [number, number] => [(i - (n - 1) / 2) * step, i % 2 ? back : -back]);
     const mid = spots.reduce((a, p) => a + p[0], 0) / Math.max(1, n);
+    // (`over`: the cookies take that many seconds to come, one after another and never quicker than usual, so
+    // they land under the words that name them and the last one lands as those words end: rule 45)
+    const gap = Math.max(0.12, Math.min(0.6, ((o.over ?? 0) - 0.72) / Math.max(1, n - 1)));
     for (let i = 0; i < n; i++) {
       const c = this.makeCookie(), [u, v] = spots[i % spots.length];
       const to = this.P(MID_X + u - mid, this.L.trayY + v).add(new THREE.Vector3(0, 0.014, 0));
       c.g.position.copy(to).add(new THREE.Vector3(0, 0.6, 0));
       c.out = [0, v < 0 ? -1 : 1];
-      this.go(c.g, to, 0.45, { delay: i * 0.12, done: () => bSfx.clack() });
+      this.go(c.g, to, 0.45, { delay: i * gap, done: () => bSfx.clack() });
       this.cookies.push(c);
     }
     this.changed();
-    this.landed = this.wait(n * 120 + 600);
+    this.landed = this.wait((n - 1) * gap * 1000 + 720);
     await this.landed;
   }
   /** "Each cookie needs its own plate to sit on": one plate comes into the row (from the front; on a phone
@@ -302,15 +305,18 @@ export class CountKit implements CountWorld {
       await this.wait(380);
     }
   }
-  async trayOut() {
+  /** (`over`: how many seconds the slide out takes, so it can last as long as the words it goes with: rule 45) */
+  async trayOut(over = 0.7) {
     this.unmark(); this.unpin(() => true); this.lean.to = null;
-    const all: THREE.Object3D[] = [...this.cookies.map(c => c.g), ...this.plateObjs, ...(this.tray ? [this.tray] : [])];
-    for (const o of all) this.go(o, o.position.clone().add(new THREE.Vector3(2.2, 0, 0)), 0.7);
-    await this.wait(760);
-    for (const o of all) { o.removeFromParent(); this.moves.delete(o); }
-    if (this.tray) { this.tray.geometry.dispose(); this.tray = null; }
-    this.cookies = []; this.plateObjs = []; this.counted = 0; this.ring = null; this.own = null;
+    const tray = this.tray, all: THREE.Object3D[] = [...this.cookies.map(c => c.g), ...this.plateObjs, ...(tray ? [tray] : [])];
+    // (the table is let go of at once: a new tray that comes while this one is still on its way out is a new
+    // tray with its own cookies, and nothing of it is cleared away with the old one)
+    this.tray = null; this.cookies = []; this.plateObjs = []; this.counted = 0; this.ring = null; this.own = null;
     this.changed();
+    for (const o of all) this.go(o, o.position.clone().add(new THREE.Vector3(2.2, 0, 0)), over);
+    await this.wait(over * 1000 + 60);
+    for (const o of all) { o.removeFromParent(); this.moves.delete(o); }
+    tray?.geometry.dispose();
   }
   /** one cookie counted: it moves over to the row and its number stands on it */
   private countOne(c: Cookie) {
@@ -424,12 +430,24 @@ export class CountKit implements CountWorld {
     const done = this.inOrder().filter(c => c.num);
     for (const c of done) { this.markOn([c.g]); bSfx.tick(Math.min(8, c.num)); await this.wait(620); }
   }
-  async plates(n: number) {
+  /** (`over`: the plates take that many seconds to come out and the cookies to get onto them, never quicker than
+   *  usual, so they come while the narrator says they are coming and are all there as the line ends: rule 45) */
+  async plates(n: number, over?: number) {
     this.unmark();
     const show = Math.max(0, Math.min(n, MOST)), cs = this.inOrder(), N = Math.max(cs.length, show);
     cs.forEach((c, i) => { c.out = null; this.go(c.g, this.rowAt(i, N), 0.4, { arc: 0.1 }); });
-    await this.wait(cs.some(c => c.g.position.distanceTo(this.rowAt(cs.indexOf(c), N)) > 0.01) ? 450 : 0);
+    const pre = cs.some(c => c.g.position.distanceTo(this.rowAt(cs.indexOf(c), N)) > 0.01) ? 450 : 0;
+    await this.wait(pre);
     const lift = new THREE.Vector3(0, PR * this.s * 0.12, 0), lines = this.L.cols < 8;
+    const room = over == null ? 0 : over - pre / 1000, tail = over == null ? 0.44 : 0.3;
+    // a row: each plate slides and its cookie hops up to 1.6 times as slowly (`f`), and the rest of the time goes
+    // between one plate and the next (`gap`)
+    const f = Math.max(1, Math.min(1.6, room / (show * 0.22 + 0.8)));
+    const gap = Math.max(0.22, Math.min(0.9, (room - 0.58 * f - tail) / Math.max(1, show - 1)));
+    // a phone: the plates slide in more slowly under the waiting cookies (`slide`), and the cookies come down
+    // from `down` on, one after another (`each`)
+    const slide = 0.9 + Math.max(0, Math.min(1.7, (room - (1.25 + show * 0.07 + 0.7)) * 0.6)), down = 0.35 + slide;
+    const each = Math.max(0.07, Math.min(0.5, (room - down - 0.77) / Math.max(1, show - 1)));
     for (let j = 0; j < show; j++) {
       const [x, y] = this.slot(j, N), p = this.makePlate(), c = cs[j];
       this.plateObjs.push(p);
@@ -438,23 +456,23 @@ export class CountKit implements CountWorld {
         // under them, and each cookie comes down onto its plate)
         const to = this.P(x, y);
         p.position.copy(this.P(x - 380, y));
-        this.go(p, to, 0.9, { delay: 0.3, done: j ? undefined : () => bSfx.clack() });
+        this.go(p, to, slide, { delay: 0.3, done: j ? undefined : () => bSfx.clack() });
         if (c) {
           c.plate = p;
           this.go(c.g, c.g.position.clone().add(new THREE.Vector3(0, 0.16, 0)), 0.28);
-          this.later(1250 + j * 70, () => this.go(c.g, to.clone().add(lift), 0.3, { done: () => bSfx.clack() }));
+          this.later((down + j * each) * 1000, () => this.go(c.g, to.clone().add(lift), 0.3, { done: () => bSfx.clack() }));
         }
       } else {
         // (each plate slides in from the front to its place in the row; the cookie there hops up as it comes,
         // and lands on it, so no plate goes through a cookie)
-        const to = this.P(x, y), d = j * 0.22;
+        const to = this.P(x, y), d = j * gap;
         p.position.copy(this.P(x, y + 170));
-        this.go(p, to, 0.5, { delay: d, done: () => bSfx.clack() });
-        if (c) { c.plate = p; this.go(c.g, to.clone().add(lift).setY(c.g.position.y + lift.y), 0.5, { delay: d + 0.08, arc: 0.12 }); }
+        this.go(p, to, 0.5 * f, { delay: d, done: () => bSfx.clack() });
+        if (c) { c.plate = p; this.go(c.g, to.clone().add(lift).setY(c.g.position.y + lift.y), 0.5 * f, { delay: d + 0.08 * f, arc: 0.12 }); }
       }
     }
     if (n > MOST) { const [x, y] = this.slot(show - 1, N); this.pin({ id: 'many', text: `${n} plates`, kind: 'word', at: () => this.P(x, y).add(new THREE.Vector3(0, 0.14, 0)) }); }
-    await this.wait(lines ? 1250 + show * 70 + 700 : show * 220 + 800);
+    await this.wait((lines ? down + (show - 1) * each + 0.77 : (show - 1) * gap + 0.58 * f + tail) * 1000);
     const on = Math.min(show, cs.length);
     if (on < cs.length) { for (const c of cs.slice(on)) c.shakeUntil = this.now + 0.9; this.markOn(cs.slice(on).map(c => c.g), true); bSfx.rattle(); }
     else if (show > cs.length) this.markOn(this.plateObjs.slice(cs.length), true);
@@ -482,7 +500,9 @@ export class CountKit implements CountWorld {
     await this.wait(this.ring ? 800 : 500);
     for (const p of gone) { p.removeFromParent(); this.moves.delete(p); }
   }
-  async bump() {
+  /** (`over`: the cookies take that many seconds to slide round, so they are still sliding while the narrator
+   *  says to watch them, and stop as the line ends: rule 45) */
+  async bump(over?: number) {
     this.unmark(); this.unpin(() => true);
     for (const c of this.cookies) c.num = 0;
     this.counted = 0;
@@ -491,8 +511,9 @@ export class CountKit implements CountWorld {
     this.sc.palDo('hop');
     // (a ring on the tray, the cookies spaced evenly along it, so none touch; they go up over the tray's edge)
     this.ring = this.ringSpots(this.cookies.length, this.L.ring[0], this.L.ring[1]);
-    this.cookies.forEach((c, i) => { c.out = this.ringOut(i); this.go(c.g, this.ringAt(i), 0.7, { delay: 0.15 + i * 0.04, arc: 0.05 }); });
-    await this.wait(1300);
+    const slide = Math.max(0.7, (over ?? 0) - 0.35 - this.cookies.length * 0.04);
+    this.cookies.forEach((c, i) => { c.out = this.ringOut(i); this.go(c.g, this.ringAt(i), slide, { delay: 0.15 + i * 0.04, arc: 0.05 }); });
+    await this.wait(Math.max(1300, (over ?? 0) * 1000));
   }
   /** outward from the circle's middle, at the `i`th place */
   private ringOut(i: number): [number, number] { const q = this.ring![i], [a, b] = this.L.ring, x = q[0] / (a * a), y = q[1] / (b * b), l = Math.hypot(x, y) || 1; return [x / l, y / l]; }
@@ -504,16 +525,18 @@ export class CountKit implements CountWorld {
     for (let k = 0; k <= 720; k++) { const t = Math.PI / 2 + (k / 720) * Math.PI * 2, p: [number, number] = [Math.cos(t) * a, Math.sin(t) * b]; len += Math.hypot(p[0] - prev[0], p[1] - prev[1]); pts.push([p[0], p[1], len]); prev = p; }
     return Array.from({ length: n }, (_, i) => { const want = (i / n) * len, q = pts.find(p => p[2] >= want) ?? pts[0]; return [q[0], q[1]]; });
   }
-  async party() {
+  /** (`over`: the cookies take that many seconds to leave, never quicker than usual: rule 45) */
+  async party(over?: number) {
     this.unmark(); this.unpin(() => true);
-    const cs = this.inOrder();
+    const cs = this.inOrder(), n = cs.length;
+    const f = Math.max(1, Math.min(1.5, (over ?? 0) / (n * 0.14 + 1))), gap = Math.max(0.14, Math.min(0.4, ((over ?? 0) - 0.9 * f - 0.1) / Math.max(1, n)));
     cs.forEach((c, i) => {
-      const off = new THREE.Vector3(-2.6, 0, 0), d = i * 0.14;
-      this.go(c.g, c.g.position.clone().add(off), 0.9, { delay: d });
-      if (c.plate) this.go(c.plate, c.plate.position.clone().add(off), 0.9, { delay: d });
+      const off = new THREE.Vector3(-2.6, 0, 0), d = i * gap;
+      this.go(c.g, c.g.position.clone().add(off), 0.9 * f, { delay: d });
+      if (c.plate) this.go(c.plate, c.plate.position.clone().add(off), 0.9 * f, { delay: d });
     });
     this.sc.palDo('hop');
-    await this.wait(cs.length * 140 + 1000);
+    await this.wait((n * gap + 0.9 * f + 0.1) * 1000);
   }
 
   // ---------- the child's hands ----------

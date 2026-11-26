@@ -20,10 +20,11 @@ type Batch = 'b4' | 'b5' | 'b6' | 'b7';
 
 /** What's on the table in this lesson (three/countKit.ts). Each call plays and resolves when it's over. */
 export interface CountWorld extends World {
-  /** a tray of `n` cookies slides in (`mixed`: scattered, not in a row) */
-  trayIn(n: number, o?: { mixed?: boolean }): Promise<void>;
-  /** the tray, cookies and plates slide away */
-  trayOut(): Promise<void>;
+  /** a tray of `n` cookies comes in (`mixed`: scattered, not in a row; `over`: the cookies take that many seconds
+   *  to land, never quicker than usual) */
+  trayIn(n: number, o?: { mixed?: boolean; over?: number }): Promise<void>;
+  /** the tray, cookies and plates slide away (`over`: in that many seconds) */
+  trayOut(over?: number): Promise<void>;
   /** the narrator's count: each cookie in turn moves over to the line with its number */
   demoCount(): Promise<void>;
   /** the child's taps: each tapped cookie moves over to the line with the next number */
@@ -43,14 +44,16 @@ export interface CountWorld extends World {
   clearNumbers(): Promise<void>;
   /** a light goes along the counted cookies, one number at a time, and stays on the last */
   pointCount(): Promise<void>;
-  /** that many plates come out in a row, and the cookies hop on, one to a plate */
-  plates(n: number): Promise<void>;
+  /** that many plates come out in a row, and the cookies hop on, one to a plate (`over`: they take that many
+   *  seconds, never quicker than usual, so they can come while the narrator says they are coming) */
+  plates(n: number, over?: number): Promise<void>;
   /** the plates go, and the cookies go back to the line */
   platesOff(): Promise<void>;
-  /** the table is bumped: the cookies slide into a ring, and their numbers are gone */
-  bump(): Promise<void>;
-  /** the cookies on their plates go off to the party */
-  party(): Promise<void>;
+  /** the table is bumped: the cookies slide into a ring, and their numbers are gone (`over`: the slide takes
+   *  that many seconds) */
+  bump(over?: number): Promise<void>;
+  /** the cookies on their plates go off to the party (`over`: in that many seconds, never quicker than usual) */
+  party(over?: number): Promise<void>;
   // pictures that go with a line as it is said (rule 37: nobody sits watching a still tray while the narrator talks)
   /** one plate comes out and one cookie hops from the tray onto it: a cookie on a plate of its own */
   plateFor(): Promise<void>;
@@ -75,13 +78,32 @@ const AT = {
   intro: { cookies: 2.8, plate: 5.3 },
   /** "how many cookies there are"; "So let's count them" */
   need: { ask: 2.6, back: 4.8 },
-  /** "baked some more cookies"; "hard to remember which ones you've counted" */
-  mixed: { cookies: 0.7, unsure: 5.8 },
+  /** the cookies before leave from the first word and the new ones take this long to land, the last at "all over
+   *  the tray"; "hard to remember which ones you've counted" */
+  mixed: { cookies: 3.9, unsure: 5.8 },
   /** "here it is, with the red ring", in each friend's line */
   ring: { pal: 1.0, buddy: 1.45 },
   /** "skip one"; "count the same one twice" */
   why: { skip: 3.1, twice: 4.0 },
   /** each number of the count said in a batch's "let's look at the numbers together" line */
+  // A movement begins at the words that name it and ends about as they do (rule 45): [the second of the line it
+  // begins at, how many seconds it takes]. The kit never moves quicker than usual, only slower.
+  /** "with more cookies": the cookies before leave from the first word, and the new ones take this long to land */
+  turn: { cookies: 1.5 },
+  /** "Let's get as many plates as you said, and put one cookie on each plate" */
+  you: [0.6, 3.5],
+  /** "get out five plates, one for each cookie", in each batch's line */
+  lay: { b4: [0.6, 2.2], b5: [0.4, 2.3], b6: [0.4, 2], b7: [0.7, 2.3] } as Record<Batch, [number, number]>,
+  /** "bumps the table. Watch what happens to the cookies" */
+  bump: [1.3, 2.5],
+  /** "Those cookies are put away"; "found a few more cookies in the oven" */
+  extra: { away: [0, 1.3], more: [2.5, 1.6] },
+  /** "gets out seven plates, one for each cookie" (the line goes on: "to take them to the party") */
+  party: [2.9, 3],
+  /** "Sprout Bunny is off to the party!", in each ending's line */
+  off: [5.3, 1.9], offExtra: [4.9, 2.3],
+  /** "Here are some new cookies for Sprout Bunny's party, all over the tray" */
+  check: [0.3, 3.3],
   show: { b4: [3.8, 4.55, 5, 5.35], b5: [3.25, 4, 4.4, 4.9, 5.5], b6: [4.05, 4.75, 5.25, 5.7, 6.1, 6.55], b7: [4.2, 4.8, 5.55, 6.2, 6.9, 7.3, 7.65] } as Record<Batch, number[]>,
 };
 
@@ -102,8 +124,11 @@ async function platesTest(t: Teller, w: CountWorld, n: number, cookies: number):
     await t.say('ep.count.zero');
     return false;
   }
-  await t.say('ep.count.try.you', n);
-  await w.plates(n);
+  // (the plates start to come out as the narrator says "let's get that many plates", slowly, and the last cookie
+  // is on its plate as the line ends. What the plates show, a cookie left over or a plate left empty, is marked
+  // once the line is over and stands for a moment before the narrator says what it showed: the child's own
+  // number is the one thing to look at then)
+  await t.sayWith('ep.count.try.you', [[AT.you[0], () => w.plates(n, AT.you[1])]], n);
   const m = plateMeaning(n, cookies);
   if (m.kind === 'full') { t.buddy('cheer'); t.pal('happy'); await t.say('ep.count.right', n); return true; }
   t.buddy(m.kind === 'short' ? 'shrug' : 'oops'); t.pal('sad');
@@ -122,17 +147,17 @@ async function howMany(t: Teller, w: CountWorld, cookies: number, b: Batch, line
     await t.say(`ep.count.${b}.why`);
     await lit;
     await t.go('Next');
-    // (`keep`: the last batch of the lesson goes to the party on these plates)
+    // (`keep`: the plates stay on. They go out with the tray as the next line begins, or to the party)
     if (!keep) await w.platesOff();
     return n;
   }
-  await w.platesOff();
-  // a kind change of gear: no more asking, we look at the numbers together, and the light goes to each cookie
-  // as the narrator says its number (it used to run along by itself and be done before the first number was said)
-  await t.sayWith(`ep.count.${b}.show`, AT.show[b].map((at, i): Cue => [at, () => w.pointAt(i + 1)]));
+  // a kind change of gear: no more asking, we look at the numbers together. The plates go while the narrator says
+  // so, and are gone before the first number; then the light goes to each cookie as its number is said (it used
+  // to run along by itself and be done before the first number was said)
+  await t.sayWith(`ep.count.${b}.show`, [[0, () => w.platesOff()], ...AT.show[b].map((at, i): Cue => [at, () => w.pointAt(i + 1)])]);
   await t.go('Next');
-  await t.say(`ep.count.try.${b}`);
-  await w.plates(cookies);
+  // (the plates come out as the narrator says "let's get out five plates", and are there as the line ends)
+  await t.sayWith(`ep.count.try.${b}`, [[AT.lay[b][0], () => w.plates(cookies, AT.lay[b][1])]]);
   t.pal('happy'); t.buddy('nod');
   await t.say('ep.count.fit');
   if (!keep) await w.platesOff();
@@ -153,7 +178,7 @@ async function findSlip(t: Teller, w: CountWorld, who: 'pal' | 'buddy') {
     if (miss === 0) await t.say(who === 'pal' ? 'ep.count.find.no.two' : 'ep.count.find.no.none');
   }
   // (found: the red ring answers the tap at once. Not found: it comes as the narrator says "here it is")
-  if (tap.got === 'yes') { await w.showSlip(); t.buddy('nod'); t.pal('happy'); await t.say(`ep.count.${who}.found`); }
+  if (tap.got === 'yes') { t.buddy('nod'); t.pal('happy'); await t.sayWith(`ep.count.${who}.found`, [[0, () => w.showSlip()]]); }
   else await t.sayWith(`ep.count.${who}.shown`, [[AT.ring[who], () => w.showSlip()]]);
 }
 
@@ -178,29 +203,32 @@ async function play(t: Teller, w: CountWorld): Promise<Notes> {
   // (no plates for the shown count: the child's own number is the first acted out, and its lines say what
   // the plates mean, which keeps the lesson short for Kindergarten)
   t.pal('happy'); t.buddy('clap');
-  await w.trayOut();
 
   // the child counts, with their own taps, and says how many
   t.beat(2);
-  await w.trayIn(MINE);
-  await t.say('ep.count.turn');
+  // (the three cookies slide away as the narrator begins, and the new ones land at "with more cookies": the tray
+  // used to go and the new one come in silence, and only then was the line said)
+  await t.sayWith('ep.count.turn', [[0, async () => { await w.trayOut(); await w.trayIn(MINE, { over: AT.turn.cookies }); }]]);
   await t.hands('Tap each cookie', () => w.tapCount(), () => w.finish());
-  const first = await howMany(t, w, MINE, 'b5', 'ep.count.how');
-  await w.trayOut();
+  const first = await howMany(t, w, MINE, 'b5', 'ep.count.how', true);
 
   // mixed up: Sprout Bunny touches one twice, the buddy misses one, and the child finds each slip on the cookies
   t.beat(3);
-  // (the cookies tumble onto the tray as they're named, and a "?" lands on one, then another, at "which ones
-  // you've counted")
-  await t.sayWith('ep.count.mixed', [[AT.mixed.cookies, () => w.trayIn(MIXED, { mixed: true })], [AT.mixed.unsure, () => w.unsure()]]);
+  // (the five cookies and their plates slide away as the narrator begins; the new cookies tumble onto the tray
+  // one after another as they're named, the last at "all over the tray"; and a "?" lands on one, then another,
+  // at "which ones you've counted", once they are all there)
+  let landed: Promise<void> | undefined;
+  await t.sayWith('ep.count.mixed', [
+    [0, () => (landed = (async () => { await w.trayOut(); await w.trayIn(MIXED, { mixed: true, over: AT.mixed.cookies }); })())],
+    [AT.mixed.unsure, async () => { await landed; await w.unsure(); }]]);
   await t.say('ep.count.try.pal');
   t.pal('act');
   t.thought('pal', String(await w.slipCount('pal', 'twice')));
   await t.say('ep.count.pal.find');
   await findSlip(t, w, 'pal');
   t.thought('pal', null);
-  await w.clearNumbers();
-  await t.say('ep.count.try.buddy');
+  // (Sprout Bunny's numbers come off as the narrator turns to the buddy)
+  await t.sayWith('ep.count.try.buddy', [[0, () => w.clearNumbers()]]);
   t.buddy('point');
   t.thought('buddy', String(await w.slipCount('buddy', 'skip')));
   await t.say('ep.count.buddy.find');
@@ -210,16 +238,17 @@ async function play(t: Teller, w: CountWorld): Promise<Notes> {
   // again on its own cookie as it's named: the one the buddy skipped, still with no number, then the one
   // Sprout Bunny counted twice, with its two numbers)
   await t.sayWith('ep.count.move.why', [[AT.why.skip, () => w.recall('skip')], [AT.why.twice, () => w.recall('twice')]]);
-  await w.clearNumbers();
-  await t.say('ep.count.move');
+  await t.sayWith('ep.count.move', [[0, () => w.clearNumbers()]]);
   await t.hands('Tap each cookie', () => w.tapCount(), () => w.finish());
   const second = await howMany(t, w, MIXED, 'b7', 'ep.count.how2');
 
   // bumped round the tray: still as many? Then the child counts them again where they sit, starting anywhere.
   // A child who thought the number had changed hears why it hasn't (it was only said to the child who was right)
   t.beat(4);
-  await t.say('ep.count.try.bump');
-  await w.bump();
+  // (the table is bumped at "bumps", and the cookies are still sliding round, slowly, while the narrator says to
+  // watch them: they stop as the line ends. The plates of the count before left on their own, before this
+  // line, so that the bump is the only thing that moves a cookie while it is said)
+  await t.sayWith('ep.count.try.bump', [[AT.bump[0], () => w.bump(AT.bump[1])]]);
   const moved = await t.num('How many cookies now?', 'ep.count.moved');
   // (a child who knew the number hadn't changed is told why they're right and goes on: counting them again was
   // half a minute more for a five-year-old who had already shown the idea. A child who thought it had changed
@@ -240,28 +269,29 @@ async function play(t: Teller, w: CountWorld): Promise<Notes> {
   let extra = false;
   if (first !== MINE && second !== MIXED && moved !== MIXED) {
     extra = true;
-    await w.trayOut();
-    await w.trayIn(EXTRA);
-    await t.say('ep.count.extra');
+    // (the cookies slide away while the narrator says they're put away, and the new ones land at "found a few more")
+    await t.sayWith('ep.count.extra', [[AT.extra.away[0], () => w.trayOut(AT.extra.away[1])], [AT.extra.more[0], () => w.trayIn(EXTRA, { over: AT.extra.more[1] })]]);
     await t.hands('Tap each cookie', () => w.tapCount(), () => w.finish());
     await howMany(t, w, EXTRA, 'b4', 'ep.count.how.last', true);
   }
 
   // the end of this story, and what the counting was for: as many plates as cookies, and off they go
   t.beat(5);
-  if (!extra) { await t.say('ep.count.try.party'); await w.plates(MIXED); }
+  // (the plates come out from "gets out seven plates" and are laid by "one for each cookie"; the cookies leave on
+  // them from "Sprout Bunny is off to the party", and are gone as the line ends)
+  if (!extra) await t.sayWith('ep.count.try.party', [[AT.party[0], () => w.plates(MIXED, AT.party[1])]]);
   t.pal('happy'); t.buddy('jump');
-  await t.say(extra ? 'ep.count.off.extra' : 'ep.count.off');
-  await w.party();
+  const off = extra ? AT.offExtra : AT.off;
+  await t.sayWith(extra ? 'ep.count.off.extra' : 'ep.count.off', [[off[0], () => w.party(off[1])]]);
   await t.wait(400);
   return { first, second, moved };
 }
 
 async function check(t: Teller, w: CountWorld) {
-  await w.trayIn(NEXT_DAY, { mixed: true });
-  await t.say('ep.count.check');
+  // (the cookies tumble in while the narrator says they're here, the last at "all over the tray")
+  await t.sayWith('ep.count.check', [[AT.check[0], () => w.trayIn(NEXT_DAY, { mixed: true, over: AT.check[1] })]]);
   await t.hands('Tap each cookie', () => w.tapCount(), () => w.finish());
-  await howMany(t, w, NEXT_DAY, 'b6', 'ep.count.how2');
+  await howMany(t, w, NEXT_DAY, 'b6', 'ep.count.how2', true);
   await w.trayOut();
 }
 
