@@ -132,5 +132,9 @@
   "ep.ten.try.pal": {
     "seed": 101,
     "why": "first take had a click at 7.2 s, in 'pink buns' (check.mjs, rule 46)"
+  },
+  "ep.ten.few.places": {
+    "seed": 101,
+    "why": "the first take was heard as 'you ask for' (Whisper's word times)"
   }
 }

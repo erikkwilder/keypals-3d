@@ -17126,5 +17126,41 @@
   "tail50Rms": -44.8,
   "tail50Peak": -26.4,
   "voice": "coach"
+ },
+ "ep.ten.few.places": {
+  "id": "ep.ten.few.places",
+  "gain": -1,
+  "rawLufs": -18.7,
+  "notes": [
+   "ducked breath at 5817ms"
+  ],
+  "ms": 7832,
+  "lufs": -20,
+  "tp": -3.5,
+  "maxAbs": 0.6709,
+  "fullScale": 0,
+  "head50Rms": -52.6,
+  "head50Peak": -38.2,
+  "tail50Rms": -62.2,
+  "tail50Peak": -47.8,
+  "voice": "coach"
+ },
+ "ep.ten.buddy.so": {
+  "id": "ep.ten.buddy.so",
+  "gain": -1.7,
+  "rawLufs": -18,
+  "notes": [
+   "lead held to 600ms (was 615ms)"
+  ],
+  "ms": 4236,
+  "lufs": -20,
+  "tp": -4.6,
+  "maxAbs": 0.5877,
+  "fullScale": 0,
+  "head50Rms": -59.4,
+  "head50Peak": -49,
+  "tail50Rms": -61.3,
+  "tail50Peak": -47.7,
+  "voice": "coach"
  }
 }

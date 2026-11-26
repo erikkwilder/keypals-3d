@@ -6144,6 +6144,11 @@
   "voice": "coach-exclaim",
   "h": "e9ea810067"
  },
+ "ep.ten.buddy.so": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "27168ce6e0"
+ },
  "ep.ten.buddy.yes": {
   "engine": "local",
   "voice": "coach-exclaim",
@@ -6178,6 +6183,11 @@
   "engine": "local",
   "voice": "coach-exclaim",
   "h": "d32a5537ad"
+ },
+ "ep.ten.few.places": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "611f813bcb"
  },
  "ep.ten.fit": {
   "engine": "local",

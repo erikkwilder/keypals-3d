@@ -16,6 +16,7 @@ type Child = { nums: number[]; picks?: string[] };
 /** what a reader of the cold read is told each picture is, by the world's call */
 const PICTURE: Record<string, string> = {
   moreOff: 'the pink buns slide away, and the places they were in are empty again',
+  spareOff: 'the pink buns that have no place slide away one after another; the buns on the tray stay, and the rings go',
   'light("top")': 'a yellow ring lights each of the 5 places in the top row',
   'light("bottom")': 'a yellow ring lights each of the 5 places in the bottom row (the top row goes dark)',
   'light("all")': 'a yellow ring lights every one of the 10 places',
@@ -41,7 +42,7 @@ const TRY = /^more\(/;
 const WORKING = /^point\(/;
 /** how many of a call's arguments say what happens; the one after those says how long it takes, which is the
  *  kit's business: the log keeps what happens, and the cold read says how long */
-const KEPT: Record<string, number> = { trayIn: 1, fill: 1, more: 1, clear: 0 };
+const KEPT: Record<string, number> = { trayIn: 1, fill: 1, more: 1, spareOff: 0, clear: 0 };
 /** the lines that say what's about to be tried, and whose try it is */
 const announces = /\.try\./;
 
@@ -169,7 +170,28 @@ describe('the lesson, played by every kind of child', () => {
       expect(log.slice(tried, asked).some(l => /showLeft|light/.test(l))).toBe(false);
       expect(log.slice(asked)).toContain('show showLeft()');
       expect(said).toContain(`ep.ten.buddy.${pick}`);
+      // the idea is closed before Next: the buns with no place go from the start of the line that says how many
+      // the tray did need, and the pink buns on it are lit
+      const so = log.indexOf('say ep.ten.buddy.so');
+      expect(so).toBeGreaterThan(log.indexOf(`say ep.ten.buddy.${pick}`));
+      expect(log.slice(so - 1, so + 4)).toEqual(['with pictures', 'say ep.ten.buddy.so', 'show spareOff()', 'show light("b")', 'go Next']);
     }
+    expect(text('ep.ten.buddy.so').match(new RegExp(`\\b${partner(BUDDY)}\\b`, 'g'))).toHaveLength(2);
+  });
+  it('too few: "an empty place" is said only when exactly one place is left, and "empty places" when 2 or more are (rule 40)', async () => {
+    const one = await play({ nums: [2] }), two = await play({ nums: [1] });
+    expect(one.said).toContain('ep.ten.few');
+    expect(one.said).not.toContain('ep.ten.few.places');
+    expect(two.said).toContain('ep.ten.few.places');
+    expect(two.said).not.toContain('ep.ten.few');
+    // the next day's tray of 4 has 6 empty places: 5 more leave one, 4 more leave two
+    expect((await nextDay({ nums: [5] })).said).toContain('ep.ten.few');
+    const day = await nextDay({ nums: [4] });
+    expect(day.said).toContain('ep.ten.few.places');
+    expect(day.said).not.toContain('ep.ten.few');
+    // the two forms differ only in the place or places, shown and said, and the red ring comes inside each
+    for (const form of ['text', 'said'] as const) expect(BEAT_LINES.find(l => l.id === 'ep.ten.few.places')![form]).toBe(BEAT_LINES.find(l => l.id === 'ep.ten.few')![form]!.replace('an empty place', 'empty places'));
+    for (const p of [one, two]) expect(p.log[p.log.findIndex(l => /^say ep\.ten\.few/.test(l)) + 1]).toBe('show showLeft()');
   });
   it('a child who says 10, as the buddy does, has it played once for the two of them, with the reason', async () => {
     const { log, said } = await play({ nums: [10] });
@@ -178,6 +200,7 @@ describe('the lesson, played by every kind of child', () => {
     expect(log).toContain('buddy thinks 10');
     expect(said).not.toContain('ep.ten.try.buddy');
     expect(said).not.toContain('ep.ten.buddy.in');
+    expect(said).not.toContain('ep.ten.buddy.so');
     expect(log.filter(l => l === 'more(10)')).toHaveLength(1);
     // (the next day there is no buddy at the table: 10 is tried as the child's own number)
     expect((await nextDay({ nums: [10] })).said).not.toContain('ep.ten.try.both');
@@ -245,7 +268,7 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
   });
   it('rule 45: a movement begins inside the line that names it, and the only moves left on their own are the stops kept on purpose', async () => {
     // every call that moves something on the table (not the child's own taps, not a light)
-    const move = /^(show )?(trayIn|fill|more|moreOff|showLeft|clear)\(/;
+    const move = /^(show )?(trayIn|fill|more|moreOff|spareOff|showLeft|clear)\(/;
     /** the line a move is made in (the line said with pictures that it follows), or null when it is made in silence */
     const lineOf = (log: string[], i: number) => { let j = i - 1; while (j >= 0 && (log[j].startsWith('show ') || TRY.test(log[j]))) j--; return log[j]?.startsWith('say ') && log[j - 1] === 'with pictures' ? log[j].slice(4) : null; };
     const alone = (log: string[]) => log.filter((l, i) => move.test(l) && lineOf(log, i) == null);
@@ -265,6 +288,7 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
     expect(lineOf(right.log, right.log.indexOf('more(1)'))).toBe('ep.ten.try.demo');
     expect(lineOf(right.log, right.log.indexOf('more(3)'))).toBe('ep.ten.try.you');
     expect(lineOf(right.log, right.log.indexOf('more(10)'))).toBe('ep.ten.try.buddy');
+    expect(lineOf(right.log, right.log.indexOf('show spareOff()'))).toBe('ep.ten.buddy.so');
     expect(lineOf(right.log, right.log.indexOf('more(5)'))).toBe('ep.ten.try.pal');
     expect(lineOf(right.log, right.log.indexOf('more(2)'))).toBe('ep.ten.try.top');
     expect(lineOf(right.log, right.log.lastIndexOf('show clear()'))).toBe('ep.ten.off');

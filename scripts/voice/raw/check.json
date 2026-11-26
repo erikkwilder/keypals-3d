@@ -14103,5 +14103,46 @@
   "warns": [],
   "heard": "Sprout bunny is baking again. This tray has four blue buns on it.",
   "match": 1
+ },
+ "ep.ten.few.places": {
+  "id": "ep.ten.few.places",
+  "voice": "coach",
+  "text": "Every bun you asked for found a place, but look, the tray still has empty places. So it needs more than {n}.",
+  "ms": 7832,
+  "lufs": -20.1,
+  "tp": -3.5,
+  "fullScale": 0,
+  "headRms": -52.6,
+  "headPeak": -38.2,
+  "tailRms": -62.2,
+  "tailPeak": -47.8,
+  "blips": [],
+  "warns": [
+   {
+    "t": 0.16,
+    "kind": "lone burst",
+    "size": -44.069668254103235,
+    "why": "13 ms of sound (13 ms within 12 dB of its peak, -44 dBFS) alone between 89 ms and 96 ms of near silence"
+   }
+  ],
+  "heard": "Every bun you asked for found a place, but look, the tray still has empty places, so it needs more buns than you said.",
+  "match": 1
+ },
+ "ep.ten.buddy.so": {
+  "id": "ep.ten.buddy.so",
+  "voice": "coach",
+  "text": "There were 4 empty places, so 4 more buns fill this tray.",
+  "ms": 4236,
+  "lufs": -20.1,
+  "tp": -4.6,
+  "fullScale": 0,
+  "headRms": -59.4,
+  "headPeak": -49,
+  "tailRms": -61.3,
+  "tailPeak": -47.7,
+  "blips": [],
+  "warns": [],
+  "heard": "There were four empty places, so four more buns fill this tray.",
+  "match": 1
  }
 }

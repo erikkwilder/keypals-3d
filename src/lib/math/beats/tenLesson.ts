@@ -38,6 +38,8 @@ export interface FrameWorld extends World {
   more(n: number, over?: number, from?: 'top' | 'bottom'): Promise<void>;
   /** the second colour's counters slide away, and the places they were in are empty again */
   moreOff(): Promise<void>;
+  /** the counters that found no place slide away one after another, and the ones in the frame stay (`over`) */
+  spareOff(over?: number): Promise<void>;
   /** yellow rings on a row's places, on every place, on the empty places, or on one colour's counters (null: none) */
   light(what: Lit): void;
   /** the light goes to the `k`th of the places that had no counter of the first colour, and its number stands there */
@@ -77,8 +79,8 @@ const AT = {
   you: [0.3, 3.5],
   /** "Let's put ten pink buns on the tray and see if it is full", when the child and the buddy both said 10 */
   both: [3.2, 3],
-  /** "look", in each line that says what a wrong number showed */
-  left: { few: 3.1, over: 1.3, zero: 3 },
+  /** "look", in each line that says what a wrong number showed; where 2 or more places are left, "empty places" */
+  left: { few: 3.1, places: 4.6, over: 1.3, zero: 3 },
   /** "The tray holds ten buns in all"; "seven were on it already"; "only the empty places" */
   bothWhy: { all: 0.1, had: 2, empty: 4 },
   /** "Each empty place needed one bun" */
@@ -94,6 +96,9 @@ const AT = {
   buddy: [2.2, 3.2],
   /** "Six buns have no place"; "six places had a bun already"; "Only the empty places", in the two lines that answer the question */
   ring: { no: { left: 1.2, had: 3, only: 5.3 }, yes: { left: 1.8, had: 3.3, only: 5.5 } },
+  /** "There were four empty places": the buns with no place go one after another from the line's start, and the
+   *  last has gone at "four more buns", where the pink buns on the tray are lit */
+  so: { off: [0, 2.3], pink: 2.4 },
   /** "Here is a tray with three blue buns on it" */
   palIn: [2.5, 2],
   /** "the empty places in the bottom row"; "Let's try Sprout Bunny's five pink buns" */
@@ -115,9 +120,9 @@ const AT = {
 };
 
 /** the words a run of the lesson can say, all of them */
-export const TEN_LINES = ['intro', 'need', 'demo', 'try.demo', 'demo.full', 'turn', 'how', 'try.you', 'try.both', 'right', 'few', 'over',
+export const TEN_LINES = ['intro', 'need', 'demo', 'try.demo', 'demo.full', 'turn', 'how', 'try.you', 'try.both', 'right', 'few', 'few.places', 'over',
   'try.zero', 'zero', 'both.why', 'why', 'p3.show', 'p6.show', 'try.fix', 'fit', 'buddy.in', 'try.buddy', 'buddy.ask', 'buddy.no',
-  'buddy.yes', 'pal.in', 'try.pal', 'pal.ask', 'pal.found', 'try.top', 'extra', 'extra.done', 'sum.3', 'sum.8', 'off', 'check'].map(k => `ep.ten.${k}`);
+  'buddy.yes', 'buddy.so', 'pal.in', 'try.pal', 'pal.ask', 'pal.found', 'try.top', 'extra', 'extra.done', 'sum.3', 'sum.8', 'off', 'check'].map(k => `ep.ten.${k}`);
 
 /** The child's number of more buns: say whose it is, act it out whatever it is, say what it showed. True when
  *  it fills the tray. (`both`: the child said 10, which is the buddy's idea too, so it is played once for the
@@ -137,7 +142,10 @@ async function tryIt(t: Teller, w: FrameWorld, n: number, have: number, both: bo
   if (m.kind === 'full') { t.buddy('cheer'); t.pal('happy'); await t.say('ep.ten.right', n); return true; }
   t.buddy(m.kind === 'short' ? 'shrug' : 'oops'); t.pal('sad');
   // (what is left over is ringed at the word that points to it, not before: the line is its picture's reason)
-  await t.sayWith(m.kind === 'short' ? 'ep.ten.few' : 'ep.ten.over', [[m.kind === 'short' ? AT.left.few : AT.left.over, () => w.showLeft()]], n);
+  // (what is said is what is shown, rule 40: "an empty place" only when exactly one place is left)
+  const places = m.kind === 'short' && m.missing > 1;
+  const line = m.kind === 'over' ? 'ep.ten.over' : places ? 'ep.ten.few.places' : 'ep.ten.few';
+  await t.sayWith(line, [[m.kind === 'over' ? AT.left.over : places ? AT.left.places : AT.left.few, () => w.showLeft()]], n);
   if (both) {
     await t.sayWith('ep.ten.both.why', [[AT.bothWhy.all, () => w.light('all')], [AT.bothWhy.had, () => w.light('a')], [AT.bothWhy.empty, () => w.light('b')]]);
     t.thought('buddy', null);
@@ -202,6 +210,9 @@ async function play(t: Teller, w: FrameWorld): Promise<Notes> {
     const at = AT.ring[fits];
     if (fits === 'no') { t.buddy('nod'); t.pal('happy'); } else t.buddy('shrug');
     await t.sayWith(`ep.ten.buddy.${fits}`, [[at.left, () => w.showLeft()], [at.had, () => w.light('a')], [at.only, () => w.light('b')]]);
+    // (the idea is closed, rules 2 and 26: the buns with no place go while the line says how many places were
+    // empty, and the pink buns that did find a place are lit as their number is said)
+    await t.sayWith('ep.ten.buddy.so', [[AT.so.off[0], () => w.spareOff(AT.so.off[1])], [AT.so.pink, () => w.light('b')]]);
     await t.go('Next');
   }
 

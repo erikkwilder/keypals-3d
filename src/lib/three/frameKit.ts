@@ -239,6 +239,19 @@ export class FrameKit implements FrameWorld {
     for (const k of gone) this.go(k.g, k.g.position.clone().add(new THREE.Vector3(1.6, 0, 0.3)), 0.45, { done: () => k.g.removeFromParent() });
     await this.wait(500);
   }
+  /** the counters with no place slide away, the last one that came first; the ones in the tray stay. Given
+   *  `over` seconds they go one after another to fill it, never quicker than all together. The lights go too */
+  async spareOff(over = 0) {
+    const t = this.tray; if (!t) return;
+    this.unmark(); this.unpin(p => p.id === 'many');
+    const gone = [...t.spare].reverse();
+    if (!gone.length) return;
+    // (they are no longer beside the tray at once, whatever is still sliding away)
+    t.spare = [];
+    const slide = 0.45, gap = Math.max(0, Math.min(0.5, (over - slide) / Math.max(1, gone.length - 1)));
+    gone.forEach((k, j) => this.go(k.g, k.g.position.clone().add(new THREE.Vector3(1.6, 0, 0.3)), slide, { delay: j * gap, done: () => k.g.removeFromParent() }));
+    await this.wait((gone.length - 1) * gap * 1000 + slide * 1000 + 50);
+  }
   light(what: Lit) {
     this.unmark();
     const t = this.tray; if (!t || !what) return;
@@ -265,6 +278,9 @@ export class FrameKit implements FrameWorld {
   writeSum(a: number, b: number) {
     // (it stands where the tray's far edge is, and stays there when the tray has gone)
     const at = this.over(this.P(MID_X, TOP - 30)).add(new THREE.Vector3(0, 0.1, 0));
+    // (the count numbers on the places go: on a phone a number's card nearly covers the bun under it, and the
+    // sum's line names the buns by their colours)
+    this.unpin(p => p.id.startsWith('e'));
     this.sum = { id: 'sum', text: `${a} + ${b} = ${a + b}`, kind: 'sum', parts: [{ t: String(a), c: 'a' }, { t: '+' }, { t: String(b), c: 'b' }, { t: '=' }, { t: String(a + b) }], at: () => at };
     this.pin(this.sum);
   }
