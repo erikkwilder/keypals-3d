@@ -14,6 +14,8 @@ type Nap = { left: number; at: number; timer?: ReturnType<typeof setTimeout>; go
 
 export function lessonPause(now: () => number = () => performance.now()) {
   let held = false, lost = 0;
+  /** the wall's clock when the lesson began, how long it has been paused in all, and since when it is now */
+  const began = now(); let idle = 0, heldAt = 0;
   const naps = new Set<Nap>();
   const run = (n: Nap) => { n.at = now(); n.timer = setTimeout(() => { naps.delete(n); n.go(); }, Math.max(0, n.left)); };
   return {
@@ -25,12 +27,14 @@ export function lessonPause(now: () => number = () => performance.now()) {
       held = true;
       holdVoice();
       const t = now();
+      heldAt = t;
       for (const n of naps) { clearTimeout(n.timer); n.timer = undefined; n.left -= t - n.at; }
     },
     /** Keep going: everything carries on from where it stopped */
     carryOn() {
       if (!held) return;
       held = false;
+      idle += now() - heldAt;
       for (const n of naps) run(n);
       resumeVoice();
     },
@@ -47,6 +51,8 @@ export function lessonPause(now: () => number = () => performance.now()) {
       if (held) { lost += dt; return [0, t - lost]; }
       return [dt, t - lost];
     },
+    /** milliseconds the lesson has run, not counting the time it stood paused */
+    elapsed(): number { return now() - began - idle - (held ? now() - heldAt : 0); },
     /** a wait by the wall's clock that stands still while the lesson is paused */
     sleep(ms: number): Promise<void> {
       return new Promise(go => { const n: Nap = { left: ms, at: 0, go }; naps.add(n); if (!held) run(n); });

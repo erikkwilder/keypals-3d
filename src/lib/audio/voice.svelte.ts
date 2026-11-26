@@ -96,6 +96,13 @@ export function wordDone(ms = 1000): Promise<void> {
   });
 }
 
+/** How far into line `id` the narrator is, in seconds, by its clip's own clock (it stands still while a lesson is
+ *  paused or the game is put away). Null when no clip of that line is playing: the voice is off, the clip couldn't
+ *  load, or another line has taken over. A lesson's pictures are timed to the words by this (Teller.sayWith). */
+export function saidSoFar(id: string): number | null {
+  return audio && voiceState.playing === id && !audio.error ? audio.currentTime : null;
+}
+
 /** A lesson's Pause (math/ui/lessonPause.ts): the line playing stops where it is, mid-word, and nothing new speaks
  *  until resumeVoice, which carries it on from that point. Erik, 2026-11-25: "If I pause the lesson, I want it to
  *  actually pause right then. And then when I say keep going, to have it start talking again where it left off." */

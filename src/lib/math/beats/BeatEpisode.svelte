@@ -10,7 +10,7 @@
   import { EpisodeScene, type View } from '../../three/episodeScene';
   import { game } from '../../state/game.svelte';
   import { quietForLesson, sfx } from '../../audio/sound';
-  import { hush, keepLesson, keepWords, lineText, say, wordDone } from '../../audio/voice.svelte';
+  import { hush, keepLesson, keepWords, lineText, saidSoFar, say, wordDone } from '../../audio/voice.svelte';
   import { settleCards, type Card, type Free } from './cardLayout';
   import { danceOf } from '../../engine/profile';
   import { advView } from '../../adventure/state';
@@ -28,7 +28,7 @@
   import RewardTap from '../../ui/RewardTap.svelte';
   import PathNextButton from '../../path/PathNextButton.svelte';
   import { pathNext, startPathNext, type PathNext } from '../../path/next';
-  import type { BeatLesson, Choice, Notes, Pin, Teller, World } from './types';
+  import type { BeatLesson, Choice, Cue, Notes, Pin, Teller, World } from './types';
 
   type Props = { lesson: BeatLesson<World>; embedded?: boolean; check?: boolean; onclose: () => void; onpractice?: () => void };
   let { lesson, embedded = false, check = false, onclose, onpractice }: Props = $props();
@@ -76,17 +76,34 @@
   class Left extends Error {}
   const live = async <T,>(p: Promise<T>): Promise<T> => { const v = await p; if (gone) throw new Left(); return v; };
 
+  /** One line said, with the pictures that go with it (`cues`: each acted out when the narrator reaches its second
+   *  of the line). Over when the line is said and every picture has finished. */
+  async function speak(id: string, cues: Cue[], n?: number, m?: number, k?: number) {
+    line = lineText(id).replace(/\{n\}/g, String(n ?? '')).replace(/\{m\}/g, String(m ?? '')).replace(/\{k\}/g, String(k ?? ''));
+    const todo = [...cues].sort((a, b) => a[0] - b[0]), acts: Promise<unknown>[] = [];
+    const fire = (upTo: number) => { while (todo.length && todo[0][0] <= upTo) { const act = todo.shift()![1]; acts.push(Promise.resolve().then(act).catch(e => { if (!(e instanceof Left)) console.error(e); })); } };
+    // (for checking a lesson's pictures quickly while building it: `window.__fast = ms` holds each line that long)
+    if (import.meta.env.DEV && (window as unknown as { __fast?: number }).__fast) { fire(Infinity); await live(sleep((window as unknown as { __fast: number }).__fast)); await live(Promise.all(acts)); return; }
+    // a count word still being said finishes first (the last number counted is the answer)
+    await live(wordDone());
+    const t0 = P.elapsed();
+    let over = false;
+    const whole = (async () => {
+      await Promise.race([say(id, { important: true, caption: false }), sleep(2500 + line.length * 95)]);
+      if (game.settings.voice === false) await sleep(Math.max(0, Math.max(1500, line.length * 55) - (P.elapsed() - t0)));
+    })();
+    void whole.finally(() => { over = true; });
+    // the pictures: by the clip's own clock, which stands still while the lesson is paused; with no clip (the voice
+    // off), by the lesson's clock, which stands still then too
+    while (!over && todo.length) { fire(saidSoFar(id) ?? (P.elapsed() - t0) / 1000); await live(sleep(40)); }
+    await live(whole);
+    fire(Infinity);
+    await live(Promise.all(acts));
+  }
+
   const teller: Teller = {
-    async say(id, n, m, k) {
-      line = lineText(id).replace(/\{n\}/g, String(n ?? '')).replace(/\{m\}/g, String(m ?? '')).replace(/\{k\}/g, String(k ?? ''));
-      // (for checking a lesson's pictures quickly while building it: `window.__fast = ms` holds each line that long)
-      if (import.meta.env.DEV && (window as unknown as { __fast?: number }).__fast) { await live(sleep((window as unknown as { __fast: number }).__fast)); return; }
-      // a count word still being said finishes first (the last number counted is the answer)
-      await live(wordDone());
-      const t0 = performance.now();
-      await live(Promise.race([say(id, { important: true, caption: false }), sleep(2500 + line.length * 95)]));
-      if (game.settings.voice === false) await live(sleep(Math.max(0, Math.max(1500, line.length * 55) - (performance.now() - t0))));
-    },
+    say: (id, n, m, k) => speak(id, [], n, m, k),
+    sayWith: (id, cues, n, m, k) => speak(id, cues, n, m, k),
     num(prompt, id, n) {
       typed = ''; ask = { kind: 'num', prompt };
       if (id) void this.say(id, n).catch(() => {}); else line = '';

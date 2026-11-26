@@ -45,6 +45,17 @@ describe("a lesson's Pause", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(done).toBe(true);
   });
+  it('the time the lesson has run leaves out the time it stood paused (pictures timed to a line wait with it)', async () => {
+    const P = P0();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(P.elapsed()).toBe(1000);
+    P.hold();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(P.elapsed()).toBe(1000);
+    P.carryOn();
+    await vi.advanceTimersByTimeAsync(250);
+    expect(P.elapsed()).toBe(1250);
+  });
   it('a wait asked for while paused starts at Keep going', async () => {
     const P = P0();
     P.hold();

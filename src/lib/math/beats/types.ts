@@ -13,11 +13,19 @@ export type BuddyMove = 'wave' | 'cheer' | 'jump' | 'gasp' | 'oops' | 'shrug' | 
 export type PalMove = 'hop' | 'happy' | 'act' | 'sad';
 export type Choice<T extends string = string> = { id: T; text: string };
 
+/** A picture that goes with a line: acted out when the narrator reaches `at` seconds into the line. */
+export type Cue = [at: number, act: () => void | Promise<unknown>];
+
 /** What a script can ask of the player. */
 export interface Teller {
   /** the coach says one line (its words stay up); done when it's said. `n`, `m` and `k` fill {n}, {m} and {k}
    *  in the words on screen (the voice says the line's spoken form, which has none of them) */
   say(id: string, n?: number, m?: number, k?: number): Promise<void>;
+  /** the coach says one line while the picture shows what it says (rule 37: a child never sits watching a still
+   *  screen while the narrator talks). Each cue is acted out when the narrator reaches its second of the line, by
+   *  the clip's own clock, so a paused lesson's pictures wait with its words; with the voice off, by the lesson's
+   *  clock. Done when the line is said and every picture has finished: the story never runs ahead of the picture */
+  sayWith(id: string, cues: Cue[], n?: number, m?: number, k?: number): Promise<void>;
   /** wait for a number from the child (it's what the world then acts out); `line` is said as it opens */
   num(prompt: string, line?: string, n?: number): Promise<number>;
   /** wait for a tap on one of these */

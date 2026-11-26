@@ -3,16 +3,20 @@
 // rule fails with the rule's number, so the same mistakes can't come back in the next lesson.
 import type { Line } from '../../content/voice';
 
-/** What happened in a run, in order: a spoken line, something acted out, an answer shown, a wait for the child. */
-export type Step = { k: 'say' | 'act' | 'answer' | 'go' | 'ask'; v: string };
+/** What happened in a run, in order: a spoken line, something acted out, an answer shown, a wait for the child;
+ *  and 'show': a picture that goes with a line, acted out while it is said (Teller.sayWith). A line said with its
+ *  pictures is a 'say' with `shown`. */
+export type Step = { k: 'say' | 'act' | 'answer' | 'go' | 'ask' | 'show'; v: string; shown?: boolean };
 export type Script = {
   steps: Step[];
   /** the lines that say what's about to be tried, and whose try it is */
   announces: RegExp;
 };
 
-export function scriptProblems({ steps, announces }: Script): string[] {
+export function scriptProblems({ steps: all, announces }: Script): string[] {
   const bad: string[] = [];
+  // (a picture that goes with a line is part of saying it: it isn't something tried, so rules 6 to 11 pass over it)
+  const steps = all.filter(s => s.k !== 'show');
   steps.forEach((s, i) => {
     if (s.k === 'act') {
       // rules 6 and 7: said first, and whose it is
@@ -47,5 +51,21 @@ export function lineProblems(lines: Line[]): string[] {
     // the words on screen and the words said are the same line
     if (l.said && /\{[nmk]\}/.test(l.said)) bad.push(`rule 7: the voice can't say {n}, {m} or {k} (${l.id})`);
   }
+  return bad;
+}
+
+/** Rule 37: during any longer narration, something on screen shows what is being said. Erik, 2026-11-25: "We want
+ *  the talking, but you're just kind of sitting there." A run of lines with nothing happening on screen (no picture
+ *  with a line, nothing acted out, no question, no button) of `limit` words or more is a problem. `words`: how many
+ *  words a line has, by its id. A line said with its pictures (Teller.sayWith) is never part of a still run. */
+export function stillStretches(steps: Step[], words: (id: string) => number, limit = 35): string[] {
+  const bad: string[] = [];
+  let run: string[] = [], n = 0;
+  const end = () => { if (n >= limit) bad.push(`rule 37: ${n} words with nothing new on screen (${run.join(', ')})`); run = []; n = 0; };
+  for (const s of steps) {
+    if (s.k === 'show') continue;
+    if (s.k === 'say' && !s.shown) { run.push(s.v); n += words(s.v); } else end();
+  }
+  end();
   return bad;
 }

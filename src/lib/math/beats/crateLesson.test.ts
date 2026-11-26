@@ -22,6 +22,8 @@ function pretend(child: Child) {
   const speak = (id: string) => { said.push(id); log.push(`say ${id}`); };
   const teller: Teller = {
     say: async id => { speak(id); },
+    // (a line said with its pictures: the line, then each picture in turn)
+    sayWith: async (id, cues) => { speak(id); for (const [, act] of cues) await act(); },
     num: async (_, id) => { if (id) speak(id); const n = child.nums.shift() ?? (id === 'ep.crate.total' ? 20 : null); if (n == null) throw new Error('the lesson asked for more numbers than this child has'); log.push(`num ${n}`); return n; },
     pick: async (_, choices, id) => { if (id) speak(id); const p = child.picks.shift() ?? choices[0].id; log.push(`pick ${p}`); return p as never; },
     hands: async (_, job) => { await job(); },

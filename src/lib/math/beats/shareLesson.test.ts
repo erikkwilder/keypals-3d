@@ -27,6 +27,8 @@ function pretend(child: Child) {
   const speak = (id: string, n?: number, m?: number) => { said.push(id); log.push(`say ${id}`); film.push(`SAID: ${shown(id, n, m)}`); };
   const teller: Teller = {
     say: async (id, n, m) => { speak(id, n, m); },
+    // (a line said with its pictures: the line, then each picture in turn)
+    sayWith: async (id, cues, n, m) => { speak(id, n, m); for (const [, act] of cues) await act(); },
     num: async () => { throw new Error('this lesson has no number questions'); },
     pick: async (q, choices, id) => { if (id) speak(id); const p = child.picks.shift() ?? choices[0].id; if (!choices.some(c => c.id === p)) throw new Error(`no choice ${p}`); log.push(`pick ${p}`); film.push(`(asked "${q}" with the choices ${choices.map(c => c.text).join(' / ')}: the child picks ${choices.find(c => c.id === p)!.text})`); return p as never; },
     hands: async (words, job) => { film.push(`(the child's hands: ${words})`); await job(); },

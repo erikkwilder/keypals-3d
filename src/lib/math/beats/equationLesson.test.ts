@@ -18,6 +18,8 @@ function pretend(child: Child) {
   const speak = (id: string, n?: number, m?: number, k?: number) => { said.push(id); log.push(`say ${id}${n != null ? ` [${[n, m, k].filter(x => x != null).join(',')}]` : ''}`); };
   const teller: Teller = {
     say: async (id, n, m, k) => { speak(id, n, m, k); },
+    // (a line said with its pictures: the line, then each picture in turn)
+    sayWith: async (id, cues, n, m, k) => { speak(id, n, m, k); for (const [, act] of cues) await act(); },
     num: async (_, id, n) => { if (id) speak(id, n); const v = child.nums.shift(); if (v == null) throw new Error('the lesson asked for more numbers than this child has'); log.push(`num ${v}`); return v; },
     pick: async (_, choices, id) => { if (id) speak(id); const p = child.picks.shift() ?? choices[0].id; log.push(`pick ${p}`); return p as never; },
     hands: async (_, job) => { await job(); },
