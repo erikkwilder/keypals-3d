@@ -53,12 +53,13 @@ describe('the privacy notice says what the server does', () => {
     expect(text).toContain("A teacher sees each student's progress in the game and their class work, and whether they have logged in yet.");
   });
   it('says what linking a player from home shows the teacher', () => {
-    // the home player's nickname waits with the claim, the teacher's page is sent every student's player, and
-    // after her yes the classmate plays as the family's player
+    // the home player's nickname waits with the claim; the teacher's page is sent the saved players of the class's
+    // own students only (a waiting request's player comes with her yes), and after her yes the classmate plays as
+    // the family's player
     expect(classes).toContain("WHERE s.class = ? AND s.status = 'pending' AND s.claims IS NOT NULL");
-    expect(classes).toContain("FROM students s JOIN players p ON p.code = s.player WHERE s.class = ?').bind(c.id)");
+    expect(classes).toContain(`FROM students s JOIN players p ON p.code = s.player WHERE s.class = ? AND s.status = 'active'").bind(c.id)`);
     expect(classes).toContain('UPDATE students SET player = ?, home = 1');
-    expect(text).toContain("A family can ask to link a player from home to a class: that class's teacher can then see the player's nickname and progress, and after the teacher's yes its progress from home and school is kept together.");
+    expect(text).toContain("A family can ask to link a player from home to a class. While the request waits, that class's teacher sees only the player's nickname. After the teacher's yes, the teacher can see the player's progress, and its progress from home and school is kept together.");
   });
   it("deletes a request nobody answered after the days it says", () => {
     const days = Number(classes.match(/DELETE FROM students WHERE status = 'pending' AND created < \?"\)\.bind\(now - (\d+) \* DAY\)/)?.[1]);
