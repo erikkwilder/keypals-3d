@@ -4047,7 +4047,7 @@
  "ep.eq.b.in": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "e4d0532cc8"
+  "h": "3f518f1d1f"
  },
  "ep.eq.b.kept": {
   "engine": "local",
@@ -4067,7 +4067,7 @@
  "ep.eq.b.own": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "6866e1ad57"
+  "h": "2be9c18ded"
  },
  "ep.eq.b.piles": {
   "engine": "local",
@@ -4082,7 +4082,7 @@
  "ep.eq.b.rule": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "285f49049b"
+  "h": "90b1bf3480"
  },
  "ep.eq.b.seven": {
   "engine": "local",
@@ -4247,7 +4247,7 @@
  "ep.eq.scale": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "89730acc0b"
+  "h": "d7c7efe229"
  },
  "ep.eq.share.ask": {
   "engine": "local",
@@ -4282,7 +4282,7 @@
  "ep.eq.share.yes": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "6b7bd618b5"
+  "h": "8dae40e947"
  },
  "ep.eq.together": {
   "engine": "local",
@@ -4302,7 +4302,7 @@
  "ep.eq.try.buddy": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "ccdb7a1165"
+  "h": "a2e75139ea"
  },
  "ep.eq.try.d": {
   "engine": "local",
@@ -4327,7 +4327,7 @@
  "ep.eq.try.you": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "a450c840c2"
+  "h": "69a8468867"
  },
  "ep.eq.unlucky": {
   "engine": "local",

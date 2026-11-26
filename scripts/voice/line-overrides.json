@@ -100,5 +100,9 @@
   "ep.ms-oclock.s0": {
     "seed": 404,
     "why": "voice B, 2026-11-24: the take added a stray voiced sound after \"minutes\" and was heard as \"minute\""
+  },
+  "ep.eq.try.buddy": {
+    "seed": 101,
+    "why": "in the first take Whisper heard 'twenty to one' for 'twenty-one', twice"
   }
 }

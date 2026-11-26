@@ -3291,18 +3291,22 @@
  },
  "ep.eq.scale": {
   "id": "ep.eq.scale",
-  "gain": -1.1,
-  "rawLufs": -18.5,
-  "notes": [],
-  "ms": 11050,
-  "lufs": -20,
-  "tp": -2.4,
-  "maxAbs": 0.7558,
+  "gain": -1.4,
+  "rawLufs": -18.3,
+  "notes": [
+   "cut faint end blip 35ms@-59dB",
+   "ducked breath at 264ms",
+   "ducked breath at 4610ms"
+  ],
+  "ms": 9578,
+  "lufs": -19.9,
+  "tp": -3.6,
+  "maxAbs": 0.6571,
   "fullScale": 0,
-  "head50Rms": -57.3,
-  "head50Peak": -44.3,
-  "tail50Rms": -64.4,
-  "tail50Peak": -52.5,
+  "head50Rms": -55.4,
+  "head50Peak": -41.8,
+  "tail50Rms": -61.9,
+  "tail50Peak": -48,
   "voice": "coach"
  },
  "ep.eq.level": {
@@ -3367,23 +3371,20 @@
  },
  "ep.eq.try.you": {
   "id": "ep.eq.try.you",
-  "gain": -0.7,
-  "rawLufs": -19,
+  "gain": -1.3,
+  "rawLufs": -18.2,
   "notes": [
-   "lead held to 600ms (was 615ms)",
-   "ducked breath at 3592ms",
-   "ducked breath at 6116ms",
-   "ducked breath at 8037ms"
+   "ducked breath at 294ms"
   ],
-  "ms": 9753,
-  "lufs": -20.1,
-  "tp": -1.5,
-  "maxAbs": 0.8432,
+  "ms": 9519,
+  "lufs": -20,
+  "tp": -2.7,
+  "maxAbs": 0.7298,
   "fullScale": 0,
-  "head50Rms": -54.6,
-  "head50Peak": -40,
-  "tail50Rms": -65.8,
-  "tail50Peak": -55.3,
+  "head50Rms": -58.1,
+  "head50Peak": -44.3,
+  "tail50Rms": -61.6,
+  "tail50Peak": -46.6,
   "voice": "coach"
  },
  "ep.eq.try.again": {
@@ -3720,21 +3721,20 @@
  },
  "ep.eq.share.yes": {
   "id": "ep.eq.share.yes",
-  "gain": -0.1,
-  "rawLufs": -19.5,
+  "gain": -0.5,
+  "rawLufs": -19.1,
   "notes": [
-   "cut lead stray 65ms@-45dB",
-   "cut lead stray 90ms@-56dB"
+   "ducked breath at 234ms"
   ],
-  "ms": 9369,
+  "ms": 7514,
   "lufs": -20,
-  "tp": -2.1,
-  "maxAbs": 0.7806,
+  "tp": -3.5,
+  "maxAbs": 0.6687,
   "fullScale": 0,
-  "head50Rms": -63.9,
-  "head50Peak": -55,
-  "tail50Rms": -64.2,
-  "tail50Peak": -51.6,
+  "head50Rms": -63.3,
+  "head50Peak": -49.9,
+  "tail50Rms": -64.8,
+  "tail50Peak": -51.1,
   "voice": "coach"
  },
  "ep.eq.share.few": {
@@ -3858,20 +3858,21 @@
  },
  "ep.eq.b.in": {
   "id": "ep.eq.b.in",
-  "gain": -0.8,
-  "rawLufs": -18.9,
+  "gain": -1.2,
+  "rawLufs": -18.4,
   "notes": [
-   "ducked breath at 145ms"
+   "cut lead stray 175ms@-46dB",
+   "cut lead breath 175ms@-58dB"
   ],
-  "ms": 11066,
+  "ms": 8117,
   "lufs": -20,
-  "tp": -2.1,
-  "maxAbs": 0.7881,
+  "tp": -3,
+  "maxAbs": 0.7105,
   "fullScale": 0,
-  "head50Rms": -54.6,
-  "head50Peak": -39.6,
-  "tail50Rms": -60.2,
-  "tail50Peak": -47.5,
+  "head50Rms": -62.8,
+  "head50Peak": -45.4,
+  "tail50Rms": -57.2,
+  "tail50Peak": -40.9,
   "voice": "coach"
  },
  "ep.eq.b.idea": {
@@ -3913,20 +3914,20 @@
  "ep.eq.try.buddy": {
   "id": "ep.eq.try.buddy",
   "gain": -0.7,
-  "rawLufs": -18.8,
+  "rawLufs": -18.9,
   "notes": [
-   "ducked breath at 2794ms",
-   "ducked breath at 11379ms"
+   "cut lead blip 50ms@-52dB",
+   "cut lead blip 5ms@-59dB"
   ],
-  "ms": 13579,
+  "ms": 10027,
   "lufs": -20,
-  "tp": -2.2,
-  "maxAbs": 0.7776,
+  "tp": -3.9,
+  "maxAbs": 0.6358,
   "fullScale": 0,
-  "head50Rms": -65.8,
-  "head50Peak": -50.2,
-  "tail50Rms": -64.5,
-  "tail50Peak": -50.6,
+  "head50Rms": -62.4,
+  "head50Peak": -49.5,
+  "tail50Rms": -63.7,
+  "tail50Peak": -50.4,
   "voice": "coach"
  },
  "ep.eq.b.no": {
@@ -3988,45 +3989,39 @@
  },
  "ep.eq.b.rule": {
   "id": "ep.eq.b.rule",
-  "gain": -1.3,
-  "rawLufs": -18.3,
+  "gain": -1.2,
+  "rawLufs": -18.5,
   "notes": [
-   "cut lead blip 55ms@-57dB",
-   "cut lead blip 5ms@-59dB",
-   "cut lead breath 250ms@-53dB",
-   "ducked breath at 6480ms",
-   "ducked breath at 10247ms"
+   "cut faint end blip 5ms@-61dB",
+   "ducked breath at 5647ms"
   ],
-  "ms": 12527,
+  "ms": 10946,
   "lufs": -20,
-  "tp": -3.4,
-  "maxAbs": 0.6708,
+  "tp": -2.9,
+  "maxAbs": 0.7172,
   "fullScale": 0,
-  "head50Rms": -62.5,
-  "head50Peak": -45.4,
+  "head50Rms": -53.7,
+  "head50Peak": -40,
   "tail50Rms": -64.8,
-  "tail50Peak": -53.1,
+  "tail50Peak": -52.5,
   "voice": "coach"
  },
  "ep.eq.b.own": {
   "id": "ep.eq.b.own",
-  "gain": -0.7,
-  "rawLufs": -18.9,
+  "gain": -1.4,
+  "rawLufs": -18.4,
   "notes": [
-   "cut end burst 30ms@-60dB",
-   "cut lead blip 65ms@-53dB",
-   "cut lead breath 135ms@-55dB",
-   "ducked breath at 6316ms"
+   "cut lead stray 125ms@-50dB"
   ],
-  "ms": 10866,
+  "ms": 7049,
   "lufs": -20,
-  "tp": -2.1,
-  "maxAbs": 0.7871,
+  "tp": -2.9,
+  "maxAbs": 0.7184,
   "fullScale": 0,
-  "head50Rms": -40.9,
-  "head50Peak": -26.3,
-  "tail50Rms": -66,
-  "tail50Peak": -53.8,
+  "head50Rms": -65.5,
+  "head50Peak": -56.1,
+  "tail50Rms": -63.1,
+  "tail50Peak": -49.2,
   "voice": "coach"
  },
  "ep.eq.try.both": {

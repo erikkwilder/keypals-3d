@@ -52,8 +52,8 @@ export interface EquationWorld extends World {
   askBag(): Promise<void>;
   /** the bags and the loose weights go onto the bags' side (which goes down: the other side is empty) */
   loadLeft(): Promise<void>;
-  /** the other side fills one weight at a time until it hangs level */
-  fillRight(): Promise<void>;
+  /** the other side fills one weight at a time until it hangs level (`quick`: fast enough to end with the line that tells it) */
+  fillRight(quick?: boolean): Promise<void>;
   /** the x is written on each bag, one after the other (the "?" on the first turns into it) */
   writeX(): Promise<void>;
   /** what the words are about lights for a moment, and its number with it: every bag, bag `i`, the loose weights,
@@ -109,20 +109,27 @@ const both = (w: EquationWorld) => Promise.all([w.light('left'), w.light('right'
 /** The second of its line each picture comes at, for the lines from the buddy's idea on: each clip's own word
  *  times, from Whisper (the words each second belongs to are beside the cue that uses it). */
 const AT: Record<string, number[]> = {
+  // the opening's balance: "the two bags", "every weight is the same", "watch the other side"
+  'ep.eq.scale': [0.2, 5.0, 6.6],
+  // a try begins while it is announced (rule 45). The first test: "when that many weights go in each bag's place";
+  // a later test, the weights off the other side, one bag off: as the line begins
+  'ep.eq.try.you': [6.5], 'ep.eq.try.again': [0.3], 'ep.eq.try.other': [0.4], 'ep.eq.try.share': [0.5],
+  // "so the other side has to lose 3 too": it loses them as that is said
+  'ep.eq.other.few': [6.9], 'ep.eq.other.many': [6.6],
   // a right number: "it stayed level", each bag's number as it is said, the loose weights' number, what they make
   'ep.eq.lucky': [2.5, 4.3, 5.0, 5.3, 5.8], 'ep.eq.b.right': [2.4, 3.5, 4.3, 4.8, 5.3, 5.8], 'ep.eq.check.right': [1.7, 2.8, 3.4, 3.8, 4.4], 'ep.eq.d.own': [2.2, 3.4, 4.2, 4.6, 5.1, 5.8],
   // a new balance set out: "new bags", "loose weights", the other side ("together", "as much as")
-  'ep.eq.b.in': [2.0, 4.2, 5.8], 'ep.eq.d.in': [1.8, 2.7, 3.7],
+  'ep.eq.b.in': [1.6, 3.9, 5.3], 'ep.eq.d.in': [1.8, 2.7, 3.7],
   // the buddy's plan: "one bag", "there are 3 bags", "keeps", "7 of the 21", "shared into 3 is 7"
   'ep.eq.b.idea': [1.0, 3.3, 5.4, 7.7, 10.2],
-  // the buddy's way: "two bags come off", "14 weights come off", "is 14", "the 6 loose weights stay"
-  'ep.eq.try.buddy': [2.9, 5.3, 8.8, 11.7],
+  // the buddy's way: "two bags come off", "14 of the 21 weights", "the other side" (the 14 light once they are off), "the 6 loose weights stay"
+  'ep.eq.try.buddy': [2.8, 4.3, 6.9, 8.1],
   // "the bags' side went down", "heavier"
   'ep.eq.b.no': [2.6, 4.7], 'ep.eq.b.yes': [3.0, 5.2],
   // "a third of the bags", "a third of the other side", "all 6 of the loose weights", "kept too much"
   'ep.eq.b.kept': [0.7, 1.8, 3.5, 6.9],
-  // "every part of it", "the loose weights", "the bags", "take the loose weights off", "only bags are left"
-  'ep.eq.b.rule': [2.2, 3.6, 5.1, 7.6, 10.7],
+  // "every part of it", "the loose weights too", "take them off both sides", "only bags are left"
+  'ep.eq.b.rule': [2.7, 3.9, 6.9, 9.2],
   // the buddy's mistake made again: the guesses, "comes to 27", "the 21 on the other side", "7 is 21 shared into 3", "the 6 loose weights"
   'ep.eq.b.seven': [0.2, 3.4, 6.1, 8.3, 11.3],
   // "the loose weights", "the same number off the other side", "stays level"
@@ -139,13 +146,21 @@ const AT: Record<string, number[]> = {
   'ep.eq.check': [0.1, 1.0, 2.6, 4.6],
 };
 
+/** The second of a right number's line the bags come back at: its second sentence, once what the balance showed
+ *  has been said (lucky: "Now let's find it"; the others: the two steps, told on the balance as it started). */
+const BACK: Record<string, number> = { 'ep.eq.lucky': 7.7, 'ep.eq.b.right': 6.9, 'ep.eq.check.right': 5.5, 'ep.eq.d.own': 6.8 };
+
 /** Test a number for one bag: say whose it is, put it in place of each bag, say what the balance showed. The
  *  first test says how a test works; later ones just say whose number goes in. A right number gets its own line,
- *  which says it stayed level and why. */
+ *  which says it stayed level and why, and the bags come back during its second sentence. After a miss the weights
+ *  stay in the bags' places until the line is over (they are what it is about): whoever called puts the bags back,
+ *  with the line that says what happens next. */
 async function test(t: Teller, w: EquationWorld, e: Eq, n: number, right: string, first = false, told?: string): Promise<boolean> {
-  await t.say(first ? 'ep.eq.try.you' : 'ep.eq.try.again', n);
-  t.pal('act');
-  await w.swapIn(n);
+  // (rule 45: a test begins while it is announced. The first test says what to look for, and the weights start to
+  // go in at "when that many weights go in each bag's place"; a later test's one short line is said as they go in.
+  // Either way the words are over before the balance answers, so its tipping or staying level is watched in quiet)
+  const tryLine = first ? 'ep.eq.try.you' : 'ep.eq.try.again';
+  await t.sayWith(tryLine, [[AT[tryLine][0], () => { t.pal('act'); return w.swapIn(n); }]], n);
   const { tip } = swapped(e, n);
   if (tip === 0) { t.buddy('cheer'); t.pal('happy'); } else { t.buddy('shrug'); t.pal('sad'); }
   // (a miss says, in one line, what the bags' side now comes to against the other side's count on screen, which
@@ -159,15 +174,16 @@ async function test(t: Teller, w: EquationWorld, e: Eq, n: number, right: string
   const guesses = () => Promise.all(Array.from({ length: e.p }, (_, i) => w.light('guess', i)));
   // (every balance's right number is shown the same way, with its own clip's seconds; and the buddy's own mistake
   // made again: the three 7s light at "7 is 21 shared into 3", then the 6 loose weights that weren't taken off)
-  const at = AT[line];
+  const at = AT[line], q = turns(), back = tip === 0 && !!at && !!BACK[line];
   const cues: Cue[] | null = tip === 0 && at ? [[at[0], () => w.levelLine(true)], ...Array.from({ length: e.p }, (_, i): Cue => [at[1 + i], () => w.light('guess', i)]),
-      ...(e.q ? [[at[1 + e.p], () => w.light('loose')] as Cue] : []), [at[at.length - 1], async () => { await w.light('right'); w.levelLine(false); }]]
+      ...(e.q ? [[at[1 + e.p], () => w.light('loose')] as Cue] : []), [at[at.length - 1], q(async () => { await w.light('right'); w.levelLine(false); })],
+      ...(BACK[line] ? [[BACK[line], q(() => w.swapBack())] as Cue] : [])]
     : at ? [[at[0], guesses], [at[1], () => { w.total(total); return w.light('left'); }], [at[2], () => w.light('right')], [at[3], guesses], [at[4], () => w.light('loose')]]
     : line === 'ep.eq.heavy' ? [[0.2, guesses], [2.4, () => { w.total(total); return w.light('left'); }], [4.7, () => w.light('right')], [6.3, () => w.light('left')]]
     : line === 'ep.eq.light' ? [[0.2, guesses], [2.4, () => { w.total(total); return w.light('left'); }], [4.9, () => w.light('right')], [6.3, () => w.light('left')]]
     : null;
   if (cues) await t.sayWith(line, cues, n, total, e.r); else await t.say(line, n, total, e.r);
-  await w.swapBack();
+  if (tip === 0 && !back) await w.swapBack();
   return tip === 0;
 }
 
@@ -183,9 +199,12 @@ async function onOwn(t: Teller, w: EquationWorld, e: Eq, k: 'b' | 'check'): Prom
     // own mistake, made again. It's told so, not just "less than your number")
     const buddys = k === 'b' && e.q > 0 && n * e.p === e.r ? 'ep.eq.b.seven' : undefined;
     if (await test(t, w, e, n, `ep.eq.${k}.right`, false, buddys)) { t.myBet(null); await t.go('Next'); return true; }
+    // (another try: the question waits until the balance is whole again)
+    if (miss + 1 < tries) await w.swapBack();
   }
   t.myBet(null);
-  await t.say('ep.eq.together');
+  // (the bags come back as the narrator says what happens next, rule 45)
+  await Promise.all([t.say('ep.eq.together'), w.swapBack()]);
   await dragBoth(t, w, 'ep.eq.try.both');
   await t.hands('Drag the loose weights off, the same from each side', () => w.takeOff('both'), () => w.finish());
   await mid(t, w, `ep.eq.${k}.mid`);
@@ -201,7 +220,7 @@ const dragBoth = (t: Teller, w: EquationWorld, line: string) =>
 /** A new balance set out as it is told: its bags, its loose weights, then the other side fills until it hangs level. */
 const setOut = (t: Teller, w: EquationWorld, line: string, e: Eq) => {
   const q = turns();
-  return t.sayWith(line, [[AT[line][0], q(() => w.bagsOn(e))], [AT[line][1], q(() => w.looseOn())], [AT[line][2], q(() => w.fillRight())]]);
+  return t.sayWith(line, [[AT[line][0], q(() => w.bagsOn(e))], [AT[line][1], q(() => w.looseOn())], [AT[line][2], q(() => w.fillRight(true))]]);
 };
 /** The loose weights are off both sides: the two piles taken off light together, both sides against the level line,
  *  what is left on the other side, the bags on their own, and that number again. */
@@ -211,11 +230,13 @@ async function mid(t: Teller, w: EquationWorld, line: string) {
     [at[3], () => w.light('bags')], [at[4], async () => { await w.light('right'); w.levelLine(false); }]]);
 }
 /** The last step shown on the balance: the bags light, the weights light and move into one pile for each bag as
- *  that is said; then all but one pile come off with all but one bag, and one bag is seen against one pile. */
-async function sharedOut(t: Teller, w: EquationWorld, e: Eq, k: 'b' | 'check' | 'd') {
+ *  that is said; all but one pile come off with all but one bag from "one for each bag", and one bag is seen against one pile. */
+async function sharedOut(t: Teller, w: EquationWorld, e: Eq, k: 'b' | 'check' | 'd', first?: () => Promise<void>) {
   const at = AT[`ep.eq.${k}.share`], q = turns();
-  await t.sayWith(`ep.eq.${k}.share`, [...(at[0] < 0 ? [] : [[at[0], q(() => w.light('bags'))] as Cue]), [at[1], q(() => w.light('right'))], [at[2], q(() => w.piles(e.p))], [at[3], q(() => w.light('bags'))]]);
-  await w.shareOut(e.p);
+  // (rule 45: at "one for each bag" every pile but one starts to come off, each with its bag, so the piles are seen
+  // to belong to the bags and the words do not have to stop for it. The balance staying level is watched in quiet.
+  // `first`: something to finish as the line begins, the bags coming back after a missed test)
+  await t.sayWith(`ep.eq.${k}.share`, [...(first ? [[0.1, q(first)] as Cue] : []), ...(at[0] < 0 ? [] : [[at[0], q(() => w.light('bags'))] as Cue]), [at[1], q(() => w.light('right'))], [at[2], q(() => w.piles(e.p))], [at[3], q(() => w.shareOut(e.p))]]);
   const p = AT[`ep.eq.${k}.piles`];
   await t.sayWith(`ep.eq.${k}.piles`, [[p[0], () => w.light('pile', 0)], [p[1], () => w.light('bag', 0)], [p[2], () => w.light('pile', 0)]]);
 }
@@ -230,7 +251,8 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   let q = turns();
   await t.sayWith('ep.eq.intro', [[1.6, q(() => w.bagsOut(FIRST))], [4.0, q(() => w.light('bags'))], [7.2, q(() => w.askBag())]]);
   q = turns();
-  await t.sayWith('ep.eq.scale', [[2.1, q(() => w.loadLeft())], [6.2, q(() => w.light('loose'))], [8.0, q(() => w.fillRight())]]);
+  const sc = AT['ep.eq.scale'];
+  await t.sayWith('ep.eq.scale', [[sc[0], q(() => w.loadLeft())], [sc[1], q(() => w.light('loose'))], [sc[2], q(() => w.fillRight())]]);
   t.pal('happy');
   // (level: a bright line along both rims; then each thing lights as it is named, the bags and the loose weights on
   // one side, the 11 on the other)
@@ -245,7 +267,8 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   t.myBet(String(first));
   const lucky = await test(t, w, FIRST, first, 'ep.eq.lucky', true);
   t.myBet(null);
-  if (!lucky) await t.say('ep.eq.unlucky');
+  // (after a miss the bags come back as the narrator says what happens next, rule 45)
+  if (!lucky) await Promise.all([t.say('ep.eq.unlucky'), w.swapBack()]);
 
   // the loose weights off: first from one side only (their prediction, then their hands), and it tips
   t.beat(2);
@@ -263,11 +286,17 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   // is level again; the 3 taken off light, then a 0 stands where nothing has come off the other side)
   await t.sayWith('ep.eq.off.up', [[0.1, () => w.levelLine(true)], [2.4, () => w.light('pileL')], [4.5, () => { w.noneOff(); return w.light('right'); }], [6.0, () => w.light('left')]]);
   const other = await t.num('How many come off the other side?', 'ep.eq.other.ask');
-  await t.say('ep.eq.try.other', other);
-  await w.takeRight(other);
+  // (rule 45: their number starts to come off as "let's take your 3 off" is said; the balance's answer is watched in quiet)
+  await t.sayWith('ep.eq.try.other', [[AT['ep.eq.try.other'][0], () => w.takeRight(other)]], other);
   const tip = offOther(FIRST, other);
   if (tip === 0) { t.pal('happy'); await t.say('ep.eq.other.yes'); }
-  else { t.pal('sad'); await t.say(tip > 0 ? 'ep.eq.other.many' : 'ep.eq.other.few', other); await w.setRight(FIRST.r - FIRST.q); await t.say('ep.eq.other.fix'); }
+  else {
+    t.pal('sad');
+    // (rule 45: the other side loses its 3 as "so the other side has to lose 3 too" is said, not in quiet afterwards)
+    const miss = tip > 0 ? 'ep.eq.other.many' : 'ep.eq.other.few';
+    await t.sayWith(miss, [[AT[miss][0], () => w.setRight(FIRST.r - FIRST.q)]], other);
+    await t.say('ep.eq.other.fix');
+  }
   await t.go('Next');
   w.levelLine(false);
 
@@ -278,8 +307,8 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   // of the other pan's rim. The 8 weights are not sorted into halves: how many half is, is the question. Rule 41)
   await t.sayWith('ep.eq.share.idea', [[0.6, () => w.light('bag', 1)], [2.9, () => w.light('bags')], [4.6, () => w.half('left')], [7.0, () => both(w)], [8.7, () => w.light('bag', 1)], [10.4, () => w.half('both')]]);
   const half = await t.num('How many weights come off with it?', 'ep.eq.share.ask');
-  await t.say('ep.eq.try.share', half);
-  await w.share(half);
+  // (rule 45: the bag and their number start to come off as the line says so)
+  await t.sayWith('ep.eq.try.share', [[AT['ep.eq.try.share'][0], () => w.share(half)]], half);
   const sh = oneBagOff(FIRST, half);
   if (sh === 0) { t.pal('happy'); t.buddy('clap'); await t.say('ep.eq.share.yes'); }
   else {
@@ -292,8 +321,8 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
     // (they go back as "Let's put them back" is said; then the two bags light, and the 8 weights, which move into
     // their 2 piles at "are shared into 2 equal piles": what is said to happen happens while it is said)
     q = turns();
-    await t.sayWith('ep.eq.share.how', [[0.1, q(() => w.reset('bags'))], [3.9, q(() => w.light('bags'))], [5.7, q(() => w.light('right'))], [6.4, q(() => w.piles(FIRST.p))]]);
-    await w.shareOut(FIRST.p);
+    await t.sayWith('ep.eq.share.how', [[0.1, q(() => w.reset('bags'))], [3.9, q(() => w.light('bags'))], [5.7, q(() => w.light('right'))], [6.4, q(() => w.piles(FIRST.p))],
+      [8.3, q(() => w.shareOut(FIRST.p))]]);   // ("one for each bag": one pile starts to come off with its bag, rule 45)
     // (the pile left lights, then the bag that came off, then the one bag left and the one pile left, along the level line)
     await t.sayWith('ep.eq.share.done', [[0.1, () => w.light('right')], [2.3, () => w.levelLine(true)], [3.2, () => w.light('bag', 1)], [5.4, () => w.light('left')], [7.3, () => w.light('right')],
       [9.4, async () => { await w.light('bag', 0); w.levelLine(false); }]]);
@@ -333,8 +362,8 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   await t.sayWith('ep.eq.b.idea', [[at[0], q(() => w.light('bag', 0))], [at[1], q(() => w.light('bags'))], [at[2], q(() => w.keep('bag'))], [at[3], q(() => w.piles(BUDDY.p, true))],
     [at[4], q(() => { w.keep('pile'); return w.light('pile', 0); })]]);
   const works = await t.pick('Will it stay level?', [{ id: 'yes', text: 'Yes, it stays level' }, { id: 'no', text: 'No, it tips' }], 'ep.eq.b.ask');
-  // (each half of the buddy's way happens as it is said: the two bags come off, then the 14 weights; the 14 light
-  // at "21 take away 7 is 14", and the 6 loose weights at "stay where they are")
+  // (each half of the buddy's way happens as it is said: the two bags come off, then 14 of the 21 weights; the 14
+  // light once they are off, and the 6 loose weights at "stay where they are")
   q = turns();
   at = AT['ep.eq.try.buddy'];
   await t.sayWith('ep.eq.try.buddy', [[at[0], q(() => w.buddyShare('bags'))], [at[1], q(() => w.buddyShare('weights'))], [at[2], q(() => w.light('pileR'))], [at[3], q(() => w.light('loose'))]]);
@@ -344,12 +373,13 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   await t.sayWith(said, [[AT[said][0], () => { w.levelLine(true); return w.light('left'); }], [AT[said][1], () => w.light('left')]]);
   // (why it tipped, in what the buddy did: the one bag kept, the one pile kept, then all 6 loose weights, and the
   // side that kept too much. Then the general reason and the simpler way, each its own line: the whole side, its
-  // loose weights, its bags; the loose weights that should come off first; the bags that would be left)
+  // loose weights; the loose weights that should come off first; the bags that would be left. The two steps are
+  // told whole here, once; the child's own turn (b.own) only names them, rule 44)
   at = AT['ep.eq.b.kept'];
   await t.sayWith('ep.eq.b.kept', [[at[0], () => w.light('bag', 0)], [at[1], () => w.light('pile', 0)], [at[2], () => w.light('loose')], [at[3], () => w.light('left')]]);
   at = AT['ep.eq.b.rule'];
-  await t.sayWith('ep.eq.b.rule', [[at[0], () => w.light('left')], [at[1], () => w.light('loose')], [at[2], () => w.light('bags')], [at[3], () => w.light('loose')],
-    [at[4], async () => { await w.light('bags'); w.levelLine(false); }]]);
+  await t.sayWith('ep.eq.b.rule', [[at[0], () => w.light('left')], [at[1], () => w.light('loose')], [at[2], () => w.light('loose')],
+    [at[3], async () => { await w.light('bags'); w.levelLine(false); }]]);
   await t.go('Next');
 
   // the same balance, put back, is the child's own: both steps in their head, and the balance tests the answer
@@ -383,7 +413,7 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
     const own = await test(t, w, { p: ONE_MORE.p, q: 0, r: ONE_MORE.r - ONE_MORE.q }, n, 'ep.eq.d.own');
     t.myBet(null);
     solved = own;
-    if (!own) await sharedOut(t, w, { p: ONE_MORE.p, q: 0, r: ONE_MORE.r - ONE_MORE.q }, 'd');
+    if (!own) await sharedOut(t, w, { p: ONE_MORE.p, q: 0, r: ONE_MORE.r - ONE_MORE.q }, 'd', () => w.swapBack());
     await t.go('Next');
     await w.scaleOut();
   }
@@ -391,23 +421,24 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   // the end: the numbers go on the tags where the x was
   t.beat(7);
   const today = [FIRST, BUDDY, ...(extra ? [ONE_MORE] : [])];
-  await w.tags(today.map(xOf), today.map(e => e.p));
   t.pal('happy'); t.buddy('jump');
   // ("you found" only for a child who found one on their own; otherwise "now we know": no praise for nothing)
-  // (the bags stand in a row with an x on each tag; each x turns into its number as "writes each number on its tag"
+  // (the bags come to stand in a row, an x on each tag, as the line begins (rule 45); each x turns into its number as "writes each number on its tag"
   // is said, and the tags light again at "the x on each bag")
   const last = solved ? 'ep.eq.end' : 'ep.eq.end.we';
-  await t.sayWith(last, [[AT[last][0], () => w.light('bags')], [AT[last][1], () => w.writeTags()], [AT[last][2], () => w.light('bags')]]);
+  q = turns();
+  await t.sayWith(last, [[0.1, q(() => w.tags(today.map(xOf), today.map(e => e.p)))], [AT[last][0], q(() => w.light('bags'))], [AT[last][1], q(() => w.writeTags())], [AT[last][2], q(() => w.light('bags'))]]);
   await t.wait(600);
   return { first, own: ownB ? 1 : 0 };
 }
 
 async function check(t: Teller, w: EquationWorld, notes: Notes | null) {
-  await w.scaleIn(NEXT_DAY);
+  await t.wait(500);
   if (notes?.first != null) t.myBet(`Your first guess yesterday: ${notes.first}`);
-  // (each thing lights as it is named: the bags, the loose weights, the other side, then one bag at the question)
-  const at = AT['ep.eq.check'];
-  await t.sayWith('ep.eq.check', [[at[0], () => w.light('bags')], [at[1], () => w.light('loose')], [at[2], () => w.light('right')], [at[3], () => w.light('bag', 0)]]);
+  // (rule 45: the balance is set out as it is told, not in quiet before the first word: the bags, the loose weights,
+  // the other side filling until it hangs level; then one bag lights for the question)
+  const at = AT['ep.eq.check'], q = turns();
+  await t.sayWith('ep.eq.check', [[at[0], q(() => w.bagsOn(NEXT_DAY))], [at[1], q(() => w.looseOn())], [at[2], q(() => w.fillRight(true))], [at[3], q(() => w.light('bag', 0))]]);
   t.myBet(null);
   await onOwn(t, w, NEXT_DAY, 'check');
   await w.scaleOut();

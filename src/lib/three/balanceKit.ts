@@ -171,8 +171,9 @@ export class BalanceKit implements EquationWorld {
     }
     // (a bright line along the front of both rims, at the height they hang at when the balance is level: a rim
     // above it or below it is a side that went up or down)
-    // (as long as the two rims are wide and no longer: 12 further each way, its end met a bag parked beside the balance, seen at 1440)
-    this.level = new THREE.Mesh(new THREE.BoxGeometry(ARM * 2 + PR * 2, 2.6, 2.6), this.mat.glow);
+    // (20 shorter each way than the two rims are wide: the line hangs in front of the rims, nearer the eye, so at their
+    // full width it looked longer than them, and its end still met a bag parked beside the balance, seen at 1440)
+    this.level = new THREE.Mesh(new THREE.BoxGeometry(ARM * 2 + PR * 2 - 40, 2.6, 2.6), this.mat.glow);
     this.level.position.set(0, PIVOT + 8 + POST + 2.6, PR + 8); this.level.visible = false;
     this.scale.add(this.level);
   }
@@ -308,11 +309,13 @@ export class BalanceKit implements EquationWorld {
     this.changed();
     await this.wait(600 + this.e.q * 100);
   }
-  async fillRight() {
+  async fillRight(quick = false) {
     this.filling = false;
     // the other side fills one weight at a time, and the balance comes level only at the last
-    for (let i = 0; i < this.e.r; i++) { this.make('weight', 'R', 0, 0); this.changed(); await this.wait(i < this.e.r - 3 ? 150 : 380); }
-    await this.wait(900);
+    // (`quick`: a later balance, set out while its line tells it. The weights go on fast enough that the last one
+    // lands as the line ends, rule 45: 21 of them took 4.7 s, and the last 3 s of that were watched in silence)
+    for (let i = 0; i < this.e.r; i++) { this.make('weight', 'R', 0, 0); this.changed(); await this.wait(i < this.e.r - 3 ? (quick ? 70 : 150) : (quick ? 260 : 380)); }
+    await this.wait(quick ? 600 : 900);
   }
 
   // ---------- the pictures that go with a line (Teller.sayWith): what the words say, shown as they're said ----------
