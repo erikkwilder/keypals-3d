@@ -40,6 +40,8 @@ const WIDE_ZOOM = 1.35;
  *  weights, not out to the left of the pans. That strip at the left made everything a fifth smaller (a weight
  *  was about 15 px across at 390 px), and the bags in it sat on the screen's edge. */
 const BOUNDS = TALL ? { x: 72, y: 90, w: 456, h: 310 } : { x: 20, y: 90, w: 560, h: 240 };
+/** how long a thing a line is talking about stays lit, in seconds */
+const LIT = 0.75;
 const smooth = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
 
@@ -49,7 +51,11 @@ type Item = {
   /** a bag's place (bags), the bag whose place it fills ('swap'), or its pile on the pan (shared out) */
   i: number; grp: number;
   pos: THREE.Vector3; from: THREE.Vector3; t0: number; dur: number; landed: boolean;
+  /** lit since this second (a line is talking about it), and see-through (the what-if of one bag alone) */
+  lit?: number; ghost?: boolean;
 };
+/** what a line can light: every bag, one bag, the loose weights, everything on a side, the weights in one bag's place, the pile taken off the bags' side */
+export type Lit = 'bags' | 'bag' | 'loose' | 'left' | 'right' | 'guess' | 'pileL';
 type Job = { from: 'left' | 'both'; done: () => void };
 
 export class BalanceKit implements EquationWorld {
@@ -69,6 +75,17 @@ export class BalanceKit implements EquationWorld {
   private swapN = 0;
   /** while a balance is being set up, before the other side's first weight: its count isn't shown yet */
   private filling = false;
+  /** how many bags carry their x yet, and whether the first shows a "?" (in the opening the x is written as it's said) */
+  private named = Infinity; private asked = false;
+  /** the pictures that go with a line (rule 37): the numbers lit now, what the bags' side comes to in a test, the
+   *  what-if of one bag alone, a 0 where nothing has come off the other side yet, one written line over the balance */
+  private hot = new Set<string>();
+  private totalN: number | null = null;
+  private imagine = false;
+  private zero = false;
+  private line: { k: number; parts: Part[] } | null = null;
+  private level!: THREE.Mesh;
+  private rings: { full: THREE.Mesh; half: THREE.Mesh; t0: number }[] = [];
   private job: Job | null = null;
   private held: Item | null = null;
   private heldFrom: Where = 'L';
@@ -96,7 +113,11 @@ export class BalanceKit implements EquationWorld {
     const sack = new THREE.MeshStandardMaterial({ color: 0x8a5cf0, roughness: 0.85, emissive: 0x3a1a8a, emissiveIntensity: 0.12 });
     const cord = new THREE.MeshStandardMaterial({ color: 0xffd36b, roughness: 0.6 });
     const star = new THREE.MeshStandardMaterial({ color: 0xffe27a, emissive: 0xffc23d, emissiveIntensity: 0.6, metalness: 0.4, roughness: 0.3 });
-    this.mat = { brass, violet, sack, cord, star };
+    // (for the pictures that go with a line: a thing lit, a thing see-through, and the bright lines)
+    const lit = (m: THREE.MeshStandardMaterial, c: number) => { const g = m.clone(); g.emissive.set(c); g.emissiveIntensity = 0.85; return g; };
+    const ghost = (m: THREE.MeshStandardMaterial) => { const g = m.clone(); g.transparent = true; g.opacity = 0.24; g.depthWrite = false; return g; };
+    const glow = new THREE.MeshBasicMaterial({ color: 0xfff1a0, transparent: true });
+    this.mat = { brass, violet, sack, cord, star, brassL: lit(brass, 0xffb52e), sackL: lit(sack, 0xb48cff), brassG: ghost(brass), sackG: ghost(sack), cordG: ghost(cord), glow, glowL: glow.clone(), glowR: glow.clone() };
     const bag = [[0, 0], [16, 1.5], [23, 8], [BR, 20], [23, 33], [16, 42], [8, 47], [7, 49], [10, 52], [6, BH], [0, BH]].map(([r, y]) => new THREE.Vector2(r, y));
     this.geo = {
       weight: new THREE.CylinderGeometry(WR, WR * 1.04, WH, 24).translate(0, WH / 2, 0),
@@ -139,8 +160,19 @@ export class BalanceKit implements EquationWorld {
       add(new THREE.Mesh(new THREE.CylinderGeometry(4, 4, POST, 12), brass), pan).position.y = -POST / 2;
       add(new THREE.Mesh(new THREE.CylinderGeometry(PR, PR * 0.9, 5, 48), brass), pan).position.y = 0;
       add(new THREE.Mesh(new THREE.TorusGeometry(PR, 2.4, 8, 48).rotateX(Math.PI / 2), brass), pan).position.y = 2.6;
+      // (pictures that go with a line: a pan's whole rim lights for a moment, or the half of it nearer the middle
+      // stays lit. They ride on the rim, outside everything on the pan, so nothing passes through anything)
+      const full = new THREE.Mesh(new THREE.TorusGeometry(PR + 1, 4.2, 8, 48).rotateX(Math.PI / 2), k ? this.mat.glowR : this.mat.glowL);
+      const half = new THREE.Mesh(new THREE.TorusGeometry(PR + 1, 4.2, 8, 32, Math.PI).rotateX(Math.PI / 2).rotateY(k ? -Math.PI / 2 : Math.PI / 2), this.mat.glow);
+      full.position.y = half.position.y = 3.2; full.visible = half.visible = false;
+      pan.add(full, half); this.rings.push({ full, half, t0: -9 });
       this.pans.push(pan); this.scale.add(pan);
     }
+    // (a bright line along the front of both rims, at the height they hang at when the balance is level: a rim
+    // above it or below it is a side that went up or down)
+    this.level = new THREE.Mesh(new THREE.BoxGeometry(ARM * 2 + PR * 2 + 24, 2.6, 2.6), this.mat.glow);
+    this.level.position.set(0, PIVOT + 8 + POST + 2.6, PR + 8); this.level.visible = false;
+    this.scale.add(this.level);
   }
   /** the top of a pan, in board units above the table, as the beam is now */
   private panH(side: 0 | 1) { return PIVOT + 8 + POST + (side ? 1 : -1) * Math.sin(this.tilt) * ARM + 2.5; }
@@ -226,45 +258,132 @@ export class BalanceKit implements EquationWorld {
 
   // ---------- the numbers on things ----------
   private pinAll() {
-    const keep = this.pins.filter(p => p.kind === 'sum' || p.id.startsWith('why'));
+    const keep = this.pins.filter(p => (p.kind === 'sum' && !p.id.startsWith('line')) || p.id.startsWith('why'));
     const out: Pin[] = [...keep];
     const bags = this.items.filter(o => o.kind === 'bag' && o.where !== 'gone');
-    bags.forEach((b, k) => out.push({ id: `tag${k}`, text: (b.g.userData.tag as string | undefined) ?? 'x', kind: 'tick', big: true, c: 'b', at: () => b.pos.clone().add(new THREE.Vector3(0, BH * 0.45 * this.s, BR * 1.05 * this.s)) }));
-    const count = (id: string, where: Where, c: Pin['c'], at: () => THREE.Vector3, hide0 = true) => {
+    bags.forEach((b, k) => {
+      // (in the opening a bag has no x until the words say it's written: first a "?" on one bag, the question)
+      const text = b.i < this.named ? (b.g.userData.tag as string | undefined) ?? 'x' : this.asked && b.i === 0 ? '?' : null;
+      if (text != null && !b.ghost) out.push({ id: `tag${k}`, text, kind: 'tick', big: true, c: 'b', hot: this.hot.has(`bag${b.i}`), at: () => b.pos.clone().add(new THREE.Vector3(0, BH * 0.45 * this.s, BR * 1.05 * this.s)) });
+    });
+    const count = (id: string, where: Where, c: Pin['c'], at: () => THREE.Vector3, hide0 = true, text?: string) => {
       const n = this.of(where).filter(o => o.grp < 0).length;
-      if (n || !hide0) out.push({ id, text: String(n), kind: 'tick', big: true, c, at });
+      if (n || !hide0) out.push({ id, text: text ?? String(n), kind: 'tick', big: true, c, hot: this.hot.has(id), at });
     };
-    if (!this.parts) count('loose', 'L', 'a', () => this.at(MID - ARM, PAN_Y + PR + 6, this.panH(0)));
+    if (!this.parts && !this.imagine) count('loose', 'L', 'a', () => this.at(MID - ARM, PAN_Y + PR + 6, this.panH(0)));
     // (the other side's count shows 0 while the bags are still there, but not on a balance that stands empty)
     const empty = !this.items.some(o => o.where === 'L' || o.where === 'swap');
-    if (!this.parts) count('right', 'R', 'c', () => this.at(MID + ARM, PAN_Y + PR + 6, this.panH(1)), empty || this.filling);
+    if (!this.parts) count('right', 'R', 'c', () => this.at(MID + ARM, PAN_Y + PR + 6, this.panH(1)), empty || this.filling, this.imagine ? '?' : undefined);
     // (on a phone each pile's count stands behind its outer end, inside the screen's edge)
     count('pileL', 'pileL', 'ink', () => TALL ? this.at(MID - ARM - 60, PILE_Y - 46, 8) : this.at(MID - ARM + 92, PILE_Y - 10, 8));
-    count('pileR', 'pileR', 'ink', () => TALL ? this.at(MID + ARM + 60, PILE_Y - 46, 8) : this.at(MID + ARM + 92, PILE_Y - 10, 8));
-    if (this.swapN) for (let i = 0; i < this.e.p; i++) out.push({ id: `swap${i}`, text: String(this.swapN), kind: 'tick', big: true, c: 'b', at: () => this.spot({ ...this.of('swap')[0], i, slot: 0, where: 'swap' } as Item).add(new THREE.Vector3(0, (Math.ceil(Math.min(this.swapN, MOST) / 4) * WH + 22) * this.s, 0)) });
+    count('pileR', 'pileR', 'ink', () => TALL ? this.at(MID + ARM + 60, PILE_Y - 46, 8) : this.at(MID + ARM + 92, PILE_Y - 10, 8), !this.zero);
+    if (this.swapN) for (let i = 0; i < this.e.p; i++) out.push({ id: `swap${i}`, text: String(this.swapN), kind: 'tick', big: true, c: 'b', hot: this.hot.has(`swap${i}`), at: () => this.spot({ ...this.of('swap')[0], i, slot: 0, where: 'swap' } as Item).add(new THREE.Vector3(0, (Math.ceil(Math.min(this.swapN, MOST) / 4) * WH + 22) * this.s, 0)) });
     if (this.parts) for (let gi = 0; gi < this.parts; gi++) {
       const n = this.items.filter(o => o.where === 'R' && o.grp === gi).length;
       if (n) out.push({ id: `pile${gi}`, text: String(n), kind: 'tick', big: true, c: 'c', at: () => this.spot({ where: 'R', grp: gi, slot: 0, kind: 'weight' } as Item).add(new THREE.Vector3(0, (Math.ceil(n / 4) * WH + 20) * this.s, 0)) });
     }
+    // (what the bags' side comes to with a guess in the bags' places: over their numbers, so it can be set against the other side's)
+    if (this.totalN != null && this.swapN) { const n = this.totalN; out.push({ id: 'total', text: String(n), kind: 'tick', big: true, c: 'ink', hot: true, at: () => this.at(MID - ARM, PAN_Y - 30, this.panH(0) + Math.ceil(Math.min(this.swapN, MOST) / 4) * WH + 22 + 58) }); }
+    // (one written line over the balance while the balance shows what it says; the part being said is lit)
+    if (this.line) { const l = this.line; out.push({ id: `line${l.k}`, text: l.parts.map(p => p.t).join(' '), kind: 'sum', parts: l.parts, at: () => this.at(MID, PAN_Y, TALL ? 165 : 178) }); }
     this.pins = out;
   }
 
   // ---------- what the script asks for ----------
   async scaleIn(e: Eq) {
     for (const it of this.items) it.g.removeFromParent();
-    this.items = []; this.parts = 0; this.swapN = 0;
-    this.e = e; this.x = xOf(e); this.filling = true;
+    this.items = []; this.parts = 0; this.swapN = 0; this.plain();
+    this.e = e; this.x = xOf(e); this.filling = true; this.named = Infinity; this.asked = false;
     for (let i = 0; i < e.p; i++) this.make('bag', 'L', i, i * 0.12);
     for (let i = 0; i < e.q; i++) this.make('weight', 'L', 0, 0.3 + i * 0.1);
     this.changed();
     await this.wait(900 + e.q * 100);
+    await this.fillRight();
+  }
+  async fillRight() {
     this.filling = false;
     // the other side fills one weight at a time, and the balance comes level only at the last
-    for (let i = 0; i < e.r; i++) { this.make('weight', 'R', 0, 0); this.changed(); await this.wait(i < e.r - 3 ? 150 : 380); }
+    for (let i = 0; i < this.e.r; i++) { this.make('weight', 'R', 0, 0); this.changed(); await this.wait(i < this.e.r - 3 ? 150 : 380); }
     await this.wait(900);
   }
+
+  // ---------- the pictures that go with a line (Teller.sayWith): what the words say, shown as they're said ----------
+  /** nothing lit, nothing imagined: the balance as it really is */
+  private plain() {
+    this.totalN = null; this.zero = false; this.imagine = false; this.line = null; this.hot.clear();
+    this.level.visible = false;
+    for (const r of this.rings) r.half.visible = false;
+    for (const it of this.items) { it.ghost = false; it.lit = undefined; this.dress(it); }
+  }
+  /** a thing as it is now: lit, see-through, or plain */
+  private dress(it: Item) {
+    const k = it.ghost ? 'G' : it.lit != null ? 'L' : '', m = this.mat;
+    const [body, top] = it.g.children as THREE.Mesh[];
+    if (it.kind === 'bag') { body.material = m[`sack${k}`]; top.material = k === 'G' ? m.cordG : m.cord; } else body.material = top.material = m[`brass${k}`];
+    body.castShadow = top.castShadow = !it.ghost;
+  }
+  async bagsOut(e: Eq) {
+    for (const it of this.items) it.g.removeFromParent();
+    this.items = []; this.parts = 0; this.swapN = 0; this.plain();
+    this.e = e; this.x = xOf(e); this.filling = true; this.named = 0; this.asked = false;
+    for (let i = 0; i < e.p; i++) this.make('bag', 'row', i, i * 0.45);
+    this.changed();
+    await this.wait(600 + e.p * 450);
+  }
+  askBag() { this.asked = true; return this.light('bag', 0); }
+  async loadLeft() {
+    this.of('row', 'bag').forEach((b, k) => this.send(b, 'L', k * 0.15, 0.7));
+    this.changed();
+    await this.wait(1000);
+    for (let i = 0; i < this.e.q; i++) this.make('weight', 'L', 0, i * 0.25);
+    this.changed();
+    await this.wait(500 + this.e.q * 250);
+  }
+  async writeX() {
+    for (let i = 0; i < this.e.p; i++) { this.named = i + 1; bSfx.tick(i); this.hot.add(`bag${i}`); this.changed(); await this.wait(450); }
+    for (let i = 0; i < this.e.p; i++) this.hot.delete(`bag${i}`);
+    this.changed();
+  }
+  async light(what: Lit, i = 0) {
+    const on = (it: Item) => it.where === 'gone' ? false
+      : what === 'bags' ? it.kind === 'bag'
+      : what === 'bag' ? it.kind === 'bag' && it.i === i
+      : what === 'loose' ? it.kind === 'weight' && it.where === 'L'
+      : what === 'left' ? it.where === 'L' || it.where === 'swap'
+      : what === 'right' ? it.where === 'R'
+      : what === 'guess' ? it.where === 'swap' && it.i === i
+      : it.where === 'pileL';
+    const ids = new Set<string>();
+    for (const it of this.items) if (on(it)) {
+      it.lit = this.now; this.dress(it);
+      ids.add(it.kind === 'bag' ? `bag${it.i}` : it.where === 'L' ? 'loose' : it.where === 'R' ? 'right' : it.where === 'swap' ? `swap${it.i}` : 'pileL');
+    }
+    if (what === 'left' || what === 'right') this.rings[what === 'left' ? 0 : 1].t0 = this.now;
+    for (const id of ids) this.hot.add(id);
+    this.changed();
+    await this.wait(LIT * 1000);
+    for (const id of ids) this.hot.delete(id);
+    this.changed();
+  }
+  levelLine(on: boolean) { this.level.visible = on; }
+  total(n: number | null) { this.totalN = n; this.changed(); }
+  alone(on: boolean) {
+    this.imagine = on;
+    for (const it of this.items) { it.ghost = on && !(it.kind === 'bag' && it.i === 0); this.dress(it); }
+    this.changed();
+  }
+  noneOff() { this.zero = true; this.changed(); }
+  half(side: 'left' | 'both' | null) { this.rings[0].half.visible = side != null; this.rings[1].half.visible = side === 'both'; }
+  writeLine(k: number | null, parts: Part[] = [], hot = -1) {
+    this.line = k == null ? null : { k, parts: parts.map((p, j) => ({ ...p, hot: j === hot })) };
+    this.changed();
+  }
+  async offBoth() {
+    for (const w of this.of('L')) { this.send(w, 'pileL'); this.changed(); await this.wait(160); }
+    await this.takeRight(this.e.q);
+  }
   async scaleOut() {
-    this.job = null; this.parts = 0; this.swapN = 0;
+    this.job = null; this.parts = 0; this.swapN = 0; this.plain();
     this.items.forEach((it, k) => this.send(it, 'gone', k * 0.015, 0.5));
     this.changed();
     await this.wait(900);
@@ -285,7 +404,7 @@ export class BalanceKit implements EquationWorld {
   }
   async swapBack() {
     this.of('swap').forEach((w, k) => this.send(w, 'gone', k * 0.01, 0.45));
-    this.swapN = 0;
+    this.swapN = 0; this.totalN = null; this.level.visible = false;
     this.changed();
     await this.wait(500);
     this.items = this.items.filter(o => { if (o.where === 'gone') { o.g.removeFromParent(); return false; } return true; });
@@ -310,6 +429,7 @@ export class BalanceKit implements EquationWorld {
   async share(n: number) {
     const bags = this.of('L', 'bag');
     if (bags.length) this.send(bags[bags.length - 1], 'park', 0, 0.7);
+    this.half(null);
     this.changed();
     await this.wait(500);
     const k = Math.min(n, this.of('R').length);
@@ -340,7 +460,7 @@ export class BalanceKit implements EquationWorld {
     await this.wait(1300);
   }
   async reset(to: 'start' | 'bags') {
-    this.parts = 0; this.swapN = 0;
+    this.parts = 0; this.swapN = 0; this.plain();
     for (const it of this.items) it.grp = -1;
     for (const b of this.items.filter(o => o.kind === 'bag' && o.where !== 'L')) this.send(b, 'L', 0, 0.6);
     const loose = to === 'start' ? this.e.q : 0, right = to === 'start' ? this.e.r : this.e.r - this.e.q;
@@ -368,13 +488,14 @@ export class BalanceKit implements EquationWorld {
       { id: `sum${k}`, text: l.parts.map(p => p.t).join(' '), kind: 'sum', parts: l.parts, at: () => this.at(MID, base(), up(34 + (n - 1 - k) * row())) },
       { id: `why${k}`, text: l.why, kind: 'word', at: () => this.at(MID, base(), up(16 + (n - 1 - k) * row())) },
     ]);
+    this.line = null;
     this.pins = [...this.pins.filter(p => p.kind !== 'sum' && !p.id.startsWith('why')), ...out];
     this.onChange?.();
   }
   clearSteps() { this.pins = this.pins.filter(p => p.kind !== 'sum' && !p.id.startsWith('why')); this.onChange?.(); }
   async tags(weights: number[]) {
     for (const it of this.items) it.g.removeFromParent();
-    this.items = []; this.parts = 0; this.swapN = 0;
+    this.items = []; this.parts = 0; this.swapN = 0; this.plain(); this.named = Infinity;
     weights.forEach((_, i) => { const b = this.make('bag', 'row', i, i * 0.2); b.g.userData.tag = 'x'; });
     this.changed();
     await this.wait(1400);
@@ -470,6 +591,7 @@ export class BalanceKit implements EquationWorld {
     this.tilt += this.tiltV * Math.min(dt, 0.05);
     this.beam.rotation.z = this.tilt;
     this.pans.forEach((p, k) => { p.position.set((k ? 1 : -1) * ARM, this.panH(k as 0 | 1) - 2.5, 0); });
+    for (const r of this.rings) { const k = (t - r.t0) / LIT; r.full.visible = k >= 0 && k < 1; (r.full.material as THREE.MeshBasicMaterial).opacity = Math.sin(Math.PI * clamp01(k)); }
     let landedNow = false;
     for (const it of this.items) {
       if (it.where === 'held') { it.g.position.copy(it.pos); it.g.visible = true; continue; }
@@ -486,6 +608,7 @@ export class BalanceKit implements EquationWorld {
         it.pos.y += Math.sin(Math.PI * e) * (it.kind === 'bag' ? 90 : 60) * this.s;
       }
       it.g.position.copy(it.pos);
+      if (it.lit != null && t - it.lit > LIT) { it.lit = undefined; this.dress(it); }
       if (it.where === 'gone') it.g.scale.setScalar(this.s * (1 - clamp01(k)));
     }
     if (landedNow) this.onChange?.();

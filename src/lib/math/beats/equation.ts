@@ -24,7 +24,7 @@ export function oneBagOff(e: Eq, n: number) { const x = xOf(e), right = e.r - e.
 export function partShare(e: Eq) { const left = xOf(e) + e.q, right = e.r / e.p; return { left, right, tip: tipOf(left, right), says: right - e.q }; }
 
 /** The equation's lines as the hands made them: the start, both sides less q, each side shared into p. */
-export type Part = { t: string; c?: 'a' | 'b' | 'c' };
+export type Part = { t: string; c?: 'a' | 'b' | 'c'; /** being said right now: lit */ hot?: boolean };
 export function written(e: Eq): { parts: Part[]; why: string }[] {
   const x = xOf(e), bags = e.p === 1 ? 'x' : `${e.p}x`;
   return [

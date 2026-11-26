@@ -7,19 +7,21 @@ import { EQUATION_LESSON, EQUATION_LINES, FIRST, BUDDY, ONE_MORE, type EquationW
 import { offOther, oneBagOff, partShare, swapped, written, xOf } from './equation';
 import type { Teller } from './types';
 import { EQ_LINES, LEARN_LINES } from '../../content/voice';
-import { lineProblems, scriptProblems, type Step } from './rules';
+import { lineProblems, scriptProblems, stillStretches, type Step } from './rules';
 
 type Child = { nums: number[]; picks: string[] };
 function pretend(child: Child) {
   const log: string[] = [], said: string[] = [];
+  // (what the world does inside a line's pictures is logged as "show ...": it goes with the words, it isn't a try)
+  let showing = false;
   const world = new Proxy({} as EquationWorld, {
-    get: (_, k: string) => (...a: unknown[]) => { log.push(`${k}(${a.map(x => JSON.stringify(x)).join(',')})`); return Promise.resolve(); },
+    get: (_, k: string) => (...a: unknown[]) => { log.push(`${showing ? 'show ' : ''}${k}(${a.map(x => JSON.stringify(x)).join(',')})`); return Promise.resolve(); },
   });
   const speak = (id: string, n?: number, m?: number, k?: number) => { said.push(id); log.push(`say ${id}${n != null ? ` [${[n, m, k].filter(x => x != null).join(',')}]` : ''}`); };
   const teller: Teller = {
     say: async (id, n, m, k) => { speak(id, n, m, k); },
     // (a line said with its pictures: the line, then each picture in turn)
-    sayWith: async (id, cues, n, m, k) => { speak(id, n, m, k); for (const [, act] of cues) await act(); },
+    sayWith: async (id, cues, n, m, k) => { speak(id, n, m, k); log.push('shown'); showing = true; for (const [, act] of cues) await act(); showing = false; },
     num: async (_, id, n) => { if (id) speak(id, n); const v = child.nums.shift(); if (v == null) throw new Error('the lesson asked for more numbers than this child has'); log.push(`num ${v}`); return v; },
     pick: async (_, choices, id) => { if (id) speak(id); const p = child.picks.shift() ?? choices[0].id; log.push(`pick ${p}`); return p as never; },
     hands: async (_, job) => { await job(); },
@@ -29,8 +31,9 @@ function pretend(child: Child) {
   return { log, said, world, teller };
 }
 const ACTS = /^(swapIn|takeOff|takeRight|share\(|buddyShare)/, ANSWERS = /^(writeSteps|shareOut|setRight)/;
-const stepsOf = (log: string[]): Step[] => log.flatMap((l): Step[] => {
-  if (l.startsWith('say ')) return [{ k: 'say', v: l.slice(4) }];
+const stepsOf = (log: string[]): Step[] => log.flatMap((l, i): Step[] => {
+  if (l.startsWith('say ')) return [{ k: 'say', v: l.slice(4), shown: log[i + 1] === 'shown' }];
+  if (l.startsWith('show ')) return [{ k: 'show', v: l.slice(5) }];
   if (l.startsWith('go ')) return [{ k: 'go', v: l.slice(3) }];
   if (l.startsWith('num ') || l.startsWith('pick ')) return [{ k: 'ask', v: l }];
   if (ACTS.test(l)) return [{ k: 'act', v: l }];
@@ -115,7 +118,8 @@ describe('the lesson, played by every kind of child', () => {
   });
   it('the equation is written only after the hands have done it', async () => {
     const { log } = await run(RIGHT);
-    expect(log.findIndex(l => l.startsWith('writeSteps'))).toBeGreaterThan(log.findIndex(l => l.startsWith('share(')));
+    expect(log.findIndex(l => l.startsWith('show writeLine'))).toBeGreaterThan(log.findIndex(l => l.startsWith('share(')));
+    expect(log.findIndex(l => l.startsWith('show writeSteps'))).toBeGreaterThan(log.findIndex(l => l.startsWith('show writeLine')));
   });
   it('nothing said before a number question gives its answer', async () => {
     const { log } = await run(WRONG);
@@ -168,10 +172,58 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
     const out = process.env.COLD_READ;
     if (!out) return;
     const text = (id: string, nm?: string) => (EQ_LINES.find(l => l.id === id)?.text ?? id).replaceAll('{n}', nm?.split(',')[0] ?? '').replaceAll('{m}', nm?.split(',')[1] ?? '').replaceAll('{k}', nm?.split(',')[2] ?? '');
-    const print = (log: string[]) => log.map(l => { const m = /^say (\S+)(?: \[(.+)\])?$/.exec(l); return m ? `SAID: ${text(m[1], m[2])}` : `(picture or child: ${l})`; }).join('\n');
+    const print = (log: string[]) => log.filter(l => l !== 'shown').map((l, i, all) => {
+      const m = /^say (\S+)(?: \[(.+)\])?$/.exec(l);
+      if (m) return `SAID${all[i + 1]?.startsWith('show ') ? ' (with the pictures under it, each as its words are said)' : ''}: ${text(m[1], m[2])}`;
+      return l.startsWith('show ') ? `    (picture with those words: ${l.slice(5)})` : `(picture or child: ${l})`;
+    }).join('\n');
     const w = await run(WRONG), r = await run(RIGHT);
-    writeFileSync(out.replace(/(\.txt)?$/, '.equation.txt'), `A CHILD WHO IS WRONG EVERY TIME\n\n${print(w.log)}\n\n\nA CHILD WHO IS RIGHT EVERY TIME\n\n${print(r.log)}\n`);
+    const left = (log: string[]) => stillStretches(stepsOf(log), words).join('\n') || 'none';
+    writeFileSync(out.replace(/(\.txt)?$/, '.equation.txt'), `A CHILD WHO IS WRONG EVERY TIME\n\n${print(w.log)}\n\nSTILL STRETCHES LEFT (rule 37)\n${left(w.log)}\n\n\nA CHILD WHO IS RIGHT EVERY TIME\n\n${print(r.log)}\n\nSTILL STRETCHES LEFT (rule 37)\n${left(r.log)}\n`);
   });
+});
+
+/** how many words a line has on screen, by the step that said it */
+const words = (v: string) => (EQ_LINES.find(l => l.id === v.split(' ')[0])?.text ?? '').split(/\s+/).length;
+
+describe('rule 37: what is said is shown on the balance as it is said', () => {
+  const upTo = (log: string[], id: string) => log.slice(0, log.indexOf(`say ${id}`));
+  const kids: Record<string, Child> = { 'right every time': RIGHT, 'wrong every time (too few)': WRONG, 'wrong the other way (too many)': MIXED, 'giving silly numbers': { nums: [9999, 0, 9999, 0, 9999, 0], picks: ['yes'] } };
+  for (const [name, kid] of Object.entries(kids)) it(`from the opening to x = 4 written down, a child who is ${name} never watches a still screen`, async () => {
+    const { log } = await run(kid);
+    expect(stillStretches(stepsOf(upTo(log, 'ep.eq.b.in')), words)).toEqual([]);
+  });
+  it('the opening happens as it is told: the bags, the question on one, onto the balance, then the x written', async () => {
+    const { log } = await run(RIGHT);
+    const at = (l: string) => log.indexOf(l);
+    for (const l of ['show bagsOut({"p":2,"q":3,"r":11})', 'show askBag()', 'show loadLeft()', 'show fillRight()', 'show writeX()']) expect(at(l), l).toBeGreaterThan(-1);
+    expect(at('show askBag()')).toBeLessThan(at('say ep.eq.scale'));
+    expect(at('show fillRight()')).toBeLessThan(at('say ep.eq.level'));
+    expect(at('show writeX()')).toBeGreaterThan(at('say ep.eq.letter'));
+  });
+  it('a miss shows what the bags\' side came to, on the balance, against the other side', async () => {
+    const { log } = await run(WRONG);
+    expect(log.indexOf('show total(17)')).toBeGreaterThan(log.indexOf('say ep.eq.heavy [7,17,11]'));
+  });
+  it('each written line is written as the balance does it again, and then all three wait for the child', async () => {
+    for (const kid of [RIGHT, WRONG]) {
+      const { log } = await run(kid);
+      const a = log.indexOf('say ep.eq.write'), b = log.indexOf('say ep.eq.b.in'), part = log.slice(a, b);
+      // the balance is put back the way it started, and each part of the first line is lit with its part of the balance
+      expect(part).toContain('show reset("start")');
+      const lit = (hot: number, what: string) => { const i = part.findIndex(l => l.startsWith('show writeLine(0,') && l.endsWith(`,${hot})`)); expect(i, what).toBeGreaterThan(-1); expect(part[i + 1], what).toBe(`show ${what}`); };
+      lit(0, 'light("bags")'); lit(2, 'light("loose")'); lit(4, 'light("right")');
+      expect(part[part.findIndex(l => l.startsWith('show writeLine(0,') && l.endsWith(',3)')) + 1]).toBe('show levelLine(true)');
+      // then each step is done again before its line is written
+      const i = (l: string) => part.findIndex(x => x.startsWith(l));
+      expect(i('show offBoth()')).toBeLessThan(i('show writeLine(1,'));
+      expect(i('show share(4)')).toBeGreaterThan(i('show writeLine(1,'));
+      expect(i('show share(4)')).toBeLessThan(i('show writeLine(2,'));
+      // and the three lines stand together until the child goes on
+      expect(part.slice(i('show writeSteps')).filter(l => !l.startsWith('show '))).toEqual(['go Next', 'clearSteps()', 'scaleIn({"p":3,"q":6,"r":21})']);
+    }
+  });
+  it.todo('from the buddy\'s step to the end, no child watches a still screen (the cold read prints the stretches left)');
 });
 
 describe('the words', () => {

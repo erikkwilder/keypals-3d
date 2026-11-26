@@ -11,7 +11,7 @@
 // together by hand, then one more on their own). The equation is written only after the hands, one line per
 // moment of the balance. It ends with the numbers
 // written on the tags where the x was. docs/lesson-rules.md holds the rules; rules.ts checks the ones a test can.
-import type { BeatLesson, Notes, Teller, World } from './types';
+import type { BeatLesson, Cue, Notes, Teller, World } from './types';
 import type { EpisodeScene } from '../../three/episodeScene';
 import { offOther, oneBagOff, swapped, xOf, written, type Eq, type Part } from './equation';
 
@@ -44,6 +44,36 @@ export interface EquationWorld extends World {
   clearSteps(): void;
   /** do the rest of the hand's job ("Show me") */
   finish(): void;
+  // ---- the pictures that go with a line (Teller.sayWith): what the words say, shown as they are said ----
+  /** the opening: the bags come to stand on the table in front of the empty balance, one after the other, no x on them yet */
+  bagsOut(e: Eq): Promise<void>;
+  /** a "?" on one bag: how heavy is it? */
+  askBag(): Promise<void>;
+  /** the bags and the loose weights go onto the bags' side (which goes down: the other side is empty) */
+  loadLeft(): Promise<void>;
+  /** the other side fills one weight at a time until it hangs level */
+  fillRight(): Promise<void>;
+  /** the x is written on each bag, one after the other (the "?" on the first turns into it) */
+  writeX(): Promise<void>;
+  /** what the words are about lights for a moment, and its number with it: every bag, bag `i`, the loose weights,
+   *  everything on a side (its pan's rim lights too), the weights in bag `i`'s place, the pile taken off the bags' side */
+  light(what: 'bags' | 'bag' | 'loose' | 'left' | 'right' | 'guess' | 'pileL', i?: number): Promise<void>;
+  /** a bright line along both pans' rims at the height they hang level at (false: gone) */
+  levelLine(on: boolean): void;
+  /** what the bags' side comes to with a guess in the bags' places, over them (null: gone) */
+  total(n: number | null): void;
+  /** the what-if: one bag alone on its side (everything else turns see-through), and the other side's count
+   *  turns into a "?", because nobody knows it yet */
+  alone(on: boolean): void;
+  /** a 0 where the other side's pile would be: nothing has come off it */
+  noneOff(): void;
+  /** half of a pan's rim stays lit: the bags' side's, or both sides' (null: gone). The weights are not sorted
+   *  into halves: how many half is, is the child's to say */
+  half(side: 'left' | 'both' | null): void;
+  /** one written line over the balance (`k`: which line), with part `hot` lit (null: gone) */
+  writeLine(k: number | null, parts?: Part[], hot?: number): void;
+  /** the loose weights come off the bags' side, then as many off the other side */
+  offBoth(): Promise<void>;
   /** the end: every bag from today stands in a row, and its tag's x turns into its number */
   tags(weights: number[], bags: number[]): Promise<void>;
 }
@@ -59,6 +89,11 @@ export const EQUATION_LINES = ['intro', 'scale', 'level', 'letter', 'guess', 'tr
   'together', 'd.in', 'try.d', 'd.mid', 'd.last', 'd.own', 'd.share', 'd.piles',
   'end', 'end.we', 'check', 'check.right', 'check.again', 'check.mid', 'check.share', 'check.piles'].map(k => `ep.eq.${k}`);
 
+/** Pictures that must not run into each other take turns: each waits for the one before it. (A cue comes at its
+ *  second of the line by the clip's clock; on a slow screen the picture before it can still be moving.) */
+const turns = () => { let last: Promise<unknown> = Promise.resolve(); return (f: () => unknown) => () => (last = last.then(f)); };
+const both = (w: EquationWorld) => Promise.all([w.light('left'), w.light('right')]);
+
 /** Test a number for one bag: say whose it is, put it in place of each bag, say what the balance showed. The
  *  first test says how a test works; later ones just say whose number goes in. A right number gets its own line,
  *  which says it stayed level and why. */
@@ -71,7 +106,17 @@ async function test(t: Teller, w: EquationWorld, e: Eq, n: number, right: string
   // (a miss says, in one line, what the bags' side now comes to against the other side's count on screen, which
   // way that tips it, and so whether a bag weighs more or less than their number)
   // (`told`: a miss that is a particular mistake gets its own line, which says what that mistake was)
-  await t.say(tip === 0 ? right : told ?? (tip > 0 ? 'ep.eq.heavy' : 'ep.eq.light'), n, e.p * n + e.q, e.r);
+  // (the result is shown as it's said, rule 37. A miss: the guesses light, then what the bags' side comes to stands
+  // over it, then the other side's count lights, then the side that moved. The first balance's right guess: each
+  // part of "4 and 4 and 3 make 11" lights as it is said, along the line the balance hangs level at. The cue
+  // seconds are each clip's own word times, from Whisper)
+  const line = tip === 0 ? right : told ?? (tip > 0 ? 'ep.eq.heavy' : 'ep.eq.light'), total = e.p * n + e.q;
+  const guesses = () => Promise.all(Array.from({ length: e.p }, (_, i) => w.light('guess', i)));
+  const cues: Cue[] | null = line === 'ep.eq.lucky' ? [[2.5, () => w.levelLine(true)], [4.3, () => w.light('guess', 0)], [5.0, () => w.light('guess', 1)], [5.3, () => w.light('loose')], [5.8, async () => { await w.light('right'); w.levelLine(false); }]]
+    : line === 'ep.eq.heavy' ? [[0.2, guesses], [2.4, () => { w.total(total); return w.light('left'); }], [4.7, () => w.light('right')], [6.3, () => w.light('left')]]
+    : line === 'ep.eq.light' ? [[0.2, guesses], [2.4, () => { w.total(total); return w.light('left'); }], [4.9, () => w.light('right')], [6.3, () => w.light('left')]]
+    : null;
+  if (cues) await t.sayWith(line, cues, n, total, e.r); else await t.say(line, n, total, e.r);
   await w.swapBack();
   return tip === 0;
 }
@@ -106,12 +151,20 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   // the job: why one bag's weight matters, and what level means (shown filling, not told)
   t.beat(0);
   await t.wait(700);
-  await t.say('ep.eq.intro');
-  await t.say('ep.eq.scale');
-  await w.scaleIn(FIRST);
+  // (every line of the opening is shown as it is said, rule 37: the two bags come out, light together at "the same
+  // amount in each", and one gets a "?" at the question; they and the loose weights go on at "go on one side", the
+  // loose weights light at "every weight is the same", and the other side fills from "watch the other side")
+  let q = turns();
+  await t.sayWith('ep.eq.intro', [[1.6, q(() => w.bagsOut(FIRST))], [4.0, q(() => w.light('bags'))], [7.2, q(() => w.askBag())]]);
+  q = turns();
+  await t.sayWith('ep.eq.scale', [[2.1, q(() => w.loadLeft())], [6.2, q(() => w.light('loose'))], [8.0, q(() => w.fillRight())]]);
   t.pal('happy');
-  await t.say('ep.eq.level');
-  await t.say('ep.eq.letter');
+  // (level: a bright line along both rims; then each thing lights as it is named, the bags and the loose weights on
+  // one side, the 11 on the other)
+  await t.sayWith('ep.eq.level', [[0.2, () => w.light('right')], [1.1, () => w.levelLine(true)], [3.7, () => both(w)], [5.7, () => w.light('bags')], [6.7, () => w.light('loose')],
+    [9.0, async () => { await w.light('right'); w.levelLine(false); }]]);
+  // (the x is written on each bag as it's said, where the "?" was; one bag lights, then the weights it is counted in)
+  await t.sayWith('ep.eq.letter', [[0.8, () => w.writeX()], [2.5, () => w.light('bag', 0)], [3.6, () => w.light('loose')], [6.8, () => w.light('bags')]]);
 
   // a guess first: any number is put in place of each bag, so x is a number and a check is a test
   t.beat(1);
@@ -126,11 +179,16 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   // (why a bag on its own is what we're after, before the first step toward it. Their hands take the loose
   // weights off one side only and the balance shows what that does. A "what will happen?" choice stood here: it
   // was easy, and it and its answer were twenty seconds of a lesson that runs long)
-  await t.say('ep.eq.own.why');
+  // (the what-if is shown: everything but one bag turns see-through, and the other side's count turns into a "?",
+  // not a number: how many it would be is what the lesson is about to find. Rule 41)
+  await t.sayWith('ep.eq.own.why', [[0.4, () => w.alone(true)], [2.5, () => w.levelLine(true)], [4.2, () => w.light('right')], [6.2, () => w.light('bag', 0)],
+    [8.2, () => { w.levelLine(false); w.alone(false); return w.light('bag', 0); }]]);
   await t.say('ep.eq.try.off');
   await t.hands("Drag the 3 loose weights off the bags' side", () => w.takeOff('left'), () => w.finish());
   t.buddy('gasp');
-  await t.say('ep.eq.off.up');
+  // (the line the balance hung level at comes back, so "went up" is seen against it, and it stays until the balance
+  // is level again; the 3 taken off light, then a 0 stands where nothing has come off the other side)
+  await t.sayWith('ep.eq.off.up', [[0.1, () => w.levelLine(true)], [2.4, () => w.light('pileL')], [4.5, () => { w.noneOff(); return w.light('right'); }], [6.0, () => w.light('left')]]);
   const other = await t.num('How many come off the other side?', 'ep.eq.other.ask');
   await t.say('ep.eq.try.other', other);
   await w.takeRight(other);
@@ -138,11 +196,14 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   if (tip === 0) { t.pal('happy'); await t.say('ep.eq.other.yes'); }
   else { t.pal('sad'); await t.say(tip > 0 ? 'ep.eq.other.many' : 'ep.eq.other.few', other); await w.setRight(FIRST.r - FIRST.q); await t.say('ep.eq.other.fix'); }
   await t.go('Next');
+  w.levelLine(false);
 
   // one bag off: how many weights go with it? Their number is acted out, then the 8 is shared into 2 piles
   t.beat(3);
   // (the halving idea is said before the question, so the question can be answered from what was taught)
-  await t.say('ep.eq.share.idea');
+  // (the bag that will come off lights, then both bags, then half of the bags' pan's rim; then both sides, and half
+  // of the other pan's rim. The 8 weights are not sorted into halves: how many half is, is the question. Rule 41)
+  await t.sayWith('ep.eq.share.idea', [[0.6, () => w.light('bag', 1)], [2.9, () => w.light('bags')], [4.6, () => w.half('left')], [7.0, () => both(w)], [8.7, () => w.light('bag', 1)], [10.4, () => w.half('both')]]);
   const half = await t.num('How many weights come off with it?', 'ep.eq.share.ask');
   await t.say('ep.eq.try.share', half);
   await w.share(half);
@@ -151,19 +212,36 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   else {
     t.buddy('shrug');
     // (what's left on the other side, which way it went, and so what that says about one bag)
-    await t.say(sh < 0 ? 'ep.eq.share.few' : 'ep.eq.share.many', half, Math.max(0, FIRST.r - FIRST.q - half));
-    await t.say('ep.eq.share.how');
-    await w.reset('bags');
+    // (the other side is seen against the level line as it's named, then the one bag left lights)
+    await t.sayWith(sh < 0 ? 'ep.eq.share.few' : 'ep.eq.share.many', sh < 0
+      ? [[2.5, () => { w.levelLine(true); return w.light('right'); }], [6.3, () => w.light('left')]]
+      : [[2.0, () => { w.levelLine(true); return w.light('right'); }], [5.4, () => w.light('left')]], half, Math.max(0, FIRST.r - FIRST.q - half));
+    // (they go back as "Let's put them back" is said; then the two bags light, and the 8 weights)
+    q = turns();
+    await t.sayWith('ep.eq.share.how', [[0.1, q(() => w.reset('bags'))], [3.9, q(() => w.light('bags'))], [5.7, q(() => w.light('right'))]]);
     await w.shareOut(FIRST.p);
-    await t.say('ep.eq.share.done');
+    // (the pile left lights, then the bag that came off, then the one bag left and the one pile left, along the level line)
+    await t.sayWith('ep.eq.share.done', [[0.1, () => w.light('right')], [2.3, () => w.levelLine(true)], [3.2, () => w.light('bag', 1)], [5.4, () => w.light('left')], [7.3, () => w.light('right')],
+      [9.4, async () => { await w.light('bag', 0); w.levelLine(false); }]]);
   }
   await t.go('Next');
 
-  // only now is it written, one line for each moment of the balance (over the empty balance, so it can be read)
-  await w.scaleOut();
-  w.writeSteps(written(FIRST));
-  await t.say('ep.eq.write');
-  await t.say('ep.eq.write.read');
+  // only now is it written, and each line is written as the balance does it again (rule 37; Erik: "something that
+  // shows or visualizes what it's speaking to"). The balance goes back to its start and the first line stands
+  // over it: 2x lights with the two bags, 3 with the loose weights, 11 with the other side, = with the line the
+  // rims hang level at. Then 3 come off both sides and "2x = 8" is written; one bag and half the weights come off
+  // and "x = 4" is written. Last, the things go and the three lines stand together, each with what the hands did,
+  // until the child goes on (over the empty balance, so they can be read)
+  const L = written(FIRST);
+  q = turns();
+  await t.sayWith('ep.eq.write', [[0.1, q(() => w.reset('start'))], [2.0, q(() => w.writeLine(0, L[0].parts))],
+    [5.3, q(() => { w.writeLine(0, L[0].parts, 0); return w.light('bags'); })],
+    [8.3, q(() => { w.writeLine(0, L[0].parts, 2); return w.light('loose'); })],
+    [10.2, q(() => { w.writeLine(0, L[0].parts, 4); return w.light('right'); })]]);
+  q = turns();
+  await t.sayWith('ep.eq.write.read', [[0.3, q(() => { w.writeLine(0, L[0].parts, 3); w.levelLine(true); return both(w); })],
+    [3.3, q(async () => { w.writeLine(0, L[0].parts); await w.offBoth(); w.writeLine(1, L[1].parts); })],
+    [7.0, q(async () => { await w.share(xOf(FIRST)); w.writeLine(2, L[2].parts); await t.wait(1400); await w.scaleOut(); w.writeSteps(L); })]]);
   await t.go('Next');
   w.clearSteps();
 

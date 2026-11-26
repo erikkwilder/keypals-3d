@@ -336,9 +336,9 @@
     {#each showing as p (p.id)}
       <div class="pin" use:pin={pinOf(p.id)}>
         {#if p.kind === 'edge'}<span class="edge t-{p.c}">{p.text}</span>
-        {:else if p.kind === 'tick'}<span class="tick t-{p.c}" class:big={p.big}>{p.text}</span>
+        {:else if p.kind === 'tick'}<span class="tick t-{p.c}" class:big={p.big} class:hot={p.hot}>{p.text}</span>
         {:else if p.kind === 'count'}<span class="count">{p.text}</span>
-        {:else if p.kind === 'sum'}<div class="sum"><div class="row1">{#each p.parts ?? [] as q, i}<b class="t-{q.c ?? 'ink'}" style:animation-delay="{i * 0.12}s">{q.t}</b>{/each}</div>{#if p.under}<div class="row2">{#each p.under as u, i}{#if i}<i>{i === p.under.length - 1 ? '=' : '×'}</i>{/if}<span class="u{i}">{u}</span>{/each}</div>{/if}</div>
+        {:else if p.kind === 'sum'}<div class="sum"><div class="row1">{#each p.parts ?? [] as q, i}<b class="t-{q.c ?? 'ink'}" class:hot={q.hot} style:animation-delay="{i * 0.12}s">{q.t}</b>{/each}</div>{#if p.under}<div class="row2">{#each p.under as u, i}{#if i}<i>{i === p.under.length - 1 ? '=' : '×'}</i>{/if}<span class="u{i}">{u}</span>{/each}</div>{/if}</div>
         {:else if fracOf(p.text)}{@const f = fracOf(p.text)!}<span class="word frac" aria-label={p.text}><b>{f[0]}</b><i></i><b>{f[1]}</b></span>
         {:else}<span class="word">{p.text}</span>{/if}
       </div>
@@ -444,6 +444,10 @@
   .edge { font: 700 clamp(28px, 4.2vh, 40px)/1 var(--font-ui); background: #fff; min-width: 1.2em; text-align: center; padding: 3px 9px 4px; border-radius: 14px; box-shadow: 0 0 0 3px currentColor, 0 6px 14px rgba(60, 30, 10, .4); animation: pop .35s cubic-bezier(.3, 1.6, .5, 1) both; }
   .tick { font: 700 20px/1 var(--font-ui); background: #fff; padding: 2px 8px; border-radius: 10px; box-shadow: 0 3px 8px rgba(80, 40, 10, .3); animation: pop .25s cubic-bezier(.3, 1.6, .5, 1) both; }
   .tick.big { font-size: 27px; padding: 3px 10px 4px; border-radius: 13px; min-width: 1.15em; text-align: center; }
+  /* the number or sign the narrator is talking about right now (Mystery Bags lights each part of the written line
+     with its part of the balance): a ring of light, so nothing changes size and no card moves */
+  .tick.hot { box-shadow: 0 0 0 4px #ffd75e, 0 0 18px 7px rgba(255, 190, 40, .9); }
+  .row1 b.hot { background: #ffe27a; border-radius: 10px; box-shadow: 0 0 0 6px #ffe27a, 0 0 16px 9px rgba(255, 190, 40, .8); }
   .count { font: 700 clamp(34px, 5.4vh, 54px)/1 var(--font-ui); color: #3a2400; background: linear-gradient(#fffaf0, #fff0c8); padding: 4px 18px; border-radius: 18px; box-shadow: 0 0 0 3px #ffd75e, 0 10px 20px rgba(90, 50, 0, .3); }
   .frac { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; }
   .frac i { display: block; align-self: stretch; height: 3px; margin: 3px -2px; border-radius: 2px; background: currentColor; }

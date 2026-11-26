@@ -50,8 +50,9 @@ export interface Teller {
 export type Pin = { id: string; text: string; at: () => Vector3; kind: 'edge' | 'tick' | 'count' | 'word' | 'sum';
   /** a tick written large: a numeral a young child has to read off a thing */ big?: boolean;
   /** which line's colour */ c?: 'a' | 'b' | 'c' | 'ink';
+  /** a tick the narrator is talking about right now: a ring round it (it doesn't change size, so no card moves) */ hot?: boolean;
   /** a sum's numbers, each in its line's colour, and the words under them */
-  parts?: { t: string; c?: 'a' | 'b' | 'c' }[]; under?: string[] };
+  parts?: { t: string; c?: 'a' | 'b' | 'c'; /** being said right now */ hot?: boolean }[]; under?: string[] };
 
 /** What the player needs from any world. */
 export interface World {
