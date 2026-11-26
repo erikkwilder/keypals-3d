@@ -1839,6 +1839,150 @@
     "voice": "coach",
     "ms": 2759
   },
+  "ep.ten.intro": {
+    "voice": "coach",
+    "ms": 8626
+  },
+  "ep.ten.need": {
+    "voice": "coach",
+    "ms": 7754
+  },
+  "ep.ten.demo": {
+    "voice": "coach",
+    "ms": 4774
+  },
+  "ep.ten.try.demo": {
+    "voice": "coach",
+    "ms": 3098
+  },
+  "ep.ten.demo.full": {
+    "voice": "coach",
+    "ms": 3856
+  },
+  "ep.ten.turn": {
+    "voice": "coach",
+    "ms": 3901
+  },
+  "ep.ten.how": {
+    "voice": "coach",
+    "ms": 1866
+  },
+  "ep.ten.try.you": {
+    "voice": "coach",
+    "ms": 4385
+  },
+  "ep.ten.try.both": {
+    "voice": "coach",
+    "ms": 6515
+  },
+  "ep.ten.right": {
+    "voice": "coach",
+    "ms": 4744
+  },
+  "ep.ten.few": {
+    "voice": "coach",
+    "ms": 7997
+  },
+  "ep.ten.over": {
+    "voice": "coach",
+    "ms": 5877
+  },
+  "ep.ten.try.zero": {
+    "voice": "coach",
+    "ms": 3422
+  },
+  "ep.ten.zero": {
+    "voice": "coach",
+    "ms": 6066
+  },
+  "ep.ten.both.why": {
+    "voice": "coach",
+    "ms": 5802
+  },
+  "ep.ten.why": {
+    "voice": "coach",
+    "ms": 7106
+  },
+  "ep.ten.p3.show": {
+    "voice": "coach",
+    "ms": 8930
+  },
+  "ep.ten.p6.show": {
+    "voice": "coach",
+    "ms": 9903
+  },
+  "ep.ten.try.fix": {
+    "voice": "coach",
+    "ms": 2963
+  },
+  "ep.ten.fit": {
+    "voice": "coach",
+    "ms": 2924
+  },
+  "ep.ten.buddy.in": {
+    "voice": "coach",
+    "ms": 5373
+  },
+  "ep.ten.try.buddy": {
+    "voice": "coach",
+    "ms": 5717
+  },
+  "ep.ten.buddy.ask": {
+    "voice": "coach",
+    "ms": 4082
+  },
+  "ep.ten.buddy.no": {
+    "voice": "coach",
+    "ms": 6939
+  },
+  "ep.ten.buddy.yes": {
+    "voice": "coach",
+    "ms": 7209
+  },
+  "ep.ten.pal.in": {
+    "voice": "coach",
+    "ms": 4595
+  },
+  "ep.ten.try.pal": {
+    "voice": "coach",
+    "ms": 7370
+  },
+  "ep.ten.pal.ask": {
+    "voice": "coach",
+    "ms": 3507
+  },
+  "ep.ten.pal.found": {
+    "voice": "coach",
+    "ms": 7867
+  },
+  "ep.ten.try.top": {
+    "voice": "coach",
+    "ms": 2764
+  },
+  "ep.ten.extra": {
+    "voice": "coach",
+    "ms": 6949
+  },
+  "ep.ten.extra.done": {
+    "voice": "coach",
+    "ms": 9364
+  },
+  "ep.ten.sum.3": {
+    "voice": "coach",
+    "ms": 6081
+  },
+  "ep.ten.sum.8": {
+    "voice": "coach",
+    "ms": 5932
+  },
+  "ep.ten.off": {
+    "voice": "coach",
+    "ms": 5518
+  },
+  "ep.ten.check": {
+    "voice": "coach",
+    "ms": 4056
+  },
   "ep.eq.intro": {
     "voice": "coach",
     "ms": 8596

@@ -57,61 +57,61 @@ export interface FrameWorld extends World {
   clear(over?: number): Promise<void>;
 }
 
-// When each picture comes, in seconds into its line, read off the clips' word times (evidence folder,
-// word-times.txt). A picture: the second its words begin. A movement: [the second it begins, how many seconds
-// it takes].
-// NOT YET READ OFF THE CLIPS: every number here is a guess until the clips are made (the hand-off note says so).
+// When each picture comes, in seconds into its line, read off the clips' word times (Whisper; the file is
+// word-times.txt in the lesson's evidence folder). A picture: the second its words begin. A movement: [the
+// second it begins, how many seconds it takes]. A line recorded again needs its seconds read again.
 const AT = {
   /** "This is the bun tray"; "Five in the top row"; "five in the bottom row" */
-  intro: { tray: [2.6, 1.2], top: 6.6, bottom: 8.2 },
-  /** "a bun in every place"; "So Sprout Bunny needs to know" */
-  need: { every: 2.8, more: 4.6 },
+  intro: { tray: [2.9, 1.3], top: 6, bottom: 7.5 },
+  /** "with a bun in every place"; "So Sprout Bunny needs to know" */
+  need: { every: 2.5, more: 4.8 },
   /** "Here are nine blue buns on the tray"; "One place is still empty" */
-  demo: { buns: [1, 2.4], empty: 4 },
-  /** "puts one pink bun in the empty place" */
-  put: [0.9, 1.6],
-  /** "Nine blue buns"; "one pink bun"; "ten" */
-  full: { a: 1.8, b: 3, all: 4.2 },
+  demo: { buns: [1.1, 2], empty: 3.2 },
+  /** "pink bun in the empty place" */
+  put: [1.4, 1.3],
+  /** "Nine blue buns"; "one pink bun"; "make ten" */
+  full: { a: 1.4, b: 2.5, all: 3.1 },
   /** "Here is a new tray, with seven blue buns on it" */
-  turn: [1.4, 2.4],
-  /** "Let's put as many pink buns on the tray as you said" */
-  you: [0.4, 3.2],
-  /** "Let's put ten pink buns on the tray", when the child and the buddy both said 10 */
-  both: [3.2, 3.4],
+  turn: [1.3, 2.5],
+  /** "put as many pink buns on the tray as you said, and see if it is full" */
+  you: [0.3, 3.5],
+  /** "Let's put ten pink buns on the tray and see if it is full", when the child and the buddy both said 10 */
+  both: [3.2, 3],
   /** "look", in each line that says what a wrong number showed */
-  left: { few: 2.4, over: 1.6, zero: 2.6 },
-  /** "The tray holds ten buns in all"; "seven were on it already" */
-  bothWhy: { all: 0.2, had: 2.6 },
+  left: { few: 3.1, over: 1.3, zero: 3 },
+  /** "The tray holds ten buns in all"; "seven were on it already"; "only the empty places" */
+  bothWhy: { all: 0.1, had: 2, empty: 4 },
   /** "Each empty place needed one bun" */
   why: 0.2,
-  /** each number of the count said in "so we count the empty places" */
-  show: { p3: [5.6, 6.2, 6.8], p6: [5.6, 6.2, 6.8, 7.4, 8, 8.6] } as Record<Shown, number[]>,
+  /** each number of the count said after "so we count the empty places": where each count word's sound begins (ffmpeg
+   *  silencedetect on the clip; Whisper's word times agree to within 0.1 s) */
+  show: { p3: [4.91, 5.47, 6.1], p6: [5, 5.69, 6.15, 6.61, 7.18, 7.91] } as Record<Shown, number[]>,
   /** "put one pink bun in each empty place" */
-  fix: [0.6, 2.2],
+  fix: [0.5, 2],
   /** "Here is another tray, with six blue buns on it" */
-  buddyIn: [0.2, 2.2],
-  /** "Let's try your buddy's ten pink buns" */
-  buddy: [3.8, 3],
-  /** "Six buns have no place"; "six places had a bun already", in the two lines that answer the question */
-  ring: { no: { left: 0.9, had: 2.6 }, yes: { left: 0.9, had: 2.6 } },
+  buddyIn: [0.1, 2.6],
+  /** "so it needs ten more. Let's try your buddy's ten pink buns": ten buns need the 3.2 s from "so" */
+  buddy: [2.2, 3.2],
+  /** "Six buns have no place"; "six places had a bun already"; "Only the empty places", in the two lines that answer the question */
+  ring: { no: { left: 1.2, had: 3, only: 5.3 }, yes: { left: 1.8, had: 3.3, only: 5.5 } },
   /** "Here is a tray with three blue buns on it" */
-  palIn: [2.2, 2],
+  palIn: [2.5, 2],
   /** "the empty places in the bottom row"; "Let's try Sprout Bunny's five pink buns" */
-  pal: { row: 1.2, put: [4.6, 2.4] },
+  pal: { row: 1, put: [4.3, 2.6] },
   /** "The top row has two empty places too" */
-  found: 0.9,
+  found: 1.2,
   /** "put two more pink buns in the top row" */
-  top: [0.6, 1.6],
-  /** "Here is one more tray, just for you" */
-  extra: [0.2, 2.6],
+  top: [0.6, 1.9],
+  /** "Here is one more tray, just for you, with eight blue buns on it" */
+  extra: [0.1, 3.2],
   /** "One bun went into each empty place" */
-  done: 1.2,
+  done: 1.6,
   /** "We write"; the first number's buns; the second's; "make ten" */
-  sum: { 3: { write: 0.3, a: 3.2, b: 4.4, all: 5.6 }, 8: { write: 0.3, a: 3.2, b: 4.4, all: 5.6 } } as Record<number, { write: number; a: number; b: number; all: number }>,
-  /** "into the oven it goes" */
-  off: [2.2, 1.8],
+  sum: { 3: { write: 0.1, a: 3.1, b: 4.4, all: 5.3 }, 8: { write: 0.3, a: 3, b: 4.3, all: 5.1 } } as Record<number, { write: number; a: number; b: number; all: number }>,
+  /** "so into the oven it goes" */
+  off: [1.3, 1.8],
   /** "This tray has four blue buns on it" */
-  check: [2, 2.2],
+  check: [2.2, 1.8],
 };
 
 /** the words a run of the lesson can say, all of them */
@@ -139,7 +139,7 @@ async function tryIt(t: Teller, w: FrameWorld, n: number, have: number, both: bo
   // (what is left over is ringed at the word that points to it, not before: the line is its picture's reason)
   await t.sayWith(m.kind === 'short' ? 'ep.ten.few' : 'ep.ten.over', [[m.kind === 'short' ? AT.left.few : AT.left.over, () => w.showLeft()]], n);
   if (both) {
-    await t.sayWith('ep.ten.both.why', [[AT.bothWhy.all, () => w.light('all')], [AT.bothWhy.had, () => w.light('a')]]);
+    await t.sayWith('ep.ten.both.why', [[AT.bothWhy.all, () => w.light('all')], [AT.bothWhy.had, () => w.light('a')], [AT.bothWhy.empty, () => w.light('b')]]);
     t.thought('buddy', null);
   }
   return false;
@@ -201,7 +201,7 @@ async function play(t: Teller, w: FrameWorld): Promise<Notes> {
     t.thought('buddy', null);
     const at = AT.ring[fits];
     if (fits === 'no') { t.buddy('nod'); t.pal('happy'); } else t.buddy('shrug');
-    await t.sayWith(`ep.ten.buddy.${fits}`, [[at.left, () => w.showLeft()], [at.had, () => w.light('a')]]);
+    await t.sayWith(`ep.ten.buddy.${fits}`, [[at.left, () => w.showLeft()], [at.had, () => w.light('a')], [at.only, () => w.light('b')]]);
     await t.go('Next');
   }
 

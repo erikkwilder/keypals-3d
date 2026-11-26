@@ -289,6 +289,7 @@ export const TRIMS: Record<string, { base: string; steps: number; title?: string
   'sh-boxes~old': { base: 'sh-boxes', steps: 99 },
   'frac-one-piece~old': { base: 'frac-one-piece', steps: 99 },
   'alg-two-step~old': { base: 'alg-two-step', steps: 99 },
+  'make-ten~old': { base: 'make-ten', steps: 99 },
 };
 /** The episode whose words a (trimmed) episode speaks. */
 export const voiceBase = (id: string) => TRIMS[id]?.base ?? id;

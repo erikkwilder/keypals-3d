@@ -6124,6 +6124,186 @@
   "voice": "coach-exclaim",
   "h": "c88b372738"
  },
+ "ep.ten.both.why": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "d353b24a91"
+ },
+ "ep.ten.buddy.ask": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "4384501520"
+ },
+ "ep.ten.buddy.in": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "27f4a07d7b"
+ },
+ "ep.ten.buddy.no": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "e9ea810067"
+ },
+ "ep.ten.buddy.yes": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "44662073f4"
+ },
+ "ep.ten.check": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "c0f430b4ae"
+ },
+ "ep.ten.demo": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "03237cc487"
+ },
+ "ep.ten.demo.full": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "1e66d6c0e7"
+ },
+ "ep.ten.extra": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "ad35a81248"
+ },
+ "ep.ten.extra.done": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "92d2784639"
+ },
+ "ep.ten.few": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "d32a5537ad"
+ },
+ "ep.ten.fit": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "9dfefbb936"
+ },
+ "ep.ten.how": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "564fbbb4cb"
+ },
+ "ep.ten.intro": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "1e14a43b98"
+ },
+ "ep.ten.need": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "bedcc0aaa3"
+ },
+ "ep.ten.off": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "c46ba96809"
+ },
+ "ep.ten.over": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "e12e9af2b2"
+ },
+ "ep.ten.p3.show": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "dcc99e92a3"
+ },
+ "ep.ten.p6.show": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "a6fc4837e2"
+ },
+ "ep.ten.pal.ask": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "1fc59abf9b"
+ },
+ "ep.ten.pal.found": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "f262009200"
+ },
+ "ep.ten.pal.in": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "461dfa61d5"
+ },
+ "ep.ten.right": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "bee71f2557"
+ },
+ "ep.ten.sum.3": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "123ac9bbaf"
+ },
+ "ep.ten.sum.8": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "8fab747ae8"
+ },
+ "ep.ten.try.both": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "fc0ff4a5d9"
+ },
+ "ep.ten.try.buddy": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "1d70b619f0"
+ },
+ "ep.ten.try.demo": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "c5b80f2250"
+ },
+ "ep.ten.try.fix": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "f80e255d5f"
+ },
+ "ep.ten.try.pal": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "1df582fb18"
+ },
+ "ep.ten.try.top": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "72b40d8fd6"
+ },
+ "ep.ten.try.you": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "d7125a5fe9"
+ },
+ "ep.ten.try.zero": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "793caecf79"
+ },
+ "ep.ten.turn": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "03fc20e3d6"
+ },
+ "ep.ten.why": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "8abefba904"
+ },
+ "ep.ten.zero": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "47b1be3aa7"
+ },
  "ep.think-plus.card": {
   "engine": "local",
   "voice": "coach-exclaim",

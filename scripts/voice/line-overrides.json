@@ -128,5 +128,9 @@
       1.66
     ],
     "why": "a click in the hush before 'down' (blips.mjs, rule 46)"
+  },
+  "ep.ten.try.pal": {
+    "seed": 101,
+    "why": "first take had a click at 7.2 s, in 'pink buns' (check.mjs, rule 46)"
   }
 }

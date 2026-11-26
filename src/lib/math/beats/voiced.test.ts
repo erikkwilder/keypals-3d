@@ -8,12 +8,12 @@ import manifest from '../../content/voice-manifest.json';
 const made = manifest as Record<string, { voice: string; ms: number }>;
 /** the shortest the player can hold a line: each {n}, {m} or {k} shown as a one-digit number */
 const hold = (text: string) => 2500 + text.replace(/\{[nmk]\}/g, '7').length * 95;
-const LESSONS = /^ep\.(crate|count|share|eq)\./;
+const LESSONS = /^ep\.(crate|count|share|eq|ten)\./;
 const lines = [...BEAT_LINES, ...EQ_LINES].filter(l => LESSONS.test(l.id));
 
 describe('the beat lessons are voiced', () => {
   it('has the lines of all four lessons', () => {
-    for (const p of ['crate', 'count', 'share', 'eq']) expect(lines.some(l => l.id.startsWith(`ep.${p}.`)), p).toBe(true);
+    for (const p of ['crate', 'count', 'share', 'eq', 'ten']) expect(lines.some(l => l.id.startsWith(`ep.${p}.`)), p).toBe(true);
   });
 
   it('every line and count word has a clip', () => {
