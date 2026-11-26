@@ -267,7 +267,7 @@ async function check(t: Teller, w: FrameWorld) {
 export const TEN_LESSON: BeatLesson<FrameWorld> = {
   id: 'make-ten', title: 'Make Ten', blurb: 'The empty places on a tray of 10 tell you how many more make 10.', set: 'kitchen', star: 'sproutbun', color: '#e58a3a',
   // (the old Make Ten had no painted card; this is the kitchen's card from How Many Cookies?, as a stand-in)
-  art: 'learn/ep/card-cookies.webp', voice: 'ten', beats: 7,
+  art: 'learn/ep/card-buns.webp', voice: 'ten', beats: 7,
   world: async (sc: EpisodeScene) => { const { FrameKit } = await import('../../three/frameKit'); return new FrameKit(sc); },
   play, check,
   card: n => [`Your first answer: ${n.first ?? '?'} more buns for the tray with ${FIRST}`, 'Count the empty places on a tray of 10: that many more make 10.'],
