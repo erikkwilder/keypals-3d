@@ -179,7 +179,7 @@
       {/snippet}
       {#if !ticket && waits.length}
         <div class="waits">
-          {#each waits as w (w.name)}<p class="lead isyou">{w.name}, you're waiting for your teacher's yes.</p>{/each}
+          {#each waits as w (w.name)}<p class="lead isyou">{w.name}, you're waiting for your teacher's yes. After your teacher says yes, sign in with Google.</p>{/each}
           {#if cloud.google}<button class="btn btn-big gbtn" onclick={() => { sfx.click(); studentGoogle(code); }}>Sign in with Google</button>
           {:else if dev}{#each waits as w (w.name)}<button class="btn" onclick={() => studentGoogleDev(w.name, code)}>Sign in as a test student</button>{/each}{/if}
         </div>

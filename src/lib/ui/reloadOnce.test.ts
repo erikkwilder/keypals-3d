@@ -1,7 +1,8 @@
 // A page that asks for code files a publish just removed reloads by itself, once: online only, and at most
 // once in five minutes (so a page that still can't load stops and shows "This part didn't load").
 import { describe, expect, it } from 'vitest';
-import { KEY, WINDOW, reloadForUpdate, type ReloadEnv } from './reloadOnce';
+import { readFileSync } from 'node:fs';
+import { KEY, WINDOW, reloadForUpdate, reloadIfOnline, type ReloadEnv } from './reloadOnce';
 
 function env(o: { online?: boolean; t?: number; stored?: string | null; noStore?: boolean } = {}) {
   const box: Record<string, string> = {};
@@ -42,5 +43,24 @@ describe('reloading once for an update', () => {
     const x = env({ noStore: true });
     expect(reloadForUpdate(x.e)).toBe(false);
     expect(x.reloads()).toBe(0);
+  });
+});
+
+describe('a second "Try again" on "This part didn\'t load"', () => {
+  it('reloads the page when online', () => {
+    const x = env({ online: true });
+    expect(reloadIfOnline(x.e)).toBe(true);
+    expect(x.reloads()).toBe(1);
+  });
+  it('leaves the page where it is with no internet', () => {
+    const x = env({ online: false });
+    expect(reloadIfOnline(x.e)).toBe(false);
+    expect(x.reloads()).toBe(0);
+  });
+  it('is how the card reloads, and the card says the connection is gone', () => {
+    const card = readFileSync(new URL('./Loading.svelte', import.meta.url), 'utf8');
+    expect(card).toMatch(/if \(\+\+tries > 1 && reloadIfOnline\(\)\) return;\s*retry\?\.\(\);/);
+    expect(card).not.toMatch(/location\.reload/);
+    expect(card).toContain("No internet right now. Your game is safe. Try again when it's back.");
   });
 });

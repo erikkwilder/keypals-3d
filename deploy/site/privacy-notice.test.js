@@ -39,4 +39,38 @@ describe('the privacy notice says what the server does', () => {
     expect(CLASS_TABLES).toHaveProperty('account_domains');
     expect(backups).toContain("school's web address");
   });
+  it('says what a class against class challenge shows the other classes', () => {
+    // challengeView: each class's name, how many students and the average; never a student, or another class's id
+    expect(classes).toMatch(/\.map\(x => \(\{ id: x\.id, name: x\.name, students: x\.n, avg: /);
+    expect(text).toContain("the other classes in it see that class's name, how many students it has and its average of right answers, never a student's name.");
+  });
+  it('says what anyone with a class code sees', () => {
+    expect(classes).toContain("return h.json({ class: { name: c.name, grade: c.grade, teacher: c.display ?? 'Your teacher', google }, students: (st.results ?? []).map(s => ({ id: s.id, name: s.name, buddy: s.buddy })) });");
+    expect(text).toContain("Anyone who has a class code can see that class's name and grade, its teacher's name and its students' first names and buddies");
+  });
+  it("says a teacher sees each student's saved progress and whether they have logged in", () => {
+    expect(classes).toMatch(/"loggedIn":\$\{[^}]*\},"profile":\$\{x\.data\}/);
+    expect(text).toContain("A teacher sees each student's progress in the game and their class work, and whether they have logged in yet.");
+  });
+  it('says what linking a player from home shows the teacher', () => {
+    // the home player's nickname waits with the claim, the teacher's page is sent every student's player, and
+    // after her yes the classmate plays as the family's player
+    expect(classes).toContain("WHERE s.class = ? AND s.status = 'pending' AND s.claims IS NOT NULL");
+    expect(classes).toContain("FROM students s JOIN players p ON p.code = s.player WHERE s.class = ?').bind(c.id)");
+    expect(classes).toContain('UPDATE students SET player = ?, home = 1');
+    expect(text).toContain("A family can ask to link a player from home to a class: that class's teacher can then see the player's nickname and progress, and after the teacher's yes its progress from home and school is kept together.");
+  });
+  it("deletes a request nobody answered after the days it says", () => {
+    const days = Number(classes.match(/DELETE FROM students WHERE status = 'pending' AND created < \?"\)\.bind\(now - (\d+) \* DAY\)/)?.[1]);
+    expect(days).toBe(60);
+    expect(text).toContain(`is deleted after ${days} days if the teacher hasn't answered.`);
+  });
+  it('says what is kept of a student who signs in with Google, and that a child at home gives none of it', () => {
+    // a ticket with the hashed id, the first name and the school domain, for ten minutes; no email, no full name
+    expect(classes).toContain('INSERT INTO google_tickets (hash, gid, name, hd, expires) VALUES (?, ?, ?, ?, ?)');
+    expect(classes).toMatch(/googleKey = \(h, sub\) => h\.sha256\(/);
+    expect(classes).not.toMatch(/me\.email/);
+    expect(text).toContain("we keep only the student's first name and a scrambled form of the account's ID, never the email address or the full name.");
+    expect(text).toContain('A child playing at home, or logging in to a class with a class code and two pictures, never gives us an email, full name, birthday, photo, voice or location.');
+  });
 });

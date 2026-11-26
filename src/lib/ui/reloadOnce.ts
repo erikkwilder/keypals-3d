@@ -25,3 +25,12 @@ export function reloadForUpdate(env: ReloadEnv = browser()): boolean {
   env.reload();
   return true;
 }
+
+/** The second "Try again" on "This part didn't load" (ui/Loading.svelte): a fresh page, but only when online.
+ *  With no internet the page stays (a reload would leave the child on the browser's own "no internet" page, the
+ *  game gone); true when it reloaded. */
+export function reloadIfOnline(env: Pick<ReloadEnv, 'online' | 'reload'> = browser()): boolean {
+  if (!env.online()) return false;
+  env.reload();
+  return true;
+}

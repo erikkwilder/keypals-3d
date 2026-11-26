@@ -296,7 +296,7 @@
               </div>
             {/if}
           {:else if cloud.google || cloud.microsoft}
-            <p class="muted small">Sign in to keep all your players together and bring them to any computer in one go, with no codes to remember. Children don't sign in or give an email.</p>
+            <p class="muted small">Sign in to keep all your players together and bring them to any computer in one go, with no codes to remember. Children at home don't sign in or give an email. A student in a class with Google sign-in on signs in with Google: we keep only their first name and a scrambled ID, never the email.</p>
             <div class="row">
               {#if cloud.google}<button class="btn btn-primary" onclick={() => signIn('google')}>Sign in with Google</button>{/if}
               {#if cloud.microsoft}<button class="btn" onclick={() => signIn('microsoft')}>Sign in with Microsoft</button>{/if}

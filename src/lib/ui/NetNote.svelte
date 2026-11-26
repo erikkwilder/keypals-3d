@@ -11,10 +11,10 @@
 </script>
 
 <div class="net" role="status">
-  {#if net.down}<p>No internet right now. Keep playing: your progress is kept on this computer.</p>{/if}
+  {#if net.down}<p>No internet right now. Keep playing: your game is saved on this computer.</p>{/if}
 </div>
 
 <style>
   .net { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 166px); left: calc(env(safe-area-inset-left, 0px) + 12px); z-index: 95; pointer-events: none; }
-  p { margin: 0; max-width: min(250px, calc(100vw - 24px)); padding: 7px 12px; border-radius: 14px; background: rgba(255, 255, 255, .94); color: var(--ink); font: 700 13px/1.3 var(--font-body); box-shadow: 0 2px 10px rgba(0, 0, 0, .18); }
+  p { margin: 0; max-width: min(250px, calc(100vw - 24px)); padding: 7px 12px; border-radius: 14px; background: rgba(255, 255, 255, .94); color: var(--ink); font: 700 16px/1.3 var(--font-body); box-shadow: 0 2px 10px rgba(0, 0, 0, .18); }
 </style>

@@ -43,7 +43,7 @@ describe("waiting for the teacher's yes", () => {
   });
   it('on a later visit to the class, or a reload, she reads that she waits, with Google to check again', () => {
     const step = between("{:else if step === 'name'", "{:else if step === 'pics'");
-    expect(step).toMatch(/\{#if !ticket && waits\.length\}[\s\S]*\{w\.name\}, you're waiting for your teacher's yes\.[\s\S]*Sign in with Google/);
+    expect(step).toMatch(/\{#if !ticket && waits\.length\}[\s\S]*\{w\.name\}, you're waiting for your teacher's yes\. After your teacher says yes, sign in with Google\.[\s\S]*Sign in with Google/);
     expect(between('async function find', 'onMount(() =>')).toMatch(/waits = ticket \? \[\] : waitingIn\(code\);\s*showingWaiting\(waits\.length \? code : null\)/);
     const boot = readFileSync(new URL('../teach/student.svelte.ts', import.meta.url), 'utf8');
     expect(boot).toMatch(/const waitingClass = linked \? null : backToWaiting\(\);\s*if \(waitingClass\) \{ classState\.loginCode = waitingClass; game\.go\('classLogin'\); \}/);

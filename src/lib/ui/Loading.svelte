@@ -2,6 +2,8 @@
   // While a screen's code is still on its way (ui/lazy.svelte.ts): nothing for a moment (most screens
   // arrive in a blink), then a gentle "Loading..." card; if the download fails, a way to try again.
   import { onDestroy, onMount } from 'svelte';
+  import { net } from '../state/net.svelte';
+  import { reloadIfOnline } from './reloadOnce';
   type Props = { failed?: boolean; retry?: () => void };
   let { failed = false, retry }: Props = $props();
   let shown = $state(false);
@@ -9,8 +11,15 @@
   let t: ReturnType<typeof setTimeout> | undefined;
   onMount(() => { t = setTimeout(() => (shown = true), 350); });
   onDestroy(() => clearTimeout(t));
-  // a second failure usually means the game was updated while this page was open: a fresh page fixes it
-  function again() { if (++tries > 1) location.reload(); else retry?.(); }
+  let offline = $state(false);
+  // a second failure usually means the game was updated while this page was open: a fresh page fixes it. Not
+  // with no internet: a reload would put the browser's own "no internet" page where the game is, so the page
+  // stays, says the connection is gone, and tries again (reloadOnce.ts)
+  function again() {
+    offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    if (++tries > 1 && reloadIfOnline()) return;
+    retry?.();
+  }
 </script>
 
 {#if shown || failed}
@@ -18,7 +27,7 @@
     <div class="card">
       {#if failed}
         <b>This part didn't load</b>
-        <p>Check the internet, then try again.</p>
+        <p>{offline || net.down ? "No internet right now. Your game is safe. Try again when it's back." : 'Check the internet, then try again.'}</p>
         <button class="btn btn-primary" onclick={again}>Try again</button>
       {:else}
         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>

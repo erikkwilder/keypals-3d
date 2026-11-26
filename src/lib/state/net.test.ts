@@ -7,7 +7,7 @@ import type { Profile } from '../engine/profile';
 import { keepClips } from '../audio/keep';
 import { net, requestAnswered, requestFailed, watchNet } from './net.svelte';
 
-const NOTE = 'No internet right now. Keep playing: your progress is kept on this computer.';
+const NOTE = 'No internet right now. Keep playing: your game is saved on this computer.';
 
 describe('when the connection is gone', () => {
   it('the browser says so: offline, then online', () => {
