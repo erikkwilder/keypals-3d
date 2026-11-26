@@ -242,7 +242,7 @@ async function check(t: Teller, w: EquationWorld, notes: Notes | null) {
 
 export const EQUATION_LESSON: BeatLesson<EquationWorld> = {
   id: 'alg-two-step', title: 'Mystery Bags', blurb: 'Take the same off both sides, then share each side: 2x + 3 = 11.', set: 'lab', star: 'cometcat', color: '#8f6bff',
-  art: 'math/algebra/tile.webp', beats: 8,
+  art: 'math/algebra/tile.webp', voice: 'eq', beats: 8,
   world: async (sc: EpisodeScene) => { const { BalanceKit } = await import('../../three/balanceKit'); return new BalanceKit(sc); },
   play, check,
   card: n => [`Your first guess: ${n.first ?? '?'}`, 'Whatever comes off one side comes off the other, then each side is shared into equal parts, and the balance stays level.'],

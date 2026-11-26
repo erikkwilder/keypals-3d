@@ -270,7 +270,7 @@ async function check(t: Teller, w: ShareWorld, notes: Notes | null) {
 
 export const SHARE_LESSON: BeatLesson<ShareWorld> = {
   id: 'frac-one-piece', title: 'Fair Shares', blurb: 'One of 4 equal pieces is 1/4. Cut the same bar into more pieces and each one is smaller.', set: 'workshop', star: 'pebbletort', color: '#b8743a',
-  art: 'learn/frac/card-choc.webp', beats: 9, keys: false,
+  art: 'learn/frac/card-choc.webp', voice: 'share', beats: 9, keys: false,
   world: async (sc: EpisodeScene) => { const { ShareKit } = await import('../../three/shareKit'); return new ShareKit(sc); },
   play, check,
   card: n => [n.fair ? 'Your first cut was fair: every piece the same.' : `Your first cut gave pieces from ${n.small ?? '?'} to ${n.big ?? '?'} squares long.`,
