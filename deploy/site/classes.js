@@ -459,7 +459,11 @@ export async function classApi(request, env, url, path, h) {
           let name = null; try { const d = JSON.parse(x.data); name = typeof d?.name === 'string' ? cleanStudentName(d.name) : null; } catch { /* no name to show */ }
           return [x.id, name];
         }));
-        const students = (st.results ?? []).map(s => ({ id: s.id, name: s.name, pics: picsOf(s.pics), home: !!s.home, status: s.status, claims: s.claims, buddy: s.buddy, created: s.created, google: google.has(s.id), ...(s.claims ? { homeName: homeNames.get(s.id) ?? null } : {}) }));
+        // one still waiting for the teacher's yes is sent with only what the waiting list shows and counts: who
+        // is asking and how. Its pictures, its buddy and its date come once she has said yes, like its saved
+        // player (/profiles, below)
+        const students = (st.results ?? []).map(s => ({ id: s.id, name: s.name, home: !!s.home, status: s.status, claims: s.claims, google: google.has(s.id), ...(s.claims ? { homeName: homeNames.get(s.id) ?? null } : {}),
+          ...(s.status === 'active' ? { pics: picsOf(s.pics), buddy: s.buddy, created: s.created } : {}) }));
         const settings = await settingsOf(env, c.id, c.teacher);
         const assignments = inOrder((as.results ?? []).map(a => ({ id: a.id, ...JSON.parse(a.data), created: a.created, archived: !!a.archived })), settings.order);
         return h.json({ class: classView(c), students, assignments, week: week ? await classWeek(env, c.id, week) : [], challenge: await challengeOf(env, c.id), settings, teacher: { status: await statusOf(env, acct), domain: await domainOf(env, acct) } });
@@ -511,8 +515,9 @@ export async function classApi(request, env, url, path, h) {
       if (rest === '/profiles' && method === 'GET') {
         // every student's progress for the reports, as saved (sent on as it is: not read here), and whether she
         // has ever logged in: a class player the roster made isn't opened until its child logs in (a player
-        // linked from home has been played)
-        const r = await DB.prepare('SELECT s.id, s.home, p.data, p.updated, p.created, p.opened FROM students s JOIN players p ON p.code = s.player WHERE s.class = ?').bind(c.id).all();
+        // linked from home has been played). Only students in the class: a player still waiting for the teacher's
+        // yes is not sent (a family's saved player is theirs alone until she has said yes)
+        const r = await DB.prepare("SELECT s.id, s.home, p.data, p.updated, p.created, p.opened FROM students s JOIN players p ON p.code = s.player WHERE s.class = ? AND s.status = 'active'").bind(c.id).all();
         const parts = (r.results ?? []).map(x => `{"id":${JSON.stringify(x.id)},"updated":${Number(x.updated)},"loggedIn":${!!x.home || Number(x.opened) > Number(x.created)},"profile":${x.data}}`);
         return new Response(`{"students":[${parts.join(',')}]}`, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
       }
@@ -597,6 +602,13 @@ export async function classApi(request, env, url, path, h) {
           if (text.length > 400000) return h.fail(400, 'That progress is too big to combine.');
           const row = await DB.prepare('SELECT updated FROM players WHERE code = ?').bind(s.player).first();
           if (row) st.push(DB.prepare('UPDATE players SET data = ?, updated = ? WHERE code = ?').bind(text, Math.max(Date.now(), row.updated + 1), s.player));
+        } else if (body.combined !== false) {
+          // the two players are put together in the teacher's browser, which is sent the family's saved player
+          // only now, in answer to her yes (never with the class's page while the request waits). Nothing changes
+          // yet: the game sends this again with the combined progress, or with { combined: false } when it can't
+          // combine them (then the classmate plays on as the family's player as it is)
+          const row = await DB.prepare('SELECT data FROM players WHERE code = ?').bind(s.player).first();
+          if (row) return new Response(`{"combine":{"student":${JSON.stringify(s.id)},"claims":${JSON.stringify(was.id)},"profile":${row.data}}}`, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
         }
         if (!was.home) st.push(DB.prepare('DELETE FROM players WHERE code = ? AND account IS NULL').bind(was.player));
         st.push(DB.prepare('UPDATE students SET player = ?, home = 1, buddy = COALESCE(?, buddy) WHERE id = ?').bind(s.player, s.buddy, was.id));

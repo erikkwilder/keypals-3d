@@ -1,7 +1,7 @@
 // The classes server (deploy/site/classes.js) run end to end through worker.js, on a real SQLite with the
 // real schema: class codes, rosters, the picture-password login and its limits, class work, the boards,
 // families linking a player from home, deleting, and what's kept about a child.
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import worker from '../../../deploy/site/worker.js';
 import { newClassCode, newPics, cleanAssignment, PIC_TRIES } from '../../../deploy/site/classes.js';
 import { CLASS_WORDS, cleanStudentName, splitNames, isAlias, PICTURE_COUNT } from '../../../deploy/site/class-rules.js';
@@ -345,6 +345,44 @@ describe('families linking a player from home', () => {
     expect(again.json.code).toBe(home);
     expect(again.json.profile.combined).toBe(true);
     expect(env.DB.rows('students')).toHaveLength(2);
+  });
+  it('"this is Maria" in the teacher\'s game: the family\'s saved player comes only in answer to her yes, and the two are put together then', async () => {
+    const cookie = await teacher();
+    const c = await classWith(cookie, 'Maria\nSam');
+    const maria = c.students[0];
+    const schoolCode = (await login(c.code, maria.id, maria.pics)).json.code;
+    const home = (await call('POST', '/players', { profile: { name: 'Mimi', buddy: 'koala' } })).json.code;
+    expect((await call('POST', '/class/link', { code: c.code, player: home, claims: maria.id, pics: maria.pics })).json.status).toBe('pending');
+    // the game's own calls, sent to this server as the teacher
+    const sent: { method: string; path: string; body: any; got: any }[] = [];
+    vi.stubGlobal('fetch', async (u: string, init: RequestInit = {}) => {
+      const method = init.method ?? 'GET', path = String(u).replace(/^api/, '');
+      const r = await call(method, path, method === 'GET' ? undefined : JSON.parse(String(init.body ?? '{}')), { cookie });
+      sent.push({ method, path, body: init.body ? JSON.parse(String(init.body)) : undefined, got: r.json });
+      return new Response(r.text, { status: r.status, headers: { 'content-type': 'application/json' } });
+    });
+    try {
+      const { teach, openClass, approve } = await import('./teacher.svelte');
+      await openClass(c.id);
+      await vi.waitFor(() => expect(teach.profilesFor).toBe(c.id));
+      const ask = teach.current!.students.find(s => s.status === 'pending')!;
+      // while it waits: who is asking, and no saved player of the family's
+      expect(ask).toEqual({ id: ask.id, name: 'Maria', home: true, status: 'pending', claims: maria.id, google: false, homeName: 'Mimi' });
+      expect(Object.keys(teach.profiles).sort()).toEqual(c.students.map(s => s.id).sort());
+      sent.length = 0;
+      await approve(ask);
+      const yes = sent.filter(x => x.method === 'POST' && x.path === `/teach/students/${ask.id}/approve`);
+      expect(yes.map(x => Object.keys(x.body))).toEqual([[], ['profile']]);
+      expect(yes[0].got.combine.profile.name).toBe('Mimi');
+      expect(yes[1].got).toEqual({ ok: true, merged: maria.id });
+      expect(teach.current!.students.map(s => [s.name, s.status, s.home])).toEqual([['Maria', 'active', true], ['Sam', 'active', false]]);
+    } finally { vi.unstubAllGlobals(); }
+    // Maria plays as the family's player, with what the game combined; the class's player is gone
+    expect(env.DB.rows('players').some(p => p.code === schoolCode)).toBe(false);
+    const again = await login(c.code, maria.id, maria.pics);
+    expect(again.json.code).toBe(home);
+    expect(JSON.parse(String(env.DB.rows('players').find(p => p.code === home)!.data))).toEqual(sent.find(x => x.body?.profile)!.body.profile);
+    expect(again.json.profile.name).toBe('Mimi');
   });
 });
 

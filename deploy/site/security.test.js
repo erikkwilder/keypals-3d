@@ -516,6 +516,83 @@ describe('classes: other teachers, children, outsiders', () => {
     expect((await s.api(`/class/${c.code}/login`, { method: 'POST', body: { student: maria.id, pics: maria.pair } })).json.code).toBe(maria.player);
     expect(s.count("SELECT count(*) AS n FROM students WHERE status = 'pending'")).toBe(1);
   });
+
+  /** what the teacher's page is sent for a class: the roster, every saved player, and both answers as text */
+  const teachersPage = async (s, t, c) => {
+    const cls = await s.api(`/teach/classes/${c.id}?week=${WEEK}`, { cookie: t.token }), saved = await s.api(`/teach/classes/${c.id}/profiles`, { cookie: t.token });
+    return { students: cls.json.students, saved: saved.json.students, text: cls.text + saved.text };
+  };
+  const savePlayer = async (s, name) => (await s.api('/players', { method: 'POST', body: { profile: { name, buddy: 'dino', earned: `${name}-saved-game` } }, ip: FAMILY })).json.code;
+
+  it("a family's request to link a player from home sends the teacher only who is asking: the child's saved player, buddy and pictures come after her yes, and nothing after her no", async () => {
+    const s = site();
+    const t = await s.teacher();
+    const c = await s.classWith(t);
+    const lulu = await savePlayer(s, 'Lulu'), noor = await savePlayer(s, 'Noor');
+    for (const [player, name] of [[lulu, 'Lulu'], [noor, 'Noor']]) {
+      expect((await s.api('/class/link', { method: 'POST', body: { player, code: c.code, name }, ip: FAMILY })).json).toEqual({ ok: true, status: 'pending', class: { name: 'Room 12' } });
+    }
+    // waiting: who is asking and how, and no more. No saved player, buddy, pictures or date
+    let page = await teachersPage(s, t, c);
+    const asks = page.students.filter(x => x.status === 'pending'), [luluAsk, noorAsk] = asks;
+    expect(asks).toEqual(['Lulu', 'Noor'].map((name, i) => ({ id: asks[i].id, name, home: true, status: 'pending', claims: null, google: false })));
+    expect(page.saved.map(x => x.id).sort()).toEqual(c.rows.map(r => r.id).sort());
+    expect(page.text).not.toContain('saved-game');
+    // and the family, while it waits, is told the class's name and the teacher's, nothing of the class's children
+    expect((await s.api(`/class/student/${lulu}?week=${WEEK}`, { ip: FAMILY })).json).toEqual({ classes: [], pending: [{ id: c.id, name: 'Room 12', teacher: 'Ms. Rivera' }] });
+    // the students already in the class come as they always did
+    const maria = c.rows.find(r => r.name === 'Maria');
+    expect(page.students.find(x => x.id === maria.id)).toEqual({ id: maria.id, name: 'Maria', home: false, status: 'active', claims: null, google: false, pics: maria.pair, buddy: expect.any(String), created: expect.any(Number) });
+    expect(page.saved.find(x => x.id === maria.id)).toEqual({ id: maria.id, updated: expect.any(Number), loggedIn: false, profile: expect.objectContaining({ name: 'Maria' }) });
+
+    // yes to Lulu, no to Noor
+    expect((await s.api(`/teach/students/${luluAsk.id}/approve`, { method: 'POST', body: {}, cookie: t.token })).json).toEqual({ ok: true });
+    expect((await s.api(`/teach/students/${noorAsk.id}`, { method: 'DELETE', cookie: t.token })).status).toBe(200);
+    page = await teachersPage(s, t, c);
+    expect(page.students.find(x => x.id === luluAsk.id)).toEqual({ id: luluAsk.id, name: 'Lulu', home: true, status: 'active', claims: null, google: false, pics: [expect.any(Number), expect.any(Number)], buddy: 'dino', created: expect.any(Number) });
+    expect(page.saved.find(x => x.id === luluAsk.id)).toEqual({ id: luluAsk.id, updated: expect.any(Number), loggedIn: true, profile: expect.objectContaining({ name: 'Lulu', earned: 'Lulu-saved-game' }) });
+    // turned down: nothing of Noor is sent to the teacher, the family's player is still theirs, and it is in no class
+    expect(page.students.map(x => x.name).sort()).toEqual(['Ana', 'Lulu', 'Maria', 'Sam']);
+    expect(page.saved).toHaveLength(4);
+    expect(page.text).not.toContain('Noor');
+    expect(s.count('SELECT count(*) AS n FROM players WHERE code = ?', noor)).toBe(1);
+    expect((await s.api(`/class/student/${noor}?week=${WEEK}`, { ip: FAMILY })).json).toEqual({ classes: [], pending: [] });
+  });
+
+  it("a family's claim to a classmate waits the same way: its saved player is sent to the teacher only in answer to her yes, to be put together with the classmate's, and nothing changes until the two come back", async () => {
+    const s = site();
+    const t = await s.teacher();
+    const c = await s.classWith(t);
+    const maria = c.rows.find(r => r.name === 'Maria'), sam = c.rows.find(r => r.name === 'Sam');
+    const mimi = await savePlayer(s, 'Mimi'), sammy = await savePlayer(s, 'Sammy');
+    for (const [player, who] of [[mimi, maria], [sammy, sam]]) {
+      expect((await s.api('/class/link', { method: 'POST', body: { player, code: c.code, claims: who.id, pics: who.pair }, ip: FAMILY })).json.status).toBe('pending');
+    }
+    const page = await teachersPage(s, t, c);
+    const ask = page.students.find(x => x.claims === maria.id), ask2 = page.students.find(x => x.claims === sam.id);
+    expect(ask).toEqual({ id: ask.id, name: 'Maria', home: true, status: 'pending', claims: maria.id, google: false, homeName: 'Mimi' });
+    expect(page.saved.map(x => x.id).sort()).toEqual(c.rows.map(r => r.id).sort());
+    expect(page.text).not.toContain('saved-game');
+    // her yes: the family's saved player comes back to be combined, and nothing has changed yet
+    const yes = await s.api(`/teach/students/${ask.id}/approve`, { method: 'POST', body: {}, cookie: t.token });
+    expect(yes.json).toEqual({ combine: { student: ask.id, claims: maria.id, profile: expect.objectContaining({ name: 'Mimi', earned: 'Mimi-saved-game' }) } });
+    expect(yes.headers.get('cache-control')).toBe('no-store');
+    expect(s.count("SELECT count(*) AS n FROM students WHERE status = 'pending'")).toBe(2);
+    expect(s.count('SELECT count(*) AS n FROM players WHERE code = ?', maria.player)).toBe(1);
+    // another teacher's yes gets nothing
+    const other = await s.teacher('Mr. Okafor');
+    expect((await s.api(`/teach/students/${ask.id}/approve`, { method: 'POST', body: {}, cookie: other.token })).status).toBe(404);
+    // the two put together: Maria plays as the family's player with the combined progress, and the class's player goes
+    expect((await s.api(`/teach/students/${ask.id}/approve`, { method: 'POST', body: { profile: { name: 'Mimi', buddy: 'dino', earned: 'both' } }, cookie: t.token })).json).toEqual({ ok: true, merged: maria.id });
+    const login = await s.api(`/class/${c.code}/login`, { method: 'POST', body: { student: maria.id, pics: maria.pair } });
+    expect([login.json.code, login.json.profile.earned]).toEqual([mimi, 'both']);
+    expect(s.count('SELECT count(*) AS n FROM players WHERE code = ?', maria.player)).toBe(0);
+    // a game that can't combine them says so, and Sam plays on as the family's player as it is
+    expect((await s.api(`/teach/students/${ask2.id}/approve`, { method: 'POST', body: { combined: false }, cookie: t.token })).json).toEqual({ ok: true, merged: sam.id });
+    const login2 = await s.api(`/class/${c.code}/login`, { method: 'POST', body: { student: sam.id, pics: sam.pair } });
+    expect([login2.json.code, login2.json.profile.earned]).toEqual([sammy, 'Sammy-saved-game']);
+    expect(s.count("SELECT count(*) AS n FROM students WHERE status = 'pending'")).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------

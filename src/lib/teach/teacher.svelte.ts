@@ -13,6 +13,8 @@ import { classUrl } from './names';
 
 export type ClassSummary = { id: string; name: string; grade: number; code: string; board: boolean; goal: number; archived: boolean; created: number; students?: number; pending?: number };
 /** `google`: the student signs in with their school Google account too */
+/** A student on the roster. One still waiting for the teacher's yes (status 'pending') comes with only what the
+ *  waiting list shows: no pics, buddy or created until she has said yes (deploy/site/classes.js). */
 export type Student = { id: string; name: string; pics: number[]; home: boolean; status: 'active' | 'pending'; claims: string | null; buddy: string | null; created: number; google?: boolean;
   /** a family's claim to a classmate: the home player's own nickname, as saved (cleaned as the list's names are) */
   homeName?: string | null };
@@ -132,13 +134,17 @@ export async function removeStudent(id: string) {
 /** A family's request: yes. If they said the player is a classmate already here, the two players' progress
  *  is combined first (nothing earned on either is lost), and that classmate plays as the family's player. */
 export async function approve(s: Student) {
-  let profile: Profile | undefined;
-  if (s.claims) {
-    await loadProfiles(true);
-    const home = teach.profiles[s.id], school = teach.profiles[s.claims];
+  const path = `/teach/students/${s.id}/approve`;
+  if (s.claims) await loadProfiles(true);
+  // (the family's saved player isn't sent with the class while it waits: the server sends it in answer to this
+  // yes, to be combined here, and the yes is sent again with the two put together)
+  const r = await send<{ combine?: { profile: Record<string, unknown> } }>(path, 'POST', {});
+  if (s.claims && r.combine) {
+    const home = migrate({ version: 1, activeId: null, profiles: [{ ...r.combine.profile, id: s.id }] }).profiles[0] ?? null, school = teach.profiles[s.claims];
+    let profile: Profile | undefined;
     if (home && school) { const { id: _id, cloud: _c, ...rest } = mergeProfile(home, school, null); profile = rest as Profile; }
+    await send(path, 'POST', profile ? { profile } : { combined: false });
   }
-  await send(`/teach/students/${s.id}/approve`, 'POST', profile ? { profile } : {});
   await refreshClass();
   void loadProfiles(true);
 }
