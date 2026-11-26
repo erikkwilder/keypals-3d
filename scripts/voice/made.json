@@ -5767,7 +5767,7 @@
  "ep.share.buddy.ask": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "c2988da84e"
+  "h": "8115275241"
  },
  "ep.share.buddy.no": {
   "engine": "local",
@@ -5787,7 +5787,7 @@
  "ep.share.call": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "a1486e05cb"
+  "h": "2b17e90d61"
  },
  "ep.share.call.half": {
   "engine": "local",
@@ -5867,7 +5867,7 @@
  "ep.share.eighth.why": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "1eae4254e0"
+  "h": "b027ecb9e5"
  },
  "ep.share.eighth.you": {
   "engine": "local",
@@ -5898,6 +5898,11 @@
   "engine": "local",
   "voice": "coach-exclaim",
   "h": "b42b9d8bd9"
+ },
+ "ep.share.hint.again": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "2a5b1059be"
  },
  "ep.share.intro": {
   "engine": "local",
@@ -5962,7 +5967,7 @@
  "ep.share.try.again": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "e03eeeb353"
+  "h": "f25a46f434"
  },
  "ep.share.try.buddy": {
   "engine": "local",
@@ -5977,17 +5982,17 @@
  "ep.share.try.last": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "30fe533742"
+  "h": "0da19305e3"
  },
  "ep.share.try.name": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "408b22131b"
+  "h": "c99a6789d1"
  },
  "ep.share.try.pal": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "f5debb12fe"
+  "h": "af8b010f22"
  },
  "ep.share.try.six": {
   "engine": "local",
@@ -5997,12 +6002,12 @@
  "ep.share.try.test": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "719cba54f6"
+  "h": "03941412a9"
  },
  "ep.share.try.together": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "a5aea0337f"
+  "h": "a0fe58080a"
  },
  "ep.share.try.two": {
   "engine": "local",
@@ -6068,6 +6073,11 @@
   "engine": "local",
   "voice": "coach-exclaim",
   "h": "f8d5f5c227"
+ },
+ "ep.share.unfair.again": {
+  "engine": "local",
+  "voice": "coach-exclaim",
+  "h": "21badd9c9a"
  },
  "ep.share.which": {
   "engine": "local",

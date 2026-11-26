@@ -208,12 +208,8 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
       expect(stillStretches(screenOf(p.log), wordsOf)).toEqual([]);
     }
   });
-  // (the rest of the lesson is still to be given its pictures: these are the still stretches left in it, and no
-  // others. Take each one out of this list as its picture is built, until both lists are empty)
-  it('the still stretches left after one fourth is named are these and no others (rule 37, still to build)', async () => {
-    expect(await still(RIGHT, 'rest')).toEqual(['ep.share.buddy.no, ep.share.buddy.why', 'ep.share.eighth.why', 'ep.share.two.have, ep.share.two.ask']);
-    expect(await still(WRONG, 'rest')).toEqual(['ep.share.buddy.yes, ep.share.buddy.why', 'ep.share.eighth.why', 'ep.share.call.squares, ep.share.call.why',
-      'ep.share.two.have, ep.share.two.ask', 'ep.share.two.six, ep.share.two.top']);
+  it('nor from there to the end: the buddy\'s pieces, the eighth, the names of a third and of two thirds (rule 37)', async () => {
+    for (const kid of Object.values(kids)) expect(await still(kid, 'rest')).toEqual([]);
   });
   it('a line with its pictures says so in the record, and the pieces go back together as the narrator says they do', async () => {
     const p = pretend({ cuts: WRONG.cuts.map(x => [...x]), taps: [...WRONG.taps], picks: [...WRONG.picks] });

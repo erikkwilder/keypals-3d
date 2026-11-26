@@ -1129,15 +1129,15 @@
   },
   "ep.share.try.again": {
     "voice": "coach",
-    "ms": 5682
+    "ms": 4390
   },
   "ep.share.try.together": {
     "voice": "coach",
-    "ms": 6206
+    "ms": 5009
   },
   "ep.share.try.last": {
     "voice": "coach",
-    "ms": 5612
+    "ms": 4570
   },
   "ep.share.fair": {
     "voice": "coach",
@@ -1150,6 +1150,10 @@
   "ep.share.unfair": {
     "voice": "coach",
     "ms": 11930
+  },
+  "ep.share.unfair.again": {
+    "voice": "coach",
+    "ms": 8970
   },
   "ep.share.again": {
     "voice": "coach",
@@ -1209,11 +1213,11 @@
   },
   "ep.share.buddy.ask": {
     "voice": "coach",
-    "ms": 7514
+    "ms": 6186
   },
   "ep.share.try.test": {
     "voice": "coach",
-    "ms": 8217
+    "ms": 4405
   },
   "ep.share.buddy.yes": {
     "voice": "coach",
@@ -1237,7 +1241,7 @@
   },
   "ep.share.try.pal": {
     "voice": "coach",
-    "ms": 9459
+    "ms": 8501
   },
   "ep.share.eighth.you": {
     "voice": "coach",
@@ -1253,7 +1257,7 @@
   },
   "ep.share.eighth.why": {
     "voice": "coach",
-    "ms": 11805
+    "ms": 7563
   },
   "ep.share.last": {
     "voice": "coach",
@@ -1263,13 +1267,17 @@
     "voice": "coach",
     "ms": 11260
   },
+  "ep.share.hint.again": {
+    "voice": "coach",
+    "ms": 7094
+  },
   "ep.share.call": {
     "voice": "coach",
-    "ms": 5782
+    "ms": 3672
   },
   "ep.share.try.name": {
     "voice": "coach",
-    "ms": 6098
+    "ms": 3208
   },
   "ep.share.call.squares": {
     "voice": "coach",

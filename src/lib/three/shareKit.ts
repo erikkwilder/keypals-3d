@@ -17,7 +17,7 @@ import type { EpisodeScene } from './episodeScene';
 import type { Pin } from '../math/beats/types';
 import type { ShareWorld } from '../math/beats/shareLesson';
 import { fairCuts, piecesOf } from '../math/beats/share';
-import { ROUND, squareSize } from './shareBar';
+import { ACROSS, ROUND, THICK, squareSize } from './shareBar';
 import { bSfx } from '../math/beats/sounds';
 
 /** where things sit on the board: the bar's row, the first plate's row, the gap between plates, the parting at a cut */
@@ -50,7 +50,7 @@ type Fly = { m: THREE.Mesh; from: THREE.Vector3; off: THREE.Vector3; sc0: THREE.
 type GAt = { x: number; w: number; h: number; o: number };
 type Ghost = { m: THREE.Mesh; from: GAt; to: GAt; t0: number; dur: number };
 /** the level line: from x0, this long, in front of the standing pieces, at the top of a piece `top` squares tall */
-type Rod = { x0: number; len: number; y: number; top: number; sq: number; t0: number };
+type Rod = { x0: number; len: number; y: number; top: number; sq: number; t0: number; flat?: boolean };
 
 export class ShareKit implements ShareWorld {
   readonly root = new THREE.Group();
@@ -212,8 +212,10 @@ export class ShareKit implements ShareWorld {
     bSfx.clack();
     await this.wait(900);
     const b = this.bar;
-    // (on a phone the bar is as wide as the screen, so its number stands behind its middle)
-    this.pin({ id: 'count', text: `${squares} squares`, kind: 'count', at: () => this.tall ? this.world({ x: CX, y: BAR_Y - b.sq * 1.4, up: b.sq * 0.6 * this.s }) : this.world({ x: this.left(b) - b.sq * 1.8, y: BAR_Y, up: b.sq * 0.6 * this.s }) });
+    // (on a phone the bar is as wide as the screen, so its number stands in front of its middle, on the table.
+    // It stood behind it, which is where the plates are: it covered them as they were named, and the pretend
+    // pieces and the pretend bar that go with the opening's words)
+    this.pin({ id: 'count', text: `${squares} squares`, kind: 'count', at: () => this.tall ? this.world({ x: CX, y: BAR_Y + b.sq / 2 + 58, up: 0.004 }) : this.world({ x: this.left(b) - b.sq * 1.8, y: BAR_Y, up: b.sq * 0.6 * this.s }) });
   }
   async plates(n: number, owners?: string[]) {
     this.dropTrays();
@@ -329,18 +331,23 @@ export class ShareKit implements ShareWorld {
     groups.forEach((js, i) => { for (const j of js) this.glowSquare(b, j, i % 2); });
     bSfx.tick(1);
   }
-  private rodUp(r: Rod) { return r.top * r.sq * this.s + this.trayTop() + 0.004 + 1.5 * this.s; }
-  async level(mark: 'yes' | 'no' | null) {
+  private rodUp(r: Rod) { return r.top * r.sq * this.s + (r.flat ? 0 : this.trayTop()) + 0.004 + 1.5 * this.s; }
+  async level(mark: 'yes' | 'no' | null, other = false) {
     this.unpin(p => p.id === 'mark');
-    const b = this.bar;
-    if (!mark || !b || b.mode !== 'rows') { this.rodAt = null; return; }
+    const b = other ? this.other : this.bar;
+    if (!mark || !b || b.mode !== (other ? 'column' : 'rows')) { this.rodAt = null; return; }
     const ps = piecesOf(b.n, b.lines);
+    // (the other bar's pieces stand on the table beside the child's, and their line is at the height of a fair
+    // piece of that bar, not of its tallest: each of its pieces stops short of the line or stands over it)
+    const c0 = other ? this.colAt(0) : { x: this.plateX, y: ROW0 }, gap = other ? this.colAt(1).x - c0.x : PLATE_GAP;
     // (in front of the pieces' faces, resting at the top of the tallest: it touches nothing)
-    const r: Rod = { x0: this.plateX - b.sq * 0.6, len: (ps.length - 1) * PLATE_GAP + b.sq * 1.2, y: ROW0 + b.sq / 2 + 3, top: Math.max(...ps), sq: b.sq, t0: this.now };
+    const r: Rod = { x0: c0.x - b.sq * 0.6, len: (ps.length - 1) * gap + b.sq * 1.2, y: c0.y + b.sq / 2 + 3, top: other ? b.n / ps.length : Math.max(...ps), sq: b.sq, t0: this.now, flat: other };
     this.rodAt = r;
     bSfx.tick(2);
     await this.wait(550);
-    if (this.rodAt !== r) return;
+    // (the other bar's line is a measure, not a verdict: it gets no tick or cross. Its right end is at the edge
+    // of a phone's screen, and its pieces standing under it and over it are what it shows)
+    if (this.rodAt !== r || other) return;
     this.mark(mark, () => this.world({ x: r.x0 + r.len + r.sq * 0.5, y: r.y, up: this.rodUp(r) }));
     await this.wait(200);
   }
@@ -449,6 +456,7 @@ export class ShareKit implements ShareWorld {
   }
   async clearOther() {
     const o = this.other; if (!o) return;
+    this.tidy();
     this.sizePins(o, false); this.unpin(p => p.id === 'name-o0' || p.id === 'size-stack');
     o.out = true; this.relayout(o, 0.6, 60);
     await this.wait(800);
@@ -596,7 +604,7 @@ export class ShareKit implements ShareWorld {
     // the lit line between two squares, on top of the bar
     const lb = this.stripX != null ? this.bar : null;
     this.strip.visible = !!lb;
-    if (lb) { this.strip.position.copy(this.world({ x: this.stripX!, y: BAR_Y, up: lb.sq * 0.34 * s + 0.0015 })); this.strip.scale.set(3 * s, 0.002, lb.sq * s * 0.94); }
+    if (lb) { this.strip.position.copy(this.world({ x: this.stripX!, y: BAR_Y, up: lb.sq * THICK * s + 0.0015 })); this.strip.scale.set(3 * s, 0.002, lb.sq * s * ACROSS); }
     else { this.strip.position.copy(this.world({ x: CX, y: BAR_Y, up: 0.01 })); this.strip.scale.setScalar(1e-4); }
     // the knife: down and up at the line, then away after a moment
     const kk = t - this.knifeAt.t0;
