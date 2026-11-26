@@ -1,0 +1,246 @@
+// TEMPLATE: copy to src/lib/math/beats/<x>Lesson.test.ts, rename spoon / Spoon / SPOON, and replace its children
+// and its own tests. (docs/lesson-authoring.md, section 9.)
+//
+// Enough Spoons played with a pretend child and a pretend world: every kind of child gets to the end, every
+// number the child gives is acted out, nothing gives an answer away before it's asked, and the words keep to the
+// lesson rules. (The film itself is checked by playing it.)
+import { describe, expect, it } from 'vitest';
+import { writeFileSync } from 'node:fs';
+import { SPOON_LESSON, SPOON_LINES, type SpoonWorld } from './spoonLesson';
+import type { Teller } from './types';
+import { meaning } from './spoon';
+import { BEAT_LINES, LEARN_LINES } from '../../content/voice';
+import { lineProblems, scriptProblems, stillStretches, type Step } from './rules';
+
+// TODO 1: the pretend child: everything a child can do in this lesson, as data. `nums`: the numbers typed, in
+// order. `picks`: the choices picked, in order (none left: the first choice). Add a list for what the hands do
+// when a hand's job can end in more than one way (a tap that finds the right thing or the wrong one).
+type Child = { nums: number[]; picks?: string[] };
+
+// TODO 2: what a reader of the cold read is told each picture is, by the world's call. Say what is seen, plainly.
+const PICTURE: Record<string, string> = {
+  bowlsIn: 'bowls of soup drop onto the table in a row, one after another',
+  clear: 'everything on the table slides away to the side',
+  'wonder(true)': 'a "?" card stands over the bowls',
+  'wonder(false)': 'the "?" goes',
+  tapCount: 'each bowl the child taps gets the next number on it, and the number is heard',
+  spoons: 'the spoons come out one after another, each lying beside a bowl; a spoon with no bowl lies in front',
+  spoonsOff: 'the spoons slide away',
+  showLeft: 'a red ring comes on each bowl that has no spoon, or each spoon that has no bowl',
+};
+// TODO 3: which of the world's calls is what to the rules.
+/** a real try: something whose result the child is then told about (rules 6 to 8 hold it, inside a line or not) */
+const TRY = /^spoons\(/;
+/** the answer being worked out on the thing (rules 10 and 11 hold it) */
+const WORKING = /^pointAt\(/;
+/** how many of a call's arguments say what happens; any after those say how long it takes, which is the kit's
+ *  business: the log keeps what happens, and the cold read says how long */
+const KEPT: Record<string, number> = { bowlsIn: 1, clear: 0, spoons: 1 };
+/** the lines that say what's about to be tried, and whose try it is */
+const announces = /\.try\./;
+
+function pretend(child: Child) {
+  const log: string[] = [], said: string[] = [];
+  /** the run as a reader would follow it: each line as it shows on screen (its numbers filled in), and what the
+   *  picture or the child does */
+  const film: string[] = [];
+  /** inside a line's picture: the second of the line it comes at */
+  let cue: number | null = null;
+  const shown = (id: string, n?: number, m?: number, k?: number) => (BEAT_LINES.find(l => l.id === id)?.text ?? id).replaceAll('{n}', String(n ?? '')).replaceAll('{m}', String(m ?? '')).replaceAll('{k}', String(k ?? ''));
+  const world = new Proxy({} as SpoonWorld, {
+    get: (_, key: string) => (...a: unknown[]) => {
+      // TODO 4: a call that answers with something (what the child's tap was, the number a friend got) returns
+      // it here, from the child or from the lesson's arithmetic: `if (key === 'tapSlip') return ...`
+      const keep = KEPT[key], over = keep == null ? undefined : a[keep];
+      const l = `${key}(${(keep == null ? a : a.slice(0, keep)).map(x => JSON.stringify(x)).join(',')})`;
+      const what = key === 'pointAt' ? `a yellow ring lights bowl number ${a[0]}` : PICTURE[l] ?? PICTURE[key] ?? l;
+      // (a picture that goes with a line, acted out while it is said, is a 'show'; a real try is itself wherever it happens)
+      log.push(cue == null || TRY.test(l) ? l : `show ${l}`);
+      film.push(cue == null ? `(picture: ${what})` : `(picture, ${cue} s into that line${over ? `, taking ${over} s` : ''}: ${what})`);
+      return Promise.resolve();
+    },
+  });
+  const speak = (id: string, n?: number, m?: number, k?: number) => { said.push(id); log.push(`say ${id}`); film.push(`SAID: ${shown(id, n, m, k)}`); };
+  const teller: Teller = {
+    say: async (id, n, m, k) => { speak(id, n, m, k); },
+    // (a line said with its pictures: marked as one, then each picture in the order of its second, as the player does)
+    sayWith: async (id, cues, n, m, k) => { log.push('with pictures'); speak(id, n, m, k); for (const [at, act] of [...cues].sort((a, b) => a[0] - b[0])) { cue = at; await act(); } cue = null; },
+    num: async (q, id, k) => { if (id) speak(id, k); const n = child.nums.shift(); if (n == null) throw new Error('the lesson asked for more numbers than this child has'); log.push(`num ${n}`); film.push(`(asked "${q}": the child types ${n})`); return n; },
+    pick: async (q, choices, id) => { if (id) speak(id); const p = child.picks?.shift() ?? choices[0].id; log.push(`pick ${p}`); film.push(`(asked "${q}": the child picks "${choices.find(c => c.id === p)?.text ?? p}")`); return p as never; },
+    hands: async (words, job) => { log.push('hands'); film.push(`(the child's hands: ${words})`); await job(); },
+    go: async l => { log.push(`go ${l}`); film.push(`(the child taps ${l})`); },
+    wait: async () => {},
+    buddy: () => {}, pal: () => {},
+    thought: (who, text) => { if (text) { log.push(`${who} thinks ${text}`); film.push(`(a thought over ${who === 'pal' ? "the Glimmer's" : "the buddy's"} head: ${text})`); } },
+    myBet: () => {}, beat: () => {},
+  };
+  return { log, said, world, teller, film };
+}
+/** The run as the rules see it. */
+const stepsOf = (log: string[]): Step[] => log.flatMap((l, i): Step[] => {
+  if (l.startsWith('say ')) {
+    const shown = log[i - 1] === 'with pictures';
+    // (the working shown inside a line, a light going to each bowl as its number is said, is an answer: rules 10 and 11)
+    const next = log.slice(i + 1), end = next.findIndex(x => !x.startsWith('show ')), pics = next.slice(0, end < 0 ? next.length : end);
+    const worked: Step[] = shown && pics.some(x => WORKING.test(x.slice(5))) ? [{ k: 'answer', v: 'the working' }] : [];
+    return [...worked, { k: 'say', v: l.slice(4), shown }];
+  }
+  if (l.startsWith('show ')) return [{ k: 'show', v: l.slice(5) }];
+  if (l.startsWith('go ')) return [{ k: 'go', v: l.slice(3) }];
+  // (the child's hands at work are a wait for the child, as a question is)
+  if (l.startsWith('num ') || l.startsWith('pick ') || l === 'hands') return [{ k: 'ask', v: l }];
+  if (TRY.test(l)) return [{ k: 'act', v: l }];
+  if (WORKING.test(l)) return [{ k: 'answer', v: l }];
+  return [];
+});
+const play = async (c: Child) => { const p = pretend(c); const notes = await SPOON_LESSON.play(p.teller, p.world); return { ...p, notes }; };
+const nextDay = async (c: Child) => { const p = pretend(c); await SPOON_LESSON.check(p.teller, p.world, null); return p; };
+const text = (id: string) => BEAT_LINES.find(l => l.id === id)!.text;
+
+// TODO 5: the arithmetic (<x>.ts): every number means something on the thing, each wrong idea gives its own number.
+describe('spoons, in numbers', () => {
+  it('a number of spoons means one each, some bowls with none, or spoons left over', () => {
+    expect(meaning(4, 4)).toEqual({ kind: 'full' });
+    expect(meaning(3, 4)).toEqual({ kind: 'short', missing: 1 });
+    expect(meaning(0, 4)).toEqual({ kind: 'short', missing: 4 });
+    expect(meaning(9999, 4)).toEqual({ kind: 'over', extra: 9995 });
+  });
+});
+
+// TODO 6: the lesson's own promises, one test each: what each kind of child sees, in the order they see it.
+describe('the lesson, played by every kind of child', () => {
+  it('a child who is right goes straight through, and still hears where the answer comes from', async () => {
+    const { notes, said } = await play({ nums: [4] });
+    expect(notes).toEqual({ first: 4 });
+    expect(said).toContain('ep.spoon.why');
+    expect(said).not.toContain('ep.spoon.b4.show');
+    expect(said).not.toContain('ep.spoon.extra');
+  });
+  it('the child counts with their own hands before being asked how many', async () => {
+    const { log } = await play({ nums: [4] });
+    expect(log.indexOf('hands')).toBeLessThan(log.findIndex(l => l.startsWith('num ')));
+  });
+  it('every number is acted out, even a silly one', async () => {
+    const { log } = await play({ nums: [9999, 0] });
+    expect(log).toContain('spoons(9999)');
+    expect(log).toContain('spoons(0)');
+  });
+  it('a wrong number is looked at together, never asked again straight after being shown', async () => {
+    const { said, log } = await play({ nums: [3, 3] });
+    const at = said.indexOf('ep.spoon.b4.show');
+    expect(at).toBeGreaterThan(0);
+    expect(said.slice(at, said.indexOf('ep.spoon.try.buddy'))).not.toContain('ep.spoon.how');
+    expect(log).toContain('spoons(4)');
+  });
+  it("the buddy's idea shows as a thought, is tried, and the child judges it; the ring that answers comes after the question", async () => {
+    for (const pick of ['no', 'yes']) {
+      const { log, said } = await play({ nums: [4], picks: [pick] });
+      expect(log).toContain('buddy thinks 3');
+      const tried = log.indexOf('say ep.spoon.try.buddy'), asked = log.indexOf(`pick ${pick}`);
+      expect(log.slice(tried, asked)).toContain('spoons(3)');
+      expect(log.slice(tried, asked)).not.toContain('show showLeft()');
+      expect(log.slice(asked)).toContain('show showLeft()');
+      expect(said).toContain(`ep.spoon.buddy.${pick}`);
+    }
+  });
+  it('a child who was wrong counts a new batch alone before the end, and one who was right does not', async () => {
+    const wrong = await play({ nums: [5, 3] });
+    expect(wrong.said).toContain('ep.spoon.extra');
+    expect(wrong.said.filter(id => id === 'ep.spoon.why')).toHaveLength(1);
+    expect((await play({ nums: [4] })).log).not.toContain('show bowlsIn(3)');
+  });
+  it('the next day: a new batch, counted by hand, then how many', async () => {
+    for (const n of [5, 4]) {
+      const p = await nextDay({ nums: [n] });
+      expect(p.log.indexOf('hands')).toBeLessThan(p.log.findIndex(l => l.startsWith('num ')));
+      expect(p.said).toContain(n === 5 ? 'ep.spoon.why' : 'ep.spoon.b5.show');
+    }
+    expect(SPOON_LESSON.card({ first: 3 })[0]).toContain('3');
+  });
+});
+
+describe('the lesson rules (docs/lesson-rules.md)', () => {
+  // TODO 7: every kind of child: right, wrong all the way, too many, too few, right then wrong, and a child who
+  // thinks like each friend. Each with every way their taps and choices can go.
+  const kids: Record<string, Child> = {
+    'right every time': { nums: [4] }, 'wrong every time': { nums: [3, 2], picks: ['yes'] }, 'too many every time': { nums: [9, 9] },
+    'too few every time': { nums: [1, 0] }, 'wrong, then right': { nums: [5, 3] }, 'thinks like the buddy': { nums: [3, 3], picks: ['yes'] },
+  };
+  const again = (c: Child): Child => ({ nums: [...c.nums], picks: c.picks ? [...c.picks] : undefined });
+  for (const [name, kid] of Object.entries(kids)) it(`a child who is ${name}: every try named, explained, and every answer waits`, async () => {
+    const { log } = await play(again(kid));
+    expect(scriptProblems({ steps: stepsOf(log), announces })).toEqual([]);
+  });
+  it('the next day too', async () => {
+    for (const n of [5, 4]) expect(scriptProblems({ steps: stepsOf((await nextDay({ nums: [n] })).log), announces })).toEqual([]);
+  });
+  const words = (id: string) => text(id).split(/\s+/).length;
+  it('rule 37: no child sits through 35 words or more with nothing new on screen', async () => {
+    for (const [name, kid] of Object.entries(kids)) expect(stillStretches(stepsOf((await play(again(kid))).log), words), name).toEqual([]);
+    for (const n of [5, 4]) expect(stillStretches(stepsOf((await nextDay({ nums: [n] })).log), words)).toEqual([]);
+  });
+  it('rule 45: a movement begins inside the line that names it, and the only moves left on their own are the stops kept on purpose', async () => {
+    // TODO 8: every call that moves something on the table (not the child's own taps, not a light)
+    const move = /^(show )?(bowlsIn|clear|spoons|spoonsOff|showLeft|wonder)\(/;
+    /** the line a move is made in (the line said with pictures that it follows), or null when it is made in silence */
+    const lineOf = (log: string[], i: number) => { let j = i - 1; while (j >= 0 && (log[j].startsWith('show ') || TRY.test(log[j]))) j--; return log[j]?.startsWith('say ') && log[j - 1] === 'with pictures' ? log[j].slice(4) : null; };
+    const alone = (log: string[]) => log.filter((l, i) => move.test(l) && lineOf(log, i) == null);
+    // TODO 9: list here, with its reason, every stop you keep. This toy keeps one: the table clears after the
+    // next day's last line, with nothing left to say over it.
+    for (const kid of Object.values(kids)) expect(alone((await play(again(kid))).log)).toEqual([]);
+    expect(alone((await nextDay({ nums: [5] })).log)).toEqual(['clear()']);
+    // each move is in the line that names it
+    const right = await play({ nums: [4] });
+    expect(lineOf(right.log, right.log.indexOf('spoons(4)'))).toBe('ep.spoon.try.you');
+    expect(lineOf(right.log, right.log.indexOf('spoons(3)'))).toBe('ep.spoon.try.buddy');
+    expect(lineOf(right.log, right.log.lastIndexOf('show clear()'))).toBe('ep.spoon.off');
+    // a real try made inside its line is still a try: said whose it is, acted out, and what it showed said after
+    const steps = stepsOf(right.log), at = steps.findIndex(x => x.k === 'act' && x.v === 'spoons(4)');
+    expect([steps[at - 1], steps[at + 1]].map(x => `${x.k} ${x.v}`)).toEqual(['say ep.spoon.try.you', 'say ep.spoon.right']);
+  });
+  it('nothing said before a question gives its answer away', async () => {
+    const { log } = await play({ nums: [3, 2] });
+    // TODO 10: each question, and the answer its lines must not say: here, every line from the child's count to
+    // the question says nothing of the total
+    for (const [from, total] of [[log.indexOf('hands'), '4'], [log.lastIndexOf('hands'), '3']] as const) {
+      const ask = log.findIndex((l, i) => i > from && l.startsWith('num '));
+      for (const l of log.slice(from, ask).filter(x => x.startsWith('say '))) expect(text(l.slice(4)), l).not.toMatch(new RegExp(`\\b${total}\\b`));
+    }
+  });
+  it('every line can stand up to the words rules', () => {
+    expect(lineProblems(BEAT_LINES.filter(l => l.id.startsWith('ep.spoon.')))).toEqual([]);
+  });
+  it('writes the script out for a cold read, when asked (rule 21): COLD_READ=out.txt writes out.spoon.txt', async () => {
+    const out = process.env.COLD_READ;
+    if (!out) return;
+    // TODO 11: the two children a fresh reader reads: wrong every time (every tap and choice wrong too), and right every time
+    const runs: [string, Child][] = [['A CHILD WHO IS WRONG EVERY TIME (3, then 2; says the buddy brought enough)', kids['wrong every time']], ['A CHILD WHO IS RIGHT EVERY TIME (4)', kids['right every time']]];
+    const parts: string[] = [];
+    for (const [who, kid] of runs) {
+      const p = await play(again(kid));
+      const still = stillStretches(stepsOf(p.log), words);
+      parts.push(who, '', ...p.film, '', `STILL STRETCHES LEFT: ${still.length ? still.join('; ') : 'none'}`, '', '');
+    }
+    writeFileSync(out.replace(/(\.txt)?$/, '.spoon.txt'), parts.join('\n'));
+  });
+});
+
+describe('the words', () => {
+  const said = (id: string) => BEAT_LINES.find(l => l.id === id)?.said ?? '';
+  it('every line the lesson uses exists, and nothing else is written for it', () => {
+    expect(BEAT_LINES.filter(l => l.id.startsWith('ep.spoon.')).map(l => l.id).sort()).toEqual([...SPOON_LINES].sort());
+    for (const id of SPOON_LINES) expect(LEARN_LINES.some(l => l.id === id), id).toBe(true);
+  });
+  it('every line the script can say is said by some child (none is written and never reached)', async () => {
+    const heard = new Set<string>();
+    for (const c of [{ nums: [4] }, { nums: [3, 2], picks: ['yes'] }, { nums: [9, 9] }, { nums: [5, 3] }]) for (const id of (await play(c)).said) heard.add(id);
+    for (const n of [5, 4]) for (const id of (await nextDay({ nums: [n] })).said) heard.add(id);
+    expect(SPOON_LINES.filter(id => !heard.has(id))).toEqual([]);
+  });
+  it('a line explains in a sentence or three, and never runs on', () => {
+    for (const id of SPOON_LINES) expect(said(id).split(/\s+/).length, id).toBeLessThanOrEqual(40);
+  });
+  it('no ending about learning, and the voice never reads a digit or a blank it should say as a word', () => {
+    for (const id of SPOON_LINES) { expect(said(id), id).not.toMatch(/learn|explain|great job|well done|thank you/i); expect(said(id), id).not.toMatch(/\d|\{/); }
+  });
+});

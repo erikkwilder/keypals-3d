@@ -1,0 +1,284 @@
+// TEMPLATE: copy to src/lib/three/<x>Kit.ts, rename spoon / Spoon, and replace what is on the table.
+// (Only when no existing kit fits: docs/lesson-authoring.md, section 6. This skeleton type-checks and its
+// script's test passes, but it has never been drawn: look at your kit on a dev server early, at 1440 and at 390.)
+//
+// TODO 0: this comment. Say what is on the table and how each thing shows the idea, as the finished kits do:
+// what a right answer looks like, what a wrong one looks like, what each ring or number means, and how big
+// things are for a small child's finger on a phone.
+//
+// The world of Enough Spoons (math/beats/spoonLesson.ts): bowls in a row on the kitchen table. A counted bowl
+// gets its number on it. As many spoons as a number says come out, one beside each bowl, so a wrong number
+// shows a bowl with no spoon or a spoon with no bowl. A yellow ring marks the bowl being counted; a red ring
+// marks what is left over.
+import * as THREE from 'three';
+import { stage } from './stage';
+import { SceneWaits } from './sceneWaits';
+import type { EpisodeScene } from './episodeScene';
+import type { Pin } from '../math/beats/types';
+import type { SpoonWorld } from '../math/beats/spoonLesson';
+import { bSfx } from '../math/beats/sounds';
+import { COUNT_WORDS, countWord } from '../content/voice';
+
+/** the table top's height, in metres */
+const TY = 0.48;
+/** the board is 600 units across; this is its middle */
+const MID_X = 300;
+/** a bowl's size, in board units */
+const BR = 30;
+/** the most spoons shown; a bigger number says so in words */
+const MOST = 8;
+// TODO 1: where things go, in board units, for a wide screen and for a phone. `bounds` is what the camera
+// frames: wrap the things closely, because empty board makes everything smaller. On a phone a long row goes in
+// lines of four, so each thing stays big enough to tap (44 px across at 390 wide; a numeral on it 20 px).
+type Layout = { rowY: number; cols: number; rowW: number; lineGap: number; zoom: number; bounds: { x: number; y: number; w: number; h: number } };
+const WIDE: Layout = { rowY: 150, cols: 8, rowW: 560, lineGap: 0, zoom: 1.3, bounds: { x: 0, y: 60, w: 600, h: 200 } };
+const TALL: Layout = { rowY: 110, cols: 4, rowW: 290, lineGap: 96, zoom: 2.4, bounds: { x: 150, y: 40, w: 300, h: 280 } };
+const smooth = (k: number) => k * k * (3 - 2 * k);
+const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
+
+type Move = { from: THREE.Vector3; to: THREE.Vector3; t0: number; dur: number; arc: number; done?: () => void };
+type Bowl = { g: THREE.Group; num: number; spoon: THREE.Object3D | null; shakeUntil: number };
+
+export class SpoonKit implements SpoonWorld {
+  readonly root = new THREE.Group();
+  /** the count words it says as each bowl is counted (a young child hears the count: rule 31) */
+  readonly words = COUNT_WORDS.map(l => l.id);
+  pins: Pin[] = [];
+  onChange: (() => void) | null = null;
+  /** a count word to be heard as a bowl is counted (the page sets it) */
+  onWord: ((id: string) => void) | null = null;
+  private now = 0;
+  /** metres to a board unit (set in refit) */
+  private s = 0.0032;
+  /** the layout, chosen once by the screen's shape */
+  private L: Layout = innerWidth < innerHeight * 0.9 ? TALL : WIDE;
+  private bowls: Bowl[] = [];
+  private spoonObjs: THREE.Object3D[] = [];
+  private marks: THREE.Mesh[] = [];
+  private moves = new Map<THREE.Object3D, Move>();
+  private counted = 0;
+  /** what the child's taps do now (null: nothing). The play-through driver reads this name */
+  private job: { done: () => void } | null = null;
+  private auto = 0;
+  /** (waits on the scene's clock, as the movements are: never setTimeout, rule 34) */
+  private waits = new SceneWaits();
+  private geo: { bowl?: THREE.BufferGeometry; soup?: THREE.BufferGeometry; spoon?: THREE.BufferGeometry; mark?: THREE.BufferGeometry } = {};
+  private mat: { bowl?: THREE.Material; soup?: THREE.Material; spoon?: THREE.Material; mark?: THREE.MeshBasicMaterial; bad?: THREE.MeshBasicMaterial } = {};
+
+  constructor(private sc: EpisodeScene) {
+    sc.root.add(this.root);
+    // TODO 2: the camera's knobs for this picture (closeUp, workZoom, widePitch, tallPitch, tallShare, frameBox),
+    // and what the friends and the corner props keep clear of. Put each knob back in dispose().
+    if (this.L === WIDE) sc.closeUp(); else sc.tallShare = 0.5;
+    sc.workZoom = this.L.zoom;
+    sc.extraWork = () => [...this.bowls.map(b => b.g), ...this.spoonObjs];
+  }
+
+  // TODO 3: pictures and materials (a painted top: `await loadTexture('learn/ep/tex-....webp')` from './assets')
+  async load() {
+    this.mat.bowl = new THREE.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.4 });
+    this.mat.soup = new THREE.MeshStandardMaterial({ color: 0xe0762f, roughness: 0.6 });
+    this.mat.spoon = new THREE.MeshStandardMaterial({ color: 0xc4cad2, metalness: 0.4, roughness: 0.4 });
+    this.mat.mark = new THREE.MeshBasicMaterial({ color: 0xffc93d, transparent: true, opacity: 0.95, depthWrite: false });
+    this.mat.bad = new THREE.MeshBasicMaterial({ color: 0xe0413a, transparent: true, opacity: 0.95, depthWrite: false });
+  }
+  bounds() { return this.L.bounds; }
+  refit() {
+    const a = this.sc.boardPoint(0, 0), b = this.sc.boardPoint(100, 0); this.s = (b.x - a.x) / 100;
+    // (made once: things already on the table keep theirs)
+    if (this.geo.bowl) return;
+    const r = BR * this.s;
+    this.geo.bowl = new THREE.CylinderGeometry(r, r * 0.62, r * 0.6, 28);
+    this.geo.soup = new THREE.CylinderGeometry(r * 0.86, r * 0.86, r * 0.04, 28);
+    this.geo.spoon = new THREE.BoxGeometry(r * 0.2, r * 0.08, r * 1.5);
+    this.geo.mark = new THREE.TorusGeometry(r * 1.25, r * 0.11, 6, 36);
+  }
+
+  // ---------- the small tools every kit has ----------
+  private wait(ms: number) { return this.waits.wait(ms); }
+  private later(ms: number, fn: () => void) { this.waits.later(ms, fn); }
+  private changed() { this.onChange?.(); }
+  /** a word card on a point in the room (the same id again replaces it) */
+  private pin(p: Pin) { this.pins = [...this.pins.filter(x => x.id !== p.id), p]; this.changed(); }
+  private unpin(test: (p: Pin) => boolean) { this.pins = this.pins.filter(p => !test(p)); this.changed(); }
+  /** a point on the table, in board units */
+  private P(x: number, y: number) { const p = this.sc.boardPoint(x, y); p.y = TY; return p; }
+  /** where a point in the room is on the screen (the play-through driver reads this name) */
+  private screenOf(p: THREE.Vector3) { const v = p.clone().project(stage.camera); return { x: ((v.x + 1) / 2) * innerWidth, y: ((1 - v.y) / 2) * innerHeight }; }
+  /** a thing moves to a place in `dur` seconds of the scene's time */
+  private go(o: THREE.Object3D, to: THREE.Vector3, dur: number, o2: { delay?: number; arc?: number; done?: () => void } = {}) {
+    this.moves.set(o, { from: o.position.clone(), to: to.clone(), t0: this.now + (o2.delay ?? 0), dur, arc: o2.arc ?? 0, done: o2.done });
+  }
+  /** the `i`th place of the row, for `n` things (in lines of up to `cols`, as even as they can be) */
+  private slot(i: number, n: number): [number, number] {
+    const L = this.L, lines = Math.ceil(Math.max(1, n) / L.cols), per = Math.ceil(Math.max(1, n) / lines);
+    const line = Math.floor(i / per), k = i % per, inLine = Math.min(per, n - line * per);
+    const sp = Math.min(BR * 2 + 40, L.rowW / per);
+    return [MID_X + (k - (inLine - 1) / 2) * sp, L.rowY + line * L.lineGap];
+  }
+  private topOf(b: Bowl) { return b.g.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, BR * this.s * 0.6, 0)); }
+  private next() { return this.job ? this.bowls.find(b => !b.num) ?? null : null; }
+
+  // ---------- making things ----------
+  private makeBowl(): Bowl {
+    const g = new THREE.Group(), r = BR * this.s;
+    const body = new THREE.Mesh(this.geo.bowl, this.mat.bowl); body.position.y = r * 0.3; body.castShadow = true; body.receiveShadow = true;
+    const soup = new THREE.Mesh(this.geo.soup, this.mat.soup); soup.position.y = r * 0.6;
+    g.add(body, soup);
+    this.root.add(g);
+    return { g, num: 0, spoon: null, shakeUntil: 0 };
+  }
+  private makeSpoon() {
+    const m = new THREE.Mesh(this.geo.spoon, this.mat.spoon); m.castShadow = true;
+    this.root.add(m);
+    return m;
+  }
+  /** a ring round each of these: yellow for the one being counted, red for one that shows a problem */
+  private markOn(objs: THREE.Object3D[], bad = false) {
+    this.unmark();
+    for (const o of objs) {
+      const m = new THREE.Mesh(this.geo.mark, bad ? this.mat.bad : this.mat.mark);
+      m.rotation.x = -Math.PI / 2; m.position.y = 0.006; m.renderOrder = 5; o.add(m); this.marks.push(m);
+    }
+  }
+  private unmark() { for (const m of this.marks) m.removeFromParent(); this.marks = []; }
+
+  // ---------- what the script can ask for (SpoonWorld) ----------
+  // TODO 4: one method for each line of the interface. A move that the narrator talks over takes `over` seconds:
+  // stretch the gaps between things, never go quicker than usual, and wait on the scene's clock.
+  async bowlsIn(n: number, over?: number) {
+    const gap = Math.max(0.12, Math.min(0.6, ((over ?? 0) - 0.5) / Math.max(1, n - 1)));
+    for (let i = 0; i < n; i++) {
+      const b = this.makeBowl(), [x, y] = this.slot(i, n), to = this.P(x, y);
+      b.g.position.copy(to).add(new THREE.Vector3(0, 0.5, 0));
+      this.go(b.g, to, 0.45, { delay: i * gap, done: () => bSfx.clack() });
+      this.bowls.push(b);
+    }
+    this.changed();
+    await this.wait((n - 1) * gap * 1000 + 500);
+  }
+  async clear(over = 0.7) {
+    // (it lets go of the table at once: a new batch that comes while this one is still leaving is whole. The
+    // player acts out every picture of a line together when a clip can't play)
+    const gone = [...this.bowls.map(b => b.g), ...this.spoonObjs];
+    this.bowls = []; this.spoonObjs = []; this.counted = 0; this.job = null; this.auto++;
+    this.unmark(); this.unpin(() => true);
+    for (const o of gone) this.go(o, o.position.clone().add(new THREE.Vector3(1.8, 0, 0)), over, { done: () => o.removeFromParent() });
+    await this.wait(over * 1000 + 60);
+  }
+  wonder(on: boolean) {
+    // (a sign is a pin, never a 3D model: a "?" on the big number card)
+    if (on) this.pin({ id: 'q', text: '?', kind: 'tick', big: true, at: () => this.P(MID_X, this.L.rowY).add(new THREE.Vector3(0, 0.16, 0)) });
+    else this.unpin(p => p.id === 'q');
+  }
+  private countOne(b: Bowl) {
+    b.num = ++this.counted;
+    this.pin({ id: `n${this.bowls.indexOf(b)}`, text: String(b.num), kind: 'tick', big: true, at: () => this.topOf(b).add(new THREE.Vector3(0, 0.05, 0)) });
+    this.markOn([b.g]);
+    bSfx.tick(Math.min(8, b.num));
+    this.onWord?.(countWord(b.num));
+  }
+  tapCount() {
+    return new Promise<void>(res => {
+      this.unmark();
+      this.job = { done: () => { this.job = null; this.changed(); this.later(350, res); } };
+      this.changed();
+    });
+  }
+  finish() {
+    const j = this.job;
+    if (!j) return;
+    // (one bowl, then the next, until all are counted; `auto` changes when the job ends or "Show me" is asked
+    // again, which stops an older run)
+    const run = ++this.auto;
+    const step = () => {
+      if (run !== this.auto || this.job !== j) return;
+      const b = this.bowls.find(x => !x.num);
+      if (b) this.countOne(b);
+      if (!this.bowls.some(x => !x.num)) j.done(); else this.later(620, step);
+    };
+    step();
+  }
+  pointAt(k: number) {
+    const b = this.bowls.find(x => x.num === k);
+    if (!b) return;
+    this.markOn([b.g]);
+    bSfx.tick(Math.min(8, k));
+  }
+  async spoons(n: number, over?: number) {
+    this.unmark();
+    const show = Math.max(0, Math.min(n, MOST)), N = Math.max(this.bowls.length, show), r = BR * this.s;
+    const gap = Math.max(0.2, Math.min(0.9, ((over ?? 0) - 0.5) / Math.max(1, show - 1)));
+    for (let j = 0; j < show; j++) {
+      const sp = this.makeSpoon(), b = this.bowls[j];
+      // (a spoon lies beside its bowl; a spoon with no bowl lies in a row of its own, in front)
+      const [x, y] = this.slot(j, N);
+      const to = b ? b.g.position.clone().add(new THREE.Vector3(r * 1.25, r * 0.04, 0)) : this.P(x, this.L.rowY + this.L.lineGap + 80).add(new THREE.Vector3(0, r * 0.04, 0));
+      sp.position.copy(to).add(new THREE.Vector3(0, 0, 0.9));
+      this.go(sp, to, 0.45, { delay: j * gap, arc: 0.05, done: () => bSfx.clack() });
+      if (b) b.spoon = sp;
+      this.spoonObjs.push(sp);
+    }
+    // (a silly number is acted out up to a cap, and says the rest in words)
+    if (n > MOST) this.pin({ id: 'many', text: `${n} spoons`, kind: 'word', at: () => this.P(MID_X, this.L.rowY + this.L.lineGap + 80).add(new THREE.Vector3(0, 0.12, 0)) });
+    await this.wait(Math.max(0, show - 1) * gap * 1000 + 500);
+  }
+  async spoonsOff() {
+    if (!this.spoonObjs.length) return;
+    this.unmark(); this.unpin(p => p.id === 'many');
+    const gone = this.spoonObjs; this.spoonObjs = [];
+    for (const b of this.bowls) b.spoon = null;
+    for (const o of gone) this.go(o, o.position.clone().add(new THREE.Vector3(0, 0, 0.9)), 0.4, { done: () => o.removeFromParent() });
+    await this.wait(460);
+  }
+  async showLeft() {
+    const bare = this.bowls.filter(b => !b.spoon), spare = this.spoonObjs.slice(this.bowls.length);
+    this.markOn([...bare.map(b => b.g), ...spare], true);
+    for (const b of bare) b.shakeUntil = this.now + 0.5;
+    await this.wait(500);
+  }
+
+  // ---------- the child's hands ----------
+  // TODO 5: a touch that can go wrong does something (here a bowl tapped twice shakes and gets no number).
+  // For a drag: remember the thing picked up on 'down', move it on 'move', judge it on 'up', and give its two
+  // screen points in dragPath() so the page can draw the arrow.
+  pointer(kind: 'down' | 'move' | 'up', x: number, y: number): boolean {
+    if (!this.job || kind !== 'down') return false;
+    let best: Bowl | null = null, bestD = Math.max(64, innerWidth * 0.05);
+    for (const b of this.bowls) { const p = this.screenOf(this.topOf(b)), d = Math.hypot(p.x - x, p.y - y); if (d < bestD) { best = b; bestD = d; } }
+    if (!best) return false;
+    if (best.num) { best.shakeUntil = this.now + 0.5; bSfx.tick(0); return true; }
+    this.countOne(best);
+    if (!this.bowls.some(b => !b.num)) this.job.done();
+    this.changed();
+    return true;
+  }
+  /** where the hint hand shows (it bobs), and where a first touch should land */
+  handPoint() { const b = this.next(); return b ? this.topOf(b).add(new THREE.Vector3(0, -0.03 + Math.sin(this.now * 5) * 0.012, 0)) : null; }
+  tryPoint() { const b = this.next(); return b ? this.topOf(b) : null; }
+  dragPath() { return null; }
+
+  update(_dt: number, t: number) {
+    this.now = t;
+    this.waits.tick(t);
+    for (const [o, m] of this.moves) {
+      if (t < m.t0) continue;
+      const k = clamp01((t - m.t0) / m.dur);
+      o.position.lerpVectors(m.from, m.to, smooth(k));
+      o.position.y += Math.sin(Math.PI * k) * m.arc;
+      if (k >= 1) { this.moves.delete(o); m.done?.(); }
+    }
+    for (const b of this.bowls) b.g.rotation.z = b.shakeUntil > t ? Math.sin(t * 40) * 0.14 * (b.shakeUntil - t) : 0;
+    const pulse = 1 + Math.sin(t * 6) * 0.07;
+    for (const m of this.marks) m.scale.setScalar(pulse);
+  }
+  // TODO 6: if something big would loom in front of the friends on the end card, add clearForCard() to take it away.
+  dispose() {
+    this.auto++; this.waits.clear();
+    this.root.removeFromParent();
+    for (const g of Object.values(this.geo)) g?.dispose();
+    for (const m of Object.values(this.mat)) m?.dispose();
+    this.sc.extraWork = () => [];
+    this.sc.workZoom = 1; this.sc.tallShare = null;
+  }
+}

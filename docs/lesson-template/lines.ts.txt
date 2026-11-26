@@ -1,0 +1,28 @@
+  // TEMPLATE: these go inside BEAT_LINES in src/lib/content/voice.ts, as one block under a comment like this one.
+  // ep(id, the words shown, the words said). Shown: digits and signs are fine; {n}, {m} and {k} are filled in by
+  // the script. Said: whole sentences, numbers as words, no {n} (the voice can't say a number it doesn't know:
+  // say it another way, or write one line for each number, as the three .show lines here). Leave the said form
+  // out when the shown words read well aloud. Six to 40 words; over 40, split it. A line that says what is about
+  // to be tried, and whose try it is, has ".try." in its id.
+  //
+  // Enough Spoons (math/beats/spoonLesson.ts): the template's toy lesson.
+  ep('ep.spoon.intro', 'This is the soup table. Every bowl of soup needs its own spoon, so we need to know how many bowls there are.'),
+  ep('ep.spoon.count', 'Tap each bowl to count it. Each bowl you tap gets one number.'),
+  ep('ep.spoon.how', 'You gave every bowl a number. How many spoons do we need?'),
+  ep('ep.spoon.try.you', "You said {n}. Let's get out that many spoons, and put one in each bowl.", "Let's get out as many spoons as you said, and put one in each bowl."),
+  ep('ep.spoon.right', 'Your {n} spoons fit. Every bowl has a spoon, and no spoon is left over.', 'Your spoons fit. Every bowl has a spoon, and no spoon is left over.'),
+  ep('ep.spoon.few', "Your {n} spoons weren't enough. Look, a bowl is left with no spoon, so there are more bowls than that.", "Your spoons weren't enough. Look, a bowl is left with no spoon, so there are more bowls than that."),
+  ep('ep.spoon.over', 'Your {n} spoons were too many. Look, a spoon is left with no bowl, so there are fewer bowls than that.', 'Your spoons were too many. Look, a spoon is left with no bowl, so there are fewer bowls than that.'),
+  ep('ep.spoon.why', 'Each bowl got one number, and the last number you said was {n}. The last number tells how many bowls there are.', 'Each bowl got one number, and the last number you said tells how many bowls there are.'),
+  ep('ep.spoon.b3.show', "Let's look at the numbers together. Each bowl got one number: 1, 2, 3. The last number is 3, so there are 3 bowls.", "Let's look at the numbers together. Each bowl got one number. One, two, three. The last number is three, so there are three bowls."),
+  ep('ep.spoon.b4.show', "Let's look at the numbers together. Each bowl got one number: 1, 2, 3, 4. The last number is 4, so there are 4 bowls.", "Let's look at the numbers together. Each bowl got one number. One, two, three, four. The last number is four, so there are four bowls."),
+  ep('ep.spoon.b5.show', "Let's look at the numbers together. Each bowl got one number: 1, 2, 3, 4, 5. The last number is 5, so there are 5 bowls.", "Let's look at the numbers together. Each bowl got one number. One, two, three, four, five. The last number is five, so there are five bowls."),
+  ep('ep.spoon.try.fix', "So let's get out {n} spoons, one for each bowl.", "So let's get out one spoon for each bowl."),
+  ep('ep.spoon.fit', 'Now every bowl has a spoon, and no spoon is left over.'),
+  ep('ep.spoon.try.buddy', "Your buddy counted very fast and says {n} spoons are enough. Let's try your buddy's number.", "Your buddy counted very fast and got a different number. Let's try your buddy's number."),
+  ep('ep.spoon.buddy.ask', 'Look at the bowls. Did your buddy bring enough spoons?'),
+  ep('ep.spoon.buddy.no', "That's right, it isn't enough. One bowl has no spoon, because your buddy counted so fast that one bowl got no number."),
+  ep('ep.spoon.buddy.yes', 'Look again. One bowl has no spoon, because your buddy counted so fast that one bowl got no number.'),
+  ep('ep.spoon.extra', 'Here are some new bowls. Count these ones by yourself, and then say how many spoons they need.'),
+  ep('ep.spoon.off', 'Every bowl has its own spoon now, so the soup can go out to the party.'),
+  ep('ep.spoon.check', 'Here are some new bowls of soup. Each one needs a spoon, so count the bowls first.'),

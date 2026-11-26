@@ -1,0 +1,13 @@
+// TEMPLATE: copy to src/lib/math/beats/<x>.ts. The arithmetic of the lesson with no pictures in it: what any
+// number a child gives means on the thing, and the wrong ideas children really bring, each as a function, so the
+// world can act them out and the test can check them without a screen.
+//
+// TODO: name the research the wrong ideas come from (the finished lessons do: crate.ts, count.ts), and write
+// each wrong idea as a function of the problem's numbers. A test should hold that no two ideas give the same
+// number for the lesson's own problems.
+
+/** What a number of spoons means for the bowls: one each, some bowls with none, or spoons left over. */
+export type Meaning = { kind: 'full' } | { kind: 'short'; missing: number } | { kind: 'over'; extra: number };
+export function meaning(spoons: number, bowls: number): Meaning {
+  return spoons === bowls ? { kind: 'full' } : spoons < bowls ? { kind: 'short', missing: bowls - spoons } : { kind: 'over', extra: spoons - bowls };
+}

@@ -1,0 +1,194 @@
+// TEMPLATE: copy to src/lib/math/beats/<x>Lesson.ts, rename spoon / Spoon / SPOON, and replace all of it.
+// (docs/lesson-authoring.md is the guide. This toy, Enough Spoons, is How Many Cookies? again with bowls: it is
+// here only so that each kind of step has one working example. Its numbers go in <x>.ts, its lines in
+// content/voice.ts (lines.ts.txt), its world in three/<x>Kit.ts.)
+//
+// TODO 0: this comment. Say the lesson in a paragraph, as the finished lessons do: the one idea (and its
+// standard), the need in the story, what the child's hands do, what a wrong answer looks like on the thing, the
+// two wrong ideas children really have (the buddy's and the Glimmer's) and where they come from, how the child
+// gets one right alone, and how it ends. If you can't write this paragraph, the lesson isn't ready to script.
+import type { BeatLesson, Cue, Notes, Teller, World } from './types';
+import type { EpisodeScene } from '../../three/episodeScene';
+import { meaning } from './spoon';
+
+// TODO 1: the lesson's numbers. Choose them so that every wrong idea gives a different number from the right one
+// and from each other (a test holds this), and so the next day's problem is new.
+const FIRST = 4, EXTRA = 3, NEXT_DAY = 5;
+type Batch = 'b3' | 'b4' | 'b5';
+
+// TODO 2: the world. One method for each thing a child can see happen, named in a child's words, one line of
+// comment each. A move takes time and resolves when it is over; `over` lets the narrator talk across it.
+/** What's on the table in this lesson (three/spoonKit.ts). Each call plays and resolves when it's over. */
+export interface SpoonWorld extends World {
+  /** `n` bowls come onto the table, one after another (`over`: they take that many seconds, never quicker than usual) */
+  bowlsIn(n: number, over?: number): Promise<void>;
+  /** everything on the table slides away (`over`: in that many seconds) */
+  clear(over?: number): Promise<void>;
+  /** a "?" stands over the bowls (false: it goes) */
+  wonder(on: boolean): void;
+  /** the child's taps: each tapped bowl gets the next number */
+  tapCount(): Promise<void>;
+  /** do the rest of the hand's job ("Show me") */
+  finish(): void;
+  /** the light goes to the bowl that was counted `k`th */
+  pointAt(k: number): void;
+  /** that many spoons come out, one to a bowl (`over`: they take that many seconds, never quicker than usual) */
+  spoons(n: number, over?: number): Promise<void>;
+  /** the spoons go */
+  spoonsOff(): Promise<void>;
+  /** a red ring on what is left over: each bowl with no spoon, or each spoon with no bowl */
+  showLeft(): Promise<void>;
+}
+
+// TODO 3: when each picture comes, in seconds into its line. Read every number off the finished clip (word
+// times: the guide, section 8). Until the clips exist these are guesses: say so here, and set them before "done".
+// A picture: the second its words begin. A movement: [the second it begins, how many seconds it takes].
+const AT = {
+  /** "Every bowl of soup"; "how many bowls there are" */
+  intro: { bowls: [1.9, 1.8], ask: 5.6 },
+  /** "Let's get out as many spoons as you said, and put one in each bowl" */
+  you: [0.5, 3],
+  /** "Look", in the lines that say what a wrong number showed */
+  left: 1.6,
+  /** "the last number you said" */
+  why: 2.2,
+  /** each number of the count said in a batch's "let's look at the numbers together" line */
+  show: { b3: [3.4, 4, 4.6], b4: [3.4, 4, 4.6, 5.2], b5: [3.4, 4, 4.6, 5.2, 5.8] } as Record<Batch, number[]>,
+  /** "get out one spoon for each bowl" */
+  fix: [0.6, 2],
+  /** "Let's try your buddy's number" */
+  buddy: [3.2, 1.6],
+  /** "One bowl has no spoon", in the two lines that answer the question about the buddy's spoons */
+  ring: { no: 2.2, yes: 1.4 },
+  /** "Here are some new bowls": the bowls before leave from the first word, then the new ones land */
+  extra: [1, 1.4],
+  /** "the soup can go out to the party" */
+  off: [2.6, 1.6],
+  /** "Here are some new bowls of soup" */
+  check: [0.3, 2],
+};
+
+// TODO 4: every line the script can say. The test holds this list equal to what content/voice.ts has.
+/** the words a run of the lesson can say, all of them */
+export const SPOON_LINES = ['intro', 'count', 'how', 'try.you', 'right', 'few', 'over', 'why', 'b3.show', 'b4.show', 'b5.show', 'try.fix', 'fit',
+  'try.buddy', 'buddy.ask', 'buddy.no', 'buddy.yes', 'extra', 'off', 'check'].map(k => `ep.spoon.${k}`);
+
+// TODO 5: a try. One function for every answer the child gives: say whose it is (the move begins inside that
+// line and ends with it: rule 45), act it out whatever it is, then say what it showed with the child's number.
+/** The child's number of spoons: say whose it is, act it out, say what it showed. True when it fits. */
+async function tryIt(t: Teller, w: SpoonWorld, n: number, bowls: number): Promise<boolean> {
+  // (TODO: zero is nothing coming at all. Give it its own two lines, as How Many Cookies? does with try.zero and
+  // zero: "Your 0 spoons weren't enough" is not something anyone would say)
+  await t.sayWith('ep.spoon.try.you', [[AT.you[0], () => w.spoons(n, AT.you[1])]], n);
+  const m = meaning(n, bowls);
+  if (m.kind === 'full') { t.buddy('cheer'); t.pal('happy'); await t.say('ep.spoon.right', n); return true; }
+  t.buddy(m.kind === 'short' ? 'shrug' : 'oops'); t.pal('sad');
+  // (what is left over is ringed at the word that points to it, not before: the line is its picture's reason)
+  await t.sayWith(m.kind === 'short' ? 'ep.spoon.few' : 'ep.spoon.over', [[AT.left, () => w.showLeft()]], n);
+  return false;
+}
+/** The right number of spoons, laid while the narrator says so, and what that shows (`swap`: other spoons are
+ *  lying there and go first). */
+async function lay(t: Teller, w: SpoonWorld, bowls: number, swap = false) {
+  // (two moves that depend on each other go in one cue: with the voice off every cue of a line comes at once)
+  await t.sayWith('ep.spoon.try.fix', [[AT.fix[0], async () => { if (swap) await w.spoonsOff(); await w.spoons(bowls, AT.fix[1]); }]], bowls);
+  t.buddy('nod'); t.pal('happy');
+  await t.say('ep.spoon.fit');
+}
+
+// TODO 6: the working. Both children pass through it: the right child hears why they are right; the wrong child
+// is told kindly that we'll look together (rule 9), sees it worked on the thing, and is never asked the same
+// question again straight after. It stays until the child taps Next (rule 11).
+/** "How many?" after the child has counted: their number is acted out, and then, right or wrong, where the
+ *  answer comes from is shown on the bowls. Returns their number. */
+async function howMany(t: Teller, w: SpoonWorld, bowls: number, b: Batch, line: string): Promise<number> {
+  const n = await t.num('How many spoons?', line);
+  t.myBet(String(n));
+  const right = await tryIt(t, w, n, bowls);
+  t.myBet(null);
+  if (right) {
+    await t.sayWith('ep.spoon.why', [[AT.why, () => w.pointAt(bowls)]], n);
+    await t.go('Next');
+    return n;
+  }
+  // (a count said inside a line lights each bowl as its number is said: one cue for each number, rule 42)
+  await t.sayWith(`ep.spoon.${b}.show`, [[0, () => w.spoonsOff()], ...AT.show[b].map((at, i): Cue => [at, () => w.pointAt(i + 1)])]);
+  await t.go('Next');
+  await lay(t, w, bowls);
+  return n;
+}
+
+async function play(t: Teller, w: SpoonWorld): Promise<Notes> {
+  // TODO 7: the need. Why the number matters in this story, each thing coming as it is named (a moment first,
+  // so the room has settled). If the only true reason is that it's a puzzle, the line calls it a puzzle.
+  t.beat(0);
+  await t.wait(700);
+  t.pal('hop');
+  await t.sayWith('ep.spoon.intro', [[AT.intro.bowls[0], () => w.bowlsIn(FIRST, AT.intro.bowls[1])], [AT.intro.ask, () => w.wonder(true)]]);
+
+  // TODO 8 (below grade 6): show the idea once, on a small case, before the child does any. A count heard number
+  // by number is a stop kept on purpose: say what to watch for, then let it play with no line over it.
+  // await t.say('ep.spoon.try.demo'); await w.demoCount(); ...; await t.go('Next');
+
+  // TODO 9: the child's hands, then the child's answer. A hand's job must be able to go wrong (a bowl tapped
+  // twice shakes and gets no second number), and "Show me" does the rest of it.
+  t.beat(1);
+  await t.sayWith('ep.spoon.count', [[0, () => w.wonder(false)]]);
+  await t.hands('Tap each bowl', () => w.tapCount(), () => w.finish());
+  const first = await howMany(t, w, FIRST, 'b4', 'ep.spoon.how');
+
+  // TODO 10: a friend's wrong idea (a real lesson has two: one the buddy's, one the Glimmer's, each a mistake
+  // children really make). Its thought shows; the line says whose try it is; it is acted out; and the child
+  // judges it with a tap that can be wrong (rule 28). The ring that gives the answer away comes with the line
+  // that answers, never while the question is open (rule 41).
+  // (TODO: when the child's own number was this friend's number, say so and play it once for the two of them, as
+  // Layers of Cubes does with try.both.buddy: it is not news to that child)
+  t.beat(2);
+  const less = FIRST - 1;
+  t.thought('buddy', String(less)); t.buddy('point');
+  await t.sayWith('ep.spoon.try.buddy', [[AT.buddy[0], async () => { await w.spoonsOff(); await w.spoons(less, AT.buddy[1]); }]], less);
+  const enough = await t.pick('Enough spoons?', [{ id: 'no', text: 'Not enough' }, { id: 'yes', text: 'Enough' }], 'ep.spoon.buddy.ask');
+  t.thought('buddy', null);
+  if (enough === 'no') { t.buddy('nod'); t.pal('happy'); await t.sayWith('ep.spoon.buddy.no', [[AT.ring.no, () => w.showLeft()]]); }
+  else { t.buddy('shrug'); await t.sayWith('ep.spoon.buddy.yes', [[AT.ring.yes, () => w.showLeft()]]); }
+  await t.go('Next');
+
+  // TODO 11: the child alone (rule 12a). A child who hasn't yet got one right by themselves gets one small new
+  // problem, and the credit for it. A child who has goes on.
+  t.beat(3);
+  if (first === FIRST) await lay(t, w, FIRST, true);
+  else {
+    await t.sayWith('ep.spoon.extra', [[0, async () => { await w.clear(AT.extra[0]); await w.bowlsIn(EXTRA, AT.extra[1]); }]]);
+    await t.hands('Tap each bowl', () => w.tapCount(), () => w.finish());
+    await howMany(t, w, EXTRA, 'b3', 'ep.spoon.how');
+  }
+
+  // TODO 12: the written form, if the lesson has one (a sum, a name, a symbol), comes here: last, from what the
+  // hands did, as a `sum` pin (w.writeSum(...)), said, and waited for with t.go.
+
+  // TODO 13: this story's own ending: what the work was for. No praise for nothing, no shared closing line.
+  t.pal('happy'); t.buddy('jump');
+  await t.sayWith('ep.spoon.off', [[AT.off[0], () => w.clear(AT.off[1])]]);
+  await t.wait(400);
+  // TODO 14: what to remember about this child (numbers by name): it shapes the card and the next day's check
+  return { first };
+}
+
+// TODO 15: the next day's check: one new problem. `notes` is what play returned on the first day (null: none).
+async function check(t: Teller, w: SpoonWorld) {
+  await t.sayWith('ep.spoon.check', [[AT.check[0], () => w.bowlsIn(NEXT_DAY, AT.check[1])]]);
+  await t.hands('Tap each bowl', () => w.tapCount(), () => w.finish());
+  await howMany(t, w, NEXT_DAY, 'b5', 'ep.spoon.how');
+  await w.clear();
+}
+
+// TODO 16: the lesson. `id`: the old lesson's id. `voice`: this file's short word, always given (the old
+// version's lines are ep.<id>.* and stay apart). `set`: the room; `star`: its Glimmer; `art`: the old lesson's
+// card picture; `beats`: how many stars; add `keys: false` if it never asks for a number.
+export const SPOON_LESSON: BeatLesson<SpoonWorld> = {
+  id: 'spoon-demo', title: 'Enough Spoons', blurb: 'Count the bowls, and you know how many spoons to get.', set: 'kitchen', star: 'sproutbun', color: '#e58a3a',
+  art: 'learn/ep/card-cookies.webp', voice: 'spoon', beats: 4,
+  world: async (sc: EpisodeScene) => { const { SpoonKit } = await import('../../three/spoonKit'); return new SpoonKit(sc); },
+  play, check,
+  card: n => [`Your first count: ${n.first ?? '?'} bowls`, 'The last number you say when you count tells you how many spoons to get.'],
+};
