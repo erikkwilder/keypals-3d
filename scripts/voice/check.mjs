@@ -12,11 +12,15 @@
 // clips that differ are listed so they can be remade with
 // `node scripts/voice/generate.mjs --only <id>` (add a new seed in line-overrides.json if the same
 // take comes back). Results are saved to scripts/voice/raw/check.json.
+//
+// Inside (rule 46): every clip is also scanned for a fault inside it, away from its edges: a dropout, a click
+// or a hard splice (scripts/voice/blips.mjs says how it decides). A clip with one fails the check: re-record it.
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { findBlips } from './blips.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -52,7 +56,8 @@ function levels(path) {
   let full = 0;
   for (const v of x) if (Math.abs(v) >= 0.999) full++;
   return { ms: Math.round((x.length * 1000) / SR), ...loudness(path), fullScale: full,
-    headRms: +rms(0, n).toFixed(1), headPeak: +pk(0, n).toFixed(1), tailRms: +rms(x.length - n, x.length).toFixed(1), tailPeak: +pk(x.length - n, x.length).toFixed(1) };
+    headRms: +rms(0, n).toFixed(1), headPeak: +pk(0, n).toFixed(1), tailRms: +rms(x.length - n, x.length).toFixed(1), tailPeak: +pk(x.length - n, x.length).toFixed(1),
+    blips: findBlips(x).faults };
 }
 
 const results = {};
@@ -67,6 +72,11 @@ const loudEdges = vals.filter((r) => r.headRms > -40 || r.tailRms > -40);
 if (loudEdges.length) console.log(`edges above -40 dB RMS: ${loudEdges.map((r) => `${r.id} (head ${r.headRms}, tail ${r.tailRms})`).join(', ')}`);
 const overPeak = vals.filter((r) => r.tp > -1.5 || r.fullScale > 0);
 if (overPeak.length) console.log(`OVER the -1.5 dBTP ceiling: ${overPeak.map((r) => `${r.id} ${r.tp}`).join(', ')}`);
+// Rule 46: a dropout, a click or a hard splice inside a clip fails the check.
+const blipped = vals.filter((r) => r.blips.length);
+console.log(`faults inside a clip (rule 46): ${blipped.length ? `${blipped.length} clips, re-record them` : 'none'}`);
+for (const r of blipped) for (const f of r.blips) console.log(`  ${r.id}  ${f.t.toFixed(3)} s  ${f.kind} (${f.sure}): ${f.why}`);
+if (blipped.length) process.exitCode = 1;
 
 // ------------------------------------------------------------------ words
 
@@ -77,7 +87,7 @@ if (!LEVELS_ONLY) {
     python = readFileSync(bin, 'utf8').split('\n')[0].replace(/^#!/, '').trim();
   } catch {
     console.log('mlx_whisper not found: skipping the word check');
-    process.exit(0);
+    process.exit();
   }
   const py = `
 import sys, json, mlx_whisper
