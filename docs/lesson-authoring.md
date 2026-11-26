@@ -326,3 +326,18 @@ The full text, with Erik's words and why each exists, is `docs/lesson-rules.md`.
 - **Labels of things that left.** Pins whose things are off the page pile up at the screen's edge. Take them away with their things.
 - **`take && job`, never `take ; job`.** Read the slot's answer in one step, start the job in the next, and run long jobs in the background. macOS has no `timeout` command. Stop only processes you started, by their number.
 - **Timing in a slow browser.** A browser that draws slowly makes a run longer; the driver's last lines say how long it takes "on a computer that keeps up".
+
+### Found building Make Ten (26 Nov 2026), the first lesson made from this guide
+
+- **Names the guide didn't give.** Each room's Glimmer has a name the narrator uses ("Sprout Bunny" in the kitchen): take it from the room's existing lines (`grep "ep\.<room's lesson key>\." src/lib/content/voice.ts`). A sum's two parts are drawn in the pin colours `.t-a` (blue) and `.t-b` (pink), so the things on the table must be those two colours too.
+- **No card picture.** Some old lessons drew their card from a board and have no painted picture: use the room's existing card as a stand-in and say so in the hand-off note.
+- **The research behind a wrong idea.** Name where it comes from in the note; if it is from classroom experience, say that.
+- **A number pinned above a front-row thing stands over the row behind it on a wide screen.** At 1440 a count put 2 to 5 on four blue buns. Pin a count's number onto the place itself.
+- **On-screen sizes move from run to run** (a place measured 41 to 48 px at 390). Measure the floor (44 px) in more than one run, and leave room above it.
+- **Count words need a full stop each in the spoken form** ("One. Two. Three."), or the voice runs them together and the lights fall off the words.
+- **Never change a file under `src` while a play is running.** The dev server reloads the page.
+- **`~/bin/heavy-job release` takes the slot's name alone**, not the whole "name: what" text.
+- **The clips commit** carries `scripts/voice/raw/check.json` and `scripts/voice/raw/report.json` as well as the clips and `made.json`.
+- **A driver patch for a new kind of hands** (a tap on a place, a tap on a thing): copy `~/Documents/keypals-lessons-2026-11/fresh/lessons/make-ten/drive-patch.py` and change its selectors.
+- **The run output's "narrator clips" line can read 0** when clips play from the copies kept for a dropped connection. Count from "clips started" and "played" instead.
+- **The first fix pass is part of the lesson.** The lead's cold read found two lines to change and the last look found a card hiding the pink buns on a phone; plan for one more short round after the first full play.
