@@ -11,7 +11,7 @@ import { keepParts, neckPart, partWeights, STEADY_HEADS } from './buddyHead';
 // tops. The weights each came with are kept in the file for what asks which part of the body a vertex is (keepParts).
 // Each with how far its head's vertices drifted off the Head bone in the YMCA before (share of its height), and how many
 // times less they drift now (Turtle's head still rides its neck bone a little, as it did).
-const BUDDIES = [['monkey', 0.1, 4], ['antenna', 0.05, 4], ['pinkbunny', 0.03, 4], ['turtle', 0.05, 1.8]] as const;
+const BUDDIES = [['monkey', 0.1, 4], ['antenna', 0.05, 4], ['pinkbunny', 0.03, 4], ['turtle', 0.05, 1.8], ['axolotl', 0.05, 4]] as const;
 
 /** a .glb without its pictures (node can't decode them) */
 function bare(path: string): ArrayBuffer {
