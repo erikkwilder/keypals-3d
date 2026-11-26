@@ -10,7 +10,6 @@ import { WORLD_PIN } from './worlds';
 import { SPOTS } from './mapSpots';
 import { EVOLVED, GLIMMER, GLIMMERS } from './glimmers';
 import { CLOCKWORK_GLIMMERS } from './clockwork';
-import { STATION } from '../audio/stations';
 import type { Pool } from './battle';
 
 type MathPool = Extract<Pool, { subject: 'math' }>;
@@ -62,10 +61,9 @@ describe('Clockwork Isle', () => {
       expect(g.power.text(1).length).toBeGreaterThan(10);
     }
   });
-  it('plays the Storybook station (with its Magical Mysterious Clockwork) while the choice is Auto', () => {
-    // (App.svelte hands the world on screen to sound.ts setPlaceStation; it plays this only on Auto)
-    expect(WORLD_PIN.clockwork.station).toBe('storybook');
+  it('plays Adventure\'s usual music on Auto (its Storybook station was licensed music, taken out on 26 Nov 2026)', () => {
+    // (App.svelte hands the world on screen to sound.ts setPlaceStation; a world's own station plays only on Auto)
+    expect(WORLD_PIN.clockwork.station).toBeUndefined();
     expect(WORLD_PIN.sky.station).toBeUndefined();
-    expect(STATION.storybook.tracks.some(t => /clockwork/i.test(t.title))).toBe(true);
   });
 });

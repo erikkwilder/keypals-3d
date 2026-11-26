@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { game } from './lib/state/game.svelte';
   import { configureSound, startMusic, unlockAudio, setMusicStyle, setMusicStation, setPlaceStation } from './lib/audio/sound';
+  import { knownChoice } from './lib/audio/stations';
   import { lastWorld, stationOf, worldSubject } from './lib/adventure/worlds';
   import { NODE, ISLAND } from './lib/adventure/state';
   import SvgDefs from './lib/ui/SvgDefs.svelte';
@@ -126,7 +127,7 @@
     root.dataset.font = s.font;
     configureSound({ sound: s.sound, music: s.music, volume: s.volume });
     setMusicStyle(s.musicStyle ?? 'sunny');
-    setMusicStation(s.musicStation ?? 'auto');
+    setMusicStation(knownChoice(s.musicStation));
   });
 
   // less motion (app.css stills the CSS by it): the game's own "Less motion", or the computer's setting, live

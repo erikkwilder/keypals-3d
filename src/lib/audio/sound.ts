@@ -988,8 +988,10 @@ function stopSynth() {
 
 // ---------- the music you hear: a station of recordings, or the live-made island tunes ----------
 // A station plays its recordings one after another (shuffled, no repeats until all have played),
-// streamed from music/<file>.mp3 one at a time. Switching station or going from a lesson to a battle
-// crossfades; the same station carries on playing (the next lesson doesn't restart the song).
+// streamed from music/<file> one at a time. A recording that is a loop plays its `loops` times over and
+// crossfades into the next as its last time round ends (a station of one loop just goes round). Switching
+// station or going from a lesson to a battle crossfades; the same station carries on playing (the next
+// lesson doesn't restart the song).
 const FADE = 1.4;
 /** recordings are normalised to about -16 LUFS; this sits them a little above the live music (measured
  *  through the game's own output: about -38 LUFS against the island tunes' -41), under the sound effects */
@@ -999,8 +1001,8 @@ let deck: Deck | null = null;
 let stationChoice: StationChoice = 'auto';
 let place: MusicPlace = 'menu';
 /** a place's own station on Auto, instead of the usual one for the place: an Adventure world's (worlds.ts
- *  WORLD_PINS `station`: Clockwork Isle's Storybook, Shape Peaks' snow, Juice Jungle's and the Chance Fair's
- *  World...) on its map and in its battles, or a game's own (Spinner Showdown). App.svelte sets it on every
+ *  WORLD_PINS `station`; none has one while there are no stations of recordings) on its map and in its battles,
+ *  or a game's own. App.svelte sets it on every
  *  screen change, Adventure when the world changes, a game for itself: setPlaceStation is the one way. */
 let placeStation: StationId | null = null;
 let where: RegionId | 'menu' = 'menu';
@@ -1014,7 +1016,8 @@ const listeners = new Set<(n: NowPlaying) => void>();
 function currentStation(): StationId {
   const id = stationChoice === 'auto' ? (placeStation ?? AUTO[place]) : stationChoice;
   // a station with no recordings (or recordings that won't load) plays the island tunes instead
-  return id !== 'originals' && STATION[id]?.tracks.length && fails < 3 ? id : 'originals';
+  // (Keypals Originals has none: it is made live)
+  return STATION[id]?.tracks.length && fails < 3 ? id : 'originals';
 }
 export function musicNow(): NowPlaying {
   const st = currentStation(), t = deck && deck.station === st ? STATION[st].tracks[deck.track] : undefined;
@@ -1053,7 +1056,19 @@ function playTrack(id: StationId, idx?: number) {
   const i = idx ?? nextIndex(id), t = STATION[id].tracks[i];
   const el = new Audio();
   el.preload = 'auto';
-  el.src = `${import.meta.env.BASE_URL}music/${t.file}.mp3`;
+  el.src = `${import.meta.env.BASE_URL}music/${t.file}`;
+  // a loop goes round by itself; on its last time round, the next recording crossfades in before it ends
+  const many = STATION[id].tracks.length > 1;
+  if (t.loops) {
+    el.loop = true;
+    let round = 1, was = 0, handed = false;
+    el.addEventListener('timeupdate', () => {
+      if (deck?.el !== el || handed) return;
+      if (el.currentTime + 0.5 < was) round++;
+      was = el.currentTime;
+      if (many && round >= t.loops! && Number.isFinite(el.duration) && el.currentTime >= el.duration - FADE - 0.3) { handed = true; playTrack(id); }
+    });
+  }
   const g = c.createGain();
   g.gain.setValueAtTime(0, c.currentTime);
   g.gain.linearRampToValueAtTime(TRACK_GAIN, c.currentTime + FADE);
@@ -1096,8 +1111,7 @@ function applyMusic() {
   tell();
 }
 
-/** A place's own station while you're there, on Auto (the Chance Fair plays World: steel drums and
- *  maracas); null goes back to the usual one for the place. */
+/** A place's own station while you're there, on Auto; null goes back to the usual one for the place. */
 export function setPlaceStation(id: StationId | null) {
   if (id === placeStation) return;
   placeStation = id;

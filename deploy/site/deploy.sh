@@ -16,12 +16,11 @@ rm -rf "$HERE/public" "$HERE/public-org" && mkdir -p "$HERE/public/keypals" "$HE
 # (clones, -c: the same files on disk twice over would need more than a gigabyte free)
 cp -cR "$GAME/dist/." "$HERE/public/keypals/"
 cp -cR "$GAME/dist/." "$HERE/public-org/"
-# the licensed music isn't in the repository: copy it in from its private folder (a real copy, not a link)
-MUSIC=~/Documents/keypals-private/music
+# no recorded music is published: the game plays the music it makes itself (Keypals Originals). The 140 Envato
+# Elements tracks in ~/Documents/keypals-private/music came out of the game on 26 Nov 2026 and must not be
+# published again (src/lib/audio/stations.ts says why). A music folder the build copied in from a dev link
+# (public/music) is taken out too.
 rm -rf "$HERE/public/keypals/music" "$HERE/public-org/music"
-if [ -d "$MUSIC" ]; then
-  for d in "$HERE/public/keypals/music" "$HERE/public-org/music"; do mkdir -p "$d" && cp -c "$MUSIC"/*.mp3 "$d/"; done
-else echo "warning: no music at $MUSIC (the game falls back to its own tunes)"; fi
 cp -cR "$V1/dist/." "$HERE/public/keypals1/"
 # Cloudflare would add its Web Analytics script to every page it serves to a browser (the account has it on).
 # The privacy notice and the Grown-ups screen promise no analytics trackers, so every Keypals file is marked

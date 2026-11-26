@@ -12,7 +12,7 @@
   import NavTile from './NavTile.svelte';
   import { holdFocus } from './focusKeeper';
   import { engineLabel } from '../polyfills';
-  import { STATION } from '../audio/stations';
+  import { STATION, knownChoice, type StationId } from '../audio/stations';
 
   const mode = $derived(game.sheet ?? 'settings');
   const p = $derived(game.profile);
@@ -79,8 +79,8 @@
 
     {#if !game.quiet}
     <button class="opt wide pickmusic" onclick={() => { sfx.click(); game.openMusic(); }}>
-      <span class="pic"><img src="{import.meta.env.BASE_URL}icons/music/{s.musicStation && s.musicStation !== 'auto' ? s.musicStation : 'happy'}.webp" alt="" width="62" height="62" /></span>
-      <span class="txt"><b>Pick your music</b><small>{s.musicStation && s.musicStation !== 'auto' ? STATION[s.musicStation].name : 'Auto'}: calm, happy, adventure, rock, electronic, retro and more</small></span>
+      <span class="pic"><img src="{import.meta.env.BASE_URL}icons/music/{knownChoice(s.musicStation) !== 'auto' ? knownChoice(s.musicStation) : 'originals'}.webp" alt="" width="62" height="62" /></span>
+      <span class="txt"><b>Pick your music</b><small>{knownChoice(s.musicStation) !== 'auto' ? STATION[knownChoice(s.musicStation) as StationId].name : 'Auto'}: Keypals Originals, in a style you pick</small></span>
       <span class="go"><TileArt kind="play" size={34} /></span>
     </button>
 

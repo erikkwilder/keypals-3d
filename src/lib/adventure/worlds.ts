@@ -36,22 +36,21 @@ export const WORLD_PINS: WorldPin[] = [
   { id: 'caves', name: 'Counting Caves', blurb: 'Crystal caves and mine carts of blocks. Every battle card is about tens, hundreds and big numbers.', at: [12, 63], subjects: ['math'], area: 'place',
     art: { src: 'game/world-caves.webp', at: [12, 79], w: 18 },
     map: { wide: 'game/map-caves-wide.webp', tall: 'game/map-caves-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  { id: 'peaks', name: 'Shape Peaks', blurb: 'Crystal mountains and a crystal palace. Every battle card is about shapes and angles.', at: [89, 31], subjects: ['math'], area: 'shapes', station: 'snow',
+  { id: 'peaks', name: 'Shape Peaks', blurb: 'Crystal mountains and a crystal palace. Every battle card is about shapes and angles.', at: [89, 31], subjects: ['math'], area: 'shapes',
     map: { wide: 'game/map-peaks-wide.webp', tall: 'game/map-peaks-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   { id: 'market', name: 'Market Isle', blurb: 'A floating bazaar. Every battle card is money or decimals.', at: [33, 60], subjects: ['math'], area: 'decimals',
     map: { wide: 'game/map-market-wide.webp', tall: 'game/map-market-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Cuckoo clocks, gears and a great balance scale. Every battle card is time or measuring.', at: [60, 55], subjects: ['math'], area: 'measure', station: 'storybook',
+  { id: 'clockwork', name: 'Clockwork Isle', blurb: 'Cuckoo clocks, gears and a great balance scale. Every battle card is time or measuring.', at: [60, 55], subjects: ['math'], area: 'measure',
     map: { wide: 'game/map-clock-wide.webp', tall: 'game/map-clock-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  { id: 'stars', name: 'Star Lab', blurb: 'A sky observatory among the stars. Every battle card is an equation.', at: [88, 57], subjects: ['math'], area: 'algebra', station: 'storybook',
+  { id: 'stars', name: 'Star Lab', blurb: 'A sky observatory among the stars. Every battle card is an equation.', at: [88, 57], subjects: ['math'], area: 'algebra',
     map: { wide: 'game/map-stars-wide.webp', tall: 'game/map-stars-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
   { id: 'frost', name: 'Below Zero Caves', blurb: 'A glacier island with a frozen harbour and an ice palace. Every battle card is about negative numbers and the map.', at: [37, 87], subjects: ['math'], area: 'integers',
-    map: { wide: 'game/map-frost-wide.webp', tall: 'game/map-frost-tall.webp', size: { wide: [1600, 900], tall: [1024, 1821] } }, station: 'snow' },
-  { id: 'fair', name: 'Chance Fair', blurb: 'A carnival in the clouds. Every battle card is graphs, data or chance.', at: [73, 86], subjects: ['math'], area: 'data', station: 'world',
+    map: { wide: 'game/map-frost-wide.webp', tall: 'game/map-frost-tall.webp', size: { wide: [1600, 900], tall: [1024, 1821] } } },
+  { id: 'fair', name: 'Chance Fair', blurb: 'A carnival in the clouds. Every battle card is graphs, data or chance.', at: [73, 86], subjects: ['math'], area: 'data',
     map: { wide: 'game/map-fair-wide.webp', tall: 'game/map-fair-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
-  // Juice Jungle (ratios and percents): painted onto the clouds at the bottom right; steel drums and
-  // maracas from the World station
+  // Juice Jungle (ratios and percents): painted onto the clouds at the bottom right
   { id: 'jungle', name: 'Juice Jungle', blurb: 'Fruit trees and juice waterfalls. Every battle card is ratios or percents.', at: [93.5, 69], subjects: ['math'], area: 'ratios',
-    art: { src: 'game/world-jungle.webp', at: [94.2, 83], w: 10.5 }, station: 'world',
+    art: { src: 'game/world-jungle.webp', at: [94.2, 83], w: 10.5 },
     map: { wide: 'game/map-jungle-wide.webp', tall: 'game/map-jungle-tall.webp', size: { wide: [1600, 900], tall: [1024, 1536] } } },
 ];
 export const WORLD_PIN = Object.fromEntries(WORLD_PINS.map(w => [w.id, w])) as Record<string, WorldPin>;

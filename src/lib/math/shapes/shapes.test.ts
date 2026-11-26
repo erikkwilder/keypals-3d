@@ -291,7 +291,8 @@ describe('Shape Peaks', () => {
   it('a world of its own with six stops on its painted map, opening once shapes are started', () => {
     const pin = WORLD_PIN.peaks;
     expect(pin.map?.wide).toBe('game/map-peaks-wide.webp');
-    expect(pin.station).toBe('snow');
+    // (its Snow Day station was licensed music, taken out on 26 Nov 2026: Adventure's usual now)
+    expect(pin.station).toBeUndefined();
     expect(islandsOf('peaks').map(i => i.id)).toEqual(['peaks']);
     expect(ISLAND.peaks.area).toBe('shapes');
     const nodes = nodesOf('peaks');

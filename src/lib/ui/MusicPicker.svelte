@@ -1,12 +1,12 @@
 <script lang="ts">
-  // Pick your music: a station for every mood (calm, happy, adventure, rock, electronic, retro...), or
-  // Auto, which changes with what you're doing. Tapping one switches the music straight away, with a
+  // Pick your music: the stations (for now only Keypals Originals, the music the game makes itself), or
+  // Auto, which plays Keypals Originals everywhere. Tapping one switches the music straight away, with a
   // crossfade, wherever you are (in a lesson, a trip or a battle too), and it's remembered for this
   // player. "Keypals Originals" is the music the game makes itself, in a style you pick.
   import { onDestroy, onMount } from 'svelte';
   import { game } from '../state/game.svelte';
   import { MUSIC_STYLES, musicNow, onMusic, playStation, resumeMusic, setMusicStyle, sfx, skipTrack, unlockAudio, type MusicStyleId, type NowPlaying } from '../audio/sound';
-  import { AUTO, STATIONS, STATION, type StationChoice } from '../audio/stations';
+  import { AUTO, STATIONS, STATION, knownChoice, type StationChoice } from '../audio/stations';
   import TileArt from './TileArt.svelte';
   import CloseButton from './CloseButton.svelte';
   import { holdFocus } from './focusKeeper';
@@ -14,7 +14,7 @@
   const base = import.meta.env.BASE_URL;
   const art = (id: string) => `${base}icons/music/${id}.webp`;
   const s = $derived(game.settings);
-  const choice = $derived<StationChoice>(s.musicStation ?? 'auto');
+  const choice = $derived<StationChoice>(knownChoice(s.musicStation));
   let now = $state<NowPlaying>(musicNow());
   const off = $derived(s.music === false || s.sound === false);
 
@@ -64,8 +64,8 @@
 
     <div class="grid">
       <button class="st auto" class:on={choice === 'auto'} onclick={() => pick('auto')}>
-        <span class="pics"><img src={art(AUTO.focus)} alt="" /><img src={art(AUTO.menu)} alt="" /><img src={art(AUTO.adventure)} alt="" /></span>
-        <span class="sn"><b>Auto</b><small>Calm for lessons, happy on the menus, an adventure in Adventure</small></span>
+        <span class="pics">{#each [...new Set(Object.values(AUTO))] as id (id)}<img src={art(id)} alt="" />{/each}</span>
+        <span class="sn"><b>Auto</b><small>Keypals Originals everywhere</small></span>
       </button>
       {#each STATIONS as st (st.id)}
         <button class="st" class:on={choice === st.id} onclick={() => pick(st.id)}>

@@ -81,7 +81,6 @@
 
   onMount(() => {
     stage.use(null);
-    setPlaceStation('world');
     if (canvas) ShowdownScene.create(canvas).then(s => {
       if (disposed) { s.dispose(); return; }
       scene = s; s.onTick = () => sfx.click();

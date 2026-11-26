@@ -10,7 +10,7 @@
   import type { Look } from '../art/cast';
   import { LAYOUT_LIST } from '../engine/layouts';
   import { TUNES, sfx, melodyNote, resetMelody } from '../audio/sound';
-  import { STATION } from '../audio/stations';
+  import { STATION, knownChoice, type StationId } from '../audio/stations';
   import type { Settings } from '../engine/profile';
   import Header from '../ui/Header.svelte';
   import FingerCoach from '../ui/FingerCoach.svelte';
@@ -104,9 +104,9 @@
         <label class="row" class:grey={quiet}>Music <input type="checkbox" disabled={quiet} checked={s.music} onchange={(e) => set('music', e.currentTarget.checked)} /></label>
         {#if s.music}
           <div class="row">Music
-            <button class="musicpick" onclick={() => { sfx.click(); game.openMusic(); }}><img src="{import.meta.env.BASE_URL}icons/music/{s.musicStation && s.musicStation !== 'auto' ? s.musicStation : 'happy'}.webp" alt="" /><span>{s.musicStation && s.musicStation !== 'auto' ? STATION[s.musicStation].name : 'Auto'}</span><b>Pick your music</b></button>
+            <button class="musicpick" onclick={() => { sfx.click(); game.openMusic(); }}><img src="{import.meta.env.BASE_URL}icons/music/{knownChoice(s.musicStation) !== 'auto' ? knownChoice(s.musicStation) : 'originals'}.webp" alt="" /><span>{knownChoice(s.musicStation) !== 'auto' ? STATION[knownChoice(s.musicStation) as StationId].name : 'Auto'}</span><b>Pick your music</b></button>
           </div>
-          <p class="hint">Calm, happy, adventure, rock, electronic, retro and more, or Keypals Originals. You can switch any time from the Menu.</p>
+          <p class="hint">Keypals Originals: the game makes its own music as you play, in a style you pick. You can switch any time from the Menu.</p>
         {/if}
         <label class="row" class:grey={quiet}>Volume <input type="range" min="0" max="1" step="0.05" disabled={quiet} value={s.volume} oninput={(e) => game.update(pp => { pp.settings.volume = +e.currentTarget.value; })} /></label>
         <label class="row" class:grey={quiet}>Melody keys <input type="checkbox" disabled={quiet} checked={s.melody} onchange={(e) => set('melody', e.currentTarget.checked)} /></label>

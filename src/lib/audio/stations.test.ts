@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { AUTO, STATION, STATIONS } from './stations';
+import { AUTO, STATIONS, knownChoice } from './stations';
 
 describe('music stations', () => {
-  it('every station but the live-made one has recordings, and no song is on two stations', () => {
-    const files = STATIONS.flatMap(s => s.tracks.map(t => t.file));
-    expect(new Set(files).size).toBe(files.length);
-    for (const s of STATIONS) {
-      if (s.id === 'originals') expect(s.tracks).toHaveLength(0);
-      else expect(s.tracks.length, s.id).toBeGreaterThanOrEqual(7);
-      for (const t of s.tracks) { expect(t.file).toMatch(/^[a-z0-9-]+$/); expect(t.title.length).toBeGreaterThan(0); expect(t.artist.length).toBeGreaterThan(0); }
-    }
+  it('only the music the game makes itself: no recordings on any station', () => {
+    // the 140 tracks licensed from Envato Elements came out on 26 Nov 2026 (that licence holds only for a product
+    // finished while the subscription lasts); recordings come back only with a licence that is clear
+    expect(STATIONS.map(s => s.id)).toEqual(['originals']);
+    for (const s of STATIONS) expect(s.tracks).toHaveLength(0);
   });
-  it('Auto plays a real station in every place', () => {
-    for (const id of Object.values(AUTO)) expect(STATION[id]).toBeTruthy();
-    expect(AUTO.focus).toBe('calm');
-    expect(AUTO.adventure).toBe('adventure');
+  it('Auto plays Keypals Originals in every place', () => {
+    for (const id of Object.values(AUTO)) expect(id).toBe('originals');
+  });
+  it('a saved choice of a station that is gone plays as Auto, and a real one as itself', () => {
+    for (const old of ['calm', 'happy', 'pop', 'dance', 'storybook', 'snow', 'adventure', 'rock', 'electronic', 'retro', 'beats', 'funk', 'hiphop', 'world']) expect(knownChoice(old)).toBe('auto');
+    for (const odd of [undefined, null, 3, '', 'toString', 'constructor', '__proto__']) expect(knownChoice(odd)).toBe('auto');
+    for (const id of ['auto', 'originals']) expect(knownChoice(id)).toBe(id);
   });
 });

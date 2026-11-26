@@ -12,7 +12,6 @@ import { GLIMMER, GLIMMERS } from './glimmers';
 import { JUNGLE_GLIMMERS } from './jungleGlimmers';
 import { WORLD_PIN } from './worlds';
 import { trailsOf } from './trails';
-import { STATION } from '../audio/stations';
 
 describe('Juice Jungle', () => {
   it('is a world of its own with six stops and a painted map, and opens once ratios are started', () => {
@@ -26,7 +25,8 @@ describe('Juice Jungle', () => {
     expect(pin.area).toBe('ratios');
     expect(pin.map?.wide).toBe('game/map-jungle-wide.webp');
     expect(pin.art?.src).toBe('game/world-jungle.webp');
-    expect(STATION[pin.station!].tracks.length).toBeGreaterThan(0);
+    // (it played the World station, licensed music taken out on 26 Nov 2026: Adventure's usual now)
+    expect(pin.station).toBeUndefined();
     for (const n of nodesOf('jungle')) expect(trailsOf('jungle').point[n.id]?.kind).toBe('stop');
   });
   it('every battle card is a ratios or percents question', () => {

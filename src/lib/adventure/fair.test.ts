@@ -25,7 +25,8 @@ describe('the Chance Fair', () => {
     const m = (p.math = mathOf(p));
     noteSkillAnswers(m, [{ key: 'da-sort:count', ok: true, thinkMs: 3000 }], Date.now());
     expect(worldOpen(p, 'fair')).toBe(true);
-    expect(stationOf('fair')).toBe('world');
+    // (its World station's steel drums were licensed music, taken out on 26 Nov 2026: Adventure's usual now)
+    expect(stationOf('fair')).toBeNull();
   });
   it('every battle card is a data and chance question', () => {
     const p = newProfile('Ava', 'dino');

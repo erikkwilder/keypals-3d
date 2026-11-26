@@ -26,7 +26,8 @@ export type Settings = {
   tune: string;
   /** the background music's style ('mix': a different one each lesson) */
   musicStyle?: import('../audio/sound').MusicStyleId | 'mix';
-  /** the music station picked ('auto': calm while practising, happy on the menus, adventure in Adventure) */
+  /** the music station picked ('auto': Keypals Originals everywhere; a station that is gone reads as 'auto':
+   *  stations.ts knownChoice) */
   musicStation?: import('../audio/stations').StationChoice;
   volume: number; // 0..1
   reducedMotion: boolean;

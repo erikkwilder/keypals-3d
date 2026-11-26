@@ -48,10 +48,18 @@ beforeAll(async () => {
   vi.stubGlobal('window', win);
   vi.stubGlobal('document', doc);
   vi.stubGlobal('Audio', FakeAudio);
+  // a stand-in station of two recordings (the game has none since 26 Nov 2026), so the rules for a song that
+  // is playing when the game is put away stay held
+  vi.doMock('./stations', async (orig) => {
+    const m = await orig<typeof import('./stations')>();
+    const test = { id: 'test', name: 'Test', blurb: '', tracks: [{ file: 'a.m4a', title: 'A', artist: 'x' }, { file: 'b.m4a', title: 'B', artist: 'x' }] };
+    return { ...m, STATIONS: [...m.STATIONS, test], STATION: { ...m.STATION, test } };
+  });
   snd = await import('./sound');
   voice = await import('./voice.svelte');
   line = (await import('../content/voice')).ALL_LINES.find(l => l.voice === 'coach')!.id;
   snd.configureSound({ sound: true, music: true, volume: 0.8 });
+  snd.setMusicStation('test' as never);
   snd.startMusic('menu');
 });
 afterAll(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
