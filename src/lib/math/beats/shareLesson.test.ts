@@ -11,8 +11,15 @@ import { lineProblems, scriptProblems, stillStretches, type Step } from './rules
 
 /** a child: the cuts they make (one list of lines per bar), the single taps when cutting together, the picks */
 type Child = { cuts: number[][]; taps: number[]; picks: string[] };
+/** the things that move on the table, and where among its arguments each one's length in seconds is (-1: it takes none) */
+const MOVES: Record<string, number> = { serve: 0, testOther: 0, otherBar: 1, besides: 2, give: 2, barIn: -1, plates: -1, barOut: -1, clearOther: -1, join: -1, uncut: -1, eat: -1 };
+/** the real tries: the child is told what each is before it and what it showed after it (rules 6 to 8). Made
+ *  inside the line that names it (rule 45), a try is still a try */
+const TRIES = ['serve', 'otherBar', 'testOther', 'besides', 'give'];
 function pretend(child: Child) {
   const log: string[] = [];
+  /** every movement made between lines, with no words over it (rule 45) */
+  const apart: string[] = [];
   const said: string[] = [];
   /** the run as a reader would follow it: each line as it shows on screen (its numbers filled in), and what the picture or the child does */
   const film: string[] = [];
@@ -24,7 +31,16 @@ function pretend(child: Child) {
       if (k === 'cut') return async (n: number) => { const c = child.cuts.shift(); if (!c) throw new Error('the lesson asked for more cuts than this child has'); log.push(`cut(${n}) ${c.join(',')}`); film.push(`(the child cuts the bar into ${n} pieces, after squares ${c.join(', ')})`); return c; };
       if (k === 'tapCut') return async (hint: number) => { const g = child.taps.shift() ?? hint; log.push(`tapCut ${g}`); film.push(`(the child cuts once, after square ${g})`); return g; };
       // (a picture that goes with a line is recorded as shown with it, and the cold read gets its second)
-      return (...a: unknown[]) => { const l = `${k}(${a.map(x => JSON.stringify(x)).join(',')})`; log.push(cue == null ? l : `show ${l}`); film.push(cue == null ? `(picture: ${l})` : `   (picture, ${cue} s into that line: ${l})`); return Promise.resolve(); };
+      // (a move's length in seconds is left out of the record and printed in the cold read)
+      return (...a: unknown[]) => {
+        const at = MOVES[k] ?? -1, over = at >= 0 ? (a[at] as number | undefined) : undefined, args = at >= 0 ? a.slice(0, at) : a;
+        while (args.length && args.at(-1) === undefined) args.pop();
+        const l = `${k}(${args.map(x => JSON.stringify(x)).join(',')})`;
+        if (cue == null && k in MOVES) apart.push(l);
+        log.push(cue == null || TRIES.includes(k) ? l : `show ${l}`);
+        film.push(cue == null ? `(picture: ${l})` : `   (picture, ${cue} s into that line${over ? `, taking ${over} s` : ''}: ${l})`);
+        return Promise.resolve();
+      };
     },
   });
   const speak = (id: string, n?: number, m?: number) => { said.push(id); log.push(`say ${id}`); film.push(`SAID: ${shown(id, n, m)}`); };
@@ -35,10 +51,10 @@ function pretend(child: Child) {
     num: async () => { throw new Error('this lesson has no number questions'); },
     pick: async (q, choices, id) => { if (id) speak(id); const p = child.picks.shift() ?? choices[0].id; if (!choices.some(c => c.id === p)) throw new Error(`no choice ${p}`); log.push(`pick ${p}`); film.push(`(asked "${q}" with the choices ${choices.map(c => c.text).join(' / ')}: the child picks ${choices.find(c => c.id === p)!.text})`); return p as never; },
     hands: async (words, job) => { film.push(`(the child's hands: ${words})`); await job(); },
-    go: async l => { log.push(`go ${l}`); film.push(`(the child taps ${l})`); }, wait: async () => {},
+    go: async l => { log.push(`go ${l}`); film.push(`(the child taps ${l})`); }, wait: async ms => { film.push(`(nothing moves and nothing is said for ${ms / 1000} s)`); },
     buddy: () => {}, pal: () => {}, thought: (w, t) => { if (t) { log.push(`${w} thinks ${t}`); film.push(`(a thought over ${w === 'pal' ? "Pebble's" : "the buddy's"} head: ${t})`); } }, myBet: () => {}, beat: () => {},
   };
-  return { log, said, world, teller, film };
+  return { log, said, world, teller, film, apart };
 }
 const countOf = (log: string[], name: string) => log.filter(l => l.startsWith(name)).length;
 /** The run as the rules see it: serving, someone else's knife, and a piece laid under are what get acted out. */
@@ -115,7 +131,7 @@ describe('the lesson, played by every kind of child', () => {
     const { log, said } = await play(WRONG);
     expect(said).toContain('ep.share.together');
     expect(log).toContain('tapCut 3');
-    expect(log).toContain('uncut(3)');
+    expect(log).toContain('show uncut(3)');
     expect(said).toContain('ep.share.eight.half.no');
     expect(said).toContain('ep.share.eight.quarter.no');
     expect(said).toContain('ep.share.fair.together');
@@ -234,6 +250,46 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
     expect(p.log.slice(n + 2, n + 6)).toEqual(['show squares([[0,1],[2,3],[4,5],[6,7]])', 'show light([0])', 'show light(null)', 'show label("1/4")']);
     // no pretend piece is ever cut where the real bar's fair cuts are shown: the plan has no squares, only plates
     expect(p.log.filter(l => l.startsWith('show plan(')).every(l => /^show plan\((null|\[[124,3]+\])\)$/.test(l))).toBe(true);
+  });
+  // rule 45 (Erik: "the talking of the narrator has to completely stop before the thing ... happens. But then
+  // when the plates are moving, there's no talking")
+  it('rule 45: every movement begins inside the line that names it, and the one move left on its own is the bar leaving after the next-day check', async () => {
+    for (const kid of Object.values(kids)) {
+      const p = pretend({ cuts: kid.cuts.map(x => [...x]), taps: [...kid.taps], picks: [...kid.picks] });
+      await SHARE_LESSON.play(p.teller, p.world);
+      expect(p.apart).toEqual([]);
+    }
+    for (const cuts of [[[3, 6, 9]], [[1, 2, 3], [5, 6, 7]]]) {
+      const p = pretend({ cuts: cuts.map(x => [...x]), taps: [], picks: ['4'] });
+      await SHARE_LESSON.check(p.teller, p.world, { fair: 1, small: 2, big: 2 });
+      expect(p.apart).toEqual(['barOut()']);
+    }
+    const p = pretend({ cuts: WRONG.cuts.map(x => [...x]), taps: [...WRONG.taps], picks: [...WRONG.picks] });
+    await SHARE_LESSON.play(p.teller, p.world);
+    // each move, and the line it is made in
+    const lineOf = (move: string) => { const i = p.log.indexOf(move); return i < 0 ? 'never' : p.log.slice(0, i).reverse().find(l => l.startsWith('say '))!.slice('say ep.share.'.length); };
+    const where = { 'show barIn(8)': 'intro', 'serve()': 'try.you', 'show uncut(3)': 'eight.half.no', 'show uncut(5)': 'eight.quarter.no', 'otherBar([1,2,5])': 'try.buddy', 'testOther()': 'try.test',
+      'show clearOther()': 'more', 'besides(8)': 'try.pal', 'show barOut()': 'last', 'show barIn(6)': 'last', 'show plates(3,["Your buddy","Pebble","You"])': 'last', 'besides(6)': 'try.name',
+      'give(1,2)': 'try.give', 'besides(6,2)': 'try.six', 'show label("1/3")': 'try.two.together', 'show eat()': 'eat' };
+    expect(Object.fromEntries(Object.keys(where).map(m => [m, lineOf(m)]))).toEqual(where);
+    // every time the pieces are served, it is inside a line that says so
+    p.log.forEach((l, i) => { if (l === 'serve()') expect(p.log.slice(0, i).reverse().find(x => x.startsWith('say '))).toMatch(/^say ep\.share\.try\.(you|again|together|last)$/); });
+    // a try made inside its line is still a try: named by the line it is in, and the next thing said is what it showed
+    const steps = stepsOf(p.log).filter(s => s.k !== 'show');
+    for (const tried of ['serve()', 'otherBar([1,2,5])', 'testOther()', 'besides(8)', 'besides(6)', 'give(1,2)', 'besides(6,2)']) {
+      const i = steps.findIndex(s => s.k === 'act' && s.v === tried);
+      expect(steps[i - 1], tried).toMatchObject({ k: 'say', v: expect.stringMatching(/\.try\./) });
+      expect(steps[i + 1].k, tried).toMatch(/say|ask/);
+    }
+  });
+  it('why equal pieces are fair is said whole once: the last bar\'s fair cut gets its own numbers and the reason, shorter (rule 44)', async () => {
+    for (const kid of Object.values(kids)) {
+      const p = pretend({ cuts: kid.cuts.map(x => [...x]), taps: [...kid.taps], picks: [...kid.picks] });
+      await SHARE_LESSON.play(p.teller, p.world);
+      expect(p.said.filter(id => id === 'ep.share.fair' || id === 'ep.share.fair.together')).toHaveLength(1);
+      expect(p.said.filter(id => id === 'ep.share.fair.again')).toHaveLength(1);
+      expect(p.film).toContain('SAID: Your 3 pieces are all the same size, 2 squares each, so this share is fair too.');
+    }
   });
   it('every line can stand up to the words rules', () => {
     expect(lineProblems(BEAT_LINES.filter(l => l.id.startsWith('ep.share.')))).toEqual([]);

@@ -25,23 +25,25 @@ export interface ShareWorld extends World {
   tapCut(hint: number): Promise<number>;
   /** a cut closes up again */
   uncut(line: number): Promise<void>;
-  /** the pieces go one onto each plate, then line up side by side from the same start, their lengths on them */
-  serve(): Promise<void>;
+  /** the pieces go one onto each plate, then line up side by side from the same start, their lengths on them.
+   *  `over` (here and below): the seconds the move may take when the narrator is talking over it; it goes more
+   *  slowly to end with the words, never quicker than usual (rule 45) */
+  serve(over?: number): Promise<void>;
   /** the pieces go back together into one whole bar */
   join(): Promise<void>;
   /** the name stands on every piece of the bar, and on what's laid under it (null: gone) */
   label(mine: string | null, other?: string): void;
   /** someone else's bar, the same size, cut on these lines by their knife, under the child's pieces */
-  otherBar(lines: number[]): Promise<void>;
+  otherBar(lines: number[], over?: number): Promise<void>;
   /** that bar's pieces line up side by side too, with their lengths on them */
-  testOther(): Promise<void>;
+  testOther(over?: number): Promise<void>;
   /** one piece of the same bar cut into `b` equal pieces is laid right under the child's first piece
    *  (`k` pieces: they stand one on top of the other, and the child's stack says how many squares it has too) */
-  besides(b: number, k?: number): Promise<void>;
+  besides(b: number, k?: number, over?: number): Promise<void>;
   /** whatever was laid under the child's pieces goes away */
   clearOther(): Promise<void>;
   /** the piece on plate `from` goes onto plate `to`, standing on top of the piece there */
-  give(from: number, to: number): Promise<void>;
+  give(from: number, to: number, over?: number): Promise<void>;
   /** a word over the two pieces stacked on one plate (null: gone) */
   total(text: string | null): void;
   /** the buddy's piece (plate 0) and the Glimmer's (plate 1, unless it was given away) go into their mouths */
@@ -78,14 +80,14 @@ export interface ShareWorld extends World {
   // none of the buddy's pieces was a fourth)
 const BAR = 8, FRIENDS = 4, BUDDY_CUTS = [1, 2, 5], LAST = 6, LAST_FRIENDS = 3, NEXT_DAY = 12;
 /** the words a run of the lesson can say, all of them */
-export const SHARE_LINES = ['intro', 'plates', 'cut', 'try.you', 'try.again', 'try.together', 'try.last', 'fair', 'unfair', 'unfair.again', 'again', 'together', 'half', 'half.yes',
+export const SHARE_LINES = ['intro', 'plates', 'cut', 'try.you', 'try.again', 'try.together', 'try.last', 'fair', 'fair.again', 'unfair', 'unfair.again', 'again', 'together', 'half', 'half.yes',
   'eight.half.no', 'eight.quarter', 'eight.quarter.no', 'twelve.half.no', 'twelve.quarter', 'twelve.quarter.no',
   'name', 'name.why', 'try.buddy', 'buddy.ask', 'try.test', 'buddy.yes', 'buddy.no', 'buddy.why', 'more', 'which', 'try.pal', 'eighth.you', 'eighth.pal', 'eighth.same', 'eighth.why',
   'last', 'hint', 'hint.again', 'call', 'try.name', 'call.squares', 'call.half', 'call.why', 'call.yes', 'try.give', 'two.have', 'two.ask', 'try.six', 'six.show', 'try.two', 'try.two.together', 'two.yes', 'two.one', 'two.six', 'two.top',
   'own.ask', 'own.yes', 'own.no', 'eat', 'fair.together', 'quarter.yes', 'check', 'check.call', 'check.call.yes', 'check.call.no'].map(k => `ep.share.${k}`);
 
 /** What this child has already been told in full: said again, it is said shorter. */
-type Told = { unfair: boolean; hint?: boolean };
+type Told = { unfair: boolean; hint?: boolean; fair?: boolean };
 
 /** Which bar's worked answer: the lines carry that bar's own numbers. */
 type Key = 'eight' | 'twelve';
@@ -137,21 +139,74 @@ const AT = {
   twoSix: [5.1],
   // "counts the pieces you have" / "You have 2 thirds" / "so the top number is 2"
   twoTop: [1.9, 3.7, 5.0],
+
+  // Rule 45: a movement begins while the narrator is saying the line about it, and the two end together. Each
+  // is [the second of the line the move begins at, the seconds it may take]: the kit goes slower to fill them,
+  // never quicker than usual.
+  // "Pebble made this chocolate bar" 2.8: the bar comes in (8.7 s)
+  intro: [2.8],
+  // the pieces go onto the plates and stand up. "Each piece goes onto a plate" 1.6, one piece about every second,
+  // and their lengths come at "so we can compare them" 5.8 (7.1 s) / "The pieces go onto the plates" 1.8 (4.4 s) /
+  // "They go onto the plates" 2.9 (5.0 s) / "The pieces go onto the 3 plates" 2.0 (4.6 s)
+  serve: { you: [1.6, 4.6], again: [1.8, 2.6], together: [2.9, 2.1], last: [2.0, 2.6] },
+  // "are all the same size" 1.0: the level line (3.9 s)
+  fairAgain: [1.0],
+  // a wrong cut closes up as the narrator turns from its two pieces to where the middle is: "4 and 4 make 8"
+  // 4.9 / "Each half has 4 squares" 4.6 / "6 and 6 make 12" 4.9 / "Each half has 6 squares" 4.8
+  no: { eight: { half: 4.9, quarter: 4.6 }, twelve: { half: 4.9, quarter: 4.8 } },
+  // "Your buddy cuts a bar the same size" 2.0, and the third cut is made as "into 4 pieces" ends, 4.9 (9.0 s)
+  tryBuddy: [2.0, 2.9],
+  // in the breath before "They stand up next to your fair ones" 2.7: the move takes 2.1 s and the clip is 4.4 s
+  tryTest: [2.3, 2.1],
+  // "Pebble cuts a bar" 2.9, cut under "into 8 equal pieces" 4.6 to 6.1, and one piece laid under a fourth at
+  // "and one of them stands next to your fourths" 6.2 (8.5 s)
+  tryPal: [2.9, 5.6],
+  // (the old bar leaves at 0 and the new one comes straight after it, under "a new bar with 6 squares") "This
+  // time 3 friends share it" 2.8: the plates (9.6 s)
+  last: [2.8],
+  // "see what your answer looks like" 0.2 (3.2 s: the move takes 3.1 to 3.5 s, so the piece lands just after the words)
+  tryName: [0.2, 3.0],
+  // "it goes on top of your piece" 4.6, landing at "on your plate" 6.1 (6.8 s)
+  tryGive: [4.6, 2.1],
+  // "Here is a bar just like it" 3.2, cut under "cut into 6 equal pieces" 4.9, and 2 pieces stood beside the
+  // plate under "and 2 of those pieces stand next to your plate" 6.4 (10.1 s)
+  trySix: [3.2, 6.9],
+  // "Each piece gets its name" 1.2 / 2.4: the names come onto the thirds
+  tryTwo: { right: 1.2, together: 2.4 },
+  // the next day: the bar at 0, the plates at "4 friends will share it" 2.6 (7.7 s)
+  check: [2.5],
 };
+/** A stop kept on purpose (rule 45): pieces that have just lined up side by side are the moment of comparing, so
+ *  they stand this long, ms, before the narrator says what they showed. */
+const REST = 700;
+type Serve = 'you' | 'again' | 'together' | 'last';
+/** The pieces go onto the plates and stand up while the narrator says they do: they start at the words that say
+ *  so and the last one is standing, with its length on it, as the line ends. Then they rest. */
+async function served(t: Teller, w: ShareWorld, which: Serve) {
+  const [from, takes] = AT.serve[which];
+  await t.sayWith(`ep.share.try.${which}`, [[from, () => w.serve(takes)]]);
+  await t.wait(REST);
+}
 /** the squares from a up to b, each on its own, so each can be told from the next */
 const each = (a: number, b: number) => Array.from({ length: b - a }, (_, i) => [a + i]);
 /** the squares of each piece, piece by piece */
 const groups = (pieces: number[]) => { let at = 0; return pieces.map(n => { const g = Array.from({ length: n }, (_, i) => at + i); at += n; return g; }); };
 
 /** The child cuts the bar; what they made is served and lined up, and the bar says if it's fair. */
-async function tryCut(t: Teller, w: ShareWorld, squares: number, friends: number, line: string, told: Told): Promise<number[]> {
+async function tryCut(t: Teller, w: ShareWorld, squares: number, friends: number, line: Serve, told: Told): Promise<number[]> {
   let lines: number[] = [];
   await t.hands(`Tap the bar to cut it into ${friends} pieces`, async () => { lines = await w.cut(friends); }, () => w.finish());
-  await t.say(line);
-  await w.serve();
+  await served(t, w, line);
   const pieces = piecesOf(squares, lines);
   // (a fair cut: a level line comes across the tops of the pieces as "all the same size" is said, and every piece reaches it)
-  if (fair(pieces)) { t.buddy('cheer'); t.pal('happy'); await t.sayWith('ep.share.fair', [[AT.fair[0], () => w.level('yes')]], pieces[0]); }
+  // (why equal pieces are fair is said whole once: a child who has heard it on the first bar hears the last
+  // bar's fair cut with its own numbers and the reason, shorter. Rule 44)
+  if (fair(pieces)) {
+    t.buddy('cheer'); t.pal('happy');
+    if (told.fair) await t.sayWith('ep.share.fair.again', [[AT.fairAgain[0], () => w.level('yes')]], pieces[0], friends);
+    else await t.sayWith('ep.share.fair', [[AT.fair[0], () => w.level('yes')]], pieces[0]);
+    told.fair = true;
+  }
   // (an unfair cut is told with its own numbers: the smallest and the biggest piece, in squares. Each lights as
   // it is named, and then the level line comes across at the top of the biggest: the gap over a smaller piece
   // is the chocolate that friend doesn't get)
@@ -166,26 +221,27 @@ async function tryCut(t: Teller, w: ShareWorld, squares: number, friends: number
   return pieces;
 }
 /** One cut, on a line the script can judge: a wrong one is cut, its pieces shown, and undone. */
-async function cutAt(t: Teller, w: ShareWorld, words: string, ok: (g: number) => boolean, hint: number, no: string, sizes?: (g: number) => [number, number]) {
+async function cutAt(t: Teller, w: ShareWorld, words: string, ok: (g: number) => boolean, hint: number, no: string, at: number, sizes?: (g: number) => [number, number]) {
   for (;;) {
     let g = hint;
     await t.hands(words, async () => { g = await w.tapCut(hint); }, () => w.finish());
     if (ok(g)) return g;
     t.buddy('shrug');
-    // (`sizes`: the two pieces that cut made, said in the line)
-    await t.say(no, ...(sizes?.(g) ?? []));
-    await w.uncut(g);
+    // (`sizes`: the two pieces that cut made, said in the line. The cut stays open while its pieces are talked
+    // about and closes up, `at` seconds in, as the narrator turns to where the middle is: the bar, or the half,
+    // is whole again under the words about its squares, and ready for the next tap as the line ends. Rule 45)
+    await t.sayWith(no, [[at, () => w.uncut(g)]], ...(sizes?.(g) ?? []));
   }
 }
 /** Two unfair cuts: say so kindly, then halve and halve again together, each step with its reason. */
-async function together(t: Teller, w: ShareWorld, squares: number, k: Key) {
+async function together(t: Teller, w: ShareWorld, squares: number, k: Key, told: Told) {
   // (the pieces go back as it starts; then the two steps on a pretend bar over the plates: whole, cut in half,
   // and each half in half, so a piece lies over every plate. It has no squares on it, so it shows the way and
   // not where the middle of the real bar is)
   await t.sayWith('ep.share.together', [[AT.together[0], () => w.join()], [AT.together[1], () => w.plan([4])], [AT.together[2], () => w.plan([2, 2])], [AT.together[3], () => w.plan([1, 1, 1, 1])]]);
   const mid = middle(0, squares)!, half = squares / 2;
   await t.say('ep.share.half');
-  await cutAt(t, w, 'Tap the middle of the bar', g => g === mid, mid, `ep.share.${k}.half.no`, g => [g, squares - g]);
+  await cutAt(t, w, 'Tap the middle of the bar', g => g === mid, mid, `ep.share.${k}.half.no`, AT.no[k].half, g => [g, squares - g]);
   t.buddy('nod');
   // (the two halves light, each in its own colour, with its squares on it)
   await t.sayWith('ep.share.half.yes', [[AT.halfYes[0], () => w.squares([each(0, mid).flat(), each(mid, squares).flat()])]], half);
@@ -195,24 +251,24 @@ async function together(t: Teller, w: ShareWorld, squares: number, k: Key) {
   const q = AT.quarter[k];
   await t.sayWith(`ep.share.${k}.quarter`, [[q[0], () => w.squares(each(0, mid))], [q[1], () => w.squares(each(0, squares))], [q[2], () => w.plan([2, 2])], [q[3], () => w.plan([1, 1, 1, 1])]]);
   const quarters = [middle(0, mid)!, middle(mid, squares)!];
-  const first = await cutAt(t, w, 'Tap the middle of one half', g => quarters.includes(g), quarters[0], `ep.share.${k}.quarter.no`);
+  const first = await cutAt(t, w, 'Tap the middle of one half', g => quarters.includes(g), quarters[0], `ep.share.${k}.quarter.no`, AT.no[k].quarter);
   const other = quarters.find(q => q !== first)!;
   t.buddy('nod');
   await t.say('ep.share.quarter.yes', squares / FRIENDS);
-  await cutAt(t, w, 'Now tap the middle of the other half', g => g === other, other, `ep.share.${k}.quarter.no`);
-  await t.say('ep.share.try.together');
-  await w.serve();
+  await cutAt(t, w, 'Now tap the middle of the other half', g => g === other, other, `ep.share.${k}.quarter.no`, AT.no[k].quarter);
+  await served(t, w, 'together');
   t.buddy('cheer'); t.pal('happy');
   await t.sayWith('ep.share.fair.together', [[AT.fairTogether[0], () => w.level('yes')]], squares / FRIENDS);
+  told.fair = true;
 }
 /** A bar shared by four: two tries of the child's own, then together. Resolves with the first try's pieces. */
 async function shareFour(t: Teller, w: ShareWorld, squares: number, k: Key, told: Told): Promise<number[]> {
   let first: number[] = [];
   for (let miss = 0; ; miss++) {
-    const pieces = await tryCut(t, w, squares, FRIENDS, miss ? 'ep.share.try.again' : 'ep.share.try.you', told);
+    const pieces = await tryCut(t, w, squares, FRIENDS, miss ? 'again' : 'you', told);
     if (!miss) first = pieces;
     if (fair(pieces)) break;
-    if (miss >= 1) { await together(t, w, squares, k); break; }
+    if (miss >= 1) { await together(t, w, squares, k, told); break; }
     // (the pieces go back together as the narrator says they do)
     await t.sayWith('ep.share.again', [[AT.again[0], () => w.join()]], FRIENDS);
   }
@@ -223,8 +279,8 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   // the job: four friends, one bar, and sharing has to be fair (a moment first, so the picture has settled)
   t.beat(0);
   await t.wait(700);
-  await w.barIn(BAR);
-  await t.say('ep.share.intro');
+  // (the bar comes in as the narrator says who made it. It came first, in silence, and then the line. Rule 45)
+  await t.sayWith('ep.share.intro', [[AT.intro[0], () => w.barIn(BAR)]]);
   // (the plates come as they are named. Then what "fair" means, on them: pretend pieces, see-through, of four
   // different sizes with a cross, which even out to the same size and get a tick. They are plain, with no squares
   // on them, so they show what fair is and not where to cut)
@@ -253,11 +309,14 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   // the buddy's idea: 4 pieces, so they must be fourths
   t.beat(3);
   t.thought('buddy', '4 pieces, so 4 fourths!'); t.buddy('point');
-  await t.say('ep.share.try.buddy');
-  await w.otherBar(BUDDY_CUTS);
+  // (the buddy's bar comes in and the buddy's knife cuts it while the narrator says so. Then a stop kept on
+  // purpose: the question waits for the child's answer)
+  await t.sayWith('ep.share.try.buddy', [[AT.tryBuddy[0], () => w.otherBar(BUDDY_CUTS, AT.tryBuddy[1])]]);
   const yes = await t.pick('Is each of these pieces one fourth?', [{ id: 'yes', text: 'Yes' }, { id: 'no', text: 'No' }], 'ep.share.buddy.ask');
-  await t.say('ep.share.try.test');
-  await w.testOther();
+  // (the buddy's pieces stand up as the narrator says they do, and rest beside the child's fair ones before
+  // anything is said about them)
+  await t.sayWith('ep.share.try.test', [[AT.tryTest[0], () => w.testOther(AT.tryTest[1])]]);
+  await t.wait(REST);
   t.thought('buddy', null); t.buddy('oops');
   // (the child's own pieces light as "one fourth of this bar is 2 squares" is said; at "like each of your
   // pieces" a level line comes across the buddy's pieces at that height, 2 squares; then each of the buddy's
@@ -267,15 +326,17 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
     ...theirs.map((p): Cue => [by[p + 2], () => w.light(theirs.slice(0, p + 1), true)])]);
   // (and what that means for the buddy's idea: 4 pieces aren't fourths just for being 4)
   await t.say('ep.share.buddy.why');
-  await w.clearOther();
 
   // Pebble's idea: 8 is more than 4, so 1/8 must be more
   t.beat(4);
-  await t.say('ep.share.more');
+  // (the buddy's bar leaves as the narrator turns to Pebble: it left in silence before the line)
+  await t.sayWith('ep.share.more', [[0, () => w.clearOther()]]);
   t.thought('pal', '8 is more than 4, so 1/8 is more!'); t.pal('hop');
   const more = await t.pick('Which piece has more chocolate?', [{ id: '4', text: '1/4' }, { id: '8', text: '1/8' }, { id: 'same', text: 'The same' }], 'ep.share.which');
-  await t.say('ep.share.try.pal');
-  await w.besides(8);
+  // (Pebble's bar comes in, is cut into 8 and one piece is laid under a fourth, each as the narrator says it;
+  // then the two rest side by side before the narrator says which is more)
+  await t.sayWith('ep.share.try.pal', [[AT.tryPal[0], () => w.besides(8, undefined, AT.tryPal[1])]]);
+  await t.wait(REST);
   t.thought('pal', null);
   if (more === '4') { t.buddy('clap'); t.pal('happy'); } else t.pal('sad');
   await t.say(more === '4' ? 'ep.share.eighth.you' : more === '8' ? 'ep.share.eighth.pal' : 'ep.share.eighth.same');
@@ -285,18 +346,20 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   await t.sayWith('ep.share.eighth.why', [[AT.eighthWhy[0], () => w.squares(fourths)], [AT.eighthWhy[1], () => w.squares(each(0, BAR))], [AT.eighthWhy[2], () => w.light([0], true)]]);
   await t.go('Next');
   w.label(null);
-  await w.clearOther();
-  await w.barOut();
 
   // on their own: a new bar, three friends, no help but a hint, and the child names the piece
   t.beat(5);
-  await w.barIn(LAST);
-  await w.plates(LAST_FRIENDS, ['Your buddy', 'Pebble', 'You']);
-  await t.say('ep.share.last');
+  // (the old bar, Pebble's eighth and the plates leave as the narrator begins, and the new bar comes in straight
+  // after them, under "a new bar with 6 squares"; the 3 plates come, each with whose it is, at "This time 3
+  // friends share it". They wait for the bar: every picture of a line comes at once when its clip can't play.
+  // All of it came and went in silence, 3.5 s, before the line. Rule 45)
+  let bar: Promise<unknown> = Promise.resolve();
+  await t.sayWith('ep.share.last', [[0, () => (bar = (async () => { await w.barOut(); await w.barIn(LAST); })())],
+    [AT.last[0], async () => { await bar; await w.plates(LAST_FRIENDS, ['Your buddy', 'Pebble', 'You']); }]]);
   // (a miss here gets the way to find the cuts straight away. It used to get a bare "try again" first, and a
   // child who had already needed the first bar done together spent another 45 seconds failing before any help)
   for (;;) {
-    const pieces = await tryCut(t, w, LAST, LAST_FRIENDS, 'ep.share.try.last', told);
+    const pieces = await tryCut(t, w, LAST, LAST_FRIENDS, 'last', told);
     if (fair(pieces)) break;
     // (the pieces go back as the narrator says so; then 2 more squares light at each "2" of "2 and 2 and 2", by
     // the clip's own clock: rule 42)
@@ -309,11 +372,12 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   const thirds = groups(piecesOf(LAST, SHARE_BARS.last));
   const call = await t.pick('What is each piece called?', [{ id: '3', text: '1/3' }, { id: '6', text: '1/6' }, { id: '2', text: '1/2' }], 'ep.share.call');
   if (call !== '3') {
-    await t.say('ep.share.try.name', Number(call));
-    await w.besides(Number(call));
+    // (the piece the child named is cut and laid under one of the child's own while the narrator says so, and
+    // gets its name as it lands; the child's pieces keep their squares on them until they are named. Then the
+    // two rest side by side)
+    await t.sayWith('ep.share.try.name', [[AT.tryName[0], async () => { await w.besides(Number(call), undefined, AT.tryName[1]); w.label(null, `1/${call}`); }]], Number(call));
+    await t.wait(REST);
     t.pal('sad');
-    // (the piece laid under gets its name; the child's pieces keep their squares on them until they are named)
-    w.label(null, `1/${call}`);
     await t.say(call === '6' ? 'ep.share.call.squares' : 'ep.share.call.half');
     // (what the bottom number counts: the reason the child who was right hears, said to this child too. The 3
     // pieces light, each told from the next, as "cut into 3 equal pieces" is said, and "1/3" comes onto them at
@@ -322,13 +386,13 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   } else { t.buddy('clap'); t.pal('happy'); w.label('1/3'); await t.say('ep.share.call.yes'); }
   await t.go('Next');
   w.label(null);
-  await w.clearOther();
 
   // the rest of grade 3's idea, on the same plates: 2 pieces of one third each is two thirds (3.NF.A.1)
   t.beat(7);
-  await t.say('ep.share.try.give');
-  t.pal('happy');
-  await w.give(1, 2);
+  // (the piece that was laid under for a wrong name leaves as the narrator begins. Pebble's piece lifts off at
+  // "it goes on top of your piece" and lands on the child's plate as the line ends. Rule 45)
+  await t.sayWith('ep.share.try.give', [...(call !== '3' ? [[0, () => w.clearOther()] as Cue] : []),
+    [AT.tryGive[0], () => { t.pal('happy'); return w.give(1, 2, AT.tryGive[1]); }]]);
   // (what's on the plate and what the top number means, said before the question, so it can be answered from what was taught)
   // (the 2 pieces on the child's plate light together, then each in its own colour as "each one is one third"
   // is said, then one alone for "1 of the 3 equal pieces". The lights go before the question, and no "2/3" is
@@ -338,18 +402,20 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   const two = await t.pick('How much of the bar is on your plate?', [{ id: '1', text: '1/3' }, { id: '2', text: '2/3' }, { id: '6', text: '2/6' }], 'ep.share.two.ask');
   // (2/6 is acted out first: 2 pieces of the same bar cut into 6 stand beside the child's stack)
   if (two === '6') {
-    await t.say('ep.share.try.six');
-    await w.besides(6, 2);
-    w.label(null, '2/6');
+    // (the bar like it comes in, is cut into 6, and 2 of its pieces are stood beside the child's plate, each as
+    // the narrator says it, and get their name as they land; then the two stacks rest side by side)
+    await t.sayWith('ep.share.try.six', [[AT.trySix[0], async () => { await w.besides(6, 2, AT.trySix[1]); w.label(null, '2/6'); }]]);
+    await t.wait(REST);
     t.buddy('think');
     await t.say('ep.share.six.show');
-    // (the sixths go away before the thirds get their names, so a "1/3" never stands next to them)
-    await w.clearOther();
   }
   // ("let's check" for a right answer; a wrong one has just failed, so it's worked out together, said kindly)
-  await t.say(two === '2' ? 'ep.share.try.two' : 'ep.share.try.two.together');
-  w.label('1/3');
-  await t.wait(1200);
+  // (the sixths leave as this line begins, and each third gets its name at "Each piece gets its name": the
+  // names wait for the sixths to be gone, so a "1/3" never stands next to them. The names came after the line,
+  // and then 1.2 s of nothing. Rule 45)
+  let gone: Promise<unknown> = Promise.resolve();
+  await t.sayWith(two === '2' ? 'ep.share.try.two' : 'ep.share.try.two.together', [...(two === '6' ? [[0, () => (gone = w.clearOther())] as Cue] : []),
+    [AT.tryTwo[two === '2' ? 'right' : 'together'], async () => { await gone; w.label('1/3'); }]]);
   if (two === '2') { w.total('2/3'); t.buddy('clap'); t.pal('happy'); await t.say('ep.share.two.yes'); }
   // (a wrong answer: first what was wrong with it, then what the top number counts. The 3 pieces the bar was cut
   // into light as "cut into 3" is said; then the 2 on the child's plate as "the pieces you have", each in its
@@ -363,7 +429,6 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
   await t.go('Next');
   w.light(null);
   w.label(null); w.total(null);
-  if (two === '6') await w.clearOther();
 
   // a child who hasn't named a piece right yet gets one more to name on their own, before the end (rule 12a):
   // the buddy's piece, which they have just seen named
@@ -382,10 +447,12 @@ async function play(t: Teller, w: ShareWorld): Promise<Notes> {
 }
 
 async function check(t: Teller, w: ShareWorld, notes: Notes | null) {
-  await w.barIn(NEXT_DAY);
-  await w.plates(FRIENDS);
+  await t.wait(700);
   if (notes?.small != null) t.myBet(notes.fair ? 'Your first cut yesterday was fair' : `Your first cut yesterday: ${notes.small} to ${notes.big} squares`);
-  await t.say('ep.share.check');
+  // (the bar comes in as the narrator names it, and the plates at "4 friends will share it", once the bar is in.
+  // Rule 45)
+  let bar: Promise<unknown> = Promise.resolve();
+  await t.sayWith('ep.share.check', [[0, () => (bar = w.barIn(NEXT_DAY))], [AT.check[0], async () => { await bar; await w.plates(FRIENDS); }]]);
   // (yesterday's cut is a reminder for the question, not for today's answer: it goes before the child cuts,
   // so it never stands beside what's said about today's pieces)
   t.myBet(null);
@@ -395,6 +462,7 @@ async function check(t: Teller, w: ShareWorld, notes: Notes | null) {
   await t.say(call === '4' ? 'ep.share.check.call.yes' : 'ep.share.check.call.no');
   await t.go('Next');
   w.label(null);
+  // (a stop kept on purpose: the bar leaves after the last line, and nothing is left to say over it)
   await w.barOut();
 }
 

@@ -171,14 +171,14 @@ export class ShareKit implements ShareWorld {
     const st = (q.from.st ?? 0) + ((q.to.st ?? 0) - (q.from.st ?? 0)) * k;
     return { x: q.from.x + (q.to.x - q.from.x) * k, y: q.from.y + (q.to.y - q.from.y) * k, up: q.from.up + (q.to.up - q.from.up) * k + Math.sin(Math.PI * k) * q.arc, st };
   }
-  private makeBar(n: number, mine: boolean): Bar {
+  private makeBar(n: number, mine: boolean, dur = 0.7): Bar {
     const sq = Math.min(40, 380 / n), b: Bar = { n, sq, lines: [], squares: [], mine, mode: 'bar' };
     for (let j = 0; j < n; j++) {
       const m = new THREE.Mesh(this.geo!, this.mat(mine ? MILK : WHITE));
       m.castShadow = true; m.receiveShadow = true;
       this.root.add(m);
       const to = this.place(b, j), from = { ...to, x: to.x + 520 };
-      b.squares.push({ m, from, to, t0: this.now + j * 0.02, dur: 0.7, arc: 0 });
+      b.squares.push({ m, from, to, t0: this.now + j * 0.02, dur, arc: 0 });
     }
     return b;
   }
@@ -232,14 +232,19 @@ export class ShareKit implements ShareWorld {
     await this.wait(400 + n * 180);
   }
   private dropTrays() { for (const t of this.trays) { t.m.removeFromParent(); t.m.geometry.dispose(); } this.trays = []; this.unpin(p => p.id.startsWith('owner-')); }
-  async give(from: number, to: number) {
+  /** how many times as slowly a move goes so that it takes `over` seconds where it usually takes `base`: never
+   *  quicker than usual (rule 45: a move the narrator talks over ends with the words) */
+  private slower(base: number, over?: number) { return over && over > base ? over / base : 1; }
+  async give(from: number, to: number, over?: number) {
     const b = this.bar!;
     this.tidy();
     this.sizePins(b, false);
     b.given = { from, to };
-    // (up in a high arc, so it goes over the piece it lands on, never through it)
-    this.relayout(b, 0.9, 0, 0.22);
-    await this.wait(1100);
+    // (up in a high arc, so it goes over the piece it lands on, never through it. It is one piece's one move, so
+    // it goes at most 1.5 times as slowly)
+    const k = Math.min(this.slower(1.1, over), 1.5);
+    this.relayout(b, 0.9 * k, 0, 0.22);
+    await this.wait(1100 * k);
     bSfx.clack();
   }
   total(text: string | null) {
@@ -387,13 +392,18 @@ export class ShareKit implements ShareWorld {
     this.sizePins(b, b.lines.length > 0);
     await this.wait(450);
   }
-  async serve() {
+  async serve(over?: number) {
     const b = this.bar!, n = piecesOf(b.n, b.lines).length;
     this.tidy();
     b.mode = 'rows';
     this.sizePins(b, false);
-    this.relayout(b, 0.6, 260, 0.05);
-    await this.wait(n * 260 + 700);
+    // (given longer: each piece's own move goes up to 1.5 times as slowly and the rest of the time goes between
+    // one piece and the next. The last piece is standing half a second before the end, and the lengths come
+    // 0.4 s before it, as they always did)
+    const k = this.slower(n * 0.26 + 1.1, over), dur = 0.6 * Math.min(k, 1.5);
+    const gap = k > 1 && n > 1 ? Math.max(260, ((over! - 0.5 - dur) / (n - 1)) * 1000) : 260;
+    this.relayout(b, dur, gap, 0.05);
+    await this.wait(k > 1 ? (over! - 0.4) * 1000 : n * 260 + 700);
     this.sizePins(b, true);
     bSfx.tick(2);
     await this.wait(400);
@@ -413,32 +423,44 @@ export class ShareKit implements ShareWorld {
     if (mine && this.bar) { const b = this.bar; this.sizePins(b, false); piecesOf(b.n, b.lines).forEach((_, p) => this.pin({ id: `name-m${p}`, text: mine, kind: 'word', at: () => this.pieceTop(b, p, b.given && (p === b.given.from || p === b.given.to) ? -1 : 0) })); }
     if (other && this.other) { const o = this.other; this.pin({ id: 'name-o0', text: other, kind: 'word', at: () => this.pieceTop(o, o.mode === 'under' ? (o.keep ?? 1) - 1 : 0, -1) }); }
   }
-  async otherBar(lines: number[]) {
+  async otherBar(lines: number[], over?: number) {
     this.tidy();
     this.drop(this.other);
-    const o = (this.other = this.makeBar(this.bar!.n, false));
-    await this.wait(900);
-    for (const g of lines) { this.chop(o, g); await this.wait(380); }
+    // (given longer: the bar slides in up to 1.5 times as slowly and the rest of the time goes between one cut
+    // and the next)
+    const k = this.slower(1.2 + lines.length * 0.38, over), sl = Math.min(k, 1.5);
+    const o = (this.other = this.makeBar(this.bar!.n, false, 0.7 * sl));
+    await this.wait(900 * sl);
+    const gap = k > 1 ? Math.max(380, ((over! - 0.9 * sl - 0.3) / lines.length) * 1000) : 380;
+    for (const g of lines) { this.chop(o, g); await this.wait(gap); }
     await this.wait(300);
   }
-  async testOther() {
-    const o = this.other!;
+  async testOther(over?: number) {
+    const o = this.other!, n = piecesOf(o.n, o.lines).length;
     o.mode = 'column';
-    this.relayout(o, 0.6, 260, 0.05);
-    await this.wait(piecesOf(o.n, o.lines).length * 260 + 700);
+    // (given longer: as serve() does it, and the lengths come 0.3 s before the end)
+    const k = this.slower(n * 0.26 + 1.0, over), dur = 0.6 * Math.min(k, 1.5);
+    const gap = k > 1 && n > 1 ? Math.max(260, ((over! - 0.4 - dur) / (n - 1)) * 1000) : 260;
+    this.relayout(o, dur, gap, 0.05);
+    await this.wait(k > 1 ? (over! - 0.3) * 1000 : n * 260 + 700);
     this.sizePins(o, true);
     await this.wait(300);
   }
-  async besides(b: number, k = 1) {
+  async besides(b: number, k = 1, over?: number) {
     this.tidy();
     this.drop(this.other);
-    const o = (this.other = this.makeBar(this.bar!.n, false));
-    await this.wait(900);
-    for (const g of fairCuts(o.n, b) ?? []) { this.chop(o, g); await this.wait(Math.max(160, 900 / b)); }
+    // (given longer: the bar's slide in and the pieces' move to the comparing place go up to 1.5 times as slowly,
+    // and the rest of the time goes between one cut and the next)
+    const cuts = fairCuts(this.bar!.n, b) ?? [], usual = Math.max(160, 900 / b);
+    const f = this.slower(0.9 + (cuts.length * usual) / 1000 + 0.3 + 0.9 + k * 0.25 + 0.3, over), sl = Math.min(f, 1.5);
+    const o = (this.other = this.makeBar(this.bar!.n, false, 0.7 * sl));
+    await this.wait(900 * sl);
+    const gap = f > 1 && cuts.length ? Math.max(usual, ((over! - 0.6 - (1.8 + k * 0.25) * sl) / cuts.length) * 1000) : usual;
+    for (const g of cuts) { this.chop(o, g); await this.wait(gap); }
     await this.wait(300);
     o.mode = 'under'; o.keep = k;
-    this.relayout(o, 0.7, 250, 0.12);
-    await this.wait(900 + k * 250);
+    this.relayout(o, 0.7 * sl, 250, 0.12);
+    await this.wait((900 + k * 250) * sl);
     this.sizePins(o, false);
     const len = (o.n / b) * k;
     this.pin({ id: 'osize-0', text: `${len} square${len === 1 ? '' : 's'}`, kind: 'tick', c: 'ink', at: () => this.pieceTop(o, k - 1, 1) });

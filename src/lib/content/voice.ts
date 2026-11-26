@@ -1004,6 +1004,8 @@ export const BEAT_LINES: Line[] = [
   ep("ep.share.try.together", "Let's see the pieces we cut together. They go onto the plates and stand up."),
   ep("ep.share.try.last", "Let's see your cut. The pieces go onto the 3 plates and stand up.", "Let's see your cut. The pieces go onto the three plates and stand up."),
   ep("ep.share.fair", "Your pieces are all the same size, {n} squares each, so no friend gets more chocolate than another. That's a fair share.", "Your pieces are all the same size, so no friend gets more chocolate than another. That's a fair share."),
+  // (a child who has heard why equal pieces are fair, on the first bar, hears this after a fair cut of the last bar: the new numbers and the reason, said once)
+  ep("ep.share.fair.again", "Your {m} pieces are all the same size, {n} squares each, so this share is fair too.", "Your pieces are all the same size, so this share is fair too."),
   ep("ep.share.fair.together", "Now the pieces are all the same size, {n} squares each, so no friend gets more chocolate than another. That's a fair share.", "Now the pieces are all the same size, so no friend gets more chocolate than another. That's a fair share."),
   ep("ep.share.unfair", "Your pieces aren't all the same size. Count the squares: the smallest piece has {n} and the biggest has {m}. So one friend would get less chocolate than another, and that isn't fair yet.", "Your pieces aren't all the same size. Count the squares. The smallest piece has fewer than the biggest. So one friend would get less chocolate than another, and that isn't fair yet."),
   // (a child who has heard the line above once hears this one after a later unfair cut: the same numbers and the same reason, said once)

@@ -13408,5 +13408,20 @@
   "tailPeak": -37.8,
   "heard": "The pieces go back together. Remember, 2 and 2 and 2 make 6, so try a cut after every 2 squares.",
   "match": 1
+ },
+ "ep.share.fair.again": {
+  "id": "ep.share.fair.again",
+  "voice": "coach",
+  "text": "Your {m} pieces are all the same size, {n} squares each, so this share is fair too.",
+  "ms": 3876,
+  "lufs": -20.2,
+  "tp": -4.8,
+  "fullScale": 0,
+  "headRms": -68.6,
+  "headPeak": -53.8,
+  "tailRms": -63.4,
+  "tailPeak": -49.4,
+  "heard": "Your pieces are all the same size, so this share is fair too.",
+  "match": 1
  }
 }

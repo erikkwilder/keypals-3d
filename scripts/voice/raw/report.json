@@ -16437,5 +16437,21 @@
   "tail50Rms": -57.6,
   "tail50Peak": -37.8,
   "voice": "coach"
+ },
+ "ep.share.fair.again": {
+  "id": "ep.share.fair.again",
+  "gain": -2.1,
+  "rawLufs": -17.8,
+  "notes": [],
+  "ms": 3876,
+  "lufs": -20.1,
+  "tp": -4.8,
+  "maxAbs": 0.5731,
+  "fullScale": 0,
+  "head50Rms": -68.6,
+  "head50Peak": -53.8,
+  "tail50Rms": -63.4,
+  "tail50Peak": -49.4,
+  "voice": "coach"
  }
 }
