@@ -55,7 +55,7 @@ type Item = {
   lit?: number; ghost?: boolean;
 };
 /** what a line can light: every bag, one bag, the loose weights, everything on a side, the weights in one bag's place, the pile taken off the bags' side */
-export type Lit = 'bags' | 'bag' | 'loose' | 'left' | 'right' | 'guess' | 'pileL';
+export type Lit = 'bags' | 'bag' | 'loose' | 'left' | 'right' | 'guess' | 'pileL' | 'pileR' | 'pile';
 type Job = { from: 'left' | 'both'; done: () => void };
 
 export class BalanceKit implements EquationWorld {
@@ -81,6 +81,7 @@ export class BalanceKit implements EquationWorld {
    *  what-if of one bag alone, a 0 where nothing has come off the other side yet, one written line over the balance */
   private hot = new Set<string>();
   private totalN: number | null = null;
+  private tagN: number[] = [];
   private imagine = false;
   private zero = false;
   private line: { k: number; parts: Part[] } | null = null;
@@ -170,7 +171,8 @@ export class BalanceKit implements EquationWorld {
     }
     // (a bright line along the front of both rims, at the height they hang at when the balance is level: a rim
     // above it or below it is a side that went up or down)
-    this.level = new THREE.Mesh(new THREE.BoxGeometry(ARM * 2 + PR * 2 + 24, 2.6, 2.6), this.mat.glow);
+    // (as long as the two rims are wide and no longer: 12 further each way, its end met a bag parked beside the balance, seen at 1440)
+    this.level = new THREE.Mesh(new THREE.BoxGeometry(ARM * 2 + PR * 2, 2.6, 2.6), this.mat.glow);
     this.level.position.set(0, PIVOT + 8 + POST + 2.6, PR + 8); this.level.visible = false;
     this.scale.add(this.level);
   }
@@ -220,7 +222,8 @@ export class BalanceKit implements EquationWorld {
         return this.at(cx + ((k % per) - 2.5) * cell, PILE_Y + Math.floor(k / per) * cell - PCELL, layer * WH);
       }
       // (on a phone: a row at the very front, in front of both piles, so a big pile never reaches the bags)
-      case 'park': return TALL ? this.at(MID + (it.i - (this.e.p - 1) / 2) * 52, PILE_Y + 56, 0) : this.at(PARK_X, PAN_Y - 30 + it.i * 58, 0);
+      // (62 in front of the piles' middle, not 56: the third row of a pile of 14 reached into the nearest bag by 2, seen at 390)
+      case 'park': return TALL ? this.at(MID + (it.i - (this.e.p - 1) / 2) * 52, PILE_Y + 62, 0) : this.at(PARK_X, PAN_Y - 30 + it.i * 58, 0);
       case 'row': { const n = this.items.filter(o => o.where === 'row').length; return this.at(MID + (it.i - (n - 1) / 2) * 78, PILE_Y - 10, 0); }
       case 'held': return it.pos.clone();
       default: return it.from.clone().add(new THREE.Vector3(0, 120 * this.s, 0));
@@ -270,7 +273,7 @@ export class BalanceKit implements EquationWorld {
       const n = this.of(where).filter(o => o.grp < 0).length;
       if (n || !hide0) out.push({ id, text: text ?? String(n), kind: 'tick', big: true, c, hot: this.hot.has(id), at });
     };
-    if (!this.parts && !this.imagine) count('loose', 'L', 'a', () => this.at(MID - ARM, PAN_Y + PR + 6, this.panH(0)));
+    if (!this.imagine) count('loose', 'L', 'a', () => this.at(MID - ARM, PAN_Y + PR + 6, this.panH(0)));
     // (the other side's count shows 0 while the bags are still there, but not on a balance that stands empty)
     const empty = !this.items.some(o => o.where === 'L' || o.where === 'swap');
     if (!this.parts) count('right', 'R', 'c', () => this.at(MID + ARM, PAN_Y + PR + 6, this.panH(1)), empty || this.filling, this.imagine ? '?' : undefined);
@@ -280,7 +283,7 @@ export class BalanceKit implements EquationWorld {
     if (this.swapN) for (let i = 0; i < this.e.p; i++) out.push({ id: `swap${i}`, text: String(this.swapN), kind: 'tick', big: true, c: 'b', hot: this.hot.has(`swap${i}`), at: () => this.spot({ ...this.of('swap')[0], i, slot: 0, where: 'swap' } as Item).add(new THREE.Vector3(0, (Math.ceil(Math.min(this.swapN, MOST) / 4) * WH + 22) * this.s, 0)) });
     if (this.parts) for (let gi = 0; gi < this.parts; gi++) {
       const n = this.items.filter(o => o.where === 'R' && o.grp === gi).length;
-      if (n) out.push({ id: `pile${gi}`, text: String(n), kind: 'tick', big: true, c: 'c', at: () => this.spot({ where: 'R', grp: gi, slot: 0, kind: 'weight' } as Item).add(new THREE.Vector3(0, (Math.ceil(n / 4) * WH + 20) * this.s, 0)) });
+      if (n) out.push({ id: `pile${gi}`, text: String(n), kind: 'tick', big: true, c: 'c', hot: this.hot.has(`pile${gi}`), at: () => this.spot({ where: 'R', grp: gi, slot: 0, kind: 'weight' } as Item).add(new THREE.Vector3(0, (Math.ceil(n / 4) * WH + 20) * this.s, 0)) });
     }
     // (what the bags' side comes to with a guess in the bags' places: over their numbers, so it can be set against the other side's)
     if (this.totalN != null && this.swapN) { const n = this.totalN; out.push({ id: 'total', text: String(n), kind: 'tick', big: true, c: 'ink', hot: true, at: () => this.at(MID - ARM, PAN_Y - 30, this.panH(0) + Math.ceil(Math.min(this.swapN, MOST) / 4) * WH + 22 + 58) }); }
@@ -290,15 +293,20 @@ export class BalanceKit implements EquationWorld {
   }
 
   // ---------- what the script asks for ----------
-  async scaleIn(e: Eq) {
+  async scaleIn(e: Eq) { await this.bagsOn(e); await this.looseOn(); await this.fillRight(); }
+  /** a new balance, told as it is set out: its bags go onto the bags' side (each with its x), then its loose weights */
+  async bagsOn(e: Eq) {
     for (const it of this.items) it.g.removeFromParent();
     this.items = []; this.parts = 0; this.swapN = 0; this.plain();
     this.e = e; this.x = xOf(e); this.filling = true; this.named = Infinity; this.asked = false;
     for (let i = 0; i < e.p; i++) this.make('bag', 'L', i, i * 0.12);
-    for (let i = 0; i < e.q; i++) this.make('weight', 'L', 0, 0.3 + i * 0.1);
     this.changed();
-    await this.wait(900 + e.q * 100);
-    await this.fillRight();
+    await this.wait(650 + e.p * 120);
+  }
+  async looseOn() {
+    for (let i = 0; i < this.e.q; i++) this.make('weight', 'L', 0, i * 0.1);
+    this.changed();
+    await this.wait(600 + this.e.q * 100);
   }
   async fillRight() {
     this.filling = false;
@@ -352,11 +360,12 @@ export class BalanceKit implements EquationWorld {
       : what === 'left' ? it.where === 'L' || it.where === 'swap'
       : what === 'right' ? it.where === 'R'
       : what === 'guess' ? it.where === 'swap' && it.i === i
-      : it.where === 'pileL';
+      : what === 'pile' ? it.where === 'R' && it.grp === i
+      : it.where === what;
     const ids = new Set<string>();
     for (const it of this.items) if (on(it)) {
       it.lit = this.now; this.dress(it);
-      ids.add(it.kind === 'bag' ? `bag${it.i}` : it.where === 'L' ? 'loose' : it.where === 'R' ? 'right' : it.where === 'swap' ? `swap${it.i}` : 'pileL');
+      ids.add(it.kind === 'bag' ? `bag${it.i}` : it.where === 'L' ? 'loose' : it.where === 'R' ? (it.grp >= 0 ? `pile${it.grp}` : 'right') : it.where === 'swap' ? `swap${it.i}` : it.where === 'pileR' ? 'pileR' : 'pileL');
     }
     if (what === 'left' || what === 'right') this.rings[what === 'left' ? 0 : 1].t0 = this.now;
     for (const id of ids) this.hot.add(id);
@@ -436,13 +445,25 @@ export class BalanceKit implements EquationWorld {
     for (const w of this.of('R').slice(this.of('R').length - k)) { this.send(w, 'pileR'); this.changed(); await this.wait(140); }
     await this.wait(1200);
   }
-  async shareOut(parts: number) {
-    // the other side's weights move into equal piles on its pan, one pile for each bag
+  /** the other side's weights move into equal piles on its pan (`calm`: they stay counted as they move, so the
+   *  balance doesn't swing while a plan is only being pictured) */
+  async piles(parts: number, calm = false) {
+    if (this.parts === parts) return;
     this.parts = parts;
-    const ws = this.of('R'), per = Math.ceil(ws.length / parts);
-    ws.forEach((w, k) => { w.grp = k % parts; w.slot = Math.floor(k / parts); w.from = w.pos.clone(); w.t0 = this.now + k * 0.05; w.dur = 0.5; w.landed = false; void per; });
+    const ws = this.of('R');
+    ws.forEach((w, k) => { w.grp = k % parts; w.slot = Math.floor(k / parts); w.from = w.pos.clone(); w.t0 = this.now + k * 0.05; w.dur = 0.5; w.landed = calm; });
     this.changed();
     await this.wait(1200 + ws.length * 50);
+  }
+  /** the buddy's plan, before it's tried: what would come off turns see-through (all but one bag, all but one pile) */
+  keep(what: 'bag' | 'pile') {
+    for (const it of this.items) if (what === 'bag' ? it.kind === 'bag' && it.where === 'L' && it.i > 0 : it.where === 'R' && it.grp > 0) { it.ghost = true; this.dress(it); }
+    this.changed();
+  }
+  async shareOut(parts: number) {
+    // the other side's weights move into equal piles on its pan, one pile for each bag (unless a line's picture has made them already)
+    await this.piles(parts);
+    const ws = this.of('R');
     // then all but one pile come off, and all but one bag with them: it stays level
     const bags = this.of('L', 'bag');
     bags.slice(1).forEach((b, k) => this.send(b, 'park', k * 0.1, 0.7));
@@ -450,14 +471,19 @@ export class BalanceKit implements EquationWorld {
     this.changed();
     await this.wait(1700);
   }
-  async buddyShare() {
-    const bags = this.of('L', 'bag'), keep = this.e.r / this.e.p;
-    bags.slice(1).forEach((b, k) => this.send(b, 'park', k * 0.1, 0.7));
-    this.changed();
-    await this.wait(700);
-    const ws = this.of('R');
-    for (const w of ws.slice(keep)) { this.send(w, 'pileR'); this.changed(); await this.wait(70); }
-    await this.wait(1300);
+  /** the buddy's way, each half as it is said: all but one bag come off; then all but a part of the other side
+   *  (the piles the plan showed see-through, if it was pictured). The loose weights stay */
+  async buddyShare(part?: 'bags' | 'weights') {
+    if (part !== 'weights') {
+      this.of('L', 'bag').slice(1).forEach((b, k) => { b.ghost = false; this.dress(b); this.send(b, 'park', k * 0.1, 0.7); });
+      this.changed();
+      await this.wait(part ? 1000 : 700);
+    }
+    if (part !== 'bags') {
+      const ws = this.of('R'), keep = this.e.r / this.e.p;
+      for (const w of this.parts ? ws.filter(o => o.grp > 0) : ws.slice(keep)) { w.grp = -1; w.ghost = false; this.dress(w); this.send(w, 'pileR'); this.changed(); await this.wait(70); }
+      await this.wait(1300);
+    }
   }
   async reset(to: 'start' | 'bags') {
     this.parts = 0; this.swapN = 0; this.plain();
@@ -497,11 +523,17 @@ export class BalanceKit implements EquationWorld {
     for (const it of this.items) it.g.removeFromParent();
     this.items = []; this.parts = 0; this.swapN = 0; this.plain(); this.named = Infinity;
     weights.forEach((_, i) => { const b = this.make('bag', 'row', i, i * 0.2); b.g.userData.tag = 'x'; });
+    this.tagN = weights;
     this.changed();
     await this.wait(1400);
+  }
+  /** each tag's x turns into its bag's number, one after the other, as the words say it is written */
+  async writeTags() {
     const bags = this.items.filter(o => o.where === 'row');
-    for (const [i, b] of bags.entries()) { b.g.userData.tag = String(weights[i]); bSfx.tick(i); this.changed(); await this.wait(450); }
-    await this.wait(600);
+    for (const [i, b] of bags.entries()) { b.g.userData.tag = String(this.tagN[i]); bSfx.tick(i); this.hot.add(`bag${b.i}`); this.changed(); await this.wait(450); }
+    await this.wait(300);
+    for (const b of bags) this.hot.delete(`bag${b.i}`);
+    this.changed();
   }
   finish() {
     const j = this.job; if (!j) return;

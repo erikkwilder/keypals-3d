@@ -90,7 +90,9 @@ describe('the lesson, played by every kind of child', () => {
     expect(said).toContain('ep.eq.d.in');
     expect(log.filter(l => l.startsWith('takeOff')).length).toBe(3);
     expect(said).toContain('ep.eq.d.piles');
-    expect(log.at(-1)).toMatch(/^say ep\.eq\.end/);
+    // (the last thing said is the ending, and only its own pictures come after it)
+    expect(log.filter(l => l.startsWith('say ')).at(-1)).toMatch(/^say ep\.eq\.end/);
+    expect(log.slice(log.findIndex(l => /^say ep\.eq\.end/.test(l)) + 1).every(l => l === 'shown' || l.startsWith('show '))).toBe(true);
   });
   it('the extra balance starts with its first step done together by hand, and the last step is the child\'s', async () => {
     const { log, said } = await run({ nums: [7, 1, 1, 7, 3], picks: ['yes'] });
@@ -220,10 +222,43 @@ describe('rule 37: what is said is shown on the balance as it is said', () => {
       expect(i('show share(4)')).toBeGreaterThan(i('show writeLine(1,'));
       expect(i('show share(4)')).toBeLessThan(i('show writeLine(2,'));
       // and the three lines stand together until the child goes on
-      expect(part.slice(i('show writeSteps')).filter(l => !l.startsWith('show '))).toEqual(['go Next', 'clearSteps()', 'scaleIn({"p":3,"q":6,"r":21})']);
+      expect(part.slice(i('show writeSteps')).filter(l => !l.startsWith('show '))).toEqual(['go Next', 'clearSteps()']);
     }
   });
-  it.todo('from the buddy\'s step to the end, no child watches a still screen (the cold read prints the stretches left)');
+  for (const [name, kid] of Object.entries(kids)) it(`from the buddy's idea to the end, a child who is ${name} never watches a still screen`, async () => {
+    const { log } = await run(kid);
+    expect(stillStretches(stepsOf(log), words)).toEqual([]);
+  });
+  it('the next day\'s check never leaves a still screen either, right or wrong', async () => {
+    for (const nums of [[6], [9, 2], [7, 6]]) {
+      const p = pretend({ nums: [...nums], picks: [] });
+      await EQUATION_LESSON.check!(p.teller, p.world, { first: 7 });
+      expect(stillStretches(stepsOf(p.log), words)).toEqual([]);
+    }
+  });
+  it('the buddy\'s plan is pictured before the child is asked, and nothing comes off until they have answered', async () => {
+    for (const kid of [RIGHT, WRONG]) {
+      const { log } = await run(kid);
+      const idea = log.indexOf('say ep.eq.b.idea'), ask = log.indexOf('say ep.eq.b.ask'), tried = log.indexOf('say ep.eq.try.buddy'), told = log.findIndex(l => /^say ep\.eq\.b\.(no|yes)$/.test(l));
+      // the new balance is set out as it is told
+      expect(log.slice(log.indexOf('say ep.eq.b.in'), idea).filter(l => l.startsWith('show '))).toEqual(['show bagsOn({"p":3,"q":6,"r":21})', 'show looseOn()', 'show fillRight()']);
+      // the plan: what would come off turns see-through, the 21 in 3 piles without the balance swinging (rule 41)
+      const plan = log.slice(idea, ask);
+      expect(plan).toContain('show keep("bag")'); expect(plan).toContain('show piles(3,true)'); expect(plan).toContain('show keep("pile")');
+      expect(plan.some(l => /buddyShare|takeRight|shareOut|share\(/.test(l))).toBe(false);
+      // then each half of the buddy's way as it is said, after the child's answer
+      expect(log[ask + 1]).toMatch(/^pick /);
+      expect(log.slice(tried, told).filter(l => l.startsWith('show ')).slice(0, 2)).toEqual(['show buddyShare("bags")', 'show buddyShare("weights")']);
+    }
+  });
+  it('the tags get their numbers as the words say they are written', async () => {
+    for (const kid of [RIGHT, WRONG]) {
+      const { log } = await run(kid);
+      const end = log.findIndex(l => /^say ep\.eq\.end/.test(l));
+      expect(log[end - 1]).toMatch(/^tags\(/);
+      expect(log.slice(end)).toContain('show writeTags()');
+    }
+  });
 });
 
 describe('the words', () => {
