@@ -7,13 +7,28 @@ import { COUNT_LESSON, COUNT_LINES, type CountWorld } from './countLesson';
 import type { Teller } from './types';
 import { countPath, numbersOn, plateMeaning, slipped } from './count';
 import { BEAT_LINES, LEARN_LINES } from '../../content/voice';
-import { lineProblems, scriptProblems, type Step } from './rules';
+import { lineProblems, scriptProblems, stillStretches, type Step } from './rules';
 
 /** `finds`: what each tap on a friend's slip is (the right cookie, a wrong one, or asking to be shown); a child
  *  with none finds every slip first go */
 type Child = { nums: number[]; finds?: ('yes' | 'no' | 'shown')[] };
+/** what a reader of the cold read is told each picture is */
+const PICTURE: Record<string, string> = {
+  trayIn: 'the tray comes in and the cookies drop onto it, one after another',
+  'trayIn(7,{"mixed":true})': 'the tray comes in and seven cookies drop onto it one after another, all over it, not in a row',
+  plateFor: 'one plate slides into the empty row in front of the tray, and the cookie at the front of the tray hops onto it: one cookie on a plate of its own, two cookies still on the tray',
+  wonder: 'a "?" card pops up in the middle of the cookies',
+  plateBack: 'the "?" goes; the cookie hops back onto the tray and its plate slides away, so all the cookies are on the tray again',
+  unsure: 'a "?" card pops onto one cookie, then another, then a third; they stay until Sprout Bunny starts counting',
+  showSlip: 'a red ring comes on the cookie the count went wrong on, and it shakes',
+  'recall("skip")': "the buddy's numbers are still on the cookies; the cookie with no number shakes in its red ring",
+  'recall("twice")': "the buddy's numbers go; the red ring moves to the cookie Sprout Bunny counted twice, which gets its two numbers back (3 and 5, one above the other) and shakes",
+  platesOff: 'the plates slide away and the cookies hop back to where they sat',
+};
 function pretend(child: Child) {
   const log: string[] = [], said: string[] = [];
+  /** inside a line's picture: the second of the line it comes at */
+  let cue: number | null = null;
   /** the run as a reader would follow it: each line as it shows on screen (its numbers filled in), and what the picture or the child does */
   const film: string[] = [];
   const shown = (id: string, n?: number, m?: number) => (BEAT_LINES.find(l => l.id === id)?.text ?? id).replaceAll('{n}', String(n ?? '')).replaceAll('{m}', String(m ?? ''));
@@ -21,14 +36,19 @@ function pretend(child: Child) {
     get: (_, k: string) => {
       if (k === 'slipCount') return async (who: string, slip: string) => { log.push(`slipCount("${who}","${slip}")`); film.push(`(picture: ${who === 'pal' ? 'Sprout Bunny' : 'the buddy'} counts the 7 cookies where they lie, a number landing on each one counted; ${slip === 'twice' ? 'one cookie is counted twice and ends up with two numbers' : 'one cookie is skipped and ends up with no number'})`); return countPath(7, slip as 'twice').length; };
       if (k === 'tapSlip') return async () => { const r = child.finds?.shift() ?? 'yes'; log.push(`tapSlip() ${r}`); film.push(`(the child taps ${r === 'yes' ? 'the right cookie' : r === 'no' ? 'a different cookie, which shakes' : '"Show me"'})`); return r; };
-      return (...a: unknown[]) => { const l = `${k}(${a.map(x => JSON.stringify(x)).join(',')})`; log.push(l); film.push(`(picture: ${l})`); return Promise.resolve(); };
+      return (...a: unknown[]) => {
+        const l = `${k}(${a.map(x => JSON.stringify(x)).join(',')})`, what = k === 'pointAt' ? `a yellow ring lights cookie number ${a[0]}` : PICTURE[l] ?? PICTURE[k] ?? l;
+        // (a picture that goes with a line, acted out while it is said, is a 'show')
+        log.push(cue == null ? l : `show ${l}`); film.push(cue == null ? `(picture: ${what})` : `(picture, ${cue} s into that line: ${what})`);
+        return Promise.resolve();
+      };
     },
   });
   const speak = (id: string, n?: number, m?: number) => { said.push(id); log.push(`say ${id}`); film.push(`SAID: ${shown(id, n, m)}`); };
   const teller: Teller = {
     say: async (id, n, m) => { speak(id, n, m); },
-    // (a line said with its pictures: the line, then each picture in turn)
-    sayWith: async (id, cues, n, m) => { speak(id, n, m); for (const [, act] of cues) await act(); },
+    // (a line said with its pictures: marked as one, then each picture in turn as a 'show')
+    sayWith: async (id, cues, n, m) => { log.push('with pictures'); speak(id, n, m); for (const [at, act] of cues) { cue = at; await act(); } cue = null; },
     num: async (q, id, k) => { if (id) speak(id, k); const n = child.nums.shift(); if (n == null) throw new Error('the lesson asked for more numbers than this child has'); log.push(`num ${n}`); film.push(`(asked "${q}": the child types ${n})`); return n; },
     pick: async (_, choices, id) => { if (id) speak(id); log.push(`pick ${choices[0].id}`); return choices[0].id as never; },
     hands: async (words, job) => { log.push('hands'); film.push(`(the child's hands: ${words})`); await job(); },
@@ -39,10 +59,18 @@ function pretend(child: Child) {
 }
 /** The run as the rules see it: a number of plates, a friend's count, a counting demo and a bump are things
  *  tried and acted out; the light going along the numbers and the recount are the answer worked out. */
-const stepsOf = (log: string[]): Step[] => log.flatMap((l): Step[] => {
-  if (l.startsWith('say ')) return [{ k: 'say', v: l.slice(4) }];
+const stepsOf = (log: string[]): Step[] => log.flatMap((l, i): Step[] => {
+  if (l.startsWith('say ')) {
+    const shown = log[i - 1] === 'with pictures';
+    // (the light going to each cookie as its number is said is the answer being worked out, as the light that
+    // runs along by itself is: rules 10 and 11 hold it too)
+    const lit: Step[] = shown && log[i + 1]?.startsWith('show pointAt(') ? [{ k: 'answer', v: 'pointAt()' }] : [];
+    return [...lit, { k: 'say', v: l.slice(4), shown }];
+  }
+  if (l.startsWith('show ')) return [{ k: 'show', v: l.slice(5) }];
   if (l.startsWith('go ')) return [{ k: 'go', v: l.slice(3) }];
-  if (l.startsWith('num ') || l.startsWith('pick ')) return [{ k: 'ask', v: l }];
+  // (the child's hands at work are a wait for the child, as a question is)
+  if (l.startsWith('num ') || l.startsWith('pick ') || l === 'hands') return [{ k: 'ask', v: l }];
   if (/^(plates|slipCount|demoCount|bump)\(/.test(l)) return [{ k: 'act', v: l }];
   if (/^(pointCount|tapHere)\(/.test(l)) return [{ k: 'answer', v: l }];
   return [];
@@ -138,8 +166,10 @@ describe('the lesson, played by every kind of child', () => {
     const asked = await play({ nums: [5, 7, 7], finds: ['shown', 'shown'] });
     expect(asked.said).toContain('ep.count.pal.shown');
     expect(asked.said).not.toContain('ep.count.find.no.two');
-    // every way, the ring goes on the cookie before the line about it
-    for (const r of [found, second, missed, asked]) expect(r.log.filter(l => l === 'showSlip()')).toHaveLength(2);
+    // every way, the ring goes on the cookie: before the line about it when the child found it, and with the
+    // words "here it is" when they didn't
+    for (const r of [found, second]) expect(r.log.filter(l => l === 'showSlip()')).toHaveLength(2);
+    for (const r of [missed, asked]) for (const who of ['pal', 'buddy']) { const at = r.log.indexOf(`say ep.count.${who}.shown`); expect(r.log.slice(at - 1, at + 2)).toEqual(['with pictures', `say ep.count.${who}.shown`, 'show showSlip()']); }
   });
   it('after the bump a child who thought the number changed counts them again where they sit and hears why it did not; one who knew is told why they are right', async () => {
     for (const moved of [7, 3, 12]) {
@@ -199,8 +229,39 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
     'too few every time': [1, 2, 0, 1], 'right, then wrong': [5, 6, 8], 'counts like Sprout Bunny': [5, 8, 8],
   };
   for (const [name, nums] of Object.entries(kids)) it(`a child who is ${name}: every try named, explained, and every answer waits`, async () => {
-    const { log } = await play({ nums });
+    const { log } = await play({ nums: [...nums] });
     expect(scriptProblems({ steps: stepsOf(log), announces })).toEqual([]);
+  });
+  const words = (id: string) => BEAT_LINES.find(l => l.id === id)!.text.split(/\s+/).length;
+  it('rule 37: no child sits through 35 words or more with nothing new on screen, whatever they answer and tap', async () => {
+    for (const [name, nums] of Object.entries(kids)) for (const finds of [[], ['no', 'no', 'no', 'no'], ['shown', 'shown']] as Child['finds'][]) {
+      const { log } = await play({ nums: [...nums], finds: [...finds!] });
+      expect(stillStretches(stepsOf(log), words), `${name}, finds ${finds}`).toEqual([]);
+    }
+    for (const n of [6, 5]) { const p = pretend({ nums: [n] }); await COUNT_LESSON.check(p.teller, p.world, null); expect(stillStretches(stepsOf(p.log), words)).toEqual([]); }
+  });
+  it('rule 37: each long line is said with the picture of what it says', async () => {
+    const { log } = await play({ nums: [4, 8, 6, 3], finds: ['no', 'no', 'no', 'no'] });
+    const withLine = (id: string) => { const at = log.indexOf(`say ${id}`); expect(log[at - 1], id).toBe('with pictures'); return log.slice(at + 1, log.findIndex((l, i) => i > at && !l.startsWith('show '))); };
+    // the opening: the cookies land, one gets a plate of its own; then the "?", and every cookie is back on the tray before the count
+    expect(withLine('ep.count.intro')).toEqual(['show trayIn(3)', 'show plateFor()']);
+    expect(withLine('ep.count.need')).toEqual(['show wonder()', 'show plateBack()']);
+    expect(log.indexOf('show plateBack()')).toBeLessThan(log.indexOf('demoCount()'));
+    // the mixed-up cookies land as they're named, and the "?"s come before Sprout Bunny counts
+    expect(withLine('ep.count.mixed')).toEqual(['show trayIn(7,{"mixed":true})', 'show unsure()']);
+    // both slips are seen again on their own cookies, and every number is off before the child's taps
+    const why = log.indexOf('say ep.count.move.why');
+    expect(log.slice(why + 1, why + 4)).toEqual(['show recall("skip")', 'show recall("twice")', 'clearNumbers()']);
+    // a count gone through together: the light goes to each cookie as its number is said, as many as were counted, and then waits
+    for (const [b, n] of [['b5', 5], ['b7', 7], ['b4', 4]] as const) {
+      const lit = withLine(`ep.count.${b}.show`);
+      expect(lit).toEqual(Array.from({ length: n }, (_, i) => `show pointAt(${i + 1})`));
+      expect(log[log.indexOf(`say ep.count.${b}.show`) + n + 1]).toBe('go Next');
+    }
+    const next = pretend({ nums: [5] }); await COUNT_LESSON.check(next.teller, next.world, null);
+    expect(next.log.filter(l => l.startsWith('show pointAt('))).toHaveLength(6);
+    // the plates go as "let's count them again" is said
+    expect(withLine('ep.count.try.recount.again')).toEqual(['show platesOff()']);
   });
   it('every line can stand up to the words rules', () => {
     expect(lineProblems(BEAT_LINES)).toEqual([]);

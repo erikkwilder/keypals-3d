@@ -14,7 +14,7 @@ import { loadTexture } from './assets';
 import type { EpisodeScene } from './episodeScene';
 import type { Pin } from '../math/beats/types';
 import type { CountWorld } from '../math/beats/countLesson';
-import { countPath, slipped, type Slip } from '../math/beats/count';
+import { countPath, numbersOn, slipped, type Slip } from '../math/beats/count';
 import { bSfx } from '../math/beats/sounds';
 import { COUNT_WORDS, countWord } from '../content/voice';
 
@@ -106,6 +106,11 @@ export class CountKit implements CountWorld {
   /** Sprout Bunny leaning over to the cookie it is counting: the cookie, how far across it is now, how far
    *  down (0-1), and when its little hop to this cookie began */
   private lean = { to: null as THREE.Vector3 | null, x: 0, down: 0, at: -9 };
+  /** when the cookies now coming in have all landed (a picture that uses them waits for this) */
+  private landed: Promise<void> = Promise.resolve();
+  /** the cookie sitting on a plate of its own while the narrator says why the number matters: where it came
+   *  from on the tray, its plate, and where the plate came from */
+  private own: { c: Cookie; home: THREE.Vector3; plate: THREE.Group; from: THREE.Vector3 } | null = null;
   private geo: { cookie?: THREE.BufferGeometry; chip?: THREE.BufferGeometry; plate?: THREE.BufferGeometry; rim?: THREE.BufferGeometry; mark?: THREE.BufferGeometry; ring?: THREE.BufferGeometry } = {};
   private mat: { cookie?: THREE.Material; chip?: THREE.Material; plate?: THREE.Material[]; rim?: THREE.Material; mark?: THREE.MeshBasicMaterial; bad?: THREE.MeshBasicMaterial; tray?: THREE.Material } = {};
 
@@ -244,7 +249,58 @@ export class CountKit implements CountWorld {
       this.cookies.push(c);
     }
     this.changed();
-    await this.wait(n * 120 + 600);
+    this.landed = this.wait(n * 120 + 600);
+    await this.landed;
+  }
+  /** "Each cookie needs its own plate to sit on": one plate comes into the row (from the front; on a phone
+   *  from the side, as all its plates do) and the cookie at the front of the tray hops onto it. The row is
+   *  empty, so the plate passes nothing, and the cookie goes over the tray's edge in an arc */
+  async plateFor() {
+    await this.landed;
+    const n = this.cookies.length, k = Math.floor(n / 2), c = this.cookies[k];
+    if (!c || this.own) return;
+    const [x, y] = this.slot(k, n), to = this.P(x, y), lines = this.L.cols < 8, p = this.makePlate();
+    p.position.copy(lines ? this.P(x - 380, y) : this.P(x, y + 170));
+    this.plateObjs.push(p);
+    this.own = { c, home: c.g.position.clone(), plate: p, from: p.position.clone() };
+    this.go(p, to, lines ? 0.8 : 0.5, { done: () => bSfx.clack() });
+    this.changed();
+    await this.wait(lines ? 800 : 500);
+    c.plate = p;
+    this.go(c.g, to.clone().add(new THREE.Vector3(0, PR * this.s * 0.12, 0)), 0.5, { arc: 0.14, done: () => bSfx.clack() });
+    await this.wait(650);
+  }
+  /** "We need to know how many cookies there are": a "?" stands in the middle of the cookies, on a number's
+   *  card (the cookie on its plate has left the middle of the tray clear) */
+  async wonder() {
+    this.pin({ id: 'q', text: '?', kind: 'tick', big: true, at: () => this.P(MID_X, this.L.trayY).add(new THREE.Vector3(0, 0.05, 0)) });
+    await this.wait(300);
+  }
+  /** "So let's count them": the "?" goes, the cookie hops back to its place on the tray and its plate goes
+   *  out the way it came, so every cookie is on the tray to be counted */
+  async plateBack() {
+    this.unpin(p => p.id === 'q');
+    const o = this.own; this.own = null;
+    if (!o) return;
+    o.c.plate = null;
+    this.go(o.c.g, o.home, 0.5, { arc: 0.14, done: () => bSfx.clack() });
+    await this.wait(380);
+    this.go(o.plate, o.from, this.L.cols < 8 ? 0.8 : 0.5);
+    await this.wait(this.L.cols < 8 ? 820 : 520);
+    this.plateObjs = this.plateObjs.filter(p => p !== o.plate);
+    o.plate.removeFromParent(); this.moves.delete(o.plate);
+    this.changed();
+  }
+  /** "It's hard to remember which ones you've counted": a "?" on three cookies that lie apart, one after
+   *  another (this one? this one?). They go when a count starts */
+  async unsure() {
+    await this.landed;
+    for (const i of [0, 3, 5]) {
+      const c = this.cookies[i];
+      if (!c) continue;
+      this.pin({ id: `q${i}`, text: '?', kind: 'tick', big: true, at: () => this.labelAt(c, false) });
+      await this.wait(380);
+    }
   }
   async trayOut() {
     this.unmark(); this.unpin(() => true); this.lean.to = null;
@@ -253,7 +309,7 @@ export class CountKit implements CountWorld {
     await this.wait(760);
     for (const o of all) { o.removeFromParent(); this.moves.delete(o); }
     if (this.tray) { this.tray.geometry.dispose(); this.tray = null; }
-    this.cookies = []; this.plateObjs = []; this.counted = 0; this.ring = null;
+    this.cookies = []; this.plateObjs = []; this.counted = 0; this.ring = null; this.own = null;
     this.changed();
   }
   /** one cookie counted: it moves over to the row and its number stands on it */
@@ -314,6 +370,7 @@ export class CountKit implements CountWorld {
   async slipCount(who: 'buddy' | 'pal', slip: Slip) {
     const n = this.cookies.length, path = countPath(n, slip);
     const seen = new Set<number>();
+    this.unpin(p => p.id[0] === 'q');
     for (let k = 0; k < path.length; k++) {
       const c = this.cookies[path[k]];
       this.numPin(c, k + 1, seen.has(path[k]));
@@ -338,6 +395,30 @@ export class CountKit implements CountWorld {
     for (const c of this.cookies) c.num = 0;
     this.counted = 0;
     await this.wait(250);
+  }
+  /** A friend's slip seen again on the cookie it happened to, as the narrator names it. 'skip': the buddy's
+   *  numbers are still on, and the cookie with no number shakes in its red ring. 'twice': those numbers go,
+   *  and the cookie Sprout Bunny counted twice has its two numbers and the red ring again */
+  async recall(slip: Slip) {
+    const n = this.cookies.length, path = countPath(n, slip), i = slipped(path, n), c = this.cookies[i];
+    if (!c) return;
+    if (slip === 'twice') {
+      this.unpin(p => /^n\d/.test(p.id));
+      const [a, b] = numbersOn(path, n)[i];
+      this.numPin(c, a); this.numPin(c, b, true);
+    }
+    this.markOn([c.g], true);
+    c.shakeUntil = this.now + 0.6;
+    bSfx.rattle();
+    // (the second slip is the last thing the line says: it stays a moment after the words, then the numbers go)
+    await this.wait(slip === 'twice' ? 1500 : 500);
+  }
+  /** the light goes to the `k`th cookie counted, as the narrator says its number */
+  pointAt(k: number) {
+    const c = this.inOrder().filter(x => x.num)[k - 1];
+    if (!c) return;
+    this.markOn([c.g]);
+    bSfx.tick(Math.min(8, c.num));
   }
   async pointCount() {
     const done = this.inOrder().filter(c => c.num);
