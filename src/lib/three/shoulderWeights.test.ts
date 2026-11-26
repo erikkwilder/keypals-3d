@@ -9,7 +9,8 @@ import { keepParts, neckPart, partWeights, STEADY_HEADS } from './buddyHead';
 // few vertices of the head itself, so when an arm went up the head bent toward it. Their skin was weighted again in
 // the file: the head lets go of every arm and shoulder share and the skin under it less and less, down to the shoulder
 // tops. The weights each came with are kept in the file for what asks which part of the body a vertex is (keepParts).
-const BUDDIES = ['monkey'] as const;
+// Each with how far its head's vertices drifted off the Head bone in the YMCA before (share of its height).
+const BUDDIES = [['monkey', 0.1], ['antenna', 0.05]] as const;
 
 /** a .glb without its pictures (node can't decode them) */
 function bare(path: string): ArrayBuffer {
@@ -61,7 +62,7 @@ const same = (a: W, b: W, i: number) => {
   return true;
 };
 
-describe.each(BUDDIES)("%s's shoulder weights", id => {
+describe.each(BUDDIES)("%s's shoulder weights", (id, drift) => {
   it('keep the weights it came with for which-part readers, off the graphics card, and need no head fix at load', async () => {
     const { m, live, kept, inFile } = await buddy(id);
     expect(inFile).toBe(true);
@@ -134,8 +135,8 @@ describe.each(BUDDIES)("%s's shoulder weights", id => {
         after = Math.max(after, Math.hypot(A[a] - A[b], A[a + 1] - A[b + 1], A[a + 2] - A[b + 2]) / L[e] - 1);
       }
     }
-    // the head's vertices drifted off its bone by a tenth of the height and more; now they ride it
-    expect(driftB).toBeGreaterThan(0.1);
+    // the head's vertices drifted off its bone (by a tenth of the height and more for Monkey); now they ride it
+    expect(driftB).toBeGreaterThan(drift);
     expect(driftA).toBeLessThan(driftB / 4);
     expect(after).toBeLessThanOrEqual(before * 1.03 + 0.03);
   }, 60000);
