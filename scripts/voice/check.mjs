@@ -15,6 +15,7 @@
 //
 // Inside (rule 46): every clip is also scanned for a fault inside it, away from its edges: a dropout, a click
 // or a hard splice (scripts/voice/blips.mjs says how it decides). A clip with one fails the check: re-record it.
+// Its warnings (a word starting in creak, a stop let go alone between two hushes) are listed, not failed.
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { spawnSync, execFileSync } from 'node:child_process';
@@ -55,9 +56,10 @@ function levels(path) {
   const pk = (a, b) => { let m = 0; for (let i = a; i < b; i++) m = Math.max(m, Math.abs(x[i])); return db(m); };
   let full = 0;
   for (const v of x) if (Math.abs(v) >= 0.999) full++;
+  const found = findBlips(x);
   return { ms: Math.round((x.length * 1000) / SR), ...loudness(path), fullScale: full,
     headRms: +rms(0, n).toFixed(1), headPeak: +pk(0, n).toFixed(1), tailRms: +rms(x.length - n, x.length).toFixed(1), tailPeak: +pk(x.length - n, x.length).toFixed(1),
-    blips: findBlips(x).faults };
+    blips: found.faults, warns: found.warnings };
 }
 
 const results = {};
@@ -77,6 +79,11 @@ const blipped = vals.filter((r) => r.blips.length);
 console.log(`faults inside a clip (rule 46): ${blipped.length ? `${blipped.length} clips, re-record them` : 'none'}`);
 for (const r of blipped) for (const f of r.blips) console.log(`  ${r.id}  ${f.t.toFixed(3)} s  ${f.kind} (${f.sure}): ${f.why}`);
 if (blipped.length) process.exitCode = 1;
+// Warnings, not failures (the model's own voice): a word starting in creak, a stop let go alone between two hushes.
+for (const kind of ['creaky start', 'lone burst']) {
+  const w = vals.flatMap((r) => r.warns.filter((v) => v.kind === kind).map((v) => ({ id: r.id, ...v })));
+  if (w.length) console.log(`warning, ${kind}: ${new Set(w.map((v) => v.id)).size} clips; the worst: ${w.sort((a, b) => b.size - a.size).slice(0, 5).map((v) => `${v.id} ${v.t.toFixed(2)} s`).join(', ')}`);
+}
 
 // ------------------------------------------------------------------ words
 

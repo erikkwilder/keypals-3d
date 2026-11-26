@@ -2402,22 +2402,21 @@
  },
  "ep.count.how": {
   "id": "ep.count.how",
-  "gain": -0.2,
-  "rawLufs": -19.6,
+  "gain": -0.5,
+  "rawLufs": -19.3,
   "notes": [
-   "cut lead stray 75ms@-44dB",
-   "cut lead blip 10ms@-60dB",
-   "cut lead breath 220ms@-54dB"
+   "cut lead stray 115ms@-49dB",
+   "ducked breath at 4041ms"
   ],
-  "ms": 4919,
+  "ms": 5398,
   "lufs": -20,
-  "tp": -3.2,
-  "maxAbs": 0.6895,
+  "tp": -1.7,
+  "maxAbs": 0.8262,
   "fullScale": 0,
-  "head50Rms": -46.3,
-  "head50Peak": -30.3,
-  "tail50Rms": -66.2,
-  "tail50Peak": -51.9,
+  "head50Rms": -63.9,
+  "head50Peak": -51,
+  "tail50Rms": -65,
+  "tail50Peak": -52,
   "voice": "coach"
  },
  "ep.count.try.you": {
@@ -2596,20 +2595,19 @@
  "ep.count.fit": {
   "id": "ep.count.fit",
   "gain": 0.1,
-  "rawLufs": -20.1,
+  "rawLufs": -19.8,
   "notes": [
-   "cut faint end blip 10ms@-60dB",
-   "cut faint end blip 5ms@-59dB"
+   "cut lead stray 155ms@-41dB"
   ],
-  "ms": 3253,
+  "ms": 3018,
   "lufs": -20,
-  "tp": -3.4,
-  "maxAbs": 0.6739,
+  "tp": -2.7,
+  "maxAbs": 0.7297,
   "fullScale": 0,
-  "head50Rms": -62.9,
-  "head50Peak": -48.9,
-  "tail50Rms": -60.9,
-  "tail50Peak": -46.1,
+  "head50Rms": -64.6,
+  "head50Peak": -51.8,
+  "tail50Rms": -62.8,
+  "tail50Peak": -49.4,
   "voice": "coach"
  },
  "ep.count.mixed": {
@@ -3116,21 +3114,23 @@
  },
  "ep.count.how.last": {
   "id": "ep.count.how.last",
-  "gain": -1.3,
-  "rawLufs": -18.3,
+  "gain": -1.2,
+  "rawLufs": -18.7,
   "notes": [
-   "cut lead blip 55ms@-53dB",
-   "cut lead breath 280ms@-43dB"
+   "cut faint end blip 5ms@-62dB",
+   "cut lead blip 20ms@-56dB",
+   "cut lead blip 5ms@-59dB",
+   "cut lead stray 120ms@-53dB"
   ],
-  "ms": 6730,
-  "lufs": -19.9,
-  "tp": -3.3,
-  "maxAbs": 0.6789,
+  "ms": 6835,
+  "lufs": -20,
+  "tp": -3.2,
+  "maxAbs": 0.6866,
   "fullScale": 0,
-  "head50Rms": -44.1,
-  "head50Peak": -27.3,
-  "tail50Rms": -64.1,
-  "tail50Peak": -52,
+  "head50Rms": -42.7,
+  "head50Peak": -28.1,
+  "tail50Rms": -65.7,
+  "tail50Peak": -53.7,
   "voice": "coach"
  },
  "ep.count.b4.why": {
@@ -6390,10 +6390,11 @@
   "notes": [
    "cut lead stray 55ms@-50dB",
    "cut lead blip 15ms@-59dB",
-   "cut lead breath 150ms@-57dB"
+   "cut lead breath 150ms@-57dB",
+   "click faded out at 1.660s"
   ],
   "ms": 3412,
-  "lufs": -20,
+  "lufs": -19.9,
   "tp": -2,
   "maxAbs": 0.7931,
   "fullScale": 0,
@@ -7718,7 +7719,8 @@
   "gain": -0.4,
   "rawLufs": -19.2,
   "notes": [
-   "ducked breath at 4425ms"
+   "ducked breath at 4425ms",
+   "click faded out at 4.252s"
   ],
   "ms": 7363,
   "lufs": -19.9,

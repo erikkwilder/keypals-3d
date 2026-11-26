@@ -1649,7 +1649,7 @@
   },
   "ep.count.how": {
     "voice": "coach",
-    "ms": 4919
+    "ms": 5398
   },
   "ep.count.try.you": {
     "voice": "coach",
@@ -1689,7 +1689,7 @@
   },
   "ep.count.fit": {
     "voice": "coach",
-    "ms": 3253
+    "ms": 3018
   },
   "ep.count.mixed": {
     "voice": "coach",
@@ -1797,7 +1797,7 @@
   },
   "ep.count.how.last": {
     "voice": "coach",
-    "ms": 6730
+    "ms": 6835
   },
   "ep.count.b4.why": {
     "voice": "coach",

@@ -3067,17 +3067,17 @@
  "ep.count.fit": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "e9f057eaba"
+  "h": "40e7db0294"
  },
  "ep.count.how": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "88cb08b46e"
+  "h": "355b2d551a"
  },
  "ep.count.how.last": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "c26a1c0c7b"
+  "h": "ffcd59b1ed"
  },
  "ep.count.how2": {
   "engine": "local",

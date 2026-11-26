@@ -104,5 +104,29 @@
   "ep.eq.try.buddy": {
     "seed": 101,
     "why": "in the first take Whisper heard 'twenty to one' for 'twenty-one', twice"
+  },
+  "ep.count.how": {
+    "seed": 103,
+    "why": "the take of 24 Nov let the t of 'touched' go alone between two hushes right before 'every', and started 'every' in creak; chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.count.how.last": {
+    "seed": 102,
+    "why": "the take of 24 Nov started 'every' with 50-60 ms of creak, an octave under the narrator; chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.count.fit": {
+    "seed": 104,
+    "why": "the take of 24 Nov started 'every' and 'empty' in creak; chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.crate.check.why": {
+    "declick": [
+      4.252
+    ],
+    "why": "a click in the pause after 'on the floor,' (blips.mjs, rule 46)"
+  },
+  "finger.LI.down": {
+    "declick": [
+      1.66
+    ],
+    "why": "a click in the hush before 'down' (blips.mjs, rule 46)"
   }
 }

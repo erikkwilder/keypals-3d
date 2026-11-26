@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SR, decode, findBlips } from '../../../scripts/voice/blips.mjs';
+import { SR, decode, envelope, findBlips } from '../../../scripts/voice/blips.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const ffmpeg = existsSync('/opt/homebrew/bin/ffmpeg') || spawnSync('ffmpeg', ['-version']).status === 0;
@@ -24,10 +24,12 @@ function voice(ms = 800, f0 = 200) {
   return { x, from: pad, to: pad + n };
 }
 const kinds = (x: Float32Array) => findBlips(x).faults.map((f: { kind: string }) => f.kind);
+const warned = (x: Float32Array) => findBlips(x).warnings.map((w: { kind: string }) => w.kind);
 
 describe('the scanner for faults inside a clip (rule 46)', () => {
-  it('passes a clean voiced sound', () => {
+  it('passes a clean voiced sound, with no warning', () => {
     expect(kinds(voice().x)).toEqual([]);
+    expect(warned(voice().x)).toEqual([]);
   });
 
   it('passes a stop between words: the voice fades out, a hush, then a burst of noise and the voice again', () => {
@@ -69,6 +71,34 @@ describe('the scanner for faults inside a clip (rule 46)', () => {
     expect(kinds(x)).toContain('splice');
   });
 
+  it('warns of a word that starts in creak: its first 50 ms an octave under the voice', () => {
+    const { x, from } = voice(900);
+    const n = Math.round(0.05 * SR), blend = Math.round(0.01 * SR);
+    for (let i = 0; i < n; i++) {
+      const t = i / SR; // repeats every 10 ms (100 Hz), its power even through each period
+      const v = 0.08 * Math.sin(2 * Math.PI * 100 * t) + 0.3 * Math.sin(2 * Math.PI * 300 * t + 1) + 0.1 * Math.sin(2 * Math.PI * 500 * t + 2);
+      const w = Math.max(0, (i - (n - blend)) / blend); // into the voice over the last 10 ms, with no jump
+      x[from + i] = v * Math.min(1, i / (0.005 * SR)) * (1 - w) + x[from + i] * w;
+    }
+    expect(kinds(x)).toEqual([]);
+    expect(warned(x)).toEqual(['creaky start']);
+  });
+
+  it('warns of a stop let go on its own between two hushes ("touch-t-every")', () => {
+    const { x, from } = voice(900);
+    const a = from + Math.round(0.4 * SR);
+    const fade = Math.round(0.02 * SR), hush = Math.round(0.02 * SR), burst = Math.round(0.01 * SR), up = Math.round(0.01 * SR);
+    for (let i = 0; i < fade; i++) x[a + i] *= 0.5 + 0.5 * Math.cos((Math.PI * i) / fade);
+    let seed = 11;
+    const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 0.4;
+    const b = a + fade + hush, c = b + burst + hush;
+    x.fill(0, a + fade, c);
+    for (let i = 0; i < burst; i++) x[b + i] = noise() * Math.min(1, i / (0.0015 * SR)) * (1 - i / burst);
+    for (let i = 0; i < up; i++) x[c + i] *= i / up;
+    expect(kinds(x)).toEqual([]);
+    expect(warned(x)).toEqual(['lone burst']);
+  });
+
   it('leaves the first and last 100 ms to the edge checks', () => {
     const { x } = voice(800);
     x[Math.round(0.05 * SR)] = 0.5;
@@ -80,8 +110,16 @@ describe('the scanner for faults inside a clip (rule 46)', () => {
     if (!existsSync(path)) return;
     const x = decode(path);
     expect(findBlips(x).faults).toEqual([]);
-    // "You touched every cookie": the "ry" of "every" is steady voice (about 230 Hz) from 0.65 to 0.73 s
-    const a = Math.round(0.68 * SR);
+    // in the middle of its longest stretch of loud voice (-25 dBFS or more), whichever take the clip is
+    const e = envelope(x);
+    let best = [0, 0];
+    for (let k = 100, s = -1; k < e.length - 100; k++) {
+      if (e[k] < -25) { s = -1; continue; }
+      if (s < 0) s = k;
+      if (k - s > best[1] - best[0]) best = [s, k];
+    }
+    expect(best[1] - best[0]).toBeGreaterThan(60);
+    const a = Math.round((((best[0] + best[1]) / 2 - 12) * SR) / 1000);
     x.fill(0, a, a + Math.round(0.025 * SR));
     expect(kinds(x)).toContain('dropout');
   });

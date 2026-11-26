@@ -437,6 +437,19 @@ function processClip(id, rawPath, outPath, oneWord = false) {
     notes.push(`ducked breath at ${Math.round(((a - pad) * 1000) / SR)}ms`);
   }
 
+  // Clicks taken out (line-overrides.json "declick": seconds in the finished clip, where blips.mjs found a click in a
+  // hush, never in a word): the sharpest jump within 3 ms of each is faded out over 3 ms, 0.5 ms each way.
+  for (const at of (OVERRIDES[id] || {}).declick || []) {
+    const d2 = (i) => Math.abs(y[i + 1] - 2 * y[i] + y[i - 1]);
+    let p = Math.round(at * SR);
+    for (let i = Math.max(1, p - Math.round(0.003 * SR)); i <= Math.min(y.length - 2, p + Math.round(0.003 * SR)); i++) if (d2(i) > d2(p)) p = i;
+    const a = p - Math.round(0.001 * SR), b = p + Math.round(0.002 * SR), r = Math.round(0.0005 * SR);
+    for (let i = Math.max(0, a - r); i < Math.min(y.length, b + r); i++) {
+      y[i] *= i < a ? 0.5 + 0.5 * Math.cos((Math.PI * (i - (a - r))) / r) : i >= b ? 0.5 - 0.5 * Math.cos((Math.PI * (i - b)) / r) : 0;
+    }
+    notes.push(`click faded out at ${(p / SR).toFixed(3)}s`);
+  }
+
   // Fades.
   const fi = Math.round((FADE_IN_MS * SR) / 1000);
   const fo = Math.round((FADE_OUT_MS * SR) / 1000);
