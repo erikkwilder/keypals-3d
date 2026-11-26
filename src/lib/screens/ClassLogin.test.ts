@@ -35,7 +35,7 @@ describe("waiting for the teacher's yes", () => {
     expect(fn).toMatch(/ticket = null/);
     expect(fn).toMatch(/if \(look && waitName\) noteWaiting\(code, waitName\)/);
     const step = between("{:else if step === 'waiting'}", "{:else if step === 'going'}");
-    expect(step).toContain("You're on the list. Your teacher needs to say yes first.");
+    expect(step).toContain("You're on the list. Your teacher needs to say yes first. Then sign in with Google again.");
     expect(step).not.toMatch(/<button/);
     // both answers lead there: "I'm new" in a class open to any account, and Google again
     expect(between('async function joinNew', 'function pickName')).toMatch(/if \(err\.body\?\.pending\) \{ toWaiting\(/);

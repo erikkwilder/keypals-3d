@@ -208,7 +208,7 @@
       <button class="btn btn-primary btn-big again" onclick={() => { sfx.click(); backToCode(); }}>Go back</button>
     {:else if step === 'waiting'}
       {#if look}<h1>{look.class.name}</h1><p class="lead">{look.class.teacher}'s class.</p>{:else}<h1>Hi{waitName ? ` ${waitName}` : ''}!</h1>{/if}
-      <p class="lead isyou" role="status">You're on the list. Your teacher needs to say yes first.</p>
+      <p class="lead isyou" role="status">You're on the list. Your teacher needs to say yes first. Then sign in with Google again.</p>
     {:else if step === 'going'}
       <h1>Welcome, {who?.name}!</h1>
       <p class="lead">Getting your things ready…</p>

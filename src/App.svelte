@@ -281,7 +281,7 @@
   {#if game.profile}{@render layer(O.fun)}{/if}
   {#if game.toast}<div class="toast" class:high={game.screen === 'shop'}>{game.toast}</div>{/if}
   <NetNote />
-  {#if no3d}<div class="no3d" role="alert"><b>Keypals can't draw its 3D world in this browser.</b> 3D graphics (WebGL) are turned off or not available here. Try another browser, or turn on hardware acceleration in this browser's settings. On an iPhone or iPad, Lockdown Mode turns 3D graphics off.</div>{/if}
+  {#if no3d}<div class="no3d" role="alert"><b>Keypals can't draw its 3D world in this browser.</b> Ask a grown-up to help. 3D graphics (WebGL) are turned off or not available here. Try another browser, or turn on hardware acceleration in this browser's settings. On an iPhone or iPad, Lockdown Mode turns 3D graphics off.</div>{/if}
 </main>
 
 <style>

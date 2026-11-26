@@ -51,10 +51,10 @@
   <section class="panel wait" class:no={status === 'declined'}>
     {#if status === 'declined'}
       <h2>We couldn't turn on classes for this account</h2>
-      <p>Students can't log in to these classes. If you're a teacher, sign in with your school Google account and your classes are on straight away, or write to us from Ideas and help.</p>
+      <p>Students can't log in to these classes. If you're a teacher, sign in with your school Google account: classes you make with it are on straight away. Or write to us from Ideas and help.</p>
     {:else}
       <h2>We'll turn on your classes soon</h2>
-      <p>You signed in with a personal Google account, so we check first that you're a teacher (usually within a day). You can set everything up now: add students, print cards and give class work. Students can log in once your classes are on. With a school Google account they're on straight away.</p>
+      <p>You signed in with a personal Google account, so we check first that you're a teacher (usually within a day). You can set everything up now: add students, print cards and give class work. Students can log in once your classes are on. Classes you make with a school Google account are on straight away.</p>
     {/if}
   </section>
 {/snippet}

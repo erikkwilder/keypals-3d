@@ -103,7 +103,7 @@ describe('who may teach, and when classes turn on', () => {
     await call('POST', `/admin/teachers/${id}`, { status: 'declined' }, { cookie: erik.cookie });
     const no = await call('POST', '/teach/classes', { name: 'Room 2', grade: 2 }, { cookie: lee.cookie });
     expect(no.status).toBe(403);
-    expect(no.json.error).toBe("We couldn't turn on classes for this account. If you're a teacher, sign in with your school Google account and your classes are on straight away, or write to us from Ideas and help.");
+    expect(no.json.error).toBe("We couldn't turn on classes for this account. If you're a teacher, sign in with your school Google account: classes you make with it are on straight away. Or write to us from Ideas and help.");
     expect((await call('GET', '/teach/classes', undefined, { cookie: lee.cookie })).json.classes).toHaveLength(1);
     // approved after all: classes again
     await call('POST', `/admin/teachers/${id}`, { status: 'approved' }, { cookie: erik.cookie });

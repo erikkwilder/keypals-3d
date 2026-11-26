@@ -48,7 +48,7 @@
         <img src="{import.meta.env.BASE_URL}icons/trophy.webp" alt="" />
         <div>
           <h2>Want to be on the boards?</h2>
-          <p>Your class's board and your family's board show players who are saved online. A grown-up can turn that on for you in Grown-ups, under Sign-in and saving. Today's Arcade challenge around the world is below for everyone.</p>
+          <p>Your class's board shows players who are saved online. Your family's board shows up when a grown-up is signed in too. A grown-up can turn these on for you in Grown-ups, under Sign-in and saving. Today's Arcade challenge around the world is below for everyone.</p>
           <button class="btn" onclick={() => game.openGrownups('saving')}><img src="{import.meta.env.BASE_URL}icons/grownups.webp" alt="" />Ask a grown-up</button>
         </div>
       </section>
