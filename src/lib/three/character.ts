@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGltf } from './assets';
-import { partWeights, STEADY_HEADS, steadyHead } from './buddyHead';
+import { keepParts, partWeights, STEADY_HEADS, steadyHead } from './buddyHead';
 import { FRIEND, type FriendId } from '../art/cast';
 
 import { CLIP_NAMES as MOVE } from './clipNames';
@@ -23,6 +23,7 @@ function source(id: FriendId) {
       const fade = STEADY_HEADS[id];
       g.scene.traverse(o => {
         if (!(o as THREE.SkinnedMesh).isSkinnedMesh) return;
+        keepParts(o as THREE.SkinnedMesh);
         liftColours(o as THREE.SkinnedMesh);
         if (fade) steadyHead(o as THREE.SkinnedMesh, fade);
       });

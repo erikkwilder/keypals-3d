@@ -39,7 +39,22 @@ type Weights = { si: Attr; sw: Attr };
 /** The skin weights the model came with. They say which part of the body a vertex is: what reads
  * them for that (the colours, where a hat sits, what a piece of gear holds on to) uses these. */
 export function partWeights(g: THREE.BufferGeometry): Weights {
-  return (g.userData.partWeights as Weights | undefined) ?? { si: g.attributes.skinIndex, sw: g.attributes.skinWeight };
+  const a = g.attributes, kept = a._partjoints && a._partweights ? { si: a._partjoints, sw: a._partweights } : null;
+  return (g.userData.partWeights as Weights | undefined) ?? kept ?? { si: a.skinIndex, sw: a.skinWeight };
+}
+
+/**
+ * A model whose skin was weighted again in the file for how it moves (Straw: its straw cloak and the strands round
+ * its neck rode the arm bones, so a dance tore them) keeps the weights it came with there too, as _PARTJOINTS and
+ * _PARTWEIGHTS, for what asks which part of the body a vertex is (the colours, where a hat sits, gear fitting, the
+ * sled seat), so those read what they always did. Moved off the geometry so they aren't sent to the graphics card.
+ */
+export function keepParts(m: THREE.SkinnedMesh) {
+  const g = m.geometry, a = g.attributes;
+  if (!a._partjoints || !a._partweights) return;
+  g.userData.partWeights = { si: a._partjoints, sw: a._partweights };
+  g.deleteAttribute('_partjoints');
+  g.deleteAttribute('_partweights');
 }
 
 export type NeckPart = {
