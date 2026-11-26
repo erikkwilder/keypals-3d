@@ -45,6 +45,12 @@ type Bar = { n: number; sq: number; lines: number[]; squares: Sq[]; mine: boolea
 type Job = { kind: 'cut'; pieces: number; done: (lines: number[]) => void } | { kind: 'tap'; hint: number; done: (line: number) => void };
 /** a square on its way into a mouth: the piece keeps its shape (`off`, from its middle) and shrinks as it goes */
 type Fly = { m: THREE.Mesh; from: THREE.Vector3; off: THREE.Vector3; sc0: THREE.Vector3; to: () => THREE.Vector3; t0: number; dur: number };
+/** a pretend piece (see-through): where it is along the plates, how long and how tall it is in board units, and
+ *  how much of it is there (0: gone) */
+type GAt = { x: number; w: number; h: number; o: number };
+type Ghost = { m: THREE.Mesh; from: GAt; to: GAt; t0: number; dur: number };
+/** the level line: from x0, this long, in front of the standing pieces, at the top of a piece `top` squares tall */
+type Rod = { x0: number; len: number; y: number; top: number; sq: number; t0: number };
 
 export class ShareKit implements ShareWorld {
   readonly root = new THREE.Group();
@@ -63,6 +69,15 @@ export class ShareKit implements ShareWorld {
   private knifeAt = { x: CX, y: BAR_Y, t0: -9, seen: -9 };
   private job: Job | null = null;
   private flies: Fly[] = [];
+  // the pictures that go with the narrator's words (rule 37): pretend pieces, lit squares, a level line, a lit line
+  private ghosts: Ghost[] = [];
+  private ghostMat = new THREE.MeshStandardMaterial({ color: 0xe0b182, transparent: true, opacity: 0.62, roughness: 0.5 });
+  private glows = new Map<number, THREE.Material>();
+  private lit = new Map<THREE.Mesh, number>();
+  private rod = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0xffe27a, emissive: 0xffb300, emissiveIntensity: 0.7, roughness: 0.4 }));
+  private rodAt: Rod | null = null;
+  private strip = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xfff3b0 }));
+  private stripX: number | null = null;
   private ray = new THREE.Raycaster();
   private meBox: THREE.Box3 | null = null;
   private tall = innerWidth < innerHeight * 0.9;
@@ -87,6 +102,8 @@ export class ShareKit implements ShareWorld {
     this.knife.add(blade, handle);
     this.knife.visible = false;
     this.root.add(this.knife);
+    // (hidden things are kept tiny, so they never count as part of what's on the table)
+    for (const m of [this.rod, this.strip]) { m.visible = false; m.scale.setScalar(1e-4); this.root.add(m); }
   }
   bounds() { return this.tall ? { x: 137, y: 80, w: 326, h: 145 } : { x: 85, y: 80, w: 430, h: 145 }; }
   /** on a phone, the child's bar while it lies flat to be cut (the camera frames just it then) */
@@ -215,6 +232,7 @@ export class ShareKit implements ShareWorld {
   private dropTrays() { for (const t of this.trays) { t.m.removeFromParent(); t.m.geometry.dispose(); } this.trays = []; this.unpin(p => p.id.startsWith('owner-')); }
   async give(from: number, to: number) {
     const b = this.bar!;
+    this.tidy();
     this.sizePins(b, false);
     b.given = { from, to };
     // (up in a high arc, so it goes over the piece it lands on, never through it)
@@ -233,12 +251,112 @@ export class ShareKit implements ShareWorld {
     }
   }
 
+  // ---------- pictures that go with the words (rule 37: what is said is shown on the table as it is said) ----------
+  private ghostAt(g: Ghost): GAt {
+    const k = smooth(clamp01((this.now - g.t0) / g.dur)), f = g.from, t = g.to;
+    return { x: f.x + (t.x - f.x) * k, w: f.w + (t.w - f.w) * k, h: f.h + (t.h - f.h) * k, o: f.o + (t.o - f.o) * k };
+  }
+  /** every pretend piece to its new place and size (null: it goes); one that wasn't there grows where it belongs */
+  private ghostTo(to: (p: number) => GAt | null, dur = 0.45) {
+    while (this.ghosts.length < 4) {
+      const m = new THREE.Mesh(this.geo!, this.ghostMat), z = { x: this.plateX, w: 0, h: 0, o: 0 };
+      m.visible = false; m.scale.setScalar(1e-4);
+      this.root.add(m);
+      this.ghosts.push({ m, from: z, to: z, t0: -9, dur: 0.1 });
+    }
+    this.ghosts.forEach((g, p) => {
+      const cur = this.ghostAt(g), t = to(p) ?? { ...cur, o: 0 };
+      g.from = cur.o < 0.02 ? { ...t, o: 0 } : cur; g.to = t; g.t0 = this.now; g.dur = dur;
+    });
+  }
+  /** a tick or a cross (a word card, like every sign in a lesson) */
+  private mark(mark: 'yes' | 'no', at: () => THREE.Vector3) { this.pin({ id: 'mark', text: mark === 'yes' ? '✓' : '✗', kind: 'tick', big: true, c: mark, at }); }
+  async pretend(heights: number[] | null, mark?: 'yes' | 'no') {
+    this.unpin(p => p.id === 'mark');
+    if (!heights) { this.ghostTo(() => null, 0.25); await this.wait(250); return; }
+    const sq = this.bar?.sq ?? 40;
+    this.ghostTo(p => p < heights.length ? { x: this.plateX + p * PLATE_GAP, w: sq, h: heights[p] * sq, o: 1 } : null, 0.6);
+    await this.wait(650);
+    // (over the middle of the plates, above the tallest pretend piece, and in the same place for the cross and the tick)
+    if (mark && this.ghosts.some(g => g.to.o > 0)) this.mark(mark, () => this.world({ x: this.plateX + 1.5 * PLATE_GAP, y: ROW0, up: 3.3 * sq * this.s }));
+    await this.wait(200);
+  }
+  async plan(pieces: number[] | null) {
+    if (!pieces) { this.ghostTo(() => null, 0.25); await this.wait(250); return; }
+    const sq = this.bar?.sq ?? 40, len = PLATE_GAP - 8, xs: number[] = [];
+    // (each piece lies over the middle of the plates it will fill, its parts touching: one piece with lines on it)
+    let at = 0;
+    for (const n of pieces) { const mid = this.plateX + (at + (n - 1) / 2) * PLATE_GAP; for (let i = 0; i < n; i++) xs.push(mid + (i - (n - 1) / 2) * len); at += n; }
+    if (this.ghosts.some(g => g.to.o > 0)) bSfx.clack();
+    this.ghostTo(p => p < xs.length ? { x: xs[p], w: len, h: sq * 0.34, o: 1 } : null, 0.4);
+    await this.wait(450);
+  }
+  async showLines() {
+    const b = this.bar; if (!b || b.mode !== 'bar') return;
+    for (let g = 1; g < b.n; g++) {
+      if (this.bar !== b || b.lines.length) break;
+      this.stripX = this.left(b) + g * b.sq;
+      // (the knife stays up: it shows where a tap can cut, and cuts nothing)
+      this.knifeAt = { x: this.stripX, y: BAR_Y, t0: this.now - 1, seen: this.now };
+      // (and it makes no sound: a tick on each line would be a count with no numbers said, rule 42)
+      await this.wait(Math.min(280, 2000 / (b.n - 1)));
+    }
+    this.stripX = null;
+  }
+  private glow(color: number, tint: number) {
+    const key = color * 2 + tint;
+    let m = this.glows.get(key);
+    if (!m) { const g = (this.mat(color) as THREE.MeshPhysicalMaterial).clone(); g.emissive.set(tint ? 0x3f9dff : 0xffa51f); g.emissiveIntensity = 0.5; m = g; this.glows.set(key, m); }
+    return m;
+  }
+  private glowSquare(b: Bar, j: number, tint: number) {
+    const q = b.squares[j]; if (!q || q.gone) return;
+    const color = b.mine ? MILK : WHITE;
+    q.m.material = this.glow(color, tint); this.lit.set(q.m, color);
+  }
+  private unlight() { for (const [m, color] of this.lit) m.material = this.mat(color); this.lit.clear(); }
+  light(pieces: number[] | null, other = false) {
+    this.unlight();
+    const b = other ? this.other : this.bar; if (!b || !pieces) return;
+    const { ps, out } = this.starts(b);
+    for (const p of pieces) for (let k = 0; k < (ps[p] ?? 0); k++) this.glowSquare(b, out[p] + k, 0);
+  }
+  // (all at once, never one after another on a timer: a light that runs along things by itself is a count with
+  // no numbers said, rule 42. A script that counts aloud lights one more group at each number, by the clip's clock)
+  squares(groups: number[][] | null) {
+    this.unlight();
+    const b = this.bar; if (!b || !groups) return;
+    groups.forEach((js, i) => { for (const j of js) this.glowSquare(b, j, i % 2); });
+    bSfx.tick(1);
+  }
+  private rodUp(r: Rod) { return r.top * r.sq * this.s + this.trayTop() + 0.004 + 1.5 * this.s; }
+  async level(mark: 'yes' | 'no' | null) {
+    this.unpin(p => p.id === 'mark');
+    const b = this.bar;
+    if (!mark || !b || b.mode !== 'rows') { this.rodAt = null; return; }
+    const ps = piecesOf(b.n, b.lines);
+    // (in front of the pieces' faces, resting at the top of the tallest: it touches nothing)
+    const r: Rod = { x0: this.plateX - b.sq * 0.6, len: (ps.length - 1) * PLATE_GAP + b.sq * 1.2, y: ROW0 + b.sq / 2 + 3, top: Math.max(...ps), sq: b.sq, t0: this.now };
+    this.rodAt = r;
+    bSfx.tick(2);
+    await this.wait(550);
+    if (this.rodAt !== r) return;
+    this.mark(mark, () => this.world({ x: r.x0 + r.len + r.sq * 0.5, y: r.y, up: this.rodUp(r) }));
+    await this.wait(200);
+  }
+  /** the pictures that went with the words go when the next thing happens on the table */
+  private tidy() {
+    this.unlight(); this.rodAt = null; this.stripX = null;
+    if (this.pins.some(p => p.id === 'mark')) this.unpin(p => p.id === 'mark');
+    if (this.ghosts.some(g => g.to.o > 0)) this.ghostTo(() => null, 0.25);
+  }
+
   cut(pieces: number) {
-    this.unpin(p => p.id === 'count');
+    this.unpin(p => p.id === 'count'); this.tidy();
     return new Promise<number[]>(res => { this.job = { kind: 'cut', pieces, done: res }; this.changed(); });
   }
   tapCut(hint: number) {
-    this.unpin(p => p.id === 'count');
+    this.unpin(p => p.id === 'count'); this.tidy();
     return new Promise<number>(res => { this.job = { kind: 'tap', hint, done: res }; this.changed(); });
   }
   /** the knife comes down on line g of a bar, and its pieces part */
@@ -264,6 +382,7 @@ export class ShareKit implements ShareWorld {
   }
   async serve() {
     const b = this.bar!, n = piecesOf(b.n, b.lines).length;
+    this.tidy();
     b.mode = 'rows';
     this.sizePins(b, false);
     this.relayout(b, 0.6, 260, 0.05);
@@ -274,6 +393,7 @@ export class ShareKit implements ShareWorld {
   }
   async join() {
     const b = this.bar!;
+    this.tidy();
     this.sizePins(b, false); this.unpin(p => p.id.startsWith('name-'));
     b.lines = []; b.mode = 'bar';
     this.relayout(b, 0.6, 120, 0.05);
@@ -287,6 +407,7 @@ export class ShareKit implements ShareWorld {
     if (other && this.other) { const o = this.other; this.pin({ id: 'name-o0', text: other, kind: 'word', at: () => this.pieceTop(o, o.mode === 'under' ? (o.keep ?? 1) - 1 : 0, -1) }); }
   }
   async otherBar(lines: number[]) {
+    this.tidy();
     this.drop(this.other);
     const o = (this.other = this.makeBar(this.bar!.n, false));
     await this.wait(900);
@@ -302,6 +423,7 @@ export class ShareKit implements ShareWorld {
     await this.wait(300);
   }
   async besides(b: number, k = 1) {
+    this.tidy();
     this.drop(this.other);
     const o = (this.other = this.makeBar(this.bar!.n, false));
     await this.wait(900);
@@ -361,6 +483,7 @@ export class ShareKit implements ShareWorld {
     return head.worldToLocal(p);
   }
   async eat() {
+    this.tidy();
     const b = this.bar!, { ps, out } = this.starts(b);
     this.unpin(p => !p.id.startsWith('owner-'));
     const mouths = [() => this.buddyMouth(), () => this.sc.pal.mouthAt()];
@@ -379,6 +502,7 @@ export class ShareKit implements ShareWorld {
     }
   }
   async barOut() {
+    this.tidy();
     this.pins = []; this.changed();
     for (const b of [this.bar, this.other]) if (b) { b.out = true; this.relayout(b, 0.7, 40); }
     await this.wait(900);
@@ -457,6 +581,23 @@ export class ShareKit implements ShareWorld {
       tr.m.position.copy(this.world({ x: this.plateX + tr.row * PLATE_GAP, y: ROW0, up: 0.004 }));
       tr.m.scale.set(len * s * smooth(k), 0.008, len * s * smooth(k));
     }
+    // the pretend pieces, on the plates (a hidden one stays tiny and in its place)
+    for (const g of this.ghosts) {
+      const a = this.ghostAt(g), d = (this.bar?.sq ?? 40) * s;
+      g.m.visible = a.o > 0.02;
+      g.m.position.copy(this.world({ x: a.x, y: ROW0, up: this.trayTop() + 0.004 + (a.h * s * a.o) / 2 }));
+      g.m.scale.set(Math.max(1e-4, a.w * s * a.o), Math.max(1e-4, a.h * s * a.o), Math.max(1e-4, d * a.o));
+    }
+    // the level line grows from its left end
+    const r = this.rodAt, rk = r ? smooth(clamp01((t - r.t0) / 0.45)) : 0;
+    this.rod.visible = !!r && rk > 0.01;
+    if (r) { this.rod.position.copy(this.world({ x: r.x0 + (r.len * rk) / 2, y: r.y, up: this.rodUp(r) })); this.rod.scale.set(Math.max(1e-4, r.len * rk * s), 3 * s, 3 * s); }
+    else { this.rod.position.copy(this.world({ x: CX, y: ROW0, up: 0.01 })); this.rod.scale.setScalar(1e-4); }
+    // the lit line between two squares, on top of the bar
+    const lb = this.stripX != null ? this.bar : null;
+    this.strip.visible = !!lb;
+    if (lb) { this.strip.position.copy(this.world({ x: this.stripX!, y: BAR_Y, up: lb.sq * 0.34 * s + 0.0015 })); this.strip.scale.set(3 * s, 0.002, lb.sq * s * 0.94); }
+    else { this.strip.position.copy(this.world({ x: CX, y: BAR_Y, up: 0.01 })); this.strip.scale.setScalar(1e-4); }
     // the knife: down and up at the line, then away after a moment
     const kk = t - this.knifeAt.t0;
     this.knife.visible = t - this.knifeAt.seen < 1.2;
@@ -486,6 +627,10 @@ export class ShareKit implements ShareWorld {
     this.root.removeFromParent();
     this.geo?.dispose();
     this.trayMat.dispose();
+    for (const g of this.ghosts) g.m.removeFromParent();
+    this.ghostMat.dispose();
+    for (const m of this.glows.values()) m.dispose();
+    for (const m of [this.rod, this.strip]) { m.removeFromParent(); m.geometry.dispose(); (m.material as THREE.Material).dispose(); }
     for (const m of this.mats.values()) m.dispose();
     this.knife.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); (m.material as THREE.Material).dispose(); } });
     this.sc.extraWork = () => [];

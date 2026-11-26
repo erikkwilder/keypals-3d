@@ -49,7 +49,7 @@ export interface Teller {
 /** Words pinned to a point in the 3D world. */
 export type Pin = { id: string; text: string; at: () => Vector3; kind: 'edge' | 'tick' | 'count' | 'word' | 'sum';
   /** a tick written large: a numeral a young child has to read off a thing */ big?: boolean;
-  /** which line's colour */ c?: 'a' | 'b' | 'c' | 'ink';
+  /** which line's colour ('yes', 'no': a tick's green and a cross's red) */ c?: 'a' | 'b' | 'c' | 'ink' | 'yes' | 'no';
   /** a tick the narrator is talking about right now: a ring round it (it doesn't change size, so no card moves) */ hot?: boolean;
   /** a sum's numbers, each in its line's colour, and the words under them */
   parts?: { t: string; c?: 'a' | 'b' | 'c'; /** being said right now */ hot?: boolean }[]; under?: string[] };

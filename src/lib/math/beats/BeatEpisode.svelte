@@ -441,6 +441,8 @@
   .pin { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 2; }
   .pin > * { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); white-space: nowrap; }
   .t-a { color: #1f6fd1; } .t-b { color: #d63c7c; } .t-c { color: #c47c00; } .t-ink { color: #2a1f45; }
+  /* a tick and a cross: signs a lesson pins on a picture (Fair Shares' level line and pretend pieces) */
+  .t-yes { color: #17863a; } .t-no { color: #cf3327; }
   .edge { font: 700 clamp(28px, 4.2vh, 40px)/1 var(--font-ui); background: #fff; min-width: 1.2em; text-align: center; padding: 3px 9px 4px; border-radius: 14px; box-shadow: 0 0 0 3px currentColor, 0 6px 14px rgba(60, 30, 10, .4); animation: pop .35s cubic-bezier(.3, 1.6, .5, 1) both; }
   .tick { font: 700 20px/1 var(--font-ui); background: #fff; padding: 2px 8px; border-radius: 10px; box-shadow: 0 3px 8px rgba(80, 40, 10, .3); animation: pop .25s cubic-bezier(.3, 1.6, .5, 1) both; }
   .tick.big { font-size: 27px; padding: 3px 10px 4px; border-radius: 13px; min-width: 1.15em; text-align: center; }

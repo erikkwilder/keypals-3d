@@ -7,7 +7,7 @@ import { SHARE_BARS, SHARE_LESSON, SHARE_LINES, type ShareWorld } from './shareL
 import type { Teller } from './types';
 import { fair, fairCuts, middle, nameIdea, piecesOf, sides } from './share';
 import { BEAT_LINES, LEARN_LINES } from '../../content/voice';
-import { lineProblems, scriptProblems, type Step } from './rules';
+import { lineProblems, scriptProblems, stillStretches, type Step } from './rules';
 
 /** a child: the cuts they make (one list of lines per bar), the single taps when cutting together, the picks */
 type Child = { cuts: number[][]; taps: number[]; picks: string[] };
@@ -16,19 +16,22 @@ function pretend(child: Child) {
   const said: string[] = [];
   /** the run as a reader would follow it: each line as it shows on screen (its numbers filled in), and what the picture or the child does */
   const film: string[] = [];
+  /** the second of its line a picture comes at, while a line is being said with its pictures (null: between lines) */
+  let cue: number | null = null;
   const shown = (id: string, n?: number, m?: number) => (BEAT_LINES.find(l => l.id === id)?.text ?? id).replaceAll('{n}', String(n ?? '')).replaceAll('{m}', String(m ?? ''));
   const world = new Proxy({} as ShareWorld, {
     get: (_, k: string) => {
       if (k === 'cut') return async (n: number) => { const c = child.cuts.shift(); if (!c) throw new Error('the lesson asked for more cuts than this child has'); log.push(`cut(${n}) ${c.join(',')}`); film.push(`(the child cuts the bar into ${n} pieces, after squares ${c.join(', ')})`); return c; };
       if (k === 'tapCut') return async (hint: number) => { const g = child.taps.shift() ?? hint; log.push(`tapCut ${g}`); film.push(`(the child cuts once, after square ${g})`); return g; };
-      return (...a: unknown[]) => { const l = `${k}(${a.map(x => JSON.stringify(x)).join(',')})`; log.push(l); film.push(`(picture: ${l})`); return Promise.resolve(); };
+      // (a picture that goes with a line is recorded as shown with it, and the cold read gets its second)
+      return (...a: unknown[]) => { const l = `${k}(${a.map(x => JSON.stringify(x)).join(',')})`; log.push(cue == null ? l : `show ${l}`); film.push(cue == null ? `(picture: ${l})` : `   (picture, ${cue} s into that line: ${l})`); return Promise.resolve(); };
     },
   });
   const speak = (id: string, n?: number, m?: number) => { said.push(id); log.push(`say ${id}`); film.push(`SAID: ${shown(id, n, m)}`); };
   const teller: Teller = {
     say: async (id, n, m) => { speak(id, n, m); },
     // (a line said with its pictures: the line, then each picture in turn)
-    sayWith: async (id, cues, n, m) => { speak(id, n, m); for (const [, act] of cues) await act(); },
+    sayWith: async (id, cues, n, m) => { speak(id, n, m); log.push('(with pictures)'); for (const [at, act] of [...cues].sort((a, b) => a[0] - b[0])) { cue = at; await act(); } cue = null; },
     num: async () => { throw new Error('this lesson has no number questions'); },
     pick: async (q, choices, id) => { if (id) speak(id); const p = child.picks.shift() ?? choices[0].id; if (!choices.some(c => c.id === p)) throw new Error(`no choice ${p}`); log.push(`pick ${p}`); film.push(`(asked "${q}" with the choices ${choices.map(c => c.text).join(' / ')}: the child picks ${choices.find(c => c.id === p)!.text})`); return p as never; },
     hands: async (words, job) => { film.push(`(the child's hands: ${words})`); await job(); },
@@ -40,6 +43,7 @@ function pretend(child: Child) {
 const countOf = (log: string[], name: string) => log.filter(l => l.startsWith(name)).length;
 /** The run as the rules see it: serving, someone else's knife, and a piece laid under are what get acted out. */
 const stepsOf = (log: string[]): Step[] => log.flatMap((l): Step[] => {
+  if (l.startsWith('show ')) return [{ k: 'show', v: l.slice(5) }];
   if (l.startsWith('say ')) return [{ k: 'say', v: l.slice(4) }];
   if (l.startsWith('go ')) return [{ k: 'go', v: l.slice(3) }];
   if (l.startsWith('pick ') || l.startsWith('cut(') || l.startsWith('tapCut')) return [{ k: 'ask', v: l }];
@@ -47,6 +51,22 @@ const stepsOf = (log: string[]): Step[] => log.flatMap((l): Step[] => {
   if ((l.startsWith('label(') && !l.startsWith('label(null')) || (l.startsWith('total(') && !l.startsWith('total(null'))) return [{ k: 'answer', v: l }];
   return [];
 });
+/** The run as the screen shows it, for rule 37: every line and whether it was said with its pictures, every
+ *  question, and everything that happens on the table or over a friend's head between lines (a thing going away
+ *  is not a picture, and neither is "Show me"). */
+const screenOf = (log: string[]): Step[] => {
+  const out: Step[] = [];
+  for (const l of log) {
+    if (l === '(with pictures)') out[out.length - 1].shown = true;
+    else if (l.startsWith('say ')) out.push({ k: 'say', v: l.slice(4) });
+    else if (l.startsWith('show ')) out.push({ k: 'show', v: l.slice(5) });
+    else if (l.startsWith('go ')) out.push({ k: 'go', v: l });
+    else if (l.startsWith('pick ') || l.startsWith('cut(') || l.startsWith('tapCut')) out.push({ k: 'ask', v: l });
+    else if (!/^\w+\((null)?\)$/.test(l) || /^(serve|join|eat|testOther|clearOther|barOut)\(\)$/.test(l)) out.push({ k: 'act', v: l });
+  }
+  return out;
+};
+const wordsOf = (id: string) => (BEAT_LINES.find(l => l.id === id)?.text ?? '').split(/\s+/).length;
 const RIGHT: Child = { cuts: [[2, 4, 6], [2, 4]], taps: [], picks: ['no', '4', '3', '2'] };
 const WRONG: Child = { cuts: [[1, 4, 5], [3, 6, 7], [1, 2], [4, 5], [2, 4]], taps: [3, 4, 5, 2, 7, 6], picks: ['yes', '8', '6', '6'] };
 
@@ -157,7 +177,7 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
     for (const c of [RIGHT, WRONG]) {
       const p = pretend({ cuts: c.cuts.map(x => [...x]), taps: [...c.taps], picks: [...c.picks] });
       await SHARE_LESSON.play(p.teller, p.world);
-      const named = p.log.indexOf('label("1/4")');
+      const named = p.log.findIndex(l => l.endsWith('label("1/4")'));
       expect(named).toBeGreaterThan(p.log.findIndex(l => l === 'say ep.share.fair' || l === 'say ep.share.fair.together'));
       expect(p.said.slice(0, p.said.indexOf('ep.share.name')).some(id => /eighth|fourth/.test(BEAT_LINES.find(l => l.id === id)?.text ?? ''))).toBe(false);
     }
@@ -169,6 +189,55 @@ describe('the lesson rules (docs/lesson-rules.md)', () => {
     const asked = p.said.indexOf('ep.share.call');
     expect(p.said.slice(0, asked).some(id => /third|1\/3/.test(BEAT_LINES.find(l => l.id === id)?.text ?? ''))).toBe(false);
     expect(p.log.slice(0, p.log.indexOf('say ep.share.call')).some(l => l.includes('1/3'))).toBe(false);
+  });
+  // rule 37 (Erik: "you're just kind of sitting there"): a run of 35 words or more with nothing happening on screen
+  const still = async (kid: Child, part: 'start' | 'rest') => {
+    const p = pretend({ cuts: kid.cuts.map(x => [...x]), taps: [...kid.taps], picks: [...kid.picks] });
+    await SHARE_LESSON.play(p.teller, p.world);
+    // (the first Next is the one after what one fourth means)
+    const steps = screenOf(p.log), named = steps.findIndex(s => s.k === 'go');
+    return stillStretches(part === 'start' ? steps.slice(0, named + 1) : steps.slice(named + 1), wordsOf).map(b => b.replace(/^.*\((.*)\)$/, '$1'));
+  };
+  it('from the opening to what one fourth means, no child sits watching a still table while the narrator talks (rule 37)', async () => {
+    for (const kid of Object.values(kids)) expect(await still(kid, 'start')).toEqual([]);
+  });
+  it('nor the next day', async () => {
+    for (const cuts of [[[3, 6, 9]], [[1, 2, 3], [3, 6, 9]], [[1, 2, 3], [5, 6, 7]]]) for (const pick of ['4', '12']) {
+      const p = pretend({ cuts: cuts.map(x => [...x]), taps: [], picks: [pick] });
+      await SHARE_LESSON.check(p.teller, p.world, { fair: 1, small: 2, big: 2 });
+      expect(stillStretches(screenOf(p.log), wordsOf)).toEqual([]);
+    }
+  });
+  // (the rest of the lesson is still to be given its pictures: these are the still stretches left in it, and no
+  // others. Take each one out of this list as its picture is built, until both lists are empty)
+  it('the still stretches left after one fourth is named are these and no others (rule 37, still to build)', async () => {
+    expect(await still(RIGHT, 'rest')).toEqual(['ep.share.buddy.no, ep.share.buddy.why', 'ep.share.eighth.why', 'ep.share.two.have, ep.share.two.ask']);
+    expect(await still(WRONG, 'rest')).toEqual(['ep.share.buddy.yes, ep.share.buddy.why', 'ep.share.eighth.why', 'ep.share.call.squares, ep.share.call.why',
+      'ep.share.two.have, ep.share.two.ask', 'ep.share.two.six, ep.share.two.top']);
+  });
+  it('a line with its pictures says so in the record, and the pieces go back together as the narrator says they do', async () => {
+    const p = pretend({ cuts: WRONG.cuts.map(x => [...x]), taps: [...WRONG.taps], picks: [...WRONG.picks] });
+    await SHARE_LESSON.play(p.teller, p.world);
+    const at = (l: string) => p.log.indexOf(l);
+    // the plates come with the line that names them, and the pretend pieces are uneven with a cross, then even with a tick
+    expect(at('show plates(4)')).toBe(at('say ep.share.plates') + 2);
+    expect(p.log.filter(l => l.startsWith('show pretend(')).slice(0, 3)).toEqual(['show pretend([2.6,1,2.4,2],"no")', 'show pretend([2,2,2,2],"yes")', 'show pretend(null)']);
+    // an unfair cut: the smallest pieces light, then the biggest, then the level line with a cross
+    const u = at('say ep.share.unfair');
+    expect(p.log.slice(u + 2, u + 6)).toEqual(['show light([0,2])', 'show light([1,3])', 'show light(null)', 'show level("no")']);
+    expect(p.log[at('say ep.share.again') + 2]).toBe('show join()');
+    expect(p.log[at('say ep.share.together') + 2]).toBe('show join()');
+    // the hint: the pieces go back, then 2 more squares light at each "2" the narrator says (rule 42)
+    const h = at('say ep.share.hint');
+    expect(p.log.slice(h + 2, h + 6)).toEqual(['show join()', 'show squares([[0,1]])', 'show squares([[0,1],[2,3]])', 'show squares([[0,1],[2,3],[4,5]])']);
+    // a half's squares light so they can be counted, and its middle is never marked (rule 41)
+    const q = at('say ep.share.eight.quarter');
+    expect(p.log.slice(q + 2, q + 4)).toEqual(['show squares([[0],[1],[2],[3]])', 'show squares([[0],[1],[2],[3],[4],[5],[6],[7]])']);
+    // the name comes onto the pieces while the line that gives it is being said, after the pieces are counted
+    const n = at('say ep.share.name');
+    expect(p.log.slice(n + 2, n + 6)).toEqual(['show squares([[0,1],[2,3],[4,5],[6,7]])', 'show light([0])', 'show light(null)', 'show label("1/4")']);
+    // no pretend piece is ever cut where the real bar's fair cuts are shown: the plan has no squares, only plates
+    expect(p.log.filter(l => l.startsWith('show plan(')).every(l => /^show plan\((null|\[[124,3]+\])\)$/.test(l))).toBe(true);
   });
   it('every line can stand up to the words rules', () => {
     expect(lineProblems(BEAT_LINES.filter(l => l.id.startsWith('ep.share.')))).toEqual([]);
