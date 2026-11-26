@@ -16453,5 +16453,678 @@
   "tail50Rms": -63.4,
   "tail50Peak": -49.4,
   "voice": "coach"
+ },
+ "ep.ten.intro": {
+  "id": "ep.ten.intro",
+  "gain": -1.5,
+  "rawLufs": -18.1,
+  "notes": [
+   "cut faint end blip 5ms@-62dB",
+   "cut lead stray 30ms@-46dB",
+   "ducked breath at 2754ms"
+  ],
+  "ms": 8626,
+  "lufs": -20,
+  "tp": -2.5,
+  "maxAbs": 0.748,
+  "fullScale": 0,
+  "head50Rms": -64.2,
+  "head50Peak": -52.6,
+  "tail50Rms": -58.5,
+  "tail50Peak": -45.2,
+  "voice": "coach"
+ },
+ "ep.ten.need": {
+  "id": "ep.ten.need",
+  "gain": -1.6,
+  "rawLufs": -18.1,
+  "notes": [
+   "cut lead stray 140ms@-49dB",
+   "cut lead blip 10ms@-60dB",
+   "cut lead breath 210ms@-55dB"
+  ],
+  "ms": 7754,
+  "lufs": -20,
+  "tp": -3.9,
+  "maxAbs": 0.6394,
+  "fullScale": 0,
+  "head50Rms": -48.6,
+  "head50Peak": -26.9,
+  "tail50Rms": -66.5,
+  "tail50Peak": -53.5,
+  "voice": "coach"
+ },
+ "ep.ten.demo": {
+  "id": "ep.ten.demo",
+  "gain": -1.6,
+  "rawLufs": -18.3,
+  "notes": [
+   "cut lead stray 80ms@-46dB",
+   "ducked breath at 1018ms"
+  ],
+  "ms": 4774,
+  "lufs": -20,
+  "tp": -3.3,
+  "maxAbs": 0.6776,
+  "fullScale": 0,
+  "head50Rms": -44.5,
+  "head50Peak": -26.8,
+  "tail50Rms": -52.9,
+  "tail50Peak": -40.1,
+  "voice": "coach"
+ },
+ "ep.ten.try.demo": {
+  "id": "ep.ten.try.demo",
+  "gain": -0.1,
+  "rawLufs": -19.5,
+  "notes": [
+   "cut lead stray 65ms@-45dB"
+  ],
+  "ms": 3098,
+  "lufs": -20,
+  "tp": -2.9,
+  "maxAbs": 0.7181,
+  "fullScale": 0,
+  "head50Rms": -64.1,
+  "head50Peak": -51.2,
+  "tail50Rms": -65.3,
+  "tail50Peak": -50.3,
+  "voice": "coach"
+ },
+ "ep.ten.demo.full": {
+  "id": "ep.ten.demo.full",
+  "gain": -2,
+  "rawLufs": -17.9,
+  "notes": [
+   "cut lead stray 40ms@-49dB"
+  ],
+  "ms": 3856,
+  "lufs": -20,
+  "tp": -4.8,
+  "maxAbs": 0.5763,
+  "fullScale": 0,
+  "head50Rms": -52.1,
+  "head50Peak": -35.4,
+  "tail50Rms": -64.1,
+  "tail50Peak": -51.7,
+  "voice": "coach"
+ },
+ "ep.ten.turn": {
+  "id": "ep.ten.turn",
+  "gain": -0.8,
+  "rawLufs": -18.9,
+  "notes": [
+   "cut lead blip 75ms@-51dB",
+   "cut lead blip 70ms@-57dB",
+   "ducked breath at 1287ms"
+  ],
+  "ms": 3901,
+  "lufs": -20,
+  "tp": -3.9,
+  "maxAbs": 0.6385,
+  "fullScale": 0,
+  "head50Rms": -65.4,
+  "head50Peak": -54.9,
+  "tail50Rms": -43.8,
+  "tail50Peak": -26.5,
+  "voice": "coach"
+ },
+ "ep.ten.how": {
+  "id": "ep.ten.how",
+  "gain": -2.4,
+  "rawLufs": -17.5,
+  "notes": [],
+  "ms": 1866,
+  "lufs": -20,
+  "tp": -4.1,
+  "maxAbs": 0.6235,
+  "fullScale": 0,
+  "head50Rms": -53.5,
+  "head50Peak": -40.2,
+  "tail50Rms": -56.4,
+  "tail50Peak": -41.9,
+  "voice": "coach"
+ },
+ "ep.ten.try.you": {
+  "id": "ep.ten.try.you",
+  "gain": 0.1,
+  "rawLufs": -19.8,
+  "notes": [
+   "cut end burst 65ms@-54dB",
+   "cut lead blip 25ms@-57dB",
+   "cut lead blip 20ms@-52dB",
+   "cut lead breath 170ms@-56dB"
+  ],
+  "ms": 4385,
+  "lufs": -20,
+  "tp": -3.8,
+  "maxAbs": 0.6471,
+  "fullScale": 0,
+  "head50Rms": -66.8,
+  "head50Peak": -56.1,
+  "tail50Rms": -62.3,
+  "tail50Peak": -48.8,
+  "voice": "coach"
+ },
+ "ep.ten.try.both": {
+  "id": "ep.ten.try.both",
+  "gain": -0.2,
+  "rawLufs": -19.4,
+  "notes": [
+   "cut end burst 5ms@-62dB",
+   "cut lead blip 15ms@-53dB",
+   "cut lead breath 130ms@-56dB"
+  ],
+  "ms": 6515,
+  "lufs": -20,
+  "tp": -2.8,
+  "maxAbs": 0.719,
+  "fullScale": 0,
+  "head50Rms": -47.3,
+  "head50Peak": -30.5,
+  "tail50Rms": -65.3,
+  "tail50Peak": -54,
+  "voice": "coach"
+ },
+ "ep.ten.right": {
+  "id": "ep.ten.right",
+  "gain": -1.3,
+  "rawLufs": -18.5,
+  "notes": [
+   "cut lead stray 55ms@-50dB"
+  ],
+  "ms": 4744,
+  "lufs": -20,
+  "tp": -4.5,
+  "maxAbs": 0.5942,
+  "fullScale": 0,
+  "head50Rms": -64.5,
+  "head50Peak": -53.8,
+  "tail50Rms": -54.2,
+  "tail50Peak": -38.3,
+  "voice": "coach"
+ },
+ "ep.ten.few": {
+  "id": "ep.ten.few",
+  "gain": -0.9,
+  "rawLufs": -18.9,
+  "notes": [
+   "cut faint end blip 5ms@-61dB",
+   "ducked breath at 155ms"
+  ],
+  "ms": 7997,
+  "lufs": -20,
+  "tp": -2.9,
+  "maxAbs": 0.7147,
+  "fullScale": 0,
+  "head50Rms": -53.9,
+  "head50Peak": -40,
+  "tail50Rms": -64.2,
+  "tail50Peak": -50.1,
+  "voice": "coach"
+ },
+ "ep.ten.over": {
+  "id": "ep.ten.over",
+  "gain": -1.7,
+  "rawLufs": -18.1,
+  "notes": [
+   "cut faint end blip 5ms@-61dB",
+   "cut lead stray 85ms@-52dB",
+   "cut lead blip 5ms@-62dB"
+  ],
+  "ms": 5877,
+  "lufs": -20,
+  "tp": -2.7,
+  "maxAbs": 0.7306,
+  "fullScale": 0,
+  "head50Rms": -66.2,
+  "head50Peak": -53.5,
+  "tail50Rms": -62.7,
+  "tail50Peak": -47.2,
+  "voice": "coach"
+ },
+ "ep.ten.try.zero": {
+  "id": "ep.ten.try.zero",
+  "gain": -0.8,
+  "rawLufs": -18.8,
+  "notes": [
+   "ducked breath at 130ms"
+  ],
+  "ms": 3422,
+  "lufs": -20,
+  "tp": -4.5,
+  "maxAbs": 0.5944,
+  "fullScale": 0,
+  "head50Rms": -55.2,
+  "head50Peak": -41.2,
+  "tail50Rms": -53.6,
+  "tail50Peak": -38.5,
+  "voice": "coach"
+ },
+ "ep.ten.zero": {
+  "id": "ep.ten.zero",
+  "gain": -0.5,
+  "rawLufs": -19.3,
+  "notes": [
+   "cut lead stray 340ms@-44dB",
+   "ducked breath at 3672ms"
+  ],
+  "ms": 6066,
+  "lufs": -20,
+  "tp": -3.6,
+  "maxAbs": 0.6598,
+  "fullScale": 0,
+  "head50Rms": -40.8,
+  "head50Peak": -22.5,
+  "tail50Rms": -64.4,
+  "tail50Peak": -50.9,
+  "voice": "coach"
+ },
+ "ep.ten.both.why": {
+  "id": "ep.ten.both.why",
+  "gain": -1.6,
+  "rawLufs": -18.4,
+  "notes": [
+   "cut lead stray 95ms@-46dB",
+   "cut lead breath 230ms@-49dB",
+   "ducked breath at 3662ms"
+  ],
+  "ms": 5802,
+  "lufs": -20,
+  "tp": -4.6,
+  "maxAbs": 0.5904,
+  "fullScale": 0,
+  "head50Rms": -49.3,
+  "head50Peak": -28.4,
+  "tail50Rms": -55.1,
+  "tail50Peak": -44.2,
+  "voice": "coach"
+ },
+ "ep.ten.why": {
+  "id": "ep.ten.why",
+  "gain": -0.4,
+  "rawLufs": -19.2,
+  "notes": [
+   "cut faint end blip 5ms@-62dB"
+  ],
+  "ms": 7106,
+  "lufs": -20,
+  "tp": -4,
+  "maxAbs": 0.6254,
+  "fullScale": 0,
+  "head50Rms": -56.7,
+  "head50Peak": -45.7,
+  "tail50Rms": -64.4,
+  "tail50Peak": -50,
+  "voice": "coach"
+ },
+ "ep.ten.p3.show": {
+  "id": "ep.ten.p3.show",
+  "gain": 0.1,
+  "rawLufs": -19.7,
+  "notes": [
+   "cut lead blip 75ms@-54dB"
+  ],
+  "ms": 8930,
+  "lufs": -20,
+  "tp": -2.6,
+  "maxAbs": 0.7409,
+  "fullScale": 0,
+  "head50Rms": -62.5,
+  "head50Peak": -48.5,
+  "tail50Rms": -67.3,
+  "tail50Peak": -51.9,
+  "voice": "coach"
+ },
+ "ep.ten.p6.show": {
+  "id": "ep.ten.p6.show",
+  "gain": -1.5,
+  "rawLufs": -18.1,
+  "notes": [],
+  "ms": 9903,
+  "lufs": -20,
+  "tp": -1.6,
+  "maxAbs": 0.8248,
+  "fullScale": 0,
+  "head50Rms": -64.7,
+  "head50Peak": -48,
+  "tail50Rms": -61,
+  "tail50Peak": -48.7,
+  "voice": "coach"
+ },
+ "ep.ten.try.fix": {
+  "id": "ep.ten.try.fix",
+  "gain": 1,
+  "rawLufs": -20.7,
+  "notes": [],
+  "ms": 2963,
+  "lufs": -20,
+  "tp": -2.8,
+  "maxAbs": 0.7282,
+  "fullScale": 0,
+  "head50Rms": -51.6,
+  "head50Peak": -38.1,
+  "tail50Rms": -65.4,
+  "tail50Peak": -51.3,
+  "voice": "coach"
+ },
+ "ep.ten.fit": {
+  "id": "ep.ten.fit",
+  "gain": 0.7,
+  "rawLufs": -20.4,
+  "notes": [],
+  "ms": 2924,
+  "lufs": -19.9,
+  "tp": -3.8,
+  "maxAbs": 0.6459,
+  "fullScale": 0,
+  "head50Rms": -59.4,
+  "head50Peak": -47.2,
+  "tail50Rms": -62.3,
+  "tail50Peak": -48.1,
+  "voice": "coach"
+ },
+ "ep.ten.buddy.in": {
+  "id": "ep.ten.buddy.in",
+  "gain": -0.9,
+  "rawLufs": -19.4,
+  "notes": [
+   "cut lead stray 70ms@-49dB",
+   "ducked breath at 3392ms"
+  ],
+  "ms": 5373,
+  "lufs": -20.5,
+  "tp": -1.7,
+  "maxAbs": 0.8259,
+  "fullScale": 0,
+  "head50Rms": -64.8,
+  "head50Peak": -50.8,
+  "tail50Rms": -59.1,
+  "tail50Peak": -44.9,
+  "voice": "coach"
+ },
+ "ep.ten.try.buddy": {
+  "id": "ep.ten.try.buddy",
+  "gain": -1.5,
+  "rawLufs": -18.2,
+  "notes": [
+   "cut lead stray 190ms@-49dB",
+   "cut lead breath 315ms@-47dB"
+  ],
+  "ms": 5717,
+  "lufs": -20,
+  "tp": -3.2,
+  "maxAbs": 0.6918,
+  "fullScale": 0,
+  "head50Rms": -67.4,
+  "head50Peak": -55.7,
+  "tail50Rms": -58,
+  "tail50Peak": -40,
+  "voice": "coach"
+ },
+ "ep.ten.buddy.ask": {
+  "id": "ep.ten.buddy.ask",
+  "gain": -0.8,
+  "rawLufs": -18.7,
+  "notes": [
+   "cut lead stray 95ms@-45dB"
+  ],
+  "ms": 4082,
+  "lufs": -20,
+  "tp": -2.4,
+  "maxAbs": 0.7603,
+  "fullScale": 0,
+  "head50Rms": -62.6,
+  "head50Peak": -50.8,
+  "tail50Rms": -62.7,
+  "tail50Peak": -49.7,
+  "voice": "coach"
+ },
+ "ep.ten.buddy.no": {
+  "id": "ep.ten.buddy.no",
+  "gain": -0.3,
+  "rawLufs": -19.3,
+  "notes": [
+   "cut lead stray 165ms@-49dB",
+   "ducked breath at 1098ms"
+  ],
+  "ms": 6939,
+  "lufs": -20,
+  "tp": -2.5,
+  "maxAbs": 0.75,
+  "fullScale": 0,
+  "head50Rms": -50,
+  "head50Peak": -24.9,
+  "tail50Rms": -52.4,
+  "tail50Peak": -38.4,
+  "voice": "coach"
+ },
+ "ep.ten.buddy.yes": {
+  "id": "ep.ten.buddy.yes",
+  "gain": -0.3,
+  "rawLufs": -19.3,
+  "notes": [
+   "ducked breath at 1502ms"
+  ],
+  "ms": 7209,
+  "lufs": -20,
+  "tp": -2,
+  "maxAbs": 0.7923,
+  "fullScale": 0,
+  "head50Rms": -61.5,
+  "head50Peak": -49,
+  "tail50Rms": -63.5,
+  "tail50Peak": -51.1,
+  "voice": "coach"
+ },
+ "ep.ten.pal.in": {
+  "id": "ep.ten.pal.in",
+  "gain": -0.8,
+  "rawLufs": -18.9,
+  "notes": [
+   "cut faint end blip 35ms@-61dB",
+   "ducked breath at 2300ms"
+  ],
+  "ms": 4595,
+  "lufs": -20,
+  "tp": -2.5,
+  "maxAbs": 0.7499,
+  "fullScale": 0,
+  "head50Rms": -54.8,
+  "head50Peak": -40.8,
+  "tail50Rms": -56.6,
+  "tail50Peak": -39.3,
+  "voice": "coach"
+ },
+ "ep.ten.try.pal": {
+  "id": "ep.ten.try.pal",
+  "gain": -1.8,
+  "rawLufs": -17.9,
+  "notes": [
+   "cut lead stray 100ms@-50dB",
+   "cut lead blip 40ms@-60dB"
+  ],
+  "ms": 7370,
+  "lufs": -20,
+  "tp": -3.8,
+  "maxAbs": 0.6429,
+  "fullScale": 0,
+  "head50Rms": -63.1,
+  "head50Peak": -45.9,
+  "tail50Rms": -59.5,
+  "tail50Peak": -41.3,
+  "voice": "coach"
+ },
+ "ep.ten.pal.ask": {
+  "id": "ep.ten.pal.ask",
+  "gain": -0.1,
+  "rawLufs": -19.5,
+  "notes": [],
+  "ms": 3507,
+  "lufs": -20,
+  "tp": -3.1,
+  "maxAbs": 0.6968,
+  "fullScale": 0,
+  "head50Rms": -50.8,
+  "head50Peak": -38.5,
+  "tail50Rms": -46.9,
+  "tail50Peak": -34.6,
+  "voice": "coach"
+ },
+ "ep.ten.pal.found": {
+  "id": "ep.ten.pal.found",
+  "gain": -1.9,
+  "rawLufs": -17.8,
+  "notes": [
+   "cut lead stray 60ms@-48dB",
+   "cut lead blip 5ms@-62dB",
+   "ducked breath at 1063ms",
+   "ducked breath at 3871ms"
+  ],
+  "ms": 7867,
+  "lufs": -20.1,
+  "tp": -3.1,
+  "maxAbs": 0.6965,
+  "fullScale": 0,
+  "head50Rms": -60.9,
+  "head50Peak": -42.2,
+  "tail50Rms": -65.1,
+  "tail50Peak": -50.5,
+  "voice": "coach"
+ },
+ "ep.ten.try.top": {
+  "id": "ep.ten.try.top",
+  "gain": 0.9,
+  "rawLufs": -20.5,
+  "notes": [
+   "cut lead stray 120ms@-45dB"
+  ],
+  "ms": 2764,
+  "lufs": -20,
+  "tp": -3.8,
+  "maxAbs": 0.6428,
+  "fullScale": 0,
+  "head50Rms": -64.2,
+  "head50Peak": -51.8,
+  "tail50Rms": -64.6,
+  "tail50Peak": -51.7,
+  "voice": "coach"
+ },
+ "ep.ten.extra": {
+  "id": "ep.ten.extra",
+  "gain": -1,
+  "rawLufs": -18.9,
+  "notes": [
+   "cut faint end blip 25ms@-60dB",
+   "cut lead stray 50ms@-49dB",
+   "ducked breath at 4345ms"
+  ],
+  "ms": 6949,
+  "lufs": -20.2,
+  "tp": -1.7,
+  "maxAbs": 0.8149,
+  "fullScale": 0,
+  "head50Rms": -65.1,
+  "head50Peak": -52.3,
+  "tail50Rms": -62.9,
+  "tail50Peak": -48,
+  "voice": "coach"
+ },
+ "ep.ten.extra.done": {
+  "id": "ep.ten.extra.done",
+  "gain": -1.1,
+  "rawLufs": -19.2,
+  "notes": [
+   "cut faint end blip 5ms@-60dB",
+   "cut lead stray 75ms@-46dB"
+  ],
+  "ms": 9364,
+  "lufs": -20.5,
+  "tp": -1.8,
+  "maxAbs": 0.8121,
+  "fullScale": 0,
+  "head50Rms": -57.5,
+  "head50Peak": -40,
+  "tail50Rms": -64.2,
+  "tail50Peak": -50.6,
+  "voice": "coach"
+ },
+ "ep.ten.sum.3": {
+  "id": "ep.ten.sum.3",
+  "gain": -0.1,
+  "rawLufs": -19.6,
+  "notes": [
+   "cut faint end blip 20ms@-58dB",
+   "cut lead stray 65ms@-44dB",
+   "ducked breath at 2479ms"
+  ],
+  "ms": 6081,
+  "lufs": -20,
+  "tp": -3.1,
+  "maxAbs": 0.6971,
+  "fullScale": 0,
+  "head50Rms": -46.9,
+  "head50Peak": -29.5,
+  "tail50Rms": -60.9,
+  "tail50Peak": -47.3,
+  "voice": "coach"
+ },
+ "ep.ten.sum.8": {
+  "id": "ep.ten.sum.8",
+  "gain": -0.3,
+  "rawLufs": -19.3,
+  "notes": [
+   "cut faint end blip 35ms@-62dB",
+   "cut lead stray 90ms@-52dB"
+  ],
+  "ms": 5932,
+  "lufs": -20.1,
+  "tp": -3.1,
+  "maxAbs": 0.7026,
+  "fullScale": 0,
+  "head50Rms": -58,
+  "head50Peak": -37.8,
+  "tail50Rms": -64.9,
+  "tail50Peak": -51.3,
+  "voice": "coach"
+ },
+ "ep.ten.off": {
+  "id": "ep.ten.off",
+  "gain": -0.2,
+  "rawLufs": -19.6,
+  "notes": [
+   "cut lead stray 110ms@-50dB",
+   "cut lead blip 5ms@-60dB",
+   "cut lead breath 200ms@-52dB"
+  ],
+  "ms": 5518,
+  "lufs": -20,
+  "tp": -3,
+  "maxAbs": 0.7023,
+  "fullScale": 0,
+  "head50Rms": -47.7,
+  "head50Peak": -23.9,
+  "tail50Rms": -54.9,
+  "tail50Peak": -41.2,
+  "voice": "coach"
+ },
+ "ep.ten.check": {
+  "id": "ep.ten.check",
+  "gain": -1.1,
+  "rawLufs": -18.6,
+  "notes": [
+   "cut faint end blip 20ms@-53dB",
+   "cut lead stray 90ms@-47dB"
+  ],
+  "ms": 4056,
+  "lufs": -20,
+  "tp": -3.9,
+  "maxAbs": 0.6361,
+  "fullScale": 0,
+  "head50Rms": -58,
+  "head50Peak": -37.2,
+  "tail50Rms": -44.8,
+  "tail50Peak": -26.4,
+  "voice": "coach"
  }
 }

@@ -72,7 +72,7 @@ export class FrameKit implements FrameWorld {
   constructor(private sc: EpisodeScene, o: { frames?: 1 | 2 } = {}) {
     this.frames = o.frames ?? 1;
     sc.root.add(this.root);
-    if (this.tall) { sc.workZoom = 2.1; sc.tallShare = 0.5; } else { sc.closeUp(); sc.workZoom = 1.6; }
+    if (this.tall) { sc.workZoom = 2.4; sc.tallShare = 0.5; } else { sc.closeUp(); sc.workZoom = 1.6; }
     sc.extraWork = () => (this.tray ? [this.tray.g, ...this.tray.spare.map(c => c.g)] : []);
   }
 
@@ -136,6 +136,10 @@ export class FrameKit implements FrameWorld {
   private placeAt(p: number) { const [x, y] = this.placeXY(p); return this.P(x, y); }
   /** a little above a place or a counter: where its number stands */
   private over(p: THREE.Vector3) { return p.clone().add(new THREE.Vector3(0, C * this.s * 0.75, 0)); }
+  /** where a place's number stands: on the place when it is empty, on its counter when it has one. (Not above
+   *  it: a wide screen looks low across the table, and a number held above a front-row place stood over the
+   *  counter in the row behind, as if that one were being counted) */
+  private numAt(p: number) { const at = this.placeAt(p); at.y = TY + C * this.s * (this.tray?.at[p] ? 0.42 : 0.14); return at; }
   private empties() { const t = this.tray; return t ? t.at.map((c, p) => (c ? -1 : p)).filter(p => p >= 0) : []; }
 
   // ---------- making things ----------
@@ -247,7 +251,7 @@ export class FrameKit implements FrameWorld {
     const t = this.tray, p = t?.open[k - 1];
     if (!t || p == null) return;
     this.unmark(); this.ringPlaces([p]);
-    this.pin({ id: `e${p}`, text: String(k), kind: 'tick', big: true, at: () => this.over(this.placeAt(p)) });
+    this.pin({ id: `e${p}`, text: String(k), kind: 'tick', big: true, at: () => this.numAt(p) });
     bSfx.tick(Math.min(8, k));
   }
   async showLeft() {
@@ -288,7 +292,7 @@ export class FrameKit implements FrameWorld {
     k.g.position.copy(to).add(new THREE.Vector3(0, 0.3, 0));
     this.go(k.g, to, 0.3, { done: () => bSfx.clack() });
     this.unmark(); this.ringPlaces([p]);
-    this.pin({ id: `e${p}`, text: String(n), kind: 'tick', big: true, at: () => this.over(this.placeAt(p)) });
+    this.pin({ id: `e${p}`, text: String(n), kind: 'tick', big: true, at: () => this.numAt(p) });
     bSfx.tick(Math.min(8, n));
     this.onWord?.(countWord(n));
   }
