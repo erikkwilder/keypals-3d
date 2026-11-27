@@ -1991,6 +1991,146 @@
     "voice": "coach",
     "ms": 4056
   },
+  "ep.teen.intro": {
+    "voice": "coach",
+    "ms": 8391
+  },
+  "ep.teen.need": {
+    "voice": "coach",
+    "ms": 5503
+  },
+  "ep.teen.demo": {
+    "voice": "coach",
+    "ms": 4999
+  },
+  "ep.teen.demo.count": {
+    "voice": "coach",
+    "ms": 3976
+  },
+  "ep.teen.demo.full": {
+    "voice": "coach",
+    "ms": 7269
+  },
+  "ep.teen.turn": {
+    "voice": "coach",
+    "ms": 4600
+  },
+  "ep.teen.how": {
+    "voice": "coach",
+    "ms": 1342
+  },
+  "ep.teen.try.you": {
+    "voice": "coach",
+    "ms": 4700
+  },
+  "ep.teen.right": {
+    "voice": "coach",
+    "ms": 5772
+  },
+  "ep.teen.few": {
+    "voice": "coach",
+    "ms": 4924
+  },
+  "ep.teen.over": {
+    "voice": "coach",
+    "ms": 4615
+  },
+  "ep.teen.try.zero": {
+    "voice": "coach",
+    "ms": 3587
+  },
+  "ep.teen.zero": {
+    "voice": "coach",
+    "ms": 5064
+  },
+  "ep.teen.p15.show": {
+    "voice": "coach",
+    "ms": 10122
+  },
+  "ep.teen.p18.show": {
+    "voice": "coach",
+    "ms": 12578
+  },
+  "ep.teen.buddy.in": {
+    "voice": "coach",
+    "ms": 3298
+  },
+  "ep.teen.try.buddy": {
+    "voice": "coach",
+    "ms": 8522
+  },
+  "ep.teen.buddy.ask": {
+    "voice": "coach",
+    "ms": 4515
+  },
+  "ep.teen.buddy.found": {
+    "voice": "coach",
+    "ms": 5193
+  },
+  "ep.teen.buddy.why": {
+    "voice": "coach",
+    "ms": 6081
+  },
+  "ep.teen.buddy.so": {
+    "voice": "coach",
+    "ms": 5508
+  },
+  "ep.teen.pal.in": {
+    "voice": "coach",
+    "ms": 7802
+  },
+  "ep.teen.try.pal": {
+    "voice": "coach",
+    "ms": 10446
+  },
+  "ep.teen.pal.ask": {
+    "voice": "coach",
+    "ms": 3417
+  },
+  "ep.teen.pal.no": {
+    "voice": "coach",
+    "ms": 4789
+  },
+  "ep.teen.pal.yes": {
+    "voice": "coach",
+    "ms": 5448
+  },
+  "ep.teen.pal.so": {
+    "voice": "coach",
+    "ms": 6376
+  },
+  "ep.teen.alone": {
+    "voice": "coach",
+    "ms": 6366
+  },
+  "ep.teen.alone.how": {
+    "voice": "coach",
+    "ms": 1701
+  },
+  "ep.teen.alone.right": {
+    "voice": "coach",
+    "ms": 4246
+  },
+  "ep.teen.alone.so": {
+    "voice": "coach",
+    "ms": 7957
+  },
+  "ep.teen.sum.16": {
+    "voice": "coach",
+    "ms": 4500
+  },
+  "ep.teen.sum.17": {
+    "voice": "coach",
+    "ms": 4764
+  },
+  "ep.teen.off": {
+    "voice": "coach",
+    "ms": 6436
+  },
+  "ep.teen.check": {
+    "voice": "coach",
+    "ms": 5478
+  },
   "ep.eq.intro": {
     "voice": "coach",
     "ms": 8596
