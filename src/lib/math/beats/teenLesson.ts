@@ -260,7 +260,7 @@ async function check(t: Teller, w: TeenWorld) {
 export const TEEN_LESSON: BeatLesson<TeenWorld> = {
   id: 'pv-make-ten', title: 'Ten and Some More', blurb: 'A full tray is 10. A full tray and some more is counted on from 10.', set: 'kitchen', star: 'sproutbun', color: '#e58a3a',
   // (a stand-in: Make Ten's card, until this lesson has a painted card of its own)
-  art: 'learn/ep/card-buns.webp', voice: 'teen', beats: 7,
+  art: 'learn/ep/card-teen.webp', voice: 'teen', beats: 7,
   world: async (sc: EpisodeScene) => { const { FrameKit } = await import('../../three/frameKit'); return new FrameKit(sc, { frames: 2, topper: 'marshmallows' }); },
   play, check,
   card: n => [`Your first answer: ${n.first ?? '?'} buns for a full tray and ${rest(FIRST)} more`, 'A full tray is 10. Start at 10 and count on: 10 and 5 more make 15.'],
