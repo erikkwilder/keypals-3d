@@ -2097,7 +2097,7 @@
   },
   "ep.teen.pal.so": {
     "voice": "coach",
-    "ms": 6376
+    "ms": 8601
   },
   "ep.teen.alone": {
     "voice": "coach",
@@ -2113,7 +2113,7 @@
   },
   "ep.teen.alone.so": {
     "voice": "coach",
-    "ms": 7957
+    "ms": 11255
   },
   "ep.teen.sum.16": {
     "voice": "coach",

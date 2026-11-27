@@ -176,7 +176,8 @@ describe('the lesson, played by every kind of child', () => {
       expect(log[asked + 3]).toBe('show showLeft()');
       expect(said).toContain(`ep.teen.pal.${pick}`);
       const so = log.indexOf('say ep.teen.pal.so');
-      expect(log.slice(so + 1, so + 6)).toEqual(['show topOff()', 'show light("a")', 'show light("b")', 'pal thinks 16', 'go Next']);
+      // (the 1 is written first for the full tray, which is lit at those words, and the pink buns at "then the 6")
+      expect(log.slice(so + 1, so + 8)).toEqual(['show topOff()', 'show light("a")', 'show light("b")', 'pal thinks 16', 'show light("a")', 'show light("b")', 'go Next']);
     }
   });
   it('a child who was not right at first counts on new trays with their own taps and types the number, which is tried; one who was right does not', async () => {
@@ -192,7 +193,7 @@ describe('the lesson, played by every kind of child', () => {
     const twice = await play({ nums: [6, 71] });
     expect(twice.said.slice(-5)).toEqual(['ep.teen.try.you', 'ep.teen.over', 'ep.teen.alone.so', 'ep.teen.sum.17', 'ep.teen.off']);
     const so = twice.log.indexOf('say ep.teen.alone.so');
-    expect(twice.log.slice(so + 1, so + 3)).toEqual(['show topOff()', 'show point(7,10)']);
+    expect(twice.log.slice(so + 1, so + 5)).toEqual(['show topOff()', 'show point(7,10)', 'show light("a")', 'show light("b")']);
     const right = await play({ nums: [FIRST] });
     expect(right.log).not.toContain('tapCount(10)');
     expect(right.log).toContain('show writeSum(10,6)');

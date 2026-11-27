@@ -14625,18 +14625,37 @@
  "ep.teen.pal.so": {
   "id": "ep.teen.pal.so",
   "voice": "coach",
-  "text": "Sixteen is 10 and 6 more. We say the six first, but we write it with the 1 first: 16.",
-  "ms": 6376,
+  "text": "Sixteen is 10 and 6 more. We say the six first, but we write the 1 first, for the full tray of 10, and then the 6: 16.",
+  "ms": 8601,
   "lufs": -20,
-  "tp": -3.3,
+  "tp": -3.7,
   "fullScale": 0,
-  "headRms": -53.7,
-  "headPeak": -40.2,
-  "tailRms": -67.7,
-  "tailPeak": -53.8,
+  "headRms": -58,
+  "headPeak": -43.3,
+  "tailRms": -50.9,
+  "tailPeak": -33.2,
   "blips": [],
-  "warns": [],
-  "heard": "16 is 10 and 6 more. We say the 6 first, but we write it with the 1 first. 1-6.",
+  "warns": [
+   {
+    "t": 3.471,
+    "kind": "lone burst",
+    "size": -29.606476529125068,
+    "why": "18 ms of sound (8 ms within 12 dB of its peak, -30 dBFS) alone between 54 ms and 243 ms of near silence"
+   },
+   {
+    "t": 3.733,
+    "kind": "creaky start",
+    "size": 30,
+    "why": "30 ms of creak in the first 80 ms of a word (down to 75 Hz; the clip's pitch 195 Hz)"
+   },
+   {
+    "t": 4.884,
+    "kind": "lone burst",
+    "size": -33.82210451283389,
+    "why": "12 ms of sound (6 ms within 12 dB of its peak, -34 dBFS) alone between 56 ms and 248 ms of near silence"
+   }
+  ],
+  "heard": "16 is 10 and 6 more. We say the 6 first, but we write the 1 first, for the full tray of 10, and then the 6. 1 6.",
   "match": 1
  },
  "ep.teen.alone": {
@@ -14700,18 +14719,18 @@
  "ep.teen.alone.so": {
   "id": "ep.teen.alone.so",
   "voice": "coach",
-  "text": "You counted on from 10 all by yourself, and the last bun was seventeen. Seventeen is written like this: 17.",
-  "ms": 7957,
-  "lufs": -20.1,
-  "tp": -3.3,
+  "text": "You counted on from 10 all by yourself, and the last bun was seventeen. Seventeen is written with the 1 first, for the full tray, and then the 7: 17.",
+  "ms": 11255,
+  "lufs": -20,
+  "tp": -2.2,
   "fullScale": 0,
-  "headRms": -53.9,
-  "headPeak": -42.1,
-  "tailRms": -61.6,
-  "tailPeak": -46.8,
+  "headRms": -53.3,
+  "headPeak": -39.7,
+  "tailRms": -52.5,
+  "tailPeak": -39.5,
   "blips": [],
   "warns": [],
-  "heard": "You counted on from 10 all by yourself, and the last bun was 17. 17 is written like this. 1, 7.",
+  "heard": "You counted on from 10 all by yourself, and the last bun was 17. 17 is written with the one first, for the full tray, and then the 7. 1. 7.",
   "match": 1
  },
  "ep.teen.sum.16": {

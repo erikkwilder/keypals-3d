@@ -17629,20 +17629,18 @@
  },
  "ep.teen.pal.so": {
   "id": "ep.teen.pal.so",
-  "gain": 1.5,
-  "rawLufs": -21.2,
-  "notes": [
-   "cut end burst after 20ms gap"
-  ],
-  "ms": 6376,
-  "lufs": -20,
-  "tp": -3.3,
-  "maxAbs": 0.6821,
+  "gain": 1.1,
+  "rawLufs": -20.6,
+  "notes": [],
+  "ms": 8601,
+  "lufs": -19.9,
+  "tp": -3.7,
+  "maxAbs": 0.6563,
   "fullScale": 0,
-  "head50Rms": -53.7,
-  "head50Peak": -40.2,
-  "tail50Rms": -67.7,
-  "tail50Peak": -53.8,
+  "head50Rms": -58,
+  "head50Peak": -43.3,
+  "tail50Rms": -50.9,
+  "tail50Peak": -33.2,
   "voice": "coach"
  },
  "ep.teen.alone": {
@@ -17703,18 +17701,20 @@
  },
  "ep.teen.alone.so": {
   "id": "ep.teen.alone.so",
-  "gain": -1.6,
-  "rawLufs": -18.1,
-  "notes": [],
-  "ms": 7957,
-  "lufs": -20.1,
-  "tp": -3.3,
-  "maxAbs": 0.6859,
+  "gain": -1.5,
+  "rawLufs": -18.2,
+  "notes": [
+   "ducked breath at 2574ms"
+  ],
+  "ms": 11255,
+  "lufs": -20,
+  "tp": -2.2,
+  "maxAbs": 0.771,
   "fullScale": 0,
-  "head50Rms": -53.9,
-  "head50Peak": -42.1,
-  "tail50Rms": -61.6,
-  "tail50Peak": -46.8,
+  "head50Rms": -53.3,
+  "head50Peak": -39.7,
+  "tail50Rms": -52.5,
+  "tail50Peak": -39.5,
   "voice": "coach"
  },
  "ep.teen.sum.16": {

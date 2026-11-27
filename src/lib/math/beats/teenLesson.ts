@@ -104,12 +104,13 @@ const AT = {
   pal: { writes: 5.3, put: [8.8, 1.6] },
   /** "Look how many marshmallows"; "So many marshmallows" */
   heap: { no: 0.7, yes: 1.3 },
-  /** "ten"; "six more"; "we write it with the one first" */
-  palSo: { ten: 1.3, more: 1.7, write: 4.1 },
+  /** "ten"; "six more"; "write" (the thought turns into 16); "the one first, for the full tray of ten"; "then the six"
+   *  (recorded again on 26 Nov, as was the line of aloneSo: fix-word-times.txt) */
+  palSo: { ten: 1, more: 1.6, write: 4.1, one: 4.3, six: 6.7 },
   /** "Here are new trays"; "The full tray is ten" */
   alone: { trays: [0.2, 2], ten: 2.4 },
-  /** "the last bun was seventeen" */
-  aloneSo: 3.6,
+  /** "seventeen" (the last bun's); "the one first, for the full tray"; "then the seven" */
+  aloneSo: { last: 3.9, one: 6.4, seven: 8.6 },
   /** "write it down"; the blue buns; the pink buns; "make sixteen buns" */
   sum: { 16: { write: 0.6, a: 1.8, b: 2.6, all: 3.4 }, 17: { write: 0.6, a: 1.7, b: 2.7, all: 3.6 } } as Record<number, { write: number; a: number; b: number; all: number }>,
   /** "how many marshmallows to get"; "Off to the party they go" */
@@ -207,7 +208,10 @@ async function play(t: Teller, w: TeenWorld): Promise<Notes> {
   if (fits === 'no') { t.buddy('nod'); t.pal('sad'); } else t.buddy('shrug');
   await t.sayWith(`ep.teen.pal.${fits}`, [[AT.heap[fits], () => w.showLeft()]]);
   // (the right way to write it comes where Sprout Bunny's thought was: 61 turns into 16 at the words "write the 1 first")
-  await t.sayWith('ep.teen.pal.so', [[0, () => w.topOff()], [AT.palSo.ten, () => w.light('a')], [AT.palSo.more, () => w.light('b')], [AT.palSo.write, () => t.thought('pal', String(PAL))]]);
+  // (and the reason for the order is on the table: the full tray is lit as "the 1 first, for the full tray of 10"
+  // is said, and the pink buns at "then the 6")
+  await t.sayWith('ep.teen.pal.so', [[0, () => w.topOff()], [AT.palSo.ten, () => w.light('a')], [AT.palSo.more, () => w.light('b')], [AT.palSo.write, () => t.thought('pal', String(PAL))],
+    [AT.palSo.one, () => w.light('a')], [AT.palSo.six, () => w.light('b')]]);
   t.pal('happy');
   await t.go('Next');
   t.thought('pal', null);
@@ -226,8 +230,9 @@ async function play(t: Teller, w: TeenWorld): Promise<Notes> {
     t.myBet(null);
     if (right) { t.buddy('clap'); await t.say('ep.teen.alone.right', n); }
     // (the count was theirs and was right; only the number typed was not. Its marshmallows go, and the last
-    // bun's number comes back as it is named, so the child sees how seventeen is written)
-    else await t.sayWith('ep.teen.alone.so', [[0, () => w.topOff()], [AT.aloneSo, () => w.point(rest(ALONE), TEN)]]);
+    // bun's number comes back as it is named, so the child sees how seventeen is written; then the full tray is
+    // lit at "the 1 first, for the full tray" and the pink buns at "then the 7", the reason for the order)
+    else await t.sayWith('ep.teen.alone.so', [[0, () => w.topOff()], [AT.aloneSo.last, () => w.point(rest(ALONE), TEN)], [AT.aloneSo.one, () => w.light('a')], [AT.aloneSo.seven, () => w.light('b')]]);
     buns = ALONE;
   }
 

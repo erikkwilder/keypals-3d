@@ -6112,7 +6112,7 @@
  "ep.teen.alone.so": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "36ee0a1075"
+  "h": "f2135f9733"
  },
  "ep.teen.buddy.ask": {
   "engine": "local",
@@ -6217,7 +6217,7 @@
  "ep.teen.pal.so": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "0d77805875"
+  "h": "0661f74618"
  },
  "ep.teen.pal.yes": {
   "engine": "local",
