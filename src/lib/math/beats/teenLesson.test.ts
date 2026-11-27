@@ -29,8 +29,8 @@ const picture = (key: string, a: unknown[], l: string) =>
   key === 'trayIn' ? `any trays on the table slide away with everything on them and beside them; two bun trays (each 2 rows of 5 places) slide in, the first full with ${a[0]} blue buns, ${a[2] ? `the second with ${a[2]} pink buns in its first places` : 'the second empty'}`
   : key === 'more' ? `${a[0]} pink bun${s(a[0])} come one after another onto the second tray, into its first places`
   : key === 'top' || key === 'dress' ? (a[0] ? `${a[0]} white marshmallow${s(a[0])} come one after another, one onto each bun, the full tray's buns first; a marshmallow with no bun stops in a row in front of the trays (at most 10 are shown there, with a card saying how many were asked for)` : 'no marshmallow comes')
-  : key === 'point' ? `a yellow ring lights bun number ${a[0]} of the second tray, and the number ${Number(a[1]) + Number(a[0])} stands on it`
-  : key === 'tapCount' ? `each pink bun the child taps gets the next number after ${a[0]} on it, and the number is heard; a blue bun, or a bun already counted, shakes. A moment after the last one the numbers on the pink buns go`
+  : key === 'point' ? `a yellow ring lights bun number ${a[0]} of the second tray, and the number ${Number(a[1]) + Number(a[0])} stands beside it (beyond a bun in the tray's far row, in front of one in its near row), so the bun is still seen`
+  : key === 'tapCount' ? `each pink bun the child taps gets the next number after ${a[0]} beside it, and the number is heard; a blue bun, or a bun already counted, shakes. A moment after the last one the numbers on the pink buns go`
   : key === 'writeSum' ? `the sum stands over the trays: ${a[0]} + ${a[1]} = ${Number(a[0]) + Number(a[1])}, the ${a[0]} in blue and the ${a[1]} in pink`
   : PICTURE[l] ?? PICTURE[key] ?? l;
 /** a real try: marshmallows for a number someone gave, whose result the child is then told about (rules 6 to 8) */
