@@ -129,7 +129,7 @@ const AT: Record<string, number[]> = {
   // "a third of the bags", "a third of the other side", "all 6 of the loose weights", "kept too much"
   'ep.eq.b.kept': [0.7, 1.8, 3.5, 6.9],
   // "every part of it", "the loose weights too", "take them off both sides", "only bags are left"
-  'ep.eq.b.rule': [2.7, 3.9, 6.9, 9.2],
+  'ep.eq.b.rule': [1.9, 2.9, 6.1, 8.5],
   // the buddy's mistake made again: the guesses, "comes to 27", "the 21 on the other side", "7 is 21 shared into 3", "the 6 loose weights"
   'ep.eq.b.seven': [0.2, 3.4, 6.1, 8.3, 11.3],
   // "the loose weights", "the same number off the other side", "stays level"
@@ -259,7 +259,7 @@ async function play(t: Teller, w: EquationWorld): Promise<Notes> {
   await t.sayWith('ep.eq.level', [[0.2, () => w.light('right')], [1.1, () => w.levelLine(true)], [3.7, () => both(w)], [5.7, () => w.light('bags')], [6.7, () => w.light('loose')],
     [9.0, async () => { await w.light('right'); w.levelLine(false); }]]);
   // (the x is written on each bag as it's said, where the "?" was; one bag lights, then the weights it is counted in)
-  await t.sayWith('ep.eq.letter', [[0.8, () => w.writeX()], [2.5, () => w.light('bag', 0)], [3.6, () => w.light('loose')], [6.8, () => w.light('bags')]]);
+  await t.sayWith('ep.eq.letter', [[1.3, () => w.writeX()], [3.1, () => w.light('bag', 0)], [4.3, () => w.light('loose')], [7.7, () => w.light('bags')]]);
 
   // a guess first: any number is put in place of each bag, so x is a number and a check is a test
   t.beat(1);

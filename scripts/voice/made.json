@@ -3302,7 +3302,7 @@
  "ep.crate.few": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "b1bafffb67"
+  "h": "a2aae1ab00"
  },
  "ep.crate.few.floor": {
   "engine": "local",
@@ -3367,7 +3367,7 @@
  "ep.crate.measure": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "636ef9589b"
+  "h": "4169b317f2"
  },
  "ep.crate.name": {
   "engine": "local",
@@ -3442,7 +3442,7 @@
  "ep.crate.shut.floor": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "14c9528e9f"
+  "h": "c1677c181d"
  },
  "ep.crate.shut.row": {
   "engine": "local",
@@ -3462,12 +3462,12 @@
  "ep.crate.snack": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "1abc7a3ee3"
+  "h": "cf018528fe"
  },
  "ep.crate.sum": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "f2cf6936cc"
+  "h": "845dcbf320"
  },
  "ep.crate.three": {
   "engine": "local",
@@ -4082,7 +4082,7 @@
  "ep.eq.b.rule": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "90b1bf3480"
+  "h": "964524833d"
  },
  "ep.eq.b.seven": {
   "engine": "local",
@@ -4192,7 +4192,7 @@
  "ep.eq.letter": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "0840a93561"
+  "h": "81077f38af"
  },
  "ep.eq.level": {
   "engine": "local",
@@ -4417,7 +4417,7 @@
  "ep.frac-equal.card": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "c73cafa5e4"
+  "h": "44bd267a4b"
  },
  "ep.frac-equal.intro": {
   "engine": "local",
@@ -5522,7 +5522,7 @@
  "ep.sh-angles.card": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "59926a9a18"
+  "h": "d8238d7ec3"
  },
  "ep.sh-angles.intro": {
   "engine": "local",
@@ -5727,7 +5727,7 @@
  "ep.sh-tri-area.intro": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "a826631e5a"
+  "h": "6ed45b3e9b"
  },
  "ep.sh-tri-area.s0": {
   "engine": "local",
@@ -6537,7 +6537,7 @@
  "ep.think-times.s1": {
   "engine": "local",
   "voice": "coach-exclaim",
-  "h": "0f573d9227"
+  "h": "b10841e179"
  },
  "ep.think-times.s2": {
   "engine": "local",

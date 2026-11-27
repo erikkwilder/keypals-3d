@@ -136,5 +136,49 @@
   "ep.ten.few.places": {
     "seed": 101,
     "why": "the first take was heard as 'you ask for' (Whisper's word times)"
+  },
+  "ep.think-times.s1": {
+    "seed": 104,
+    "why": "the old take let a stop go alone between two hushes at 1.49 s (\"plate\"); chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.crate.snack": {
+    "seed": 107,
+    "why": "the old take let a stop go alone between two hushes at 3.05 s (\"it\") and started a word in creak at 3.10 s (\"as\"); chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.crate.shut.floor": {
+    "seed": 104,
+    "why": "the old take let a stop go alone between two hushes at 0.47 s (\"is\"), 5.07 s (\"make\") and started a word in creak at 0.17 s (\"crate\"); chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.sh-tri-area.intro": {
+    "seed": 105,
+    "why": "the old take let a stop go alone between two hushes at 1.80 s (\"a\"); chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.sh-angles.card": {
+    "seed": 105,
+    "why": "the old take let a stop go alone between two hushes at 5.78 s (\"acute\"); chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.crate.measure": {
+    "seed": 103,
+    "why": "the old take let a stop go alone between two hushes at 2.02 s (\"fit\"); chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.frac-equal.card": {
+    "seed": 107,
+    "why": "the old take let a stop go alone between two hushes at 1.17 s (\"card\"); chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.eq.b.rule": {
+    "seed": 104,
+    "why": "the old take let a stop go alone between two hushes at 3.68 s (\"it\"), 7.08 s (\"them\") and started a word in creak at 2.89 s (\"every\"); chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.crate.sum": {
+    "seed": 103,
+    "why": "the old take let a stop go alone between two hushes at 1.26 s (\"thirty\"); chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.eq.letter": {
+    "seed": 106,
+    "why": "the old take let a stop go alone between two hushes at 0.99 s (\"x\"); chosen from seeds 101-108 by measure (takes.mjs)"
+  },
+  "ep.crate.few": {
+    "seed": 104,
+    "why": "the old take let a stop go alone between two hushes at 6.49 s (\"isn't\") and started a word in creak at 7.12 s (\"yet\"); chosen from seeds 101-108 by measure (takes.mjs)"
   }
 }

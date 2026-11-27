@@ -1097,7 +1097,7 @@
   },
   "ep.think-times.s1": {
     "voice": "coach",
-    "ms": 2505
+    "ms": 2639
   },
   "ep.think-times.s2": {
     "voice": "coach",
@@ -1397,7 +1397,7 @@
   },
   "ep.crate.few": {
     "voice": "coach",
-    "ms": 7468
+    "ms": 7339
   },
   "ep.crate.over": {
     "voice": "coach",
@@ -1413,7 +1413,7 @@
   },
   "ep.crate.measure": {
     "voice": "coach",
-    "ms": 4774
+    "ms": 4630
   },
   "ep.crate.three": {
     "voice": "coach",
@@ -1521,7 +1521,7 @@
   },
   "ep.crate.shut.floor": {
     "voice": "coach",
-    "ms": 6585
+    "ms": 6640
   },
   "ep.crate.shut.up": {
     "voice": "coach",
@@ -1589,7 +1589,7 @@
   },
   "ep.crate.sum": {
     "voice": "coach",
-    "ms": 12202
+    "ms": 12502
   },
   "ep.crate.few.floor": {
     "voice": "coach",
@@ -1617,7 +1617,7 @@
   },
   "ep.crate.snack": {
     "voice": "coach",
-    "ms": 3951
+    "ms": 3827
   },
   "ep.crate.make": {
     "voice": "coach",
@@ -2145,7 +2145,7 @@
   },
   "ep.eq.letter": {
     "voice": "coach",
-    "ms": 9534
+    "ms": 10242
   },
   "ep.eq.guess": {
     "voice": "coach",
@@ -2281,7 +2281,7 @@
   },
   "ep.eq.b.rule": {
     "voice": "coach",
-    "ms": 10946
+    "ms": 10377
   },
   "ep.eq.b.own": {
     "voice": "coach",
@@ -2669,7 +2669,7 @@
   },
   "ep.frac-equal.card": {
     "voice": "coach",
-    "ms": 6750
+    "ms": 6645
   },
   "ep.frac-add.intro": {
     "voice": "coach",
@@ -3013,11 +3013,11 @@
   },
   "ep.sh-angles.card": {
     "voice": "coach",
-    "ms": 7059
+    "ms": 6575
   },
   "ep.sh-tri-area.intro": {
     "voice": "coach",
-    "ms": 5657
+    "ms": 5618
   },
   "ep.sh-tri-area.s0": {
     "voice": "coach",
